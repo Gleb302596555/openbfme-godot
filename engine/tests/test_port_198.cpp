@@ -1,4 +1,4 @@
-// OpenBFME. PORT-198 tests (issue #465, stop S-7444):
+// OpenBFME. PORT-198 tests (issue #465, stop S-7493):
 //   1. SpawnBehaviorInterface / SpawnBehavior / SpawnBehaviorUnion (RW vtable 0xC58D94) slots 2..6 and 10:
 //      getClosestSlave (0x86292C), orderSlavesToAttackTarget (0x8637BE), orderSlavesToAttackPosition (0x863807),
 //      getCanAnySlavesAttackSpecificTarget (0x862990), getCanAnySlavesUseWeaponAgainstTarget (0x8629ED), reEnslaveSlaves (0x862E4F).
@@ -643,12 +643,13 @@ TEST_CASE("PORT-198 SPAWNS_ARE_THE_WEAPONS orders (slots 3, 4, 8), CommandTransl
 	r.select(spawner);
 	r.ui.setForceAttackMode(false);
 
-	// AIUpdateInterface::aiAttackObject rejects non-enemy/out-of-range targets and dispatches slot 3 for valid targets even when m_weapons is null.
+	// RW 0x66BD33: AIUpdateInterface::aiAttackObject on a SPAWNS_ARE_THE_WEAPONS spawner skips weapon gating (entering AI_ATTACK_OBJECT -> AI_IDLE cleanly
+	// when m_weapons is null) and unconditionally dispatches slot 3 orderSlavesToAttackTarget at 0x66BEC3 without pre-checking slave capability or shroud.
 	AIUpdateInterface *spawnerAI = spawner->getAIUpdateInterface();
 	REQUIRE(spawnerAI != nullptr);
-	CHECK_FALSE(spawnerAI->aiAttackObject(ownBuilding, CMD_FROM_PLAYER));
-	CHECK_FALSE(spawnerAI->aiAttackObject(farEnemy, CMD_FROM_PLAYER));
 	REQUIRE(spawnerAI->aiAttackObject(enemy, CMD_FROM_PLAYER));
+	CHECK(spawnerAI->currentStateId() == (unsigned)AI_IDLE);
+	CHECK(slave->getAIUpdateInterface()->currentStateId() == (unsigned)AI_FORCE_ATTACK_OBJECT);
 	const float hpBefore = enemy->getBodyModule()->getHealth();
 	r.world.frames(12);
 	// tolerance: arrow flight and PIERCE armor fraction reduce health strictly below starting 100
@@ -656,6 +657,18 @@ TEST_CASE("PORT-198 SPAWNS_ARE_THE_WEAPONS orders (slots 3, 4, 8), CommandTransl
 
 	// AIGroup::groupIdle dispatches slot 8 orderSlavesToGoIdle (slave returns to idle).
 	AIGroup group(*r.world.logic, { spawner->getID() });
+	group.groupIdle(CMD_FROM_PLAYER);
+	r.world.frames(1);
+	CHECK(slave->getAIUpdateInterface()->currentStateId() == (unsigned)AI_IDLE);
+
+	// Slot 3 dispatch is unconditional on SPAWNS_ARE_THE_WEAPONS: farEnemy (slave rejects inside aiForceAttackObject) and ownBuilding (slave force-attacks)
+	// both enter slot 3 cleanly with spawnerAI back in AI_IDLE.
+	CHECK(spawnerAI->aiAttackObject(farEnemy, CMD_FROM_PLAYER));
+	CHECK(spawnerAI->currentStateId() == (unsigned)AI_IDLE);
+	CHECK(slave->getAIUpdateInterface()->currentStateId() == (unsigned)AI_IDLE);
+	CHECK(spawnerAI->aiAttackObject(ownBuilding, CMD_FROM_PLAYER));
+	CHECK(spawnerAI->currentStateId() == (unsigned)AI_IDLE);
+	CHECK(slave->getAIUpdateInterface()->currentStateId() == (unsigned)AI_FORCE_ATTACK_OBJECT);
 	group.groupIdle(CMD_FROM_PLAYER);
 	r.world.frames(1);
 	CHECK(slave->getAIUpdateInterface()->currentStateId() == (unsigned)AI_IDLE);
@@ -738,13 +751,32 @@ TEST_CASE("PORT-198 Player::onUnitCreated -> SkirmishAIManager::unitCreated -> A
 	REQUIRE(ai != nullptr);
 	REQUIRE_FALSE(ai->disabled);
 
-	// 1. ProductionUpdate::completeUnit: non-HORDE completes request (state 1 -> 2), HORDE is skipped (RW 0x8F0703).
+	// 1. ProductionUpdate::completeUnit: non-HORDE completes request (state 1 -> 2, incrementing units.queued), HORDE is skipped (RW 0x8F0703).
+	ProductionUpdateInterface *pu = f.barracks->getProductionUpdate();
+	REQUIRE(pu != nullptr);
+	const ThingTemplate *unitTt = f.w.get("P198UnitTrained");
+	const ThingTemplate *hordeTt = f.w.get("P198HordeTrained");
+	REQUIRE(unitTt != nullptr);
+	REQUIRE(hordeTt != nullptr);
+
+	const ProductionID unitProdId = pu->requestUniqueUnitID();
 	auto reqUnit = std::make_shared<AIBuildRequest>();
 	reqUnit->serial = 1;
+	reqUnit->unit = true;
+	reqUnit->productionID = unitProdId;
 	reqUnit->templateName = "P198UnitTrained";
 	reqUnit->producer = f.barracks->getID();
 	reqUnit->state = 1;
 	ai->build.inProgress.push_back(reqUnit);
+
+	const std::uint64_t queuedBefore = ai->build.units.queued;
+	REQUIRE(pu->queueCreateUnit(unitTt, -1, unitProdId, -1, false, std::string(), false));
+	f.frames(5);
+	CHECK(reqUnit->state == 1);
+	CHECK(ai->build.units.queued == queuedBefore);
+	f.frames(20);
+	CHECK(reqUnit->state == 2);
+	CHECK(ai->build.units.queued == queuedBefore + 1);
 
 	auto reqHorde = std::make_shared<AIBuildRequest>();
 	reqHorde->serial = 2;
@@ -752,17 +784,6 @@ TEST_CASE("PORT-198 Player::onUnitCreated -> SkirmishAIManager::unitCreated -> A
 	reqHorde->producer = f.barracks->getID();
 	reqHorde->state = 1;
 	ai->build.inProgress.push_back(reqHorde);
-
-	ProductionUpdateInterface *pu = f.barracks->getProductionUpdate();
-	REQUIRE(pu != nullptr);
-	const ThingTemplate *unitTt = f.w.get("P198UnitTrained");
-	const ThingTemplate *hordeTt = f.w.get("P198HordeTrained");
-	REQUIRE(unitTt != nullptr);
-	REQUIRE(hordeTt != nullptr);
-	REQUIRE(pu->queueCreateUnit(unitTt, -1, pu->requestUniqueUnitID(), -1, false, std::string(), false));
-	f.frames(25);
-	CHECK(reqUnit->state == 2);
-
 	REQUIRE(pu->queueCreateUnit(hordeTt, -1, pu->requestUniqueUnitID(), -1, false, std::string(), false));
 	f.frames(25);
 	CHECK(reqHorde->state == 1);

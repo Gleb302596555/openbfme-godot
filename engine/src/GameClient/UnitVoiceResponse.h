@@ -40,6 +40,7 @@
 #include <vector>
 
 class GameLogic;
+class InGameUI;
 class GameMessage;
 class Object;
 class SpecialPowerTemplate;
@@ -129,12 +130,16 @@ public:
 	public:
 		virtual ~Sink() = default;
 		virtual bool soundExists(const std::string &name) = 0;
+		// RW 0x8DE92A: MiscAudio +0xE0, resolved by the installed audio service.
+		virtual std::string planningModeOrderSound() const;
 		virtual void playSound(const std::string &name, ObjectID object, int playerIndex) = 0;
 		virtual void reportEva(const std::string &eventName, const Coord3D *position) = 0;
 	};
 
 	UnitVoiceResponse(GameLogic &logic, Sink &sink);
 
+	// Client-only, borrowed for the picker lifetime; query live waypoint mode on every voice route.
+	void setInGameUI(const InGameUI *ui) { m_ui = ui; }
 	void setLocalPlayerIndex(int index) { m_localPlayer = index; }
 	// AudioSettings MinDelayBetweenEnterStateVoiceMS converted by parseDurationUnsignedInt (frames; AudioSettings::minDelayBetweenEnterStateVoiceFrames)
 	void setMinDelayBetweenEnterStateVoiceFrames(unsigned frames) { m_minDelayEnterStateFrames = frames; }
@@ -257,6 +262,7 @@ private:
 	void stealthyAreaMoveVoice(Object &obj, int msgType, const Coord3D &position, Choice &c) const;
 	void attackVoices(Object &obj, int msgType, const Info *info, Choice &c) const;
 	bool inBattle(const Object &obj) const;
+	bool planningOrderVoice(const Object &obj, int msgType, Choice &c) const;
 	// RW 0x8DE628: true when `obj` scales walls and its horde (or `obj` itself) has a quick path to `destPos` only with ScalesWalls enabled
 	bool moveRequiresClimbingWalls(const Object &obj, const Coord3D &destPos) const;
 	bool recentlySaid(ObjectID id, const std::string &key) const;
@@ -264,6 +270,7 @@ private:
 
 	GameLogic &m_logic;
 	Sink &m_sink;
+	const InGameUI *m_ui = nullptr;
 	int m_localPlayer = -1;
 	unsigned m_minDelayEnterStateFrames = 0;
 	unsigned m_campMaxAtStart = 0, m_campMinAtEnd = 0;

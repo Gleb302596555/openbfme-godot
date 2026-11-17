@@ -2128,6 +2128,10 @@ void AIBaseBuilder::onStructureBuilt(GameLogic &logic, AISkirmishPlayer &ai, con
 		if (structure.getTemplate() && structure.getTemplate()->getName() == r->templateName)
 		{
 			r->state = 2;
+			if (r->unit)
+			{
+				++ai.build.units.queued;
+			}
 			return;
 		}
 	}

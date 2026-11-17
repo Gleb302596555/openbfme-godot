@@ -13,6 +13,7 @@
 #include "GameLogic/Module/ExtraUpdateModules.h"
 #include "GameLogic/Module/ExtraUpgradeModules.h"
 #include "GameLogic/Module/FireWeaponWhenDamagedBehavior.h"
+#include "GameLogic/Module/WeaponBonusUpgrade.h"
 #include "GameLogic/Module/FlammableUpdate.h"
 #include "GameLogic/Module/GeometryUpgrade.h"
 #include "GameLogic/Module/RebuildHoleModules.h"
@@ -43,6 +44,7 @@ void ExtraModules::registerAll(ModuleFactory &modules)
 {
 	bind<AttributeModifierUpgrade, AttributeModifierUpgradeModuleData>(modules, "AttributeModifierUpgrade");
 	bind<AllowBannerSpawnUpgrade, UpgradeModuleData>(modules, "AllowBannerSpawnUpgrade"); // lane BANNER-1
+	WeaponBonusUpgrade::registerModule(modules); // lane PORT-206: the PLAYER_UPGRADE weapon bonus condition (RW 0x8B980D)
 	GeometryUpgrade::registerModule(modules); // lane MODCOMPAT-MOD1
 	bind<CreateObjectDie, CreateObjectDieModuleData>(modules, "CreateObjectDie");
 	bind<FireWeaponWhenDeadBehavior, FireWeaponWhenDeadBehaviorModuleData>(modules, "FireWeaponWhenDeadBehavior");

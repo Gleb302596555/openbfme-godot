@@ -10,7 +10,10 @@
 
 #include "doctest.h"
 #include "FactbRig.h"
+#include "GreyFixture.h"
 
+#include "Common/ModelState.h"
+#include "Common/Science.h"
 #include "Common/SpecialPower.h"
 #include "GameLogic/ActionManager.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
@@ -39,6 +42,9 @@
 #include "GameLogic/ObjectCreationList.h"
 #include "GameLogic/Combat/CombatState.h"
 #include "GameLogic/Module/EmotionModules.h"
+#include "GameLogic/Module/ExtraUpdateModules.h" // DeletionUpdate: a temporary object (the matrix's first-frames verdict)
+#include "GameLogic/Module/SlavedUpdate.h"
+#include "GameLogic/Module/StructureModules.h" // LifetimeUpdate
 #include "GameLogic/System/EmotionSystem.h"
 #include "GameLogic/Weapon.h"
 #include "GameLogic/WeaponNugget.h"
@@ -52,6 +58,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
+#include <iterator>
 #include <map>
 #include <set>
 
@@ -300,6 +308,18 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 			}
 		}
 	}
+	// lane PORT-530 (Local 72, fork issue 530): the matrix's grey-button fixtures (docs/ennorath/MATRIX_GREY.tsv, Port 220):
+	// a grey button's conditions are given before it is pressed again; without the table the sweep keeps its old verdicts
+	greyfix::Table greyTable;
+	if (sweep)
+	{
+		const char *greyPath = std::getenv("OPENBFME_SWEEP_GREY");
+		std::ifstream in(greyPath ? greyPath : "docs/ennorath/MATRIX_GREY.tsv");
+		if (in)
+		{
+			greyTable = greyfix::parseGreyTable(std::string(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()));
+		}
+	}
 	int n = 0;
 	std::vector<const factb::Entry *> items;
 	for (factb::Kind k : { factb::Kind::Horde, factb::Kind::Unit, factb::Kind::Hero, factb::Kind::Structure })
@@ -350,6 +370,10 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 		Targets tg;
 		std::string enemyName = "GondorFighterHorde";
 		ObjectID uid = INVALID_ID, enemyUnitId = INVALID_ID, enemyBuildingId = INVALID_ID, allyId = INVALID_ID, ownHordeId = INVALID_ID;
+		// lane PORT-530: what one button's fixture made or granted: the required objects (destroyed with the unit) and the
+		// player upgrades (removed again, so one button's fixture does not leak into the next button's verdict)
+		std::vector<ObjectID> fixtureObjects;
+		std::vector<std::string> fixtureUpgrades;
 		auto clear = [&]() {
 			// Targeted commands (including Bloodthirsty, RW 0x940435) keep taking clicks until a target or a right-click cancellation.
 			// Destroying this fixture is not a player cancellation; do that through the HUD before trying to select the next unit.
@@ -359,6 +383,19 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 				g.clickAt(c, HudInput::Button::Right);
 				REQUIRE(g.hud->input().ui().getGUICommand() == nullptr);
 			}
+			for (ObjectID id : fixtureObjects)
+			{
+				if (Object *o = g.logic().findObjectByID(id))
+				{
+					g.logic().destroyObject(o);
+				}
+			}
+			fixtureObjects.clear();
+			for (const std::string &nu : fixtureUpgrades)
+			{
+				g.rig.local->removeCompletedUpgrade(nu);
+			}
+			fixtureUpgrades.clear();
 			for (ObjectID id : { uid, enemyUnitId, enemyBuildingId, allyId, ownHordeId })
 			{
 				if (Object *o = id != INVALID_ID ? g.logic().findObjectByID(id) : nullptr)
@@ -413,9 +450,26 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 			g.step(5);
 			return true;
 		};
-		if (!spawn())
+		// 2026-11-17 (matrix review): a temporary object (DeletionUpdate / LifetimeUpdate, or a slave made without its master) leaves by
+		// design; any other object that left at once is made again at the next site before the verdict (in the full run ArnorArveduiNew and
+		// HarbringerOfDark left in their first frames, alone they live: the earlier objects' leftovers killed them)
+		bool temporary = false;
+		if (const ThingTemplate *tt = s.world->things().findTemplate(e->name))
 		{
-			res.fail(e->name, "left the world in its first 20 frames");
+			Object *probe = g.rig.make(e->name, g.home().x, g.home().y + 2000.0f);
+			for (const std::unique_ptr<BehaviorModule> &m : probe->modules())
+			{
+				temporary = temporary || dynamic_cast<const DeletionUpdate *>(m.get()) || dynamic_cast<const LifetimeUpdate *>(m.get())
+					|| dynamic_cast<const SlavedUpdate *>(m.get());
+			}
+			(void)tt;
+			g.logic().destroyObject(probe);
+			g.step(1);
+		}
+		if (!spawn() && !spawn())
+		{
+			res.fail(e->name, temporary ? "TEMPORARY: a temporary object (a deletion / lifetime timer, or a slave without its master): it leaves by design"
+			                            : "left the world in its first 20 frames (twice, at two sites)");
 			continue;
 		}
 		std::set<const CommandButton *> seen;
@@ -559,7 +613,10 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 					const ControlBar::Placement place = ControlBar::placementOf(*cb, i, 0);
 					if (cb->m_showButton && (place.arc || place.side))
 					{
-						res.fail(item, "not on the bar");
+						// 2026-11-17 (matrix review): HIDE_WHILE_DISABLED (option bit 22, RW 0x943B39) hides a disabled button in retail too:
+						// off the bar is the grey verdict, not a fault (15 of 20 NOT-ON-BAR were fortress expansions and upgrade-gated powers)
+						res.fail(item, (cb->m_options & (1u << 22)) ? "DISABLED: needs its condition (HIDE_WHILE_DISABLED: hidden while disabled, as in retail)"
+						                                            : "not on the bar");
 					}
 					continue;
 				}
@@ -600,9 +657,186 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 						continue;
 					}
 				}
+				// lane PORT-530 (Local 72, fork issue 530): the matrix meets a grey button's conditions (docs/ennorath/MATRIX_GREY.tsv,
+				// Port 220) and presses again: the required object is made near the unit, the upgrade / science / level is given, the
+				// model condition is set through the button that sets it (never by writing the bits). A button still grey with every
+				// condition met is GREY-BUG (the port's availability rule differs from RotWK's getCommandAvailability, RW 0x942733);
+				// a condition the sweep cannot give (option / other / none) keeps DISABLED: needs ... The player upgrades the fixture
+				// grants are removed with the unit (clear()), so one button's fixture does not leak into the next; sciences stay
+				// (PlayerScience has no per-science removal, and a science only ever unlocks).
+				const greyfix::Row *greyRow = sweep && b.state != ButtonState::Enabled && b.state != ButtonState::Active ? greyfix::findRow(greyTable, e->name, cb->m_name) : nullptr;
+				bool fixtureApplied = false;
+				std::string fixtureDetail;
+				if (greyRow)
+				{
+					if (!greyfix::fixable(*greyRow))
+					{
+						fixtureDetail = greyfix::needsDetail(*greyRow);
+					}
+					else
+					{
+						fixtureApplied = true;
+						for (const greyfix::Action &a : greyfix::fixturePlan(*greyRow))
+						{
+							if (a.kind == greyfix::Kind::Object)
+							{
+								if (!s.world->things().findTemplate(a.value))
+								{
+									fixtureDetail = greyfix::needsDetail(*greyRow);
+									fixtureApplied = false;
+									break;
+								}
+								fixtureObjects.push_back(g.rig.make(a.value, c.x + 60.0f, c.y - 140.0f)->getID());
+							}
+							else if (a.kind == greyfix::Kind::Upgrade)
+							{
+								const UpgradeTemplate *up = s.world->upgrades().findUpgrade(a.value);
+								if (!up)
+								{
+									fixtureDetail = greyfix::needsDetail(*greyRow);
+									fixtureApplied = false;
+									break;
+								}
+								if (up->getUpgradeType() == UPGRADE_TYPE_PLAYER)
+								{
+									g.rig.local->addCompletedUpgrade(a.value);
+									fixtureUpgrades.push_back(a.value);
+								}
+								else
+								{
+									u->giveUpgrade(a.value);
+								}
+							}
+							else if (a.kind == greyfix::Kind::Science)
+							{
+								const ScienceType st = TheScienceStore ? TheScienceStore->getScienceFromInternalName(a.value) : SCIENCE_INVALID;
+								if (st == SCIENCE_INVALID)
+								{
+									fixtureDetail = greyfix::needsDetail(*greyRow);
+									fixtureApplied = false;
+									break;
+								}
+								g.rig.local->science().grantScience(st);
+							}
+							else if (a.kind == greyfix::Kind::Level)
+							{
+								const int level = std::atoi(a.value.c_str());
+								if (ExperienceTracker *xp = u->getExperienceTracker())
+								{
+									if (level > xp->getRank())
+									{
+										xp->gainExpForLevel(level - xp->getRank(), false);
+									}
+								}
+							}
+							else if (a.kind == greyfix::Kind::Model)
+							{
+								// the button that sets the condition, pressed through the HUD: the satisfied-by column names it (its note
+								// after " (" cut off); without a named button, the weapon toggle only for a WEAPONSET_TOGGLE_* condition and
+								// the mount toggle only for MOUNTED (2026-11-17: both were pressed for any condition, and Gorkil's mount
+								// toggle replaced the unit); nothing is pressed when the condition is already set
+								const int bit = ModelCondition::indexOf(a.value);
+								if (bit >= 0 && u->testModelCondition(bit))
+								{
+									continue;
+								}
+								const std::string by = greyfix::setterButton(a.satisfiedBy);
+								ControlBarButton setter;
+								const bool named = !by.empty() && g.select(u) && g.reveal(u, [&](const CommandButton &x) { return x.m_name == by; }, setter);
+								const bool weapon = !named && a.value.rfind("WEAPONSET_TOGGLE", 0) == 0 && g.select(u)
+									&& g.reveal(u, [](const CommandButton &x) { return x.m_command == GUI_COMMAND_TOGGLE_WEAPONSET; }, setter);
+								const bool mount = !named && !weapon && a.value == "MOUNTED" && g.select(u)
+									&& g.reveal(u, [](const CommandButton &x) { return x.m_specialPowerName == "SpecialAbilityToggleMounted"; }, setter);
+								if (named || weapon || mount)
+								{
+									g.press(setter);
+									g.step(15);
+								}
+							}
+						}
+						if (fixtureApplied)
+						{
+							g.step(2);
+							u = g.logic().findObjectByID(uid);
+							if (!u)
+							{
+								// a model setter that replaces the unit (a mount toggle swaps the object): the replacement is swept as its own
+								// object, so this one's button cannot be pressed with the condition met here (2026-11-17, Gorkil)
+								const greyfix::Condition *model = nullptr;
+								for (const greyfix::Condition &c : greyRow->conditions)
+								{
+									model = model ? model : (greyfix::kindOf(c.condition) == greyfix::Kind::Model ? &c : nullptr);
+								}
+								res.fail(item, model ? greyfix::unmetDetail(*model, "its setter replaces the unit with another object, swept on its own")
+								                     : std::string("the unit left the world after the fixture"));
+								continue;
+							}
+							g.select(u);
+							if (!g.reveal(u, [&](const CommandButton &x) { return &x == cb; }, b))
+							{
+								res.fail(item, "the button left the bar after the fixture");
+								continue;
+							}
+							// the fixture may have pressed a toggle: the model gate is read again
+							modelGated = false;
+							for (std::uint32_t w : cb->m_enableOnModelCondition)
+							{
+								modelGated = modelGated || w != 0;
+							}
+							for (size_t w = 0; w < cb->m_disableOnModelCondition.size(); ++w)
+							{
+								modelGated = modelGated || (u->getModelConditionBits()[w] & cb->m_disableOnModelCondition[w]) != 0;
+							}
+							modelGated = modelGated && !upgrade && b.state == ButtonState::Restricted;
+							// GREY-BUG only when every condition really holds now (2026-11-17): a condition the fixture did not give is the
+							// grey verdict with its reason, not a port bug
+							for (const greyfix::Condition &c : greyRow->conditions)
+							{
+								if (!fixtureDetail.empty())
+								{
+									break;
+								}
+								const greyfix::Kind k = greyfix::kindOf(c.condition);
+								if (k == greyfix::Kind::Model)
+								{
+									const int bit = ModelCondition::indexOf(c.value);
+									if (bit < 0 || !u->testModelCondition(bit))
+									{
+										fixtureDetail = greyfix::unmetDetail(c, bit < 0 ? "unknown model condition" : "the sweep could not set it: no known setter");
+									}
+								}
+								else if (k == greyfix::Kind::Upgrade)
+								{
+									if (!g.rig.local->hasUpgradeComplete(c.value) && !u->hasUpgrade(c.value))
+									{
+										fixtureDetail = greyfix::unmetDetail(c, "the upgrade did not take");
+									}
+								}
+								else if (k == greyfix::Kind::Science)
+								{
+									const ScienceType st = TheScienceStore ? TheScienceStore->getScienceFromInternalName(c.value) : SCIENCE_INVALID;
+									if (st == SCIENCE_INVALID || !g.rig.local->science().hasScience(st))
+									{
+										fixtureDetail = greyfix::unmetDetail(c, "the science did not take");
+									}
+								}
+								else if (k == greyfix::Kind::Level)
+								{
+									const ExperienceTracker *xp = u->getExperienceTracker();
+									if (!xp || xp->getRank() < std::atoi(c.value.c_str()))
+									{
+										fixtureDetail = greyfix::unmetDetail(c, "the unit did not reach it");
+									}
+								}
+							}
+						}
+					}
+				}
 				if (b.state != ButtonState::Enabled && b.state != ButtonState::Active && !modelGated)
 				{
-					res.fail(item, str("state %d at level %d (not enabled)", (int)b.state, u->getExperienceTracker() ? u->getExperienceTracker()->getRank() : 0));
+					res.fail(item, !fixtureDetail.empty() ? fixtureDetail
+						: fixtureApplied && greyRow ? greyfix::bugDetail(*greyRow)
+						: str("state %d at level %d (not enabled)", (int)b.state, u->getExperienceTracker() ? u->getExperienceTracker()->getRank() : 0));
 					continue;
 				}
 				const auto unportedBefore = g.hud->controlBar().unportedPresses();
@@ -751,6 +985,14 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 						}
 						return out;
 					};
+					// 2026-11-17 (matrix review): a horde member made alone has no horde contain: its formation button acts on the horde,
+					// which is swept as its own object (24 members read "( -> )" as a fault)
+					const Object *self = g.logic().findObjectByID(uid);
+					if (cmd == GUI_COMMAND_HORDE_TOGGLE_FORMATION && self && !self->getContain())
+					{
+						res.fail(item, "MEMBER: a horde member made alone has no horde: the formation toggle acts on its horde, swept on its own");
+						continue;
+					}
 					const std::string stateBefore = stateOf();
 					const bool sent = g.press(b);
 					g.step(5);
@@ -800,7 +1042,26 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 				collect();
 				if (mods.empty())
 				{
-					res.fail(item, "no module of the unit or its members carries " + cb->m_specialPowerName);
+					// 2026-11-17 (matrix review): when no template of the unit or its members (the mod's INI) lists a module for the power
+					// either, the mod gives the button no module: RotWK enables such a button too and its press does nothing (RW 0x9434F7 ..
+					// 0x943564, ControlBar.cpp) — the mod's data, not a port fault (60 of 62 NO-MODULE rows)
+					bool listed = false;
+					std::vector<const Object *> who{ u };
+					if (u->getContain() && u->getContain()->getContainedItemsList())
+					{
+						who.insert(who.end(), u->getContain()->getContainedItemsList()->begin(), u->getContain()->getContainedItemsList()->end());
+					}
+					for (const Object *o : who)
+					{
+						for (const ThingTemplate::Nugget &nug : o->getTemplate()->behaviorModules().nuggets())
+						{
+							const SpecialPowerModuleData *d = dynamic_cast<const SpecialPowerModuleData *>(nug.data.get());
+							listed = listed || (d && d->m_specialPowerTemplateName == cb->m_specialPowerName);
+						}
+					}
+					res.fail(item, listed ? "no module of the unit or its members carries " + cb->m_specialPowerName
+					                      : "MOD-DATA: the mod gives the unit no module for " + cb->m_specialPowerName +
+					                            "; RotWK shows the button enabled and the press does nothing too (RW 0x9434F7)");
 					continue;
 				}
 				// an ability whose update requires the toggled weapon set (RequiredConditions WEAPON_TOGGLE: Lurtz's Carnage) is used the way a player
@@ -857,7 +1118,9 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 					const SpecialAbilityUpdate *a = dynamic_cast<const SpecialAbilityUpdate *>(m.get());
 					needsMount = needsMount || (a && a->abilityData()->m_specialPowerTemplateName == t->getName() && (a->abilityData()->m_requiredConditions & 1u) != 0);
 				}
-				if (needsMount)
+				// lane PORT-530: the fixture's model action may have mounted the unit already: pressing the mount toggle again would
+				// unmount it (in the old flow nothing mounts the unit before this block, so the guard changes nothing there)
+				if (needsMount && !u->testModelCondition(ModelCondition::indexOf("MOUNTED")))
 				{
 					ControlBarButton mount;
 					if (!g.select(u) || !g.reveal(u, [](const CommandButton &x) { return x.m_specialPowerName == "SpecialAbilityToggleMounted"; }, mount) || !g.press(mount))
@@ -875,7 +1138,9 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 				}
 				if (b.state != ButtonState::Enabled && b.state != ButtonState::Active)
 				{
-					res.fail(item, str("state %d at level 10%s (not enabled)", (int)b.state, modelGated ? " after the weapon toggle / mount" : ""));
+					res.fail(item, !fixtureDetail.empty() ? fixtureDetail
+						: fixtureApplied && greyRow ? greyfix::bugDetail(*greyRow)
+						: str("state %d at level 10%s (not enabled)", (int)b.state, modelGated ? " after the weapon toggle / mount" : ""));
 					continue;
 				}
 				struct TempTarget
@@ -1291,6 +1556,16 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 					{
 						retryHero = true;
 						firstTry = "target " + target;
+						continue;
+					}
+					// 2026-11-17 (matrix review): the scene had no fitting target when the only ally the sweep has is the unit's own copy
+					// (repairs need a damaged own structure: 14 porters "repaired" themselves) or the click hit nothing (a slave's build boost
+					// with no structure under construction there): not tested, not a port fault
+					const bool selfCopy = target.rfind(e->name + " ", 0) == 0 && cb->hasOption(COMMAND_OPTION_NEED_TARGET_ALLY_OBJECT);
+					const bool hitNothing = target.find("the pick there hits)") != std::string::npos;
+					if (selfCopy || hitNothing)
+					{
+						res.fail(item, "NO-TARGET: the scene has no fitting target for " + cb->m_specialPowerName + " (the sweep clicked " + target + ")");
 						continue;
 					}
 					res.fail(item, cb->m_specialPowerName + ": the click on its target sent nothing (target " + target + ")" + (firstTry.empty() ? "" : " (first try, " + firstTry + ")"));

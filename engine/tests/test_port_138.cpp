@@ -246,7 +246,7 @@ TEST_CASE("PORT-138 Wild hole: healing the hole during the wait neither starts t
 	CHECK(rh->getReconstructedBuildingID() == INVALID_ID);
 }
 
-TEST_CASE("PORT-138 neighboring hole: no WorkerObjectName keeps the direct, complete build without a caption")
+TEST_CASE("PORT-138 neighboring hole: no WorkerObjectName rises directly from 1% health under construction and fades the hole on completion")
 {
 	Port138World w;
 	Object *lair = w.unit("Port138Lair", 'A', 440.0f, 440.0f);
@@ -262,8 +262,13 @@ TEST_CASE("PORT-138 neighboring hole: no WorkerObjectName keeps the direct, comp
 	Object *rebuilt = w.byId(rh->getReconstructedBuildingID());
 	REQUIRE(rebuilt != nullptr);
 	CHECK(w.alive("Port138Worker").empty());
-	CHECK_FALSE(rebuilt->isUnderConstruction());
+	// RW 0x797894 / 0x886994..0x886A08: buildObjectNow spawns the structure with OBJECT_STATUS_UNDER_CONSTRUCTION (bit 2),
+	// sets health to 1% (2.0 of 200.0 at RW 0x8869A5), forces completion and starts GettingBuiltBehavior (percent -1 at RW 0x8567D5),
+	// and masks the hole until GettingBuiltBehavior clears UNDER_CONSTRUCTION at 100% health (RW 0x857D4C -> 0x886BDA..0x886C40).
+	CHECK(rebuilt->isUnderConstruction());
+	CHECK(rebuilt->getBodyModule()->getHealth() == 2.0f);
 	CHECK(rebuilt->getConstructionPercent() == -1.0f);
+	CHECK(hole->isMasked());
 	GameTextTableSource text;
 	text.table.setOverride("CONTROLBAR:UnderConstructionDesc", "Building: %.0f%%");
 	Win32BIGFileSystem empty;
@@ -285,7 +290,10 @@ TEST_CASE("PORT-138 neighboring hole: no WorkerObjectName keeps the direct, comp
 		if (op.object == rebuilt->getID())
 			CHECK(op.kind != IconUIOp::TEXT); // RW 0x677CF9: percent -1 has no caption
 	}
-	w.frames(1);
+	w.frames(10); // BuildTime = 2.0 s = 10 self-rise frames (RW 0x857FBD..0x858081 -> 0x857D4C)
+	CHECK_FALSE(rebuilt->isUnderConstruction());
+	CHECK(rebuilt->getConstructionPercent() == -1.0f);
+	w.frames(1); // the hole updates before the newly spawned lair, so it sees !isUnderConstruction() on the next frame (RW 0x886BDA..0x886C40)
 	CHECK(w.alive("Port138DirectHole").empty());
 }
 

@@ -160,6 +160,7 @@ InGameHud::InGameHud(Config config)
 	});
 	// AUDIO-2: ZH CommandXlat / SelectionXlat play the unit voice when a command or a selection leaves the translators (RotWK RW 0x8DEDBB)
 	m_voice = std::make_unique<UnitVoiceResponse>(m_config.game.logic(), m_voiceSink);
+	m_voice->setInGameUI(&m_input->ui()); // RW 0x8DEA51: live waypoint mode for all voice routes
 	// the crowd responses of the voices (S-700): Data\INI\CrowdResponse.ini; a missing or malformed file is an error of the HUD, the voices still work.
 	// BFME1 has no crowd responses (no CrowdResponse.ini: the second voice slot is BFME2's; docs/BFME1.md)
 	if (!isBfme1Data(m_config.fs))

@@ -32,7 +32,6 @@
 #include "GameLogic/Module/SpawnBehavior.h"
 #include "GameLogic/Module/StancesBehavior.h"
 #include "GameLogic/System/InvisibilityManager.h"
-#include "GameLogic/System/ShroudManager.h"
 #include "GameLogic/SimMath.h"
 #include "Common/INI/HostRealText.h"
 
@@ -354,21 +353,10 @@ bool AIUpdateInterface::aiAttackObject(Object *victim, CommandSourceType source,
 	}
 	const bool spawnsAreTheWeapons = obj->isKindOf((unsigned)CombatNames::kinds().spawnsAreTheWeapons);
 	ObjectWeapons *w = obj->getWeapons();
-	if (!w || !w->canAttackObject(*victim, source, false))
+	// PORT-198 (RW 0x66BD33): SPAWNS_ARE_THE_WEAPONS bypasses the self-weapon gate here, enters AI_ATTACK_OBJECT (failing cleanly to AI_IDLE if !w),
+	// and unconditionally dispatches slot 3 at 0x66BEC3 without pre-checking slave capability or shroud.
+	if (!spawnsAreTheWeapons && (!w || !w->canAttackObject(*victim, source, false)))
 	{
-		// PORT-198 (RW 0x66BD33 -> 0x66BEC3): a SPAWNS_ARE_THE_WEAPONS spawner (e.g. Mallorn Tree, Mordor Barricade) delegates via slot 3 even without its own weapon
-		if (spawnsAreTheWeapons && (source == CMD_FROM_SCRIPT || !ShroudManager::isShroudedForAction(*obj, *victim)))
-		{
-			if (SpawnBehaviorInterface *spawn = SpawnBehaviorInterface::of(*obj))
-			{
-				const CanAttackResult res = spawn->getCanAnySlavesAttackSpecificTarget(ATTACK_NEW_TARGET, victim, source);
-				if (res == ATTACKRESULT_POSSIBLE || res == ATTACKRESULT_POSSIBLE_AFTER_MOVING)
-				{
-					spawn->orderSlavesToAttackTarget(victim, maxShotsToFire, source);
-					return true;
-				}
-			}
-		}
 		return false;
 	}
 	m_machine->clear();
@@ -379,7 +367,7 @@ bool AIUpdateInterface::aiAttackObject(Object *victim, CommandSourceType source,
 	m_machine->setState(AI_ATTACK_OBJECT);
 	// lane PLAY-2 (Sol r1): the command's shot limit goes on the current weapon after the state's entry lifted it (RW 0x74D0FC; ZH privateAttackObject's
 	// setMaxShotCount); privateAttackPosition's ContinueAttackRange redirect passes its limit here (RW 0x66DF02 .. 0x66DF0C)
-	if (Weapon *cur = w->currentWeapon())
+	if (Weapon *cur = w ? w->currentWeapon() : nullptr)
 	{
 		cur->clearWhenFiringEnds(); // lane ATKRESET-1, RW 0x66BE77: the old shot's FiringDuration lock ends; the next shot waits only for its delay (+ 0x18)
 		cur->setMaxShotCount(maxShotsToFire);

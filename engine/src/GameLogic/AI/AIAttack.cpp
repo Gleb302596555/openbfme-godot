@@ -3,6 +3,8 @@
 
 #include "GameLogic/AI/AIAttack.h"
 #include "GameLogic/AI/AIAttackCharge.h"
+#include "GameLogic/AI/AIAttackHordePosition.h"
+#include "GameLogic/Module/GiantBirdAIUpdate.h"
 #include "GameLogic/AI/AIAttackMelee.h"
 #include "GameLogic/AI/AIEmotionStates.h"
 #include "GameLogic/AI/TurretAI.h"
@@ -329,6 +331,16 @@ std::unique_ptr<AIStateMachine> AIAttackState::createAttackMachine()
 {
 	AIUpdateInterface &a = ai();
 	std::unique_ptr<AIStateMachine> m;
+	// RW 0x74CFCA..0x74D019: giant-bird AI and CONTESTING_BUILDING
+	// take precedence; a HORDE position attack then selects kind 7, regardless
+	// of whether its current weapon itself is melee.
+	if (!m_isAttackingObject && owner().isKindOfName("HORDE") && dynamic_cast<GiantBirdAIUpdate *>(&a) == nullptr &&
+		!owner().testStatus((unsigned)CombatNames::status("CONTESTING_BUILDING")))
+	{
+		m_meleeMachine = false;
+		m_machineMade = MADE_HORDE_POSITION;
+		return makeHordePositionAttackMachine(a, *this);
+	}
 	if (a.attackMachineKind() == ATTACK_MACHINE_HORDE)
 	{
 		bool melee = false;
