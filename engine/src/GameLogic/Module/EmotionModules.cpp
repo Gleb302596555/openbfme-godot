@@ -20,6 +20,7 @@
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Object/ExperienceTracker.h"
+#include "GameLogic/Object/EvaDamageNotice.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/PartitionManager.h"
 #include "GameLogic/ObjectFilterMatch.h"
@@ -38,9 +39,9 @@ const char *const kTrackerFile = "EmotionTrackerUpdate.cpp"; // RW 0xC6D2A0 (the
 
 const char *const kStopTracker =
 	"[S-1022] EmotionTrackerUpdate: requests, the fear and hero scans, the QuarrelProbability draw, the nugget choice and run are ported (RW 0x8B5738 / 0x8B54DD); "
-	"RadiateFearUpdate pulses run (RW 0x89F9A8); the taunt / point / alert scan (RW 0x8B5946 with the filters RW 0x8B50F0, 0x6612AC, 0x660D71) runs (lane MODULES-3; "
-	"INFERENCE: RW 0x694CCC's garrison and disguise branches are taken as visible, RW 0x6EA857 reads the cell's connect layer, which the port's grid never sets to a "
-	"wall); not ported: the scripts' forced emotion, the firing arc cone of canSee (RW 0x68FAC9, "
+	"RadiateFearUpdate pulses run (RW 0x89F9A8); the taunt / point / alert scan (RW 0x8B5946 with the filters RW 0x8B50F0, 0x6612AC, 0x660D71) runs (lane MODULES-3); "
+	"the viewer-relative disguise / contain visibility branches of RW 0x694CCC are used by this scan; the ground cell layer test RW 0x6EA857 remains limited by the port's grid (no wall layer); "
+	"not ported: the scripts' forced emotion, the firing arc cone of canSee (RW 0x68FAC9, "
 	"reported; no retail template sets FiringArc); inference: the scans' relationship is Object::getRelationship (RW 0x68D7AB's mine and gate cases aside), the "
 	"layer is the AI's pathfinder layer (RW 0x68BBE0; ground without an AI), no shroud manager: threat 0 and the template's ShroudClearingRange (reported)";
 
@@ -531,7 +532,7 @@ void EmotionTrackerUpdate::tauntScan(Object *&taunt, float &closest)
 				return false;
 			}
 		}
-		if (obj->getRelationship(o) != ENEMIES || o.isEffectivelyDead() || !visibleForTaunt(o)) // RW 0x68D7AB, + 0x458 bit 0, RW 0x694CCC
+		if (obj->getRelationship(o) != ENEMIES || o.isEffectivelyDead() || !EmotionModules::visibleToScans(o, obj->getControllingPlayer())) // RW 0x68D7AB, + 0x458 bit 0, RW 0x694CCC
 		{
 			return false;
 		}
@@ -565,8 +566,8 @@ void EmotionTrackerUpdate::tauntScan(Object *&taunt, float &closest)
 	PartitionFilterFn sees([&](Object &o) { return canSee(*obj, o, m_data->m_tauntAndPointDistance); }); // RW 0xC1D66C -> 0x68FA3D
 	const Player *player = obj->getControllingPlayer();
 	PartitionFilterFn visible([player](Object &o) {
-		// RW 0xC0F19C -> 0x660D71: visible to the player, or a computer player and the object is firing (RW 0x68C89B)
-		bool v = visibleForTaunt(o);
+		// RW 0xC0F19C -> 0x660D71 / 0x694CCC: visibility is viewer-relative, or a computer player and the object is firing (RW 0x68C89B)
+		bool v = EmotionModules::visibleToScans(o, player);
 		if (!v && player && player->getPlayerType() == PLAYER_COMPUTER && InvisibilityManager::isFiring(o))
 		{
 			v = true;
@@ -1030,8 +1031,13 @@ void EmotionModules::registerAll(ModuleFactory &modules)
 	bind<RadiateFearUpdate, RadiateFearUpdateModuleData>(modules, "RadiateFearUpdate");
 }
 
-bool EmotionModules::visibleToScans(const Object &o)
+bool EmotionModules::visibleToScans(const Object &o, const Player *viewer)
 {
+	if (viewer)
+	{
+		// RW 0x8B5186 .. 0x8B5195: the tracker passes its controlling player to Object::isVisibleTo (RW 0x694CCC, mode 0).
+		return EvaDamage::isVisibleTo(o.logic(), o, viewer, false);
+	}
 	return visibleForTaunt(o);
 }
 
