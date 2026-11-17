@@ -86,7 +86,7 @@ parsed-unused	armydefinition		MaxBuildingsToBeDefensiveTarget_Med	11	manual		no	
 parsed-unused	armydefinition		MaxBuildingsToBeDefensiveTarget_Small	11	block-parser		no				the owner is not a module class of the map (an INI block, or a class the mod's objects do not use)
 parsed-unused	armydefinition		MaxThreatForOpportunityTargets	11	block-parser	S-7336	no				the owner is not a module class of the map (an INI block, or a class the mod's objects do not use)
 parsed-unused	armydefinition		ValueToSetForMaxOnDefenseTeam	11	block-parser	S-7336	no				the owner is not a module class of the map (an INI block, or a class the mod's objects do not use)
-parsed-unused	object	W3DScriptedModelDraw	MinLODRequired	11	struct		yes	457	215	6	0x004B26E4@0 0x004B26F9@0 0x004B2A1B@0 0x004B2A3B@0 0x004B2A68@0 0x004B2A89@0 0x004B2B41@0 0x004B2B92@0
+ported	object	W3DScriptedModelDraw	MinLODRequired	11	isIdleLike term: RW 0x4B4262 forces the predicate true (the 9999 pick limit, RW 0x4BE9E6)		yes	457	215	6	0x004B26E4@0 0x004B26F9@0 0x004B2A1B@0 0x004B2A3B@0 0x004B2A68@0 0x004B2A89@0 0x004B2B41@0 0x004B2B92@0
 parsed-unused	fxparticlesystem	/System	UseMaximumHeight	10	block-file	S-7290	no				the owner is not a module class of the map (an INI block, or a class the mod's objects do not use)
 parsed-unused	object		LiveCameraOffset	10	by-name		no				the owner is not a module class of the map (an INI block, or a class the mod's objects do not use)
 parsed-unused	object		LiveCameraPitch	10	by-name		no				the owner is not a module class of the map (an INI block, or a class the mod's objects do not use)
@@ -123,7 +123,7 @@ not-read	fxparticlesystem		VelocityType	4	manual	S-684	no				the owner is not a 
 not-read	fxparticlesystem		VolumeType	4	manual	S-684	no				the owner is not a module class of the map (an INI block, or a class the mod's objects do not use)
 parsed-unused	object	SiegeDeploySpecialPower	InitiateSound	4	struct	S-4942	yes	73	1	3	0x008C9C50@1
 parsed-unused	object	SymbioticStructuresBody	Symbiote	4	struct		yes	45	24	1	0x008C4EA4@0 0x008C4F2D@0 0x008C4F62@0 0x008C4F84@0 0x008C4FB5@0 0x008C4FF9@0 0x008C501C@0 0x008C505F@0
-parsed-unused	object	W3DScriptedModelDraw	UseProducerTexture	4	struct		yes	457	215	6	0x004B26E4@0 0x004B26F9@0 0x004B2A1B@0 0x004B2A3B@0 0x004B2A68@0 0x004B2A89@0 0x004B2B41@0 0x004B2B92@0
+left	object	W3DScriptedModelDraw	UseProducerTexture	4	left: the port has no drawable + 0xFC object to take the variation from (RW 0x4C23B1 reads [drawable+0xFC]+0x78)	S-5015	yes	457	215	6	0x004B26E4@0 0x004B26F9@0 0x004B2A1B@0 0x004B2A3B@0 0x004B2A68@0 0x004B2A89@0 0x004B2B41@0 0x004B2B92@0
 parsed-unused	waterset		DiffuseColor	4	own-reader-unasked	S-023 S-7220	no				the owner is not a module class of the map (an INI block, or a class the mod's objects do not use)
 parsed-unused	waterset		SkyTexelsPerUnit	4	own-reader-unasked		no				the owner is not a module class of the map (an INI block, or a class the mod's objects do not use)
 parsed-unused	waterset		SkyTexture	4	own-reader-unasked		no				the owner is not a module class of the map (an INI block, or a class the mod's objects do not use)
@@ -151,7 +151,7 @@ parsed-unused	object	ModelConditionSoundSelectorClientBehavior/SoundState	VoiceR
 parsed-unused	object	RespawnBody	ReallyDamagedAttributeModifier	3	struct		yes	50	0	2	no specific none function: the reader is ported without a citation, shared, or in another class
 parsed-unused	object	W3DFloorDraw	FloorFadeRateOnObjectDeath	3	struct		yes	46	21	0	0x004CEA6F@0 0x004CEB80@0 0x004CEBCA@0 0x004CECA1@0 0x004CECB5@0 0x00467B4D@1 0x0046AFCA@1 0x004CE9B6@1
 parsed-unused	object	W3DSailModelDraw	BlowingThresholdDegrees	3	struct	S-112	yes	73	0	0	no specific none function: the reader is ported without a citation, shared, or in another class
-parsed-unused	object	W3DScriptedModelDraw	UseDefaultAnimation	3	struct		yes	457	215	6	0x004B26E4@0 0x004B26F9@0 0x004B2A1B@0 0x004B2A3B@0 0x004B2A68@0 0x004B2A89@0 0x004B2B41@0 0x004B2B92@0
+ported	object	W3DScriptedModelDraw	UseDefaultAnimation	3	draw-update log line reported once: RW 0x4C5235 (format RW 0xBD4980)		yes	457	215	6	0x004B26E4@0 0x004B26F9@0 0x004B2A1B@0 0x004B2A3B@0 0x004B2A68@0 0x004B2A89@0 0x004B2B41@0 0x004B2B92@0
 parsed-unused	playertemplate		ScoreScreenImage	3	struct	S-7326	no				the owner is not a module class of the map (an INI block, or a class the mod's objects do not use)
 parsed-unused	scoredkillevaannouncer		CountOnlyKillsAgainstLocalPlayer	3	block-parser		no				the owner is not a module class of the map (an INI block, or a class the mod's objects do not use)
 parsed-unused	scoredkillevaannouncer		CountOnlyKillsByLocalPlayer	3	block-parser		no				the owner is not a module class of the map (an INI block, or a class the mod's objects do not use)
@@ -585,8 +585,8 @@ parsed-unused	object	UpgradeSoundSelectorClientBehavior/SoundUpgrade	SoundImpact
 parsed-unused	object	UpgradeSoundSelectorClientBehavior/SoundUpgrade	VoiceMoveToCamp	1	manual		no				the owner is not a module class of the map (an INI block, or a class the mod's objects do not use)
 parsed-unused	object	UpgradeSoundSelectorClientBehavior/SoundUpgrade	VoiceRetreatToCastle	1	manual		no				the owner is not a module class of the map (an INI block, or a class the mod's objects do not use)
 parsed-unused	object	UpgradeSoundSelectorClientBehavior/SoundUpgrade/UnitSpecificSounds	VoiceEnterUnitTransportShip	1	by-name-prefix		no				the owner is not a module class of the map (an INI block, or a class the mod's objects do not use)
-parsed-unused	object	W3DScriptedModelDraw	BirthFadeAdditive	1	struct		yes	457	215	6	0x004B26E4@0 0x004B26F9@0 0x004B2A1B@0 0x004B2A3B@0 0x004B2A68@0 0x004B2A89@0 0x004B2B41@0 0x004B2B92@0
-parsed-unused	object	W3DScriptedModelDraw	HighDetailOnly	1	struct		yes	457	215	6	0x004B26E4@0 0x004B26F9@0 0x004B2A1B@0 0x004B2A3B@0 0x004B2A68@0 0x004B2A89@0 0x004B2B41@0 0x004B2B92@0
+ported	object	W3DScriptedModelDraw	BirthFadeAdditive	1	flag stored and the gated birth-fade call reported: RW 0x4C09F6 / 0x4C0A12	S-7399	yes	457	215	6	0x004B26E4@0 0x004B26F9@0 0x004B2A1B@0 0x004B2A3B@0 0x004B2A68@0 0x004B2A89@0 0x004B2B41@0 0x004B2B92@0
+ported	object	W3DScriptedModelDraw	HighDetailOnly	1	doDrawModule body + flags-apply gates: RW 0x4C7312 / 0x4C0993 (detail LOD draw +0xBC)		yes	457	215	6	0x004B26E4@0 0x004B26F9@0 0x004B2A1B@0 0x004B2A3B@0 0x004B2A68@0 0x004B2A89@0 0x004B2B41@0 0x004B2B92@0
 parsed-unused	object	W3DScriptedModelDraw/DefaultModelConditionState	OverrideTooltip	1	nested-parser		no				the owner is not a module class of the map (an INI block, or a class the mod's objects do not use)
 parsed-unused	object	W3DScriptedModelDraw/ModelConditionState	OverrideTooltip	1	nested-parser		no				the owner is not a module class of the map (an INI block, or a class the mod's objects do not use)
 parsed-unused	pathfinder		SlopeLimits	1	own-reader-unasked	S-160	no				the owner is not a module class of the map (an INI block, or a class the mod's objects do not use)

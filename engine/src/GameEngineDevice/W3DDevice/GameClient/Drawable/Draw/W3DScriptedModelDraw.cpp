@@ -201,6 +201,30 @@ int W3DScriptedModelDraw::randomStartFrame(int frames)
 // ---------------------------------------------------------------------------------------------------------------------
 void W3DScriptedModelDraw::setModelConditionFlags(const ModelConditionFlags &flags)
 {
+	// PORT-245: UseDefaultAnimation (RW 0x4C5235 `cmp byte [eax+0x138], 0` / `je 0x4C52B2`): when set, retail's draw-update logs
+	// its own line (format RW 0xBD4980 "%s.%s" through the log RW 0x437A90). It is independent of the flags-apply gates below
+	// (retail logs it from the draw-update, not from this routine); reported once per draw.
+	if (m_model && m_data.m_useDefaultAnimation && !m_useDefaultAnimationReported)
+	{
+		m_useDefaultAnimationReported = true;
+		error("UseDefaultAnimation is set: retail logs its draw-update line for it (RW 0x4C5235, format RW 0xBD4980); the default animation it names is not played by this core");
+	}
+	// PORT-245: the HighDetailOnly gate of the flags-apply (RW 0x4C0993 `cmp byte [ecx+0x15F], bl` / `cmp dword [esi+0xBC], ebx` /
+	// `jne 0x4C0B07`): a module with HighDetailOnly set leaves the whole apply unrun when the draw's detail LOD is not 0 (high).
+	// Draw +0xBC holds the 0x4B24C4 mapping (set by the constructor RW 0x4C0895); the port's modelDetailLod is that value. The
+	// sibling gate of RW 0x4BF2D8 (RW 0x4BF2EA) tests draw +0xAC, a field no RotWK instruction writes (full .text scan), so it
+	// never fires; RW 0x4C0993 is the effective one.
+	if (m_data.m_highDetailOnly && modelDetailLod() != 0)
+	{
+		return;
+	}
+	// PORT-245: BirthFadeAdditive (RW 0x4C09F6 `mov al, byte [eax+0x154]`): retail stores the flag to draw +0x270 and, when the
+	// render object exists, calls its vtable +0x154 birth-fade method (RW 0x4C0A12). That call is a birth-fade playback, which
+	// this core does not apply (S-096): report it rather than skip it silently.
+	if (m_data.m_birthFadeAdditive && m_model)
+	{
+		stop("S-7399", "BirthFadeAdditive is set: the birth fade it plays on the render object (RW 0x4C0A12, its vtable +0x154) is not applied");
+	}
 	const ModelConditionFlags prevFlags = m_pendingFlags;
 	m_pendingFlags = flags; // RW 0x4BF420: rep movsd 0x13 into +0x17C, every time
 	const ModelConditionInfo *modelInfo = m_data.findBestInfo(flags);
@@ -620,7 +644,11 @@ void W3DScriptedModelDraw::runScript(const AnimationStateInfo &state, std::strin
 // RW 0x4B424F
 bool W3DScriptedModelDraw::isIdleLike(const AnimationStateInfo &state) const
 {
-	return !state.conditions.any() || state.shareAnimation || state.testFlag(W3D_ACF_RESTART_ANIM_WHEN_COMPLETE);
+	// PORT-245: RW 0x4B4262 `cmp byte [esi+0x64], 0` / `jne 0x4B425E` — MinLODRequired (module data +0x64) forces the predicate
+	// true whatever the state's own fields say. It is the third term of the RW 0x4B424F truth table: the +4..+0x54 array scan
+	// (RW 0x4B3783) is nonzero and MinLODRequired is set, the result is 1 (the limit the caller uses becomes 9999, RW 0x4BE9E6).
+	return !state.conditions.any() || state.shareAnimation || state.testFlag(W3D_ACF_RESTART_ANIM_WHEN_COMPLETE) ||
+		m_data.m_minLODRequired != 0;
 }
 
 void W3DScriptedModelDraw::apply(const AnimationStateInfo *prevState, float fraction, bool restart)
@@ -1255,6 +1283,13 @@ void W3DScriptedModelDraw::updateCameraFade(const Coord3D &camera, const Coord3D
 		return; // PORT-106 (issue #266): the fade progress is part of the same doDrawModule body (RW 0x4B52C8 is called from RW 0x4BF586
 				 // inside the body that RW 0x4C72E1 gates away)
 	}
+	// PORT-245: the HighDetailOnly gate of doDrawModule (RW 0x4C7312 `cmp byte [edi+0x15F], 0` / `cmp dword [ebx+0xBC], 0` / `jne
+	// 0x4C78D3`): the whole body — this fade and the advance below — is left unrun when HighDetailOnly is set and the draw's
+	// detail LOD (draw +0xBC, RW 0x4C0895) is not 0 (high).
+	if (m_data.m_highDetailOnly && modelDetailLod() != 0)
+	{
+		return;
+	}
 	if (!m_model || !m_curAnimState)
 	{
 		return; // RW 0x4BF56C / 0x4BF575
@@ -1305,6 +1340,13 @@ void W3DScriptedModelDraw::advance(double elapsedMsD)
 	{
 		return; // PORT-106 (issue #266): RW 0x4C72E1..0x4C730C — MultiPlayerOnly leaves doDrawModule's body unrun; the animation
 				 // advance (RW 0x4BF560, entered from RW 0x4C73C7) is part of that body
+	}
+	// PORT-245: the HighDetailOnly gate of doDrawModule (RW 0x4C7312 `cmp byte [edi+0x15F], 0` / `cmp dword [ebx+0xBC], 0` / `jne
+	// 0x4C78D3`): the advance is part of the body that the gate leaves unrun when HighDetailOnly is set and the draw's detail
+	// LOD (draw +0xBC, RW 0x4C0895) is not 0 (high).
+	if (m_data.m_highDetailOnly && modelDetailLod() != 0)
+	{
+		return;
 	}
 	const float elapsedMs = (float)elapsedMsD;
 	if (!m_model || !m_curAnimState)

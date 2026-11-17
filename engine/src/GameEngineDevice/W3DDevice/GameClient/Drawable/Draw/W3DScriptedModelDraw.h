@@ -482,6 +482,7 @@ private:
 	std::set<std::string> m_stopKeys;
 	std::vector<std::string> m_errors;
 	std::vector<std::string> m_log;
+	bool m_useDefaultAnimationReported = false; ///< PORT-245: the RW 0x4C5235 log line is reported once per draw
 };
 
 // W3DHordeModelDraw (RotWK registers it as a W3DScriptedModelDraw subclass, spec 4.7): the LodOptions row of the object's current
