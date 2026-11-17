@@ -633,3 +633,62 @@ TEST_CASE("PORT-238 ring delivery grants both synthetic necromancer upgrades")
     w.frames(3);
     CHECK(control->testModelCondition(CombatNames::modelCondition("ONE_RING")));
 }
+
+TEST_CASE("PORT-238 synthetic necromancer transforms after ring delivery")
+{
+    HealHudWorld w;
+    const char *data =
+        "Upgrade Upgrade_P238TransformHero\n Type = OBJECT\n End\n"
+        "Upgrade Upgrade_P238TransformFortress\n Type = OBJECT\n End\n"
+        "SpecialPower P238TransformPower\n Enum = SPECIAL_TOGGLE_MOUNTED\n ReloadTime = 1000\n End\n"
+        "CommandButton P238TransformButton\n Command = SPECIAL_POWER\n SpecialPower = P238TransformPower\n"
+        " Options = TOGGLE_IMAGE_ON_WEAPONSET ON_GROUND_ONLY OK_FOR_MULTI_EXECUTE\n InPalantir = No\n End\n"
+        "Object P238NecromancerTransform\n"
+        " KindOf = INFANTRY HERO SELECTABLE COMMANDCENTER CAN_ATTACK\n"
+        " Geometry = CYLINDER\n GeometryMajorRadius = 8\n GeometryHeight = 20\n"
+        " Body = ActiveBody Body\n MaxHealth = 100\n End\n"
+        " Behavior = AIUpdateInterface AI\n End\n"
+        " Behavior = UnpauseSpecialPowerUpgrade EnableTransform\n SpecialPowerTemplate = P238TransformPower\n TriggeredBy = Upgrade_P238TransformHero\n End\n"
+        " Behavior = SpecialPowerModule TransformPower\n SpecialPowerTemplate = P238TransformPower\n UpdateModuleStartsAttack = Yes\n StartsPaused = Yes\n End\n"
+        " Behavior = ToggleMountedSpecialAbilityUpdate Transform\n SpecialPowerTemplate = P238TransformPower\n MountedTemplate = P238GreatTransform\n"
+        "  UnpackTime = 2000\n PreparationTime = 0\n PackTime = 0\n OpacityTarget = 0\n AwardXPForTriggering = 0\n IgnoreFacingCheck = Yes\n End\n"
+        " Behavior = DoCommandUpgrade AutoTransform\n TriggeredBy = Upgrade_P238TransformHero\n GetUpgradeCommandButtonName = P238TransformButton\n End\n"
+        " Behavior = CitadelSlaughterHordeContain RingEntry\n PassengerFilter = NONE +P238Ring\n ObjectStatusOfContained = UNSELECTABLE ENCLOSED\n ContainMax = 1\n"
+        "  StatusForRingEntry = HOLDING_THE_RING\n UpgradeForRingEntry = Upgrade_P238TransformHero Upgrade_P238TransformFortress\n"
+        "  ObjectToDestroyForRingEntry = NONE +P238Ring\n End\n"
+        " LocomotorSet\n Locomotor = WalkerLoco\n Condition = SET_NORMAL\n Speed = 55\n End\n"
+        "End\n"
+        "Object P238GreatTransform\n"
+        " KindOf = INFANTRY HERO SELECTABLE CAN_ATTACK\n"
+        " Geometry = CYLINDER\n GeometryMajorRadius = 8\n GeometryHeight = 20\n"
+        " Body = ActiveBody Body\n MaxHealth = 200\n End\n Behavior = AIUpdateInterface AI\n End\n"
+        " LocomotorSet\n Locomotor = WalkerLoco\n Condition = SET_NORMAL\n Speed = 55\n End\n"
+        "End\n";
+    const std::string error = w.w.load(data, INI_LOAD_OVERWRITE, "port238_transform.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    Object *bearer = w.unit("P238NecromancerTransform", 'A', 300, 300);
+    Object *carrier = w.unit("P238Carrier", 'A', 300, 300);
+    Object *ring = w.unit("P238Ring", 'A', 300, 300);
+    const ObjectID originalId = bearer->getID();
+    const ObjectID ringId = ring->getID();
+    auto *contain = dynamic_cast<CitadelSlaughterHordeContain *>(bearer->getContain());
+    REQUIRE(contain != nullptr);
+    // RW 0x8841C2 grants the upgrades; 0x8B8E2E presses the special-power
+    // button; 0x8B1690 -> 0x8B140D builds its MountedTemplate.
+    deliver(*contain, *carrier);
+    CHECK(bearer->hasUpgrade("Upgrade_P238TransformHero"));
+    CHECK(bearer->hasUpgrade("Upgrade_P238TransformFortress"));
+    REQUIRE(w.byId(ringId) != nullptr);
+    CHECK(w.byId(ringId)->isDestroyed());
+    Object *replacement = nullptr;
+    for (int i = 0; i < 50 && replacement == nullptr; ++i)
+    {
+        w.frames(1);
+        for (Object *obj = w.logic->getFirstObject(); obj; obj = obj->getNextObject())
+            if (obj->getTemplate() && obj->getTemplate()->getName() == "P238GreatTransform") replacement = obj;
+    }
+    REQUIRE(replacement != nullptr);
+    CHECK(replacement->getControllingPlayer() == w.playerOf('A'));
+    w.frames(3);
+    CHECK(w.byId(originalId) == nullptr);
+}

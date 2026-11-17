@@ -31,10 +31,17 @@ that condition until the second is given. This checks a model-condition bit,
 The same file (`:686..712`) declares an unpause and `DoCommandUpgrade` for
 `Upgrade_RingHero` and a `ToggleMountedSpecialAbilityUpdate` whose mounted
 object is `MordorGreatSauron`; the named command is a SPECIAL_POWER button
-(`includes/commandbutton.inc:20434`). These literal declarations are a
-candidate route, **not** proof that the transform occurred, that its upgrade
-and timing match the loaded mod, or that ring delivery can reach it. Shared
-replacement limitations remain S-861, and all actual appearance is unverified.
+(`includes/commandbutton.inc:20434`), whose template is `SPECIAL_TOGGLE_MOUNTED`
+with 1000 ms reload (`includes/specialpower.inc:4212`). RW `0x8B8E2E` presses
+the button via `0x696FD2`, and `0x8B1690` invokes replacement `0x8B140D`.
+A synthetic direct contain-entry test with this sequence, the two OBJECT
+upgrades and the stated unpack/pack timings observes a new friendly synthetic
+mounted object and deletion of the original. An isolated negative-control
+fixture with its `DoCommandUpgrade` line removed fails at the missing
+replacement (1 failed test, 21/22 assertions), confirming this test depends on
+that module. It does not remove or test the queue fix, nor prove real HUD
+delivery, the actual mod transformation, visuals, transferred state or timing
+in the loaded game. Shared replacement limitations remain S-861.
 
 ## Heal
 
@@ -47,5 +54,5 @@ replacement limitations remain S-861, and all actual appearance is unverified.
 | `MATRIX_GAPS.tsv` NO-EFFECT row | This synthetic chain produces a measurable health effect; the row by itself does not demonstrate that the port cannot heal. | The actual mod UI path, level-5 award in the loaded mod, FX and full loaded object remain unverified; the level and cooldown assertions are synthetic. Do not mark the original row globally stale on the basis of this isolated test. |
 | Ring passive, will, fire form and Fires of Doom | Literal buttons also occur in `SauronCommandSet`. | Not audited; no verdict inferred from their names. |
 
-The temporary isolated runner reported `PORT-238*` 11/11 cases and 252/252
+The temporary isolated runner reported `PORT-238*` 12/12 cases and 276/276
 assertions. The required full executable and mod in-game tests remain pending.
