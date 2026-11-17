@@ -21,7 +21,7 @@ TEST_CASE("PORT-266 GameData tree fade switch and filter are parsed")
 {
 	GameLogicSettings settings;
 	std::string error;
-	// RW 0x6441A5, table rows 0xBFF690 and 0xC00C20; filter parser RW 0x76392F.
+	// RW 0x644148 (call 0x6441A5), table rows 0xBFF690 and 0xC00C20; filter parser RW 0x76392F.
 	REQUIRE_MESSAGE(GameLogicSettingsLoader::scanGameData(gameData(
 		" AllowTreeFading = Yes\n TreeFadeObjectFilter = ANY +INFANTRY -HERO\n"), settings, &error), error);
 	CHECK(settings.allowTreeFading);
