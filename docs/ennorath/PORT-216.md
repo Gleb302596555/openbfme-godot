@@ -315,6 +315,45 @@ The earlier stop number S-7387 is occupied on the new main by Port 228.
 remainder. Only our fragment/references were renamed; the aggregate stop
 and Port 228 were not edited.
 
+### Serial clean-main-engine control queued
+
+Fork PR: https://github.com/Gleb302596555/openbfme-godot/pull/618 (draft).
+The owner requested continuation; the existing 95bfb8dd build is still
+running, so it was not restarted or rebased again.
+
+A workspace-only validation process is queued behind that exact build:
+`port-216-main-baseline-and-red-g-f2c27f3c`, script
+`workspace/port216/validate-main-a91.py`. It waits for the original PID and
+its completed result manifest, requires successful nonempty narrow runs,
+refuses another Ninja, dirty sources/index or a changed engine, and takes
+byte-for-byte backups of the five owned engine files. The current branch
+is never switched and no other branch is created.
+
+It then temporarily removes **all** five PORT-216 engine deltas (cpp,
+comment-only header, test, lane and CMake wiring), not just the cpp fix.
+Before building, `git diff --exit-code a91f3da5 -- engine` must succeed.
+Thus the control uses exactly main's tracked engine sources, while the
+surrounding checkout remains on this Arena branch; that distinction and
+both engine tree IDs are recorded in the manifest. It builds the full
+`openbfme_tests` target with Release/Godot OFF/`-j1` and runs the same FULL
+selection and scope exclusions. No foreign test or pin is edited.
+
+Next it restores this branch's header/tests/lane, keeps only cpp unfixed,
+rebuilds and runs PORT-216 red. Finally it restores the implementation,
+rebuilds and runs PORT-216, PORT-436, neighbours and FULL. Backups are also
+restored on errors and catchable signals. Full-main versus restored-branch
+failed case names and error/value lines are compared; a mismatch is not
+waived. Logs and the completed manifest will be in ignored
+`workspace/port216/main-a91-control/`. This is a queued experiment, **not**
+a reported clean-main pass, red/green pass or completed restoration.
+
+The eight previously unbaselined failures are outside this task's
+ObjectGeometry class/function (hero-facing ActionManager/AI, HUD selection
+and wall planning). Their correction would fail adjacent-work conditions
+(a)/(b); no unrelated repair or new test expectation is smuggled into
+PORT-216. Their exact clean-main outcome still has to be recorded before
+landing, independently of the visual P-127 acceptance.
+
 ## Continuation after the owner's original-game check
 
 The owner confirmed in this conversation that the ordinary arrow stops at
