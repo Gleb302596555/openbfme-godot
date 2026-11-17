@@ -98,3 +98,54 @@ of Sauron's temporary area ability. The pre-existing matrix `PASS` observes an
 ownership change on one horde, not its eventual restoration or all exclusions.
 The effects, HUD target path, real target inheritance and in-game behavior remain
 open.
+
+## Fire Form: bounded logic and visual declarations
+
+`SauronCommandSet` slot 5 names `Command_SpecialAbilitySauronFireForm`
+(`commandset.ini:158`); its SPECIAL_POWER button links to
+`SpecialAbilitySauronFlame` (`commandbutton.ini:21590`), whose enum is
+`SPECIAL_HERO_MODE` and reload is 400000 ms (`specialpower.ini:3340`). The
+literal level-8 entry for both Great Sauron names requires 4500 XP and grants
+`Upgrade_Level_8` (`includes/experiencelevels.inc:19920..19926`). The object
+uses that upgrade to unpause the power and declares a paused starter and a
+`HeroModeSpecialAbilityUpdate` (`greatsauron.ini:631..677`). The 60-second
+`SauronFlameBuff` declares armor 50%, speed 125%, and an FX
+(`attributemodifier.ini:5405`). Actual upgrade delivery and modifier stacking
+have not been tested for these declarations.
+
+DONOR `HeroModeSpecialAbilityUpdate.cpp` describes the trigger, unpack and
+expiry; its field table is in `ModuleDataBuildFieldParseChained.cpp`. RW class
+registration `0x65977F` -> runtime factory `0x64D6A0` -> ctor `0x895805`
+installs main vtable `0xC64680`: slot `+0x58` starts unpacking at `0x8958BD`,
+slot `+0x44` triggers `0x8959B5`, slot `+0x48` expires `0x8958F8`. Unpacking
+selects a HERO_MODE weapon set only if the template has one, and schedules an
+expiry. Trigger calls the base, idles the AI if configured, adds the named
+modifier, and sets `HERO` for the configured duration if not already set
+(the default `UseUSERModelcondition` byte is false, RW data ctor `0x895907`).
+The expiry clears the weapon-set flag. The corresponding port methods are in
+`SpecialAbilityModules.cpp`; the existing `test_hero_expiry.cpp` exercises a
+synthetic weapon-set expiry, not this Ennorath object or its rendering.
+
+The object also declares `FireWeaponUpdate` with `HeroModeTrigger = Yes` and
+two non-one-shot nuggets. RW registration `0x659012` -> factory `0x64CBF7` ->
+ctor `0x88F731` installs update interface vtable `0xC629BC`, slot `+0` =
+`0x88F554`. Its constructor resolves weapons and schedules the initial
+`FireDelay` relative to object creation (`0x88F464`); its update first requires
+the HERO bit and then checks each record's fire frame and weapon readiness.
+The port implements this in `SpellEffectModules.cpp`. The named initial weapon
+has damage 300, radius 150 and 80000 ms delay between shots; the other has
+damage 5, radius 50 and 3000 ms delay (`weapon.ini:29500..29546`). Both have
+`OneShot = No`: the "initial" name is **not** proof of a one-time shot per
+activation. Forced-position-fire and unported weapon-nugget details remain
+under S-924. No new PORT-238 test of the combined ability, pulse damage,
+recast, expiry or unlock has yet been run; the existing automated mod sweep
+only observed the modifier (matrix PASS), not either pulse.
+
+For appearance, the literal draw declaration names default model `MUBsauron_EA`
+and a `HERO` condition model `musauronfire` with several particle bones
+(`greatsauron.ini:14..35`). These declarations and the HERO logic bit are not
+proof of the selected drawable state, actual model assets, particles, bone
+attachment, animation or visual parity. Generic state/particle limitations
+include S-090 and S-095; no actual render or in-game visual check was performed.
+The `MordorGreatSauronWotr` child is declared at `:879`; inheritance and any
+other overrides must be resolved before treating this as its effective look.
