@@ -67,6 +67,10 @@ public:
 	// RW 0x6C827A
 	void clear();
 	bool hasAnyWeapons() const;
+	// RW 0x6C801C zeroes the WeaponSet's + 0x2C and the mask is the OR of the Anti* flags of the set's slot weapons; RW 0x6C8724
+	// and RW 0x6C88F2 test it against the victim's anti class instead of a single slot weapon's mask. Computed here so a slot whose
+	// weapon is replaced at runtime is covered too.
+	unsigned antiMask() const;
 	bool testWeaponSetFlag(int weaponSetBit) const { return BitFlagsTest(m_types, (size_t)weaponSetBit); }
 
 	// RW 0x6C99C6: reads the entries up to End. `owner` is the object being parsed (opaque here: stored as the ZH
