@@ -9,6 +9,8 @@
 #include "GameLogic/Combat/CombatNames.h"
 #include "GameLogic/Module/EmotionModules.h"
 #include "GameLogic/Module/InvisibilityModules.h"
+#include "GameLogic/Module/ActiveBody.h"
+#include "GameLogic/Module/HeroModules.h"
 #include "GameLogic/Object/Object.h"
 
 namespace
@@ -20,6 +22,15 @@ const char kPort233Objects[] =
 	"    MaxHealth = 100\n"
 	"  End\n"
 	"  Behavior = StealthUpdate ModuleTag_Stealth\n"
+	"  End\n"
+	"End\n"
+	"Object PORT233RespawnHero\n"
+	"  KindOf = SELECTABLE INFANTRY HERO\n"
+	"  Body = RespawnBody ModuleTag_Body\n"
+	"    MaxHealth = 500\n"
+	"  End\n"
+	"  Behavior = RespawnUpdate ModuleTag_Respawn\n"
+	"    RespawnRules = AutoSpawn:No Cost:1000 Time:60000 Health:150%\n"
 	"  End\n"
 	"End\n";
 
@@ -85,6 +96,22 @@ TEST_CASE("PORT-233 tracker visibility uses the viewer's relationship to a disgu
 
 	// Existing callers without a viewer retain their legacy query contract.
 	CHECK(EmotionModules::visibleToScans(*disguiser));
+}
+
+TEST_CASE("PORT-233 RespawnUpdate above 100 percent raises max health without changing revive reference (RW 0x8C47DE / 0x8C47F6)")
+{
+	Port233World w;
+	Object *hero = w.make("PORT233RespawnHero", w.teamOf("Alice"));
+	REQUIRE(hero != nullptr);
+	ActiveBody *body = dynamic_cast<ActiveBody *>(hero->getBodyModule());
+	RespawnUpdate *respawn = dynamic_cast<RespawnUpdate *>(hero->findModule("RespawnUpdate"));
+	REQUIRE(body != nullptr);
+	REQUIRE(respawn != nullptr);
+	CHECK(body->getMaxHealth() == 500.0f);
+	respawn->onRevived(nullptr);
+	CHECK(body->getMaxHealth() == 750.0f);
+	CHECK(body->getReviveReference() == 500.0f); // RW 0x8C47F6 changes max health (+0x10), not the revive reference (+0x2C)
+	CHECK(body->getHealth() == 750.0f);
 }
 
 TEST_CASE("PORT-233 taunt scan wall exclusion reads the ground cell layer, not its connect layer (RW 0x6EA857)")

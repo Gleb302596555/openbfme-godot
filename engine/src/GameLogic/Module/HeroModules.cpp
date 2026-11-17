@@ -679,17 +679,10 @@ void RespawnUpdate::onRevived(const Object *producer)
 		return;
 	}
 	m_health = rule->health;
-	// body vslot 0x58 (RW 0x8C47DE) with (health * 100.0f, false): percent * 0.01f (the max health grows only above 100%), then internalChangeHealth(fraction * body
-	// + 0x2C - health); module + 0x2C is the revive reference (ActiveBody::getReviveReference: the initial health, newMax after setMaxHealth), not the previous health
+	// body vslot 0x58 (RW 0x8C47DE) with (health * 100.0f, false): ActiveBody scales max health above 100% (RW 0x8C47F6), then applies the fraction to its revive reference (+ 0x2C).
 	if (ActiveBody *body = dynamic_cast<ActiveBody *>(obj->getBodyModule()))
 	{
-		const float percent = SimMath::mulf32(m_health, 100.0f);
-		if (percent > 100.0f)
-		{
-			logic.noteStop("[S-854] RespawnUpdate: a respawn health above 100% raises the max health (RW 0x8C47F6): not ported");
-		}
-		const float fraction = SimMath::mulf32(percent, 0.01f); // [0xBE5600]
-		body->internalChangeHealth(SimMath::subf32(SimMath::mulf32(fraction, body->getReviveReference()), body->getHealth()));
+		body->setInitialHealthPercent(SimMath::mulf32(m_health, 100.0f));
 	}
 	m_34 = -1;
 	m_time = -1;
@@ -747,13 +740,7 @@ UpdateSleepTime RespawnUpdate::update()
 		m_state = STATE_SPAWN_ANIMATION; // RW 0x8B3BB7
 		if (ActiveBody *body = dynamic_cast<ActiveBody *>(obj->getBodyModule())) // RW 0x8B3BAA .. 0x8B3BCE -> body vslot 0x58 (RW 0x8C47DE)
 		{
-			const float percent = SimMath::mulf32(m_health, 100.0f);
-			if (percent > 100.0f)
-			{
-				logic.noteStop("[S-854] RespawnUpdate: a respawn health above 100% raises the max health (RW 0x8C47F6): not ported");
-			}
-			const float fraction = SimMath::mulf32(percent, 0.01f); // [0xBE5600]
-			body->internalChangeHealth(SimMath::subf32(SimMath::mulf32(fraction, body->getReviveReference()), body->getHealth()));
+			body->setInitialHealthPercent(SimMath::mulf32(m_health, 100.0f));
 		}
 		m_34 = -1;   // RW 0x8B3BD1
 		m_time = -1; // RW 0x8B3BD5 (RW 0x8B3BD9 .. 0x8B3BF1: a client flag set when the hero is the local player's, not ported)
