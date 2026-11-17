@@ -15,6 +15,29 @@ is a `PlayerHealSpecialPower` configured for `HERO`, 50% and radius 1
 (`greatsauron.ini:681..710`). No full inheritance or dynamic replacement
 resolution is implied by these literal links.
 
+## An upstream creation candidate (not resolved end to end)
+
+`necromantreborn.ini:732..753` declares `CitadelSlaughterHordeContain`
+with `Upgrade_RingHero Upgrade_FortressRingHero`; both upgrades are OBJECT
+(`upgrade.ini:181,198`), and the local `ModelConditionUpgrade` requires both
+for `ONE_RING`. The callback at RW `0x8840FC`, particularly the vector loop at
+`0x8841C2..0x88420D`, grants each according to its type. The port's
+`GarrisonContain.cpp:deliverRing` does likewise. A synthetic direct contain
+entry confirms both OBJECT upgrades, ring destruction and the `ONE_RING`
+condition; an independent object with only the first upgrade does not acquire
+that condition until the second is given. This checks a model-condition bit,
+**not** a drawable, mesh, animation, real filter, or HUD delivery path.
+
+The same file (`:686..712`) declares an unpause and `DoCommandUpgrade` for
+`Upgrade_RingHero` and a `ToggleMountedSpecialAbilityUpdate` whose mounted
+object is `MordorGreatSauron`; the named command is a SPECIAL_POWER button
+(`includes/commandbutton.inc:20434`). These literal declarations are a
+candidate route, **not** proof that the transform occurred, that its upgrade
+and timing match the loaded mod, or that ring delivery can reach it. Shared
+replacement limitations remain S-861, and all actual appearance is unverified.
+
+## Heal
+
 | Bounded piece | RW and port | Test / remaining work |
 | --- | --- | --- |
 | Trigger dispatch | RW `0x8D235D -> 0x8D222A`: at ability trigger, resolve tag, use object's position for OBJECTPOS and call the target special-power interface's vslot `+0x30`. `ActivateModuleSpecialPower::setModulesActive` implements that branch. | `PORT-238 ring hero activated module...` uses a synthetic power and the same kind of tag link; directly initiates the update, not the button or level-up path. Tag lookup timing differs under S-1222. |
@@ -24,5 +47,5 @@ resolution is implied by these literal links.
 | `MATRIX_GAPS.tsv` NO-EFFECT row | This synthetic chain produces a measurable health effect; the row by itself does not demonstrate that the port cannot heal. | The actual mod UI path, level-5 award in the loaded mod, FX and full loaded object remain unverified; the level and cooldown assertions are synthetic. Do not mark the original row globally stale on the basis of this isolated test. |
 | Ring passive, will, fire form and Fires of Doom | Literal buttons also occur in `SauronCommandSet`. | Not audited; no verdict inferred from their names. |
 
-The temporary isolated runner reported `PORT-238*` 10/10 cases and 226/226
+The temporary isolated runner reported `PORT-238*` 11/11 cases and 252/252
 assertions. The required full executable and mod in-game tests remain pending.

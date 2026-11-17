@@ -582,3 +582,54 @@ TEST_CASE("PORT-238 ring heal unlocks at the synthetic Sauron level five thresho
     CHECK(power->pauseCount() == 0);
     CHECK(power->isReady());
 }
+
+TEST_CASE("PORT-238 ring delivery grants both synthetic necromancer upgrades")
+{
+    World w;
+    const char *data =
+        "Upgrade Upgrade_P238Hero\n Type = OBJECT\n End\n"
+        "Upgrade Upgrade_P238Fortress\n Type = OBJECT\n End\n"
+        "Object P238Necromancer\n"
+        " KindOf = INFANTRY HERO SELECTABLE COMMANDCENTER\n"
+        " Geometry = CYLINDER\n GeometryMajorRadius = 8\n GeometryHeight = 20\n"
+        " Body = ActiveBody Body\n MaxHealth = 100\n End\n"
+        " Behavior = AIUpdateInterface AI\n End\n"
+        " Behavior = CitadelSlaughterHordeContain RingEntry\n"
+        "  PassengerFilter = NONE +P238Ring\n ObjectStatusOfContained = UNSELECTABLE ENCLOSED\n ContainMax = 1\n"
+        "  StatusForRingEntry = HOLDING_THE_RING\n"
+        "  UpgradeForRingEntry = Upgrade_P238Hero Upgrade_P238Fortress\n"
+        "  ObjectToDestroyForRingEntry = NONE +P238Ring\n End\n"
+        " Behavior = ModelConditionUpgrade RingModel\n"
+        "  TriggeredBy = Upgrade_P238Hero Upgrade_P238Fortress\n RequiresAllTriggers = Yes\n"
+        "  AddConditionFlags = ONE_RING\n End\n"
+        "End\n";
+    const std::string error = w.w.load(data, INI_LOAD_OVERWRITE, "port238_necromancer.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    Object *bearer = w.unit("P238Necromancer", 'A', 300, 300);
+    Object *carrier = w.unit("P238Carrier", 'A', 300, 300);
+    Object *ring = w.unit("P238Ring", 'A', 300, 300);
+    const ObjectID ringId = ring->getID();
+    auto *contain = dynamic_cast<CitadelSlaughterHordeContain *>(bearer->getContain());
+    REQUIRE(contain != nullptr);
+    CHECK_FALSE(bearer->hasUpgrade("Upgrade_P238Hero"));
+    CHECK_FALSE(bearer->hasUpgrade("Upgrade_P238Fortress"));
+    CHECK_FALSE(bearer->testModelCondition(CombatNames::modelCondition("ONE_RING")));
+    // RW 0x8840FC iterates the configured upgrade vector after the ring removal;
+    // necromantreborn.ini:743..753 names two OBJECT upgrades and requires both.
+    deliver(*contain, *carrier);
+    CHECK(bearer->hasUpgrade("Upgrade_P238Hero"));
+    CHECK(bearer->hasUpgrade("Upgrade_P238Fortress"));
+    REQUIRE(w.byId(ringId) != nullptr);
+    CHECK(w.byId(ringId)->isDestroyed());
+    w.frames(3);
+    CHECK(bearer->testModelCondition(CombatNames::modelCondition("ONE_RING")));
+
+    // Independent control: one of the two trigger upgrades is insufficient.
+    Object *control = w.unit("P238Necromancer", 'A', 400, 400);
+    control->giveUpgrade("Upgrade_P238Hero");
+    w.frames(3);
+    CHECK_FALSE(control->testModelCondition(CombatNames::modelCondition("ONE_RING")));
+    control->giveUpgrade("Upgrade_P238Fortress");
+    w.frames(3);
+    CHECK(control->testModelCondition(CombatNames::modelCondition("ONE_RING")));
+}
