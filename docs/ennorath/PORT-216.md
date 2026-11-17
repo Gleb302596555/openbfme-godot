@@ -294,8 +294,14 @@ is `6ce3a764`, full-target lane/tests `b27b34dc`, copy-neighbour guards
 ThingTemplate/ThingFactory changed their unrelated ThreatBreakdown handling,
 not the contact-point event/cache path. No duplicate fix was introduced.
 The completed results above remain explicitly the tested `a3a2e87a`-based
-engine, not results for this second rebase. A new full-target build and
-narrow/FULL checks are required; visual acceptance also remains pending.
+engine, not results for this second rebase. A new full-target build and narrow/FULL checks have been started for
+`95bfb8dd8f8446a917e4400c7f4d283c736026e3` (engine identity
+`d0f2bade5d6ddc4795d0133f618804c26b1eade338e092a410d8d8b0aca82a7b`).
+Process `port-216-latest-main-full-tests-467c6ce9` is building with `-j1`
+then runs PORT-216, PORT-436, neighbours and the declared FULL selection.
+Evidence is written under ignored `workspace/port216/rebase-a91/`.
+No post-rebase result is claimed while it runs; visual acceptance also
+remains pending.
 
 Upstream `16474d71` was checked with `git show upstream/main:<file>` for
 Object.h, Object.cpp, Common/Thing/ThingFactory.cpp and ThingTemplate.h.
