@@ -1,8 +1,8 @@
 # PORT-216 — stored projectile contact points on compound geometry
 
 Scope: fork issue 506, dashboard task 192. The stored weapon-contact-point
-correction and eight synthetic tests are implemented; full-runner validation
-is still pending. This is **not** a completed port or a claim that the
+correction and eight synthetic tests are implemented; the full-target
+PORT-216/PORT-436 and neighbour runs, including red/green, have passed. This is **not** a completed port or a claim that the
 owner's near-side visual report is fixed. The owner has already confirmed
 the original-game near-side stop; that question is resolved.
 
@@ -138,8 +138,8 @@ with a later vertical offset 12 keeps the earlier innermost z, approximately
 26.8; moving that offset before the height refresh yields approximately
 34.84. The old port reconstructed both from final height 52. A large
 enough box keeps both probe points inside, so the collision fallback does
-not conceal this difference. These are the added test's RW-based expectations,
-**not yet results of an executed test**.
+not conceal this difference. These RW-based expectations now pass in the full-target run; without the
+engine correction the old recomputed value fails the regression.
 
 This gap is recorded separately, not declared the proven cause of the
 near-side/centre complaint. It needs the shared geometry state and its
@@ -153,39 +153,77 @@ point still fails condition (c), the protected neighbour expectation.
 
 ## Validation and remaining work
 
-- Engine correction: `8b6a2a89`, `ObjectGeometry.cpp/.h`; existing parsed
-  geometry cache extended, existing solver retained. No collision-manager,
-  projectile KindOf, mod data, foreign tests or pins changed.
-- Full-target lane and eight test cases: `e7b4c8a9`, strengthened in `bcb5322c`; `Port216.cmake`,
-  `test_port_216.cpp`, the two PORT-216 list entries in `CMakeLists.txt`.
-  GCC syntax checks passed for both implementation and tests; the mandatory
-  pre-commit hook passed. A syntax check is not a doctest result.
-- Required pre-PR rebase completed on fetched fork main `a3a2e87a`.
-  All nine task commits rebased cleanly; the branch was force-pushed with
-  lease. The current main has no duplicate ObjectGeometry implementation
-  fix, and its additional header comments are preserved.
-- The pre-rebase build was explicitly stopped at 792/1082, before any
-  doctest execution. The build directory and object files were retained.
-  The full Release/Godot-OFF target has now been reconfigured on the rebased
-  tree, still with `cmake --build engine/build -j1 --target openbfme_tests`.
-  Ninja scheduled 1347 remaining/revalidated build steps against that base;
-  this is not a claim that the earlier incomplete build passed.
-- Current build process: `port-216-rebased-full-tests-35f70820`, configured
-  at `d10aa041`. Baseline results will be in ignored
-  `workspace/port216/baseline/port216.log` and `port436.log`, with the source
-  revision in `commit.txt`. No doctest result exists yet.
-- The queued commands run the required `-tc="PORT-216*"` then `-tc="PORT-436*"`
-  on **engine/build/openbfme_tests**, not a standalone test executable.
-  The full-target red/green experiment (temporarily undo only the engine
-  correction, retain the tests, rebuild, restore and rebuild) remains to do.
-- Current validation is of shared RotWK behavior. The engine applies it to
-  all editions under its existing edition policy; separate BFME2/RotWK
-  installed-data and visual acceptance have not been performed here.
-- No fork or upstream PR yet. Rebase and the upstream dependency audit are
-  complete; full-runner results, affected-neighbour validation, red/green,
-  and the visible-result check remain. No pins will be remeasured here.
-  Upstream was re-fetched and remains `942fd79e`, still missing the height
-  API and two contact-row aliases described below.
+Engine correction: `8b6a2a89`; full-target lane/tests: `e7b4c8a9`, strengthened
+in `bcb5322c`. Required pre-PR rebase completed on fork main `a3a2e87a`.
+The tested green build's provenance is `fe893aae29edbcc32da8571d9a0e2fa7d02fa6be`,
+engine identity `8e92f8114fb47ac195dc6969b54c5b2a0fe06f782d5f96131533fb2befe9ab90`.
+Later documentation-only commits do not change the tested engine sources.
+
+The required command uses the full target, **not a standalone runner**:
+
+```sh
+cmake -S engine -B engine/build -G Ninja -DCMAKE_BUILD_TYPE=Release -DOPENBFME_BUILD_GODOT=OFF
+cmake --build engine/build -j1 --target openbfme_tests
+engine/build/openbfme_tests -tc="PORT-216*"
+```
+
+Actual restored/fixed result, exit 0:
+
+```text
+[doctest] test cases:   8 |   8 passed | 0 failed | 6774 skipped
+[doctest] assertions: 318 | 318 passed | 0 failed |
+[doctest] Status: SUCCESS!
+```
+
+Red experiment: temporarily reverse only the entire behavioral correction
+in ObjectGeometry.cpp, keep the new tests and CMake lane, rebuild the same
+full target and run the same filter. The header delta is comments only;
+it was left untouched. Actual result, exit 1:
+
+```text
+[doctest] test cases:   8 |   1 passed |  7 failed | 6774 skipped
+[doctest] assertions: 285 | 264 passed | 21 failed |
+[doctest] Status: FAILURE!
+```
+
+Representative real red assertions: INI-order case `34.84 == Approx(26.8)`;
+compound projectile's launch, FX and homing `67 == Approx(37.52)`;
+copied geometry kept the recipient's wrong contact rows. The engine file
+was restored and the full target rebuilt before running green. A clean
+`git diff` and the validator's result manifest confirm restoration.
+
+PORT-436, exit 0:
+
+```text
+[doctest] test cases:  6 |  6 passed | 0 failed | 6776 skipped
+[doctest] assertions: 98 | 98 passed | 0 failed |
+[doctest] Status: SUCCESS!
+```
+
+Neighbours (`PORT-164*,PORT-34*,LOCAL-41*,path2 geometry*`), exit 0:
+
+```text
+[doctest] test cases:  23 |  23 passed | 0 failed | 6759 skipped
+[doctest] assertions: 464 | 464 passed | 0 failed |
+[doctest] Status: SUCCESS!
+```
+
+The skipped counts above are cases outside the requested filters; all
+eight synthetic PORT-216 cases ran. Installed game data is not required by
+them. No foreign test, hash pin, workflow or mod data was edited.
+
+The selected FULL suite has also been started through `tools/test_select.py`
+on this rebased tree; its outcome is tracked separately and is **not**
+implied by these narrow passes. The configuration reports missing lame/
+mpg123 fixtures for five MP3 cases. No fixture expectations or pins are
+changed to hide environment failures. Log: ignored
+`workspace/port216/full-suite.log`.
+
+Remaining: analyse that FULL run and perform the changed game's visual
+acceptance. The engine currently applies this shared RotWK path to all
+editions; separate BFME2/RotWK installed-data and MSVC runs are not claimed.
+Upstream remains ineligible at fetched `942fd79e`: the height API and two
+contact-row aliases needed by the complete regression bundle are absent.
 
 ## Continuation after the owner's original-game check
 
@@ -237,7 +275,7 @@ The near-side visual result remains an owner acceptance check; the code and
 synthetic tests must establish the exact RW point first, not assert that an
 internal aim point is a new nearest-surface algorithm.
 
-## Added regression coverage (execution pending)
+## Added regression coverage (full-target run passed)
 
 | Behavior | RW instructions | PORT-216 test coverage |
 |---|---|---|
@@ -304,66 +342,31 @@ and mode-1 high-row neighbour before and after load. The latter deliberately
 uses a row above the initializer's point; it does not mask or change S-7387's
 independent no-row mismatch or the protected PORT-164 test.
 
-Actual `tools/test_select.py --base 467bc033` first line (no execution yet):
+Actual `tools/test_select.py --base a3a2e87a` first line (FULL run started):
 
 ```text
 8 changed files, no test map, the #include rule; FULL suite: engine/CMakeLists.txt: no test can be traced from this file
 ```
 
 This is not waived or shortened to a filter. The mandatory narrow filters
-and full-binary red/green come first; the selected full suite is still a
-pre-landing/nightly requirement. The full-build configuration warns that
+and full-binary red/green have passed; the selected full suite was then
+started as a separate pre-landing check. The full-build configuration warns that
 five MP3 tests lack the lame/mpg123 fixtures in this sandbox; no fixture or
 pin expectation has been changed to hide that limitation.
 
-## Queued full-target validation
+## Red/green safeguards
 
-`port-216-red-green-validation-75aaa47e` is waiting for the existing full
-build process to exit, using a process-descriptor event wait. It is **not**
-a second concurrent Ninja build. The workspace-only validation script:
+The workspace-only validator waited for the successful full baseline,
+refused concurrent Ninja builds and uncommitted source changes, backed up
+the engine files, and reversed only the implementation delta. On error or
+signal it restores the modified source. It restored before interpreting
+the red result, rebuilt the full target, and checked the nonempty green and
+neighbour summaries. Its completed manifest records the actual exits
+(red 1; green/PORT-436/neighbours 0) and `sources_restored: true`.
+The comment-only header was compared but not rewritten, avoiding an
+unnecessary rebuild of unrelated translation units without weakening proof.
 
-1. Requires real, nonzero selected test counts and passing initial
-   PORT-216/PORT-436 summaries. On an initial failure it stops for inspection.
-2. Refuses a concurrent Ninja, requires this arena branch and a clean tree,
-   and checks the reverse application of the implementation in engine commit
-   `8b6a2a89` (`ObjectGeometry.cpp` only).
-3. Backs up both engine files, retains the test/CMake lane, rebuilds the
-   **full openbfme_tests target with -j1**, and records the PORT-216 red run.
-4. Restores the engine sources before interpreting that result (also on
-   errors/signals), rebuilds the full target, and records PORT-216,
-   PORT-436 and PORT-164/PORT-34/LOCAL-41/path2-geometry neighbour runs.
-5. Requires a real failed assertion in red, no crash, and passing nonempty
-   green summaries. Logs and a result manifest remain under ignored
-   `workspace/port216/red-green/` for review; no standalone runner or
-   fabricated doctest transcript is involved.
-
-Only the waiting process has started. None of its red/green or neighbour
-results is claimed yet. The rebase has now been completed; validation on
-that rebased tree and the selected FULL suite are not replaced by syntax
-checks or by the incomplete pre-rebase build.
-
-The precise fresh-spawn Cheat Mode sequence is below; it is not a claim of
-completed visual acceptance.
-The original no-passenger side-on observation is already confirmed by the
-owner, but a freshly spawned HaradMumakil is not automatically empty: it
-inherits its parent's initial passenger payload. The reproduction must not
-silently equate a fresh spawn with that empty baseline or modify mod data.
-`docs/CHEAT_MODE.md` and the actual mod command set are the setup references.
-
-### Validation queue refinement
-
-The first waiting validator was stopped before any red patch or build.
-The replacement above reverses only `ObjectGeometry.cpp`: the entire header
-diff in `8b6a2a89` was read and checked to contain **comments only**, with
-identical declarations after stripping line comments. Reversing/touching
-that header would unnecessarily invalidate hundreds of translation units.
-The behavioral correction is still removed in full, the tests are retained,
-and both red and green still build the complete `openbfme_tests` target.
-The fixed header is backed up and compared, but never rewritten by this
-experiment. This is incremental rebuilding, not an auxiliary runner or a
-weakened red test. The main build was not restarted.
-
-### Additional inspected RW caller
+## Additional inspected RW caller
 
 DONOR BFME2 RVA 0x0023D3AF (`ObjectRva0023D3AF.cpp`) describes transform
 history. Its actual RW caller at 0x85EF50 and callee 0x6260E1..0x626196
