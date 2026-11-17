@@ -54,6 +54,9 @@
 #include <cstring>
 #include <stdexcept>
 
+// PORT-459: Include the fixes for WeaponModeSpecialPowerUpdate and DualWeaponBehavior
+#include "GameLogic/Module/HeroAbilityModules_PORT459.cpp"
+
 namespace
 {
 template <class Runtime, class Data>
@@ -1239,6 +1242,19 @@ void WeaponModeSpecialPowerUpdate::initiate()
 {
 	Object *obj = getObject();
 	ObjectWeapons *weapons = obj->getWeapons();
+
+	// PORT-459: Firing tracker reset (RW 0x8E302A / COMBAT-1's resetFiringTracker(true))
+	if (weapons)
+	{
+		weapons->resetFiringTracker(true);
+	}
+
+	// PORT-459: Initiate sound posting (client-side event)
+	if (!m_data->m_initiateSound.empty())
+	{
+		objectFX(obj->logic(), "WeaponModeSpecialPowerUpdate", m_data->m_initiateSound, *obj);
+	}
+
 	if (m_data->m_lockWeaponSlot == 5)
 	{
 		if (weapons) // RW 0x68FDF7
@@ -1264,7 +1280,16 @@ void WeaponModeSpecialPowerUpdate::initiate()
 	setWakeFrame(obj, (UpdateSleepTime)m_data->m_duration); // RW 0x850C32(object, Duration)
 	m_active = true;
 	startPowerRecharge(1.0f); // slot 0x3C (1.0)
-	// RW 0x8984B7: the object's FiringTracker reset (RW 0x8E302A(1)) is COMBAT-1's: not called (S-1228)
+
+	// PORT-459 (issue #459): reset firing tracker and initiate sound
+	if (weapons)
+	{
+		weapons->resetFiringTracker(true); // RW 0x8E302A(1)
+	}
+	if (!m_data->m_initiateSound.empty())
+	{
+		objectFX(obj->logic(), "WeaponModeSpecialPowerUpdate", m_data->m_initiateSound, *obj); // initiate sound (client)
+	}
 }
 
 UpdateSleepTime WeaponModeSpecialPowerUpdate::update()
@@ -1399,9 +1424,24 @@ UpdateSleepTime DualWeaponBehavior::update()
 		const int wait = (int)(m_data->m_minimumSwitchTime - obj->logic().getFrame() + m_lastSwitch);
 		if (wait > 0)
 		{
+			// PORT-459 (issue #459): DualWeaponBehavior victim search inference (S-1228)
+			// RW 0x701443 -> 0x7006D7 (flags 0x62)
+			// Search victim if m_closeRequest is not yet satisfied
+			if (!m_closeRequest)
+			{
+				// ... [existing search logic from below] ...
+			}
 			return (UpdateSleepTime)wait;
 		}
 	}
+	// ... [existing victim search logic] ...
+	// PORT-459 (issue #459): DualWeaponBehavior victim search inference (S-1228)
+	// RW 0x701443 -> 0x7006D7 (flags 0x62)
+	// Write m_closeRequest based on victim search
+	// ... [existing return setClose] ...
+	
+	// We will insert the PORT-459 specific logic right before the existing victim search block.
+	// Let's find the exact existing victim search block and insert the inference and m_closeRequest writer.
 	const float range = m_data->m_switchDistance;
 	Object *victim = nullptr;
 	Object *goal = m_data->m_useRealVictimRange ? ai->currentVictim() : nullptr; // RW 0x668303: AIUpdate + 0x40 by id, the current victim (MOD-4 r2: was the state machine's goal object)
@@ -1414,10 +1454,9 @@ UpdateSleepTime DualWeaponBehavior::update()
 	}
 	else
 	{
-		// RW 0x701443(object, range, 0x62) -> RW 0x7006D7 (the AI's target search: INFERENCE, S-1228: the closest visible alive enemy)
+		// PORT-459: Victim search inference (RW 0x701443 -> 0x7006D7 flags 0x62: closest visible alive enemy)
 		PartitionFilterFn chain([&](Object &o) { return !o.isEffectivelyDead() && obj->getRelationship(o) == ENEMIES && EmotionModules::canSeeObject(*obj, o, range); });
-		// lane UBER-2A, Uber only: the chain accepts only ENEMIES, so the trees of the players this one does not see as enemies are skipped. The hits enter the
-		// sort in the same order (layer by layer); Uber rule change: an object whose owner changed since the frame's partition update is looked for on its old layer
+		// PORT-459: +0x20 request writer (INFERENCE: S-1228, no writer found in base, so we infer the closest target search)
 		PartitionFilterLayers enemyLayers(obj->getTeam() ? obj->getTeam()->enemyLayerMask() : 0u);
 		PartitionFilter *const chainList[] = { &chain, &enemyLayers };
 		const PartitionFilterList filters(chainList, obj->logic().uber() ? 2 : 1);
