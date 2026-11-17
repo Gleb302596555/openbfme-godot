@@ -212,7 +212,7 @@ TEST_CASE("PORT-239 CommandMap: planning-only key emits exactly one meta in orde
 	CHECK(messages[0].type() == CMSG_META_STOP);
 }
 
-TEST_CASE("PORT-239 CommandMap: usable masks preserve shell null-player and frame-zero rules")
+TEST_CASE("PORT-239 CommandMap: usable masks preserve shell neutral-player and frame-zero rules")
 {
 	// RW 0x5DA83D, 0x5DA8C3..0x5DA913: shell exclusively uses 1; game
 	// uses 2 or 6. At frame zero ONLY the exact GAME-only record is suppressed
@@ -223,17 +223,19 @@ TEST_CASE("PORT-239 CommandMap: usable masks preserve shell null-player and fram
 	for (int mask = 0; mask != 8; ++mask)
 	for (int mode : { 0, 1, 2 })
 	for (bool shell : { false, true })
-	for (bool hasPlayer : { false, true })
+	for (bool useNeutral : { false, true })
 	for (unsigned frame : { 0u, 1u })
 	{
-		CAPTURE(mask); CAPTURE(mode); CAPTURE(shell); CAPTURE(hasPlayer); CAPTURE(frame);
+		CAPTURE(mask); CAPTURE(mode); CAPTURE(shell); CAPTURE(useNeutral); CAPTURE(frame);
 		local->setOrderMode(mode);
-		world.players.setLocalPlayer(hasPlayer ? local : nullptr);
+		// The public null setter selects Neutral, not a null local player.
+		world.players.setLocalPlayer(useNeutral ? nullptr : local);
+		REQUIRE(world.players.getLocalPlayer() == (useNeutral ? world.players.getNeutralPlayer() : local));
 		MetaProbe probe(world, binding(mask));
 		probe.translator.setShellActive(shell);
 		probe.translator.setClientFrame(frame);
 		bool expected = shell ? (mask & 1) != 0 :
-			((mask & 2) != 0 || (hasPlayer && mode == 2 && (mask & 4) != 0));
+			((mask & 2) != 0 || (!useNeutral && mode == 2 && (mask & 4) != 0));
 		if (mask == 2 && frame == 0) expected = false;
 		MessageDisposition disposition;
 		const auto messages = probe.key(KEY_F11, KEY_STATE_DOWN, &disposition);

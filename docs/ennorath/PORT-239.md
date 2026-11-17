@@ -196,3 +196,13 @@ and frame-zero combinations, null player, modifier DOWN/UP and autorepeat.
 Expectations come from the two retail predicates above, with a separately
 asserted planning-only message so the regression cannot simply mirror the
 implementation. Must demonstrate failure without the fix on the full binary.
+
+### Planning-mask implementation checkpoint
+
+Code `8ec77680`, tests `b3c618d7`: the shared filter is implemented with no
+new state (`Player.cpp` already hashes `m_orderMode` and transfers it in xfer).
+Six PORT-239 test cases are now registered, not three. Syntax validation only;
+full executable and red/green comparison remain outstanding. Correction to the
+initial matrix plan: `PlayerList::setLocalPlayer(nullptr)` selects Neutral, so
+the matrix explicitly tests Neutral fallback (and asserts the actual pointer),
+not a nonexistent null-player fixture. No private-state test backdoor is added.

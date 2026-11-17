@@ -340,8 +340,8 @@ std::vector<std::string> HudInput::acceptanceStops()
 		"manager registers the command bar only (no message-type actions, spell book, radial menu or garrison hotkeys; its sounds are counted, not played); the "
 		"SelectionTranslator's clicks and drag box were not compared with RW 0x83C29E; a drag selection does not emit MSG_AREA_SELECTION",
 		"[S-281] CommandMap (narrowed, lane INPUT-1): RotWK's field table RW 0xBF0E70 and modifier values are ported; open: the files the subsystem entry "
-		"\"CommandMap.ini\" (RW 0x63C4F6) resolves to (here Data\\INI\\CommandMap.ini, then the language's CommandMap.ini) and the MetaEventTranslator's PLANNING "
-		"bit (RW 0x5DA83D); the German Y / Z swap follows the keyboard layout (RW 0x63F024)",
+		"\"CommandMap.ini\" (RW 0x63C4F6) resolves to (here Data\\INI\\CommandMap.ini, then the language's CommandMap.ini) ; the MetaEventTranslator's PLANNING bit is ported "
+		"(RW 0x5DA83D, player order mode 2 selects mask 6); the German Y / Z swap follows the keyboard layout (RW 0x63F024)",
 		"[S-282] tactical view: without HudInput::attachCamera the view is a PinholeView the device fills in (a stand-in with no limits); the retail camera, its translator and "
 		"its stops are lane CAM-1's (TacticalCamera::acceptanceStops(), S-450 .. S-459)",
 		"[S-283] InGameUI: only the state the translators and the control bar read is ported; radius decals, subtitles, superweapon timers, popups and the "
