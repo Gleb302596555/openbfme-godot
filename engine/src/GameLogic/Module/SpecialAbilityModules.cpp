@@ -2055,7 +2055,7 @@ void SpecialAbilityUpdate::finishAbility(bool ownerDying, bool aborted)
 	endPreparation();
 	if (SpecialPowerModule *spm = mySpecialPowerModule())
 	{
-		(void)spm; // RW 0x853148: the power module's vslot 0x4C (the "update finished" notice, RW 0x896F8E: S-859)
+		spm->onUpdateFinished(); // PORT-251: RW 0x853148 -> interface vslot 0x4C (RW 0x896751): clears m_updateDisabled (+0x28)
 	}
 	const SpecialPowerTemplate *t = m_data->m_specialPowerTemplate;
 	const int type = t ? t->m_type : 0;

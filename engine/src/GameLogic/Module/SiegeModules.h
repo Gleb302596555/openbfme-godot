@@ -183,6 +183,7 @@ public:
 	const SpecialPowerTemplate *getSpecialPowerTemplate() const override { return m_baseData->m_specialPowerTemplate; }
 	bool isReady() const override { return readyImpl(true); }                 // RW 0x99135D
 	float getPercentReady() const override { return percentImpl(true); }      // RW 0x9913BC
+	bool isPaused() const override { return m_pauseCount > 0; }               // slot 0x0C (RW 0x89825A)
 	unsigned getReadyFrame() const override;                                  // RW 0x991473
 	void onScienceAcquired() override {}                                      // RW 0x63F3BF
 	void setReadyFrame(unsigned frame) override { m_readyFrame = frame; }     // RW 0x993440

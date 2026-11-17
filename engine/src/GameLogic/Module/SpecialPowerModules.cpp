@@ -17,6 +17,7 @@
 #include "GameLogic/Module/SpellEffectModules.h"
 
 #include "Common/SpecialPower.h"
+#include "GameClient/ControlBarCommands.h"
 #include "Common/Thing/ModuleFactory.h"
 #include "Common/Thing/ThingFactory.h"
 #include "GameLogic/BitFlags.h"
@@ -427,7 +428,7 @@ bool SpecialPowerModule::readyImpl(bool insert) const
 // lane HERO-2: RW 0x896F99
 void SpecialPowerModule::refreshTimer()
 {
-	if (m_pauseCount > 0 || m_updateDisabled || getObject()->testStatus(kStatusSpecialAbility))
+	if (isPaused() || m_updateDisabled || getObject()->testStatus(kStatusSpecialAbility)) // RW 0x896FB3 -> slot 0x0C (RW 0x6519A6)
 	{
 		return;
 	}
@@ -444,7 +445,7 @@ void SpecialPowerModule::copyTimerFrom(const SpecialPowerModule &src)
 {
 	const SpecialPowerTemplate *a = src.getSpecialPowerTemplate();
 	const SpecialPowerTemplate *b = getSpecialPowerTemplate();
-	if (!a || !b || a->getID() != b->getID() || a->isSharedNSync() || src.m_updateDisabled || src.m_pauseCount > 0)
+	if (!a || !b || a->getID() != b->getID() || a->isSharedNSync() || src.m_updateDisabled || src.isPaused()) // RW 0x8973C3 -> slot 0x0C (RW 0x6519A6)
 	{
 		return;
 	}
@@ -613,6 +614,25 @@ bool SpecialPowerModule::requirementsMet() const
 		return true;
 	}
 	return !p || p->hasObjectMatching(*f, true);
+}
+
+// PORT-251: RW 0x896A32 (interface slot 22, +0x58; BFME2 donor Rva0049329ESync.cpp 0x0049329E):
+// edge-toggles m_pausedByRequirements (+0x30) and pauseCountdown (slot 9, +0x24) when requirementsMet() (RW 0x8969E5) flips
+void SpecialPowerModule::updateRequirementsPause()
+{
+	if (!requirementsMet())
+	{
+		if (!m_pausedByRequirements)
+		{
+			m_pausedByRequirements = true;
+			pauseCountdown(true); // RW 0x896A50 -> vslot +0x24
+		}
+	}
+	else if (m_pausedByRequirements)
+	{
+		m_pausedByRequirements = false;
+		pauseCountdown(false); // RW 0x896A62 -> vslot +0x24
+	}
 }
 
 // RW 0x897E87 / 0x897987 (the ported part)
@@ -1035,6 +1055,10 @@ bool SpecialPowerModule::initiate(Object *target, const Coord3D *loc, unsigned o
 		return false;
 	}
 	++m_initiates;
+	if (target)
+	{
+		m_targetObjectID = target->getID(); // PORT-251: RW 0x897E94 .. 0x897EA3: module + 0x2C (slot 0x50 RW 0x7B0F25)
+	}
 	// lane LUMBER1: the enum switch's SPECIAL_HARVEST case (RW 0x897EC6 .. 0x897F07, enum 0x8D: the workers' Harvest button): the object's AI (+ 0x260) and its
 	// player's ResourceGatheringManager (+ 0x304) find a tree (RW 0x8FA834); found: aiHarvest(position, CMD_FROM_AI) (RW 0x771655) and the AI byte + 0x3CC
 	// cleared (not part of the port: S-583).
@@ -1072,6 +1096,13 @@ bool SpecialPowerModule::initiate(Object *target, const Coord3D *loc, unsigned o
 	{
 		u->initiateIntentToDoSpecialPower(getSpecialPowerTemplate(), target, loc, options, 0);
 		driven = true;
+		// PORT-251: RW 0x897FD9 .. 0x897FEB (BFME2 donor SpecialPowerModuleRva0049466D.cpp):
+		// when the driving update is active (slot 2, +0x08; SAU RW 0x9D4099) and options carries 0x40000, mark +0x28 update-disabled
+		// (cleared by startPowerRecharge RW 0x896E31 or interface slots 0x44 / 0x4C RW 0x896751).
+		if (u->isActive() && (options & kOptionUngated) != 0)
+		{
+			m_updateDisabled = true;
+		}
 	}
 	// lane BACKLOG4 (S-529): RW 0x897F84 .. 0x897F97 (BFME2 decomp SpecialPowerModuleRva0049466D.cpp initiateIntentToDoSpecialPower, tier B same-shape:
 	// only struct offsets differ): IdleWhenStartingPower (data + 0x5D) idles the object's AI from the AI source (RW 0x5E821A(2)), driven or not
@@ -1083,9 +1114,7 @@ bool SpecialPowerModule::initiate(Object *target, const Coord3D *loc, unsigned o
 		}
 	}
 	// RW 0x897F9C / 0x897FEF .. 0x898009: only when an update module drives the power: InitiateFX (data + 0x44) on the object with the target as the second object.
-	// Still open (S-529): the enum switch before the update call (RW 0x897EAB: types 0x33 / 0x88 end each other's module RW 0x8A007F; lane LUMBER1 ported
-	// type 0x8D, the harvester sent back, above), the target id kept at + 0x2C, the + 0x28 flag (options bit 0x40000 with the update's slot 2), and the radar window
-	// override (RW 0x897FB2 .. 0x897FD4)
+	// Still open (S-529): the radar window override (RW 0x897FB2 .. 0x897FD4, client)
 	if (driven)
 	{
 		// RW 0x897FFA .. 0x898001: doFXObj(InitiateFX, the caster, the target object): the target is the FX's second object (its rays, filters, particles)
@@ -1151,6 +1180,8 @@ void SpecialPowerModule::crc(StateHasher &h) const
 	h.addU32(m_pauseFrame);
 	h.addFloat(m_pausedPercent);
 	h.addBool(m_updateDisabled);
+	h.addU32(m_targetObjectID);       // PORT-251: + 0x2C (RW 0x897EA3)
+	h.addBool(m_pausedByRequirements); // PORT-251: + 0x30 (RW 0x896A32)
 	h.addU32(m_triggers);
 	h.addU32(m_applied); // lane HERO-1
 }
@@ -1744,6 +1775,40 @@ Object *SpecialPowerModules::getSpellBookObject(GameLogic &logic, Player &player
 	return player.science().spellBookId() ? logic.findObjectByID(player.science().spellBookId()) : nullptr;
 }
 
+// PORT-251: RW 0x6ADD22 (called from Player::update RW 0x6AF39A before ScoreKeeper::recordPerFrameStats RW 0x6AF3AD):
+// walks the player's spellbook CommandSet buttons (0..slotCapacity-1) and calls interface slot 0x58 (RW 0x896A32) on each button's special power module.
+void SpecialPowerModules::updateSpellBookRequirements(GameLogic &logic, Player &player)
+{
+	Object *book = getSpellBookObject(logic, player); // RW 0x6AD0F8
+	if (!book || !TheCommandStore || !TheSpecialPowerStore) // RW 0x6ADD2E: TheControlBar != null
+	{
+		return;
+	}
+	const CommandSet *cs = TheCommandStore->findCommandSet(book->getCommandSetName()); // RW 0x69156B -> RW 0x71EFA2
+	if (!cs)
+	{
+		return;
+	}
+	const int slots = CommandSet::slotCapacity(); // RW 0x6ADD77: 33 (0x21); 64 under Edain Unchained
+	for (int i = 0; i < slots; ++i)
+	{
+		const CommandButton *b = cs->getCommandButton(i); // RW 0x80C837
+		if (!b || b->m_specialPowerName.empty())
+		{
+			continue;
+		}
+		const SpecialPowerTemplate *t = TheSpecialPowerStore->findSpecialPowerTemplate(b->m_specialPowerName); // button + 0x44
+		if (!t)
+		{
+			continue;
+		}
+		if (SpecialPowerModuleInterface *sp = findModule(*book, t)) // RW 0x68C26D
+		{
+			sp->updateRequirementsPause(); // RW 0x6ADD73 -> vslot +0x58 (RW 0x896A32)
+		}
+	}
+}
+
 void SpecialPowerModules::installScienceHooks(GameLogic &logic)
 {
 	PlayerList &players = logic.players();
@@ -1971,10 +2036,12 @@ void ManTheWallsSpecialPower::xfer(Xfer &x)
 }
 
 // ---- lane SAVE-4b: the snapshots (OpenBFME native, S-4190) ------------------------------------------------------------------------------------------------
-// Retail's SpecialPowerModule::xfer is not one of the inventory's named rows; the port's fields (RW + 0x14 .. + 0x28) and its counters, in declaration order.
+// PORT-251: RW 0x89679D (retail versions 1..3: BehaviorModule::xfer, +0x14 rechargeLength [v>=2], +0x18 readyFrame, +0x1C pauseCount,
+// +0x20 pauseFrame, +0x24 pausedPercent, +0x28 updateDisabled, +0x2C targetObjectID [xferObjectID RW 0x896813], +0x30 pausedByRequirements [v>=3, RW 0x896820]),
+// plus OpenBFME's native counters. Version bumped 1 -> 2 for +0x2C and +0x30.
 void SpecialPowerModule::xfer(Xfer &x)
 {
-	SnapshotXfer::version(x, 1, 1);
+	SnapshotXfer::version(x, 2, 2);
 	xferBehaviorModule(x);
 	x.xferUnsignedInt(&m_rechargeLength);
 	x.xferUnsignedInt(&m_readyFrame);
@@ -1982,6 +2049,8 @@ void SpecialPowerModule::xfer(Xfer &x)
 	x.xferUnsignedInt(&m_pauseFrame);
 	x.xferReal(&m_pausedPercent);
 	x.xferBool(&m_updateDisabled);
+	x.xferObjectID(&m_targetObjectID);
+	x.xferBool(&m_pausedByRequirements);
 	x.xferUnsignedInt(&m_triggers);
 	x.xferUnsignedInt(&m_applied);
 	SnapshotXfer::u64(x, m_unported);

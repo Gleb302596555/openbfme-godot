@@ -526,15 +526,15 @@ ButtonState ControlBar::evaluate(const CommandButton &b, Object &obj, bool &comm
 			{
 				return ButtonState::Enabled; // RW 0x9434F7..0x943564: missing module (including the CommandTrigger scan) falls through to availability 1
 			}
-			const SpecialPowerModule *m = dynamic_cast<const SpecialPowerModule *>(sp);
 			if (!sp->requirementsMet())
 			{
 				return ButtonState::Restricted;
 			}
 			if (!sp->isReadyForDisplay())
 			{
-				// RW 0x943585..0x9435D2: paused only disables when progress is nonpositive; positive paused progress still draws a recharge clock.
-				if (!(sp->getPercentReadyForDisplay() > 0.0f) && m && m->pauseCount() > 0)
+				// PORT-251: RW 0x943585..0x9435D2 -> slot 0x0C (RW 0x6519A6 on SpecialPowerModule, RW 0x89825A on SpecialPowerUpdateModule):
+				// paused only disables when progress is nonpositive; positive paused progress still draws a recharge clock.
+				if (!(sp->getPercentReadyForDisplay() > 0.0f) && sp->isPaused())
 				{
 					return ButtonState::Restricted;
 				}

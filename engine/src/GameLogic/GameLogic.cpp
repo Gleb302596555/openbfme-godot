@@ -13,6 +13,7 @@
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/NotifyCrushModules.h"
 #include "GameLogic/Module/UpgradeModuleClasses.h"
+#include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/Combat/CombatState.h"
 #include "GameLogic/Combat/CombatNames.h" // lane PORT-21: the NOT_IN_WORLD status index
 #include "GameLogic/SimMath.h"
@@ -753,6 +754,9 @@ void GameLogic::update(int phase)
 			{
 				m_scriptEngine->updateGenericScripts(*p);
 			}
+			// PORT-251: RW 0x6AF39A -> RW 0x6ADD22 (Player::update, right before ScoreKeeper::recordPerFrameStats RW 0x6AF3AD):
+			// syncs each spellbook power's requirements pause (interface slot 0x58, RW 0x896A32)
+			SpecialPowerModules::updateSpellBookRequirements(*this, *p);
 			p->getScoreKeeper().recordPerFrameStats(*this, *p, m_frame);
 		}
 		// lane SDK-2: the OpenBFME end-of-frame listeners (mod scripts); a copy, as a listener may remove itself

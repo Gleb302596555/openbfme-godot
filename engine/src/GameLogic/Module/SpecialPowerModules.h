@@ -116,6 +116,7 @@ public:
 	virtual const SpecialPowerTemplate *getSpecialPowerTemplate() const = 0; // slot 0x18 (RW 0x8969CA)
 	virtual bool isReady() const = 0;                                       // slot 0x04 (RW 0x896C72)
 	virtual float getPercentReady() const = 0;                              // slot 0x08 (RW 0x896CF2)
+	virtual bool isPaused() const = 0;                                      // slot 0x0C (RW 0x6519A6; RW 0x89825A on SpecialPowerUpdateModule)
 	virtual unsigned getReadyFrame() const = 0;                             // slot 0x10 (RW 0x89724B)
 	virtual void onScienceAcquired() = 0;                                   // slot 0x1C (RW 0x896B56)
 	virtual void setReadyFrame(unsigned frame) = 0;                         // slot 0x20 (RW 0x99344A)
@@ -133,11 +134,16 @@ public:
 		static const std::string empty;
 		return empty;
 	}
+	virtual void stopSpecialPower() {}                                                  // slot 0x44 (RW 0x896751; RW 0x8CA2D0 on SiegeDeploySpecialPower)
+	virtual void onUpdateFinished() {}                                                  // slot 0x4C (RW 0x896751; SpecialAbilityUpdate::finishAbility RW 0x85314C)
+	virtual ObjectID getTargetObjectID() const { return INVALID_ID; }                   // slot 0x50 (RW 0x7B0F25: module + 0x2C)
+	virtual void updateRequirementsPause() {}                                           // slot 0x58 (RW 0x896A32: Player::update RW 0x6AF39A -> 0x6ADD22)
 };
 
 // SpecialPowerModule (RW module vtable 0xC65058, interface 0xC64FF0; constructor RW 0x8973EE). Module fields: + 0x14 the recharge length,
 // + 0x18 the ready frame, + 0x1C the pause count, + 0x20 the pause frame, + 0x24 the paused percent, + 0x28 a "disabled by the update module"
-// flag, + 0x2C the last target's team. The class itself is the runtime of the 'SpecialPowerModule' INI class (the attribute modifier powers: Rallying Call,
+// flag, + 0x2C the last target object's id (RW 0x897EA3, xferObjectID RW 0x896813), + 0x30 paused-by-requirements flag (RW 0x896A32, xferBool RW 0x896820).
+// The class itself is the runtime of the 'SpecialPowerModule' INI class (the attribute modifier powers: Rallying Call,
 // War Chant, Blight, ... through the trigger, lane SPELL-2).
 class SpecialPowerModule : public BehaviorModule, public SpecialPowerModuleInterface
 {
@@ -150,6 +156,7 @@ public:
 	const SpecialPowerTemplate *getSpecialPowerTemplate() const override { return m_spData->m_specialPowerTemplate; }
 	bool isReady() const override;
 	float getPercentReady() const override;
+	bool isPaused() const override { return m_pauseCount > 0; } // slot 0x0C (RW 0x6519A6)
 	unsigned getReadyFrame() const override;
 	void onScienceAcquired() override;
 	void setReadyFrame(unsigned frame) override { m_readyFrame = frame; }
@@ -174,6 +181,12 @@ public:
 		static const std::string empty;
 		return m_spData ? m_spData->m_initiateSound : empty;
 	}
+	void stopSpecialPower() override { m_updateDisabled = false; }            // slot 0x44 (RW 0x896751)
+	void onUpdateFinished() override { m_updateDisabled = false; }            // slot 0x4C (RW 0x896751)
+	ObjectID getTargetObjectID() const override { return m_targetObjectID; }  // slot 0x50 (RW 0x7B0F25)
+	void updateRequirementsPause() override;                                  // slot 0x58 (RW 0x896A32)
+	bool isUpdateDisabled() const { return m_updateDisabled; }
+	bool isPausedByRequirements() const { return m_pausedByRequirements; }
 
 	// lane HERO-1: the module's vslot 0x38 (RW 0x897D25 -> 0x897987(null)): the trigger a SpecialAbilityUpdate runs when its preparation starts (the
 	// recharge, the light points and the trigger effects at the object; the subclass effect is not part of it)
@@ -234,6 +247,8 @@ private:
 	unsigned m_pauseFrame = 0;       // + 0x20
 	float m_pausedPercent = 0.0f;    // + 0x24
 	bool m_updateDisabled = false;   // + 0x28
+	ObjectID m_targetObjectID = INVALID_ID; // + 0x2C (RW 0x897EA3, slot 0x50 RW 0x7B0F25)
+	bool m_pausedByRequirements = false;    // + 0x30 (RW 0x896A32)
 	unsigned m_triggers = 0;         // casts (a test counter, hashed)
 	unsigned m_applied = 0;          // lane HERO-1: RW 0x89763B calls (a test counter, hashed)
 };
@@ -392,4 +407,7 @@ Object *findSpellBookObject(const GameLogic &logic, const Player &player);
 // installs every player's science-added hook (RW 0x6AE1C9 .. 0x6AE2E6: the special power modules of the player's objects whose template's
 // RequiredSciences holds the science: onScienceAcquired, then setReadyFrame(now) while GameLogic + 0x114 == 3 (S-525))
 void installScienceHooks(GameLogic &logic);
+// PORT-251: RW 0x6ADD22 (called by Player::update RW 0x6AF39A right before ScoreKeeper::recordPerFrameStats RW 0x6AF3AD):
+// walks the player's spellbook CommandSet buttons (0..slotCapacity-1) and calls slot 0x58 (RW 0x896A32) on each button's special power module
+void updateSpellBookRequirements(GameLogic &logic, Player &player);
 }

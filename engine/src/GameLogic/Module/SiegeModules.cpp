@@ -1383,7 +1383,13 @@ void StopSpecialPower::doSpecialPower(unsigned options)
 	{
 		return;
 	}
-	if (SpecialPowerStopInterface *s = dynamic_cast<SpecialPowerStopInterface *>(stopTarget())) // slot 17 of its special power interface
+	BehaviorModule *target = stopTarget();
+	if (SpecialPowerModuleInterface *sp = target ? target->getSpecialPower() : nullptr) // RW 0x8CAC5E: slot 17 (+0x44, RW 0x8CA2D0 on SiegeDeploySpecialPower, RW 0x896751 on SpecialPowerModule)
+	{
+		sp->stopSpecialPower();
+		++m_stops;
+	}
+	else if (SpecialPowerStopInterface *s = dynamic_cast<SpecialPowerStopInterface *>(target))
 	{
 		s->stopSpecialPower();
 		++m_stops;
