@@ -414,18 +414,25 @@ int CommandTranslator::evaluateForceAttack(Object *target, const Coord3D *pos, E
 		// The boolean test here stands for result 0 (S-286), so no hint (lane INPUT-1 r4)
 		return 0;
 	}
-	if (target && first->isKindOf((unsigned)CombatNames::kinds().spawnsAreTheWeapons) && !first->hasAnyWeapon())
+	if (target && first->isKindOf((unsigned)CombatNames::kinds().spawnsAreTheWeapons))
 	{
-		SpawnBehaviorInterface *spawn = SpawnBehaviorInterface::of(*first);
-		Object *slave = spawn ? spawn->getClosestSlave(target->getPosition()) : nullptr;
-		const CanAttackResult res = slave ? slave->getAbleToAttackSpecificObject(ATTACK_NEW_TARGET_FORCED, target, CMD_FROM_PLAYER) : ATTACKRESULT_NOT_POSSIBLE;
+		CanAttackResult res = first->getAbleToAttackSpecificObject(ATTACK_NEW_TARGET_FORCED, target, CMD_FROM_PLAYER);
 		if (res != ATTACKRESULT_POSSIBLE && res != ATTACKRESULT_POSSIBLE_AFTER_MOVING)
 		{
-			if (res == ATTACKRESULT_INVALID_SHOT && type == EvaluateType::DoHint)
+			SpawnBehaviorInterface *spawn = SpawnBehaviorInterface::of(*first);
+			Object *slave = spawn ? spawn->getClosestSlave(target->getPosition()) : nullptr;
+			if (slave)
 			{
-				hint(MouseCursorName::GenericInvalid);
+				res = slave->getAbleToAttackSpecificObject(ATTACK_NEW_TARGET_FORCED, target, CMD_FROM_PLAYER);
 			}
-			return 0;
+			if (res != ATTACKRESULT_POSSIBLE && res != ATTACKRESULT_POSSIBLE_AFTER_MOVING)
+			{
+				if (res == ATTACKRESULT_INVALID_SHOT && type == EvaluateType::DoHint)
+				{
+					hint(MouseCursorName::GenericInvalid);
+				}
+				return 0;
+			}
 		}
 	}
 	const int msgType = target ? MSG_DO_FORCE_ATTACK_OBJECT : MSG_DO_FORCE_ATTACK_GROUND;

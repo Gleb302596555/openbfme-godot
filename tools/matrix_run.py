@@ -5,6 +5,7 @@ collect what each did. Runs on Colab (the engine build and the game data are the
     python3 tools/matrix_run.py seeds   [--factions ...]            # the objects the data graph reaches, per faction
     python3 tools/matrix_run.py run     [--factions ...] [--jobs 3]  # one test process per faction, in parallel
     python3 tools/matrix_run.py collect                              # docs/ennorath/MATRIX.tsv + the faction table of docs/ennorath/README.md
+    python3 tools/matrix_run.py diff [--against origin/main]          # PASS buttons that got worse; each needs a matrix_explain.d line
 
 `all` does the three in order. The work folder (--out, default workspace/matrix) keeps per faction `<F>.seeds`, `<F>.tsv`, `<F>.log`.
 
@@ -214,6 +215,54 @@ def cmd_collect(a) -> None:
     print(f"wrote {MATRIX.relative_to(REPO)} ({len(rows)} lines) and the table of {README.relative_to(REPO)}")
 
 
+# A matrix change may not hide a button that passed before (owner, 2026-11-16, after PR #587's report left out 54 PASS rows that turned red):
+# `diff` compares MATRIX.tsv with the one at a git ref (the PR checker: main), per button (its first non-PASS line, as the README table counts).
+# Every PASS -> anything else needs a line in docs/ennorath/matrix_explain.d/<task>.md naming `<object> <button>` and why (the test was wrong
+# before, a stricter rule found a real gap with the module named, ...); unexplained ones fail the check.
+EXPLAIN = REPO / "docs" / "ennorath" / "matrix_explain.d"
+
+
+def button_status(text: str) -> dict[tuple[str, str, str], tuple[str, str]]:
+    out: dict[tuple[str, str, str], tuple[str, str]] = {}
+    for line in text.splitlines():
+        parts = line.split("\t")
+        if line.startswith(("#", "faction\t")) or len(parts) != 5 or not parts[2]:
+            continue
+        key = (parts[0], parts[1], parts[2])
+        prev = out.get(key)
+        if prev is None or (prev[0] == "PASS" and parts[3] != "PASS"):
+            out[key] = (parts[3], parts[4])
+    return out
+
+
+def cmd_diff(a) -> None:
+    old_text = subprocess.run(["git", "show", f"{a.base}:docs/ennorath/MATRIX.tsv"], cwd=REPO, capture_output=True, text=True,
+                              encoding="utf-8", errors="replace")
+    if old_text.returncode:
+        raise SystemExit(f"no MATRIX.tsv at {a.base}: {old_text.stderr.strip()}")
+    old, new = button_status(old_text.stdout), button_status(MATRIX.read_text(encoding="utf-8", errors="replace"))
+    moves = collections.Counter((old[k][0], new[k][0]) for k in new if k in old and old[k][0] != new[k][0])
+    explained = "\n".join(p.read_text(encoding="utf-8", errors="replace") for p in sorted(EXPLAIN.glob("*.md"))) if EXPLAIN.is_dir() else ""
+    worse = [k for k in new if k in old and old[k][0] == "PASS" and new[k][0] != "PASS"]
+    gone = [k for k in old if k not in new and old[k][0] == "PASS"]
+    loose = [k for k in worse + gone if f"{k[1]} {k[2]}" not in explained]
+    print(f"matrix diff against {a.base}: {len(new)} buttons ({len(old)} before)")
+    for (f, t), n in moves.most_common():
+        print(f"  {f} -> {t}: {n}")
+    if gone:
+        print(f"  PASS buttons no longer in the matrix: {len(gone)}")
+    for k in loose[: a.limit]:
+        was = old[k][1][:120]
+        now = new[k][0] + ": " + new[k][1][:160] if k in new else "(gone from the matrix)"
+        print(f"  UNEXPLAINED {k[0]} {k[1]} {k[2]}\n      was PASS: {was}\n      now {now}")
+    if len(loose) > a.limit:
+        print(f"  ... and {len(loose) - a.limit} more")
+    if loose:
+        raise SystemExit(f"{len(loose)} PASS buttons got worse without a line in {EXPLAIN.relative_to(REPO)}/<task>.md "
+                         "(`<object> <button>`: why)")
+    print("every PASS that got worse is explained" if worse or gone else "no PASS got worse")
+
+
 def update_readme(cells: dict[str, tuple[str, str]]) -> None:
     """The faction table's "Матрица" and "Проверено" columns from the matrix; the other columns stay."""
     text = README.read_text(encoding="utf-8")
@@ -233,7 +282,9 @@ def update_readme(cells: dict[str, tuple[str, str]]) -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("step", choices=["seeds", "run", "collect", "all"])
+    ap.add_argument("step", choices=["seeds", "run", "collect", "all", "diff"])
+    ap.add_argument("--against", dest="base_ref", default="origin/main", help="diff: the git ref whose MATRIX.tsv is the baseline")
+    ap.add_argument("--limit", type=int, default=60, help="diff: unexplained rows printed")
     ap.add_argument("--factions", nargs="*", default=FACTIONS)
     ap.add_argument("--jobs", type=int, default=3, help="faction processes at once (each loads the whole game: ~3-5 GB)")
     ap.add_argument("--out", type=Path, default=REPO / "workspace" / "matrix")
@@ -243,6 +294,10 @@ def main() -> None:
     ap.add_argument("--overlay", help="the mod's install (default $OPENBFME_ENNORATH_INSTALL)")
     ap.add_argument("--bfme2", help="BFME2 1.06 install (default $BFME2_INSTALL)")
     a = ap.parse_args()
+    if a.step == "diff":
+        a.base = a.base_ref
+        cmd_diff(a)
+        return
     unknown = [f for f in a.factions if f not in FACTIONS]
     if unknown:
         raise SystemExit(f"unknown factions: {unknown}")

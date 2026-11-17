@@ -479,14 +479,27 @@ TEST_CASE("save4c retail T5: each block's version window (RW 0xA1F5B9's two mess
 	REQUIRE(lateAIs != earlyAIs);
 	CHECK(loadError(early.logic(), { "obfme:AIWorld" }, ai) ==
 		"block 'obfme:AIWorld': ai world: the snapshot holds " + std::to_string(lateAIs) + " AI modules, the loaded game " + std::to_string(earlyAIs));
-	// a partition entry whose object the loaded game lacks (the newest entry of frame 600, after the frame-50 game's last object): named by the post-process
+	// a partition entry whose object the loaded game lacks: named by the post-process, which links the entries in list order (newest first) and stops at the
+	// first one without an object. The list's head is not always a new object (an object that leaves and enters the partition again is linked at the head:
+	// on the fork's merge of upstream 942fd79e frame 600's head is an object the frame-50 game has), so the test walks the list for the first missing one
 	std::vector<std::uint8_t> part;
 	late.logic().gameState().saveBlocks({ "obfme:Partition" }, part);
 	const size_t first = payloadOffset("obfme:Partition") + 1 + 5 * 4 + 1 + 4; // version, the region and scale, the region flag, the entry count
-	REQUIRE(part.size() >= first + 4); // tolerance: an index precondition (the first entry id must exist before it is read)
+	REQUIRE(part.size() >= first); // tolerance: an index precondition (the entry count must exist before it is read)
+	std::uint32_t entries = 0;
+	std::memcpy(&entries, &part[first - 4], 4);
+	REQUIRE(part.size() >= first + (size_t)entries * 20); // tolerance: an index precondition (each entry: id, layer + 1, x, y, mask; the dirty list and the nodes follow)
 	ObjectID newest = 0;
-	std::memcpy(&newest, &part[first], 4);
-	REQUIRE(early.logic().findObjectByID(newest) == nullptr);
+	for (std::uint32_t i = 0; i < entries && newest == 0; ++i)
+	{
+		ObjectID id = 0;
+		std::memcpy(&id, &part[first + (size_t)i * 20], 4);
+		if (early.logic().findObjectByID(id) == nullptr)
+		{
+			newest = id;
+		}
+	}
+	REQUIRE(newest != 0); // tolerance: any id will do (0 is no object): frame 600's game has objects the frame-50 game lacks, which one is not the point
 	CHECK(loadError(early.logic(), { "obfme:Partition" }, part) == "partition: the entry of object " + std::to_string(newest) + " has no object in the loaded game");
 	// a synthetic game (no map: no AI world, no shroud manager) saves the two blocks with their subsystem absent; a real game refuses them
 	logictest::LogicWorld w;

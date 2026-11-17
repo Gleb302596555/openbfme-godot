@@ -194,6 +194,14 @@ def check_pr(pr: dict, state: dict, main_sha: str, open_prs: list[dict], comment
     shared = [f for f in changed if f in SHARED]
     if shared:
         lines.append(f"⚠️ Правит общие таблицы {', '.join(f'`{f}`' for f in shared)}: новые строки — файлами `docs/stops.d/S-<id>.md` и `docs/ennorath/night_watch.d/…`, README не трогать (PROCESS 5.7). Допустимо только закрыть или сузить существующий стоп.")
+    # a new matrix may not hide buttons that passed on main (tools/matrix_run.py diff, owner 2026-11-16 after PR 587)
+    if "docs/ennorath/MATRIX.tsv" in changed and (WT / "tools/matrix_run.py").exists():
+        md = sh([sys.executable, "tools/matrix_run.py", "diff", "--against", main_sha])
+        out = (md.stdout + md.stderr).strip()
+        head = "✅ Матрица: ни одна кнопка, проходившая на main, не ухудшилась без объяснения" if md.returncode == 0 else \
+            "❌ **Матрица ухудшает кнопки, проходившие на main**, без объяснения в `docs/ennorath/matrix_explain.d/<задача>.md` " \
+            "(строка `` `<объект> <кнопка>`: почему ``; ошибка теста — чинить тест, а не объяснять)"
+        lines += [head, "```", out[:3500], "```"]
     ok, err = build()
     if not ok:
         lines += ["❌ **Не собирается**:", "```", err[:3000], "```"]

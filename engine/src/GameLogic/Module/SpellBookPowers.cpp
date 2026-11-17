@@ -280,17 +280,24 @@ Object *WeatherFamilySpecialPower::seedArea(const Coord3D &loc, const std::strin
 			list->create(logic, obj, loc); // RW 0x5F00CA (source: the object)
 		}
 	}
-	// RW 0x8C8DF9 / 0x8C7C22: the template by name (RW 0x6D1305); newObject on no team (the neutral player's, RW 0x699E4A) at the location
+	// RW 0x8C8DF9 / 0x8C7C22: the template by name (RW 0x6D1305); newObject on no team (RW 0x6D165E), then the location (RW 0x70C201) and the caster's
+	// team (Object + 0x31C, setTeam RW 0x69954A): Taint places it first (RW 0x8C8E46, 0x8C8E56), Elven Wood sets the team first (RW 0x8C7C8F, 0x8C7C99).
+	// The area object is the caster's, so its aura's ally filter and the grid's owner test follow the caster (upstream merge 2026-11-16: TAINTAREA-1)
 	const ThingTemplate *tt = logic.things().findTemplate(objectName);
 	if (!tt)
 	{
 		return nullptr;
 	}
 	Object *made = logic.newObject(tt, nullptr, ObjectStatusMaskType{});
-	if (made)
+	if (made && morphType == 2)
 	{
-		made->setPosition(&loc); // RW 0x70C201
-		++m_unported;            // RW 0x69954A (with the caster's + 0x31C): S-921
+		made->setTeam(obj->getTeam()); // RW 0x8C7C8F
+		made->setPosition(&loc);       // RW 0x8C7C99
+	}
+	else if (made)
+	{
+		made->setPosition(&loc);       // RW 0x8C8E46
+		made->setTeam(obj->getTeam()); // RW 0x8C8E56
 	}
 	return made;
 }

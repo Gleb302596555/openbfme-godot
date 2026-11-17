@@ -13,6 +13,8 @@
 #include "Common/AsciiString.h"
 #include "Common/Audio/AudioRequests.h"
 #include "Common/INIException.h"
+#include "Common/Player.h"
+#include "Common/PlayerList.h"
 #include "Common/StateHash.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "GameLogic/AI/AIPathfind.h"
@@ -32,8 +34,10 @@
 #include "GameLogic/SimMath.h"
 #include "GameClient/FXList.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstring>
+#include <vector>
 
 namespace
 {

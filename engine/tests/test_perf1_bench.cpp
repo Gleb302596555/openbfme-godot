@@ -683,6 +683,9 @@ TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after a
 	// whose hashes match the MSVC pins): with the batch only perf1 and uber1 move against main bc66c72f on the same machine (every other suite of the
 	// batch run fails or passes as on main); the batch's logic changes are Port 138 (a rubble rebuild), Port 145 (SHIP enter legs), Port 148 (GIANT_BIRD
 	// separation), Port 164 (the giant bird's contact point, mode 1) and Port 29 (BuildingBehavior's fire lists); not bisected between them
+	// pin: the fork's merge of upstream 942fd79e (2026-11-16) re-measured the battle and the skirmish once on the merged tree (OPENBFME_PERF1_REGEN=1,
+	// Linux GCC on Colab, whose hashes match the MSVC pins): the merge's AIAttack and ThreatFinderUpdate changes move the battle from frame 48 and
+	// the skirmish from frame 24 (allied_blob_300 unchanged); not bisected between them
 	const std::vector<std::uint32_t> battleRef = perf1::readHashes("big_battle_400.hashes");
 	const std::vector<std::uint32_t> skirmishRef = perf1::readHashes("skirmish4_6000.hashes");
 	// OPENBFME_PERF1_REGEN=1 rewrites the two reference vectors from this build instead of comparing: run it only when a merged change is MEANT to

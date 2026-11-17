@@ -627,6 +627,20 @@ TEST_CASE("PORT-198 SPAWNS_ARE_THE_WEAPONS orders (slots 3, 4, 8), CommandTransl
 	CHECK(r.ui.cursor() == std::string(MouseCursorName::GenericInvalid));
 	const Coord3D forceGroundPos{ 480.0f, 400.0f, 0.0f };
 	CHECK(r.translator.evaluateForceAttack(nullptr, &forceGroundPos, EvaluateType::DoHint) == MSG_DO_FORCE_ATTACK_GROUND);
+
+	// RW 0x81D9DE: a SPAWNS_ARE_THE_WEAPONS spawner that ALSO owns a weapon still falls back to its closest slave when its own weapon cannot hit target,
+	// and reports GenericInvalid once its slaves are gone.
+	Object *armedSpawner = r.world.unit("P198WeaponSpawner", 'A', 400.0f, 200.0f);
+	r.world.frames(5);
+	r.select(armedSpawner);
+	CHECK(r.translator.evaluateForceAttack(ownBuilding, ownBuilding->getPosition(), EvaluateType::DoHint) == MSG_DO_FORCE_ATTACK_OBJECT);
+	Object *armedSlave = SpawnBehaviorInterface::of(*armedSpawner)->getClosestSlave(armedSpawner->getPosition());
+	REQUIRE(armedSlave != nullptr);
+	r.world.logic->destroyObject(armedSlave);
+	r.world.frames(1);
+	CHECK(r.translator.evaluateForceAttack(ownBuilding, ownBuilding->getPosition(), EvaluateType::DoHint) == 0);
+	CHECK(r.ui.cursor() == std::string(MouseCursorName::GenericInvalid));
+	r.select(spawner);
 	r.ui.setForceAttackMode(false);
 
 	// AIUpdateInterface::aiAttackObject rejects non-enemy/out-of-range targets and dispatches slot 3 for valid targets even when m_weapons is null.
