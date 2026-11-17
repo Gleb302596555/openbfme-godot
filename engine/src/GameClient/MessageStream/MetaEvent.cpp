@@ -8,6 +8,7 @@
 #include "Common/ArchiveFileSystem.h"
 #include "Common/INI.h"
 #include "Common/INIException.h"
+#include "Common/Player.h"
 
 #include <algorithm>
 #include <cctype>
@@ -288,17 +289,23 @@ MessageDisposition MetaEventTranslator::translate(const ClientMessage &msg)
 		{
 			newModState |= MOD_ALT;
 		}
+		// RW 0x5DA83D (MetaEventTranslator::translateGameMessage), 0x5DA8C3..0x5DA8EF:
+		// shell uses bit 1 exclusively; otherwise game uses bit 2, plus planning bit 4
+		// when the existing local player's order mode (+0x770) is exactly 2.
+		// RW 0x5DA910 applies this one mask before BOTH matching branches below.
+		int usable = m_shellActive ? COMMANDUSABLE_SHELL : COMMANDUSABLE_GAME;
+		const Player *local = m_ctx.localPlayer();
+		if (!m_shellActive && local && local->orderMode() == 2)
+		{
+			usable |= COMMANDUSABLE_PLANNING;
+		}
 		for (const MetaMapRec &map : m_map.records())
 		{
 			if (map.usableIn == COMMANDUSABLE_GAME && m_clientFrame < 1)
 			{
 				continue;
 			}
-			if (m_shellActive && !(map.usableIn & COMMANDUSABLE_SHELL))
-			{
-				continue;
-			}
-			if (!m_shellActive && !(map.usableIn & COMMANDUSABLE_GAME))
+			if (!(map.usableIn & usable))
 			{
 				continue;
 			}
