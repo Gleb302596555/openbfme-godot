@@ -332,6 +332,9 @@ struct GameLogicSettings
 		int resourceGatherers[3] = { 0, 1, 2 }; ///< + 0x8 Easy, + 0xC Normal, + 0x10 Hard (RW 0x6FFFB2 .. 0x6FFFBC: 0, 1, 2)
 	};
 	std::vector<AISideInfo> sideInfos; ///< the AIData list, the newest block first (each new SideInfo is pushed at the head, RW 0x70011F)
+	// PORT-266: client tree-buffer settings, GlobalData +0x40 / +0xEB0; RW 0x6429AD initializes the switch to false.
+	bool allowTreeFading = false;
+	std::shared_ptr<const ObjectFilter> treeFadeObjectFilter; // null means the INI row was not supplied
 	bool forceModelsToFollowTimeOfDay = false;       ///< GameData ForceModelsToFollowTimeOfDay (a new drawable gets NIGHT)
 	bool forceModelsToFollowWeather = false;         ///< GameData ForceModelsToFollowWeather (SNOW)
 	// GameData EnableHouseColor (+ 0xDDC, row RW 0xC00A30; copied to TheGameLogic + 0x11C at a new game, RW 0x62A13A): off, a drawable shows its

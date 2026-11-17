@@ -320,6 +320,9 @@ void parseSideInfoBlock(INI *ini, void *instance, void *, const void *)
 }
 
 const FieldParse kGameDataFields[] = {
+	// PORT-266: RW 0x6441A5 GameData table 0xBFF690 / 0xC00C20, GlobalData +0x40 / +0xEB0; reader RW 0x4ED508.
+	{ "AllowTreeFading", INI::parseBool, nullptr, (int)offsetof(BlockState, values.allowTreeFading) },
+	{ "TreeFadeObjectFilter", parseFilterPtr, nullptr, (int)offsetof(BlockState, values.treeFadeObjectFilter) },
 	{ "TimeAfterDamageUntilRepairAllowed", parseNoting<INI::parseUnsignedInt>, SEEN_DATA(SEEN_REPAIR_DELAY), (int)offsetof(BlockState, values.timeAfterDamageUntilRepairAllowed) },
 	{ "ForceModelsToFollowTimeOfDay", parseNoting<INI::parseBool>, SEEN_DATA(SEEN_TOD), (int)offsetof(BlockState, values.forceModelsToFollowTimeOfDay) },
 	{ "ForceModelsToFollowWeather", parseNoting<INI::parseBool>, SEEN_DATA(SEEN_WEATHER), (int)offsetof(BlockState, values.forceModelsToFollowWeather) },
