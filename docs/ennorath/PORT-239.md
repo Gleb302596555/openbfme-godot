@@ -171,3 +171,28 @@ required before review. The full Release build is running with `-j1`; do not
 start a second Ninja on the same build directory. After it finishes, run the
 build command again so CMake picks up the newly added lane, then execute
 `engine/build/openbfme_tests -tc="PORT-239*"`. No auxiliary runner was used.
+
+## S-281 / S-287: actual gap — planning UseableIn mask
+
+RW **0x5DA83D** is MetaEventTranslator's complete entry. The key branch was
+read linearly from entry through the map loop. At 0x5DA8C3…0x5DA8F0 the active
+mask starts as SHELL (1); without an active shell it becomes GAME (2), or
+GAME|PLANNING (6) when the local player exists and +0x770 equals **2**.
+0x5DA910 tests each record's usable-in against that mask **before both** the
+KEY_NONE modifier-transition branch and the ordinary key branch. The exact
+GAME-only frame-zero suppression at 0x5DA8FA…0x5DA90E is independent and remains.
+
+DONOR BFME2 **0x005DB0B5** (`Code/GameEngine/Source/GameClient/MessageStream/MetaEvent.cpp`,
+`MetaEventTranslator::translateGameMessage`) has the same mask selection but
+player offset +0x750. RotWK's verified offset is +0x770, not copied from donor.
+The existing port exposes that state as `Player::orderMode()` (already hashed /
+snapshotted); no new simulation state is needed. The existing translator
+instead rejects every PLANNING-only record unconditionally. Fix the single
+shared filter before the two match branches, not separate key handlers.
+
+Planned regression: synthetic parsed CommandMap with PLANNING-only, GAME,
+GAME|PLANNING, SHELL, SHELL|PLANNING records; all masks 0…7, modes 0/1/2, shell
+and frame-zero combinations, null player, modifier DOWN/UP and autorepeat.
+Expectations come from the two retail predicates above, with a separately
+asserted planning-only message so the regression cannot simply mirror the
+implementation. Must demonstrate failure without the fix on the full binary.
