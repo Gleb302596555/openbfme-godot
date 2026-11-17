@@ -54,7 +54,7 @@ provided the factory, layout and branch-reading guide, not RW authority.
 | Preference 3, at least two contact rows | RW 0xAD31A4..0xAD3276 | Blend adjacent rows selected by the seed. The existing `ObjectGeometry::getBestContactPoint` has this branch. |
 | Preference 3, fewer rows | RW 0xAD3172..0xAD3184, 0xAD31AF..0xAD31B2 | Keep the stored innermost point. RW 0xAD25B0..0xAD260F initializes it at local x/y zero and 0.67 times geometry height. |
 | Preference 3, collision and clamps | RW 0xAD3278..0xAD333D | Clamp to maximum height; unless collision is skipped, test the point and fall back to the first active shape's centre; apply the lower height clamp. |
-| Neighbour preference 1 | RW 0xAD3340..0xAD3379 | Stored preferred point, clamped to maximum geometry height. The constructor RW 0x4504A4..0x4504AE and initializer RW 0xAD25E6..0xAD2607 also initialize/raise it; this independent preferred-point gap remains S-7387. |
+| Neighbour preference 1 | RW 0xAD3340..0xAD3379 | Stored preferred point, clamped to maximum geometry height. The constructor RW 0x4504A4..0x4504AE and initializer RW 0xAD25E6..0xAD2607 also initialize/raise it; this independent preferred-point gap remains S-7426. |
 | Neighbour preference 0 / unknown preference | RW 0xAD337C..0xAD3517 | Nearest matching label passing the optional collision test, then height clamps; no match or unknown preference returns false. |
 
 ## What this rules out
@@ -103,7 +103,7 @@ restores the existing RW point's parse-time history; it does not depart from
 those branches. Whether this accounts for the complete visible complaint
 remains an in-game acceptance check, not a no-reader verdict.
 
-## Adjacent verified gap: stored GeometryInfo contact state (S-7387)
+## Adjacent verified gap: stored GeometryInfo contact state (S-7426)
 
 The aim cache is not just a function of the final shapes:
 
@@ -286,11 +286,28 @@ BFME2_INSTALL. The 137 doctest skipped count is not a claim that the
 installed-data cases ran. Separate MSVC/BFME2/RotWK installed-data and
 changed-game visual acceptance are not claimed.
 
-Pre-PR fetch now sees fork main `a91f3da5` and upstream `16474d71`.
-The completed results above are explicitly the tested `a3a2e87a`-based
-engine, not results for a future rebase. Rebase/integration validation and
-the changed game's near-side visual acceptance remain outstanding.
-Upstream eligibility must also be rechecked at that fetched revision.
+### Second pre-PR integration baseline
+
+Rebased cleanly onto fetched fork main `a91f3da5`. Replayed implementation
+is `6ce3a764`, full-target lane/tests `b27b34dc`, copy-neighbour guards
+`526c2667`. ObjectGeometry/Object's relevant paths have no main changes;
+ThingTemplate/ThingFactory changed their unrelated ThreatBreakdown handling,
+not the contact-point event/cache path. No duplicate fix was introduced.
+The completed results above remain explicitly the tested `a3a2e87a`-based
+engine, not results for this second rebase. A new full-target build and
+narrow/FULL checks are required; visual acceptance also remains pending.
+
+Upstream `16474d71` was checked with `git show upstream/main:<file>` for
+Object.h, Object.cpp, Common/Thing/ThingFactory.cpp and ThingTemplate.h.
+The event stream/cache and geometry source exist; setGeometryMaxHeight
+and the AttackContactPoint/SwoopContactPoint aliases are still absent.
+This complete regression bundle therefore remains ineligible for an
+upstream PR; no dependency ports are pulled into this task.
+
+The earlier stop number S-7387 is occupied on the new main by Port 228.
+`tools/fragments.py next` allocated S-7426 for this branch's preferred-point
+remainder. Only our fragment/references were renamed; the aggregate stop
+and Port 228 were not edited.
 
 ## Continuation after the owner's original-game check
 
@@ -337,7 +354,7 @@ existing callers; production worldspace queries retain INI history.
 
 The independent preferred-point initialization of mode 1 remains outside
 this change: the existing PORT-164 no-row expectation would have to change.
-S-7387 is narrowed to that remaining issue, not silently closed.
+S-7426 is narrowed to that remaining issue, not silently closed.
 The near-side visual result remains an owner acceptance check; the code and
 synthetic tests must establish the exact RW point first, not assert that an
 internal aim point is a new nearest-surface algorithm.
@@ -361,7 +378,7 @@ ControlBarRadialMenu (mode 0). The value-only getBestContactPoint API is not
 called by production code outside its implementation; its existing test
 callers keep their stateless inputs. Changing copied contact rows can affect
 all modes and belongs in neighbour/nightly validation. Mode 1's separate
-constructor/high-water-point mismatch is explicitly retained in S-7387.
+constructor/high-water-point mismatch is explicitly retained in S-7426.
 
 ## Additional collision trace
 
@@ -387,7 +404,8 @@ Fetched fork main `1dfe2996`. Since the branch's base `467bc033`, the
 ObjectGeometry/ThingTemplate/Object/projectile implementations used here
 have no main changes. WeaponDelivery has unrelated contain/horde nugget
 changes, not a second fix for this contact-point gap. No duplicate path
-was introduced. Rebase remains required before PR submission.
+was introduced. This was an earlier checkpoint; the two completed pre-PR
+rebases and their exact bases are recorded in Validation above.
 
 Upstream `Open-BFME/openbfme-godot` main `942fd79e` was fetched and the
 required files inspected with `git show upstream/main:<file>`:
@@ -406,7 +424,7 @@ required files inspected with `git show upstream/main:<file>`:
 
 The copy/snapshot regression additionally checks the mode-0 labelled query
 and mode-1 high-row neighbour before and after load. The latter deliberately
-uses a row above the initializer's point; it does not mask or change S-7387's
+uses a row above the initializer's point; it does not mask or change S-7426's
 independent no-row mismatch or the protected PORT-164 test.
 
 Actual `tools/test_select.py --base a3a2e87a` first line (FULL run completed):

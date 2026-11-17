@@ -303,7 +303,7 @@ TEST_CASE("PORT-216 geometry copies carry both rows and stored point through a b
         REQUIRE(ObjectGeometry::worldspaceBestContactPoint(rowsObject, caller, "Ram", 0, 0, false, point));
         checkLocal(rowsObject, point, -12.0f, 8.0f, 30.0f);
         // RW 0xAD3340 (mode 1): this row is above the initializer's point, so it is unambiguous in both paths.
-        // This does NOT change the independent no-row/preferred-initializer behavior retained in S-7387.
+        // This does NOT change the independent no-row/preferred-initializer behavior retained in S-7426.
         REQUIRE(ObjectGeometry::worldspaceBestContactPoint(rowsObject, caller, "", 1, 0, false, point));
         checkLocal(rowsObject, point, 14.0f, 6.0f, 38.0f);
     };
