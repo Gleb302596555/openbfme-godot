@@ -245,6 +245,7 @@ include(cmake/Port151.cmake) # PORT-151: the enter-state unit voices of the AI o
 include(cmake/Port4.cmake) # OPENBFME_PORT4_TESTS
 include(cmake/Port109.cmake) # OPENBFME_PORT109_TESTS
 include(cmake/Port47.cmake) # OPENBFME_PORT47_TESTS
+include(cmake/Port266.cmake) # OPENBFME_PORT266_TESTS
 include(cmake/Play2.cmake) # OPENBFME_PLAY2_TESTS (lane PLAY-2)
 include(cmake/Port211.cmake) # PORT-211: the economy group S-250 .. S-260 swept against main (fork issue 493; OPENBFME_PORT211_TESTS)
 include(cmake/Port242.cmake) # PORT-242: SpecialPowerModule RequirementsFilterStrategic (fork issue 566; OPENBFME_PORT242_TESTS)
@@ -1270,6 +1271,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT249_TESTS}
     ${OPENBFME_PORT237_TESTS}
     ${OPENBFME_PORT220_TESTS}
+    ${OPENBFME_PORT266_TESTS}
     ${OPENBFME_PORT257_TESTS}
     ${OPENBFME_PORT224_TESTS}
     ${OPENBFME_PORT222_TESTS}
