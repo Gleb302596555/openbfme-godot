@@ -11,6 +11,8 @@
 #include "GameLogic/AI/AIOrdersManager.h"
 #include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/Combat/CombatNames.h"
+#include "GameLogic/ExperienceLevels.h"
+#include "GameLogic/Object/ExperienceTracker.h"
 #include "GameLogic/Object/Contain/GarrisonContainRuntime.h"
 #include "GameLogic/Object/PartitionManager.h"
 #include "GameLogic/Module/InvisibilityModules.h"
@@ -536,4 +538,47 @@ TEST_CASE("PORT-238 ring heal HUD requires unlock and starts recharge after cast
     button = w.button();
     REQUIRE(button != nullptr);
     CHECK(button->state == ButtonState::NotReady);
+}
+
+TEST_CASE("PORT-238 ring heal unlocks at the synthetic Sauron level five threshold")
+{
+    HealHudWorld w;
+    ExperienceLevelSystem levels;
+    ExperienceLevelSystem *savedLevels = TheExperienceLevelSystem;
+    struct RestoreLevels
+    {
+        HealHudWorld &world;
+        ExperienceLevelSystem *saved;
+        ~RestoreLevels() { world.logic->reset(); TheExperienceLevelSystem = saved; }
+    } restore{w, savedLevels};
+    TheExperienceLevelSystem = &levels;
+    levels.registerBlocks(w.w.fx.env.blocks);
+    // SauronRingLevel1..5, experiencelevels.inc:19783..19866. Other fields
+    // (level-up modifiers, FX and decals) are deliberately omitted.
+    const char *data =
+        "ExperienceLevel P238Rank1\n TargetNames = P238HudHealHero\n RequiredExperience = 1\n Rank = 1\n End\n"
+        "ExperienceLevel P238Rank2\n TargetNames = P238HudHealHero\n RequiredExperience = 550\n Rank = 2\n End\n"
+        "ExperienceLevel P238Rank3\n TargetNames = P238HudHealHero\n RequiredExperience = 800\n Rank = 3\n End\n"
+        "ExperienceLevel P238Rank4\n TargetNames = P238HudHealHero\n RequiredExperience = 1400\n Rank = 4\n End\n"
+        "ExperienceLevel P238Rank5\n TargetNames = P238HudHealHero\n RequiredExperience = 2000\n Rank = 5\n Upgrades = Upgrade_P238Rank\n End\n";
+    const std::string error = w.w.load(data, INI_LOAD_OVERWRITE, "port238_levels.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    Object *hero = w.unit("P238HudHealHero", 'A', 300, 300);
+    auto *tracker = hero->getExperienceTracker();
+    auto *power = dynamic_cast<SpecialPowerModule *>(hero->findModule("SpecialPowerModule"));
+    REQUIRE(tracker != nullptr);
+    REQUIRE(power != nullptr);
+    // RW 0x79D8EF -> 0x79D141 checks thresholds; 0x79DA9D queues a grant
+    // via 0x8215C2, whose upgrade is applied at 0x821368.
+    tracker->setExperienceAndLevel(1999.0f, false);
+    w.frames(3);
+    CHECK(tracker->getRank() == 4);
+    CHECK_FALSE(hero->hasUpgrade("Upgrade_P238Rank"));
+    CHECK(power->pauseCount() == 1);
+    tracker->setExperienceAndLevel(2000.0f, false);
+    w.frames(3);
+    CHECK(tracker->getRank() == 5);
+    CHECK(hero->hasUpgrade("Upgrade_P238Rank"));
+    CHECK(power->pauseCount() == 0);
+    CHECK(power->isReady());
 }
