@@ -180,6 +180,35 @@ const char kPort218[] =
 	"    Condition = SET_NORMAL\n"
 	"    Speed = 55\n"
 	"  End\n"
+	"End\n"
+	"Object PORT218AirborneInfantry\n"
+	"  KindOf = INFANTRY SELECTABLE SCORE\n"
+	"  Body = ActiveBody BodyTag\n"
+	"    MaxHealth = 100.0\n"
+	"  End\n"
+	"End\n"
+	"Weapon PORT218AirSword\n"
+	"  AttackRange = 11.5\n"
+	"  MeleeWeapon = Yes\n"
+	"  AntiGround = No\n"
+	"  AntiAirborneInfantry = Yes\n"
+	"  DelayBetweenShots = 1000\n"
+	"  DamageNugget\n"
+	"    Damage = 10\n"
+	"    DamageType = SLASH\n"
+	"    DeathType = NORMAL\n"
+	"  End\n"
+	"End\n"
+	"Object PORT218MixedHero\n"
+	"  KindOf = INFANTRY SELECTABLE CAN_ATTACK SCORE\n"
+	"  Body = ActiveBody BodyTag\n"
+	"    MaxHealth = 100.0\n"
+	"  End\n"
+	"  WeaponSet\n"
+	"    Conditions = None\n"
+	"    Weapon = PRIMARY PORT218Sword\n"
+	"    Weapon = SECONDARY PORT218AirSword\n"
+	"  End\n"
 	"End\n";
 
 struct Port218World : CombatWorld
@@ -329,4 +358,29 @@ TEST_CASE("PORT-218 the consumers use the one path: the attack machine's continu
 	// nothing at all: an empty (null) victim position cannot even be asked; a null pointer result is NOT_POSSIBLE
 	CHECK(soldier->getWeapons()->canAttackObject(*victim, CMD_FROM_AI, false));
 	CHECK(soldier->getWeapons()->getAbleToAttackSpecificObject(ATTACK_NEW_TARGET, *soldier, *victim, CMD_FROM_AI) == ATTACKRESULT_POSSIBLE);
+}
+
+// PORT-191 review (PR #579): RW 0x6C8724 and RW 0x6C88F2 test the ANTI MASK OF THE WHOLE WEAPON SET (the OR of its slot weapons' Anti* flags,
+// WeaponSet + 0x2C, zeroed by the ctor RW 0x6C801C) against the victim's anti class — not the mask of the single slot weapon being looked at.
+// This is the branch the reviewer named: a set that covers a class through ANY slot lets the pair pass, and a class no slot covers is refused
+// outright (0x6C88F8 -> RW 0x6C8A44, the INVALID_SHOT answer) instead of coming back as POSSIBLE_AFTER_MOVING.
+TEST_CASE("PORT-218 the set-level anti mask of RW 0x6C8724 / 0x6C88F2: the OR of the set's weapons, not the current slot's")
+{
+	Port218World w;
+	Object *hero = w.unit("PORT218MixedHero", 'A', 300, 300);
+	Object *air = w.unit("PORT218AirborneInfantry", 'B', 305, 300);
+	Object *ground = w.unit("Dummy", 'B', 300, 305);
+	w.frames(2);
+	REQUIRE(hero->getWeapons());
+	air->setStatus((unsigned)ObjectTemplateInfoBuilder::objectStatusIndex("AIRBORNE_TARGET"), true);
+	// the PRIMARY slot is ground-only, but the set claims AIRBORNE_INFANTRY through its SECONDARY: RW 0x6C8724 passes and the answer is a
+	// real one (the primary is in reach and canDamage the victim) — the per-slot test the port used before refused it
+	CHECK(hero->getWeapons()->getAbleToAttackSpecificObject(ATTACK_NEW_TARGET, *hero, *air, CMD_FROM_AI) == ATTACKRESULT_POSSIBLE);
+	CHECK(hero->getWeapons()->canAttackObject(*air, CMD_FROM_AI, false));
+	// ground victims still pass: the set's OR keeps the primary slot's AntiGround
+	CHECK(hero->getWeapons()->getAbleToAttackSpecificObject(ATTACK_NEW_TARGET, *hero, *ground, CMD_FROM_AI) == ATTACKRESULT_POSSIBLE);
+	// a class NO slot of the set claims is refused with the INVALID_SHOT answer, never POSSIBLE_AFTER_MOVING (RW 0x6C88F8 -> 0x6C8A44)
+	Object *projectile = w.unit("Arrow", 'B', 320, 300);
+	CHECK(hero->getWeapons()->getAbleToAttackSpecificObject(ATTACK_NEW_TARGET, *hero, *projectile, CMD_FROM_AI) == ATTACKRESULT_INVALID_SHOT);
+	CHECK_FALSE(hero->getWeapons()->canAttackObject(*projectile, CMD_FROM_AI, false));
 }

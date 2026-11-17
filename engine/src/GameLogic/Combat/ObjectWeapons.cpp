@@ -1541,16 +1541,17 @@ CanAttackResult ObjectWeapons::getAbleToUseWeaponAgainstTarget(AbleToAttackType 
 	}
 	const CanAttackResult okResult = inRange ? ATTACKRESULT_POSSIBLE : ATTACKRESULT_POSSIBLE_AFTER_MOVING; // RW 0x6C88E2 .. 0x6C88F5
 	// RW 0x6C88F2: `test [edi + 0x2c], ecx` — the same set anti mask against the same victim anti class AGAIN, now after the slot loop
-	// and before the pitch / damage tests: no slot matched, but the set does not even claim that class -> NOT_POSSIBLE (the tail jumps to
-	// RW 0x6C8A44, `mov eax,1`, not to the INVALID_SHOT answer RW 0x6C8A21). Missing this let a victim the set cannot reach at all
-	// come back as POSSIBLE_AFTER_MOVING, so the attack machine walked to it and could not fire.
+	// and before the pitch / damage tests: when the set does not claim the class at all, RW 0x6C88F8 jumps to RW 0x6C8A44
+	// (`xor eax,eax; inc eax`), the same answer as the INVALID_SHOT tail RW 0x6C8A21, NOT the NOT_POSSIBLE of RW 0x6C8A47. Missing this
+	// let a victim the set cannot reach at all come back as POSSIBLE_AFTER_MOVING, so the attack machine walked to it and could not fire.
+	// RW 0x6C88F2 runs BEFORE the null-victim test at RW 0x6C88FE, so it covers a shot at a position too (its anti class is GROUND, 2).
 	if ((m_set->antiMask() & targetAnti) == 0)
 	{
-		return ATTACKRESULT_NOT_POSSIBLE; // RW 0x6C88F8 -> 0x6C8A44
+		return ATTACKRESULT_INVALID_SHOT; // RW 0x6C88F8 -> 0x6C8A44 (eax = 1)
 	}
 	if (!victim)
 	{
-		return okResult; // RW 0x6C88FE
+		return okResult; // RW 0x6C88FE: a shot at a position skips only the pitch and damage tests
 	}
 	// RW 0x6C8908 .. 0x6C8915: no weapon passes the target pitch test (RW 0x6C80A9) -> INVALID_SHOT (a weapon without a pitch limit passes)
 	if (!isAnyWithinTargetPitch(source, *victim))
