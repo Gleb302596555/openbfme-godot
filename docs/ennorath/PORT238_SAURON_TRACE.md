@@ -54,5 +54,6 @@ in the loaded game. Shared replacement limitations remain S-861.
 | `MATRIX_GAPS.tsv` NO-EFFECT row | This synthetic chain produces a measurable health effect; the row by itself does not demonstrate that the port cannot heal. | The actual mod UI path, level-5 award in the loaded mod, FX and full loaded object remain unverified; the level and cooldown assertions are synthetic. Do not mark the original row globally stale on the basis of this isolated test. |
 | Ring passive, will, fire form and Fires of Doom | Literal buttons also occur in `SauronCommandSet`. | Not audited; no verdict inferred from their names. |
 
-The temporary isolated runner reported `PORT-238*` 12/12 cases and 276/276
-assertions. The required full executable and mod in-game tests remain pending.
+Before merging main e32b67a3, the temporary isolated runner reported `PORT-238*`
+12/12 cases and 276/276 assertions. A post-merge rebuild, the full executable
+run and mod in-game tests remain pending.

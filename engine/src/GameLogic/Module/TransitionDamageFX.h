@@ -51,7 +51,7 @@
 //     client must draw the same random numbers); the sub objects need the client hooks;
 //   * FXList and particle system names are not checked against their stores at parse time (those stores are the client's: S-181 / S-190 practice); an
 //     unknown particle system name, NULL in retail, still asks its location here (a RandomBone entry would draw where retail does not; no retail data has one);
-//   * the OCL's secondary position (the damage source's position) is not handed to the CreateObject port (S-530); a call without a damage source, which
+//   * the OCL's secondary position (the damage source's position) is handed to ObjectCreationList::create; a call without a damage source, which
 //     retail would make with an invalid pointer, is counted and not made;
 //   * the rubble neighbours (RW 0x8BDF08: the neighbours' sub objects, their OCLs) need the wall Bookend machinery (S-342): parsed, counted when they would run.
 
@@ -129,7 +129,7 @@ public:
 		unsigned long long transitions = 0;        ///< onBodyDamageStateChange calls that ran (not under construction)
 		unsigned long long fxCalls = 0, oclCalls = 0, particleCalls = 0;
 		unsigned long long oclWithoutSource = 0;   ///< an OCL call without a damage source (retail reads an invalid pointer; not made here)
-		unsigned long long oclSecondaryDropped = 0; ///< OCL calls made without the source's position as the secondary position (S-530)
+		unsigned long long oclSecondaryDropped = 0; ///< retained field (0 since PORT-237 forwards source position)
 		unsigned long long rubbleNeighborsNotRun = 0; ///< RW 0x8BDF08 calls of a module with rubble neighbours (S-342)
 		unsigned long long randomBoneDraws = 0;    ///< GameLogicRandomValue draws of RandomBone entries
 	};

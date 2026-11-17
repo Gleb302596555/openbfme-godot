@@ -52,6 +52,39 @@ enum PlayerType
 	PLAYER_COMPUTER
 };
 
+struct BattlePlanBonuses
+{
+	float armorScalar = 1.0f;
+	int bombardment = 0;
+	int searchAndDestroy = 0;
+	int holdTheLine = 0;
+	float sightRangeScalar = 1.0f;
+	KindOfMaskType validKindOf{};
+	KindOfMaskType invalidKindOf{};
+	bool isUntouched() const
+	{
+		if (armorScalar != 1.0f || bombardment != 0 || searchAndDestroy != 0 || holdTheLine != 0 || sightRangeScalar != 1.0f)
+		{
+			return false;
+		}
+		for (std::uint32_t w : validKindOf)
+		{
+			if (w != 0)
+			{
+				return false;
+			}
+		}
+		for (std::uint32_t w : invalidKindOf)
+		{
+			if (w != 0)
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+};
+
 class Player
 {
 public:
@@ -138,10 +171,11 @@ public:
 		m_nameKey = key;
 		m_displayName = displayName;
 	}
-	void setPlayerType(PlayerType type, bool skirmish)
+	// RW 0x6AA450: type == PLAYER_COMPUTER (1) upgrades to AISkirmishPlayer when skirmish || AIData.ForceSkirmishAI (+ 0x65)
+	void setPlayerType(PlayerType type, bool skirmish, bool forceSkirmishAI = false)
 	{
 		m_type = type;
-		m_skirmish = skirmish;
+		m_skirmish = skirmish || (type == PLAYER_COMPUTER && forceSkirmishAI);
 	}
 	void setMultiplayerStartIndex(int i) { m_mpStartIndex = i; }
 
@@ -345,6 +379,19 @@ public:
 	void giveLightPointLevel(const std::string &levelName);
 	void removeLightPointLevel(const std::string &levelName);
 
+	// PORT-237 (S-1712): RW 0x6AD2B5 / 0x6AD360 / 0x6AD4AE (Player + 0xAC / 0xB0 / 0xB4 / 0xB8)
+	bool hasActiveBattlePlans() const { return (m_bombardmentBattlePlans + m_holdTheLineBattlePlans + m_searchAndDestroyBattlePlans) > 0; }
+	void applyBattlePlanBonusesForObject(Object &obj) const;
+	void removeBattlePlanBonusesForObject(Object &obj) const;
+	void applyBattlePlanBonusesForPlayerObjects(const BattlePlanBonuses &bonus, GameLogic &logic);
+	const BattlePlanBonuses &battlePlanBonuses() const { return m_battlePlanBonuses; }
+	void setBattlePlanCounts(int bombardment, int holdTheLine, int searchAndDestroy)
+	{
+		m_bombardmentBattlePlans = bombardment;
+		m_holdTheLineBattlePlans = holdTheLine;
+		m_searchAndDestroyBattlePlans = searchAndDestroy;
+	}
+
 	void setEconomyHost(PlayerEconomyHost *host) { m_host = host; }
 	PlayerEconomyHost *economyHost() const { return m_host; }
 
@@ -402,4 +449,8 @@ private:
 	std::shared_ptr<TunnelTracker> m_tunnelTracker; ///< lane GARRISON-2 (RW + 0x308)
 	ResourceGatheringManager m_resourceGathering; ///< lane LUMBER1 (RW + 0x304)
 	LightPointTracker m_lightPoints;              ///< PORT-113 (RW + 0x338)
+	int m_bombardmentBattlePlans = 0;             ///< PORT-237: RW + 0xAC
+	int m_holdTheLineBattlePlans = 0;             ///< PORT-237: RW + 0xB0
+	int m_searchAndDestroyBattlePlans = 0;        ///< PORT-237: RW + 0xB4
+	BattlePlanBonuses m_battlePlanBonuses;        ///< PORT-237: RW + 0xB8
 };

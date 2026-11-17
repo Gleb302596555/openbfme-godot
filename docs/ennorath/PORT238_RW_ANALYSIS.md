@@ -77,7 +77,7 @@ failure, while `AIEnterState::update` performs `addToContain` on an update,
 not directly in the ordinary garrison `aiEnter` path. This is not an exhaustive
 proof for all callbacks, horde paths, effects or nested state transitions. The
 existing probe tests check ordering, not reentrancy. The remaining shared queue
-and live callback audit is tracked by S-7427; do not add an unverified guard
+and live callback audit is tracked by S-7446; do not add an unverified guard
 that might diverge from RW or alter other orders.
 
 ## The ONE_RING button
@@ -98,7 +98,7 @@ it. Synthetic tests exist; the full-executable run is pending.
 The shared port lookup `StealthUpdate::of` returns only the first module by name,
 whereas RW 0x68FBD3 iterates the cached modules and applies upgrade masks. This
 affects multiple non-ring systems too; the remaining common-mechanism work is
-S-7426, not a ring-only workaround. Consequently multi-module readiness and
+S-7445, not a ring-only workaround. Consequently multi-module readiness and
 activation are not yet claimed equivalent.
 
 ## Other checked pieces
@@ -164,7 +164,8 @@ negative-control executables:
 [doctest] Status: SUCCESS!
 ```
 
-These are isolated tests, **not** the required full `openbfme_tests` run and
+These isolated results were obtained before merging main e32b67a3, **not** from
+the post-merge binary. They are **not** the required full `openbfme_tests` run and
 not an in-game test. The separate status-gate test is intentionally a regression
 test for ONE_RING, not the independent STOP control: without the availability
 fix it fails because the old default was enabled.

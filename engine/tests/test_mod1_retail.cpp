@@ -299,7 +299,7 @@ TEST_CASE("modules retail: CreateObjectDie runs its ObjectCreationList when the 
 		CHECK(cod->createdCount() > 0);
 		CHECK(g.logic->getObjectCount() >= before + cod->createdCount());
 		CHECK(g.hash() != h0);
-		CHECK(reportHas(g, "[S-980] CreateObjectDie"));
+		CHECK_FALSE(reportHas(g, "[S-980] CreateObjectDie")); // PORT-237 closed S-980: calls OCL::create(logic, obj, killer)
 		g.run(5);
 		hashes[run] = g.hash();
 	}

@@ -479,9 +479,17 @@ Object *Construction::buildObjectNow(GameLogic &logic, Object *builder, const Th
 	}
 	if (structure)
 	{
+		// PORT-224 (issue #534, P-143): RW 0x797951 .. 0x797977 (DONOR BFME2 BuildAssistant.cpp:1776-1782, Rva002A9BF2Get.cpp:92-108):
+		// neither buildObjectNow nor Player::onStructureConstructionComplete (RW 0x6AA72B) clears OBJECT_STATUS_UNDER_CONSTRUCTION (set at
+		// RW 0x797894). Full-health structures with GettingBuiltBehavior clear it on their first update via checkCompletion (RW 0x857BDA ->
+		// RW 0x857D4C); workerless RebuildHoleBehavior::update (RW 0x886994 .. 0x8869F7, e.g. NeutralStructureHole creep lairs) drops health to 1%
+		// and calls startConstruction(true) with m_forceComplete = true (RW 0x8567A2), keeping UNDER_CONSTRUCTION throughout the self-rise so
+		// killing the rising lair awards no bounty (RW 0x6AC09B), spawns no new hole (RW 0x889B0C), and fades the masked hole without treasure.
 		onStructureCreated(owner, builder, *obj);
-		obj->setStatus(OBJECT_STATUS_UNDER_CONSTRUCTION, false);
-		onStructureConstructionComplete(owner, builder, *obj, false);
+		if (!builder || !templateKindOf(logic, *builder->getTemplate(), "WALL_HUB")) // RW 0x797964 .. 0x79796E: KindOf bit 156 (+0x11B & 0x10)
+		{
+			onStructureConstructionComplete(owner, builder, *obj, false);
+		}
 	}
 	// lane PORT-117 (issue #301, P-57): RW 0x7979D4 .. 0x797A02. A KindOf HORDE object is completed WITHOUT its producer. RotWK reads the new object's
 	// template (Object + 4) KindOf word + 0x114 for bit 0x2000 (RW 0x7979DC: KindOf bit 109 = HORDE in the name table RW 0xDA0E68) and, when it is set, calls

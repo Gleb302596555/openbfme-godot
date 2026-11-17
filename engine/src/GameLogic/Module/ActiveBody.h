@@ -152,6 +152,7 @@ public:
 	// ZH BodyModuleInterface::setDamageStateIgnoringBodyScalar: the body scalar (RW this + 4, multiplied in by body slot 0x6C): 1.0 by default
 	float bodyDamageScalar() const { return m_damageScalar; }
 	void setBodyDamageScalar(float s) { m_damageScalar = s; }
+	void applyDamageScalar(float scalar) override; // RW 0x8C329F (vt[0x6C])
 	// the last frame the body took a damaging hit and from whom (RW + 0xAC, the last damage record); 0xFFFFFFFF / INVALID_ID when never
 	UnsignedInt lastDamageFrame() const override { return m_lastDamageFrame; }
 	ObjectID lastDamager() const { return m_lastDamager; }

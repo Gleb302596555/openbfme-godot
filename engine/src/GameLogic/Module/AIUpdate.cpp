@@ -974,6 +974,7 @@ UpdateSleepTime AIUpdateInterface::update()
 			moverSleep = (unsigned)UPDATE_SLEEP_FOREVER;
 		}
 		finalSleep = moverSleep;
+		m_world->noteStop(kStopUpdate);
 	}
 	if (m_combat.fadeOnPortals)
 	{
@@ -981,7 +982,6 @@ UpdateSleepTime AIUpdateInterface::update()
 	}
 	m_isInUpdate = false;
 	getObject()->setStatus((unsigned)CombatNames::statuses().updatingAI, false);
-	m_world->noteStop(kStopUpdate);
 	return (UpdateSleepTime)(finalSleep < 1u ? 1u : finalSleep);
 }
 

@@ -68,6 +68,8 @@ public:
 	const class Path *groundPath() const { return m_groundPath.get(); }
 	const Coord3D &pathStart() const { return m_pathStart; }
 	const Coord3D &pathEnd() const { return m_pathEnd; }
+	// RW 0x68C933 (AIGroupMarch.cpp): true when `o` (or any member of a horde) took damage within `seconds`
+	static bool damagedWithin(const Object &o, int seconds);
 	static const char *marchStopLine();
 	// lane MOVE-3: MSG_DO_MOVETO / MSG_DO_ATTACKMOVETO with GameData + 0x11CA (PlanningModeEnabled, set by the GameData constructor RW 0x643982 and cleared only
 	// by a command-line switch RW 0x7B9F93; retail INI never names it): the group manager's move order (RW 0x75748C -> order RW 0x94E232, vtable 0xC81430,

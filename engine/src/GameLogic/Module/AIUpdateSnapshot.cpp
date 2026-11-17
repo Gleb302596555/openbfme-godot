@@ -52,6 +52,7 @@ void DozerAIUpdate::xfer(Xfer &x)
 	AIUpdateInterface::xfer(x);
 }
 
+// RW 0x0076C96B (AIUpdateInterface base + GiantBirdAIUpdate state in xferAIStateBody)
 void GiantBirdAIUpdate::xfer(Xfer &x)
 {
 	XferVersion v{ 1, 1 };

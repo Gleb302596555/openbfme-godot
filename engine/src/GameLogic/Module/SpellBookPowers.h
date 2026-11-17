@@ -184,6 +184,7 @@ public:
 	TaintSpecialPower(Thing *thing, const TaintSpecialPowerModuleData *data) : WeatherFamilySpecialPower(thing, data), m_data(data) {}
 	void doSpecialPowerAtLocation(const Coord3D &loc, unsigned options) override; // RW 0x8C8FF5
 	ObjectID lastAreaObject() const { return m_lastObject; }
+	const TaintSpecialPowerModuleData *data() const { return m_data; } // the test reads the area object name (test_hud_factb_units)
 
 private:
 	const TaintSpecialPowerModuleData *m_data;
@@ -196,6 +197,7 @@ public:
 	ElvenWoodSpecialPower(Thing *thing, const ElvenWoodSpecialPowerModuleData *data) : WeatherFamilySpecialPower(thing, data), m_data(data) {}
 	void doSpecialPowerAtLocation(const Coord3D &loc, unsigned options) override; // RW 0x8C7FA2
 	ObjectID lastAreaObject() const { return m_lastObject; }
+	const ElvenWoodSpecialPowerModuleData *data() const { return m_data; } // the test reads the grove object name (test_hud_factb_units)
 
 private:
 	const ElvenWoodSpecialPowerModuleData *m_data;

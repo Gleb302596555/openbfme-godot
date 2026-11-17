@@ -40,13 +40,12 @@
 //         FORWARD_IMPACT, REVERSE_IMPACT), the force through PhysicsBehavior's fling (RW 0x792DBD), ContainInsideSourceObject (else the object is destroyed);
 //         lane SPELLFIX-1: StartingBusyTime (AI command 0x31: AIUpdateInterface::aiBusyFor, RW 0x5F1D2E) and ClearRemovables (ConstructionSite's
 //         clearRemovableForConstruction RW 0x796576 / moveObjectsForConstruction RW 0x797465, TerrainTrees::removeTreesForConstruction RW 0x684BCA).
-// NOT PORTED (stop S-530, counted in m_unportedUses and noted once per kind through GameLogic::noteStop): the other nugget kinds (CreateDebris,
-// ApplyRandomForce, FireWeapon, Attack); PutInContainer; the props of RW 0x5F12BE (a TREE, SHRUB or
-// OPTIMIZED_PROP template: RW 0x683D89 / 0x6808ED / 0x67D742); WaypointSpawnPoints (RW 0x5F1A60); OffsetInLocalSpace (the source's
-// transform, RW 0x5E07F7 / 0x70BA76); MoveUsesStrafeUpdate (RW 0x7A82AF); InvulnerableTime (RW 0x68C6C8:
-// RW 0x68B303 / 0x8E3ABB); FADE_AND_DIE_ORNAMENT / SPAWNED_MODELCONDITION_TRIGGER / FLOATING's modules (FadeAndDieOrnamentUpdate, SpawnedModelConditionCreate,
-// FloatUpdate: UnportedModules); USE_WATER_SURFACE without a pathfinder terrain; the STRUCTURE pathfinder add (RW 0x6E85E9); a SpreadFormation without a source
-// (retail reads an unset position). The client parts (fades, FadeSound, ParticleSystem, InheritAttributesFromSource, the drawable flags) are the client's.
+// NOT PORTED (stop S-530, counted in m_unportedUses and noted once per kind through GameLogic::noteStop): CreateDebris; PutInContainer;
+// the props of RW 0x5F12BE (a TREE, SHRUB or OPTIMIZED_PROP template: RW 0x683D89 / 0x6808ED / 0x67D742); MoveUsesStrafeUpdate (RW 0x7A82AF);
+// FADE_AND_DIE_ORNAMENT / SPAWNED_MODELCONDITION_TRIGGER / FLOATING's modules (FadeAndDieOrnamentUpdate, SpawnedModelConditionCreate,
+// FloatUpdate: UnportedModules); USE_WATER_SURFACE without a pathfinder terrain; a SpreadFormation without a source (retail reads an unset position).
+// (PORT-237 ported ApplyRandomForce, FireWeapon, Attack, SkipIfSignificantlyAirborne, OffsetInLocalSpace, WaypointSpawnPoints, InvulnerableTime, and OCL::create(primary, secondary).)
+// The client parts (fades, FadeSound, ParticleSystem, InheritAttributesFromSource, the drawable flags) are the client's.
 // INFERENCE (S-161): the terrain layer of a spot (RW 0x680B70) and of the source (RW 0x68BBE0) is the ground, as everywhere in the port; the ground
 // layer's height (TerrainLogic vslot 0x1C) is getGroundHeight.
 
@@ -159,7 +158,10 @@ struct OCLNugget
 	bool useJustBuiltFlag = false;            // + 0x94
 	unsigned justBuiltDuration = 1;           // + 0x98 (frames)
 	std::string waypointSpawnPoints;          // + 0x10C
-	std::map<std::string, std::string> otherFields; // the rows of the other nugget kinds, their text (S-530)
+	std::string weaponName;                   // FireWeapon Weapon
+	int numberOfShots = 1;                    // Attack NumberOfShots
+	int weaponSlot = 0;                       // Attack WeaponSlot (PRIMARY_WEAPON)
+	std::map<std::string, std::string> otherFields; // remaining unported/client rows (e.g. CreateDebris / DeliveryDecal)
 };
 
 class ObjectCreationList
@@ -170,6 +172,8 @@ public:
 	// RW 0x5F00CA: every nugget's vslot 0xC in order; the objects the CreateObject nuggets made (see the file comment). `source` (the primary object) may be
 	// null; `secondary` is the secondary position (null: none); `lifetime` the caller's lifetime in frames (0: the nugget's Min / MaxLifetime)
 	std::vector<Object *> create(GameLogic &logic, const Object *source, const Coord3D &where, const Coord3D *secondary = nullptr, unsigned lifetime = 0) const;
+	// RW 0x5F0126: object-pair overload (primary object, secondary object, lifetime)
+	std::vector<Object *> create(GameLogic &logic, Object *primary, const Object *secondary, unsigned lifetime = 0) const;
 	// the unported nugget kinds / fields met by create (S-530)
 	mutable unsigned long long m_unportedUses = 0;
 

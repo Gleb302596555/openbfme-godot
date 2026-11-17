@@ -131,7 +131,6 @@ std::vector<std::string> ScriptActions::campaignStopLines()
 		"[S-1365] Team::updateState (RW 0x7A208C, lane CAMP-1H) runs the team scripts and flags except: the entered / exited flag + 0x5C (computed from the "
 		"members' enter / exit frames, RW 0x68DD46), teamEventsList (RW 0x7396E8 -> the members' AI RW 0x662597), the attacker records' expiry (RW "
 		"0x7A1FB1 / 0x7A2004), the team's vslot 0x14 (RW 0x7A59CB), the AIPlayer's team building (+ 0x112 / + 0x113) and the enemy scan's off-map filter",
-		"[S-1712] Object::initObject's player object modifiers (RW 0x6AD3E6 -> RW 0x6AD2B5 when Player + 0xAC + 0xB0 + 0xB4 > 0: health scale, body vslot "
-		"0x6C, Object + 0x39D bits) are not ported; their writers are not located",
+		"[S-1712] Player::applyBattlePlanBonusesForObject (RW 0x6AD2B5: body vslot 0x6C applyDamageScalar, shroud clearing scale, Object + 0x39D BATTLEPLAN weapon bonus bits) is ported (PORT-237); BattlePlanUpdate writers of Player + 0xAC..+0xB8 and Object::setVisionRange remain unlocated/unported",
 	};
 }

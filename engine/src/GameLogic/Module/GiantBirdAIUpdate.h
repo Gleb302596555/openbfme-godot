@@ -45,11 +45,11 @@
 //     the goal angle + 0x5F0 = the angle to the point + the orientation, the machine cleared, the goal position the bird's own, the source, state 0x3FF
 //     (object) or 0x3FC (position), goal type 2. The object's position is taken once (the turn does not follow a moving target);
 //
-// NOT PORTED / INFERENCE: stop S-4040 (GiantBirdAIUpdate::stopLines): the states 0x3FD / 0x3FE and the commands that enter them (0x41 RW
-// 0x76A0E6 -> 0x3FD; 0x23 RW 0x76A1F5 -> the swoop loop 0x3EF: no ported caller issues 0x23 / 0x41), the guard machine (RW 0x76A6CC) and the guard command,
-// RW 0x76D778 (vtable slot 0x68: a waypoint chain to state 0x3F6; its caller is not identified); the "eat" branch (CreateObjectDie, the MACHINE victim of flag 0x20); the
-// collision push (onCollide RW 0x76B56B, the AI's collide interface at + 0x24, is not ported: + 0x630 stays 0); a deferred command is kept for the routed commands only; the attack-move's crate
-// pick-up (RotWK has no crates) and the mood re-check clock RW 0x662E01 (taken as the MoodAttackCheckRate interval); vslot 0x164 (RW 0x76D3B1).
+// NOT PORTED / INFERENCE: stop S-4040 (GiantBirdAIUpdate::stopLines): command 0x23 (RW 0x76A1F5 -> the swoop loop 0x3EF: no ported caller issues 0x23),
+// the guard machine (RW 0x76A6CC) and the guard command, RW 0x76D778 (vtable slot 0x68: a waypoint chain to state 0x3F6; its caller is not identified);
+// the "eat" branch (CreateObjectDie, the MACHINE victim of flag 0x20); a deferred command is kept for the routed commands only; the attack-move's crate
+// pick-up (RotWK has no crates) and the mood re-check clock RW 0x662E01 (taken as the MoodAttackCheckRate interval); vslot 0x164 (RW 0x76D3B1: re-activates
+// AIOrdersManager RW 0x756DC6 or idles on game-mode/player flags).
 //
 // Determinism: SimMath / NumericState for every float, no unordered containers, the logic RNG only.
 
@@ -58,6 +58,7 @@
 #include "GameLogic/AI/AerialPathfinder.h"
 #include "GameLogic/Locomotor.h"
 #include "GameLogic/Module/AIUpdate.h"
+#include "GameLogic/Module/CollideModule.h"
 
 #include <memory>
 #include <string>
@@ -77,7 +78,7 @@ struct GiantBirdAIUpdateData
 	std::string tossFX;                   // + 0x80
 };
 
-class GiantBirdAIUpdate : public AIUpdateInterface
+class GiantBirdAIUpdate : public AIUpdateInterface, public CollideModuleInterface
 {
 public:
 	// the state ids of RW 0x7695C2
@@ -102,6 +103,8 @@ public:
 		STATE_FOLLOW_WAYPOINTS_TEAM = 0x3F8, // GiantBirdFollowWaypointPathState(1): AI commands 7 / 0x33
 		STATE_ATTACK_MOVE = 0x3FB,        // GiantBirdAttackMoveToState
 		STATE_FACE_POSITION = 0x3FC,      // NormalFlight(0, 1) -> 0: the face command 0x27 (RW 0x76B559 -> RW 0x76AB4E), turned by goal 2
+		STATE_FLY_OFF_MAP = 0x3FD,        // NormalFlight(0, 0) -> 0x3FE (Port 257, RW 0x769A23): AI command 0x41 (RW 0x76A0E6)
+		STATE_DESTROY_SELF = 0x3FE,       // AIGiantBirdDestroySelfState (Port 257, RW 0x76958A -> 0x7695A7): destroyObject
 		STATE_FACE_OBJECT = 0x3FF,        // NormalFlight(0, 1) -> 0: the face command 0x26 (RW 0x76B543 -> RW 0x76AB4E), turned by goal 2
 		STATE_FLY_400 = 0x400             // NormalFlight(0, 1) -> 0: the ability approach (AI commands 0x47 / 0x48)
 	};
@@ -120,6 +123,15 @@ public:
 	// AI vslot 0x25C: RW 0x769F9F jumps to RW 0x6629D3, whose vslot 0x224 is this class's RW 0x9188EB (false): always true (lane LOCODIST-1)
 	bool treatAsAircraftForLocoDistToGoal() const override { return true; }
 
+	// Port 257: CollideModuleInterface at GiantBirdAIUpdate + 0x24 (vtable RW 0xC2E19C): onCollide RW 0x76B56B, wouldLikeToCollideWith RW 0x7FEAC1 (false)
+	CollideModuleInterface *getCollide() override { return this; }
+	void onCollide(Object *other, const Coord3D *loc, const Coord3D *normal) override;
+	bool wouldLikeToCollideWith(const Object &other) const override
+	{
+		(void)other;
+		return false; // RW 0x7FEAC1
+	}
+
 	// AI commands 0x47 / 0x48 (SpecialAbilityUpdate's approach, RW 0x852D59 / 0x852DC5) -> RW 0x76A04A: GiantBirdNormalFlightState 0x400 to `pos`
 	bool aiAbilityMoveTo(const Coord3D &pos, CommandSourceType source);
 	bool aiAbilityMoveToObject(Object *target, CommandSourceType source); // RW 0x76DAEE: command 0x48 retains its target through deferral
@@ -128,6 +140,8 @@ public:
 	// lane STEALTHFLY1: AI command 0x39 (RW 0x77131B, the script's group / named attack of a GiantBirdAIUpdate: AI vslot 0x168 RW 0x68BA5C): RW 0x76D995 routes it
 	// as the attack object order (RW 0x76A139(victim, source, 0): the swoop 0x3F2)
 	bool aiSwoopAttackObject(Object *victim, CommandSourceType source);
+	// Port 257: AI command 0x41 (RW 0x76DAB0 -> RW 0x76A0E6): fly to `pos` in state 0x3FD (STATE_FLY_OFF_MAP), then destroy self in state 0x3FE (STATE_DESTROY_SELF)
+	bool aiFlyOffMap(const Coord3D &pos, CommandSourceType source);
 
 	// ---- the state of the flight (tests, the states) ----
 	const GiantBirdAIUpdateData &data() const { return m_data; }
@@ -150,6 +164,8 @@ public:
 	int duelMode() const { return m_duelMode; }
 	bool loopPath() const { return m_loopPath; } // + 0x614: the waypoint path closes on its first waypoint (lane STEALTHFLY1)
 	void setDuelMode(int m) { m_duelMode = m; }
+	const Coord3D &collisionPush() const { return m_collisionPush; }
+	bool collisionPushed() const { return m_collisionPushed; }
 	unsigned long long swoopsStarted() const { return m_swoopsStarted; }   ///< diagnostics (not state)
 	unsigned long long strikes() const { return m_strikes; }               ///< diagnostics: weapon shots of the attack states (not state)
 	void noteSwoop() { ++m_swoopsStarted; }

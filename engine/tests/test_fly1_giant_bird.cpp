@@ -270,7 +270,7 @@ TEST_CASE("fly1 retail: a fell beast ordered to a point takes off, climbs to its
 	CHECK(std::count(raised.begin(), raised.end(), aerial) == 1);
 	CHECK(bird.rfind("S-4040: ", 0) == 0);
 	CHECK(bird.find("the attack-move's mood re-check clock (RW 0x662E01) is the MoodAttackCheckRate interval (INFERENCE)") != std::string::npos);
-	CHECK(bird.find("the collision push of onCollide") != std::string::npos);
+	CHECK(bird.find("the guard machine and command") != std::string::npos);
 	CHECK(aerial.rfind("S-4041: ", 0) == 0);
 	CHECK(aerial.find("without the no-fly zones") != std::string::npos);
 }

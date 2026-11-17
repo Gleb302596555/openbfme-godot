@@ -1141,6 +1141,11 @@ void ActiveBody::xfer(Xfer &x)
 	}
 }
 
+void ActiveBody::applyDamageScalar(float scalar)
+{
+	m_damageScalar = SimMath::mulf32(m_damageScalar, scalar);
+}
+
 void ImmortalBody::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

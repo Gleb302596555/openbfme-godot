@@ -325,8 +325,7 @@ void TransitionDamageFX::onBodyDamageStateChange(const DamageInfo *info, BodyDam
 				}
 				else if (list)
 				{
-					list->create(logic, &obj, pos); // RW 0x5F00CA; the secondary position (the source's) is not handed over (S-530)
-					++st.oclSecondaryDropped;
+					list->create(logic, &obj, pos, source->getPosition()); // RW 0x5F00CA with source's position as secondary
 					++st.oclCalls;
 				}
 			}
@@ -353,8 +352,7 @@ std::vector<std::string> TransitionDamageFX::stops()
 	const Stats &s = stats();
 	return { "[S-686] TransitionDamageFX: RW 0x8BE077 ran " + std::to_string(s.transitions) + " transitions, " + std::to_string(s.fxCalls) + " FXList, " +
 			 std::to_string(s.particleCalls) + " particle system, " + std::to_string(s.oclCalls) + " OCL calls; not ported: the rubble neighbours (RW 0x8BDF08, " +
-			 std::to_string(s.rubbleNeighborsNotRun) + " calls, S-342), the OCL's secondary position (" + std::to_string(s.oclSecondaryDropped) +
-			 " calls, S-530), an OCL call without a damage source (" + std::to_string(s.oclWithoutSource) +
+			 std::to_string(s.rubbleNeighborsNotRun) + " calls, S-342), an OCL call without a damage source (" + std::to_string(s.oclWithoutSource) +
 			 " not made); the drawable of RW 0x8BDDAC is taken as present; FXList / particle system names are not checked at parse time" };
 }
 

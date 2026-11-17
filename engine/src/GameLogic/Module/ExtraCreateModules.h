@@ -17,10 +17,8 @@
 //     centre 3D) through a filter of the ObjectFilter with the object's controlling player; for every object found whose controlling player is the object's own
 //     and whose upgrade mask holds ALL the Upgrade bits (RW 0x6AACB3), every bit of the Upgrade mask (0 .. 0x47F) is given to the object (Object::giveUpgrade
 //     RW 0x69388B of TheUpgradeCenter->findUpgradeByMaskBit RW 0x66F218).
-// WHAT IS INFERENCE / NOT PORTED (stop S-981, reported per use):
-//   * InheritUpgradeCreate's partition query is a scan of the logic's object list (list order) with the 3D centre distance <= Radius and
-//     ObjectFilterMatch::allows; the partition manager's cell order and its exact range test are not read (the effect does not depend on the order: every
-//     match gives the same bits).
+// WHAT IS INFERENCE / NOT PORTED (PORT-237 closed S-981; both LockWeaponCreate and InheritUpgradeCreate run ThePartitionManager):
+//   * InheritUpgradeCreate's partition query runs on ThePartitionManager (RW 0x8BD76C, type 1).
 
 #pragma once
 

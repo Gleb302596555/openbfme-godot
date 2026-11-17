@@ -179,3 +179,96 @@ def test_dominant_and_partial_lanes_count_every_rank(tmp_path):
     # half outside every row -> partial, still naming the top rank as dominant
     assert led.status(0x1080, 0x40)[0] == "partial-authored"
     assert led.status(0x1020, 0x10)[0] == "assembly"
+
+
+# --------------------------------------------------------------------------- PORT-240: --angr
+# inventory.py --angr reads tools/mod/rw_function_map.py's angr cache (rw_function_blocks.json):
+# RotWK entries and function extents from the CFGFast basic blocks, no Ghidra anywhere. The
+# cache records VAs: {"functions": [{"address": va, "blocks": [[va, size], ...]}]}.
+
+def _angr_record():
+    return {"functions": [
+        # contiguous: two touching blocks, the extent is their union
+        {"address": 0x401000, "blocks": [[0x401000, 12], [0x40100C, 20]]},
+        # noncontiguous: the gap between the blocks must not be filled
+        {"address": 0x402000, "blocks": [[0x402000, 8], [0x403000, 16]]},
+        # contiguous start run of 8 bytes, then a detached block
+        {"address": 0x404000, "blocks": [[0x404000, 4], [0x404004, 4], [0x404010, 8]]},
+    ]}
+
+
+def test_port_240_angr_rows_and_extents_from_blocks():
+    bodies = inventory.angr_entries(_angr_record(), base=0x400000)
+    assert bodies == {0x1000: (32, 32), 0x2000: (24, 8), 0x4000: (16, 8)}
+
+
+def _fake_main(monkeypatch, tmp_path, record):
+    import hashlib
+    import json
+    game = tmp_path / "game.dat"
+    game.write_bytes(b"MZ" + bytes(30))
+    record = dict(record)
+    record["sha256"] = hashlib.sha256(game.read_bytes()).hexdigest()
+    inv_json = tmp_path / "rw_function_blocks.json"
+    inv_json.write_text(json.dumps(record), encoding="utf-8")
+    out = tmp_path / "rotwk_functions.csv"
+    img = FakeImage(bytes(0x5000), (0x1000, 0x5000))
+    img.base = 0x400000
+    monkeypatch.setattr(inventory.relib, "Image", lambda path: img)
+    monkeypatch.setattr(sys, "argv", ["inventory.py", "--bin", str(game), "--angr", str(inv_json),
+                                     "--out", str(out)])
+    inventory.main()
+    return out
+
+
+def test_port_240_angr_cli_writes_rotwk_functions_csv(tmp_path, monkeypatch):
+    out = _fake_main(monkeypatch, tmp_path, _angr_record())
+    assert out.read_text(encoding="utf-8").splitlines() == [
+        "rva,size,start_block_size,name",
+        "0x1000,32,32,",
+        "0x2000,24,8,",
+        "0x4000,16,8,",
+    ]
+
+
+def test_port_240_angr_cache_sha256_mismatch_is_an_error(tmp_path, monkeypatch):
+    import json
+    game = tmp_path / "game.dat"
+    game.write_bytes(b"MZ" + bytes(30))
+    inv_json = tmp_path / "rw_function_blocks.json"
+    inv_json.write_text(json.dumps({"sha256": "0" * 64, "functions": []}), encoding="utf-8")
+    img = FakeImage(bytes(0x5000), (0x1000, 0x5000))
+    img.base = 0x400000
+    monkeypatch.setattr(inventory.relib, "Image", lambda path: img)
+    monkeypatch.setattr(sys, "argv", ["inventory.py", "--bin", str(game), "--angr", str(inv_json),
+                                     "--out", str(tmp_path / "out.csv")])
+    try:
+        inventory.main()
+    except SystemExit as err:
+        assert "sha256" in str(err)
+    else:
+        raise AssertionError("an angr cache for another game.dat must stop the build")
+
+
+def test_port_240_angr_bodies_win_and_empty_names_do_not_shadow():
+    img = FakeImage(bytes(0x4000), (0x1000, 0x3020))
+    bodies = {0x1000: (32, 32), 0x2000: (24, 8)}
+    inv = inventory.build(img, [(0x1000, ""), (0x2000, ""), (0x1000, "NamedFromCsv"), (0x3000, "FUN_x")], bodies)
+    assert inv == [(0x1000, 32, 32, "NamedFromCsv"), (0x2000, 24, 8, ""), (0x3000, 32, 32, "FUN_x")]
+
+
+def test_port_240_angr_rejects_broken_bodies():
+    for bad in (
+        {"functions": [{"address": 0x401000, "blocks": [[0x401010, 8]]}]},                 # no block at the entry
+        {"functions": [{"address": 0x401000, "blocks": [[0x401000, 8], [0x401004, 8]]}]},  # overlapping blocks
+        {"functions": [{"address": 0x401000, "blocks": []}]},                              # no blocks at all
+        {"functions": [{"address": 0x401000, "blocks": [[0x401000, 0]]}]},                 # zero-size block
+        {"functions": [{"address": 0x401000, "blocks": [[0x401000, 8]]},
+                       {"address": 0x401000, "blocks": [[0x401000, 4]]}]},                # duplicate entry
+    ):
+        try:
+            inventory.angr_entries(bad, base=0x400000)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"must reject: {bad}")

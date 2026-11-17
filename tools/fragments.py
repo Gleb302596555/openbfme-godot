@@ -9,14 +9,19 @@ A branch adds, it does not edit the shared tables:
 Closing or narrowing an existing stop is still an edit of its own row in docs/STOPS.md (one row, no conflict).
 Stop ids come with the issue (`reserve`), so two branches never take the same one.
 
-    fragments.py check                    validate the fragments (format, ids unused in STOPS.md and among fragments)
+    fragments.py check [--issue N]        validate the fragments (format, ids unused in STOPS.md and among fragments) and, with the
+                                          branch's issue (--issue, else $OPENBFME_ISSUE, else `git config openbfme.issue`), that no
+                                          new stop takes an id reserved for another issue (Port 212 took #578's S-7423, 2026-11-17);
+                                          the commit gate runs the same check
     fragments.py collect                  landing only: fold the fragments into the tables, delete them, sync README's count
     fragments.py reserve <issue> [count]  next free stop ids for an issue, recorded in docs/stops.d/RESERVED.tsv
     fragments.py next                     the next free stop id (STOPS.md, fragments and reservations)
 """
 from __future__ import annotations
 
+import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -33,7 +38,8 @@ NIGHT_HEAD = "|---|---|---|---|---|---|---|---|---|---|---|"
 
 
 def read(p: Path) -> str:
-    return p.read_bytes().decode("utf-8")
+    # a Windows checkout has CRLF: a fragment's blank line before its `## ...` section must not read as "\r" (S-7434, 2026-11-17)
+    return p.read_bytes().decode("utf-8").replace("\r\n", "\n")
 
 
 def stop_ids(text: str) -> set[int]:
@@ -71,10 +77,13 @@ def parse_night(p: Path) -> str:
     return lines[0].rstrip()
 
 
-def check() -> list[str]:
+def check(issue: str = "") -> list[str]:
     problems = []
     taken = stop_ids(read(STOPS))
     seen: set[int] = set()
+    issue = (issue or my_issue()).lstrip("#")
+    res = reservations() if issue else []
+    own = [(a, b) for i, a, b in res if i == issue]
     for p in stop_fragments():
         try:
             sid, _, _ = parse_stop(p)
@@ -83,6 +92,11 @@ def check() -> list[str]:
             continue
         if sid in taken:
             problems.append(f"{p.relative_to(REPO)}: S-{sid} is already a row of docs/STOPS.md (take the issue's reserved id)")
+        others = sorted({i for i, a, b in res if a <= sid <= b and i != issue})
+        if others and not any(a <= sid <= b for a, b in own):
+            mine = ", ".join(f"S-{a}" if a == b else f"S-{a}..S-{b}" for a, b in own) or "none: take `python tools/fragments.py next`"
+            problems.append(f"{p.relative_to(REPO)}: S-{sid} is reserved for issue #{', #'.join(others)} (docs/stops.d/RESERVED.tsv); "
+                            f"issue #{issue}'s ids: {mine}")
         if sid in seen:
             problems.append(f"{p.relative_to(REPO)}: S-{sid} twice")
         seen.add(sid)
@@ -129,14 +143,32 @@ def collect() -> int:
     return 0
 
 
+def my_issue() -> str:
+    """The branch's issue for the reservation check: $OPENBFME_ISSUE, else `git config openbfme.issue` (the prompt sets it), else ""."""
+    if os.environ.get("OPENBFME_ISSUE"):
+        return os.environ["OPENBFME_ISSUE"].strip()
+    try:
+        return subprocess.run(["git", "-C", str(REPO), "config", "--get", "openbfme.issue"], capture_output=True, text=True).stdout.strip()
+    except OSError:
+        return ""
+
+
 def reservations() -> list[tuple[str, int, int]]:
-    if not RESERVED.exists():
-        return []
+    """The tree's reservations and those of the last fetched origin/main: an issue reserved after the branch started counts too."""
+    texts = [read(RESERVED)] if RESERVED.exists() else []
+    try:
+        fresh = subprocess.run(["git", "-C", str(REPO), "show", "origin/main:docs/stops.d/RESERVED.tsv"], capture_output=True)
+        if fresh.returncode == 0:
+            texts.append(fresh.stdout.decode("utf-8").replace("\r\n", "\n"))
+    except OSError:
+        pass
     out = []
-    for l in read(RESERVED).splitlines()[1:]:
-        if l.strip():
-            issue, first, last = l.split("\t")[:3]
-            out.append((issue, int(first), int(last)))
+    for text in texts:
+        for l in text.splitlines()[1:]:
+            if l.strip():
+                issue, first, last = l.split("\t")[:3]
+                if (issue, int(first), int(last)) not in out:
+                    out.append((issue, int(first), int(last)))
     return out
 
 
@@ -167,7 +199,7 @@ def main(argv: list[str]) -> int:
         print(__doc__)
         return 2
     if argv[0] == "check":
-        problems = check()
+        problems = check(argv[argv.index("--issue") + 1] if "--issue" in argv[:-1] else "")
         print("\n".join(problems) or f"fragments ok ({len(stop_fragments())} stops, {len(night_fragments())} night-watch)")
         return 1 if problems else 0
     if argv[0] == "collect":
