@@ -13,6 +13,8 @@
 #include "Common/AsciiString.h"
 #include "Common/Audio/AudioRequests.h"
 #include "Common/INIException.h"
+#include "Common/Player.h"
+#include "Common/PlayerList.h"
 #include "Common/StateHash.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "GameLogic/AI/AIPathfind.h"
@@ -32,8 +34,10 @@
 #include "GameLogic/SimMath.h"
 #include "GameClient/FXList.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstring>
+#include <vector>
 
 namespace
 {
@@ -701,7 +705,7 @@ UpdateSleepTime FireSpreadUpdate::update()
 	{
 		if (const ObjectCreationList *ocl = TheObjectCreationListStore ? TheObjectCreationListStore->findObjectCreationList(m_data->m_oclEmbers) : nullptr)
 		{
-			ocl->create(logic, obj, *obj->getPosition()); // RW 0x5F0126 (S-980: the position variant)
+			ocl->create(logic, obj, nullptr); // RW 0x5F0126 (object-pair overload)
 		}
 	}
 	if (m_data->m_spreadTryRange != 0.0f) // RW 0x88EEB9: ucomiss, jnp on equal

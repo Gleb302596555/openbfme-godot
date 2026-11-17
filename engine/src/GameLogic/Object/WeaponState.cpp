@@ -17,6 +17,7 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <stdexcept>
 
 namespace
 {
@@ -332,6 +333,16 @@ int Weapon::preFireWeapon(WeaponHost &host, const WeaponShotTarget &target)
 	{
 		const double product = pc24MulW((double)asInt32(t.m_preAttackDelay), (double)bonus.m_field[WEAPONBONUS_PRE_ATTACK]); // fild; fmul; _ftol2
 		m_leechRangeDeadline = ftol2Low32(product) + now + t.m_firingDuration;
+	}
+	// RW 0x6CEA17–0x6CEA58: the REGULAR PreAttackFX, weapon speed and shooter's drawable pose, after the positive-delay gate.
+	if (FXEventLog::isFXName(t.m_preAttackFXs[0]))
+	{
+		Object *owner = host.weaponOwner();
+		if (!owner)
+		{
+			throw std::logic_error("Weapon::preFireWeapon: PreAttackFX requires an owner");
+		}
+		owner->logic().fxEvents().emit(FXEventLog::drawablePositionEvent("PreAttackFX", now, t.m_preAttackFXs[0], *owner, t.m_weaponSpeed));
 	}
 	return delay;
 }

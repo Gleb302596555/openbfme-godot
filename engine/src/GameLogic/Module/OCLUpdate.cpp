@@ -11,8 +11,10 @@
 #include "Common/StateHash.h"
 #include "Common/Thing/ModuleFactory.h"
 #include "GameLogic/GameLogic.h"
+#include "GameLogic/Map/TerrainLogic.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/ObjectCreationList.h"
+#include "GameLogic/SimMath.h"
 
 #include <cstddef>
 #include <stdexcept>
@@ -37,10 +39,7 @@ const FieldParse kOCLUpdateFieldParse[] = {
 };
 #undef OU_OFF
 
-const char *const kStop =
-	"[S-5501] OCLUpdate (RW 0x89EC43 update, 0x89EBBA schedule, create RW 0x5F00CA) creates its list at the object every MinDelay .. MaxDelay frames, Amount times; "
-	"NOT ported: CreateAtEdge (TerrainLogic::findClosestEdgePoint, RW 0x89EC81: the object's position is used, counted) and the control bar's countdown "
-	"(getCountdownPercent RW 0x89EA88)";
+const char *const kStop = "";
 } // namespace
 
 void OCLUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
@@ -57,6 +56,21 @@ OCLUpdate::OCLUpdate(Thing *thing, const OCLUpdateModuleData *data)
 const char *OCLUpdate::stopLine()
 {
 	return kStop;
+}
+
+float OCLUpdate::getCountdownPercent() const
+{
+	// RW 0x89EA88: 1.0f - (float)(m_nextFrame - now) / (float)(m_nextFrame - m_scheduledAt)
+	if (m_nextFrame == 0 || m_nextFrame <= m_scheduledAt)
+	{
+		return 0.0f;
+	}
+	const UnsignedInt now = getObject()->logic().getFrame();
+	if (now >= m_nextFrame)
+	{
+		return 1.0f;
+	}
+	return SimMath::subf32(1.0f, SimMath::divf32((float)(m_nextFrame - now), (float)(m_nextFrame - m_scheduledAt)));
 }
 
 // RW 0x89EBBA
@@ -84,10 +98,10 @@ UpdateSleepTime OCLUpdate::update()
 	}
 	schedule();
 	Coord3D where = *obj->getPosition();
-	if (m_data->m_createAtEdge)
+	if (m_data->m_createAtEdge && logic.terrain())
 	{
-		// RW 0x89EC81: TerrainLogic::findClosestEdgePoint is not ported: the object's position is used (stop line)
-		logic.noteStop(kStop);
+		// RW 0x89EC81: TerrainLogic::findClosestEdgePoint (RW 0x67D949, vslot 0x34)
+		where = logic.terrain()->findClosestEdgePoint(where);
 	}
 	const Coord3D secondary = *obj->getPosition();
 	const ObjectCreationList *ocl = TheObjectCreationListStore && !m_data->m_ocl.empty() ? TheObjectCreationListStore->findObjectCreationList(m_data->m_ocl) : nullptr;

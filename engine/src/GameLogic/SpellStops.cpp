@@ -42,14 +42,12 @@ std::vector<std::string> SpellStops::lines()
 		"engine, i.e. once map scripts are loaded (nothing else reads it); names compare by CRC_String as retail (a collision would match); a player index "
 		"outside the 20 lists is refused and noted (retail does not test it); the list has no cap (retail's); the heal's partition query RW 0x8CC532 runs on "
 		"ThePartitionManager (lane MODULES-2)",
-		"[S-530] ObjectCreationList: the block (RW 0x5F0462) and its five nugget tables parse; lane SUMMON-1: the CreateObject nugget runs (RW 0x5F275D / 0x5F0EE6 / "
-		"0x5F1B5A with their logic random draws: the upgrades test, RequiresLivePlayer, DestinationPlayer, MaxSimultaneousOfType, SpreadFormation, the lifetime, "
-		"JUST_BUILT, the health, onEnslave, the dispositions and their forces, ContainInsideSourceObject, VeterancyLevel, InheritScriptingName, the secondary "
-		"position's move and facing); not run (counted, noted once each as '[S-530] ObjectCreationList: not run: ...'): the other nugget kinds, PutInContainer, "
-		"ClearRemovables, TREE / SHRUB / OPTIMIZED_PROP templates, WaypointSpawnPoints, OffsetInLocalSpace, MoveUsesStrafeUpdate, StartingBusyTime, InvulnerableTime, "
-		"the FloatUpdate / FadeAndDieOrnamentUpdate / SpawnedModelConditionCreate dispositions; OCLSpecialPower runs CREATE_AT_LOCATION, USE_OWNER_OBJECT, "
-		"CREATE_ABOVE_LOCATION, USE_SECONDARY_OBJECT_LOCATION and UpgradeName (lane SPELL-2); its secondary position, the map edge cases (0, 1, 2, 6) and the army "
-		"spawn points (7) are counted",
+		"[S-530] ObjectCreationList: the block (RW 0x5F0462) and its five nugget tables parse; CreateObject, ApplyRandomForce, FireWeapon, Attack, "
+		"SkipIfSignificantlyAirborne, OffsetInLocalSpace, WaypointSpawnPoints, InvulnerableTime, and OCL::create(primary, secondary) run (PORT-237); "
+		"not run (counted, noted once each as '[S-530] ObjectCreationList: not run: ...'): CreateDebris, PutInContainer, ClearRemovables, TREE / SHRUB / "
+		"OPTIMIZED_PROP templates, MoveUsesStrafeUpdate, the FloatUpdate / FadeAndDieOrnamentUpdate / SpawnedModelConditionCreate dispositions; OCLSpecialPower "
+		"runs CREATE_AT_LOCATION, USE_OWNER_OBJECT, CREATE_ABOVE_LOCATION, USE_SECONDARY_OBJECT_LOCATION (with secondary position) and UpgradeName; "
+		"the map edge cases (0, 1, 2, 6) and the army spawn points (7) are counted",
 		"[S-531] casting: the ActionManager test (RW 0x82DFB7) keeps only the module / percent-ready / requirements parts (unit cost, range, terrain, shroud and forbidden objects "
 		"are not tested); a multi-member group's senior-hero choice and member order are ported (lane HEROCAST-1, RW 0x76F5DB / 0x76F774 / 0x77097E); the light point test and cost (RW 0x6AA8FB, 0x6AA91D) "
 		"are ported (PORT-113: TheLightPointSystem RW 0xDE8C04 and the player's tracker; the War of the Ring screens that show the points are not); the spell "

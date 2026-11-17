@@ -33,6 +33,7 @@
 #include "GameLogic/Combat/CombatNames.h"
 #include "GameLogic/Combat/CombatQueries.h"
 #include "GameLogic/GameLogic.h"
+#include "GameLogic/Economy.h"
 #include "GameLogic/AI/AIGroup.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/ScriptEngine/ScriptEngine.h"
@@ -593,20 +594,25 @@ void SpecialPowerModule::onScienceAcquired()
 	// RW 0x896BD9 ..: a PublicTimer power of a STRUCTURE adds the in-game UI timer (client)
 }
 
-// RW 0x8969E5 (GameLogic + 0x114 == 3, S-525: the MP / skirmish filter in a skirmish or multiplayer game, no filter otherwise)
+// RW 0x8969E5 (DONOR BFME2 0x00493251, SpecialPowerModuleRva0049466D.cpp): GameLogic + 0x114 != 3 (RW 0x8969EE .. 0x8969FE) selects
+// RequirementsFilterStrategic (+0x3C); GameLogic + 0x114 == 3 tests RW 0x625456 (RW 0x896A00 .. 0x896A07 -> true when not skirmish / multiplayer)
+// and selects RequirementsFilterMPSkirmish (+0x38, RW 0x896A09). RW 0x896A0E -> RW 0x762977 passes an unset filter (constructor RW 0x896834:
+// RW 0x89695E / 0x896982 -> RW 0x763D11) or one whose +0x88 flag is 0 (NONE); otherwise RW 0x896A17 .. 0x896A2D asks RW 0x68B678
+// (Object::getControllingPlayer) -> RW 0x6ABD0B (Player::hasObjectMatching(filter, true)).
 bool SpecialPowerModule::requirementsMet() const
 {
+	const bool kind3 = getObject()->logic().economy().context().gameKind == 3;
 	Player *p = getObject()->getControllingPlayer();
-	if (!p || !p->science().mode().skirmishOrMultiplayer)
+	if (kind3 && (!p || !p->science().mode().skirmishOrMultiplayer))
 	{
 		return true;
 	}
-	const std::shared_ptr<const ObjectFilter> &f = m_spData->m_requirementsFilterMPSkirmish;
-	if (!f)
+	const std::shared_ptr<const ObjectFilter> &f = kind3 ? m_spData->m_requirementsFilterMPSkirmish : m_spData->m_requirementsFilterStrategic;
+	if (!f || !f->flag)
 	{
-		return true; // RW 0x896A0E: an unset filter (S-523 for its default)
+		return true;
 	}
-	return p->hasObjectMatching(*f, true); // RW 0x6ABD0B
+	return !p || p->hasObjectMatching(*f, true);
 }
 
 // RW 0x897E87 / 0x897987 (the ported part)
@@ -1195,18 +1201,68 @@ const ObjectCreationList *OCLSpecialPower::pickOCL() const
 	return TheObjectCreationListStore ? TheObjectCreationListStore->findObjectCreationList(oclName) : nullptr;
 }
 
-void OCLSpecialPower::createOCL(const ObjectCreationList *ocl, const Coord3D &where, bool hasSecondary)
+// PORT-249: RW 0x5F08C2, the generic nugget's vtable (RW 0xBF72F8) slot 5, which RW 0x5EFB95 asks of every nugget of the list with the (object, location)
+// pair; the answer folds an AND over the list, so one refusal refuses the cast. The placement part (RW 0x5F091B .. 0x5F0B6B) is not ported (S-7426):
+// counted, and the nugget answers yes.
+bool OCLSpecialPower::nuggetAllowsCreate(Object &obj, const OCLNugget &nugget)
+{
+	if (nugget.count != 1)
+	{
+		return true; // RW 0x5F08D5: a Count other than 1 answers yes
+	}
+	if (nugget.spreadFormation)
+	{
+		return true; // RW 0x5F08DB: the byte at + 0xAB (SpreadFormation) set answers yes
+	}
+	if (nugget.objectNames.empty())
+	{
+		return false; // RW 0x5F08EB: the names vector is empty (its byte size is below 4) answers no
+	}
+	if (!obj.logic().things().findTemplate(nugget.objectNames.front()))
+	{
+		return false; // RW 0x5F08FF .. 0x5F0916: the first name is not a template answers no
+	}
+	// RW 0x5F091B: with the template's KindOf + 0x115 bit 0 set, a placement walk (the build assistant's RW 0x798F70 and the partition's RW 0x72D72F);
+	// without it, the + 0x108 bit 7 / bit 10 branches: the formation path or one object placed at the location + Offset through RW 0xDE8200's vslot 0x44
+	++m_unportedPlacementTests;
+	obj.logic().noteStop("[S-7426] OCLSpecialPower's nugget test (RW 0x5F08C2): the placement branch (RW 0x5F091B .. 0x5F0B6B: the build assistant's "
+						 "placement and the formation walk) is not ported: the nugget answers yes");
+	return true;
+}
+
+// PORT-249: RW 0x8C744B, OCLSpecialPower's answer for the interface slot 0x48 (asked before the base RW 0x897E01). Linearly: RW 0x8C7457 asks the
+// object's disabled mask (Object + 0x1C8, RW 0x9325B4: any of its one word's bits) and answers no when a bit is set (RW 0x8C7460); then, with a list
+// (RW 0x8C7393), a location and an object (RW 0x8C746D .. 0x8C747E), RW 0x8C72C3 forwards the pair to the list's nuggets (RW 0x5EFB95): one that answers
+// no answers no (RW 0x8C748D). The base's own tests follow at RW 0x8C7492.
+bool OCLSpecialPower::locationRequirementsMet(Object &obj, const Coord3D &loc)
+{
+	if (obj.getDisabledMask() != 0)
+	{
+		return false; // RW 0x9325B4 (called at RW 0x8C7457): any bit of the disabled mask
+	}
+	const ObjectCreationList *ocl = pickOCL(); // RW 0x8C7393
+	if (ocl)
+	{
+		for (const OCLNugget &nugget : ocl->nuggets())
+		{
+			if (!nuggetAllowsCreate(obj, nugget))
+			{
+				return false; // RW 0x8C72C3 -> RW 0x5EFB95
+			}
+		}
+	}
+	(void)loc; // RW 0x5EFB95 hands the location to the nugget test; the ported part of RW 0x5F08C2 reads only the nugget and the template
+	return true;
+}
+
+void OCLSpecialPower::createOCL(const ObjectCreationList *ocl, const Coord3D &where, const Coord3D *secondary)
 {
 	if (!ocl)
 	{
 		return; // RW 0x8C7690: no list, nothing made
 	}
-	if (hasSecondary)
-	{
-		++m_unported; // the OCL's secondary position (RW 0x5F00CA's third argument) is not handed to the CreateObject port (S-530)
-	}
 	Object *obj = getObject();
-	for (Object *o : ocl->create(obj->logic(), obj, where))
+	for (Object *o : ocl->create(obj->logic(), obj, where, secondary))
 	{
 		m_created.push_back(o->getID());
 	}
@@ -1218,7 +1274,7 @@ void OCLSpecialPower::doSpecialPower(unsigned options)
 	m_created.clear();
 	const Coord3D pos = *getObject()->getPosition();
 	baseDo(&pos, nullptr, options);
-	createOCL(pickOCL(), pos, false);
+	createOCL(pickOCL(), pos);
 }
 
 // RW 0x8C73D7: doSpecialPowerAtLocation at the target's position (vslot 0x30)
@@ -1241,23 +1297,23 @@ void OCLSpecialPower::doSpecialPowerAtLocation(const Coord3D &loc, unsigned opti
 	switch (m_data->m_createLocation)
 	{
 	case 3: // CREATE_AT_LOCATION
-		createOCL(ocl, loc, false);
+		createOCL(ocl, loc);
 		break;
 	case 4: // USE_OWNER_OBJECT (RW 0x8C7660: RW 0x5F006B with the object, the location twice)
-		createOCL(ocl, loc, true);
+		createOCL(ocl, loc, &loc);
 		break;
 	case 5: // CREATE_ABOVE_LOCATION: z + 300.0f (RW 0xBD9E90; an SSE single add)
 	{
 		Coord3D p = loc;
 		p.z = SimMath::addf32(p.z, 300.0f);
-		createOCL(ocl, p, false);
+		createOCL(ocl, p);
 		break;
 	}
 	case 8: // USE_SECONDARY_OBJECT_LOCATION (RW 0x8C78A4)
 	{
 		if (!m_data->m_nearestSecondaryObjectFilter)
 		{
-			createOCL(ocl, loc, false); // RW 0x8C78B6: no valid filter: at the location
+			createOCL(ocl, loc); // RW 0x8C78B6: no valid filter: at the location
 			break;
 		}
 		// RW 0x8C7988 .. 0x8C79BB: ThePartitionManager's closest object to the location (range FLT_MAX, RW 0xBD1910; distance type 0) that the filter allows
@@ -1265,7 +1321,7 @@ void OCLSpecialPower::doSpecialPowerAtLocation(const Coord3D &loc, unsigned opti
 		Player *p = obj->getControllingPlayer();
 		PartitionFilterFn allowed([&](Object &o) { return ObjectFilterMatch::allows(obj->logic(), *m_data->m_nearestSecondaryObjectFilter, o, p); });
 		Object *best = obj->logic().partition().getClosestObject(loc, std::numeric_limits<float>::max(), FROM_CENTER_2D, { &allowed });
-		createOCL(ocl, loc, best != nullptr); // RW 0x8C76A0: at the location, the found object's position as the secondary
+		createOCL(ocl, loc, best ? best->getPosition() : nullptr); // RW 0x8C76A0: at the location, the found object's position as the secondary
 		m_secondaryUsed = best ? best->getID() : (ObjectID)INVALID_ID;
 		break;
 	}

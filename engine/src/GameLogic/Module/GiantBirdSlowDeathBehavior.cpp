@@ -190,6 +190,7 @@ void GiantBirdSlowDeathBehavior::crc(StateHasher &h) const
 	h.addFloat(m_crashTarget.z);
 }
 
+// RW 0x0086502B
 void GiantBirdSlowDeathBehavior::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

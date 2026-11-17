@@ -220,6 +220,7 @@ struct GameLogicSettings
 	// lane AIDATA-1: every AIData default below is the AIData constructor's (RW 0x6FFBEF; BFME2 decomp AIConstructor_Unresolved.cpp TAiData::TAiData), so a mod
 	// aidata.ini that leaves a field out gets retail's value; no AIData field is required (retail's parser RW 0x7017AA requires none)
 	bool enableRepulsors = false;                    ///< AIData EnableRepulsors (RW 0xDE4B40 + 0x18 + 0x64, ctor 0): the RepulsorHelper condition
+	bool forceSkirmishAI = false;                    ///< AIData ForceSkirmishAI (+ 0x65, row RW 0xC1CC80 parseBool; ctor RW 0x6FFBEF / 0x6FFD49 stores 0): RW 0x6AA450 Player::setPlayerType gives PLAYER_COMPUTER an AISkirmishPlayer even when skirmish == false
 	float repulsedDistance = 0.0f;                   ///< AIData RepulsedDistance (+ 0x60, lane MODULES-3): the safe path radius beyond the vision range
 	bool useFormations = true;                       ///< AIData UseFormations (+ 0xBD, row RW 0xC1CE90 parseBool; the constructor RW 0x6FFDE5 stores 1; lane BACKLOG6): AIGroup RW 0x774897's formation gate
 	float minDistanceForGroup = 100.0f;              ///< AIData MinDistanceForGroup (+ 0x6C, row RW 0xC1D390 parseReal; the constructor stores RW 0xBD88D8 = 100.0f at RW 0x6FFD56; lane BACKLOG6): RW 0x76F115's group move distance
@@ -488,6 +489,9 @@ struct GameLogicSettings
 	// lane CHAT-1: MultiplayerSettings MaxBeaconsPerPlayer (+ 0x18): a player's beacons at most (retail multiplayer.ini: 3). INFERENCE: the default is ZH's
 	// MultiplayerSettings constructor value (RotWK's constructor was not read). Not hashed (crc below): data every peer of a game reads alike (the profile)
 	int maxBeaconsPerPlayer = 3;
+	// Local 56 (issue #412, P-96): MultiplayerSettings ShowRandomStartPos (constructor RW 0x7836C0 +0x1E = 1, parse table RW 0xC2F798 -> INI::parseBool
+	// RW 0x42E558): when Yes, opponents' Random start positions remain hidden as -1 on the loading screen and diplomacy window (RW 0x801249).
+	bool showRandomStartPos = true;
 	// MultiplayerSettings colours (`MultiplayerColor <Name>` blocks of data\\ini\\multiplayer.ini, lane START-1): the lobby's colour list, in file order; the index is the
 	// slot's colour. ZH MultiplayerColorDefinition: RGBColor and RGBNightColor are the day and night player colours (0xRRGGBB here; Player::setPlayerColor
 	// takes 0xFF000000 | rgb), TooltipName a game text label, AvailableInWotR whether the strategic (War of the Ring) lobby offers it.

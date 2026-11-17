@@ -888,7 +888,7 @@ std::shared_ptr<W3DInstancer::MeshGpu> W3DInstancer::build_mesh(const MeshModelC
 	}
 	if (BuildingFloor)
 	{
-		Subdivide_Floor_Mesh_Data(gpu->Data);
+		Subdivide_Floor_Mesh_Data(gpu->Data, 5.0f);
 	}
 	const MeshRenderData &d = gpu->Data;
 	const int64_t nv = (int64_t)d.NumVertices;

@@ -1830,7 +1830,18 @@ bool SpecialAbilityUpdate::handlePackingProcessing()
 	}
 	if (--m_packFramesLeft != 0)
 	{
-		// RW 0x851EC1: LoseStealthOnTrigger's unstealth PreTriggerUnstealthTime before the end (S-859)
+		if (m_data->m_loseStealthOnTrigger && m_packFramesLeft < m_data->m_preTriggerUnstealthFrames)
+		{
+			// RW 0x852030 .. 0x85206E (in SpecialAbilityUpdate::handlePackingProcessing RW 0x851E9F; DONOR BFME2 0x0044EFEC, SpecialAbilityUpdate.cpp:1410):
+			// when LoseStealthOnTrigger (+0xB0) is set and the decremented frame counter (+0x28) is below PreTriggerUnstealthTime (+0x8C),
+			// StealthUpdate (RW 0x68FBD3 -> RW 0x7767A9(0, 1, null, true)) and InvisibilityManager (RW 0x81C32C(object, null, 0, 1)) mark the object detected.
+			Object *obj = getObject();
+			if (StealthUpdate *st = StealthUpdate::of(*obj))
+			{
+				st->markAsDetected(0, 1, nullptr, true);
+			}
+			obj->logic().invisibility().markDetected(obj, nullptr, 0, 1);
+		}
 		return true;
 	}
 	Object *obj = getObject();
@@ -2244,9 +2255,12 @@ void WeaponFireSpecialAbilityUpdate::startUnpacking()
 			++m_unported; // RW 0x6944A5: the horde passes the condition to its members (S-859)
 		}
 	}
-	if (m_wf->m_playWeaponPreFireFX)
+	// RW 0x895FC4–0x896026: the enabled flag, weapon, template and REGULAR PreAttackFX must all exist; play on the owner's drawable.
+	if (m_wf->m_playWeaponPreFireFX && m_weapon && m_weapon->getTemplate())
 	{
-		++m_unported; // RW 0x895FC4: the weapon's PreAttackFX at the target (client)
+		const WeaponTemplate &wt = *m_weapon->getTemplate();
+		Object &owner = *getObject();
+		owner.logic().fxEvents().emit(FXEventLog::drawablePositionEvent("PreAttackFX", owner.logic().getFrame(), wt.m_preAttackFXs[0], owner, wt.m_weaponSpeed));
 	}
 }
 

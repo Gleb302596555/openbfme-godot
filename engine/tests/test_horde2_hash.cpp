@@ -78,7 +78,7 @@ struct Horde2World : CombatWorld
 		REQUIRE(hordeA->getAIUpdateInterface()->aiAttackObject(hordeB, CMD_FROM_PLAYER));
 		runUntil([&] { return Horde2HashAccess::hc(hordeA).meleeEngaged(); }, 120);
 		REQUIRE(Horde2HashAccess::hc(hordeA).meleeEngaged());
-		ExperienceTrackerTestAccess::setRank(*bannerHorde->getExperienceTracker(), 1);
+		ExperienceTrackerTestAccess::setRank(*bannerHorde->getExperienceTracker(), 2); // BannerCarrierMinLevel 1 (lane PORT-209)
 		frames(2);
 		banner = byId(Horde2HashAccess::hc(bannerHorde).bannerCarrier());
 		REQUIRE(banner != nullptr);

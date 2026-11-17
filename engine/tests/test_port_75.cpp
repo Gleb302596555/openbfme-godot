@@ -81,12 +81,12 @@ struct Spawned
 	std::vector<FXEvent> morphEvents;
 };
 
-// rank 1 makes the horde spawn its carrier (RW 0x8719E4 -> 0x870204); the frames are stepped one by one so the morph's FX event is caught in the
+// rank 2 (above the fixture's BannerCarrierMinLevel 1, lane PORT-209) makes the horde spawn its carrier (RW 0x8719E4 -> 0x870204); the frames are stepped one by one so the morph's FX event is caught in the
 // frame it is emitted
 Spawned spawnCarrier(CombatWorld &w, Object *horde)
 {
 	Spawned out;
-	ExperienceTrackerTestAccess::setRank(*horde->getExperienceTracker(), 1);
+	ExperienceTrackerTestAccess::setRank(*horde->getExperienceTracker(), 2);
 	for (int i = 0; i < 4 && !out.carrier; ++i)
 	{
 		w.frames(1);

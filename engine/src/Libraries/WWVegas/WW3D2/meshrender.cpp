@@ -57,6 +57,18 @@ bool expandIds(const std::vector<std::uint32_t> &ids, size_t items, const char *
 
 Vector3 rotate(const Matrix3D &m, const Vector3 &v) { return m.Rotate_Vector(v); }
 
+bool isFlatGroundFloorBounds(float minX, float minY, float minZ, float maxX, float maxY, float maxZ, bool skin)
+{
+	if (skin)
+	{
+		return false;
+	}
+	const float spanX = maxX - minX;
+	const float spanY = maxY - minY;
+	const float spanZ = maxZ - minZ;
+	return std::max(spanX, spanY) >= 12.0f && spanZ <= 4.0f && minZ >= -2.0f && maxZ <= 5.0f;
+}
+
 } // namespace
 
 float Godot_Tangent_Sign(const float n[3], const float t[3], const float b[3])
@@ -741,4 +753,24 @@ bool Subdivide_Floor_Mesh_Data(MeshRenderData &mesh, float maxEdgeXY)
 		mesh.NumTriangles = totalTriangles;
 	}
 	return changed;
+}
+
+bool Is_Flat_Ground_Floor_Model(const MeshModelClass &mesh)
+{
+	if (mesh.Vertices.empty() || mesh.Triangles.empty())
+	{
+		return false;
+	}
+	return isFlatGroundFloorBounds(mesh.Header.Min.X, mesh.Header.Min.Y, mesh.Header.Min.Z,
+		mesh.Header.Max.X, mesh.Header.Max.Y, mesh.Header.Max.Z, mesh.Is_Skin());
+}
+
+bool Is_Flat_Ground_Floor_Mesh(const MeshRenderData &mesh)
+{
+	if (mesh.NumVertices == 0 || mesh.Surfaces.empty())
+	{
+		return false;
+	}
+	return isFlatGroundFloorBounds(mesh.BoundsMin[0], mesh.BoundsMin[1], mesh.BoundsMin[2],
+		mesh.BoundsMax[0], mesh.BoundsMax[1], mesh.BoundsMax[2], mesh.Skin);
 }

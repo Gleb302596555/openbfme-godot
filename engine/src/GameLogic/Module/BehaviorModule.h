@@ -112,6 +112,8 @@ public:
 		(void)changeType;
 		++bodyMaxHealthCallsIgnored();
 	}
+	// PORT-237: RW vt[0x6C] (ActiveBody RW 0x8C329F): multiplies body damage scalar (+ 4) by scalar.
+	virtual void applyDamageScalar(float scalar) { (void)scalar; }
 	static unsigned long long &bodyMaxHealthCallsIgnored()
 	{
 		static unsigned long long n = 0;
@@ -163,8 +165,8 @@ public:
 	virtual void enableLoadSounds(bool enabled) { (void)enabled; }
 	// contain slot 0x64 onSelling: the contain hears of its container's sale (BuildAssistant::sellObject RW 0x796806: `mov ecx, [object + 0x258]`, `mov eax,
 	// [ecx]`, `call [eax + 0x64]`, no argument — the only `call [reg + 0x64]` of 2.01 whose receiver is the contain interface). Every contain table answers the
-	// same body, RW 0x86561F: the kill-on-death byte (module + 0xE1) is cleared, then vslot 0x80 orderAllPassengersToExit(CMD_FROM_AI). No class overrides it
-	// (all 16 contain tables of 2.01 hold RW 0x86561F at + 0x64: OpenContain 0xC59B54, TransportContain 0xC5A6F4, HordeTransportContain 0xC5C3D4,
+	// same body, RW 0x86561F: the kill-on-death byte (module + 0xE1) is cleared, then vslot 0x80 orderAllPassengersToExit(CMD_FROM_AI). Only TunnelContain overrides it
+	// (its table RW 0xC5DCE0 holds RW 0x8812A8, the network leave; the other contain tables of 2.01 hold RW 0x86561F at + 0x64: OpenContain 0xC59B54, TransportContain 0xC5A6F4, HordeTransportContain 0xC5C3D4,
 	// GarrisonContain 0xC5C6FC, HordeGarrisonContain 0xC5CA54, SiegeEngineContain 0xC5D6CC, HordeSiegeEngineContain 0xC5DA74 and the rest), so
 	// OpenContain answers for every contain the port sells. HordeContain, the one ported contain that is not an OpenContain, keeps this default: the sale
 	// reaches only KindOf STRUCTURE and no structure of 2.01 or Ennorath carries a HordeContain (598 HordeContain blocks in the mod, none on a structure).
@@ -180,6 +182,14 @@ public:
 	// RW 0xC5C9F0). The defaults are OpenContain's answers; a contain class that is not ported answers through UnportedBehaviorModule (no contain at all) ----
 	// slot 0x10 isGarrisonable: GarrisonContain RW 0x8BD372 true, OpenContain RW 0x9188EB false (TunnelContain RW 0xC5DCE0 + 0x10: RW 0x9188EB false, lane UI-1)
 	virtual bool isGarrisonable() const { return false; }
+	// slot 0x1C (RW 0x87B308 in the GarrisonContain, HordeGarrisonContain, SlaughterHordeContain and CitadelSlaughterHordeContain tables RW 0xC5C698 / 0xC5C9F0 /
+	// 0xC5F0D0 / 0xC5F2E8: `mov eax, [ecx - 0x1C]; mov al, [eax + 0xA1]; ret`, the module data's ImmuneToClearBuildingAttacks) -- GarrisonsClearBuildingAttacks'
+	// gate: RotWK clears the building attacked by a garrisoned unit only when the garrison is immune (RW 0x910E4 / 0x911F3 ask it and skip when it answers
+	// true). Every other contain table of 2.01 holds the true body RW 0x8BD372 at + 0x1C (OpenContain RW 0xC59AF0, HordeContain RW 0xC5B480, its RotWK
+	// subclass RW 0xC5C110, AODHordeContain RW 0xC5D268, TransportContain RW 0xC5A690, HordeTransportContain RW 0xC5C370, SiegeEngineContain RW 0xC5D668,
+	// HordeSiegeEngineContain RW 0xC5DA10, and TunnelContain RW 0xC5DCE0, whose own tunnel slot is another body, RW 0x881072), so OpenContain's answer
+	// stands for every contain the port keeps that overrides nothing.
+	virtual bool isImmuneToClearBuildingAttacks() const { return true; }
 	// PR 284: slot 0x30, asked by ActionManager::getEnterMessage (RW 0x82CFB5): SlaughterHordeContain RW 0xC5F0D0 and CitadelSlaughterHordeContain RW
 	// 0xC5F2E8 + 0x30 = RW 0x8BD372 true; every other contain table of RW 0xC59AF0 .. 0xC5F688 + 0x30 = RW 0x9188EB false
 	virtual bool isSlaughterContain() const { return false; }

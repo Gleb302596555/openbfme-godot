@@ -160,6 +160,15 @@ bool ControlBar::pressButton(int slot, bool inPalantir, bool shift)
 		m_ctx.ui.message("GUI:NotEnoughMoneyToBuild"); // processCommandUI: CANMAKE_NO_MONEY
 		return false;
 	}
+	// PORT-220 (issue #529): processCommandUI re-asks getCommandAvailability (RW 0x940625 -> RW 0x942733) and, for its results 1 (enabled) and 2 (active),
+	// clears the button's + 0xF8 (RW 0x940656) and then sets the source object's single-use flag when the button's Options (+ 0x1C) hold bit 17
+	// SINGLE_USE_COMMAND: RW 0x940665 `test byte ptr [esi + 0x1E], 2` / RW 0x94066B `mov byte ptr [ebx + 0x45B], 1`, skipped for a null object (RW 0x94065D).
+	// Results 6 and 7 leave through their own paths (RW 0x9406DA / 0x9405F1) and write nothing. The port reads the bar's last evaluation instead of re-asking,
+	// so only its Enabled and Active states write; the button's + 0xF8 is client state this port does not carry (S-290).
+	if (b.hasOption(COMMAND_OPTION_SINGLE_USE_COMMAND) && (cb->state == ButtonState::Enabled || cb->state == ButtonState::Active))
+	{
+		obj->markSingleUseCommandUsed();
+	}
 	// RW 0x9407D9 -> 0x8DEDBB(0x7E3) -> CommandButton::getUnitSpecificSound (RW 0x75D0B9):
 	// play UnitSpecificSound[m_toggleIndex] BEFORE the command switch updates +0xFC; out-of-range stays silent ("").
 	if (m_commandVoice && b.m_command != GUI_COMMAND_SET_STANCE)
@@ -497,8 +506,11 @@ bool ControlBar::pressButton(int slot, bool inPalantir, bool shift)
 			return true;
 		case GUI_COMMAND_SPECIAL_POWER:
 		{
-			// lane HERO-1 (S-850): a hero ability. A button that needs a target waits for it (GUICommandTranslator), the others go out at once:
-			// MSG_DO_SPECIAL_POWER { int id, int options, objectID source }
+			// lane HERO-1 (S-850) / PORT-221 (issue #531, P-140): RW 0x9414E7..0x941618. A button that needs a target waits for it
+			// (GUICommandTranslator -> CommandTranslator::issueSpecialPowerCommand RW 0x81E147); targetless buttons append
+			// MSG_DO_SPECIAL_POWER (0x410) { int id, int options, ObjectID 0 (RW 0x94156B), ObjectID 0 (RW 0x941574) } so
+			// SpellCommands::doSpecialPower (RW 0x77A42C..0x77A4F7 -> AIGroup::groupDoSpecialPower RW 0x76F5DB) casts across the
+			// issuer's selection rather than a single source object.
 			const SpecialPowerTemplate *t = specialPowerOf(b);
 			if (!t)
 			{
@@ -516,8 +528,9 @@ bool ControlBar::pressButton(int slot, bool inPalantir, bool shift)
 			ClientMessage &m = m_ctx.stream.append(MSG_DO_SPECIAL_POWER);
 			m.appendInteger((int)t->getID());
 			m.appendInteger((int)b.m_options);
-			m.appendObjectID(obj->getID());
-			// RW 0x94157D..0x9415FF: chained CommandTrigger buttons
+			m.appendObjectID(INVALID_ID);
+			m.appendObjectID(INVALID_ID);
+			// RW 0x94157D..0x94160F: chained CommandTrigger buttons (+0x188) with m_command == GUI_COMMAND_SPECIAL_POWER
 			for (const std::string &triggerName : b.m_commandTrigger)
 			{
 				const CommandButton *tb = TheCommandStore ? TheCommandStore->findCommandButton(triggerName) : nullptr;
@@ -528,7 +541,8 @@ bool ControlBar::pressButton(int slot, bool inPalantir, bool shift)
 					ClientMessage &tm = m_ctx.stream.append(MSG_DO_SPECIAL_POWER);
 					tm.appendInteger((int)tt->getID());
 					tm.appendInteger((int)tb->m_options);
-					tm.appendObjectID(obj->getID());
+					tm.appendObjectID(INVALID_ID);
+					tm.appendObjectID(INVALID_ID);
 				}
 			}
 			applyPredictedToggle(b, obj); // PORT-189: RW 0x9414E7 -> 0x75D22E(obj, 1), RW 0x941C16 image refresh

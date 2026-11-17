@@ -14,6 +14,8 @@
 #include "GameClient/GUI/Image.h"
 #include <godot_cpp/classes/viewport.hpp>
 #include <cmath>
+#include <algorithm>
+#include <cstring>
 
 #include "Common/AsciiString.h"
 #include "Common/Thing/ThingTemplate.h"
@@ -603,36 +605,94 @@ void PlacementGhostRenderer::updateBib(PlacementIcons::Icon &icon, IconView &vie
 		view.bib = nullptr;
 		view.bibId = 0;
 		view.bibTexture.clear();
+		view.bibConformValid = false;
 	}
-	if (!view.bib)
+	const Drawable &d = *icon.drawable;
+	const Coord3D &pos = *d.getPosition();
+	const float *basis = d.getBasis();
+	const bool hasHm = m_game && m_game->map().hasHeightMap;
+	const bool poseChanged = !view.bibConformValid
+		|| (hasHm && (view.bibPos.x != pos.x || view.bibPos.y != pos.y || view.bibPos.z != pos.z
+		|| std::memcmp(view.bibBasis, basis, sizeof(view.bibBasis)) != 0));
+	if (!view.bib || poseChanged)
 	{
-		view.bibTemplate = icon.tt;
-		Ref<ArrayMesh> mesh;
-		mesh.instantiate();
+		if (!view.bib)
+		{
+			view.bibTemplate = icon.tt;
+			view.bib = memnew(MeshInstance3D);
+			view.bib->set_name("PlacementBib");
+			view.bib->set_cast_shadows_setting(GeometryInstance3D::SHADOW_CASTING_SETTING_OFF);
+			m_parent->add_child(view.bib);
+			view.bibId = view.bib->get_instance_id();
+		}
+		const int nx = hasHm ? std::clamp((int)std::ceil(std::abs(bib.x1 - bib.x0) / 10.0f), 1, 24) : 1;
+		const int ny = hasHm ? std::clamp((int)std::ceil(std::abs(bib.y1 - bib.y0) / 10.0f), 1, 24) : 1;
 		PackedVector3Array v;
 		PackedVector2Array uv;
 		PackedVector3Array n;
-		// the corners in the drawable's frame, SAGE (x, y) -> Godot (x, -y); uv 0 (x0, y0) (0, 1), 1 (x1, y0) (1, 1), 2 (x1, y1) (1, 0), 3 (x0, y1) (0, 0)
-		const Vector3 c[4] = { Vector3(bib.x0, 0.05f, -bib.y0), Vector3(bib.x1, 0.05f, -bib.y0), Vector3(bib.x1, 0.05f, -bib.y1), Vector3(bib.x0, 0.05f, -bib.y1) };
-		const Vector2 u[4] = { Vector2(0, 1), Vector2(1, 1), Vector2(1, 0), Vector2(0, 0) };
-		for (int k : { 0, 2, 1, 0, 3, 2 })
+		v.resize((nx + 1) * (ny + 1));
+		uv.resize((nx + 1) * (ny + 1));
+		n.resize((nx + 1) * (ny + 1));
+		for (int iy = 0; iy <= ny; ++iy)
 		{
-			v.push_back(c[k]);
-			uv.push_back(u[k]);
-			n.push_back(Vector3(0, 1, 0));
+			const float ty = (float)iy / (float)ny;
+			const float ly = bib.y0 + (bib.y1 - bib.y0) * ty;
+			for (int ix = 0; ix <= nx; ++ix)
+			{
+				const float tx = (float)ix / (float)nx;
+				const float lx = bib.x0 + (bib.x1 - bib.x0) * tx;
+				float yOff = 0.05f;
+				if (hasHm)
+				{
+					const float wx = pos.x + basis[0] * lx + basis[1] * ly;
+					const float wy = pos.y + basis[3] * lx + basis[4] * ly;
+					yOff = (m_game->map().heightMap.getTriangleHeightAt(wx, wy) - pos.z) + 0.05f;
+				}
+				const int64_t idx = (int64_t)iy * (nx + 1) + ix;
+				v.set(idx, Vector3(lx, yOff, -ly));
+				uv.set(idx, Vector2(tx, 1.0f - ty));
+				n.set(idx, Vector3(0, 1, 0));
+			}
+		}
+		PackedInt32Array indices;
+		indices.resize(nx * ny * 6);
+		int64_t ii = 0;
+		for (int iy = 0; iy < ny; ++iy)
+		{
+			for (int ix = 0; ix < nx; ++ix)
+			{
+				const int32_t i0 = iy * (nx + 1) + ix;
+				const int32_t i1 = i0 + 1;
+				const int32_t i2 = i0 + (nx + 1) + 1;
+				const int32_t i3 = i0 + (nx + 1);
+				indices.set(ii++, i0);
+				indices.set(ii++, i2);
+				indices.set(ii++, i1);
+				indices.set(ii++, i0);
+				indices.set(ii++, i3);
+				indices.set(ii++, i2);
+			}
+		}
+		Ref<ArrayMesh> mesh = Object::cast_to<ArrayMesh>(view.bib->get_mesh().ptr());
+		if (mesh.is_null())
+		{
+			mesh.instantiate();
+			view.bib->set_mesh(mesh);
+		}
+		else
+		{
+			mesh->clear_surfaces();
 		}
 		Array arrays;
 		arrays.resize(Mesh::ARRAY_MAX);
 		arrays[Mesh::ARRAY_VERTEX] = v;
 		arrays[Mesh::ARRAY_TEX_UV] = uv;
 		arrays[Mesh::ARRAY_NORMAL] = n;
+		arrays[Mesh::ARRAY_INDEX] = indices;
 		mesh->add_surface_from_arrays(Mesh::PRIMITIVE_TRIANGLES, arrays);
-		view.bib = memnew(MeshInstance3D);
-		view.bib->set_name("PlacementBib");
-		view.bib->set_mesh(mesh);
-		view.bib->set_cast_shadows_setting(GeometryInstance3D::SHADOW_CASTING_SETTING_OFF);
-		m_parent->add_child(view.bib);
-		view.bibId = view.bib->get_instance_id();
+		view.bibConformValid = true;
+		view.bibPos = pos;
+		std::memcpy(view.bibBasis, basis, sizeof(view.bibBasis));
 	}
 	if (view.bibTexture != tex)
 	{
@@ -641,8 +701,7 @@ void PlacementGhostRenderer::updateBib(PlacementIcons::Icon &icon, IconView &vie
 		view.bib->set_material_override(bibMaterial(tex, t));
 		view.bibTexture = tex;
 	}
-	const Drawable &d = *icon.drawable;
-	view.bib->set_transform(toTransform(d.getBasis(), *d.getPosition(), 1.0f));
+	view.bib->set_transform(toTransform(basis, pos, 1.0f));
 	view.bib->set_visible(true);
 }
 

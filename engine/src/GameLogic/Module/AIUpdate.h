@@ -384,6 +384,8 @@ public:
 	bool isMoving() const;                    // RW 0x664485
 	// lane AI-2: RW vslot 0x1BC (RW 0x662B3C): the current state's slot 0x24 (AIState::isActive), true without a current state
 	bool isStateActive() const { return !m_machine || !m_machine->currentState() ? true : m_machine->currentState()->isActive(); }
+	// Port 257: RW vslot 0x1D0 (RW 0x662B28): the current state's slot 0x34 (AIState::isFollowThru), true without a current state
+	bool isInFollowThruState() const { return !m_machine || !m_machine->currentState() ? true : m_machine->currentState()->isFollowThru(); }
 	bool isBlocked() const { return m_mover->isBlocked(); }
 	bool isBusy() const { return m_machine && m_machine->currentStateId() == AI_BUSY; }
 	// ---- lane EXIT-1: the horde member update (GameLogic/Module/AIUpdateHordeMember.cpp) ----

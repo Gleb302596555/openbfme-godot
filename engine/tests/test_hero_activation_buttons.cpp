@@ -76,10 +76,12 @@ TEST_CASE("hero activation buttons: instant powers retain options and AutoAbilit
 		const auto messages = r.stream.propagate();
 		REQUIRE(messages.size() == 1);
 		CHECK(messages[0].type() == MSG_DO_SPECIAL_POWER);
-		REQUIRE(messages[0].argumentCount() == 3);
+		// PORT-221 (issue #531): RW 0x94154F..0x941578 emits { int powerID, int options, ObjectID 0, ObjectID 0 }
+		REQUIRE(messages[0].argumentCount() == 4);
 		CHECK(messages[0].arg(0).integer == (int)r.spells.specialPowers().findSpecialPowerTemplate("TestPower")->getID());
 		CHECK(messages[0].arg(1).integer == (int)r.button.m_options);
-		CHECK(messages[0].arg(2).objectID == r.hero->getID());
+		CHECK(messages[0].arg(2).objectID == INVALID_ID);
+		CHECK(messages[0].arg(3).objectID == INVALID_ID);
 	}
 }
 

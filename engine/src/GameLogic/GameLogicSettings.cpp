@@ -444,6 +444,8 @@ const FieldParse kGameDataFields[] = {
 };
 const FieldParse kAIDataFields[] = {
 	{ "EnableRepulsors", parseNoting<INI::parseBool>, SEEN_DATA(SEEN_REPULSORS), (int)offsetof(BlockState, values.enableRepulsors) },
+	// PORT-227: ForceSkirmishAI (row RW 0xC1CC80, parseBool RW 0x42E558, AIData + 0x65; ctor RW 0x6FFBEF / 0x6FFD49 stores 0): RW 0x6AA450 / 0x6AA49F upgrades non-skirmish PLAYER_COMPUTER to AISkirmishPlayer
+	{ "ForceSkirmishAI", parseNoting<INI::parseBool>, 0, (int)offsetof(BlockState, values.forceSkirmishAI) },
 	// lane MODULES-3: RepulsedDistance (row RW 0x81CC40, parseReal RW 0x42ED00, AIData + 0x60): the safe path's distance beyond the vision range (RW 0x668E94)
 	{ "RepulsedDistance", parseNoting<INI::parseReal>, SEEN_DATA(SEEN_REPULSED), (int)offsetof(BlockState, values.repulsedDistance) },
 	// lane PLAY-4: the guard rows (RW 0xC1CC00 / 0xC1CC10 / 0xC1CC20 parseDurationUnsignedInt RW 0x73A429; RW 0xC1CC60 / 0xC1CC70 parseReal RW 0x42ED00)
@@ -521,6 +523,8 @@ const FieldParse kMultiplayerFields[] = {
 	{ "InitialCreditsVeryHigh", parseNoting<INI::parseUnsignedInt>, SEEN_DATA(SEEN_CREDITS0 << 4), (int)offsetof(BlockState, values.initialCredits[4]) },
 	// lane CHAT-1: MaxBeaconsPerPlayer (the MultiplayerSettings row of table RW 0xC2F768, parseInt RW 0x42EC5E, + 0x18; read by RW 0x77C6C6 / 0x81F8D8)
 	{ "MaxBeaconsPerPlayer", INI::parseInt, nullptr, (int)offsetof(BlockState, values.maxBeaconsPerPlayer) },
+	// Local 56 (issue #412, P-96): ShowRandomStartPos (table RW 0xC2F798, INI::parseBool RW 0x42E558, MultiplayerSettings + 0x1E)
+	{ "ShowRandomStartPos", INI::parseBool, nullptr, (int)offsetof(BlockState, values.showRandomStartPos) },
 	{ nullptr, noteUnapplied, nullptr, 0 }
 };
 
@@ -848,6 +852,10 @@ bool GameLogicSettingsLoader::applyMapAIData(ArchiveFileSystem &fs, const std::s
 void GameLogicSettings::crc(StateHasher &h) const
 {
 	h.addBool(enableRepulsors);
+	if (forceSkirmishAI)
+	{
+		h.addBool(forceSkirmishAI); // PORT-227: retail and Ennorath default\aidata.ini set No, so only data enabling ForceSkirmishAI changes the settings hash
+	}
 	h.addFloat(repulsedDistance);
 	h.addBool(guardRulesLoaded); // lane PLAY-4
 	h.addU32(guardChaseUnitsFrames);

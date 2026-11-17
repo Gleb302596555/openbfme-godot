@@ -92,7 +92,7 @@ TEST_CASE("modgap2 AOD crush: object creation reports the partial object-pair co
         CHECK(target->getBodyModule()->getHealth() == 90.0f);
         bool found = false;
         for (const auto &line : w.logic->report().stops) found = found || line.find("[S-6008]") != std::string::npos;
-        CHECK(found);
+        CHECK_FALSE(found); // PORT-237 closed S-6008: AODCrushCollide calls OCL::create(logic, other, self)
     }
 }
 

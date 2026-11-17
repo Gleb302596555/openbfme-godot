@@ -26,7 +26,7 @@ HordeContain *hc(Object *h)
 std::string destroyOnDeathObjects()
 {
 	std::string s(kBannerObjects);
-	const std::string anchor = "    BannerCarrierMinLevel = 0\n";
+	const std::string anchor = "    BannerCarrierMinLevel = 1\n";
 	const size_t at = s.find(anchor);
 	REQUIRE(at != std::string::npos);
 	s.insert(at + anchor.size(), "    BannerCarrierDestroyHordeOnDeath = Yes\n    BannerCarrierHordeDeathType = +NORMAL\n");
@@ -41,11 +41,11 @@ std::string destroyOnDeathObjects()
 	return s;
 }
 
-// a BannerHorde at rank 1 with its carrier; returns the carrier
+// a BannerHorde at rank 2 with its carrier (BannerCarrierMinLevel 1 below it, RW 0x871A14); returns the carrier
 Object *withCarrier(CombatWorld &w, Object *h)
 {
 	w.frames(10);
-	ExperienceTrackerTestAccess::setRank(*h->getExperienceTracker(), 1);
+	ExperienceTrackerTestAccess::setRank(*h->getExperienceTracker(), 2);
 	w.frames(2);
 	REQUIRE(hc(h)->bannerCarrier() != 0); // tolerance: the carrier id is the factory's next free id; 0 means none was made
 	Object *banner = w.byId(hc(h)->bannerCarrier());
@@ -55,7 +55,7 @@ Object *withCarrier(CombatWorld &w, Object *h)
 
 } // namespace
 
-TEST_CASE("horde2 banner: no carrier at rank 0; at rank 1 the carrier joins, stands at its position and refills a dead member when out of combat")
+TEST_CASE("horde2 banner: no carrier at rank 0; at rank 2 the carrier joins, stands at its position and refills a dead member when out of combat")
 {
 	CombatWorld w(kBannerObjects);
 	w.combat().setAutoAcquireEnabled(false);
@@ -64,9 +64,9 @@ TEST_CASE("horde2 banner: no carrier at rank 0; at rank 1 the carrier joins, sta
 	REQUIRE(hc(h) != nullptr);
 	REQUIRE(h->getExperienceTracker() != nullptr);
 	REQUIRE(h->getExperienceTracker()->getRank() == 0); // no ExperienceLevel data in this fixture
-	CHECK(hc(h)->bannerCarrier() == 0); // BannerCarrierMinLevel 0 is not below rank 0
+	CHECK(hc(h)->bannerCarrier() == 0); // BannerCarrierMinLevel 1 is not below rank 0 (RW 0x871A14), and the build-complete spawn asks for level 0 (RW 0x871901)
 	CHECK(hc(h)->getContainCount() == 3);
-	ExperienceTrackerTestAccess::setRank(*h->getExperienceTracker(), 1);
+	ExperienceTrackerTestAccess::setRank(*h->getExperienceTracker(), 2);
 	w.frames(2);
 	REQUIRE(hc(h)->bannerCarrier() != 0);
 	Object *banner = w.byId(hc(h)->bannerCarrier());
