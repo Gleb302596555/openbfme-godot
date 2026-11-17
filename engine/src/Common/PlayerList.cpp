@@ -169,7 +169,7 @@ std::vector<std::string> PlayerList::newGame(const SidesList &sides, std::uint32
 		{
 			p->setSkirmishDifficulty(difficulty);
 		}
-		p->setPlayerType(human ? PLAYER_HUMAN : PLAYER_COMPUTER, !human && skirmish);
+		p->setPlayerType(human ? PLAYER_HUMAN : PLAYER_COMPUTER, !human && skirmish, m_forceSkirmishAI);
 		p->setMultiplayerStartIndex(d.getInt("multiplayerStartIndex"));
 		p->setHandicap(d.getInt("playerHandicap")); // lane OWNERFIX-2: RW 0x6B09C2 .. 0x6B09DE (Dict::getInt, 0 when absent) -> Player + 0x29C
 		if (d.getBool("multiplayerIsLocal", &exists) && exists)
@@ -291,7 +291,7 @@ std::vector<std::string> PlayerList::setupSkirmish(const SkirmishSetup &setup)
 			*p->getMoney() = Money((std::uint32_t)setup.startingMoney);
 			p->getMoney()->setPlayerIndex(p->getPlayerIndex());
 		}
-		p->setPlayerType(sp.human ? PLAYER_HUMAN : PLAYER_COMPUTER, !sp.human);
+		p->setPlayerType(sp.human ? PLAYER_HUMAN : PLAYER_COMPUTER, !sp.human, m_forceSkirmishAI);
 		p->setMultiplayerStartIndex(sp.startIndex);
 		if (sp.human && !setLocal)
 		{
@@ -357,7 +357,7 @@ std::vector<std::string> PlayerList::applySkirmishSlots(const SkirmishSetup &set
 			*p->getMoney() = Money((std::uint32_t)setup.startingMoney);
 			p->getMoney()->setPlayerIndex(p->getPlayerIndex());
 		}
-		p->setPlayerType(sp.human ? PLAYER_HUMAN : PLAYER_COMPUTER, !sp.human);
+		p->setPlayerType(sp.human ? PLAYER_HUMAN : PLAYER_COMPUTER, !sp.human, m_forceSkirmishAI);
 		p->setMultiplayerStartIndex(sp.startIndex);
 		if (sp.human && m_local == getNeutralPlayer())
 		{

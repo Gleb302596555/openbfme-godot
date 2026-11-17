@@ -3,19 +3,37 @@
 
 #include "Common/Thing/ThingFactory.h"
 #include "Common/AsciiString.h"
+#include "Common/INIException.h"
 #include "Common/Thing/KindOfTokens.h"
 
+#include "GameLogic/SkirmishAI/SkirmishAIData.h"
 #include "GameLogic/ThingCombatSets.h"
 
 #include <algorithm>
 #include <atomic>
 #include <cstdint>
+#include <cstring>
 #include <set>
 #include <stdexcept>
 
 namespace
 {
 const char kDefaultThingTemplate[] = "DefaultThingTemplate"; // RW 0xC18698
+
+// RW 0x8ED505 / 0x8ED575: ThreatBreakdown's AIKindOf row (table RW 0xC26ABC -> ThingTemplate + 0x530)
+void parseThreatAIKindOf(INI *ini, void *instance, void * /*store*/, const void *)
+{
+	const std::string name = ini->getNextAsciiString();
+	for (int i = 0; i < SkirmishAI::AI_KINDOF_COUNT; ++i)
+	{
+		if (std::strcmp(SkirmishAI::TheAIKindOfNames[i], name.c_str()) == 0)
+		{
+			*static_cast<int *>(instance) = i;
+			return;
+		}
+	}
+	throw INIException(2, "invalid AI_KINDOF\n");
+}
 }
 
 // How a row of the object / audio table is parsed. The semantic strings come from
@@ -51,7 +69,8 @@ enum ThingFactory::Semantic : int
 	S_UnitSpecificFX,
 	S_UnitSpecificSounds,
 	S_Prerequisites,
-	S_LocomotorSet
+	S_LocomotorSet,
+	S_ThreatBreakdown
 };
 
 struct ThingFactory::FieldBinding
@@ -118,7 +137,7 @@ void ThingFactory::buildTables(bool bfme1)
 			b->userData = r.userData;
 			const RwFunction &f = data.function(r.fn);
 			b->kind = f.kind;
-			b->sem = semanticOf(f.semantic.empty() ? "raw" : f.semantic);
+			b->sem = (b->name == "ThreatBreakdown" && f.kind == RwFunction::Block) ? S_ThreatBreakdown : semanticOf(f.semantic.empty() ? "raw" : f.semantic);
 			if (!r.names.empty())
 			{
 				b->nameStorage = r.names;
@@ -626,6 +645,7 @@ void ThingFactory::parseField(INI *ini, void *instance, void *, const void *user
 		case S_UnitSpecificSounds:
 		case S_Prerequisites:
 		case S_LocomotorSet:
+		case S_ThreatBreakdown:
 			break;
 	}
 
@@ -686,7 +706,6 @@ void ThingFactory::parseField(INI *ini, void *instance, void *, const void *user
 	// the blocks' template-level behaviour on top of their (raw) body
 	auto eraseBlocks = [&]() {
 		tt->m_rawBlocks.erase(std::remove_if(tt->m_rawBlocks.begin(), tt->m_rawBlocks.end(), [&](const RawBlock &r) { return r.field == b->name; }), tt->m_rawBlocks.end());
-		tt->m_threatCategory = ThingTemplate::RawBlockAnswer();
 	};
 	switch (b->sem)
 	{
@@ -742,6 +761,14 @@ void ThingFactory::parseField(INI *ini, void *instance, void *, const void *user
 		{
 			ProductionPrerequisite::parseBlock(ini, tt->m_productionPrerequisites);
 		}
+		else if (b->sem == S_ThreatBreakdown) // RW 0x73C073: typed AIKindOf into ThingTemplate + 0x530 while retaining raw lines (S-071)
+		{
+			const FieldParse fields[] = {
+				{ "AIKindOf", parseThreatAIKindOf, nullptr, 0 },
+				{ nullptr, nullptr, nullptr, 0 },
+			};
+			ini->initFromINI(&tt->m_threatCategory, fields);
+		}
 		else
 		{
 			factory.m_grammar.consumeBlock(ini, tt, b->fn);
@@ -788,7 +815,6 @@ void ThingFactory::parseField(INI *ini, void *instance, void *, const void *user
 		tt->setFlammability(fl);
 	}
 	tt->m_rawBlocks.push_back(std::move(block));
-	tt->m_threatCategory = ThingTemplate::RawBlockAnswer();
 }
 
 // ---------------------------------------------------------------------------------------------

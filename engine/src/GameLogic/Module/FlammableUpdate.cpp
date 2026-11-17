@@ -705,7 +705,7 @@ UpdateSleepTime FireSpreadUpdate::update()
 	{
 		if (const ObjectCreationList *ocl = TheObjectCreationListStore ? TheObjectCreationListStore->findObjectCreationList(m_data->m_oclEmbers) : nullptr)
 		{
-			ocl->create(logic, obj, *obj->getPosition()); // RW 0x5F0126 (S-980: the position variant)
+			ocl->create(logic, obj, nullptr); // RW 0x5F0126 (object-pair overload)
 		}
 	}
 	if (m_data->m_spreadTryRange != 0.0f) // RW 0x88EEB9: ucomiss, jnp on equal

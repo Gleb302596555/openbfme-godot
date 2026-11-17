@@ -171,10 +171,8 @@ void CreateObjectDie::onDie(const DieModuleInterface::Event &event)
 	{
 		return; // RW: an unknown name parsed to NULL, nothing is made
 	}
-	logic.noteStop("[S-980] CreateObjectDie: the death's ObjectCreationList runs the position variant of OCL::create at the dead object (RW calls the object-pair "
-		"variant with the killer as secondary); see S-530 for the nugget kinds that run");
-	const Coord3D at = *obj->getPosition();
-	m_created += (unsigned)ocl->create(logic, obj, at).size();
+	Object *killer = event.sourceId != INVALID_ID ? logic.findObjectByID(event.sourceId) : nullptr;
+	m_created += (unsigned)ocl->create(logic, obj, killer).size(); // RW 0x888F04 -> 0x5F0126
 }
 
 void CreateObjectDie::crc(StateHasher &hasher) const

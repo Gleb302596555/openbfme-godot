@@ -63,20 +63,6 @@ const SpecialPowerTemplate *powerOf(const CommandButton &b)
 	return TheSpecialPowerStore && !b.m_specialPowerName.empty() ? TheSpecialPowerStore->findSpecialPowerTemplate(b.m_specialPowerName) : nullptr;
 }
 
-// the UnitCost test (RW 0x82E000 / 0x82D605): with a cost, the object's horde interface (Object + 0x258 slot 0x7C) member count (slot 0x188, RW 0x82D659)
-// must reach it; no contain or no horde interface: no test. Lane NECRODIE-1: slot 0x188 is RW 0x86C09B, the members without the banner carrier
-// (HordeContain::payloadCount), as the trigger's payment reads it (RW 0x855273)
-bool unitCostMet(const Object &obj, const SpecialPowerTemplate &t)
-{
-	if (t.m_unitCost == 0)
-	{
-		return true;
-	}
-	ContainModuleInterface *c = obj.getContain();
-	const HordeContain *h = c && c->getHordeContainInterface() ? dynamic_cast<const HordeContain *>(c) : nullptr;
-	return !h || h->payloadCount() >= (unsigned)t.m_unitCost;
-}
-
 // RW 0x82C366 (lane WALL-2): the pathfinder exists; the object's AI follows a path (RW 0x6628CD: AIUpdate + 0x1FC 1 or 4, a path, and a node of it carries a
 // waypoint id, RW 0x765522); the ground grid's layer at the object's position (RW 0x6EACB9, the point raised by RW 0xBDD97C: the cell is read at x, y) is a
 // wall top (0x11 and up): every power is refused
@@ -187,11 +173,17 @@ int shroudAt(Object &obj, const Coord3D &loc)
 bool moduleAllows(Object &obj, SpecialPowerModuleInterface &m, const SpecialPowerTemplate &t, const Coord3D *locOrNull)
 {
 	GameLogic &logic = obj.logic();
+	// PORT-249: the module's own location tests come first (RW 0x8C744B, OCLSpecialPower's slot 0x48, which answers on the caster's disabled mask and its
+	// list's nuggets and then calls the base RW 0x897E01 below); every other class inherits the true of SpecialPowerModule
+	SpecialPowerModule *spm = dynamic_cast<SpecialPowerModule *>(&m);
+	if (locOrNull && spm && !spm->locationRequirementsMet(obj, *locOrNull))
+	{
+		return false;
+	}
 	if (!m.requirementsMet())
 	{
 		return false;
 	}
-	const SpecialPowerModule *spm = dynamic_cast<const SpecialPowerModule *>(&m);
 	if (locOrNull && spm && spm->spData()->m_useDistanceFromCommandCenter)
 	{
 		const Coord3D &loc = *locOrNull;
@@ -228,7 +220,7 @@ bool moduleAllows(Object &obj, SpecialPowerModuleInterface &m, const SpecialPowe
 		const SpecialPowerUpdateInterface *u = dynamic_cast<const SpecialPowerUpdateInterface *>(b.get());
 		if (u && u->drivesSpecialPower(&t)) // slot 0x1C with the module's power (module data + 0x8)
 		{
-			return u->allowsSpecialPowerUse(); // slot 0x20
+			return u->allowsSpecialPowerUse(locOrNull); // slot 0x20; the place: RW 0x897E82 pushes the requirements' first argument
 		}
 	}
 	return true;
@@ -537,6 +529,20 @@ bool unportedAnswer(bool *unported, GameLogic &logic, int type)
 
 namespace ActionManager
 {
+// the UnitCost test (RW 0x82E000 / 0x82D605; the control bar's availability arm at RW 0x943439 .. 0x943480 runs the same test): with a cost, the object's
+// horde interface (Object + 0x258 slot 0x7C) member count (slot 0x188, RW 0x82D659) must reach it; no contain or no horde interface: no test. Lane
+// NECRODIE-1: slot 0x188 is RW 0x86C09B, the members without the banner carrier (HordeContain::payloadCount), as the trigger's payment reads it (RW 0x855273)
+bool unitCostMet(const Object &obj, const SpecialPowerTemplate &t)
+{
+	if (t.m_unitCost == 0)
+	{
+		return true;
+	}
+	ContainModuleInterface *c = obj.getContain();
+	const HordeContain *h = c && c->getHordeContainInterface() ? dynamic_cast<const HordeContain *>(c) : nullptr;
+	return !h || h->payloadCount() >= (unsigned)t.m_unitCost;
+}
+
 Stats &stats()
 {
 	static thread_local Stats s;

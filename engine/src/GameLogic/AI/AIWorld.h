@@ -259,6 +259,11 @@ public:
 	// 0x68DCC4 / 0xB59490 / 0xABEB80 / 0xB58DE0, the gate's collide interface 0x898F46
 	void processGateContacts();
 	unsigned long long gateContacts() const { return m_gateContacts; } ///< the overlapping gate pairs met so far (statistics)
+	// Port 257 (S-4040): RotWK's collision manager pairs flying GiantBirdAIUpdate objects against IMMOBILE obstacles (RW 0x68E31F -> 0xB6D060 ->
+	// GiantBirdAIUpdate::onCollide RW 0x76B56B). The mobile AI pass skips IMMOBILE objects and processGateContacts handles gates, so registered
+	// GiantBirdAIUpdate objects meet non-gate IMMOBILE objects whose 3D shapes overlap (RW 0xAD2CE0) here in id order.
+	void processGiantBirdContacts();
+	unsigned long long giantBirdContacts() const { return m_giantBirdContacts; } ///< overlapping giant-bird / IMMOBILE pairs met so far (statistics)
 	// lane PHYS-1: RW moveAllies 0x6F503B (AIUpdateAllies.cpp): every stationary ally on the cells along `path` is asked to step away; false when not done
 	bool moveAllies(AIUpdateInterface &mover, Path &path, bool force);
 	// lane MOVE-3 r2: RW 0x6F85A6 moveAlliesAwayFromDestination (RW 0x6F7F3E -> the Bresenham line RW 0x6F57C3 -> each cell RW 0x6F53AF): every cell of the line
@@ -366,6 +371,8 @@ private:
 	unsigned long long m_crateContacts = 0;
 	std::vector<PathfindObjectID> m_gateScratch, m_gateHits; ///< lane GATECOLLIDE-1: processGateContacts' scratch lists (not state)
 	unsigned long long m_gateContacts = 0;
+	std::vector<PathfindObjectID> m_giantBirds, m_giantBirdScratch, m_giantBirdHits; ///< Port 257: registered GiantBirdAIUpdate ids (derived, not state)
+	unsigned long long m_giantBirdContacts = 0;
 	PathfindWallMeshSource *m_wallMeshes = nullptr; // lane WALL-1
 	int m_moveAlliesDepth = 0; // lane PHYS-1: RW pathfinder + 0x1C1BC, the recursion guard of moveAllies
 	int m_peakTickCells = 0;

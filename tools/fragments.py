@@ -33,7 +33,8 @@ NIGHT_HEAD = "|---|---|---|---|---|---|---|---|---|---|---|"
 
 
 def read(p: Path) -> str:
-    return p.read_bytes().decode("utf-8")
+    # a Windows checkout has CRLF: a fragment's blank line before its `## ...` section must not read as "\r" (S-7434, 2026-11-17)
+    return p.read_bytes().decode("utf-8").replace("\r\n", "\n")
 
 
 def stop_ids(text: str) -> set[int]:

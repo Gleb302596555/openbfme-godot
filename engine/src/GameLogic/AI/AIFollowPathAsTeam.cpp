@@ -4,8 +4,12 @@
 
 #include "GameLogic/AI/AIFollowPathAsTeam.h"
 
+#include "Common/Player.h"
+#include "Common/PlayerList.h"
 #include "Common/StateHash.h"
+#include "Common/Team.h"
 #include "GameLogic/AI/AIAttack.h"
+#include "GameLogic/AI/AIGroup.h"
 #include "GameLogic/AI/AIHunt.h"
 #include "GameLogic/AI/AIMove.h"
 #include "GameLogic/AI/AIPathfind.h"
@@ -73,10 +77,9 @@ bool pointBehind(const Object &obj, const Coord3D &p, const Coord3D &next)
 
 const char *AIFollowPathAsTeamState::stopLine()
 {
-	return "[S-4463] the formation march's states 54 and 61 (AIFollowPathAsTeamState, lanes BACKLOG-8 / PORT-13: commands 0x24 / 0x25, RW 0x74FD39 / 0x74FF49) "
-		   "run; NOT ported: the attack-move sub-machine's crate state 0x27 and AI + 0x3C7, AI + 0x164 (cleared before each point), the wait for the others at "
-		   "the first points (AIData WaitForOthers, No in retail), computePath's outside-the-map quick path; INFERENCE: AI + 0x44 is the desired speed, the "
-		   "internal move is the port's AIMoveToState";
+	return "[S-4463] the formation march's states 54 and 61 (AIFollowPathAsTeamState, lanes BACKLOG-8 / PORT-13: commands 0x24 / 0x25, RW 0x74FD39 / 0x74FF49; "
+		   "WaitForOthers RW 0x74B85F) run; NOT ported: the attack-move sub-machine's crate state 0x27 and AI + 0x3C7, AI + 0x164 (cleared before each point), "
+		   "computePath's outside-the-map quick path; INFERENCE: AI + 0x44 is the desired speed, the internal move is the port's AIMoveToState";
 }
 
 AIFollowPathAsTeamState::AIFollowPathAsTeamState(AIStateMachine &m, bool isAttack)
@@ -106,6 +109,73 @@ bool AIFollowPathAsTeamState::isActive() const
 {
 	// RW 0x7427EA (vtable slot 0x24): + 0x5C != null and its current state is not AI_IDLE
 	return m_attackMachine && !attackMachineIdle();
+}
+
+bool AIFollowPathAsTeamState::canMoveToNextFormationPathPoint() const
+{
+	// RW 0x74B85F: wait at waypoints 0 and 1 for matching formation peers with WaitForFormation locomotors unless damaged within 4s
+	const Object &obj = owner();
+	if (!obj.logic().settings().waitForOthers)
+	{
+		return true;
+	}
+	const AIUpdateInterface &a = ai();
+	const int formId = a.formationId();
+	const int goalIdx = a.currentGoalPathIndex();
+	if (goalIdx > 1)
+	{
+		return true;
+	}
+	if (const Locomotor *l = a.curLocomotor(); l && !l->getTemplate().m_waitForFormation)
+	{
+		return true;
+	}
+	if (AIGroup::damagedWithin(obj, 4))
+	{
+		return true;
+	}
+	const Player *player = obj.getControllingPlayer();
+	if (!player)
+	{
+		return true;
+	}
+	bool canMove = true;
+	for (const std::unique_ptr<TeamPrototype> &proto : obj.logic().players().teams().prototypes())
+	{
+		if (!proto || proto->getControllingPlayer() != player)
+		{
+			continue;
+		}
+		for (const Team *team : proto->teams())
+		{
+			if (!team)
+			{
+				continue;
+			}
+			for (const Object *other = team->getFirstMember(); other; other = other->friend_teamNext())
+			{
+				const AIUpdateInterface *oai = other->getAIUpdateInterface();
+				const int otherFormId = oai ? oai->formationId() : 0;
+				if (otherFormId != formId || other == &obj)
+				{
+					continue;
+				}
+				if (AIGroup::damagedWithin(*other, 4))
+				{
+					return true;
+				}
+				if (oai && oai->currentStateId() == (unsigned)AI_FOLLOW_PATH_AS_TEAM)
+				{
+					const Locomotor *ol = oai->curLocomotor();
+					if ((!ol || ol->getTemplate().m_waitForFormation) && oai->currentGoalPathIndex() != goalIdx)
+					{
+						canMove = false;
+					}
+				}
+			}
+		}
+	}
+	return canMove;
 }
 
 StateReturnType AIFollowPathAsTeamState::startMove(bool adjusts)
@@ -272,7 +342,11 @@ StateReturnType AIFollowPathAsTeamState::update()
 		a.setCurrentGoalPathIndex(m_index);
 		m_atPoint = next != nullptr;
 	}
-	// canMoveToNextFormationPathPoint (RW 0x74B85F) without AIData WaitForOthers (No in retail) lets the unit go at once (S-4463)
+	// RW 0x74FF49 (0x750192 .. 0x7501A7): wait at the arrived waypoint while canMoveToNextFormationPathPoint (RW 0x74B85F) returns false
+	if (m_atPoint && !canMoveToNextFormationPathPoint())
+	{
+		return STATE_CONTINUE;
+	}
 	m_atPoint = false;
 	m_steppedBack = false;
 	const Coord3D *p = machine().goalPathPosition(m_index);

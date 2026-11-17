@@ -40,10 +40,9 @@
 //     SpecialPowerTemplate (+0x38, RW 0x73B22F: the template by name from TheSpecialPowerStore)). onDie RW 0x8C64FE: the controlling player iterates its objects
 //     (RW 0x6ABABD) with RW 0x8C642D: an object whose special power module for the template exists (RW 0x68C26D) gets setReadyFrame(now) (slot 0x20): the
 //     power is ready at once.
-// WHAT IS INFERENCE / NOT PORTED (stop S-980, reported per use):
+// WHAT IS INFERENCE / NOT PORTED (PORT-237 closed S-980):
 //   * HeroDie walks the logic's object list for the player's objects (RW walks the player's own object list; every match gets the same frame);
-//   * the OCL is created through ObjectCreationList::create(logic, object, object position), the position variant (RW slot 3) of SPELL-1's port, not RW's
-//     object-pair variant (slot 2: the primary object and the killer); the nugget kinds and fields that port does not run are its own stop S-530;
+//   * CreateObjectDie calls ObjectCreationList::create(logic, obj, killer) (RW 0x888F04 -> 0x5F0126); CreateDebris nuggets remain S-530;
 //   * names (CreationList, DeathWeapon) are resolved at the death, not at parse time like RW (the same lists, unless a later INI replaces one);
 //   * (lane DECOMP-1) the death weapon is RotWK's temporary weapon (RW 0x88611D -> createAndFireTempWeapon RW 0x6CF530: the full fire path);
 //   * the DieMux killer angle window is ported in DieMuxData::isDieApplicable (RW 0x8D29A9, lane SIEGEFALL-1).

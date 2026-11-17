@@ -1995,9 +1995,10 @@ UpdateSleepTime FellBeastSwoopPower::update()
 		return (UpdateSleepTime)1;
 	}
 	AIUpdateInterface *ai = obj->getAIUpdateInterface();
-	if (ai && ai->isIdle()) // AI vslot 0x1B8 (vslot 0x1D0 not identified: S-1223)
+	// RW 0x8CB304 .. 0x8CB331: finish once the AI idles (vslot 0x1B8, RW 0x6643FC / 0x769E8F) or enters follow-through (vslot 0x1D0, RW 0x662B28 -> State::vslot 0x34 RW 0x8BD372)
+	if (ai && (ai->isIdle() || ai->isInFollowThruState()))
 	{
-		finishAbility(false, false); // vslot 0x34
+		finishAbility(false, false); // vslot 0x34 (RW 0x8CB194)
 		return UPDATE_SLEEP_FOREVER;
 	}
 	// RW 0x8CB336 .. 0x8CB3A9: SPECIAL_WEAPON_ONE (+ 0x128 bit 20) while the height above the terrain is below the bounding sphere radius (GeometryInfo + 0x14)
@@ -2011,7 +2012,7 @@ UpdateSleepTime FellBeastSwoopPower::update()
 	return (UpdateSleepTime)1;
 }
 
-// RW 0x8CB28B: the AI command 0x3F (the target object) or 0x40 (the location), source 2
+// RW 0x8CB28B: dispatches AI command 0x3F (RW 0x8CB1BA, target object) or 0x40 (RW 0x8CB21F, location), source CMD_FROM_AI (2)
 void FellBeastSwoopPower::triggerAbilityEffect()
 {
 	Object *obj = getObject();
@@ -2276,6 +2277,28 @@ TeleportSpecialAbilityUpdate::TeleportSpecialAbilityUpdate(Thing *thing, const T
 {
 }
 
+// RW 0x896608 (slot 8 of the class's special power update table RW 0xC6490C; the base's slot is RW 0x851B6E): the place must lie within
+// MaxDistance (+ 0xDC) of the object. A null place (RW 0x89660C), no data (0x896611) or no object (0x896629) and MaxDistance 0 or below
+// (0x896618 / 0x896620 against the zero RW 0xC1B594) answer the base's; otherwise |place - position|^2 (RW 0x896630 .. 0x896675 of the
+// object's + 0x38 / + 0x3C / + 0x40) above MaxDistance^2 (RW 0x896679) answers no (0x89667E). The data and the object cannot be null in the
+// port: the constructor takes the data and the object is the module's owner.
+bool TeleportSpecialAbilityUpdate::allowsSpecialPowerUse(const Coord3D *loc) const
+{
+	if (loc && 0.0f < m_tp->m_maxDistance)
+	{
+		const Coord3D *pos = getObject()->getPosition();
+		const float dz = SimMath::subf32(loc->z, pos->z);
+		const float dy = SimMath::subf32(loc->y, pos->y);
+		const float dx = SimMath::subf32(loc->x, pos->x);
+		const float d2 = SimMath::addf32(SimMath::addf32(SimMath::mulf32(dz, dz), SimMath::mulf32(dy, dy)), SimMath::mulf32(dx, dx));
+		if (SimMath::mulf32(m_tp->m_maxDistance, m_tp->m_maxDistance) < d2)
+		{
+			return false; // RW 0x89667E
+		}
+	}
+	return SpecialAbilityUpdate::allowsSpecialPowerUse(loc); // RW 0x851B6E (RW 0x896682)
+}
+
 // TheWeaponStore->createAndFireTempWeapon(weapon, object, position) (RW 0x6CC5DF + 0x6CF530)
 void TeleportSpecialAbilityUpdate::fireTempWeapon(const std::string &name, const Coord3D &at)
 {
@@ -2478,9 +2501,9 @@ std::vector<std::string> HeroAbilityModules::stopLines()
 		"than HordeContain (a defecting transport's / garrison's passengers keep their side; reported when met); (6) the selected drawable's deselection (RW "
 		"0x6993B5 .. 0x6993D0) and restoreOriginalTeam's selection refresh are the client's; (7) ActivateModuleSpecialPower's tags are resolved when used "
 		"(retail makes the keys while parsing); (8) setTeam's redirect keeps a team without a controlling player (retail reads its player without a test)",
-		"[S-1223] FellBeastSwoopPower (lane HERO-2): the module runs (RW 0x8CB2CE / 0x8CB28B / 0x8CB194); the level attack itself is GiantBirdAIUpdate's swoop "
-		"(AI commands 0x3F / 0x40, AI vslots 0x90 / 0x94: GiantBirdAIUpdate runs as the base AI, S-222): the command is counted by the AI (aiUnported) and the "
-		"ability ends when the AI idles; AI vslot 0x1D0 is not identified",
+		"[S-1223] FellBeastSwoopPower (lane HERO-2, Port 257): the module runs (RW 0x8CB2CE / 0x8CB28B / 0x8CB194); AI command 0x3F (RW 0x8CB1BA) runs "
+		"GiantBirdAIUpdate's level swoop (state 0x3F3, RW 0x76A139) and command 0x40 (RW 0x8CB21F) does nothing there (RW 0x76DA5C); other AI classes count "
+		"both (aiUnported); the ability ends when the AI idles (vslot 0x1B8) or enters AIGiantBirdFollowThruState (vslot 0x1D0, RW 0x662B28 -> State::vslot 0x34 RW 0x8BD372)",
 		"[S-1227] AutoAbilityBehavior (lane HERO-2, PORT-191): the auto cast runs (RW 0x85D9D1 with RW 0x85D5EA / 0x85D4B5, RW 0x855830 DISABLED_HELD, "
 		"RW 0x68E43B vision range, RW 0x701443 flags 0x4A without Query, AI + 0x34 / + 0x48 := 2, RW 0x68E5A3 / 0x68E67A disabled exception with 0x20000000, "
 		"MSG_DO_AUTO_ABILITY RW 0x77B9BA, StartsActive); not ported: the command types other than SPECIAL_POWER / SPELL_BOOK (a FIRE_WEAPON auto button is "
@@ -2591,6 +2614,7 @@ void CurseSpecialPower::xfer(Xfer &x)
 	x.xferUnsignedInt(&m_cursed);
 }
 
+// RW 0x008CB167
 void FellBeastSwoopPower::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

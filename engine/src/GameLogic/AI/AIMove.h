@@ -365,6 +365,8 @@ public:
 	bool waitingForPath() const { return m_waitingForPath; }
 	// lane MODULES-3 r2: RW 0x740C97 clears + 0x49 when a temporary state ended (the next update re-requests the path)
 	void clearWaitingForPath() { m_waitingForPath = false; }
+	// PORT-165: RW 0x741FC1 copies the queued attack request into the derived move state.
+	void setWaitingForPath(bool waiting) { m_waitingForPath = waiting; }
 	const Coord3D &goal() const { return m_goal; }
 	// MOVE-1: a moving goal (ZH AIMoveToState::update re-reads the goal object's position every frame; the repath test compares it with the goal of the last path)
 	void setGoal(const Coord3D &g) { m_goal = g; }

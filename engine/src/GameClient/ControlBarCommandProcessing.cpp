@@ -160,6 +160,15 @@ bool ControlBar::pressButton(int slot, bool inPalantir, bool shift)
 		m_ctx.ui.message("GUI:NotEnoughMoneyToBuild"); // processCommandUI: CANMAKE_NO_MONEY
 		return false;
 	}
+	// PORT-220 (issue #529): processCommandUI re-asks getCommandAvailability (RW 0x940625 -> RW 0x942733) and, for its results 1 (enabled) and 2 (active),
+	// clears the button's + 0xF8 (RW 0x940656) and then sets the source object's single-use flag when the button's Options (+ 0x1C) hold bit 17
+	// SINGLE_USE_COMMAND: RW 0x940665 `test byte ptr [esi + 0x1E], 2` / RW 0x94066B `mov byte ptr [ebx + 0x45B], 1`, skipped for a null object (RW 0x94065D).
+	// Results 6 and 7 leave through their own paths (RW 0x9406DA / 0x9405F1) and write nothing. The port reads the bar's last evaluation instead of re-asking,
+	// so only its Enabled and Active states write; the button's + 0xF8 is client state this port does not carry (S-290).
+	if (b.hasOption(COMMAND_OPTION_SINGLE_USE_COMMAND) && (cb->state == ButtonState::Enabled || cb->state == ButtonState::Active))
+	{
+		obj->markSingleUseCommandUsed();
+	}
 	// RW 0x9407D9 -> 0x8DEDBB(0x7E3) -> CommandButton::getUnitSpecificSound (RW 0x75D0B9):
 	// play UnitSpecificSound[m_toggleIndex] BEFORE the command switch updates +0xFC; out-of-range stays silent ("").
 	if (m_commandVoice && b.m_command != GUI_COMMAND_SET_STANCE)
@@ -205,10 +214,9 @@ bool ControlBar::pressButton(int slot, bool inPalantir, bool shift)
 			return true;
 		}
 		case GUI_COMMAND_DOZER_CONSTRUCT:
-		case GUI_COMMAND_FOUNDATION_CONSTRUCT:
 		{
 			// ZH processCommandUI: a build button asks the user interface for a site (placeBuildAvailable); the PlaceEventTranslator sends the construct message when the
-			// player clicks a legal one. A plot's button (FOUNDATION_CONSTRUCT) builds on the plot itself: the message goes out at once with the plot's own place
+			// player clicks a legal one
 			const ThingTemplate *tt = b.getThingTemplate();
 			const CanMakeType make = BuildAssistant::canMakeUnit(*obj, tt, -1);
 			if (make == CANMAKE_MAXED_OUT_FOR_PLAYER)
@@ -220,15 +228,25 @@ bool ControlBar::pressButton(int slot, bool inPalantir, bool shift)
 			{
 				return false;
 			}
-			if (b.m_command == GUI_COMMAND_FOUNDATION_CONSTRUCT)
-			{
-				ClientMessage &m = m_ctx.stream.append(MSG_FOUNDATION_CONSTRUCT);
-				m.appendInteger((int)tt->getTemplateID());
-				m.appendLocation(*obj->getPosition());
-				m.appendReal(0.0f);
-				return true;
-			}
 			m_ctx.ui.placeBuildAvailable(tt->getName(), obj->getID(), &b); // RW 0x940AA1, then the button as the GUI command (RW 0x94089B; see InGameUI.h)
+			return true;
+		}
+		case GUI_COMMAND_FOUNDATION_CONSTRUCT:
+		{
+			// PORT-212 (fork issue 502): a plot's button builds on the plot itself: the message goes out at once with the plot's own place, so
+			// no per-click canMakeUnit runs (that query belongs to the placement translator, RW 0x83E771) and the production limits the arm
+			// used to apply here (maximum / queue / command points) are not this command's in RotWK (RW 0x942733 arm 1, see ControlBar.cpp).
+			// The gates that do stand are the ones before the switch (the button's availability: Buildable, Player::canBuild RW 0x6AAA2E,
+			// the price) and the message's own case in the logic (RW 0x77A91B).
+			const ThingTemplate *tt = b.getThingTemplate();
+			if (!tt)
+			{
+				return false;
+			}
+			ClientMessage &m = m_ctx.stream.append(MSG_FOUNDATION_CONSTRUCT);
+			m.appendInteger((int)tt->getTemplateID());
+			m.appendLocation(*obj->getPosition());
+			m.appendReal(0.0f);
 			return true;
 		}
 		case GUI_COMMAND_SET_STANCE:

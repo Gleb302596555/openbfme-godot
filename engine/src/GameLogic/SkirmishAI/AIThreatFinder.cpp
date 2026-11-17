@@ -14,7 +14,6 @@
 #include "GameLogic/SimMath.h"
 #include "GameLogic/SkirmishAI/SkirmishAIData.h"
 
-#include <cstring>
 #include <variant>
 
 namespace
@@ -171,72 +170,28 @@ AIThreatFinder::ThreatRecord AIThreatFinder::sumRecords(GameLogic &logic, const 
 	return out;
 }
 
+int AIThreatFinder::dominantCategory(const ThreatRecord &r)
+{
+	// RW 0x7EDAED
+	if (r.v[0] == 0.0f)
+	{
+		return 0;
+	}
+	int best = 0;
+	for (int i = 1; i < SkirmishAI::AI_KINDOF_COUNT; ++i)
+	{
+		if (r.v[1 + i] > r.v[1 + best])
+		{
+			best = i;
+		}
+	}
+	return best;
+}
+
 int AIThreatFinder::threatCategory(const ThingTemplate &tt)
 {
-	// RW 0x73C073: a ThreatBreakdown block parsed with the table RW 0xC26ABC (one field, AIKindOf, RW 0x8ED575 -> RW 0x8ED505) into template + 0x530; the
-	// constructor's value is -1 (RW 0x73FE59). The block is kept as raw lines by the template loader (S-071); the last block's last AIKindOf wins
-	const ThingTemplate *f = tt.getFinalOverride();
-	const ThingTemplate &src = f ? *f : tt;
-	// performance (the same answer): the blocks do not change once loaded, so the answer is kept on the template (the line parse below ran on every call,
-	// from every enemy search's attack priority)
-	const int known = src.threatCategoryCache().value.load(std::memory_order_relaxed);
-	if (known != ThingTemplate::RawBlockAnswer::kUnset)
-	{
-		return known;
-	}
-	int category = -1;
-	for (const RawBlock &b : src.rawBlocks())
-	{
-		if (b.field != "ThreatBreakdown")
-		{
-			continue;
-		}
-		for (const RawLine &line : b.lines)
-		{
-			std::string text = line.text;
-			for (const char *c : { ";", "//" })
-			{
-				const size_t at = text.find(c);
-				if (at != std::string::npos)
-				{
-					text.erase(at);
-				}
-			}
-			std::vector<std::string> tokens;
-			std::string cur;
-			for (char ch : text)
-			{
-				if (ch == ' ' || ch == '\t' || ch == '=' || ch == '\r' || ch == '\n')
-				{
-					if (!cur.empty())
-					{
-						tokens.push_back(cur);
-						cur.clear();
-					}
-				}
-				else
-				{
-					cur.push_back(ch);
-				}
-			}
-			if (!cur.empty())
-			{
-				tokens.push_back(cur);
-			}
-			if (tokens.size() >= 2 && tokens[0] == "AIKindOf")
-			{
-				for (int i = 0; i < SkirmishAI::AI_KINDOF_COUNT; ++i)
-				{
-					if (std::strcmp(SkirmishAI::TheAIKindOfNames[i], tokens[1].c_str()) == 0) // RW 0x8ED505 (an unknown name throws at load: S-1300)
-					{
-						category = i;
-					}
-				}
-			}
-		}
-	}
-	src.threatCategoryCache().value.store(category, std::memory_order_relaxed);
-	return category;
+	// RW 0x73C073 / 0x73FB7A (0x73FE59): ThreatBreakdown's AIKindOf is typed-parsed at load time into ThingTemplate::threatCategory() (+ 0x530, default -1)
+	return tt.threatCategory();
 }
 
 double AIThreatFinder::threatValueWide(const Object &obj)

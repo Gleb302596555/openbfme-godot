@@ -220,6 +220,7 @@ struct GameLogicSettings
 	// lane AIDATA-1: every AIData default below is the AIData constructor's (RW 0x6FFBEF; BFME2 decomp AIConstructor_Unresolved.cpp TAiData::TAiData), so a mod
 	// aidata.ini that leaves a field out gets retail's value; no AIData field is required (retail's parser RW 0x7017AA requires none)
 	bool enableRepulsors = false;                    ///< AIData EnableRepulsors (RW 0xDE4B40 + 0x18 + 0x64, ctor 0): the RepulsorHelper condition
+	bool forceSkirmishAI = false;                    ///< AIData ForceSkirmishAI (+ 0x65, row RW 0xC1CC80 parseBool; ctor RW 0x6FFBEF / 0x6FFD49 stores 0): RW 0x6AA450 Player::setPlayerType gives PLAYER_COMPUTER an AISkirmishPlayer even when skirmish == false
 	float repulsedDistance = 0.0f;                   ///< AIData RepulsedDistance (+ 0x60, lane MODULES-3): the safe path radius beyond the vision range
 	bool useFormations = true;                       ///< AIData UseFormations (+ 0xBD, row RW 0xC1CE90 parseBool; the constructor RW 0x6FFDE5 stores 1; lane BACKLOG6): AIGroup RW 0x774897's formation gate
 	float minDistanceForGroup = 100.0f;              ///< AIData MinDistanceForGroup (+ 0x6C, row RW 0xC1D390 parseReal; the constructor stores RW 0xBD88D8 = 100.0f at RW 0x6FFD56; lane BACKLOG6): RW 0x76F115's group move distance

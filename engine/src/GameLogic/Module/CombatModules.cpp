@@ -837,7 +837,7 @@ Coord3D ClearanceTestingSlowDeathBehavior::getClearanceTestGeometryCenter() cons
 //      (the sampler RW 0x8E047D / next point RW 0x8E0354, the layer heights against z + MaxHeight (x87) and MinHeight + z (SSE), the high / low fractions
 //      (cvtsi2ss, divss) against MaxHeightFraction / MinHeightFraction): the fork's MODGAP-2 port (ClearanceDeathGeometry::sample, the grid walk RW 0x8E0354 /
 //      0x8E047D = BFME2 0x8DC096 / 0x8DC1BF, ClearanceTestingSlowDeathGeometrySampler.cpp; RW provenance caveat S-001) over the last clearance shape.
-// The filter bodies and the data ctor are read from BFME2 only (S-7163).
+// The filter bodies and the data ctor are read from BFME2 only (RW provenance caveat S-001; S-7163 closed).
 bool ClearanceTestingSlowDeathBehavior::canBeginSlowDeath()
 {
 	Object *obj = getObject();

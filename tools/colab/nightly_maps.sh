@@ -9,6 +9,8 @@
 # Runs in Claude's station-3 tree of this sandbox (workspace/wt/local-sb<N>-st3, made from origin/main when missing). Inputs: the game files
 # of /root/.agent_env, the Ennorath INI archive and the function inventory on the Drive (for-arena/, openbfme-audit/), the newest field audit
 # there. angr is installed into /content/py219 on demand (only a changed game.dat needs it: the inventory is cached by its SHA256).
+# The map's decomp column (2026-11-17, Port 240) also needs BFME2's game.dat ($BFME2_INSTALL) and the Open-BFME-2 clone ($OPENBFME_DECOMP2,
+# default /content/ref/open-bfme-2, cloned or pulled here each night).
 set -uo pipefail
 [ -f /root/.agent_env ] && source /root/.agent_env
 export RW_GAME_DAT="${RW_GAME_DAT:-${OPENBFME_GAME_DAT:-}}"
@@ -22,6 +24,23 @@ RUNS=$DRIVE/openbfme-runs/maps
 mkdir -p "$RUNS"
 LOG=$RUNS/nightly_maps.log   # every log on the Drive: /content dies with the runtime (owner 2026-11-16)
 
+# The RotWK -> BFME2 pairing (tools/re/README.md, Port 240: no Ghidra): RotWK entries from the angr inventory, BFME2's from the decomp's own
+# list, then match_rotwk.py; rw_function_map.py reads it as the map's decomp column (the BFME2 C++ a lane reads instead of disassembly).
+# Generated, never committed: it stays in the tree's ignored workspace/rebuild/xmap (match_rotwk's feature cache in work/ makes reruns fast).
+DECOMP2=${OPENBFME_DECOMP2:-/content/ref/open-bfme-2}
+decomp_map() {
+  XMAP=$PWD/workspace/rebuild/xmap; mkdir -p "$XMAP"; rm -f "$XMAP/rw_map.csv"
+  local log=$RUNS/nightly_decomp.log
+  { [ -d "$DECOMP2/.git" ] && git -C "$DECOMP2" pull -q --ff-only || git clone -q --depth 1 https://github.com/Open-BFME/Open-BFME-2 "$DECOMP2"; } > "$log" 2>&1
+  python3 tools/re/inventory.py --bin "$RW_GAME_DAT" --angr workspace/rebuild_inventory.json --out "$XMAP/rotwk_functions.csv" >> "$log" 2>&1 &&
+  python3 tools/re/inventory.py --bin "$BFME2_INSTALL/game.dat" --csv "$DECOMP2/reverse/ghidra_functions.csv" --out "$XMAP/bfme2_functions.csv" >> "$log" 2>&1 &&
+  python3 tools/re/ledger_lanes.py --clone "$DECOMP2" --out "$XMAP/bfme2_ledger.csv" >> "$log" 2>&1 &&
+  python3 tools/re/match_rotwk.py --rotwk "$RW_GAME_DAT" --rotwk-inv "$XMAP/rotwk_functions.csv" --bfme2 "$BFME2_INSTALL/game.dat" \
+      --bfme2-inv "$XMAP/bfme2_functions.csv" --bfme2-ledger "$XMAP/bfme2_ledger.csv" --decomp "$DECOMP2" --work "$XMAP/work" \
+      --out-csv "$XMAP/rw_map.csv" --out-json "$XMAP/rw_summary.json" >> "$log" 2>&1 ||
+    { rm -f "$XMAP/rw_map.csv"; echo "decomp map failed (column left empty): $log" >> "$LOG"; }
+}
+
 run() {
   local day; day=$(date -u +%F)
   echo "== $day $(date -u +%T) start" >> "$LOG"
@@ -34,8 +53,9 @@ run() {
   [ -d /content/py219/angr ] || python3 -m pip install -q --target /content/py219 angr==9.2.213 bitstring==4.4.0 pycparser==3.0 > /dev/null 2>&1
   export PYTHONPATH=/content/py219
   cp -f "$INV" workspace/rebuild_inventory.json 2>/dev/null
+  decomp_map   # fills the map's decomp column (Port 240); a failure leaves the column empty, it never stops the night
   python3 tools/mod/rw_function_map.py --game "$RW_GAME_DAT" --ini "$INI" --inventory workspace/rebuild_inventory.json \
-      --out docs/ennorath/RW_FUNCTION_MAP > "$RUNS/nightly_map.log" 2>&1 || { echo "map failed at $rev" >> "$LOG"; return 1; }
+      --decomp "$XMAP/rw_map.csv" --out docs/ennorath/RW_FUNCTION_MAP > "$RUNS/nightly_map.log" 2>&1 || { echo "map failed at $rev" >> "$LOG"; return 1; }
   cmp -s workspace/rebuild_inventory.json "$INV" || cp -f workspace/rebuild_inventory.json "$INV"   # a new game.dat: share the new cache
   python3 tools/mod/matrix_gaps.py --base "$ROTWK_INSTALL" --overlay "$OPENBFME_ENNORATH_INSTALL" --inventory workspace/rebuild_inventory.json \
       --game "$RW_GAME_DAT" > "$RUNS/nightly_gaps.log" 2>&1 || { echo "matrix_gaps failed at $rev" >> "$LOG"; return 1; }
