@@ -36,7 +36,7 @@
 //     0x6612AC -> 0x68FA3D) and visibility (RW 0x660D71: visible, or a computer player and the object firing, RW 0x68C89B). A target in PointAt, AfraidOf or
 //     AlwaysAfraidOf: POINT requested, the closest distance its edge distance (RW 0x66352C); another target: TAUNT; none: TAUNT and POINT off, ALERT = "seen".
 // NOT PORTED / INFERENCE (stop S-1022, EmotionTrackerUpdate::stopLines; S-1021 for the nuggets): viewer-relative disguise / contain visibility uses the complete
-// RW 0x694CCC predicate (same helper as EvaDamage); the RW 0x6EA857 wall-cell test delegates to Pathfinder::isPointOnWall; the forced emotion of the scripts (+ 0xB0 .. + 0xB8) is never set; canSee's firing arc cone (template FiringArc below
+// RW 0x694CCC predicate (same helper as EvaDamage); the RW 0x6EA857 wall-cell test delegates to Pathfinder::isPointOnWall; script forced-emotion fields (+ 0xB0 .. + 0xB8) are ported by SCRIPT-2; canSee's firing arc cone (template FiringArc below
 // 360, RW 0x68FAC9) is reported (no retail template sets one); the relationship of the scans is Object::getRelationship (RW 0x68D7AB's mine / gate cases
 // aside); without a shroud manager the threat is 0 and the vision range is the template's ShroudClearingRange (both reported); the layer (RW 0x68BBE0) is
 // the pathfinder layer of the AI (ground when none).

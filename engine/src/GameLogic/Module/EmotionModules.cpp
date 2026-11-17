@@ -41,8 +41,8 @@ const char *const kStopTracker =
 	"[S-1022] EmotionTrackerUpdate: requests, the fear and hero scans, the QuarrelProbability draw, the nugget choice and run are ported (RW 0x8B5738 / 0x8B54DD); "
 	"RadiateFearUpdate pulses run (RW 0x89F9A8); the taunt / point / alert scan (RW 0x8B5946 with the filters RW 0x8B50F0, 0x6612AC, 0x660D71) runs (lane MODULES-3); "
 	"the viewer-relative disguise / contain visibility branches of RW 0x694CCC and the ground cell wall-layer test RW 0x6EA857 are ported; "
-	"not ported: the scripts' forced emotion, the firing arc cone of canSee (RW 0x68FAC9, "
-	"reported; no retail template sets FiringArc); inference: the scans' relationship is Object::getRelationship (RW 0x68D7AB's mine and gate cases aside), the "
+	"not ported: the firing arc cone of canSee (RW 0x68FAC9, reported; no retail template sets FiringArc); SCRIPT-2 ports UNIT / TEAM / PLAYER_FORCE_EMOTION "
+	"(RW 0x7BDDD8 / 0x7C41F0 / 0x7C4256 -> 0x68F3CB -> 0x8B4EB1); inference: the scans' relationship is Object::getRelationship (RW 0x68D7AB's mine and gate cases aside), the "
 	"layer is the AI's pathfinder layer (RW 0x68BBE0; ground without an AI), no shroud manager: threat 0 and the template's ShroudClearingRange (reported)";
 
 #define ET_OFF(field) (int)offsetof(EmotionTrackerUpdateModuleData, field)
