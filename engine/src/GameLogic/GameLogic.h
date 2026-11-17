@@ -148,6 +148,9 @@ public:
 	virtual bool showModule(Object &obj, const std::string &tag, bool visible, bool permanent) { (void)obj; (void)tag; (void)visible; (void)permanent; return false; }
 	// RW 0x672823 Drawable::showSubObject
 	virtual void showSubObject(Object &obj, const std::string &name, bool visible, bool permanent) { (void)obj; (void)name; (void)visible; (void)permanent; }
+	// PORT-246: compatibility for existing hook implementations; both forms use the same ordered show-subobject event.
+	virtual void showSubObject(Object &obj, const std::string &name, bool visible, bool permanent, float fadeRate, float waitRate)
+	{ (void)fadeRate; (void)waitRate; showSubObject(obj, name, visible, permanent); }
 	// RW 0x8AB623..0x8AB63A -> drawable dispatcher RW 0x671948. This port records the same status on the existing ordered client-event path (INFERENCE).
 	virtual void supplyStatusChanged(Object &obj, int currentBoxes, int startingBoxes) { (void)obj; (void)currentBoxes; (void)startingBoxes; }
 	// RW 0x8B911E (SubObjectsUpgrade's UpgradeTexture): every draw module of the drawable takes this list of (original, drawn instead) as its upgrade

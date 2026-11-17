@@ -226,7 +226,7 @@ class SubObjectsUpgrade : public UpgradeModule
 {
 public:
 	OBFME_MODULE_XFER(SubObjectsUpgrade) // lane SAVE-4b
-	SubObjectsUpgrade(Thing *thing, const SubObjectsUpgradeModuleData *data) : UpgradeModule(thing, data), m_data(data) {}
+	SubObjectsUpgrade(Thing *thing, const SubObjectsUpgradeModuleData *data);
 	bool hasShown() const { return m_shown; }
 	void crc(StateHasher &hasher) const override;
 
@@ -236,7 +236,9 @@ protected:
 
 private:
 	std::vector<std::pair<std::string, std::string>> upgradeTexturePairs() const;
+	void fadeRates(float &fade, float &wait) const;
 	const SubObjectsUpgradeModuleData *m_data;
+	unsigned m_createdFrame = 0; ///< RW 0x8B8EE4: module creation frame
 	bool m_shown = false; ///< RW module + 0x20
 };
 

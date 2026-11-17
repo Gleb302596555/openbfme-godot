@@ -116,6 +116,7 @@ struct ClientEvent
 	bool immediate = false;            ///< MODEL_FLUSH: RW 0x67449C's argument (true from the OCL's CreateObject RW 0x5F13C8, lane PORT-79)
 	std::string name;
 	bool visible = false, permanent = false;
+	float subObjectFadeRate = 0.0f, subObjectWaitRate = 0.0f; ///< RW 0x672823
 	bool setFlags = false, setScale = false, mirror = false;
 	float scale = 1.0f;
 	float opacity = 1.0f;
@@ -153,6 +154,7 @@ public:
 	void flushModelConditions(Object &obj, bool immediate = false) override;
 	bool showModule(Object &obj, const std::string &tag, bool visible, bool permanent) override;
 	void showSubObject(Object &obj, const std::string &name, bool visible, bool permanent) override;
+	void showSubObject(Object &obj, const std::string &name, bool visible, bool permanent, float fadeRate, float waitRate) override;
 	void supplyStatusChanged(Object &obj, int currentBoxes, int startingBoxes) override;
 	void upgradeTextures(Object &obj, const std::vector<std::pair<std::string, std::string>> &swaps) override;
 	void recolorHouse(Object &obj, const std::vector<std::string> &excludeSubobjects) override;

@@ -652,6 +652,26 @@ void DoCommandUpgrade::processUpgradeRemoval()
 }
 
 // ---- SubObjectsUpgrade --------------------------------------------------------------------------------------------------------------------
+// RW 0x8B8EE4 records the logic frame when this module is constructed.
+SubObjectsUpgrade::SubObjectsUpgrade(Thing *thing, const SubObjectsUpgradeModuleData *data)
+	: UpgradeModule(thing, data), m_data(data), m_createdFrame(getObject()->logic().getFrame())
+{
+}
+
+// RW 0x8B8F40: skip on create, or for three frames without a producer; otherwise two reciprocal client-frame rates.
+void SubObjectsUpgrade::fadeRates(float &fade, float &wait) const
+{
+	fade = 0.0f;
+	wait = 0.0f;
+	const Object *obj = getObject();
+	if (m_data->m_skipFadeOnCreate || (obj->getProducerID() == INVALID_ID && obj->logic().getFrame() < m_createdFrame + 3u))
+	{
+		return;
+	}
+	constexpr float kClientFramesPerSecond = 30.0f; // RW 0xD9F60C
+	if (m_data->m_fadeTimeInSeconds != 0.0f) fade = 1.0f / m_data->m_fadeTimeInSeconds / kClientFramesPerSecond;
+	if (m_data->m_waitBeforeFadeInSeconds != 0.0f) wait = 1.0f / m_data->m_waitBeforeFadeInSeconds / kClientFramesPerSecond;
+}
 void SubObjectsUpgrade::upgradeImplementation()
 {
 	Object *obj = getObject();
@@ -675,17 +695,19 @@ void SubObjectsUpgrade::upgradeImplementation()
 		{
 			++s.subObjectFadesNotPorted;
 		}
+		float fade = 0.0f, wait = 0.0f;
+		fadeRates(fade, wait);
 		for (const std::string &n : m_data->m_hideSubObjects) // RW 0x8B909E
 		{
 			if (!draw->showModule(*obj, n, false, true))
 			{
-				draw->showSubObject(*obj, n, false, true);
+				draw->showSubObject(*obj, n, false, true, -fade, wait);
 			}
 		}
 		for (const std::string &n : m_data->m_showSubObjects) // RW 0x8B9050
 		{
 			draw->showModule(*obj, n, true, false);
-			draw->showSubObject(*obj, n, true, true);
+			draw->showSubObject(*obj, n, true, true, fade, wait);
 		}
 		if (!m_data->m_upgradeTexture.empty()) // RW 0x8B911E (mode 0): every draw module takes this module's list
 		{
@@ -716,13 +738,15 @@ void SubObjectsUpgrade::processUpgradeRemoval()
 	ObjectClientHooks *draw = obj->clientHooks(); // SMOOTH-1
 	if (draw && (m_data->m_hideSubObjectsOnRemove || m_data->m_unHideSubObjectsOnRemove))
 	{
+		float fade = 0.0f, wait = 0.0f;
+		fadeRates(fade, wait);
 		if (m_data->m_hideSubObjectsOnRemove)
 		{
 			for (const std::string &n : m_data->m_showSubObjects)
 			{
 				if (!draw->showModule(*obj, n, false, true))
 				{
-					draw->showSubObject(*obj, n, false, true);
+					draw->showSubObject(*obj, n, false, true, -fade, wait);
 				}
 			}
 			if (!m_data->m_upgradeTexture.empty())
@@ -735,7 +759,7 @@ void SubObjectsUpgrade::processUpgradeRemoval()
 			for (const std::string &n : m_data->m_hideSubObjects)
 			{
 				draw->showModule(*obj, n, true, false);
-				draw->showSubObject(*obj, n, true, true);
+				draw->showSubObject(*obj, n, true, true, fade, wait);
 			}
 		}
 	}
@@ -746,6 +770,7 @@ void SubObjectsUpgrade::crc(StateHasher &h) const
 {
 	UpgradeModule::crc(h);
 	h.addBool(m_shown);
+	h.addU32(m_createdFrame);
 }
 
 // ---- ObjectImageUpgrade (lane MODS-3) -----------------------------------------------------------------------------------------------------------
@@ -1003,9 +1028,12 @@ void RemoveUpgradeUpgrade::xfer(Xfer &x)
 // OpenBFME native (S-4190): the mux, then RW module + 0x20 (the sub objects are shown)
 void SubObjectsUpgrade::xfer(Xfer &x)
 {
-	SnapshotXfer::version(x, 1, 1);
+	// Version 1 did not preserve the module creation frame; it cannot restore this gate correctly.
+	XferVersion version{ 2, 2 };
+	x.xferVersion(version);
 	UpgradeModule::xfer(x);
 	x.xferBool(&m_shown);
+	x.xferUnsignedInt(&m_createdFrame);
 }
 
 void GrantUpgradeCreate::xfer(Xfer &x)

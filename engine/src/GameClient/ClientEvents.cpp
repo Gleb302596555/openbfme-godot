@@ -428,10 +428,18 @@ bool ClientEventRecorder::showModule(Object &obj, const std::string &tag, bool v
 
 void ClientEventRecorder::showSubObject(Object &obj, const std::string &name, bool visible, bool permanent)
 {
+	showSubObject(obj, name, visible, permanent, 0.0f, 0.0f);
+}
+
+// RW 0x672823: the same ordered request carries both rates for every draw module.
+void ClientEventRecorder::showSubObject(Object &obj, const std::string &name, bool visible, bool permanent, float fadeRate, float waitRate)
+{
 	ClientEvent &e = push(ClientEvent::SHOW_SUB_OBJECT, obj);
 	e.name = name;
 	e.visible = visible;
 	e.permanent = permanent;
+	e.subObjectFadeRate = fadeRate;
+	e.subObjectWaitRate = waitRate;
 }
 
 // RW 0x8AB623..0x8AB63A calls the drawable's supply dispatcher RW 0x671948, which walks draw modules and reaches W3DSupplyDraw vslot 8 / RW 0x4CA784.
