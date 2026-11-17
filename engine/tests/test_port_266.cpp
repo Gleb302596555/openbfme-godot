@@ -25,7 +25,7 @@ TEST_CASE("PORT-266 GameData tree fade switch and filter are parsed")
 	REQUIRE_MESSAGE(GameLogicSettingsLoader::scanGameData(gameData(
 		" AllowTreeFading = Yes\n TreeFadeObjectFilter = ANY +INFANTRY -HERO\n"), settings, &error), error);
 	CHECK(settings.allowTreeFading);
-	REQUIRE(settings.treeFadeObjectFilter);
+	REQUIRE(settings.treeFadeObjectFilter.get() != nullptr);
 	CHECK(settings.treeFadeObjectFilter->rule == ObjectFilter::RULE_ANY);
 	KindOfMaskType infantry{};
 	BitFlagsSet(infantry, 8); // INFANTRY
@@ -42,7 +42,7 @@ TEST_CASE("PORT-266 omitted switch keeps retail constructor default and later bl
 	// RW 0x6429AD: the constructor stores zero at +0x40; unnamed filter is not synthesized.
 	REQUIRE_MESSAGE(GameLogicSettingsLoader::scanGameData(gameData(""), settings, &error), error);
 	CHECK_FALSE(settings.allowTreeFading);
-	CHECK_FALSE(settings.treeFadeObjectFilter);
+	CHECK(settings.treeFadeObjectFilter.get() == nullptr);
 	REQUIRE_MESSAGE(GameLogicSettingsLoader::scanGameData(gameData(" AllowTreeFading = Yes\n"), settings, &error), error);
 	CHECK(settings.allowTreeFading);
 	REQUIRE_MESSAGE(GameLogicSettingsLoader::scanGameData(gameData(" AllowTreeFading = No\n"), settings, &error), error);
