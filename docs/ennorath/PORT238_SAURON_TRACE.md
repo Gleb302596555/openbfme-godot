@@ -57,3 +57,44 @@ in the loaded game. Shared replacement limitations remain S-861.
 Before merging main e32b67a3, the temporary isolated runner reported `PORT-238*`
 12/12 cases and 276/276 assertions. A post-merge rebuild, the full executable
 run and mod in-game tests remain pending.
+
+## Will of the Ring: bounded area-domination trace
+
+`Command_SauronWilloftheRing` is a `SPECIAL_POWER` with
+`NEED_TARGET_POS CONTEXTMODE_COMMAND` (`commandbutton.ini:21576..21588`).
+Its template `SpecialAbilityDominateEnemySauronRing` has enum
+`SPECIAL_DOMINATE_ENEMY`, reload 280000 ms and radius cursor 120
+(`includes/specialpower.inc:5548..5552`). `greatsauron.ini:598..626`
+declares level-3 unpause, a paused power, and `DominateEnemySpecialPower` with
+range 275, radius 120, exclusions including HERO and STRUCTURE,
+`PermanentlyConvert = No`, and two FX. The matching level-3 declaration
+names 800 XP and `Upgrade_Level_3` (`includes/experiencelevels.inc:19820`).
+These are literal declarations, not an effective-inheritance or level-up run.
+
+DONOR `DominateEnemySpecialPower.cpp` describes the location scan and the
+per-target helper. In RotWK, the class-name registration at `0x65A94F`
+uses runtime factory `0x652C4B` -> ctor `0x8D0DE6`, which installs vtable
+`0xC762C8`; its slot `+0x44` is `0x8D103D`. That routine uses the radius and
+location for an area partition scan when no object target is present, then
+calls `0x8D0F6C` with the area flag on each result. The helper checks the
+configured filter, construction, horde-producer and airborne cases before
+`Object::defect` `0x699368`; the latter, on the non-permanent path, looks up
+`TemporarilyDefectUpdate` and calls `0x8D0BF3` if found. The corresponding port
+is `DominateEnemySpecialPower::triggerAbilityEffect` / `dominate` and
+`Object::defect`. Shared defection gaps, including non-horde containment and
+some AI/client paths, are S-1222.
+
+A detail worth testing, not silently "fixing": the configured filter names
+`ENEMIES NEUTRAL`, but the area scan also has an upstream relationship filter
+for the caster's ENEMIES (RW filter `0xC11DC0`, port's partition chain). Thus
+`NEUTRAL` in the later object filter alone is not proof a neutral-relation
+object reaches the helper; actual team relationships and the direct-target
+branch still matter. The literal default `data/ini/default/object.ini:210`
+contains an inheritable `TemporarilyDefectUpdate` with 30000 ms duration, but
+its effective presence on each target has **not** been established by this
+scan. The existing synthetic `hero2` cases separately exercise temporary
+direct defection and permanent area horde conversion; neither is a full test
+of Sauron's temporary area ability. The pre-existing matrix `PASS` observes an
+ownership change on one horde, not its eventual restoration or all exclusions.
+The effects, HUD target path, real target inheritance and in-game behavior remain
+open.
