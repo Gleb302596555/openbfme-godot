@@ -30,6 +30,31 @@ struct Port233World : movetest::MoveWorld
 	{
 	}
 };
+
+struct Port233Wall : pathtest::TestObject
+{
+	PathfindWallGeometry wallGeometry;
+	const PathfindWallGeometry *getWallGeometry() const override { return &wallGeometry; }
+};
+
+PathfindWallSurface port233WallTop()
+{
+	PathfindWallSurface surface;
+	PathfindWallTriangle a, b;
+	a.v[0] = { 150.0f, 90.0f, 60.0f };
+	a.v[1] = { 250.0f, 90.0f, 60.0f };
+	a.v[2] = { 250.0f, 110.0f, 60.0f };
+	b.v[0] = { 150.0f, 90.0f, 60.0f };
+	b.v[1] = { 250.0f, 110.0f, 60.0f };
+	b.v[2] = { 150.0f, 110.0f, 60.0f };
+	surface.triangles = { a, b };
+	surface.loX = 150.0f;
+	surface.loY = 90.0f;
+	surface.hiX = 250.0f;
+	surface.hiY = 110.0f;
+	surface.height = 60.0f;
+	return surface;
+}
 } // namespace
 
 TEST_CASE("PORT-233 tracker visibility uses the viewer's relationship to a disguised object's apparent owner (RW 0x694CCC, 0x8B5186)")
@@ -60,4 +85,31 @@ TEST_CASE("PORT-233 tracker visibility uses the viewer's relationship to a disgu
 
 	// Existing callers without a viewer retain their legacy query contract.
 	CHECK(EmotionModules::visibleToScans(*disguiser));
+}
+
+TEST_CASE("PORT-233 taunt scan wall exclusion reads the ground cell layer, not its connect layer (RW 0x6EA857)")
+{
+	pathtest::SyntheticTerrain terrain{ 40, 20 };
+	pathtest::TestWorld world;
+	Port233Wall wall;
+	wall.id = 50;
+	wall.pos = { 200.0f, 100.0f, 0.0f };
+	wall.structure = true;
+	wall.kinds.insert(PK_WALK_ON_TOP_OF_WALL);
+	wall.geometry.type = PATHFIND_GEOMETRY_BOX;
+	wall.geometry.majorRadius = 50.0f;
+	wall.geometry.minorRadius = 30.0f;
+	wall.wallGeometry.walls.push_back(port233WallTop());
+	world.objects[wall.id] = &wall;
+
+	Pathfinder pathfinder(pathtest::testConfig(), &world);
+	pathfinder.newMap(terrain);
+	pathfinder.addObjectToPathfindMap(wall);
+	const Coord3D onWall{ 200.0f, 100.0f, 60.0f };
+	const PathfindCell *wallCell = pathfinder.getCell(LAYER_GROUND, &onWall);
+	REQUIRE(wallCell != nullptr);
+	CHECK(isWallLayer(wallCell->getLayer()));
+	CHECK((int)wallCell->getConnectLayer() < (int)LAYER_WALL_FIRST);
+	CHECK(EmotionModules::isOnWallLayer(pathfinder, onWall));
+	CHECK_FALSE(EmotionModules::isOnWallLayer(pathfinder, Coord3D{ 300.0f, 100.0f, 0.0f }));
 }

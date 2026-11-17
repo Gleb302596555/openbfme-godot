@@ -40,7 +40,7 @@ const char *const kTrackerFile = "EmotionTrackerUpdate.cpp"; // RW 0xC6D2A0 (the
 const char *const kStopTracker =
 	"[S-1022] EmotionTrackerUpdate: requests, the fear and hero scans, the QuarrelProbability draw, the nugget choice and run are ported (RW 0x8B5738 / 0x8B54DD); "
 	"RadiateFearUpdate pulses run (RW 0x89F9A8); the taunt / point / alert scan (RW 0x8B5946 with the filters RW 0x8B50F0, 0x6612AC, 0x660D71) runs (lane MODULES-3); "
-	"the viewer-relative disguise / contain visibility branches of RW 0x694CCC are used by this scan; the ground cell layer test RW 0x6EA857 remains limited by the port's grid (no wall layer); "
+	"the viewer-relative disguise / contain visibility branches of RW 0x694CCC and the ground cell wall-layer test RW 0x6EA857 are ported; "
 	"not ported: the scripts' forced emotion, the firing arc cone of canSee (RW 0x68FAC9, "
 	"reported; no retail template sets FiringArc); inference: the scans' relationship is Object::getRelationship (RW 0x68D7AB's mine and gate cases aside), the "
 	"layer is the AI's pathfinder layer (RW 0x68BBE0; ground without an AI), no shroud manager: threat 0 and the template's ShroudClearingRange (reported)";
@@ -470,8 +470,8 @@ EmotionNugget *EmotionTrackerUpdate::selectNugget(int enemyThreat, unsigned frie
 
 namespace
 {
-// RW 0x694CCC(player, 0): the object is visible (not invisible, not stealthed unless detected); INFERENCE (S-1022): the contain branch (RW 0x694D2B .., a garrison's
-// riders) is taken as visible, and an invisible or stealthed DISGUISER (KindOf 88) as visible (RW 0x68FBD3's disguise branch is not read)
+// Legacy viewer-less visibility query: without a tracker player it retains the former scan predicate. The tracker passes its controlling player and uses RW
+// 0x694CCC through EvaDamage::isVisibleTo instead (including contain / disguise semantics).
 bool visibleForTaunt(const Object &o)
 {
 	static const int kStealthed = statusBit("STEALTHED"), kDetected = statusBit("DETECTED"), kDisguiser = kindBit("DISGUISER");
@@ -483,17 +483,11 @@ bool visibleForTaunt(const Object &o)
 	return kDisguiser >= 0 && o.isKindOf((unsigned)kDisguiser);
 }
 
-// RW 0x6EA857(pos, 0): the ground cell's layer field (cell + 0xC bits 4 .. 9) is 0x11 or more (a wall); INFERENCE (S-1022): the port's grid has no wall layer,
-// the connect layer is read
+// RW 0x6EA857(pos, 0): the ground cell's layer field (cell + 0xC bits 4 .. 9) is 0x11 or more (a wall).
 bool onWallLayer(GameLogic &logic, const Coord3D &pos)
 {
 	AIWorld *w = logic.aiWorld();
-	if (!w || !w->mapReady())
-	{
-		return false;
-	}
-	const PathfindCell *c = w->pathfinder().getCell(LAYER_GROUND, &pos);
-	return c && (int)c->getConnectLayer() >= 0x11;
+	return w && w->mapReady() && EmotionModules::isOnWallLayer(w->pathfinder(), pos);
 }
 } // namespace
 
@@ -1039,6 +1033,12 @@ bool EmotionModules::visibleToScans(const Object &o, const Player *viewer)
 		return EvaDamage::isVisibleTo(o.logic(), o, viewer, false);
 	}
 	return visibleForTaunt(o);
+}
+
+bool EmotionModules::isOnWallLayer(const Pathfinder &pathfinder, const Coord3D &position)
+{
+	// RW 0x6EA857 tests the cell layer (bits 4..9), represented by Pathfinder::isPointOnWall; connectsToLayer (+0xC bits 11..) is unrelated.
+	return pathfinder.isPointOnWall(position, false);
 }
 
 bool EmotionModules::canSeeObject(Object &self, Object &other, float range)
