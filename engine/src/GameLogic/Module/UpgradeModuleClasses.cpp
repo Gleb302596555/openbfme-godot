@@ -1028,12 +1028,15 @@ void RemoveUpgradeUpgrade::xfer(Xfer &x)
 // OpenBFME native (S-4190): the mux, then RW module + 0x20 (the sub objects are shown)
 void SubObjectsUpgrade::xfer(Xfer &x)
 {
-	// Version 1 did not preserve the module creation frame; it cannot restore this gate correctly.
-	XferVersion version{ 2, 2 };
+	// Version 1 did not preserve the creation frame: retain the frame from construction when loading it.
+	XferVersion version{ 1, 2 };
 	x.xferVersion(version);
 	UpgradeModule::xfer(x);
 	x.xferBool(&m_shown);
-	x.xferUnsignedInt(&m_createdFrame);
+	if (version.current >= 2)
+	{
+		x.xferUnsignedInt(&m_createdFrame);
+	}
 }
 
 void GrantUpgradeCreate::xfer(Xfer &x)
