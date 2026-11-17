@@ -212,18 +212,85 @@ The skipped counts above are cases outside the requested filters; all
 eight synthetic PORT-216 cases ran. Installed game data is not required by
 them. No foreign test, hash pin, workflow or mod data was edited.
 
-The selected FULL suite has also been started through `tools/test_select.py`
-on this rebased tree; its outcome is tracked separately and is **not**
-implied by these narrow passes. The configuration reports missing lame/
-mpg123 fixtures for five MP3 cases. No fixture expectations or pins are
-changed to hide environment failures. Log: ignored
-`workspace/port216/full-suite.log`.
+### Selected FULL suite and implementation-only control
 
-Remaining: analyse that FULL run and perform the changed game's visual
-acceptance. The engine currently applies this shared RotWK path to all
-editions; separate BFME2/RotWK installed-data and MSVC runs are not claimed.
-Upstream remains ineligible at fetched `942fd79e`: the height API and two
-contact-row aliases needed by the complete regression bundle are absent.
+The initial selected FULL run on the same engine sources finished with
+6645 cases: 6628 passed, 17 failed, 137 skipped; 1439634 assertions,
+1439599 passed, 35 failed. This is **not a full-suite pass**.
+
+To distinguish failures introduced by this correction from other failures,
+the full-target implementation-only reversal was repeated at
+`7c8683f09f5e63421edc72881f811af727b057e9`: keep all tests/CMake/header,
+reverse ObjectGeometry.cpp, rebuild and run the same FULL selection; restore
+the source, rebuild and repeat. Actual latest lines:
+
+Without the correction, exit 1:
+
+```text
+[doctest] test cases:    6645 |    6621 passed | 24 failed | 137 skipped
+[doctest] assertions: 1439612 | 1439556 passed | 56 failed |
+[doctest] Status: FAILURE!
+```
+
+Restored correction, exit 1:
+
+```text
+[doctest] test cases:    6645 |    6628 passed | 17 failed | 137 skipped
+[doctest] assertions: 1439633 | 1439598 passed | 35 failed |
+[doctest] Status: FAILURE!
+```
+
+All 17 remaining failed case names, error lines and printed values match
+between these two FULL runs. The seven additional failures without the
+correction are precisely PORT-216 cases; restoration also reran the narrow
+filters: PORT-216 8/8 (318 assertions), PORT-436 6/6 (98), neighbours
+23/23 (464). `git diff --exit-code` confirms restored engine sources.
+The one-assertion difference between successful assertion counts in the
+initial and restored FULL run is recorded, not normalised into a pin.
+Ignored evidence: `workspace/port216/full-control/{red,green,port216,port436,neighbours}.log`
+and `result.json` (`sources_restored` and `control_complete` are true).
+
+Five MP3 cases lack the generated lame/mpg123 reference fixtures. Those
+five plus cbhunt, heroring1, move SPEED and shroud have the same failures
+already recorded in `TEST_BASELINE.md`. The six hero-facing cases,
+synthetic HUD case and wall-termination case are **not** waived by that
+baseline. Reversing this implementation reproduces them, but is not a
+clean-main build: before landing they still need clean-main verification
+and the owner's failure triage. No foreign test, pin, baseline, workflow
+or fixture expectation was changed. PORT-169's logged allowed-to-fail
+case is not part of doctest's 17 failures.
+
+| Failed case in both FULL runs | First actual diagnostic |
+|---|---|
+| audio decode: MP3 fixtures decode to the mpg123 golden numbers | `engine/tests/test_audio_decode.cpp:830: FATAL ERROR: REQUIRE( problem.empty() ) is NOT correct!;   values: REQUIRE( false )` |
+| audio decode: MP3 streaming equals the whole-file decode for any chunk size, rewind restarts | `engine/tests/test_audio_decode.cpp:830: FATAL ERROR: REQUIRE( problem.empty() ) is NOT correct!;   values: REQUIRE( false )` |
+| audio decode: MP3 gapless handling, ID3 tags and frame walking | `engine/tests/test_audio_decode.cpp:830: FATAL ERROR: REQUIRE( problem.empty() ) is NOT correct!;   values: REQUIRE( false )` |
+| audio decode: MP3 container defects are reported and decided | `engine/tests/test_audio_decode.cpp:830: FATAL ERROR: REQUIRE( problem.empty() ) is NOT correct!;   values: REQUIRE( false )` |
+| audio decode: corrupted MP3 fixtures decode or throw AudioDecodeError, nothing else | `engine/tests/test_audio_decode.cpp:830: FATAL ERROR: REQUIRE( problem.empty() ) is NOT correct!;   values: REQUIRE( false )` |
+| cbhunt: ActionManager::canDoSpecialPowerAtObject (RW 0x82D925): the generic tests, the yes types, and the unported per-type tests counted as S-7140 | `engine/tests/test_cbhunt.cpp:329: ERROR: CHECK( unported ) is NOT correct!;   values: CHECK( false )` |
+| hero facing: an in-range directional ability faces front or behind targets at the locomotor rate before unpacking | `engine/tests/test_hero_facing_execution.cpp:170: ERROR: CHECK( world.spells.casts() == 1 ) is NOT correct!;   values: CHECK( 0 == 1 )` |
+| hero facing: a moving object target updates the face command before the directional ability fires | `engine/tests/test_hero_facing_execution.cpp:208: FATAL ERROR: REQUIRE( hero->getAIUpdateInterface()->currentStateId() == (unsigned)AI_FACE_OBJECT ) is NOT correct!;   values: REQUIRE( 0 == 36 )` |
+| hero facing: an out-of-range target is approached before the face command and weapon trigger | `engine/tests/test_hero_facing_execution.cpp:228: ERROR: CHECK( hero->getAIUpdateInterface()->currentStateId() == (unsigned)AI_ABILITY_APPROACH ) is NOT correct!;   values: CHECK( 0 == 63 )` |
+| hero facing: a player move cancels a pending turn without firing or consuming the power | `engine/tests/test_hero_facing_execution.cpp:246: FATAL ERROR: REQUIRE( hero->getAIUpdateInterface()->currentStateId() == (unsigned)AI_FACE_OBJECT ) is NOT correct!;   values: REQUIRE( 0 == 36 )` |
+| hero facing: a target removed during the turn obeys MustFinishAbility without stalling | `engine/tests/test_hero_facing_execution.cpp:273: FATAL ERROR: REQUIRE( hero->getAIUpdateInterface()->currentStateId() == (unsigned)AI_FACE_OBJECT ) is NOT correct!;   values: REQUIRE( 0 == 36 )` |
+| hero facing: snapshots of face-object and face-position states restore identical frame-by-frame CRCs | `engine/tests/test_hero_facing_execution.cpp:309: FATAL ERROR: REQUIRE( hero->getAIUpdateInterface()->currentStateId() == (unsigned)(atPosition ? AI_FACE_POSITION : AI_FACE_OBJECT) ) is NOT correct!;   values: REQUIRE( 0 == 36 )` |
+| heroring1: the grid carries an alpha decal after the merge decals: its own list in each cell, its turn and its colour | `engine/tests/test_heroring1_decals.cpp:181: ERROR: CHECK( SelectionDecalShaderMode(g) == 0 ) is NOT correct!;   values: CHECK( 4 == 0 )` |
+| synthetic HUD: hiding one porter preserves other selections and an unselectable castle | `engine/tests/SyntheticHudTestUtil.h:122: ERROR: CHECK( actual == ids ) is NOT correct!;   values: CHECK( {?} == {?} )` |
+| move SPEED: a formation move caps every member's locomotor at the slowest member's max speed (RW 0x77BB58 -> RW 0x77005F(0)) | `engine/tests/test_move_speed.cpp:425: ERROR: CHECK( w.aiOf(fast)->curLocomotor()->temporarySpeedCap() == 6.0f ) is NOT correct!;   values: CHECK( -1 == 6 )` |
+| shroud objects: a geometry row that does not parse is an error naming the template, never a default coverage (PLAN rule 10) | `engine/tests/test_shroud.cpp:781: ERROR: test case THREW exception: Bogus: Geometry 'BOGUS' is not SPHERE, CYLINDER or BOX; ` |
+| wall span terminates at terrain with a hub and cliff cap | `engine/tests/test_wall_termination.cpp:35: FATAL ERROR: REQUIRE( plan.tiles.size() == 8 ) is NOT correct!;   values: REQUIRE( 23 == 8 )` |
+
+The FULL selection uses the repository tool's declared out-of-fork-scope
+exclusions; installed-data cases also print SKIP without ROTWK_INSTALL /
+BFME2_INSTALL. The 137 doctest skipped count is not a claim that the
+installed-data cases ran. Separate MSVC/BFME2/RotWK installed-data and
+changed-game visual acceptance are not claimed.
+
+Pre-PR fetch now sees fork main `a91f3da5` and upstream `16474d71`.
+The completed results above are explicitly the tested `a3a2e87a`-based
+engine, not results for a future rebase. Rebase/integration validation and
+the changed game's near-side visual acceptance remain outstanding.
+Upstream eligibility must also be rechecked at that fetched revision.
 
 ## Continuation after the owner's original-game check
 
@@ -312,7 +379,7 @@ impact placement, but the changed build has not been observed in-game.
 Original Ennorath's near-side stop is confirmed by the owner. The exact
 contribution of the corrected body-height aim to that visual stop remains
 **INFERENCE**, not an assertion that the geometry query computes a surface
-intersection. No user-facing review/finished status is claimed yet.
+intersection. No user-facing review/finished status is claimed yet; the fork PR must remain a draft until the remaining acceptance checks are resolved.
 
 ## Continuation: main, upstream and neighbour audit
 
@@ -342,7 +409,7 @@ and mode-1 high-row neighbour before and after load. The latter deliberately
 uses a row above the initializer's point; it does not mask or change S-7387's
 independent no-row mismatch or the protected PORT-164 test.
 
-Actual `tools/test_select.py --base a3a2e87a` first line (FULL run started):
+Actual `tools/test_select.py --base a3a2e87a` first line (FULL run completed):
 
 ```text
 8 changed files, no test map, the #include rule; FULL suite: engine/CMakeLists.txt: no test can be traced from this file
@@ -350,7 +417,7 @@ Actual `tools/test_select.py --base a3a2e87a` first line (FULL run started):
 
 This is not waived or shortened to a filter. The mandatory narrow filters
 and full-binary red/green have passed; the selected full suite was then
-started as a separate pre-landing check. The full-build configuration warns that
+completed as a separate pre-landing check (17 failures; control above). The full-build configuration warns that
 five MP3 tests lack the lame/mpg123 fixtures in this sandbox; no fixture or
 pin expectation has been changed to hide that limitation.
 
