@@ -14,6 +14,9 @@
 #include "Common/Team.h"
 #include "Common/Upgrade.h"
 #include "Common/Xfer.h"
+#include "GameLogic/GameLogic.h"
+#include "GameLogic/Module/BehaviorModule.h"
+#include "GameLogic/Object/Object.h"
 #include "GameLogic/ObjectFilter.h"
 #include "GameLogic/ObjectFilterMatch.h"
 
@@ -216,6 +219,26 @@ void Player::crc(StateHasher &h) const
 	{
 		h.addU32(0x338);
 		m_lightPoints.crc(h); // PORT-113: hashed only while the player holds points or a level (a game without light points keeps its hash)
+	}
+	if (!m_battlePlanBonuses.isUntouched() || hasActiveBattlePlans())
+	{
+		h.addU32(0xB8000001u);
+		h.addI32(m_bombardmentBattlePlans);
+		h.addI32(m_holdTheLineBattlePlans);
+		h.addI32(m_searchAndDestroyBattlePlans);
+		h.addFloat(m_battlePlanBonuses.armorScalar);
+		h.addI32(m_battlePlanBonuses.bombardment);
+		h.addI32(m_battlePlanBonuses.searchAndDestroy);
+		h.addI32(m_battlePlanBonuses.holdTheLine);
+		h.addFloat(m_battlePlanBonuses.sightRangeScalar);
+		for (std::uint32_t w : m_battlePlanBonuses.validKindOf)
+		{
+			h.addU32(w);
+		}
+		for (std::uint32_t w : m_battlePlanBonuses.invalidKindOf)
+		{
+			h.addU32(w);
+		}
 	}
 	h.addU32((std::uint32_t)m_upgradeRecords.size()); // UPGRADE-1: the records in list order, then both masks
 	for (const UpgradeRecord &r : m_upgradeRecords)
@@ -732,9 +755,9 @@ void Player::checkLoadedIndices(int playerCount) const
 void Player::xfer(Xfer &x, TeamFactory &teams)
 {
 	// lane LUMBER1: version 2 adds the ResourceGatheringManager (RW + 0x304) at the end. PORT-113: version 3 adds the light points (RW + 0x338) after it;
-	// a player that holds none (no points, no level) saves version 2, so the streams of games without light points stay as they were (the
-	// obfme:GameLogic pattern)
-	XferVersion v{ 1, (std::uint8_t)(x.isLoading() || !m_lightPoints.isUntouched() ? 3 : 2) };
+	// PORT-237: version 4 adds BattlePlanBonuses (+ 0xAC .. + 0xB8); untouched players save version 2 or 3 so existing streams stay unchanged.
+	const bool hasBattlePlans = !m_battlePlanBonuses.isUntouched() || hasActiveBattlePlans();
+	XferVersion v{ 1, (std::uint8_t)(x.isLoading() || hasBattlePlans ? 4 : (!m_lightPoints.isUntouched() ? 3 : 2)) };
 	x.xferVersion(v);
 	// the identity the START made: checked, never overwritten
 	std::int32_t index = m_index;
@@ -898,6 +921,32 @@ void Player::xfer(Xfer &x, TeamFactory &teams)
 	{
 		m_lightPoints.reset(); // a player saved without light points
 	}
+	if (v.current >= 4)
+	{
+		x.xferInt(&m_bombardmentBattlePlans);
+		x.xferInt(&m_holdTheLineBattlePlans);
+		x.xferInt(&m_searchAndDestroyBattlePlans);
+		x.xferReal(&m_battlePlanBonuses.armorScalar);
+		x.xferInt(&m_battlePlanBonuses.bombardment);
+		x.xferInt(&m_battlePlanBonuses.searchAndDestroy);
+		x.xferInt(&m_battlePlanBonuses.holdTheLine);
+		x.xferReal(&m_battlePlanBonuses.sightRangeScalar);
+		for (std::uint32_t &w : m_battlePlanBonuses.validKindOf)
+		{
+			x.xferUnsignedInt(&w);
+		}
+		for (std::uint32_t &w : m_battlePlanBonuses.invalidKindOf)
+		{
+			x.xferUnsignedInt(&w);
+		}
+	}
+	else if (x.isLoading())
+	{
+		m_bombardmentBattlePlans = 0;
+		m_holdTheLineBattlePlans = 0;
+		m_searchAndDestroyBattlePlans = 0;
+		m_battlePlanBonuses = BattlePlanBonuses{};
+	}
 }
 
 // PORT-113 (issue #280): RW 0x6AB148
@@ -926,6 +975,100 @@ void Player::giveLightPointLevel(const std::string &levelName)
 	if (TheLightPointSystem)
 	{
 		TheLightPointSystem->giveLevel(m_lightPoints, levelName);
+	}
+}
+
+namespace
+{
+bool kindOfIntersects(const KindOfMaskType &a, const KindOfMaskType &b)
+{
+	for (size_t i = 0; i < a.size(); ++i)
+	{
+		if ((a[i] & b[i]) != 0)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+void localApplyBattlePlanBonusesToObject(Object &obj, const BattlePlanBonuses &bonus)
+{
+	const bool isProjectile = obj.isKindOfName("PROJECTILE");
+	Object *objectToValidate = isProjectile ? obj.logic().findObjectByID(obj.getProducerID()) : &obj;
+	if (!objectToValidate || !kindOfIntersects(objectToValidate->getKindOf(), bonus.validKindOf))
+	{
+		return;
+	}
+	if (kindOfIntersects(objectToValidate->getKindOf(), bonus.invalidKindOf))
+	{
+		return;
+	}
+	if (!isProjectile)
+	{
+		if (bonus.armorScalar != 1.0f)
+		{
+			if (BodyModuleInterface *body = obj.getBodyModule())
+			{
+				body->applyDamageScalar(bonus.armorScalar); // RW vslot 0x6C
+			}
+		}
+		if (bonus.sightRangeScalar != 1.0f)
+		{
+			obj.setShroudClearingRange(SimMath::mulf32(obj.getBaseShroudClearingRange(), bonus.sightRangeScalar));
+		}
+	}
+	// RW Object + 0x39C/0x39D: WEAPONBONUSCONDITION_BATTLEPLAN_BOMBARDMENT=12, HOLDTHELINE=13, SEARCHANDDESTROY=14
+	obj.setWeaponBonusCondition(12, bonus.bombardment > 0);
+	obj.setWeaponBonusCondition(13, bonus.holdTheLine > 0);
+	obj.setWeaponBonusCondition(14, bonus.searchAndDestroy > 0);
+}
+} // namespace
+
+// RW 0x6AD2B5
+void Player::applyBattlePlanBonusesForObject(Object &obj) const
+{
+	localApplyBattlePlanBonusesToObject(obj, m_battlePlanBonuses);
+}
+
+// RW 0x6AD360
+void Player::removeBattlePlanBonusesForObject(Object &obj) const
+{
+	BattlePlanBonuses inv = m_battlePlanBonuses;
+	inv.armorScalar = SimMath::divf32(1.0f, std::max(inv.armorScalar, 0.01f));
+	inv.sightRangeScalar = SimMath::divf32(1.0f, std::max(inv.sightRangeScalar, 0.01f));
+	inv.bombardment = -1000000;
+	inv.searchAndDestroy = -1000000;
+	inv.holdTheLine = -1000000;
+	localApplyBattlePlanBonusesToObject(obj, inv);
+}
+
+// RW 0x6AD4AE
+void Player::applyBattlePlanBonusesForPlayerObjects(const BattlePlanBonuses &bonus, GameLogic &logic)
+{
+	if (m_battlePlanBonuses.isUntouched())
+	{
+		m_battlePlanBonuses = bonus;
+	}
+	else
+	{
+		m_battlePlanBonuses.armorScalar = SimMath::mulf32(m_battlePlanBonuses.armorScalar, bonus.armorScalar);
+		m_battlePlanBonuses.sightRangeScalar = SimMath::mulf32(m_battlePlanBonuses.sightRangeScalar, bonus.sightRangeScalar);
+		m_battlePlanBonuses.bombardment = std::max(0, m_battlePlanBonuses.bombardment + bonus.bombardment);
+		m_battlePlanBonuses.holdTheLine = std::max(0, m_battlePlanBonuses.holdTheLine + bonus.holdTheLine);
+		m_battlePlanBonuses.searchAndDestroy = std::max(0, m_battlePlanBonuses.searchAndDestroy + bonus.searchAndDestroy);
+		for (size_t i = 0; i < m_battlePlanBonuses.validKindOf.size(); ++i)
+		{
+			m_battlePlanBonuses.validKindOf[i] |= bonus.validKindOf[i];
+			m_battlePlanBonuses.invalidKindOf[i] |= bonus.invalidKindOf[i];
+		}
+	}
+	for (Object *obj = logic.getFirstObject(); obj; obj = obj->getNextObject())
+	{
+		if (obj->getControllingPlayer() == this)
+		{
+			localApplyBattlePlanBonusesToObject(*obj, bonus);
+		}
 	}
 }
 

@@ -90,6 +90,10 @@ public:
 	bool getLargestExtent(float &maxX, float &maxY) const;
 	// Whole bordered map in world units: [-border*10, w*10 - border*10] (W3DTerrainLogic.cpp:252-262).
 	void getMapExtentIncludingBorder(float &minX, float &minY, float &maxX, float &maxY) const;
+	// PORT-237: TerrainLogic::findClosestEdgePoint (RW 0x67D949, vtable 0xBDB810 slot 0x34) and findFarthestEdgePoint (RW 0x67DA48, slot 0x38).
+	// Reads active boundary extent (vslot 0x20: getExtent(0), (0, 0) when missing), picks nearest/farthest of the four sides, snaps and samples ground height.
+	Coord3D findClosestEdgePoint(const Coord3D &pos) const;
+	Coord3D findFarthestEdgePoint(const Coord3D &pos) const;
 
 	const Waypoint *findWaypointById(int id) const;
 	const Waypoint *findWaypointByName(const std::string &name) const;

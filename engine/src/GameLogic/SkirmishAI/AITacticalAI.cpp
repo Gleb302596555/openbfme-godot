@@ -68,7 +68,7 @@ struct Kinds
 {
 	int unattackable, immobile, structure, ship, canAttack, hero, support, dozer, expansionPad, notAutoAcquirable, rebuildHole, economyStructure, linkedToFlag,
 		baseSite, ignoresSelectAll, dozerFactory, walkOnTopOfWall, defensiveWall, wallUpgrade, ignoreForVictory, wallGate, baseFoundation, wallHub, wallSegment,
-		blockingGate;
+		blockingGate, captureFlag;
 };
 
 const Kinds &kinds()
@@ -79,7 +79,8 @@ const Kinds &kinds()
 		KindOfTokens::indexOf("ECONOMY_STRUCTURE"), KindOfTokens::indexOf("LINKED_TO_FLAG"), KindOfTokens::indexOf("BASE_SITE"),
 		KindOfTokens::indexOf("IGNORES_SELECT_ALL"), KindOfTokens::indexOf("DOZER_FACTORY"), KindOfTokens::indexOf("WALK_ON_TOP_OF_WALL"),
 		KindOfTokens::indexOf("DEFENSIVE_WALL"), KindOfTokens::indexOf("WALL_UPGRADE"), KindOfTokens::indexOf("IGNORE_FOR_VICTORY"), KindOfTokens::indexOf("WALL_GATE"),
-		KindOfTokens::indexOf("BASE_FOUNDATION"), KindOfTokens::indexOf("WALL_HUB"), KindOfTokens::indexOf("WALL_SEGMENT"), KindOfTokens::indexOf("BLOCKING_GATE") };
+		KindOfTokens::indexOf("BASE_FOUNDATION"), KindOfTokens::indexOf("WALL_HUB"), KindOfTokens::indexOf("WALL_SEGMENT"), KindOfTokens::indexOf("BLOCKING_GATE"),
+		KindOfTokens::indexOf("CAPTUREFLAG") };
 	return k;
 }
 
@@ -384,9 +385,49 @@ void heuristicBaseDefense(GameLogic &logic, const AISkirmishPlayer &ai, AIBrainS
 	setTarget(logic, b, t, *pick.object, kDefenseTargetRadius, *player);
 }
 
-// RW 0x97CE90 (OPPORTUNITY heuristic RW 0xC85584, the capture flags) is NOT ported (S-417): it walks the manager's + 0xA68 list, which RW 0x6A9D9C fills when
-// an object with KindOf CAPTUREFLAG is created and which then holds objects that have since lost that KindOf (a captured flag); a scan of the current
-// flags cannot reproduce it (retail needs the historical registration)
+// RW 0x97CE90 (OPPORTUNITY heuristic RW 0xC85584, the capture flags): walks the manager's + 0xA68 historical registration list, skipping ALLIES
+// (RW 0x6ADC43 == 2), objects that still hold KindOf CAPTUREFLAG (+ 0x121 bit 0x10), and non-ECONOMY_STRUCTURE (+ 0x120 bit 0x10) objects when past the
+// Rush phase (ai + 0x16C != 0) while attackedAt (brain + 0x20 .. + 0x24) is non-empty; picks the closest remaining object to ai.build.startPosition
+// within squared 2D distance <= 1000000.0f (RW 0xC85580) and sets the target with DefaultTargetThreatRadius (RW 0x6C6A09).
+void heuristicTechBuilding(GameLogic &logic, const AISkirmishPlayer &ai, AIBrainState &b, AITarget &t)
+{
+	const Player *me = playerOf(logic, ai.playerIndex);
+	if (!me)
+	{
+		return;
+	}
+	const Kinds &k = kinds();
+	const Coord3D &base = ai.build.startPosition;
+	const bool notRush = ai.build.phase != 0;
+	const bool hasAttacked = !b.attackedAt.empty();
+	const Object *best = nullptr;
+	float bestD = 0.0f;
+	for (ObjectID id : logic.skirmishAI().captureFlags())
+	{
+		const Object *o = logic.findObjectByID(id);
+		if (!o || me->getRelationship(o->getTeam()) == ALLIES || is(*o, k.captureFlag))
+		{
+			continue;
+		}
+		if (notRush && !is(*o, k.economyStructure) && hasAttacked)
+		{
+			continue;
+		}
+		const Coord3D *pos = o->getPosition();
+		const float dx = SimMath::subf32(pos->x, base.x);
+		const float dy = SimMath::subf32(pos->y, base.y);
+		const float d = SimMath::addf32(SimMath::mulf32(dy, dy), SimMath::mulf32(dx, dx));
+		if ((!best || d < bestD) && d <= 1000000.0f)
+		{
+			bestD = d;
+			best = o;
+		}
+	}
+	if (best)
+	{
+		setTarget(logic, b, t, *best, ai.store->data().defaultTargetThreatRadius, *me);
+	}
+}
 
 // RW 0x97CDA0 (OPPORTUNITY heuristic RW 0xC85574): in the EndGame phase, while the player lacks the upgrade "Upgrade_RingHero" (the name is the binary's,
 // RW 0xC795B0), the first object of the game object list with KindOf NEUTRALGOLLUM or ONE_RING (template + 0x120 & 0x82000)
@@ -577,7 +618,7 @@ void updateChooser(GameLogic &logic, AISkirmishPlayer &ai, AIBrainState &b)
 		}
 		else if (h == 3)
 		{
-			++b.unportedTypes; // the capture flag rule RW 0x97CE90: S-417
+			heuristicTechBuilding(logic, ai, b, t); // OPPORTUNITY (RW 0x97CE90): library index 3
 		}
 		else if (h == 4)
 		{
@@ -4013,6 +4054,11 @@ void AITacticalAI::expansionHeuristicForTest(GameLogic &logic, AISkirmishPlayer 
 	heuristicExpansion(logic, ai, ai.brain, t);
 }
 
+void AITacticalAI::techBuildingHeuristicForTest(GameLogic &logic, AISkirmishPlayer &ai, AITarget &t)
+{
+	heuristicTechBuilding(logic, ai, ai.brain, t);
+}
+
 void AITacticalAI::addAttackedAtForTest(GameLogic &logic, AISkirmishPlayer &ai, const Coord3D &pos)
 {
 	if (const Player *p = playerOf(logic, ai.playerIndex))
@@ -4179,10 +4225,6 @@ void baseBounds(GameLogic &logic, const Player &player, Coord3D &min, Coord3D &m
 	}
 }
 
-const char *const kStopClassified =
-	"[S-4257] skirmish ai enemy classification: RW 0x7A1129's ThingClass test (template + 0x5F6) is not parsed, so hasAnyClassified takes any object as "
-	"classified; a mod whose players have only classless objects is treated as reachable (retail: unreachable)";
-
 // RW 0x8F457D (AIPlayer::acquireEnemy): the enemy player is the nearest candidate base whose player is an ENEMY with live objects, is not PlyrCreeps,
 // has units and build facilities (else it counts as unreachable), adjusted by the other AIs' current enemies: +250000 for each AI that already targets it,
 // -625 for each AI that targets this AI's player (never below 0). Ties keep the earlier player index
@@ -4202,7 +4244,6 @@ void acquireEnemy(GameLogic &logic, AISkirmishPlayer &ai)
 	{
 		return; // RW 0x8F45A8 .. 0x8F45C0: the cached enemy is still valid (RW 0x6ABD44 -> 0x7A07D8, RW 0x6ABE2C -> 0x7A1129)
 	}
-	logic.noteStop(kStopClassified); // the ThingClass read RW 0x7A1129 makes is the unported one (once per acquire)
 	int best = -1;
 	float bestDistance = kInitial;
 	for (int i = 0; i < logic.players().getPlayerCount(); ++i)

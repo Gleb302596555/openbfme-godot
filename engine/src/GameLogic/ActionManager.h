@@ -63,6 +63,10 @@ class SpecialPowerTemplate;
 
 namespace ActionManager
 {
+// the UnitCost test of a special power (RW 0x82E000 / 0x82D605 in this class, RW 0x943439 .. 0x943480 in the control bar's availability arm):
+// the template's final override + 0x80 (UnitCost); with a cost the object's contain (Object + 0x258 slot 0x7C) horde member count (slot 0x188)
+// must reach it; no contain or no horde interface: no test
+bool unitCostMet(const Object &obj, const SpecialPowerTemplate &t);
 // RW 0x75CF21 with no target object and source 0 (the AI's location run, RW 0xA021D8)
 bool canDoSpecialPowerAtLocation(Object &obj, const CommandButton &button, const Coord3D &loc);
 // lane MODCOMPAT-AI: RW 0x75CF21 with no target object and no location (TEAM_PARTIAL_USE_COMMANDBUTTON, RW 0x7C7D95, source 1)

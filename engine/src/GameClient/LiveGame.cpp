@@ -210,6 +210,7 @@ bool LiveGame::load(const Options &options, std::string *error)
 
 	// players: the map's sides, then the lobby slots
 	m_players = std::make_unique<PlayerList>(m_world.nameKeys(), m_world.playerTemplates(), m_teams);
+	m_players->setForceSkirmishAI(settings.forceSkirmishAI); // PORT-227: RW 0x6AA450 / 0x6AA49F AIData ForceSkirmishAI
 	SidesList sidesUsed = m_map.sides; // lane SCRIPT-1: TheSidesList of the game (the script engine's side order)
 	std::set<std::string> slotSides;   // lane SCRIPT-1: the slot sides of a started game (their map lists are dropped, RW 0x73193D)
 	if (options.start)

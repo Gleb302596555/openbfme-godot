@@ -31,6 +31,7 @@
 #include "GameLogic/Combat/ObjectWeapons.h"
 #include "GameLogic/AI/AIStateMachine.h"
 #include "GameLogic/Module/AIUpdate.h"
+#include "GameLogic/Module/GiantBirdAIUpdate.h"
 #include "GameLogic/Module/SlavedUpdate.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/Object/Object.h"
@@ -868,8 +869,9 @@ void AIWorld::attach()
 	m_logic.installPhaseWork("pathfinderQueue", [this]() { processPathfindQueue(); });
 	m_logic.installPhaseWork("partitionAndCollision", [this]() {
 		processCollisions();
-		processCrateContacts(); // lane MODCOMPAT-MOD1: the crates' contacts, after the AI units' pass (S-780)
-		processGateContacts();  // lane GATECOLLIDE-1: the gates' contacts, after the crates' (S-1940)
+		processCrateContacts();     // lane MODCOMPAT-MOD1: the crates' contacts, after the AI units' pass (S-780)
+		processGateContacts();      // lane GATECOLLIDE-1: the gates' contacts, after the crates' (S-1940)
+		processGiantBirdContacts(); // Port 257: GiantBirdAIUpdate vs non-gate IMMOBILE obstacles (RW 0x76B56B)
 	});
 	// PROD-1's hand-off: what production asks the AI of a produced object (move to the rally point, follow the exit path, idle, regroup) runs here, at the call sites
 	// production already has (GameLogic/AI/AICommandSink.h)
@@ -1303,7 +1305,16 @@ AIUpdateInterface *AIWorld::aiOf(const Object &obj) const
 void AIWorld::registerAI(AIUpdateInterface &ai)
 {
 	const PathfindObjectID id = (PathfindObjectID)ai.getObject()->getID();
+	const bool alreadyRegistered = m_ais.find(id) != m_ais.end();
 	m_ais[id] = &ai;
+	if (dynamic_cast<GiantBirdAIUpdate *>(&ai) != nullptr && std::find(m_giantBirds.begin(), m_giantBirds.end(), id) == m_giantBirds.end())
+	{
+		m_giantBirds.push_back(id);
+	}
+	if (alreadyRegistered)
+	{
+		return;
+	}
 	if (!m_aiOrderDirty)
 	{
 		if (m_aiOrder.empty() || id > m_aiOrder.back().first)
@@ -1319,13 +1330,17 @@ void AIWorld::registerAI(AIUpdateInterface &ai)
 
 void AIWorld::unregisterAI(AIUpdateInterface &ai)
 {
-	auto it = m_ais.find((PathfindObjectID)ai.getObject()->getID());
+	const PathfindObjectID id = (PathfindObjectID)ai.getObject()->getID();
+	auto it = m_ais.find(id);
 	if (it != m_ais.end() && it->second == &ai)
 	{
 		m_ais.erase(it);
+		if (!m_giantBirds.empty())
+		{
+			m_giantBirds.erase(std::remove(m_giantBirds.begin(), m_giantBirds.end(), id), m_giantBirds.end());
+		}
 		if (!m_aiOrderDirty)
 		{
-			const PathfindObjectID id = (PathfindObjectID)ai.getObject()->getID();
 			auto at = std::lower_bound(m_aiOrder.begin(), m_aiOrder.end(), id, [](const std::pair<PathfindObjectID, AIUpdateInterface *> &e, PathfindObjectID v) { return e.first < v; });
 			if (at != m_aiOrder.end() && at->first == id && at->second == &ai)
 			{
@@ -1814,6 +1829,79 @@ void AIWorld::processGateContacts()
 			{
 				ObjectCollide::onCollide(second, first);
 			}
+		}
+	}
+}
+
+// Port 257: RotWK's collision manager pairs flying GiantBirdAIUpdate objects against IMMOBILE obstacles (RW 0x68E31F -> 0xB6D060 ->
+// GiantBirdAIUpdate::onCollide RW 0x76B56B). Gates already ran ObjectCollide::onCollide in processGateContacts() and are skipped here to avoid double dispatch.
+void AIWorld::processGiantBirdContacts()
+{
+	if (!m_mapReady || m_giantBirds.empty())
+	{
+		return;
+	}
+	m_giantBirdScratch = m_giantBirds;
+	std::sort(m_giantBirdScratch.begin(), m_giantBirdScratch.end());
+	m_giantBirdScratch.erase(std::unique(m_giantBirdScratch.begin(), m_giantBirdScratch.end()), m_giantBirdScratch.end());
+	static const int kNoCollide = CombatNames::kindOf("NO_COLLIDE"), kHorde = CombatNames::kindOf("HORDE");
+	static const int kImmobile = CombatNames::kindOf("IMMOBILE"), kInert = CombatNames::kindOf("INERT");
+	static const unsigned kNoCollisions = (unsigned)CombatNames::statuses().noCollisions;
+	const bool hordesRegistered = m_logic.settings().hordesWaitForHordes;
+	const auto registered = [&](const Object &o) {
+		// RW 0x68E31F (same collision manager registration rule as processGateContacts)
+		return o.isInWorld() && !o.isDestroyed() && !o.isKindOf((unsigned)kInert) && !o.isKindOf((unsigned)kNoCollide) &&
+			(hordesRegistered || !o.isKindOf((unsigned)kHorde)) && !o.testStatus(kNoCollisions) && !o.isOutOfCollisionManager();
+	};
+	for (PathfindObjectID id : m_giantBirdScratch)
+	{
+		Object *bird = m_logic.findObjectByID(id);
+		if (!bird || !registered(*bird) || bird->geometryShapes().empty())
+		{
+			continue;
+		}
+		GiantBirdAIUpdate *giantBird = dynamic_cast<GiantBirdAIUpdate *>(bird->getAIUpdateInterface());
+		if (!giantBird)
+		{
+			continue;
+		}
+		// RW 0x76B59C .. 0x76B5BE early-out: onCollide does nothing without a current victim or goal object
+		const AIStateMachine *machine = giantBird->stateMachineOrNull();
+		if (!giantBird->currentVictim() && (!machine || !machine->goalObject()))
+		{
+			continue;
+		}
+		PartitionFilterFn candidate([&](Object &o) {
+			return &o != bird && o.isKindOf((unsigned)kImmobile) && registered(o) && !o.geometryShapes().empty() && !o.findModule("GateOpenAndCloseBehavior");
+		});
+		Coord3D birdCenter = *bird->getPosition();
+		birdCenter.z = SimMath::addf32(birdCenter.z, m_logic.partition().geometryOf(*bird).centerZ);
+		const PartitionHits hits =
+			m_logic.partition().iterateObjectsInRange(birdCenter, CombatQueries::boundingSphereRadius(*bird), FROM_BOUNDINGSPHERE_3D, { &candidate }, ITER_FASTEST);
+		m_giantBirdHits.clear();
+		for (const PartitionHit &h : hits)
+		{
+			m_giantBirdHits.push_back(h.object->getID());
+		}
+		std::sort(m_giantBirdHits.begin(), m_giantBirdHits.end());
+		for (PathfindObjectID otherId : m_giantBirdHits)
+		{
+			if (bird->isDestroyed())
+			{
+				break;
+			}
+			Object *other = m_logic.findObjectByID(otherId);
+			if (!other || other->isDestroyed())
+			{
+				continue;
+			}
+			if (!NotifyCrushModules::geometriesOverlap(bird->geometryShapes(), *bird->getPosition(), bird->getOrientation(), other->geometryShapes(), *other->getPosition(),
+			                                           other->getOrientation()))
+			{
+				continue;
+			}
+			++m_giantBirdContacts;
+			giantBird->onCollide(other, nullptr, nullptr);
 		}
 	}
 }

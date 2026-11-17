@@ -393,7 +393,8 @@ void Object::buildModules()
 	}
 	if (!kindOfByName(*this, "SHRUBBERY") && !kindOfByName(*this, "ROCK") && !kindOfByName(*this, "ROCK_VENDOR"))
 	{
-		helper("DefectionHelper", "ModuleTag_DefectionHelper");
+		m_modules.push_back(std::make_unique<DefectionHelper>(this));
+		++m_helperCount;
 	}
 	helper("GuardingHelper", "ModuleTag_GuardingHelper");
 	if (info.canPossiblyHaveAnyWeapon)
@@ -964,6 +965,14 @@ void Object::setTeam(Team *team)
 		Player *newOwner = getControllingPlayer();
 		if (oldOwner != newOwner)
 		{
+			if (oldOwner && oldOwner->hasActiveBattlePlans())
+			{
+				oldOwner->removeBattlePlanBonusesForObject(*this); // RW 0x6995C0 -> 0x6AD360
+			}
+			if (newOwner && newOwner->hasActiveBattlePlans())
+			{
+				newOwner->applyBattlePlanBonusesForObject(*this); // RW 0x6995D4 -> 0x6AD2B5
+			}
 			onOwnerChanged(oldOwner, newOwner);
 			if (m_client && oldOwner && newOwner)
 			{
@@ -1903,6 +1912,10 @@ void Object::friend_initObject()
 		{
 			setReceivingDifficultyBonus(true);
 		}
+		if (Player *owner = getControllingPlayer(); owner && owner->hasActiveBattlePlans())
+		{
+			owner->applyBattlePlanBonusesForObject(*this); // RW 0x693D74 .. 0x693D8D -> 0x6AD2B5
+		}
 	}
 	m_logic.emotions().objectInitialized(*this); // RW 0x693E79 .. 0x693E95 (lane MODULES-2): a SCARY or HERO object joins TheEmotionSystem's list
 	// lane HERO-2: RW 0x693EE8 .. 0x693F06: a CREATE_A_HERO (not while a save game loads, GameLogic + 0x6F) takes its player's Create-a-Hero record (RW 0x61B17D)
@@ -2275,11 +2288,57 @@ bool Object::hasAnyWeapon() const
 
 Relationship Object::getRelationship(const Object &other) const
 {
-	if (!m_team || !other.m_team)
+	if (!m_team || !other.m_team || m_undetectable || other.m_undetectable)
 	{
 		return NEUTRAL;
 	}
 	return m_team->getRelationship(other.m_team);
+}
+
+void Object::setTemporarilyUndetectable(bool on)
+{
+	m_undetectable = on;
+}
+
+void Object::setInvulnerableTime(UnsignedInt frames)
+{
+	// RW 0x68C6C8: sets Object + 0x458 bit 1 (RW 0x68B303) and starts/clears DefectionHelper timer (RW 0x8E3ABB)
+	if (frames == 0)
+	{
+		setTemporarilyUndetectable(false);
+		for (const std::unique_ptr<BehaviorModule> &m : m_modules)
+		{
+			if (auto *dh = dynamic_cast<DefectionHelper *>(m.get()))
+			{
+				dh->startDefectionTimer(0, false);
+				break;
+			}
+		}
+		return;
+	}
+	setTemporarilyUndetectable(true);
+	for (const std::unique_ptr<BehaviorModule> &m : m_modules)
+	{
+		if (auto *dh = dynamic_cast<DefectionHelper *>(m.get()))
+		{
+			dh->startDefectionTimer(frames, false);
+			break;
+		}
+	}
+}
+
+bool Object::isSignificantlyAboveTerrain() const
+{
+	// RW 0x70C55D -> 0x70C50C(0.0f) (same predicate as ObjectPathfindAdapter::isSignificantlyAboveTerrain)
+	static const int kClimb = ObjectTemplateInfoBuilder::kindOfIndex("CAN_CLIMB_WALLS");
+	static const int kShip = ObjectTemplateInfoBuilder::kindOfIndex("SHIP");
+	if ((kClimb >= 0 && isKindOf((unsigned)kClimb)) || (kShip >= 0 && isKindOf((unsigned)kShip)))
+	{
+		return false;
+	}
+	const Coord3D &p = *getPosition();
+	const float above = SimMath::pc24Add(SimMath::pc24Sub(p.z, m_logic.getGroundHeight(p.x, p.y)), 0.0f);
+	return above > SimMath::pc24Mul(m_logic.settings().gravity, -9.0f);
 }
 
 void Object::setArmorSetFlag(int bit, bool on)
@@ -2391,6 +2450,11 @@ void Object::attemptHealing(float amount, const Object *source)
 }
 
 // RW 0x68C234 / RW 0x68C7E9 (see Object.h; lane DECOMP-1)
+float Object::getBaseShroudClearingRange() const
+{
+	return m_hasShroudClearingRange ? m_shroudClearingRange : ShroudManager::templateVision(*static_cast<const ThingTemplate *>(m_template)->getFinalOverride()).shroudClearingRange;
+}
+
 void Object::setShroudClearingRange(float range)
 {
 	ShroudManager *sm = m_logic.shroud();
@@ -2843,6 +2907,10 @@ void Object::crcOmittingModules(StateHasher &h, const std::function<bool(const B
 	{
 		h.addU32(0x5C100000u); // lane BFME2CAMP1: only when set (a game without a campaign's carry-over keeps its hash)
 	}
+	if (m_singleUseCommandUsed)
+	{
+		h.addU32(0x5C450001u); // PORT-220: RW + 0x45B, the single-use command flag; hashed only when set (an object that never pressed one keeps its hash)
+	}
 	if (m_fireWeaponDeadline != 0)
 	{
 		h.addU32(0x5C200000u | m_fireWeaponDeadline); // BFME2 ObjectDoXfer.cpp:668, RW +0x478; hashed only when set
@@ -2946,6 +3014,10 @@ void Object::crcOmittingModules(StateHasher &h, const std::function<bool(const B
 	}
 	h.addBool(m_scored);
 	h.addU32(m_experienceFlags);
+	if (m_undetectable)
+	{
+		h.addU32(0x5C300001u);
+	}
 	const Coord3D &p = *getPosition();
 	h.addFloat(p.x);
 	h.addFloat(p.y);
@@ -3121,7 +3193,7 @@ void Object::setScriptStatus(std::uint8_t bits, bool set)
 // (the Objects block's order) and the team links (the TeamFactory's post-process).
 void Object::xfer(Xfer &x)
 {
-	XferVersion version{ 1, 5 }; // v2 campaignCarryover, v3 fireWeaponDeadline, v4 PORT-5 Object + 0x251, v5 PORT-34 geometryHeights
+	XferVersion version{ 1, 7 }; // v2 campaignCarryover, v3 fireWeaponDeadline, v4 PORT-5 Object + 0x251, v5 PORT-34 geometryHeights, v6 PORT-237 m_undetectable, v7 PORT-220 Object + 0x45B
 	x.xferVersion(version);
 	// a load never reads its destination: the save-side values are built from the members only when saving (SAVES.md, rules for xfer authors)
 	const bool saving = !x.isLoading();
@@ -3213,6 +3285,15 @@ void Object::xfer(Xfer &x)
 	x.xferUnsignedByte(&scriptStatus);
 	SnapshotXfer::checkMask(scriptStatus, 0x1F, "an object's script status", "the five script status bits"); // ZH ObjectScriptStatusBit 1 .. 0x10
 	m_scriptStatus = scriptStatus;
+	if (version.current >= 7)
+	{
+		// PORT-220: RW + 0x45B (BFME2 ObjectDoXfer.cpp:556 transfers the same byte); an older snapshot keeps the constructor's clear (RW 0x699C88)
+		x.xferBool(&m_singleUseCommandUsed);
+	}
+	else if (x.isLoading())
+	{
+		m_singleUseCommandUsed = false;
+	}
 	if (version.current >= 2)
 	{
 		x.xferBool(&m_campaignCarryover);
@@ -3233,6 +3314,14 @@ void Object::xfer(Xfer &x)
 	{
 		x.xferBool(&m_hasChargeAttackAbility); // RW 0x630CCD loads into an object whose constructor has set + 0x251
 	} // older snapshots retain the value derived by the constructor
+	if (version.current >= 6)
+	{
+		x.xferBool(&m_undetectable);
+	}
+	else if (x.isLoading())
+	{
+		m_undetectable = false;
+	}
 	x.xferBool(&m_scriptSelectable);
 	x.xferBool(&m_masked); // lane MODCOMPAT-MOD1: RW + 0x459 bit 1
 	x.xferInt(&m_triggerCount);

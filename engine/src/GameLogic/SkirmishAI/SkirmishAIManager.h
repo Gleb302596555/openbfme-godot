@@ -176,6 +176,13 @@ public:
 	const std::vector<GateOpenAndCloseBehavior *> &gates() const { return m_gates; }
 	// RW 0x6A9D9C: historical registration order; dead and captured flags stay listed.
 	const std::vector<ObjectID> &captureFlags() const { return m_captureFlags; }
+	void addCaptureFlagForTest(ObjectID id)
+	{
+		if (std::find(m_captureFlags.begin(), m_captureFlags.end(), id) == m_captureFlags.end())
+		{
+			m_captureFlags.push_back(id);
+		}
+	}
 	const AISkirmishGroup *findGroup(int playerIndex) const;
 	// lane PORT-39: RW 0x8F736E, the gatherer counts of an AI from its side's AIData SideInfo entry and its difficulty (retail runs it from the AIPlayer
 	// update RW 0x8F7D71, not ported: the port runs it at the AI's init in newGame, S-4194) and RW 0x8F858E, the count of the player's live supply trucks

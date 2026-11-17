@@ -22,10 +22,12 @@
 #include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/BitFlags.h"
 #include "GameLogic/Combat/CombatNames.h"
+#include "GameLogic/Combat/ObjectWeapons.h"
 #include "GameLogic/ConstructionSite.h"
 #include "GameLogic/FindPositionAround.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Locomotor.h"
+#include "GameLogic/Map/TerrainLogic.h"
 #include "GameLogic/Map/TerrainTrees.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/BehaviorModule.h"
@@ -38,6 +40,7 @@
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameLogic/ScriptEngine/ScriptConditions.h"
 #include "GameLogic/SimMath.h"
+#include "GameLogic/WeaponSet.h"
 
 #include <cstddef>
 
@@ -157,9 +160,23 @@ const FieldParse kCreateDebrisFieldParse[] = {
 	{ nullptr, nullptr, nullptr, 0 }
 };
 // RW 0xBF72A8 (ApplyRandomForce), RW 0xBF71F8 (FireWeapon), RW 0xBF7258 (Attack)
-const FieldParse kForceFieldParse[] = { KEPT("MinForceMagnitude"), KEPT("MaxForceMagnitude"), KEPT("MinForcePitch"), KEPT("MaxForcePitch"), { nullptr, nullptr, nullptr, 0 } };
-const FieldParse kFireWeaponFieldParse[] = { KEPT("Weapon"), { nullptr, nullptr, nullptr, 0 } };
-const FieldParse kAttackFieldParse[] = { KEPT("NumberOfShots"), KEPT("WeaponSlot"), KEPT("DeliveryDecal"), KEPT("DeliveryDecalRadius"), { nullptr, nullptr, nullptr, 0 } };
+const FieldParse kForceFieldParse[] = {
+	{ "MinForceMagnitude", INI::parseReal, nullptr, N_OFF(minForceMagnitude) },
+	{ "MaxForceMagnitude", INI::parseReal, nullptr, N_OFF(maxForceMagnitude) },
+	{ "MinForcePitch", INI::parseAngleReal, nullptr, N_OFF(minForcePitch) },
+	{ "MaxForcePitch", INI::parseAngleReal, nullptr, N_OFF(maxForcePitch) },
+	{ nullptr, nullptr, nullptr, 0 }
+};
+const FieldParse kFireWeaponFieldParse[] = {
+	{ "Weapon", INI::parseAsciiString, nullptr, N_OFF(weaponName) },
+	{ nullptr, nullptr, nullptr, 0 }
+};
+const FieldParse kAttackFieldParse[] = {
+	{ "NumberOfShots", INI::parseInt, nullptr, N_OFF(numberOfShots) },
+	{ "WeaponSlot", INI::parseIndexList, TheWeaponSlotTypeNames, N_OFF(weaponSlot) },
+	KEPT("DeliveryDecal"), KEPT("DeliveryDecalRadius"),
+	{ nullptr, nullptr, nullptr, 0 }
+};
 #undef KEPT
 #undef N_OFF
 
@@ -472,7 +489,13 @@ void ObjectCreationList::doStuffToObj(GameLogic &logic, const OCLNugget &n, Obje
 	Coord3D offset = n.offset;
 	if (n.offsetInLocalSpace && source)
 	{
-		unported(logic, m_unportedUses, "OffsetInLocalSpace (the offset turned by the source's transform, RW 0x5E07F7)");
+		// RW 0x5F1D8D -> 0x5E07F7 -> 0xB26200: rotate offset by source->getBasis()
+		const float *m = source->getBasis();
+		offset = Coord3D{
+			addf32(addf32(mulf32(m[2], n.offset.z), mulf32(m[1], n.offset.y)), mulf32(m[0], n.offset.x)),
+			addf32(addf32(mulf32(m[5], n.offset.z), mulf32(m[3], n.offset.x)), mulf32(m[4], n.offset.y)),
+			addf32(addf32(mulf32(m[8], n.offset.z), mulf32(m[6], n.offset.x)), mulf32(m[7], n.offset.y))
+		};
 	}
 	// RW 0x5F1D9E (SSE): the spot; ON_GROUND_ALIGNED and SEND_IT_OUT write their height into it (ebp - 0x28), the later setPosition calls see it
 	Coord3D pos{ addf32(where.x, offset.x), addf32(where.y, offset.y), addf32(where.z, offset.z) };
@@ -498,7 +521,7 @@ void ObjectCreationList::doStuffToObj(GameLogic &logic, const OCLNugget &n, Obje
 	}
 	if (n.invulnerableTime > 0)
 	{
-		unported(logic, m_unportedUses, "InvulnerableTime (RW 0x68C6C8: RW 0x68B303 / 0x8E3ABB)");
+		obj->setInvulnerableTime(n.invulnerableTime); // RW 0x5F1EC7 -> 0x68C6C8
 	}
 	Coord3D force{ 0.0f, 0.0f, 0.0f };
 	const unsigned d = n.disposition;
@@ -799,7 +822,23 @@ std::vector<Object *> ObjectCreationList::createCore(GameLogic &logic, const OCL
 		Coord3D at = where;
 		if (!n.waypointSpawnPoints.empty())
 		{
-			unported(logic, m_unportedUses, "WaypointSpawnPoints (RW 0x5F1A60)");
+			// RW 0x5F1A60: case-sensitive prefix match against TerrainLogic::waypoints() (RW 0x4358F0), random pick
+			if (const TerrainLogic *terrain = logic.terrain())
+			{
+				std::vector<const Waypoint *> matches;
+				for (const Waypoint &wp : terrain->waypoints())
+				{
+					if (wp.name.compare(0, n.waypointSpawnPoints.size(), n.waypointSpawnPoints) == 0)
+					{
+						matches.push_back(&wp);
+					}
+				}
+				if (!matches.empty())
+				{
+					const int pick = logic.random().getValue(0, (int)matches.size() - 1, kOCLCpp, 0x5F1);
+					at = matches[(size_t)pick]->location;
+				}
+			}
 		}
 		else if (n.spreadFormation)
 		{
@@ -883,6 +922,10 @@ std::vector<Object *> ObjectCreationList::createCore(GameLogic &logic, const OCL
 // RW 0x5F275D: a CreateObject nugget (vslot 0xC) for the primary object `source` at `where` (see the header)
 std::vector<Object *> ObjectCreationList::createObjectNugget(GameLogic &logic, const OCLNugget &n, const Object *source, const Coord3D &where, const Coord3D *secondary, unsigned lifetime) const
 {
+	if (n.skipIfSignificantlyAirborne && source && source->isSignificantlyAboveTerrain())
+	{
+		return {}; // RW 0x5F0D84 -> 0x70C55D
+	}
 	if (source && !upgradesAllow(n, *source))
 	{
 		return {}; // RW 0x5F2770
@@ -942,15 +985,58 @@ std::vector<Object *> ObjectCreationList::create(GameLogic &logic, const Object 
 	std::vector<Object *> made;
 	for (const OCLNugget &n : m_nuggets)
 	{
-		if (n.kind != OCLNugget::CREATE_OBJECT)
+		switch (n.kind)
 		{
-			unported(logic, m_unportedUses, "CreateDebris / ApplyRandomForce / FireWeapon / Attack nuggets");
-			continue;
-		}
-		for (Object *o : createObjectNugget(logic, n, source, where, secondary, lifetime))
-		{
-			made.push_back(o);
+		case OCLNugget::CREATE_OBJECT:
+			for (Object *o : createObjectNugget(logic, n, source, where, secondary, lifetime))
+			{
+				made.push_back(o);
+			}
+			break;
+		case OCLNugget::APPLY_RANDOM_FORCE:
+			// RW 0x5EF96D: flings primary object if it has PhysicsBehavior
+			if (source)
+			{
+				if (PhysicsBehavior::find(*const_cast<Object *>(source)))
+				{
+					fling(*const_cast<Object *>(source), randomForce(logic, n));
+				}
+			}
+			break;
+		case OCLNugget::FIRE_WEAPON:
+			// RW 0x5EF882 -> 0x5EF8D8: fires temp weapon at secondary (else primary/where)
+			if (!n.weaponName.empty() && TheWeaponStore)
+			{
+				if (const WeaponTemplate *wt = TheWeaponStore->findWeaponTemplate(n.weaponName))
+				{
+					const Coord3D &pos = secondary ? *secondary : where;
+					ObjectWeapons::createAndFireTempWeapon(wt, const_cast<Object *>(source), pos);
+				}
+			}
+			break;
+		case OCLNugget::ATTACK:
+			// RW 0x5EF882 -> 0x5F0328: locks weaponSlot (LOCKED_TEMPORARILY) and orders aiAttackPosition at secondary
+			if (source && secondary)
+			{
+				Object *primaryObj = const_cast<Object *>(source);
+				ObjectWeapons::setObjectWeaponLock(*primaryObj, n.weaponSlot, LOCKED_TEMPORARILY);
+				if (AIUpdateInterface *ai = primaryObj->getAIUpdateInterface())
+				{
+					ai->aiAttackPosition(*secondary, n.numberOfShots, CMD_FROM_AI);
+				}
+			}
+			break;
+		case OCLNugget::CREATE_DEBRIS:
+			unported(logic, m_unportedUses, "CreateDebris");
+			break;
 		}
 	}
 	return made;
+}
+
+// RW 0x5F0126: object-pair overload (primary object, secondary object, lifetime)
+std::vector<Object *> ObjectCreationList::create(GameLogic &logic, Object *primary, const Object *secondary, unsigned lifetime) const
+{
+	const Coord3D where = primary ? *primary->getPosition() : (secondary ? *secondary->getPosition() : Coord3D{});
+	return create(logic, primary, where, secondary ? secondary->getPosition() : nullptr, lifetime);
 }

@@ -160,6 +160,15 @@ bool ControlBar::pressButton(int slot, bool inPalantir, bool shift)
 		m_ctx.ui.message("GUI:NotEnoughMoneyToBuild"); // processCommandUI: CANMAKE_NO_MONEY
 		return false;
 	}
+	// PORT-220 (issue #529): processCommandUI re-asks getCommandAvailability (RW 0x940625 -> RW 0x942733) and, for its results 1 (enabled) and 2 (active),
+	// clears the button's + 0xF8 (RW 0x940656) and then sets the source object's single-use flag when the button's Options (+ 0x1C) hold bit 17
+	// SINGLE_USE_COMMAND: RW 0x940665 `test byte ptr [esi + 0x1E], 2` / RW 0x94066B `mov byte ptr [ebx + 0x45B], 1`, skipped for a null object (RW 0x94065D).
+	// Results 6 and 7 leave through their own paths (RW 0x9406DA / 0x9405F1) and write nothing. The port reads the bar's last evaluation instead of re-asking,
+	// so only its Enabled and Active states write; the button's + 0xF8 is client state this port does not carry (S-290).
+	if (b.hasOption(COMMAND_OPTION_SINGLE_USE_COMMAND) && (cb->state == ButtonState::Enabled || cb->state == ButtonState::Active))
+	{
+		obj->markSingleUseCommandUsed();
+	}
 	// RW 0x9407D9 -> 0x8DEDBB(0x7E3) -> CommandButton::getUnitSpecificSound (RW 0x75D0B9):
 	// play UnitSpecificSound[m_toggleIndex] BEFORE the command switch updates +0xFC; out-of-range stays silent ("").
 	if (m_commandVoice && b.m_command != GUI_COMMAND_SET_STANCE)

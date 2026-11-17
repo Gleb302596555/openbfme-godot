@@ -1995,9 +1995,10 @@ UpdateSleepTime FellBeastSwoopPower::update()
 		return (UpdateSleepTime)1;
 	}
 	AIUpdateInterface *ai = obj->getAIUpdateInterface();
-	if (ai && ai->isIdle()) // AI vslot 0x1B8 (vslot 0x1D0 not identified: S-1223)
+	// RW 0x8CB304 .. 0x8CB331: finish once the AI idles (vslot 0x1B8, RW 0x6643FC / 0x769E8F) or enters follow-through (vslot 0x1D0, RW 0x662B28 -> State::vslot 0x34 RW 0x8BD372)
+	if (ai && (ai->isIdle() || ai->isInFollowThruState()))
 	{
-		finishAbility(false, false); // vslot 0x34
+		finishAbility(false, false); // vslot 0x34 (RW 0x8CB194)
 		return UPDATE_SLEEP_FOREVER;
 	}
 	// RW 0x8CB336 .. 0x8CB3A9: SPECIAL_WEAPON_ONE (+ 0x128 bit 20) while the height above the terrain is below the bounding sphere radius (GeometryInfo + 0x14)
@@ -2011,7 +2012,7 @@ UpdateSleepTime FellBeastSwoopPower::update()
 	return (UpdateSleepTime)1;
 }
 
-// RW 0x8CB28B: the AI command 0x3F (the target object) or 0x40 (the location), source 2
+// RW 0x8CB28B: dispatches AI command 0x3F (RW 0x8CB1BA, target object) or 0x40 (RW 0x8CB21F, location), source CMD_FROM_AI (2)
 void FellBeastSwoopPower::triggerAbilityEffect()
 {
 	Object *obj = getObject();
@@ -2478,9 +2479,9 @@ std::vector<std::string> HeroAbilityModules::stopLines()
 		"than HordeContain (a defecting transport's / garrison's passengers keep their side; reported when met); (6) the selected drawable's deselection (RW "
 		"0x6993B5 .. 0x6993D0) and restoreOriginalTeam's selection refresh are the client's; (7) ActivateModuleSpecialPower's tags are resolved when used "
 		"(retail makes the keys while parsing); (8) setTeam's redirect keeps a team without a controlling player (retail reads its player without a test)",
-		"[S-1223] FellBeastSwoopPower (lane HERO-2): the module runs (RW 0x8CB2CE / 0x8CB28B / 0x8CB194); the level attack itself is GiantBirdAIUpdate's swoop "
-		"(AI commands 0x3F / 0x40, AI vslots 0x90 / 0x94: GiantBirdAIUpdate runs as the base AI, S-222): the command is counted by the AI (aiUnported) and the "
-		"ability ends when the AI idles; AI vslot 0x1D0 is not identified",
+		"[S-1223] FellBeastSwoopPower (lane HERO-2, Port 257): the module runs (RW 0x8CB2CE / 0x8CB28B / 0x8CB194); AI command 0x3F (RW 0x8CB1BA) runs "
+		"GiantBirdAIUpdate's level swoop (state 0x3F3, RW 0x76A139) and command 0x40 (RW 0x8CB21F) does nothing there (RW 0x76DA5C); other AI classes count "
+		"both (aiUnported); the ability ends when the AI idles (vslot 0x1B8) or enters AIGiantBirdFollowThruState (vslot 0x1D0, RW 0x662B28 -> State::vslot 0x34 RW 0x8BD372)",
 		"[S-1227] AutoAbilityBehavior (lane HERO-2, PORT-191): the auto cast runs (RW 0x85D9D1 with RW 0x85D5EA / 0x85D4B5, RW 0x855830 DISABLED_HELD, "
 		"RW 0x68E43B vision range, RW 0x701443 flags 0x4A without Query, AI + 0x34 / + 0x48 := 2, RW 0x68E5A3 / 0x68E67A disabled exception with 0x20000000, "
 		"MSG_DO_AUTO_ABILITY RW 0x77B9BA, StartsActive); not ported: the command types other than SPECIAL_POWER / SPELL_BOOK (a FIRE_WEAPON auto button is "
@@ -2591,6 +2592,7 @@ void CurseSpecialPower::xfer(Xfer &x)
 	x.xferUnsignedInt(&m_cursed);
 }
 
+// RW 0x008CB167
 void FellBeastSwoopPower::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

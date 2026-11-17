@@ -233,7 +233,7 @@ private:
 // ClearanceMinHeightFraction (+ 0x204) through RW 0x42ED6F, ClearanceMinHeight (+ 0x200) through RW 0x42EDC2. DONOR (BFME2 1.06 game.dat, the same offsets): the
 // table's parsers BFME2 0x42F02F ("invalid Real value %1.7f -- expected >= 0") and 0x42F082 ("... expected <= 0"), the same 0x53 bytes apart as RW 0x42ED6F /
 // 0x42EDC2 (INFERENCE: the same parsers); the data ctor BFME2 0x883E25 (GeometryInfo(type 0, small no, 1.0, 1.0, 1.0), offset 0, MaxHeight 20, MinHeight -20,
-// both fractions 1.1). The RotWK ctor (inside RW 0x64C22E) was not read (S-7163).
+// both fractions 1.1). Verified against RotWK RW 0x88709D / 0x887191 (PORT-237 closed S-7163).
 class ClearanceTestingSlowDeathBehaviorModuleData : public SlowDeathBehaviorModuleData
 {
 public:
