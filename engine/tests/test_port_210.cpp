@@ -187,7 +187,7 @@ TEST_CASE("PORT-210 horde excluded from collision registration does not keep wal
 {
     Fixture f;
     // RW 0x68E3E2..0x68E401: a HORDE is registered only if AIData HordesWaitForHordes is set.
-    f.w.logic->settings().hordesWaitForHordes = false;
+    f.logic->settings().hordesWaitForHordes = false;
     Object *horde = f.unit("Port210Horde", 'A', 300, 300);
     f.unit("Port210Wall", 'B', 310, 300);
     auto *contain = dynamic_cast<HordeContain *>(horde->getContain());
