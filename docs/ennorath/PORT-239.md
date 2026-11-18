@@ -206,3 +206,33 @@ full executable and red/green comparison remain outstanding. Correction to the
 initial matrix plan: `PlayerList::setLocalPlayer(nullptr)` selects Neutral, so
 the matrix explicitly tests Neutral fallback (and asserts the actual pointer),
 not a nonexistent null-player fixture. No private-state test backdoor is added.
+
+## S-281: CommandMap file-resolution proof completed
+
+The stop's old premise was wrong: RW 0x63874B is the preceding AI-target
+heuristic subsystem wrapper, not CommandMap's loader. The actual chain is:
+
+- RW 0x63AF2D (GameEngine::init), call site 0x63C1CC creates MetaMap through
+  RW 0x5DAB70; constructor installs vtable 0xBF1BF4. Its init slot +4 is the
+  empty RW 0x63F3BF, load-from-legend slot +8 is RW 0x5B4B9A.
+- The registration at 0x63C1F3 calls RW 0x638244 with name `TheMetaMap` and
+  no hardcoded paths. RW 0x638244 forwards to RW 0x5B4A7C (0x63829A).
+- RW 0x5B4A7C sets the name, initializes, and invokes slot +8. Linear reading
+  of RW 0x5B4B9A through its return proves InitFile entries load in order
+  (0x5B4C67…0x5B4CA7), then InitPath entries (0x5B4CA9…0x5B4CE2), applying
+  exclusions. The engine's existing `SubsystemLegend` implements this path.
+- Later in the **same** GameEngine::init, 0x63C4F6 pushes `CommandMap.ini`
+  into a direct RW 0x42D97D load at 0x63C506. This is the language override,
+  not another subsystem registration or a path expanded by RW 0x63874B.
+
+DONOR BFME2: `Code/Libraries/Source/subsystem/SubsystemInterface.cpp`'s
+`initSubsystem` and loadIniFilesFromLegend helper describe the same dispatch
+and ordered file/path loops; RW above confirms each link independently.
+The mounted Ennorath 1.9.8.3 expansion legend was checked: its TheMetaMap
+entry names **two** InitFiles, so hardcoding only the first omits a real input.
+No INI contents are copied into this report.
+
+Required fix: route both real installation readers (`GodotInGameHud` and
+`ListCommandMap`) through one MetaMap installation loader; reuse the existing
+legend parser/loader, then load the root override. Preserve other-edition
+paths, report missing/malformed files, and do not add another command handler.
