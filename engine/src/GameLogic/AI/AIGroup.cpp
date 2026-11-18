@@ -2,6 +2,7 @@
 // See GameLogic/AI/AIGroup.h.
 
 #include "GameLogic/AI/AIGroup.h"
+#include "GameLogic/AI/AICommands.h"
 
 #include "GameLogic/AI/AIGroupOrders.h"
 #include "GameLogic/AI/AIWorld.h"
@@ -12,6 +13,7 @@
 #include "GameLogic/Locomotor.h"
 #include "GameLogic/Module/PhysicsBehavior.h"
 #include "GameLogic/Module/AIUpdate.h"
+#include "GameLogic/Module/BehaviorModule.h"
 #include "GameLogic/Module/InvisibilityModules.h"
 #include "GameLogic/Module/SpawnBehavior.h"
 #include "GameLogic/Object/Object.h"
@@ -34,7 +36,11 @@ AIGroup::AIGroup(GameLogic &logic, const std::vector<ObjectID> &ids)
 	for (ObjectID id : ids)
 	{
 		Object *o = logic.findObjectByID(id);
-		if (o && !o->isDestroyed() && o->getAIUpdateInterface())
+		// PORT-208 (issue #490): RW 0x6AAB85 -> 0x8DB249 -> 0x770917 adds every live selected object to the AIGroup so garrisonable structures without an
+		// AIUpdate (e.g. civilian buildings, RohanBattleTower) and spawner structures without an AIUpdate (e.g. AngForStronghold) reach groupAttackPosition
+		// (RW 0x77229A) and weapon-lock forwarding; non-firing AI-less structures stay excluded so movement / planning group counts are unchanged
+		if (o && !o->isDestroyed() &&
+		    (o->getAIUpdateInterface() || (o->getContain() && o->getContain()->isPassengerAllowedToFire()) || SpawnBehaviorInterface::of(*o)))
 		{
 			m_members.push_back(o);
 		}
@@ -577,16 +583,13 @@ void AIGroup::groupIdle(CommandSourceType source)
 
 const char *AIGroup::forceAttackStopLine()
 {
-	return "[S-2480] force attack (lane PLAY-2): MSG_DO_FORCE_ATTACK_GROUND (RW 0x77AF93) and MSG_DO_FORCE_ATTACK_OBJECT (RW 0x77AED3) run with the group's "
-		"weapon locks, groupAttackPosition (including SpawnBehaviorInterface slot 4 orderSlavesToAttackPosition RW 0x772369, PORT-198) and aiAttackPosition (state 9); not ported: the passengers of a container that lets them fire "
-		"in groupAttackPosition (RW 0x77229A: the container's allowed-to-fire test and its passenger list have no port), "
-		"the object form's "
-		"reserved-id branch (victim id 99999999, the tree stand-in object of RW 0x62F508, with AIData AllowForestFires: the map tree at the click made an "
-		"object, RW 0x68449B, ported as TerrainTrees::makeTreeObject; the stand-in and the client's tree pick are not; retail and Ennorath set No), the outside-the-playable-area refusal (Object + 0x458 bit 3 is never set); the group's weapon lock and its release are Object::setWeaponLock "
-		"(RW 0x69121A) and Object::releaseWeaponLock (RW 0x68DF11) with their contain pass-through, slots 0x168 / 0x16C (PORT-115, issue #299); PLAY-2's "
-		"\"AI hook of the lock\" is not in RW 0x69121A, read in full: the contain's slot 0x168, SWITCHED_WEAPONS (RW 0x62684D) and the weapon set's lock "
-		"(RW 0x6C97F9) only; INFERENCE: PartitionFilterPossibleToAttack of the "
-		"ContinueAttackRange search is the non-forced canAttackObject";
+	return "[S-2480] force attack (lane PLAY-2, narrowed by PORT-208 issue #490): MSG_DO_FORCE_ATTACK_GROUND (RW 0x77AF93) and MSG_DO_FORCE_ATTACK_OBJECT "
+		"(RW 0x77AED3) run with the group's weapon locks, groupAttackPosition (RW 0x77229A: firing-container passengers via getAbleToUseWeaponAgainstTarget "
+		"RW 0x68B5FA -> 0x6C8652 and SpawnBehavior slaves via RW 0x863807 / SpawnBehaviorInterface slot 4 orderSlavesToAttackPosition, PORT-198 & PORT-208), "
+		"the clicked map tree stand-in 99999999 (RW 0x62F508 / 0x48ACF5 / 0x77AF18 / 0x77C1C2 with AIData AllowForestFires -> TerrainTrees::makeTreeObject "
+		"RW 0x68449B) and the off-map refusal (Object + 0x458 bit 3, RW 0x66DE32 / 0x660E93); INFERENCE / not ported: PartitionFilterPossibleToAttack "
+		"(RW 0x660CA4 -> 0x68D6A6) of the ContinueAttackRange search uses the non-forced canAttackObject, and CONTESTING_BUILDING's getFiringOwner lookup "
+		"(RW 0x6C86CF .. 0x6C86FB) in getAbleToUseWeaponAgainstTarget is not ported (S-1103)";
 }
 
 bool AIGroup::isIdle() const
@@ -645,9 +648,38 @@ void AIGroup::groupAttackPosition(const Coord3D &pos, int maxShotsToFire, Comman
 	m_logic.noteStop(forceAttackStopLine());
 	for (Object *o : m_members)
 	{
+		if (o->isDestroyed())
+		{
+			continue;
+		}
+		// RW 0x7722CE .. 0x772355: a container whose passengers are allowed to fire (contain slot 0xB4) forwards the position attack to every passenger
+		// whose getAbleToUseWeaponAgainstTarget(ATTACK_NEW_TARGET, nullptr, &pos, source) (RW 0x68B5FA -> 0x6C8652) answers POSSIBLE or POSSIBLE_AFTER_MOVING
+		if (ContainModuleInterface *contain = o->getContain(); contain && contain->isPassengerAllowedToFire())
+		{
+			if (const ContainModuleInterface::ContainedItemsList *items = contain->getContainedItemsList())
+			{
+				const std::vector<Object *> passengers(items->begin(), items->end());
+				for (Object *p : passengers)
+				{
+					if (!p || p->isDestroyed() || !p->getWeapons())
+					{
+						continue;
+					}
+					const CanAttackResult res = p->getWeapons()->getAbleToUseWeaponAgainstTarget(ATTACK_NEW_TARGET, nullptr, &pos, source);
+					if (res == ATTACKRESULT_POSSIBLE || res == ATTACKRESULT_POSSIBLE_AFTER_MOVING)
+					{
+						if (AIUpdateInterface *pai = p->getAIUpdateInterface())
+						{
+							pai->aiAttackPosition(pos, maxShotsToFire, source);
+						}
+					}
+				}
+			}
+		}
+		// RW 0x772357 .. 0x772375 -> SpawnBehavior::orderSlavesToAttackPosition (RW 0x863807, SpawnBehaviorInterface slot 4): every live slave (incl. SpawnBehaviorUnion)
 		if (SpawnBehaviorInterface *spawn = SpawnBehaviorInterface::of(*o))
 		{
-			spawn->orderSlavesToAttackPosition(&pos, maxShotsToFire, source); // RW 0x772369 -> 0x68C3A3 slot 4 (0x10), PORT-198
+			spawn->orderSlavesToAttackPosition(&pos, maxShotsToFire, source); // RW 0x772369 -> 0x68C3A3 slot 4 (0x10), PORT-198 & PORT-208
 		}
 		if (AIUpdateInterface *ai = o->getAIUpdateInterface())
 		{
@@ -656,8 +688,101 @@ void AIGroup::groupAttackPosition(const Coord3D &pos, int maxShotsToFire, Comman
 	}
 }
 
-void AIGroup::groupAttackMoveToPosition(const Coord3D &pos, int maxShots, CommandSourceType source)
+// PORT-208 (issue #490): RW 0x77208A AIGroup::groupAttackObject(force, victim, source) (decomp AIGroupAttackTeam.cpp), the object twin of
+// groupAttackPosition above. Its walk (RW 0x7720EB .. 0x772248) visits the group's objects in order and for each one (RW 0x77213D ..):
+//   1. RW 0x77214D .. 0x7721D1: a container (+ 0x258) whose slot 0xB4 (isPassengerAllowedToFire) is true, and was told so before (RW 0x77216D calls
+//      contain slot 0x118, the contained items list, RW 0x772173 the sentinel head): every passenger whose Object::getAbleToAttackSpecificObject (RW
+//      0x68D6A6 pass type, victim, forced, source) answers POSSIBLE (3) or POSSIBLE_AFTER_MOVING (2) takes aiForceAttackObject (RW 0x771380, forced) or
+//      aiAttackObject (RW 0x66C536) through its own AI (+ 0x260);
+//   2. RW 0x7721D3 .. 0x772235: the object itself, when it has an AI and is not the victim: a CONTESTING_BUILDING (RW 0x68BA5C) asks the combat system
+//      (RW 0x82CFD4) and, when that answers POSSIBLE, takes aiForceAttackObjectOfType (RW 0x77131B); any other object asks its own RW 0x68D6A6 and, on
+//      POSSIBLE / POSSIBLE_AFTER_MOVING, takes aiForceAttackObject (forced) or aiAttackObject (RW 0x66C536).
+// The members without an AI therefore fire through step 1 (a garrison, an AI-less tower) or their spawner's slaves do (spawner structures reach this
+// group through the constructor's RW 0x6AAB85 filter), and the rest go through their own AI as before.
+bool AIGroup::groupAttackObject(Object *victim, bool force, CommandSourceType source)
 {
+	if (!victim)
+	{
+		return false;
+	}
+	m_logic.noteStop(forceAttackStopLine());
+	bool took = false;
+	for (Object *o : m_members)
+	{
+		if (!o || o->isDestroyed())
+		{
+			continue;
+		}
+		// step 1 (RW 0x77214D .. 0x7721D1): the passengers of a container that lets them fire
+		if (ContainModuleInterface *contain = o->getContain(); contain && contain->isPassengerAllowedToFire())
+		{
+			if (const ContainModuleInterface::ContainedItemsList *items = contain->getContainedItemsList())
+			{
+				const std::vector<Object *> passengers(items->begin(), items->end());
+				for (Object *p : passengers)
+				{
+					if (!p || p->isDestroyed() || p == victim)
+					{
+						continue;
+					}
+					ObjectWeapons *weapons = p->getWeapons();
+					// RW 0x68D6A6, the port's stand-in for it (S-325, as the guard and turret machines use): canAttackObject
+					if (!weapons || !weapons->canAttackObject(*victim, source, force))
+					{
+						continue;
+					}
+					if (AIUpdateInterface *pai = p->getAIUpdateInterface())
+					{
+						const bool ok = force ? pai->aiForceAttackObject(victim, source) : pai->aiAttackObject(victim, source);
+						took = took || ok;
+						if (ok)
+						{
+							AICommands::recordAttackOrderAccepted(); // COMBAT-1's counter (the group object is temporary, nothing to report on it)
+						}
+					}
+				}
+			}
+		}
+		// step 2 (RW 0x7721D3 .. 0x772235): the object's own AI
+		AIUpdateInterface *ai = o->getAIUpdateInterface();
+		if (!ai || o == victim)
+		{
+			continue;
+		}
+		if (o->isKindOfName("CONTESTING_BUILDING"))
+		{
+			// RW 0x7721E4 .. 0x772217: the combat system's own able-to-attack (RW 0x82CFD4; INFERENCE, S-2480 / S-1103: the contesting building's firing
+			// owner, whose lookup RW 0x6C86CF .. 0x6C86FB is not ported) then aiForceAttackObject (RW 0x77131B). The port asks the object's own weapons
+			// (canAttackObject, as every other RW 0x68D6A6 site here) with the forced flag
+			const ObjectWeapons *cw = o->getWeapons();
+			if (cw && cw->canAttackObject(*victim, source, true))
+			{
+				const bool ok = ai->aiForceAttackObject(victim, source);
+				took = ok || took;
+				if (ok)
+				{
+					AICommands::recordAttackOrderAccepted();
+				}
+			}
+			continue;
+		}
+		// RW 0x772219 .. 0x772235: the object's own Object::getAbleToAttackSpecificObject (RW 0x68D6A6), the port's canAttackObject stand-in
+		const ObjectWeapons *weapons = o->getWeapons();
+		if (!weapons || !weapons->canAttackObject(*victim, source, force))
+		{
+			continue;
+		}
+		const bool ok = force ? ai->aiForceAttackObject(victim, source) : ai->aiAttackObject(victim, source);
+		took = took || ok;
+		if (ok)
+		{
+			AICommands::recordAttackOrderAccepted();
+		}
+	}
+	return took;
+}
+
+void AIGroup::groupAttackMoveToPosition(const Coord3D &pos, int maxShots, CommandSourceType source){
 	// RW 0x774E2F: count > 1 && AIData AttackMoveUsesFormations (+ 0xBA) && source == CMD_FROM_PLAYER && AIData UseFormations (+ 0xBD) ->
 	// gatherAndMoveInFormation(pos, CMD_FROM_PLAYER, /*mode=*/1, /*ground=*/true) (RW 0x7747DE; unlike RW 0x774897's head, no tighten-rectangle check)
 	const GameLogicSettings &gs = m_logic.settings();

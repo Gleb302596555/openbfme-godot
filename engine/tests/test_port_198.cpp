@@ -1,4 +1,4 @@
-// OpenBFME. PORT-198 tests (issue #465, stop S-7493):
+// OpenBFME. PORT-198 tests (issue #465, stop S-7499):
 //   1. SpawnBehaviorInterface / SpawnBehavior / SpawnBehaviorUnion (RW vtable 0xC58D94) slots 2..6 and 10:
 //      getClosestSlave (0x86292C), orderSlavesToAttackTarget (0x8637BE), orderSlavesToAttackPosition (0x863807),
 //      getCanAnySlavesAttackSpecificTarget (0x862990), getCanAnySlavesUseWeaponAgainstTarget (0x8629ED), reEnslaveSlaves (0x862E4F).

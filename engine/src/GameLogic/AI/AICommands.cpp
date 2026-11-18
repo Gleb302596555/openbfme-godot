@@ -13,6 +13,7 @@
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Combat/CombatNames.h"
+#include "GameLogic/Map/TerrainTrees.h"
 #include "GameLogic/Object/Object.h"
 
 #include <algorithm>
@@ -199,7 +200,31 @@ bool AICommands::attackObject(GameLogic &logic, const GameMessage &m)
 	}
 	const bool force = m.getType() == MSG_DO_FORCE_ATTACK_OBJECT;
 	(force ? m_stats.forceAttacks : m_stats.attacks) += 1;
-	Object *victim = logic.findObjectByID(who->objectID);
+	// PORT-208 (issue #490, lane LOCAL-42): RW 0x77AF18 (force, MSG_DO_FORCE_ATTACK_OBJECT RW 0x77AED3) / RW 0x77C1C2 (MSG_DO_ATTACK_OBJECT RW
+	// 0x77C170) compare the victim id with 99999999 (cmp [edi+0x74], 0x5F5E0FF: the clicked map tree, the stand-in the client's picker handed out). With
+	// AIData AllowForestFires (TheAI's data + 0xBC, the port's GameLogicSettings::allowForestFires) the tree at the message's location (argument 1,
+	// RW 0x77AF37) is made an object (TheTerrainLogic RW 0x68449B, the port's TerrainTrees::makeTreeObject), its makeObjectScriptSelectable (RW 0x6719FA,
+	// pushed 1) runs, and that object is the victim; without the setting, or with no tree there, the id resolves to null (xor edi, edi at RW 0x77AF67 /
+	// 0x77C211) and the command ends at RW 0x77AF69 / 0x77C213.
+	Object *victim = nullptr;
+	if (GameLogic::isTreeStandInID(who->objectID))
+	{
+		const GameMessageArgument *where = arg(m, 1, ARGUMENTDATATYPE_LOCATION);
+		if (!where || !logic.settings().allowForestFires)
+		{
+			return true; // RW 0x77AF67 / 0x77C211 -> the victim is null: nothing happens
+		}
+		victim = logic.trees().makeTreeObject(where->location);
+		if (!victim)
+		{
+			return true; // RW 0x77AF44 / 0x77C1EE: no tree at that point
+		}
+		victim->setScriptSelectable(true); // RW 0x77AF4C .. 0x77AF65: RW 0x70E013 (the drawable) + RW 0x6719FA(1)
+	}
+	else
+	{
+		victim = logic.findObjectByID(who->objectID);
+	}
 	if (!victim || victim->isDestroyed())
 	{
 		return true; // the target is already gone: nothing happens
@@ -211,31 +236,16 @@ bool AICommands::attackObject(GameLogic &logic, const GameMessage &m)
 	}
 	else if (logic.aiWorld() && logic.aiWorld()->config().pathfind.planningModeEnabled)
 	{
-		// lane MOVE-3 / P-9: RW 0x77C22F .. 0x77C254: MSG_DO_ATTACK_OBJECT submits AttackObjectGroupOrder (RW 0x7574F8)
+		// lane MOVE-3 / P-9: RW 0x77C22F .. 0x77C254: MSG_DO_ATTACK_OBJECT submits AttackObjectGroupOrder (RW 0x7574F8); the id it carries is the
+		// one compare at RW 0x77C23C reads ([edi+0x74]), i.e. the made tree's own id, not the stand-in's
 		group.releaseWeaponLockForGroup(LOCKED_TEMPORARILY); // RW 0x77C226
-		group.planningAttackObject(who->objectID, logic.players().getNthPlayer(m.getPlayerIndex())->orderMode());
+		group.planningAttackObject(victim->getID(), logic.players().getNthPlayer(m.getPlayerIndex())->orderMode());
 		group.clearTemporarySpeedCaps(); // RW 0x77C254 -> 0x77B00A -> 0x77A342 (RW 0x76FD04)
 		return true;
 	}
-	for (Object *o : group.members())
-	{
-		AIUpdateInterface *ai = o->getAIUpdateInterface();
-		if (!ai)
-		{
-			continue;
-		}
-		Object *target = victim;
-		if (o->isKindOf((unsigned)CombatNames::kinds().horde) && victim->getContainedBy() && victim->getContainedBy()->getContain() &&
-			victim->getContainedBy()->getContain()->getHordeContainInterface())
-		{
-			target = victim->getContainedBy(); // a horde fights the horde of the member that was clicked
-		}
-		const bool ok = force ? ai->aiForceAttackObject(target, CMD_FROM_PLAYER) : ai->aiAttackObject(target, CMD_FROM_PLAYER);
-		m_stats.attackOrdersAccepted += ok ? 1u : 0u;
-	}
+	group.groupAttackObject(victim, force, CMD_FROM_PLAYER);
 	// RW 0x76FD04 through RW 0x77B00A: the force attack (RW 0x77AF8E -> 0x77A3BF, lane PLAY-2) and the plain one (RW 0x77C254 / 0x77C260 -> 0x77A3BE)
-	group.clearTemporarySpeedCaps();
-	return true;
+	group.clearTemporarySpeedCaps();	return true;
 }
 
 // lane PLAY-2: MSG_DO_FORCE_ATTACK_GROUND, RW 0x77AF93 (see AICommands.h)

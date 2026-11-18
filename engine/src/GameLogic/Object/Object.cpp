@@ -1520,9 +1520,9 @@ CanAttackResult Object::getAbleToUseWeaponAgainstTarget(AbleToAttackType attackT
 		return m_weapons->getAbleToUseWeaponAgainstTarget(attackType, victim, pos, source);
 	}
 	static const int kContesting = CombatNames::status("CONTESTING_BUILDING");
-	if (testStatus((unsigned)kContesting) && (static_cast<unsigned>(attackType) & 8u) == 0u && !victim)
+	if (testStatus((unsigned)kContesting) && (static_cast<unsigned>(attackType) & 8u) == 0u && !getContainedBy())
 	{
-		return ATTACKRESULT_INVALID_SHOT;
+		return ATTACKRESULT_INVALID_SHOT; // RW 0x6C86B1 .. 0x6C86B3
 	}
 	return ATTACKRESULT_INVALID_SHOT;
 }

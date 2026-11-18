@@ -3,10 +3,11 @@
 result and runs tools/land.py --batch <name> on the PC.
 
     python3 tools/colab/batch_bot.py plan                       # the PRs a batch would take now, and why the others wait
-    python3 tools/colab/batch_bot.py run [--name 2026-11-18a] [--prs 601,605] [--no-comment] [--rounds 3]
+    python3 tools/colab/batch_bot.py run [--name 2026-11-18a] [--prs 601,605] [--max 5] [--no-comment] [--rounds 3]
 
 `run`:
- 1. takes every open PR whose newest checker report (tools/colab/pr_checker.py, `<!-- prcheck <head> -->`) is on its current head and
+ 1. takes at most --max (default 5, owner 2026-11-18: a small batch needs at most 3 bisect points, each a long rebuild; 0 = no
+    cap) open PRs, oldest first, whose newest checker report (tools/colab/pr_checker.py, `<!-- prcheck <head> -->`) is on its current head and
     has no ❌ (a pin whose cause the PR names is a ⚠️, not a ❌), not returned to its agent since, not a draft, not Claude's own branch;
  2. merges them in number order onto origin/main as batch/<name> in its own tree (workspace/wt/batch): the shared tables by the union of
     both sides' rows (docs/STOPS.md, engine/CMakeLists.txt, engine/cmake/*.cmake, RESERVED.tsv, the hand lists), README from main
@@ -23,6 +24,16 @@ result and runs tools/land.py --batch <name> on the PC.
     openbfme-runs/batch/<name>/report.md: the PRs in and out and why, renumbered stops, re-measured pins, the suite, and every PR's
     "check in game" lines for TOP20.
 Claude reads the report, adds what needs judgement (the pin's `// pin:` line, the TOP20 entries) and lands. Nothing here touches main.
+
+`loop` (owner 2026-11-18: "сделать бота постоянным циклом на sb2"; autostart.d/batch.sh starts it, watchdog.py keeps it running, the
+dashboard's Colab 2 card shows it): every 15 minutes, from its installed copy /content/sandbox/batch_bot.py, it
+  - waits while a `run` is going (a hand one too) and while its last green batch is not in origin/main yet: the batch's PRs stay open
+    until Claude lands it, so a next batch would take them again;
+  - otherwise runs a batch (`run --name <date><next letter>`, log on the Drive next to the reports) when the checker has --min (3) green
+    PRs, or at least one and --idle-hours (2) passed since the last batch;
+  - after a batch that did not come out green waits --idle-hours before the next (a red main must not rebuild every 15 minutes);
+  - writes one line per round to /content/batch_loop.log (the watchdog's activity and the dashboard's log tail) and restarts on
+    origin/main's newer copy of itself between rounds.
 """
 from __future__ import annotations
 
@@ -56,6 +67,8 @@ PINS = {"perf1*": "OPENBFME_PERF1_REGEN", "uber1*": "OPENBFME_UBER1_REGEN"}
 UNION = {"docs/STOPS.md", "engine/CMakeLists.txt", "docs/stops.d/RESERVED.tsv", "docs/ennorath/NIGHT_WATCH.md", "docs/ennorath/PROBLEMS.md",
          "docs/ennorath/TOP20.md", "docs/ennorath/PR_CANDIDATES.md", "docs/ennorath/MODULE_GAPS.md", "docs/ennorath/TEST_BASELINE.md"}
 RETURNED = re.compile(r"<!-- returned -->|не принят", re.I)
+# pr_checker.py's mark (2026-11-18): the base tests the PR moves (their values differ from main's); empty = a quiet PR
+MOVES = re.compile(r"<!-- prcheck-moves ([^ ]*) ?-->")
 FRAGMENT = re.compile(r"^docs/stops\.d/S-(\d+)\.md$")
 
 
@@ -104,8 +117,26 @@ def agent_env() -> dict:
     return _ENV
 
 
+STATUS_DIR = Path(os.environ.get("OPENBFME_STATUS_DIR", "/content/status"))
+
+
+def status(key: str, text: str) -> None:
+    """What this bot does right now, one line in /content/status/<key>.txt (owner 2026-11-18: the dashboard says what each bot is busy
+    with); watchdog.py puts every such line into the sandbox's heartbeat. Never fails the bot."""
+    try:
+        STATUS_DIR.mkdir(parents=True, exist_ok=True)
+        (STATUS_DIR / f"{key}.txt").write_text(text[:300] + "\n", encoding="utf-8")
+    except OSError:
+        pass
+
+
+RUN_KEY = ""   # set by `run`: its log lines are its status
+
+
 def log(msg: str) -> None:
     print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
+    if RUN_KEY:
+        status(RUN_KEY, f"партия {RUN_KEY.removeprefix('batch-')}: {msg}")
 
 
 # ---------------------------------------------------------------- 1. candidates
@@ -143,6 +174,8 @@ def verdict(p: dict) -> str:
     if "❌" in real[-1]["body"]:
         return "red in the checker's report"
     p["_report"] = real[-1]["body"]  # its named pins attribute a moved pin without a bisect (checker_pins)
+    m = MOVES.search(real[-1]["body"])
+    p["_moves"] = [t for t in m.group(1).split(",") if t] if m else None   # None: checked before the mark, treated as quiet
     return "green"
 
 
@@ -166,15 +199,66 @@ def fork_check(head: str) -> str:
     return last.get("conclusion") or "running"
 
 
-def candidates(only: list[int] | None) -> tuple[list[dict], list[tuple[dict, str]]]:
+MAX_PRS = 5   # owner 2026-11-18: "брать по 5 пр максимум", fewer merge points for a bisect to walk
+
+
+CLAIM_HOURS = 12   # a claim of a run that never wrote its report (the runtime died) stops counting after this
+
+
+def claimed(own: str = "") -> dict[int, str]:
+    """PR number -> the batch that holds it (owner 2026-11-18: batches run on two sandboxes at once). Every run writes
+    RUNS/<name>/claim.json with its PRs at its start; the claim holds while the run goes (no report.md yet, younger than CLAIM_HOURS) and
+    while its green branch origin/batch/<name> is not in origin/main. A red run (report, no branch) or a landed one frees its PRs."""
+    held: dict[int, str] = {}
+    for f in RUNS.glob("*/claim.json") if RUNS.exists() else []:
+        name = f.parent.name
+        if name == own:
+            continue
+        try:
+            prs = json.loads(f.read_text()).get("prs") or []
+        except (OSError, ValueError):
+            continue
+        branch = f"refs/remotes/origin/batch/{name}"
+        if sh(["git", "rev-parse", "-q", "--verify", branch], cwd=REPO).returncode == 0:
+            hold = sh(["git", "merge-base", "--is-ancestor", branch, "refs/remotes/origin/main"], cwd=REPO).returncode != 0
+        else:
+            hold = not (f.parent / "report.md").exists() and time.time() - f.stat().st_mtime < CLAIM_HOURS * 3600
+        if hold:
+            held.update({int(n): name for n in prs})
+    return held
+
+
+def candidates(only: list[int] | None, cap: int = MAX_PRS, own: str = "") -> tuple[list[dict], list[tuple[dict, str]]]:
     prs = json.loads(gh("pr", "list", "--state", "open", "--limit", "100", "--json",
                         "number,title,body,headRefOid,headRefName,isDraft,author,isCrossRepository,headRepositoryOwner,files"))
     prs = sorted((p for p in prs if not only or p["number"] in only), key=lambda p: p["number"])
+    held = claimed(own)
     take, wait = [], []
     for p in prs:
-        why = verdict(p)
+        why = f"уже в партии {held[p['number']]}" if p["number"] in held else verdict(p)
         (take.append(p) if why == "green" else wait.append((p, why)))
+    take, held_back = split_movers(take)
+    wait = held_back + wait
+    if cap > 0 and len(take) > cap:   # the oldest green PRs go first; the rest wait for the next batch, with no comment on them
+        wait = [(p, f"следующая партия (в партии не больше {cap} PR)") for p in take[cap:]] + wait
+        take = take[:cap]
     return take, wait
+
+
+def split_movers(green: list[dict]) -> tuple[list[dict], list[tuple[dict, str]]]:
+    """Owner 2026-11-18: the bisects of moved hash tests made the batches slow (18b: 6.5 hours for 15 PRs). A PR the checker saw move a base
+    test (pr_checker.py's prcheck-moves mark) goes alone: no bisect, its pins are re-measured on it; the quiet ones go together. The oldest
+    green PR decides which kind of batch comes next, so neither kind waits for ever."""
+    if not green:
+        return [], []
+    if green[0].get("_moves"):
+        return [green[0]], [(p, f"следующая партия: #{green[0]['number']} сдвигает хеш-тесты и идёт один") for p in green[1:]]
+    quiet = [p for p in green if not p.get("_moves")]
+    return quiet, [(p, f"сдвигает хеш-тесты ({', '.join(p['_moves'])}): пойдёт отдельной партией") for p in green if p.get("_moves")]
+
+
+def solo_mover(take: list[dict]) -> bool:
+    return len(take) == 1 and bool(take[0].get("_moves"))
 
 
 # ---------------------------------------------------------------- 2-3. merging, stops
@@ -289,6 +373,8 @@ def merge_batch(name: str, prs: list[dict], out: list[int]) -> tuple[list[dict],
 # ---------------------------------------------------------------- 4. build and tests
 
 def build(tag: str, out_dir: Path) -> tuple[bool, str]:
+    if RUN_KEY:
+        status(RUN_KEY, f"партия {RUN_KEY.removeprefix('batch-')}: сборка {tag}")
     done = sh(["bash", "tools/colab/build_tests.sh"], timeout=4 * 3600)
     text = done.stdout + done.stderr
     (out_dir / f"build-{tag}.log").write_text(text, encoding="utf-8")
@@ -444,6 +530,36 @@ def repin(test: str, ps: dict | list[dict], name: str) -> str:
 
 # ---------------------------------------------------------------- 6-7. returns, report
 
+BATCH_MARK = "<!-- batch {name} {head} -->"
+LEFT_MARK = "<!-- batch-left {name} {head} -->"
+
+
+def taken_comment(name: str, p: dict, sandbox: str) -> str:
+    """The PR is in batch `name`: the dashboard shows it "в батче" until a later check, return or this batch's left mark."""
+    return (BATCH_MARK.format(name=name, head=p["headRefOid"]) + "\n"
+            f"📦 **PR #{p['number']} взят в партию `{name}`** (песочница {sandbox}): тесты всей партии идут там. Зелёная партия переносится "
+            "в main, и PR закроется сам; при поломке придёт комментарий с причиной.")
+
+
+def left_batch(take: list[dict], rows: dict, out: dict) -> list[tuple[dict, str]]:
+    """PRs that leave batch `name` without a return comment: a conflict with the PRs before them, or a batch that is not green."""
+    conflicted = {p["number"]: why for p, why in rows.get("conflicted") or []}
+    green = rows["verdict"].startswith("зелёный")
+    res = []
+    for p in take:
+        if p["number"] in out:
+            continue  # its return comment says why
+        if p["number"] in conflicted:
+            res.append((p, "конфликтует с PR, влитыми в партию раньше: пойдёт в следующую партию"))
+        elif not green:
+            res.append((p, f"партия не зелёная ({rows['verdict']}), но не из-за этого PR: снова ждёт партии"))
+    return res
+
+
+def left_comment(name: str, p: dict, why: str) -> str:
+    return LEFT_MARK.format(name=name, head=p["headRefOid"]) + f"\n↩️ PR #{p['number']} вышел из партии `{name}`: {why}."
+
+
 def return_comment(name: str, p: dict, tests: list[tuple[str, str]]) -> str:
     lines = [f"<!-- returned --> Не принят в батч {name}: бисект по точкам слияния (точка до этого PR зелёная, точка с ним красная, остальное "
              "то же) показал, что этот PR ломает то, что на main зелёное (`tools/colab/batch_bot.py`).", ""]
@@ -497,10 +613,128 @@ def report(name: str, out_dir: Path, rows: dict) -> Path:
     return path
 
 
+# ---------------------------------------------------------------- loop
+
+LOOP_STATE = Path(os.environ.get("BATCH_LOOP_STATE", "/content/sandbox/batch-loop.json"))
+
+
+def say(msg: str) -> None:
+    print(f"{time.strftime('%F %T', time.gmtime())} UTC {msg}", flush=True)
+    status("batch-loop", f"цикл: {msg}")
+
+
+def is_run(argv: list[str]) -> bool:
+    """`python3 <any>/batch_bot.py run ...` (a hand run too); the loop itself is `... loop` and never matches."""
+    return len(argv) >= 3 and argv[0].endswith(("python3", "python")) and argv[1].endswith("batch_bot.py") and argv[2] == "run"
+
+
+def run_going() -> bool:
+    for d in Path("/proc").iterdir():
+        if d.name.isdigit() and int(d.name) != os.getpid():
+            try:
+                argv = [a.decode("utf-8", "replace") for a in (d / "cmdline").read_bytes().split(b"\0") if a]
+            except OSError:
+                continue
+            if is_run(argv):
+                return True
+    return False
+
+
+def unlanded(name: str) -> bool:
+    """The batch's green branch is on origin and not in origin/main yet (deleted by Claude = given up: no longer waited for)."""
+    ref = f"refs/remotes/origin/batch/{name}"
+    if sh(["git", "rev-parse", "-q", "--verify", ref], cwd=REPO).returncode:
+        return False
+    return sh(["git", "merge-base", "--is-ancestor", ref, "refs/remotes/origin/main"], cwd=REPO).returncode != 0
+
+
+def next_name(day: str, used: set[str]) -> str:
+    for c in "abcdefghijklmnopqrstuvwxyz":
+        if day + c not in used:
+            return day + c
+    return day + "-" + time.strftime("%H%M", time.gmtime())
+
+
+def should_start(green: int, since_s: float, minimum: int, idle_hours: float) -> bool:
+    return green > 0 and (green >= minimum or since_s >= idle_hours * 3600)
+
+
+def loop_round(a, st: dict) -> str:
+    """One round; returns the line for the log."""
+    sh(["git", "fetch", "-q", "--prune", "origin"], cwd=REPO)
+    if run_going():
+        return "a batch run is going: waiting"
+    last = st.get("green")
+    if last and unlanded(last):
+        return f"batch/{last} is green and waits for Claude's landing (tools/land.py --batch {last})"
+    since = time.time() - st.get("finished", 0)
+    if st.get("red") and since < a.idle_hours * 3600:
+        return f"the last batch ({st.get('name')}) did not come out green: next try in {int((a.idle_hours * 3600 - since) / 60)} min"
+    take, _ = candidates(None, a.max)
+    if not solo_mover(take) and not should_start(len(take), since, a.min, a.idle_hours):   # a PR that moves pins goes at once
+        return f"{len(take)} green PR(s): a batch starts at {a.min}, or at 1 after {a.idle_hours:g} h since the last batch"
+    used = {q.name.split(".")[0] for q in RUNS.glob("2*")} if RUNS.exists() else set()
+    # the batch branches on origin too: a run folder can be gone from Drive while its branch lives (2026-11-18: the loop named its batch
+    # 2026-11-18a over the morning's batch/2026-11-18a)
+    used |= {r.rsplit("/", 1)[-1] for r in sh(["git", "ls-remote", "--heads", "origin", "refs/heads/batch/*"], cwd=REPO).stdout.split()
+             if r.startswith("refs/heads/batch/")}
+    name = next_name(time.strftime("%Y-%m-%d", time.gmtime()), used)
+    RUNS.mkdir(parents=True, exist_ok=True)
+    say(f"batch {name}: {' '.join('#%d' % p['number'] for p in take)}")
+    me = Path(__file__).resolve()
+    with open(RUNS / f"{name}.log", "w") as out:
+        rc = subprocess.run([sys.executable, str(me), "run", "--name", name, "--max", str(a.max)], cwd=str(REPO),
+                            stdout=out, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL).returncode
+    st.update(name=name, finished=time.time(), red=rc != 0)
+    if rc == 0:
+        st["green"] = name
+        return f"batch {name} green: batch/{name} pushed, waits for Claude's landing"
+    return f"batch {name} not green: {RUNS / name / 'report.md'}"
+
+
+def self_update() -> None:
+    """As pr_checker.py: the installed copy restarts on origin/main's newer one between rounds; a copy inside a git tree stays."""
+    me = Path(__file__).resolve()
+    if subprocess.run(["git", "-C", str(me.parent), "rev-parse", "--git-dir"], capture_output=True).returncode == 0:
+        return
+    new = subprocess.run(["git", "show", "origin/main:tools/colab/batch_bot.py"], cwd=REPO, capture_output=True).stdout
+    if not new or new == me.read_bytes():
+        return
+    try:
+        compile(new, str(me), "exec")
+    except SyntaxError as e:
+        say(f"self-update: origin/main's batch_bot.py does not compile ({e}); keeping the running copy")
+        return
+    tmp = me.with_name(me.name + ".new")
+    tmp.write_bytes(new)
+    os.replace(tmp, me)
+    say("self-update: restarting on origin/main's batch_bot.py")
+    os.execv(sys.executable, [sys.executable, str(me)] + sys.argv[1:])
+
+
+def cmd_loop(a) -> int:
+    while True:
+        try:
+            st = json.loads(LOOP_STATE.read_text()) if LOOP_STATE.exists() else {}
+        except ValueError:
+            st = {}
+        try:
+            line = loop_round(a, st)
+        except Exception as e:  # a GitHub or Drive hiccup: the next round tries again
+            line = f"round failed: {e}"[:300]
+        LOOP_STATE.write_text(json.dumps(st))
+        say(line)
+        if a.once:
+            return 0
+        time.sleep(a.every)
+        sh(["git", "fetch", "-q", "origin"], cwd=REPO)
+        self_update()
+
+
 # ---------------------------------------------------------------- main
 
 def cmd_plan(a) -> int:
-    take, wait = candidates(a.prs)
+    take, wait = candidates(a.prs, a.max)
     for p in take:
         print(f"take  #{p['number']} {p['title'][:90]}")
     for p, why in wait:
@@ -509,19 +743,60 @@ def cmd_plan(a) -> int:
 
 
 def cmd_run(a) -> int:
+    global RUN_KEY
     ensure_tree()
     name = a.name or dt.datetime.utcnow().strftime("%Y-%m-%d-%H%M")
+    RUN_KEY = f"batch-{name}"
     out_dir = RUNS / name
     out_dir.mkdir(parents=True, exist_ok=True)
-    take, wait = candidates(a.prs)
+    take, wait = candidates(a.prs, a.max, own=name)
+    (out_dir / "claim.json").write_text(json.dumps({"prs": [p["number"] for p in take], "sandbox": Path("/content/sandbox_id").read_text().strip()
+                                                    if Path("/content/sandbox_id").exists() else "?", "started": time.time()}))
     log(f"batch {name}: {len(take)} green PRs: {' '.join('#%d' % p['number'] for p in take)}")
+    sandbox = Path("/content/sandbox_id").read_text().strip() if Path("/content/sandbox_id").exists() else "?"
+    if not a.no_comment:
+        # the dashboard learns from GitHub only: without this mark a PR in a running batch stayed "✅ можно брать в батч" (owner 2026-11-18)
+        for p in take:
+            gh("pr", "comment", str(p["number"]), "--body", taken_comment(name, p, sandbox))
+    try:
+        return run_batch(a, name, take, wait, out_dir)
+    except Exception as e:
+        # a crash (2026-11-18a: its branch was checked out in another tree) left its PRs "в батче" and claimed for 12 hours: the report
+        # releases the claim, the left marks put the PRs back among the green ones
+        (out_dir / "report.md").write_text(f"# Партия {name}: упала\n\n```\n{e}\n```\n", encoding="utf-8")
+        if not a.no_comment:
+            for p in take:
+                gh("pr", "comment", str(p["number"]), "--body", left_comment(name, p, f"партия упала ({str(e)[:200]}), не из-за этого PR: снова ждёт партии"))
+        (STATUS_DIR / f"{RUN_KEY}.txt").unlink(missing_ok=True)
+        raise
+
+
+def load_main_results(path: Path) -> dict[str, str]:
+    """A test's status on one origin/main ("pass" / "fail" / "build" / "none"), from a batch that ran it before; {} when none did."""
+    try:
+        return {str(k): str(v) for k, v in json.loads(path.read_text(encoding="utf-8")).items()}
+    except (OSError, ValueError, AttributeError):
+        return {}
+
+
+def save_main_results(path: Path, results: dict[str, str]) -> None:
+    merged = {**load_main_results(path), **results}   # another sandbox may have added its tests meanwhile
+    tmp = path.with_suffix(f".{os.getpid()}.tmp")
+    tmp.write_text(json.dumps(merged, sort_keys=True), encoding="utf-8")
+    tmp.replace(path)
+
+
+def run_batch(a, name: str, take: list[dict], wait: list, out_dir: Path) -> int:
     rows: dict = {"main": git("rev-parse", "origin/main").strip(), "wait": wait, "out": {}, "repinned": [], "results": {}, "main_red": set(),
                   "merged": [], "conflicted": [], "renumbered": [], "verdict": "нет PR"}
     if not take:
         report(name, out_dir, rows)
         return 0
     out: dict[int, str] = {}
-    main_cache: dict[str, str] = {}
+    # the results of origin/main's own run, shared by every batch on the same main (2026-11-18: 18a on sb2 and 18d on sb3 each spent ~50
+    # minutes building the same main 1910e252 for the same red pins)
+    main_file = RUNS / f"main-{rows['main'][:12]}.json"
+    main_cache: dict[str, str] = load_main_results(main_file)
     for rnd in range(1, a.rounds + 1):
         rows["verdict"] = ""
         merged, conflicted, renumbered = merge_batch(name, take, list(out))
@@ -550,6 +825,7 @@ def cmd_run(a) -> int:
             git("checkout", "-q", "-f", "--detach", "origin/main")
             ok_main, _ = build("main", out_dir)
             main_cache.update({t: s for t, (s, _) in run_tests(unknown).items()} if ok_main else {t: "build" for t in unknown})
+            save_main_results(main_file, main_cache)
             git("checkout", "-q", "-f", f"batch/{name}")
         rows["main_red"] = {t for t in doctests if main_cache.get(t) in ("fail", "build")}
         excluded_now: dict[int, list[tuple[str, str]]] = {}
@@ -611,21 +887,32 @@ def cmd_run(a) -> int:
         git("push", "-q", "-f", "origin", f"HEAD:refs/heads/batch/{name}")
     path = report(name, out_dir, rows)
     log(f"{rows['verdict']}: {path}")
+    if not a.no_comment:
+        for p, why in left_batch(take, rows, out):
+            gh("pr", "comment", str(p["number"]), "--body", left_comment(name, p, why))
+    (STATUS_DIR / f"{RUN_KEY}.txt").unlink(missing_ok=True)   # done: the loop's line (or nothing) says the rest
     return 0 if rows["verdict"].startswith("зелёный") else 1
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
+    lp = sub.add_parser("loop")
+    lp.add_argument("--max", type=int, default=MAX_PRS)
+    lp.add_argument("--min", type=int, default=3, help="green PRs that start a batch at once")
+    lp.add_argument("--idle-hours", type=float, default=2.0, help="after this long since the last batch, one green PR is enough")
+    lp.add_argument("--every", type=int, default=900)
+    lp.add_argument("--once", action="store_true")
     for c in ("plan", "run"):
         s = sub.add_parser(c)
         s.add_argument("--prs", type=lambda v: [int(x) for x in v.split(",") if x], default=None)
+        s.add_argument("--max", type=int, default=MAX_PRS, help=f"at most this many green PRs per batch, oldest first (default {MAX_PRS}; 0 = all)")
         if c == "run":
             s.add_argument("--name")
             s.add_argument("--rounds", type=int, default=3)
             s.add_argument("--no-comment", action="store_true", help="do not comment on the excluded PRs (a dry run)")
     a = ap.parse_args()
-    return cmd_plan(a) if a.cmd == "plan" else cmd_run(a)
+    return cmd_plan(a) if a.cmd == "plan" else cmd_run(a) if a.cmd == "run" else cmd_loop(a)
 
 
 if __name__ == "__main__":

@@ -825,6 +825,13 @@ public:
 	// ZH GameLogic::friend_createObject / ThingFactory::newObject (Common/Thing/ThingFactoryObjects.cpp): the whole creation order
 	Object *newObject(const ThingTemplate *tt, Team *team, const ObjectStatusMaskType &status, ObjectID id = INVALID_ID);
 	Object *findObjectByID(ObjectID id) const;
+	// lane LOCAL-42 / PORT-208 (S-2480): the stand-in a clicked map tree is picked as. RW 0x77AF18 / 0x77C1C2 compare the message's victim id with
+	// 0x5F5E0FF (99999999) and the client's picker RW 0x48ACF5 .. 0x48ADA0 hands out 99999996 .. 99999999, the four ids of the tree stand-ins GameLogic
+	// keeps (RW 0x62F508: ids 0x5F5E0FF, 0x5F5E0FE, 0x5F5E0FC, 0x5F5E0FD made from TheOneTree / TheNonInteractableTree / TheGrabbableTree /
+	// TheHarvestableTree, one per tree flavour). The port makes no object for them: a stand-in is an ID only, never looked up, never hashed, never saved,
+	// and the logic turns it into a real tree object with TerrainTrees::makeTreeObject (RW 0x68449B) when the command executes
+	static bool isTreeStandInID(ObjectID id) { return id >= 99999996u && id <= 99999999u; }
+	static const ObjectID kTreeStandInID = 99999999; ///< the one the picker returns (RW 0x48AD57: grabbable AND harvestable)
 	Object *getFirstObject() const { return m_objectHead; }
 	Object *getLastObject() const { return m_objectTail; }
 	size_t getObjectCount() const { return m_objectCount; }

@@ -130,10 +130,10 @@ public:
 	// TOP20 #21 r3: canAttackObject without the order's shroud gate (VIS-1, RW 0x82C167: the action helper's, not RW 0x6C9147's): the attack machine's
 	// continue test RW 0x7417E4 .. 0x741807 calls RW 0x68D6A6 -> RW 0x6C9147, which has no shroud test
 	bool canAttackObjectNoShroud(const Object &victim, CommandSourceType source, bool forced) const;
-	// PORT-198 (RW 0x6C9147 pre-weapon eligibility gates + RW 0x6C8652 / 0x6C9147 CanAttackResult):
+	// PORT-208 (issue #490) & PORT-198 (issue #465): RW 0x68B5FA / 0x68D6A6 / 0x6C8652 / 0x6C9147
 	static bool canAttackObjectGates(const Object &sourceObj, const Object &victim, CommandSourceType source, bool forced);
-	CanAttackResult getAbleToUseWeaponAgainstTarget(AbleToAttackType attackType, const Object *victim, const Coord3D *pos, CommandSourceType source) const;
-	CanAttackResult getAbleToAttackSpecificObject(AbleToAttackType attackType, const Object *victim, CommandSourceType source) const;
+	CanAttackResult getAbleToUseWeaponAgainstTarget(int attackType, const Object *victim, const Coord3D *pos, CommandSourceType source) const;
+	CanAttackResult getAbleToAttackSpecificObject(int attackType, const Object *victim, CommandSourceType source) const;
 
 	// ---- range ---------------------------------------------------------------------------------------------------------------------
 	// RW 0x6CC653: Weapon::isWithinAttackRange(source, victim, extra, checkMinRange) for the current weapon; the AI passes extra 0 and checkMin true
@@ -141,6 +141,9 @@ public:
 	bool isWithinAttackRange(const Coord3D &pos) const;
 	// lane GARRISON-2: RW 0x6CC653 for the weapon in `slot` (TurretAI::isAnyWeaponInRangeOf, RW 0x8DC626)
 	bool isSlotWithinAttackRange(int slot, const Object &victim, float extra = 0.0f, bool checkMin = true) const;
+	// PORT-208: RW 0x6CC622 (Weapon::isWithinAttackRange(source, pos)) and RW 0x6CBFF1 (Weapon::isSourceWithGoalPositionWithinAttackRange) for `slot`
+	bool isSlotWithinAttackRange(int slot, const Coord3D &pos) const;
+	bool isSlotSourceWithGoalWithinAttackRange(int slot, const Coord3D &goalPos, const Object *victim, const Coord3D &targetPos) const;
 	// isWithinAttackRange with the current weapon's bonus computed by the caller (currentWeaponBonus): the bonus is the attacker's alone, so a loop over many
 	// victims computes it once (performance, the same answers and the same melee reach left in the range host). False without a current weapon
 	bool currentWeaponBonus(WeaponBonus &out) const;

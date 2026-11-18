@@ -300,14 +300,14 @@ Object *SpawnBehavior::getClosestSlave(const Coord3D *pos)
 	return closest;
 }
 
-// RW 0x8637BE (PORT-198): order each slave to force-attack `target`
+// RW 0x8637BE (PORT-198): order each live slave to force-attack `target`
 void SpawnBehavior::orderSlavesToAttackTarget(Object *target, int maxShotsToFire, CommandSourceType source)
 {
 	GameLogic &logic = getObject()->logic();
 	const std::vector<ObjectID> ids(m_spawnIDs.begin(), m_spawnIDs.end());
 	for (ObjectID id : ids)
 	{
-		if (Object *o = logic.findObjectByID(id))
+		if (Object *o = logic.findObjectByID(id); o && !o->isDestroyed())
 		{
 			if (AIUpdateInterface *ai = o->getAIUpdateInterface())
 			{
@@ -317,7 +317,7 @@ void SpawnBehavior::orderSlavesToAttackTarget(Object *target, int maxShotsToFire
 	}
 }
 
-// RW 0x863807 (PORT-198): order each slave to attack position `*pos`
+// RW 0x863807 (PORT-198 & PORT-208): order each live slave to attack position `*pos`
 void SpawnBehavior::orderSlavesToAttackPosition(const Coord3D *pos, int maxShotsToFire, CommandSourceType source)
 {
 	if (!pos)
@@ -328,7 +328,7 @@ void SpawnBehavior::orderSlavesToAttackPosition(const Coord3D *pos, int maxShots
 	const std::vector<ObjectID> ids(m_spawnIDs.begin(), m_spawnIDs.end());
 	for (ObjectID id : ids)
 	{
-		if (Object *o = logic.findObjectByID(id))
+		if (Object *o = logic.findObjectByID(id); o && !o->isDestroyed())
 		{
 			if (AIUpdateInterface *ai = o->getAIUpdateInterface())
 			{

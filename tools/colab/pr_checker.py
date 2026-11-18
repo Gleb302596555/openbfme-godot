@@ -92,6 +92,19 @@ def gh(*args: str) -> str:
     return done.stdout
 
 
+STATUS_DIR = Path(os.environ.get("OPENBFME_STATUS_DIR", "/content/status"))
+
+
+def status(key: str, text: str) -> None:
+    """What this bot does right now, one line in /content/status/<key>.txt (owner 2026-11-18: the dashboard says what each bot is busy
+    with); watchdog.py puts every such line into the sandbox's heartbeat. Never fails the bot."""
+    try:
+        STATUS_DIR.mkdir(parents=True, exist_ok=True)
+        (STATUS_DIR / f"{key}.txt").write_text(text[:300] + "\n", encoding="utf-8")
+    except OSError:
+        pass
+
+
 def load_state() -> dict:
     return json.loads(STATE.read_text()) if STATE.exists() else {"checked": {}, "main": {}}
 
@@ -119,19 +132,57 @@ def build() -> tuple[bool, str]:
     return True, ""
 
 
+# What a test measured, not only its colour (owner 2026-11-18): a hash test red on main (aiexpand1, skirmish AI vs AI, save4b ...) that a PR
+# moves stays red, so pass / fail alone cannot see the move. The signature is the failures' own lines (the assertion and its values, file
+# paths and line numbers dropped): equal on main and on the PR = the PR does not move the test.
+SIG_LINE = re.compile(r"ERROR:|values:|TEST CASE:|logged:|FATAL|SIGSEGV|CRASH")
+SIG_PATH = re.compile(r"^\S*?\.(?:cpp|h|hpp)(?::\d+|\(\d+\))?:?\s*")
+
+
+def signature(status: str, out: str) -> str:
+    """'pass' / 'none', or a short hash of the failure lines of `out` (doctest's own output)."""
+    if status != "fail":
+        return status
+    keep = [SIG_PATH.sub("", l.strip()) for l in out.splitlines() if SIG_LINE.search(l)]
+    return "fail:" + hashlib.sha1("\n".join(keep).encode("utf-8", "replace")).hexdigest()[:12]
+
+
+SIGS: dict[str, str] = {}   # pattern -> signature of its last run (run_test fills it; each pattern runs in one thread)
+
+
+def moved_tests(res: dict[str, tuple[str, str]], base: dict[str, str], main_sigs: dict[str, str]) -> list[str]:
+    """The base tests whose result on the PR differs from main's: by signature where both have one, else by status."""
+    return [tc for tc in BASE if SIGS.get(tc, res[tc][0]) != main_sigs.get(tc, base.get(tc))]
+
+
+MOVES = re.compile(r"<!-- prcheck-moves ([^ ]*) ?-->")
+
+
+def moves_mark(moved: list[str]) -> str:
+    """The comment's lines for batch_bot.py (the hidden mark) and the reader."""
+    mark = f"<!-- prcheck-moves {','.join(moved)} -->"
+    if moved:
+        return mark + f"\n🧷 Сдвигает хеш-тесты {', '.join(f'`{t}`' for t in moved)} (их значения не как на main): в партию пойдёт один."
+    return mark + "\n🔕 Базовый набор не сдвинут (значения как на main): пойдёт в общую партию."
+
+
 def run_test(tc: str) -> tuple[str, str, str]:
-    """(pattern, 'pass'|'fail'|'none', first error lines)."""
+    """(pattern, 'pass'|'fail'|'none', first error lines); its signature goes to SIGS[pattern]."""
     exe = WT / "engine/build/openbfme_tests"
     try:
         done = sh([str(exe), f"-tc={tc}"], timeout=2400, env=agent_env())
         out = done.stdout + done.stderr
     except subprocess.TimeoutExpired:
+        SIGS[tc] = "fail:timeout"
         return tc, "fail", "timeout 40 min"
     m = re.search(r"test cases:\s*(\d+)\s*\|\s*(\d+) passed\s*\|\s*(\d+) failed", out)
     if not m or m.group(1) == "0":
+        SIGS[tc] = "none"
         return tc, "none", ""
     errs = "\n".join([l[:220] for l in out.splitlines() if re.search(r"ERROR|FATAL|SIGSEGV|CRASH", l)][:4])
-    return tc, ("fail" if (done.returncode or m.group(3) != "0") else "pass"), errs
+    st = "fail" if (done.returncode or m.group(3) != "0") else "pass"
+    SIGS[tc] = signature(st, out)
+    return tc, st, errs
 
 
 _ENV: dict | None = None
@@ -155,6 +206,8 @@ def main_baseline(state: dict, main_sha: str) -> dict:
     """BASE on main itself, once per main commit."""
     if not set(BASE) <= set(state["main"].get("results") or {}):  # BASE grew (2026-11-17: the batch's whole set): measure main again
         state["main"] = {}
+    if not set(BASE) <= set(state["main"].get("sigs") or {}):   # measured before the signatures (2026-11-18): measure main again
+        state["main"] = {}
     if state["main"].get("sha") == main_sha and "audit" in state["main"]:
         return state["main"]["results"]
     old = state["main"].get("sha")
@@ -165,11 +218,12 @@ def main_baseline(state: dict, main_sha: str) -> dict:
             save_state(state)
             return state["main"]["results"]
     sh(["git", "checkout", "-q", "-f", "--detach", main_sha]).check_returncode()
+    status("prcheck", f"main {main_sha[:8]}: сборка и эталонный набор ({len(BASE)} наборов), с ним сравниваются PR")
     ok, err = build()
     if not ok:
         raise RuntimeError(f"main {main_sha[:8]} does not build:\n{err}")
     res = run_set(BASE)
-    state["main"] = {"sha": main_sha, "results": {k: v[0] for k, v in res.items()}}
+    state["main"] = {"sha": main_sha, "results": {k: v[0] for k, v in res.items()}, "sigs": {k: SIGS.get(k, v[0]) for k, v in res.items()}}
     state["main"]["audit"] = str(run_audit(HOME / "audit-main") or "")  # the field audit of this main: the PRs' audits compare with it
     save_state(state)
     return state["main"]["results"]
@@ -249,6 +303,7 @@ def check_pr(pr: dict, state: dict, main_sha: str, open_prs: list[dict], comment
     base = main_baseline(state, main_sha)
     sh(["git", "fetch", "-q", "origin", f"+pull/{n}/head:refs/prcheck/{n}"]).check_returncode()
     sh(["git", "checkout", "-q", "-f", "--detach", main_sha]).check_returncode()
+    status("prcheck", f"PR #{n} ({pr['title'][:60]}): вливаю в main {main_sha[:8]}")
     lines = [f"<!-- prcheck {sha} -->", f"**Проверка PR #{n}** на `main` {main_sha[:8]}, голова {sha[:8]} (песочница {SANDBOX}, `tools/colab/pr_checker.py`)", ""]
     merge = sh(["git", "-c", "user.name=prcheck", "-c", "user.email=prcheck@localhost", "merge", "--no-edit", "--no-verify", "-q", f"refs/prcheck/{n}"])
     if merge.returncode:
@@ -305,6 +360,7 @@ def check_pr(pr: dict, state: dict, main_sha: str, open_prs: list[dict], comment
             "(строка `` `<объект> <кнопка>`: почему ``; ошибка теста — чинить тест, а не объяснять)"
         lines += [head, "```", out[:3500], "```"]
     t_build = time.time()
+    status("prcheck", f"PR #{n} ({pr['title'][:60]}): сборка")
     ok, err = build()
     t_build = time.time() - t_build
     if not ok:
@@ -314,6 +370,8 @@ def check_pr(pr: dict, state: dict, main_sha: str, open_prs: list[dict], comment
     own = own_tests(diff, pr["title"])
     base_needed = touches_engine(changed)
     t_tests = time.time()
+    status("prcheck", f"PR #{n} ({pr['title'][:60]}): тесты, {len(own) + (len(BASE) if base_needed else 0)} наборов"
+           + (" и аудит полей" if base_needed else ""))
     with cf.ThreadPoolExecutor(1) as side:  # the field audit of the PR's tree beside its tests (about 8 minutes, one core)
         audit_job = side.submit(run_audit, HOME / "audit-pr") if base_needed else None
         res = run_set(own + (BASE if base_needed else []))
@@ -357,6 +415,9 @@ def check_pr(pr: dict, state: dict, main_sha: str, open_prs: list[dict], comment
     for tc, e in worse:
         if named(tc):
             lines.append(f"⚠️ `{tc}` сдвигает пин, причина в PR названа: владелец перемерит при вливании." + (f"\n```\n{e}\n```" if e else ""))
+    # the batch's split (owner 2026-11-18): a PR that moves any base test (its signature differs from main's, red on main or not) goes into
+    # a batch alone, the others together; batch_bot.py reads this mark. Without the base set run (no engine change) nothing moves.
+    lines.append(moves_mark(moved_tests(res, base, state["main"].get("sigs") or {}) if base_needed else []))
     if not worse:
         reds = [tc for tc in BASE if base.get(tc) == "fail"]
         lines.append("✅ Базовый набор как на main" + (f" (на main и так красные: {', '.join(f'`{t}`' for t in reds)})" if reds else "") + ".")
@@ -499,6 +560,29 @@ def finish(n: int, sha: str, lines: list[str], comment: bool, state: dict) -> st
     return body
 
 
+def last_checked_head(comments: list[dict]) -> str:
+    """The head of the newest real check among the PR's comments ('' = none): `<!-- prcheck <sha> -->` reports, without the ⏸️ notes
+    (a skip is not a check)."""
+    heads = [m.group(1) for c in comments for m in [re.match(r"<!-- prcheck ([0-9a-f]{40}) -->", c.get("body") or "")]
+             if m and "⏸️" not in (c.get("body") or "")]
+    return heads[-1] if heads else ""
+
+
+def sync_from_comments(p: dict, state: dict) -> None:
+    """Once per PR head: when the local state does not know this head as checked, read the PR's comments. A report on this head = checked
+    (no second run); a report on an older head = the PR was checked before, so a new head is a rework and goes first."""
+    n, head = str(p["number"]), p["headRefOid"]
+    synced = state.setdefault("synced", {})
+    if state["checked"].get(n) == head or synced.get(n) == head or p["isDraft"]:
+        return
+    comments = json.loads(gh("pr", "view", n, "--json", "comments")).get("comments") or []
+    last = last_checked_head(comments)
+    if last:
+        state["checked"][n] = last
+    synced[n] = head
+    save_state(state)
+
+
 def cycle(args) -> int:
     state = load_state()
     sh(["git", "fetch", "-q", "origin"], cwd=REPO).check_returncode()
@@ -521,6 +605,10 @@ def cycle(args) -> int:
         report = REPORTS / f"{n}-{p['headRefOid'][:8]}.md"
         return bodies[n] != h and report.exists() and "❌" in report.read_text(encoding="utf-8", errors="replace")
 
+    # GitHub is the record of what was checked, not the local state: a sandbox restored from an older backup (sb1 2026-11-18, a state from
+    # 2026-11-15) took every PR for new, re-checked the whole list and left reworked PR 523 behind the queue for hours.
+    for p in prs:
+        sync_from_comments(p, state)
     todo = [p for p in prs if (args.pr is None or p["number"] == args.pr) and not p["isDraft"]
             and (state["checked"].get(str(p["number"])) != p["headRefOid"] or body_changed(p))
             and state.get("errors", {}).get(str(p["number"])) != p["headRefOid"]
@@ -606,6 +694,7 @@ def main() -> int:
         if args.once or args.pr:
             return 0
         if not n:
+            status("prcheck", "все открытые PR проверены на своих головах: жду новых коммитов")
             time.sleep(300)
 
 
