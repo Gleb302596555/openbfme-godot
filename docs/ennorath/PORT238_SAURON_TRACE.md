@@ -188,3 +188,46 @@ attachment, animation or visual parity. Generic state/particle limitations
 include S-090 and S-095; no actual render or in-game visual check was performed.
 The `MordorGreatSauronWotr` child is declared at `:879`; inheritance and any
 other overrides must be resolved before treating this as its effective look.
+
+## Fires of Doom: bounded creation chain
+
+The literal command set uses `Command_FiresOfDoom` at slot 6; the button is a
+position-targeted SPECIAL_POWER (`commandbutton.ini:1568`), linked to
+`FiresOfDoomSpecialPower` (360000 ms reload, cursor radius 200, cast range 500;
+`specialpower.ini:2538`). The Great Sauron object unpauses it on
+`Upgrade_Level_10` and uses `WeaponFireSpecialAbilityUpdate` with
+`SauronFiresOfDoomWeapon` (`greatsauron.ini:490..518`). The literal level 10
+entry requires 6000 XP and awards that upgrade for both Sauron names
+(`includes/experiencelevels.inc:19960`). This is not a test of XP delivery,
+button range enforcement, targeting or WotR inheritance.
+
+The BFME2 donor constructor (`WeaponFireSpecialAbilityUpdateCtor.cpp`) is the
+reference; RW registration `0x659715` -> factory `0x64D7F4` -> constructor
+`0x895D98` installs main vtable `0xC64818`, slot `+0x44` = `0x8961F7`.
+The constructor resolves and loads the named weapon; the trigger checks its
+readiness, uses the object or position target, fires it and starts recharge.
+The port implements these paths in `SpecialAbilityModules.cpp`; exact facing,
+AI, client, and full timing remain outside this bounded comparison.
+
+The declared weapon (`weapon.ini:14942`) contains a `WeaponOCLNugget` naming
+`OCL_FiresOfDoom`, whose literal definition has one create-object entry with
+count 1 and another with count 2 and `SpreadFormation` / `SPAWN_AROUND`
+(`objectcreationlist.ini:9635..9652`). This is a declaration of intended
+entries, not proof of three successfully placed objects. RW nugget ctor
+`0x90F8B8` installs vtable `0xC7B410`, whose position slot `+0x18` is
+`0x90F887 -> 0x5F00CA` and object slot `+0x14` is `0x90F858 -> 0x5F0126`;
+`WeaponDelivery.cpp` implements the corresponding position and object
+branches. Existing S-530 covers remaining OCL limitations; S-924 covers the
+later forced-position weapon-fire path.
+
+`TheFiresOfDoom` (`object/system/system.ini:4797..4879`) declares a 10000 ms
+lifetime and two one-shot `FireWeaponUpdate` nuggets: immediate
+`RainOfFirePhaseInitialWeapon` and `RainOfFirePhaseOneWeapon` after 2500 ms.
+The former declares a Lua fear event, the latter multiple delayed damage and
+MetaImpact nuggets (`weapon.ini:20869..`); S-1220, S-321, S-1600 and S-1790
+remain relevant shared limitations. The initial declaration uses `EXMeteor`
+and meteor particle bones; this is not a verified rendered model, animation,
+particle, sound, exact hit, placement, or lifetime result. The earlier matrix
+PASS observed one `TheFiresOfDoom` object made, not all declared effects or
+number/positions of spawned objects. No PORT-238 end-to-end test for this
+chain has been run.
