@@ -72,7 +72,7 @@ inventory remain to be audited and tested independently.
 | Ring passive, will, fire form and Fires of Doom | Literal buttons also occur in `SauronCommandSet`. The same upstream matrix marks passive `PASS` as NONPRESSABLE (not a press); Will `PASS` after 58 frames with target ownership changed; Fire Form `PASS` after 51 frames with an attribute modifier applied; Fires of Doom `PASS` after 64 frames with an OCL object made. These are recorded effect probes, not RW parity or in-game checks. | RW behavior, the real entry/lifecycle and appearance for each remain to be audited. All three active probes note S-920. |
 
 A temporary isolated runner against the rebuilt core and test-fixture headers
-at merged main `958dc704` passed `PORT-238*` 14/14 cases and 357/357 assertions,
+at merged main `958dc704` passed `PORT-238*` 14/14 cases and 368/368 assertions,
 including the later Fire Form and Will cases. It is not the full executable;
 its build was stopped after the core linked and before the full executable
 linked. Main was subsequently merged again at `3f0105c8`, which changed
@@ -119,16 +119,18 @@ its effective presence on each target has **not** been established by this
 scan. The existing synthetic `hero2` cases separately exercise temporary
 direct defection and permanent area horde conversion. A new `PORT-238` test
 combines a synthetic 120-radius, position-targeted temporary area domination
-with a 30000 ms explicitly installed defect update: an enemy infantry unit
-changes owner, retains its original team and returns after expiry; an ally,
-neutral troop, enemy HERO, DOZER, STRUCTURE and distant troop stay unchanged.
-The test independently confirms that the later synthetic object filter accepts
-the neutral troop even though the earlier area relationship gate excludes it.
-In the `958dc704` isolated core runner this case passed 47/47 assertions; a
-fixture changed only to `PermanentlyConvert = Yes` failed 5/47, including
-expiry and return. This tests sensitivity, not a code-fix negative control.
-It omits the named Watcher exclusions, horde/member behavior, the HUD, upgrades,
-FX and real effective inheritance, and directly initiates the ability with
+with a 30000 ms explicitly installed defect update on the targets: an enemy
+infantry unit and a three-member horde change owner and return after expiry;
+the horde members follow on defect and on return. The infantry retains its
+original team. An ally, neutral troop, enemy HERO, DOZER, STRUCTURE and distant
+troop stay unchanged. The test independently confirms that the later synthetic
+object filter accepts the neutral troop even though the earlier area
+relationship gate excludes it. In the `958dc704` isolated core runner this
+case passed 58/58 assertions; a fixture changed only to `PermanentlyConvert =
+Yes` failed 9/58, including the infantry and horde return. This tests
+sensitivity, not a code-fix negative control. It omits the named Watcher
+exclusions, garrisoned / entering members, the HUD, upgrades, FX and real
+effective inheritance, and directly initiates the ability with
 `IgnoreFacingCheck`. The upstream matrix `PASS` observes an ownership change
 on one horde, not its eventual restoration or all exclusions. Current-core,
 mod and in-game behavior remain open.

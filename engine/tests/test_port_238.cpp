@@ -794,6 +794,14 @@ TEST_CASE("PORT-238 synthetic Will temporarily dominates eligible enemies in an 
         "Object P238WillTroop\n KindOf = INFANTRY SELECTABLE\n Geometry = CYLINDER\n GeometryMajorRadius = 5\n GeometryHeight = 10\n"
         " Body = ActiveBody Body\n MaxHealth = 1000\n End\n Behavior = AIUpdateInterface AI\n End\n"
         " Behavior = TemporarilyDefectUpdate Defect\n DefectDuration = 30000\n End\n End\n"
+        "Object P238WillHorde\n KindOf = HORDE MELEE_HORDE SELECTABLE\n"
+        " Geometry = BOX\n GeometryMajorRadius = 30\n GeometryMinorRadius = 30\n GeometryHeight = 20\n"
+        " Body = ImmortalBody Body\n MaxHealth = 1\n End\n Behavior = HordeAIUpdate AI\n End\n"
+        " Behavior = TemporarilyDefectUpdate Defect\n DefectDuration = 30000\n End\n"
+        " Behavior = HordeContain Contain\n"
+        "  RankInfo = RankNumber:1 UnitType:P238WillTroop Position:X:10 Y:0 Position:X:10 Y:20 Position:X:10 Y:-20\n"
+        "  InitialPayload = P238WillTroop 3\n End\n"
+        " LocomotorSet\n Locomotor = HordeLoco\n Condition = SET_NORMAL\n Speed = 50\n End\n End\n"
         "Object P238WillHero\n KindOf = INFANTRY HERO SELECTABLE\n Geometry = CYLINDER\n GeometryMajorRadius = 5\n GeometryHeight = 10\n"
         " Body = ActiveBody Body\n MaxHealth = 1000\n End\n Behavior = TemporarilyDefectUpdate Defect\n DefectDuration = 30000\n End\n End\n"
         "Object P238WillDozer\n KindOf = INFANTRY DOZER SELECTABLE\n Geometry = CYLINDER\n GeometryMajorRadius = 5\n GeometryHeight = 10\n"
@@ -804,6 +812,11 @@ TEST_CASE("PORT-238 synthetic Will temporarily dominates eligible enemies in an 
     REQUIRE_MESSAGE(error.empty(), error);
     Object *caster = w.unit("P238WillCaster", 'A', 300, 300);
     Object *enemy = w.unit("P238WillTroop", 'B', 350, 300);
+    Object *horde = w.unit("P238WillHorde", 'B', 420, 300);
+    auto *contain = horde->getContain();
+    REQUIRE(contain != nullptr);
+    REQUIRE(contain->getContainCount() == 3);
+    std::vector<Object *> members(contain->getContainedItemsList()->begin(), contain->getContainedItemsList()->end());
     Object *enemyHero = w.unit("P238WillHero", 'B', 360, 300);
     Object *enemyDozer = w.unit("P238WillDozer", 'B', 370, 300);
     Object *enemyBuilding = w.unit("P238WillBuilding", 'B', 380, 300);
@@ -827,9 +840,11 @@ TEST_CASE("PORT-238 synthetic Will temporarily dominates eligible enemies in an 
     will->initiateIntentToDoSpecialPower(will->abilityData()->m_specialPowerTemplate, nullptr, &target, 0, 0);
     for (int i = 0; i < 40 && will->abilitiesTriggered() == 0; ++i) w.frames(1);
     REQUIRE(will->abilitiesTriggered() == 1);
-    CHECK(will->dominated() == 1);
+    CHECK(will->dominated() == 2); // infantry plus horde, not its HORDE_MEMBER objects
     CHECK(enemy->getControllingPlayer() == a);
     CHECK(enemy->getOriginalTeam() == originalTeam);
+    CHECK(horde->getControllingPlayer() == a);
+    for (Object *member : members) CHECK(member->getControllingPlayer() == a);
     CHECK(enemyHero->getControllingPlayer() == b);
     CHECK(enemyDozer->getControllingPlayer() == b);
     CHECK(enemyBuilding->getControllingPlayer() == b);
@@ -848,6 +863,8 @@ TEST_CASE("PORT-238 synthetic Will temporarily dominates eligible enemies in an 
     w.frames(65); // update polls every ten frames after the expiry
     CHECK(enemy->getControllingPlayer() == b);
     CHECK(enemy->getTeam() == originalTeam);
+    CHECK(horde->getControllingPlayer() == b);
+    for (Object *member : members) CHECK(member->getControllingPlayer() == b);
     CHECK_FALSE(enemy->testStatus((unsigned)status));
     CHECK(defect->endFrame() == 0);
     CHECK(defect->dominator() == INVALID_ID);
