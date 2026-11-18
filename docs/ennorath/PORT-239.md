@@ -274,3 +274,23 @@ Additional loader neighbour tests now cover the unchanged BFME1/BFME2 paths
 and macro lifetime across the temporary manifest registry (11 total cases,
 syntax-only). The latter also checks no dangling LoadSubsystem callback is
 installed in the caller's persistent registry.
+
+## Shared loader limitation found — S-7499
+
+Further comparison of the **existing shared** SubsystemLegend implementation
+against RW entry 0x5B4B9A found a separate gap: 0x5B4C06..0x5B4C42 builds one
+exclusion vector, then 0x5B4C69..0x5B4C77 checks it via 0x42C2B5 before each
+explicit InitFile. The port applies ExcludePath to directory traversal only;
+explicit files are checked for cinematic exclusions but not ExcludePath.
+This is still present on fetched origin/main 3d017a41. MetaMap deliberately
+reuses that common mechanism; no task-local duplicate exclusion implementation
+has been introduced. A follow-up must fix and test the shared startup loader,
+including its matching predicate (0x42C2B5 -> 0x42C0E7), not patch MetaMap alone.
+Fails PROCESS 5.7(b): this is common INI startup across every subsystem, outside
+player orders. Stop S-7499 records the limitation; S-281 cannot be called fully
+retail-exact while it remains. No excluded-file passing test is claimed.
+
+Fetched main 3d017a41 also contains PORT-208's force-attack changes (3ba92d40).
+They have not been integrated into this branch yet: do so before acceptance,
+without editing that task's functions. The active single-thread full build is
+still running (last observation 822/1683); it is not a verified final build.
