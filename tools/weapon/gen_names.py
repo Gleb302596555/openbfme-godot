@@ -21,6 +21,8 @@ LISTS = [
     ("TheWeaponDeathNames", "list_weapon_death_type_names.tsv", "RW 0xDA1630"),
     ("TheDamageFXTypeNames", "list_damage_fx_type_names.tsv", "RW 0xDA1510"),
     ("TheFXTriggerNames", "list_fx_trigger_names.tsv", "RW 0xDA14FC"),
+    # PORT-45: the DamageCreationList's optional death-side token (ActiveBody parser RW 0x8C3F1F)
+    ("TheDamageSideNames", "list_damage_side_names.tsv", "RW 0xDB2B04"),
     ("TheWeaponReloadNames", "list_auto_reload_names.tsv", "RW 0xDA16BC"),
     ("TheWeaponPrefireNames", "list_pre_attack_type_names.tsv", "RW 0xDA16CC"),
     ("TheWeaponAffectsMaskNames", "list_radius_damage_affects_names.tsv", "RW 0xDA16E0"),

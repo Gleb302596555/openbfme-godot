@@ -27,8 +27,9 @@ Claude reads the report, adds what needs judgement (the pin's `// pin:` line, th
 
 `loop` (owner 2026-11-18: "сделать бота постоянным циклом на sb2"; autostart.d/batch.sh starts it, watchdog.py keeps it running, the
 dashboard's Colab 2 card shows it): every 15 minutes, from its installed copy /content/sandbox/batch_bot.py, it
-  - waits while a `run` is going (a hand one too) and while its last green batch is not in origin/main yet: the batch's PRs stay open
-    until Claude lands it, so a next batch would take them again;
+  - waits while a `run` is going (a hand one too); waits STACK_AFTER_S (7 min) for Claude to land its last green batch, then runs the
+    next one on top of that batch (`run --base origin/batch/<last>`, owner 2026-11-18): the unlanded batch's PRs stay claimed, and
+    landing the newest batch lands the ones under it;
   - otherwise runs a batch (`run --name <date><next letter>`, log on the Drive next to the reports) when the checker has --min (3) green
     PRs, or at least one and --idle-hours (2) passed since the last batch;
   - after a batch that did not come out green waits --idle-hours before the next (a red main must not rebuild every 15 minutes);
@@ -53,6 +54,10 @@ WT = Path(os.environ.get("BATCH_TREE", str(REPO / "workspace" / "wt" / "batch"))
 RUNS = Path(os.environ.get("BATCH_RUNS", "/content/drive/MyDrive/openbfme-runs/batch"))
 GH_REPO = "Gleb302596555/openbfme-godot"
 AUTHOR = ["-c", "user.name=Gleb302596555", "-c", "user.email=Gleb302596555@users.noreply.github.com"]
+# what a batch is merged onto: origin/main, or the last green batch Claude has not landed yet (`run --base`, owner 2026-11-18: the loop
+# waited an hour for a landing; after STACK_AFTER_S the next batch goes on top of the unlanded one, and landing the newest lands both)
+BASE = "origin/main"
+STACK_AFTER_S = 7 * 60
 
 # the base set every batch runs (the hand batches 17a-18a): (doctest -tc pattern, short name)
 SUITE = [("perf1*", "perf1"), ("uber1*", "uber1"), ("skirmish?ai?vs?ai*", "aivsai"), ("aiexpand1*", "aiexpand1"),
@@ -267,11 +272,11 @@ def ensure_tree() -> None:
     RUNS.mkdir(parents=True, exist_ok=True)
     if not (WT / ".git").exists():
         sh(["git", "worktree", "prune"], cwd=REPO)
-        sh(["git", "worktree", "add", "--detach", str(WT), "origin/main"], cwd=REPO, check=True)
+        sh(["git", "worktree", "add", "--detach", str(WT), BASE], cwd=REPO, check=True)
 
 
 def pr_files(n: int) -> list[str]:
-    return git("diff", "--name-only", f"origin/main...refs/batch/{n}").split()
+    return git("diff", "--name-only", f"{BASE}...refs/batch/{n}").split()
 
 
 def next_free_id() -> int:
@@ -329,7 +334,7 @@ def merge_batch(name: str, prs: list[dict], out: list[int]) -> tuple[list[dict],
     git("fetch", "-q", "origin")
     for p in prs:
         git("fetch", "-q", "origin", f"+pull/{p['number']}/head:refs/batch/{p['number']}")
-    git("checkout", "-q", "-f", "-B", f"batch/{name}", "origin/main")
+    git("checkout", "-q", "-f", "-B", f"batch/{name}", BASE)
     git("clean", "-fdq", "docs", "engine/tests")
     merged, conflicted, renumbered = [], [], []
     for p in prs:
@@ -410,7 +415,7 @@ def run_tests(patterns: list[str]) -> dict[str, tuple[str, str]]:
 
 
 def own_tests(p: dict) -> list[str]:
-    diff = git("diff", f"origin/main...refs/batch/{p['number']}", "--", "engine/tests")
+    diff = git("diff", f"{BASE}...refs/batch/{p['number']}", "--", "engine/tests")
     pats = {re.split(r"[:\s]", name, maxsplit=1)[0] + "*" for name in re.findall(r'^\+\s*TEST_CASE\("([^"]+)"', diff, re.M)}
     m = re.match(r"(Port|Local)\s+(\d+)", p["title"], re.I)
     if m and not pats:
@@ -432,7 +437,7 @@ def tool_checks(out_dir: Path) -> dict[str, tuple[str, str]]:
     py = sh([sys.executable, "-m", "pytest", "-q", "tools/re", "tools/mod", "tools/test_fragments.py"], timeout=1800)
     (out_dir / "pytest.log").write_text(py.stdout + py.stderr, encoding="utf-8")
     res["pytest tools"] = ("pass" if py.returncode == 0 else "fail", (py.stdout.strip().splitlines() or [""])[-1])
-    md = sh([sys.executable, "tools/matrix_run.py", "diff", "--against", "origin/main"], timeout=600)
+    md = sh([sys.executable, "tools/matrix_run.py", "diff", "--against", BASE], timeout=600)
     (out_dir / "matrix_diff.log").write_text(md.stdout + md.stderr, encoding="utf-8")
     res["matrix diff"] = ("pass" if md.returncode == 0 else "fail", (md.stdout + md.stderr).strip()[-600:])
     return res
@@ -443,7 +448,7 @@ def tool_checks(out_dir: Path) -> dict[str, tuple[str, str]]:
 def merge_points() -> list[tuple[str, int | None]]:
     """The batch's first-parent commits after origin/main, oldest first, each with the PR it brings (renumber commits: their PR)."""
     out = []
-    for line in git("log", "--first-parent", "--reverse", "--format=%H %s", "origin/main..HEAD").splitlines():
+    for line in git("log", "--first-parent", "--reverse", "--format=%H %s", f"{BASE}..HEAD").splitlines():
         sha, subject = line.split(" ", 1)
         m = re.search(r"#(\d+)", subject)
         out.append((sha, int(m.group(1)) if m else None))
@@ -497,7 +502,7 @@ def checker_pins(merged: list[dict]) -> dict[str, list[dict]]:
 
 def names_cause(p: dict, test: str) -> bool:
     """The checker's rule: the PR text or diff names the pin's test and a pin / cause word."""
-    text = ((p.get("body") or "") + "\n" + git("diff", f"origin/main...refs/batch/{p['number']}")).lower()
+    text = ((p.get("body") or "") + "\n" + git("diff", f"{BASE}...refs/batch/{p['number']}")).lower()
     return (re.search(r"\bpins?\b|пин|причин|cause|re-?measure|перемер", text) is not None
             and re.split(r"[*?]", test)[0].lower() in text)
 
@@ -587,7 +592,7 @@ def in_game(p: dict) -> str:
 
 def report(name: str, out_dir: Path, rows: dict) -> Path:
     r = rows
-    lines = [f"# Батч {name}", "", f"Ветка `batch/{name}` на `origin/main` {r['main'][:8]}, голова {r.get('head', '?')[:8]} "
+    lines = [f"# Батч {name}", "", f"Ветка `batch/{name}` на `{BASE}` {r['main'][:8]}, голова {r.get('head', '?')[:8]} "
              f"(`tools/colab/batch_bot.py`, {dt.datetime.utcnow():%Y-%m-%d %H:%M} UTC). Итог: **{r['verdict']}**.", ""]
     lines += [f"## Вошли ({len(r['merged'])})", ""] + [f"- #{p['number']} {p['title'][:110]}" for p in r["merged"]]
     if r["out"]:
@@ -659,14 +664,28 @@ def should_start(green: int, since_s: float, minimum: int, idle_hours: float) ->
     return green > 0 and (green >= minimum or since_s >= idle_hours * 3600)
 
 
+def stack_base(last: str | None, pending: bool, waited_s: float) -> tuple[str | None, float]:
+    """What the next batch is merged onto, or (None, seconds to wait): the last green batch still unlanded is waited for STACK_AFTER_S
+    (Claude may land it at once), then the next batch goes on top of it (its PRs stay claimed, so they are not taken twice; landing the
+    newest batch lands every batch under it). A landed or given-up batch (its branch deleted) is not pending: origin/main."""
+    if not (last and pending):
+        return "origin/main", 0.0
+    if waited_s < STACK_AFTER_S:
+        return None, STACK_AFTER_S - waited_s
+    return f"origin/batch/{last}", 0.0
+
+
 def loop_round(a, st: dict) -> str:
     """One round; returns the line for the log."""
     sh(["git", "fetch", "-q", "--prune", "origin"], cwd=REPO)
     if run_going():
         return "a batch run is going: waiting"
     last = st.get("green")
-    if last and unlanded(last):
-        return f"batch/{last} is green and waits for Claude's landing (tools/land.py --batch {last})"
+    base, wait_s = stack_base(last, bool(last) and unlanded(last), time.time() - st.get("finished", 0))
+    if base is None:
+        st["sleep"] = wait_s   # wake when the wait ends, not a whole round later
+        return (f"batch/{last} is green and waits for Claude's landing (tools/land.py --batch {last}): "
+                f"{int(wait_s / 60) + 1} min more, then the next batch goes on top of it")
     since = time.time() - st.get("finished", 0)
     if st.get("red") and since < a.idle_hours * 3600:
         return f"the last batch ({st.get('name')}) did not come out green: next try in {int((a.idle_hours * 3600 - since) / 60)} min"
@@ -680,10 +699,10 @@ def loop_round(a, st: dict) -> str:
              if r.startswith("refs/heads/batch/")}
     name = next_name(time.strftime("%Y-%m-%d", time.gmtime()), used)
     RUNS.mkdir(parents=True, exist_ok=True)
-    say(f"batch {name}: {' '.join('#%d' % p['number'] for p in take)}")
+    say(f"batch {name}{'' if base == 'origin/main' else ' on top of ' + base}: {' '.join('#%d' % p['number'] for p in take)}")
     me = Path(__file__).resolve()
     with open(RUNS / f"{name}.log", "w") as out:
-        rc = subprocess.run([sys.executable, str(me), "run", "--name", name, "--max", str(a.max)], cwd=str(REPO),
+        rc = subprocess.run([sys.executable, str(me), "run", "--name", name, "--max", str(a.max), "--base", base], cwd=str(REPO),
                             stdout=out, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL).returncode
     st.update(name=name, finished=time.time(), red=rc != 0)
     if rc == 0:
@@ -722,11 +741,11 @@ def cmd_loop(a) -> int:
             line = loop_round(a, st)
         except Exception as e:  # a GitHub or Drive hiccup: the next round tries again
             line = f"round failed: {e}"[:300]
-        LOOP_STATE.write_text(json.dumps(st))
+        LOOP_STATE.write_text(json.dumps({k: v for k, v in st.items() if k != "sleep"}))
         say(line)
         if a.once:
             return 0
-        time.sleep(a.every)
+        time.sleep(max(30.0, min(float(a.every), float(st.pop("sleep", a.every)))))
         sh(["git", "fetch", "-q", "origin"], cwd=REPO)
         self_update()
 
@@ -743,7 +762,8 @@ def cmd_plan(a) -> int:
 
 
 def cmd_run(a) -> int:
-    global RUN_KEY
+    global RUN_KEY, BASE
+    BASE = a.base
     ensure_tree()
     name = a.name or dt.datetime.utcnow().strftime("%Y-%m-%d-%H%M")
     RUN_KEY = f"batch-{name}"
@@ -787,7 +807,7 @@ def save_main_results(path: Path, results: dict[str, str]) -> None:
 
 
 def run_batch(a, name: str, take: list[dict], wait: list, out_dir: Path) -> int:
-    rows: dict = {"main": git("rev-parse", "origin/main").strip(), "wait": wait, "out": {}, "repinned": [], "results": {}, "main_red": set(),
+    rows: dict = {"main": git("rev-parse", BASE).strip(), "wait": wait, "out": {}, "repinned": [], "results": {}, "main_red": set(),
                   "merged": [], "conflicted": [], "renumbered": [], "verdict": "нет PR"}
     if not take:
         report(name, out_dir, rows)
@@ -822,7 +842,7 @@ def run_batch(a, name: str, take: list[dict], wait: list, out_dir: Path) -> int:
         doctests = [t for t in failing if t in dict(SUITE)]
         unknown = [t for t in doctests if t not in main_cache]
         if unknown:
-            git("checkout", "-q", "-f", "--detach", "origin/main")
+            git("checkout", "-q", "-f", "--detach", BASE)
             ok_main, _ = build("main", out_dir)
             main_cache.update({t: s for t, (s, _) in run_tests(unknown).items()} if ok_main else {t: "build" for t in unknown})
             save_main_results(main_file, main_cache)
@@ -909,6 +929,7 @@ def main() -> int:
         s.add_argument("--max", type=int, default=MAX_PRS, help=f"at most this many green PRs per batch, oldest first (default {MAX_PRS}; 0 = all)")
         if c == "run":
             s.add_argument("--name")
+            s.add_argument("--base", default="origin/main", help="merge onto this ref (the loop: an unlanded green batch, see stack_base)")
             s.add_argument("--rounds", type=int, default=3)
             s.add_argument("--no-comment", action="store_true", help="do not comment on the excluded PRs (a dry run)")
     a = ap.parse_args()

@@ -21,6 +21,9 @@
 #include "GameClient/Drawable.h"
 #include "GameClient/HudObjects.h"
 #include "GameClient/GUI/AptScreens/AptSpellStore.h"
+#include "GameClient/GUI/AptScreens/AptPalantir.h"
+#include "GameClient/GUI/AptScreens/InGameCommandButtonSubMenu.h"
+#include "GameClient/GUI/WindowManager.h"
 #include "GameClient/SpellBookUI.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/StancesBehavior.h"
@@ -533,11 +536,6 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 					res.pass(item, "NONPRESSABLE (option bit 28): a passive ability's indicator, not pressed");
 					continue;
 				}
-				if (cmd == GUI_COMMAND_TOGGLE_STANCE)
-				{
-					res.fail(item, "S-289: the stance button opens the Palantir's radial (RW 0x96FAC6, tested by test_campui1_stance.cpp), not a command press; the STANCE_* hotkeys change the stance");
-					continue;
-				}
 				// an enemy-object power tries the first of a horde's soldier, an enemy hero and an enemy troll that its SpecialPower's ObjectFilter takes
 				// (Dominate Troll: ATTACK_TROLL_DOMINATE_OBJECT_FILTER), then, when it did not fire or showed no result, an enemy hero (Corrode Allegiance
 				// and the curse take heroes only, a grab takes no hero)
@@ -858,6 +856,12 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 				{
 					fixtureDetail = "DISABLED: needs a production queue on the object (RW 0x943050 case 7, RW 0x68C327: disabled in retail too; its horde or master buys it)";
 				}
+				// MATRIX_TODO 3 (2026-11-18): RW 0x942A77 restricts the stance button of an object without a StancesBehavior; a horde member made alone
+				// (RhudaurWolfRider) has none of its own: its horde carries it and is swept on its own
+				if (fixtureDetail.empty() && cmd == GUI_COMMAND_TOGGLE_STANCE && !StancesBehavior::of(*u) && b.state == ButtonState::Restricted)
+				{
+					fixtureDetail = "DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)";
+				}
 				if (b.state != ButtonState::Enabled && b.state != ButtonState::Active && !modelGated)
 				{
 					res.fail(item, !fixtureDetail.empty() ? fixtureDetail
@@ -949,6 +953,48 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 							}
 						}
 					}
+					// MATRIX_TODO 1 (owner 2026-11-18): the upgrade bought must also do what the data says: every upgrade module of the unit
+					// and of its members whose TriggeredBy names it and whose condition holds now (UpgradeMux slot 2 wouldUpgrade over the
+					// player's completed mask | the object's mask, as Object.cpp's RW 0x694914 builds it) has executed (slot 0,
+					// isAlreadyUpgraded); one that would but has not is an upgrade that changed nothing
+					std::string idle;
+					if (Object *uu = g.logic().findObjectByID(uid))
+					{
+						std::vector<Object *> checked{ uu };
+						if (uu->getContain() && uu->isKindOfName("HORDE"))
+						{
+							checked.insert(checked.end(), uu->getContain()->getContainedItemsList()->begin(), uu->getContain()->getContainedItemsList()->end());
+						}
+						for (Object *o : checked)
+						{
+							UpgradeMaskType mask = g.rig.local->getCompletedUpgradeMask();
+							mask.orWith(o->getUpgradeMask());
+							for (const std::unique_ptr<BehaviorModule> &bm : o->modules())
+							{
+								const UpgradeMux *mux = bm->getUpgrade();
+								const std::vector<std::string> *tb = mux ? &mux->muxData()->m_triggeredBy : nullptr;
+								if (tb && std::find(tb->begin(), tb->end(), cb->m_upgradeName) != tb->end() && !mux->isAlreadyUpgraded() && mux->wouldUpgrade(mask))
+								{
+									idle = str("%s:%s", o->getTemplate()->getName().c_str(), bm->getModuleData() ? bm->getModuleData()->getModuleTagName().c_str() : "?");
+									break;
+								}
+							}
+							if (!idle.empty())
+							{
+								break;
+							}
+						}
+					}
+					if (!idle.empty())
+					{
+						if (playerUpgrade)
+						{
+							g.rig.local->removeUpgrade(up, true); // as below: before the next spawn (RW 0x6AE60C)
+						}
+						res.fail(item, str("NO-EFFECT: %s bought, but %s (TriggeredBy it, its condition met) did not execute (UpgradeMux slot 0 / 2)",
+						                   cb->m_upgradeName.c_str(), idle.c_str()));
+						continue;
+					}
 					if (playerUpgrade)
 					{
 						// Remove the player upgrade before the next spawn so DoCommandUpgrade on ImladrisLoremaster doesn't fire at creation (RW 0x6AE60C).
@@ -993,7 +1039,7 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 							{
 								out += str("%u ", (unsigned)((o->getWeaponSetFlags()[0] >> 24) & 0xFu));
 							}
-							else if (cmd == GUI_COMMAND_SET_STANCE)
+							else if (cmd == GUI_COMMAND_SET_STANCE || cmd == GUI_COMMAND_TOGGLE_STANCE)
 							{
 								for (const std::unique_ptr<BehaviorModule> &m : o->modules())
 								{
@@ -1017,6 +1063,106 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 					if (cmd == GUI_COMMAND_HORDE_TOGGLE_FORMATION && self && !self->getContain())
 					{
 						res.fail(item, "MEMBER: a horde member made alone has no horde: the formation toggle acts on its horde, swept on its own");
+						continue;
+					}
+					if (cmd == GUI_COMMAND_TOGGLE_STANCE)
+					{
+						// MATRIX_TODO 3 (2026-11-18; before: 1224 rows "S-289 ... not a command press"): the stance button pressed as a player does it, the
+						// flow of test_campui1_stance.cpp: its Palantir content's press opens the arc window's sub-menu with one item per stance of the
+						// button's Stances (RW 0x96FAC6, Show RW 0x9D32F9); an item's press sends MSG_CHANGE_STANCE with its stance (RW 0x96F85A ->
+						// 0x96F53C) and closes the menu. Every item in turn: each selected object with a StancesBehavior must take the item's stance, as
+						// MSG_CHANGE_STANCE sets it on the player's selection group alone (RW 0x77BC59 -> 0x76FF27; a horde member outside the selection
+						// keeps its own: AngmarBarrowWarden has a StancesBehavior of its own, RhudaurWolfRider none)
+						auto selectedStances = [&]() {
+							std::string out;
+							for (ObjectID id : g.rig.local ? g.rig.local->selection() : std::vector<ObjectID>{})
+							{
+								Object *o = g.logic().findObjectByID(id);
+								if (const StancesBehavior *sb = o ? StancesBehavior::of(*o) : nullptr)
+								{
+									out += str("%d ", (int)sb->getStance());
+								}
+							}
+							return out;
+						};
+						AptPalantir *pal = g.hud->palantir();
+						const InGameCommandButtonSubMenu *menu = pal && b.inPalantir ? pal->subMenu(b.position) : nullptr;
+						if (!menu)
+						{
+							res.fail(item, str("STANCE: the button sits in %s %d, which has no stance sub-menu", b.inPalantir ? "arc window" : "side bar position", b.position));
+							continue;
+						}
+						const std::string level = "_level" + std::to_string(pal->movieLevel()) + ".";
+						auto movieClick = [&](const std::string &content) {
+							const std::string name = content + "_OnPress"; // the FSCommand the movie's button sends on a left click
+							g.hud->windows().setPressButton(0);
+							return g.hud->windows().hasCommand(name) && g.hud->windows().invokeCallback(name, "");
+						};
+						const std::string stanceBefore = selectedStances();
+						if (stanceBefore.empty())
+						{
+							res.fail(item, "STANCE: no selected object has a StancesBehavior");
+							continue;
+						}
+						std::string trail = stanceBefore, problem;
+						for (size_t k = 0; problem.empty() && k < cb->m_stances.size(); ++k)
+						{
+							if (!movieClick(level + "CommandButtons." + std::to_string(b.position) + ".content"))
+							{
+								problem = "the button's Palantir content has no press command";
+								break;
+							}
+							if (!menu->isOpen() || menu->itemCount() != (int)cb->m_stances.size())
+							{
+								problem = str("the press opened %s with %d items for the %zu stances the button lists", menu->isOpen() ? "the sub-menu" : "no sub-menu",
+									menu->itemCount(), cb->m_stances.size());
+								break;
+							}
+							bool ready = false;
+							for (int f = 0; f < 90 && !ready; ++f)
+							{
+								ready = menu->item((int)k).content && menu->item((int)k).initialized;
+								if (!ready)
+								{
+									g.step(1);
+								}
+							}
+							const int want = menu->item((int)k).value;
+							if (!ready || !movieClick(level + menu->item((int)k).frame + ".Button"))
+							{
+								problem = str("item %zu (stance %d) %s", k, want, ready ? "has no press command" : "never got its button");
+								break;
+							}
+							for (int f = 0; f < 90 && menu->isOpen(); ++f)
+							{
+								g.step(1);
+							}
+							g.step(3);
+							const std::string now = selectedStances();
+							trail += "-> " + now;
+							for (size_t a = 0; a < now.size();)
+							{
+								const size_t e = now.find(' ', a);
+								const std::string one = now.substr(a, e == std::string::npos ? std::string::npos : e - a);
+								a = e == std::string::npos ? now.size() : e + 1;
+								if (!one.empty() && std::atoi(one.c_str()) != want)
+								{
+									problem = str("item %zu (stance %d) left the stances at %s", k, want, now.c_str());
+								}
+							}
+						}
+						if (!problem.empty())
+						{
+							res.fail(item, "STANCE: " + problem + " (" + trail + ")");
+						}
+						else if (g.hud->controlBar().unportedPresses() != unportedBefore)
+						{
+							res.fail(item, "STANCE: the stance radial's presses are counted as unported");
+						}
+						else
+						{
+							res.pass(item, "TOGGLE_STANCE radial: " + trail);
+						}
 						continue;
 					}
 					const std::string stateBefore = stateOf();

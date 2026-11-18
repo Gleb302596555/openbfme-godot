@@ -204,6 +204,7 @@ TEST_CASE("PORT-224 creep lair hole: destroying the lair while it rises from its
 	holes = w.alive("Port224CreepHole");
 	REQUIRE(holes.size() == 1);
 	Object *hole = holes[0];
+	const ObjectID holeId = hole->getID(); // the dead hole is deleted on its frame: later checks go by id (TSan heap-use-after-free, 2026-11-18)
 	RebuildHoleBehavior *rh = RebuildHoleBehavior::of(*hole);
 	REQUIRE(rh != nullptr);
 	CHECK(rh->workerWaitCounter() == 599u);
@@ -252,7 +253,7 @@ TEST_CASE("PORT-224 creep lair hole: destroying the lair while it rises from its
 	// BUILD_BEING_CANCELED and kills the masked hole with DEATH_FADED (0x16),
 	// which is excluded by CreateObjectDie's DeathTypes = ALL -FADED.
 	w.frames(1);
-	CHECK(hole->isEffectivelyDead());
+	CHECK(w.logic->findObjectByID(holeId) == nullptr); // died and left the world
 	CHECK(w.alive("Port224CreepHole").empty());
 	CHECK(w.alive("Port224CreepLair").empty());
 	CHECK(w.alive("Port224TreasureChest").size() == chestsBefore);
@@ -280,6 +281,7 @@ TEST_CASE("PORT-224 worker hole neighbor: destroying a worker-rebuilt structure 
 	std::vector<Object *> holes = w.alive("Port224WorkerHole");
 	REQUIRE(holes.size() == 1);
 	Object *hole = holes[0];
+	const ObjectID holeId = hole->getID(); // the dead hole is deleted on its frame: later checks go by id (TSan heap-use-after-free, 2026-11-18)
 	RebuildHoleBehavior *rh = RebuildHoleBehavior::of(*hole);
 	REQUIRE(rh != nullptr);
 
@@ -309,7 +311,7 @@ TEST_CASE("PORT-224 worker hole neighbor: destroying a worker-rebuilt structure 
 	// Next frame: RebuildHoleBehavior::update (RW 0x886C20..0x886C40) destroys the
 	// hole's worker and fades the masked hole without treasure.
 	w.frames(1);
-	CHECK(hole->isEffectivelyDead());
+	CHECK(w.logic->findObjectByID(holeId) == nullptr); // died and left the world
 	CHECK(w.alive("Port224Worker").empty());
 	CHECK(w.alive("Port224WorkerHole").empty());
 	CHECK(w.alive("Port224WorkerStructure").empty());
@@ -338,6 +340,7 @@ TEST_CASE("PORT-224 completed rebuild neighbor: a creep lair that finishes risin
 	std::vector<Object *> holes = w.alive("Port224CreepHole");
 	REQUIRE(holes.size() == 1);
 	Object *hole = holes[0];
+	const ObjectID holeId = hole->getID(); // the dead hole is deleted on its frame: later checks go by id (TSan heap-use-after-free, 2026-11-18)
 	RebuildHoleBehavior *rh = RebuildHoleBehavior::of(*hole);
 	REQUIRE(rh != nullptr);
 
@@ -351,7 +354,7 @@ TEST_CASE("PORT-224 completed rebuild neighbor: a creep lair that finishes risin
 	CHECK_FALSE(rebuilt->isUnderConstruction());
 	CHECK(rebuilt->getBodyModule()->getHealth() == 1000.0f);
 	w.frames(1);
-	CHECK(hole->isEffectivelyDead());
+	CHECK(w.logic->findObjectByID(holeId) == nullptr); // died and left the world
 	CHECK(w.alive("Port224CreepHole").empty());
 	CHECK(w.alive("Port224TreasureChest").empty());
 	CHECK(rebuilt->getName() == "CreepLairScriptName");
