@@ -229,6 +229,7 @@ public:
 	SubObjectsUpgrade(Thing *thing, const SubObjectsUpgradeModuleData *data) : UpgradeModule(thing, data), m_data(data) {}
 	bool hasShown() const { return m_shown; }
 	void crc(StateHasher &hasher) const override;
+	bool wouldUpgrade(const UpgradeMaskType &mask) const override; // RW 0x8B8FD7 is in implementation, not wouldUpgrade
 
 protected:
 	void upgradeImplementation() override;

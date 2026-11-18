@@ -153,8 +153,9 @@ void WeaponChangeSpecialPowerModule::registerClass(ModuleFactory &modules)
 }
 
 // ---- lane SAVE-4b: the snapshot (SpecialPowerModule's: the class keeps no state of its own) -------------------------------------------------------------
+// RW 0x8C6606: version (1, 1) through RW 0x404F15, then the base's xfer (RW 0x89679D); the class keeps no state of its own
 void WeaponChangeSpecialPowerModule::xfer(Xfer &x)
 {
-	SnapshotXfer::version(x, 1, 1);
+	SnapshotXfer::version(x, 1, 1); // RW 0x404F15
 	SpecialPowerModule::xfer(x);
 }
