@@ -1,0 +1,62 @@
+# Pull requests from another account's fork (a trusted person's own agent, owner 2026-11-17): they are built and their own tests run here,
+# on GitHub's runner, never on the owner's machines (tools/colab/pr_checker.py leaves them alone). The trigger is pull_request: a fork's
+# pull request gets no secret and a read-only token. The tests that need the game files skip here; they run in the owner's batch after the
+# code was read (tools/colab/batch_bot.py waits for the owner's "<!-- reviewed <head> -->"). The dashboard (lib/prs.ts) and the batch bot
+# read this job's result by its name, "Fork PR: build and own tests", and its error annotations. A pull request that changes .github/ or
+# tools/ci/ fails here (it could rewrite this check), and the dashboard does not count such a run.
+name: Fork PR checks
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fork-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  fork-pr:
+    name: "Fork PR: build and own tests"
+    # the owner's own agents push to this repository: their pull requests are checked on the owner's sandbox instead
+    if: github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-24.04
+    # a cold compiler cache took 24 minutes for the Linux tests (pr.yml); main's cache is restored below
+    timeout-minutes: 120
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 2G
+      CCACHE_NOHASHDIR: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # GitHub's merge of the pull request into main: its first parent is main, so HEAD^1..HEAD is exactly the pull request
+          fetch-depth: 2
+      - name: Install the build tools
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends ninja-build ccache
+      - name: Restore the compiler cache (main's, saved by pr.yml)
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .ccache
+          key: ccache-linux-${{ github.sha }}
+          restore-keys: ccache-linux-
+      - name: Configure
+        run: >-
+          cmake -S engine -B engine/build -G Ninja -DCMAKE_BUILD_TYPE=Release -DOPENBFME_BUILD_GODOT=OFF
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+      - name: Build the tests
+        run: |
+          ccache -z
+          cmake --build engine/build --target openbfme_tests
+          ccache -s
+      - name: Own tests and stop fragments
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: python3 tools/ci/fork_pr_check.py

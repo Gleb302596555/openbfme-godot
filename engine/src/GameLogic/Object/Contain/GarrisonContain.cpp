@@ -837,6 +837,27 @@ void GarrisonContain::removeObjectFromGarrisonPoint(Object *obj, int index)
 	--m_pointsInUse;
 }
 
+// RW 0x87B7E3 GarrisonContain::calcBestGarrisonPosition (contain slot 0x130 in GarrisonContain RW 0xC5C698 and HordeGarrisonContain RW 0xC5C9F0)
+bool GarrisonContain::calcBestGarrisonPosition(Coord3D *sourcePos, const Coord3D *targetPos)
+{
+	if (!sourcePos || !targetPos)
+	{
+		return false;
+	}
+	if (!m_pointsLoaded)
+	{
+		loadGarrisonPoints();
+	}
+	const int condition = findConditionIndex();
+	const int best = findClosestFreeGarrisonPointIndex(condition, targetPos);
+	if (best == -1)
+	{
+		return false;
+	}
+	*sourcePos = m_pointPositions[(size_t)condition][(size_t)best];
+	return true;
+}
+
 // RW 0x87B83E
 void GarrisonContain::putObjectAtBestGarrisonPoint(Object *obj, Object *target, const Coord3D *targetPos)
 {
@@ -889,7 +910,8 @@ void GarrisonContain::removeInvalidObjectsFromGarrisonPoints()
 
 namespace
 {
-// the victim / victim position pair of RW 0x668303 / 0x664CB3 (AI getCurrentVictim / the attack position)
+// the victim / victim position pair of RW 0x668303 / 0x664CB3 (AI getCurrentVictim / getCurrentVictimPos): when the unit has no victim object but is
+// IS_ATTACKING (status bit 18), RW 0x664CE0 answers its state machine's goalPosition (+ 0x24) so an ENCLOSED rider attacking the ground takes a fire point
 void victimOf(Object &obj, Object *&victim, const Coord3D *&victimPos)
 {
 	victim = nullptr;
@@ -897,6 +919,14 @@ void victimOf(Object &obj, Object *&victim, const Coord3D *&victimPos)
 	if (AIUpdateInterface *ai = obj.getAIUpdateInterface())
 	{
 		victim = ai->currentVictim();
+		if (victim)
+		{
+			victimPos = victim->getPosition();
+		}
+		else if (obj.testStatus((unsigned)CombatNames::statuses().isAttacking))
+		{
+			victimPos = &ai->stateMachine().goalPosition();
+		}
 	}
 }
 } // namespace

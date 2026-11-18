@@ -70,11 +70,13 @@ public:
 class LargeGroupBonusUpdate : public UpdateModule
 {
 public:
+	// RotWK vtable identity & boilerplate: getModuleNameKey RW 0x893670, getModuleName RW 0x8936B5,
+	// xfer RW 0x8936C9 (v1..2), scalar deleting dtor RW 0x8937F4. (onDelete flag sub-object hide is S-1023.)
 	OBFME_MODULE_XFER(LargeGroupBonusUpdate) // lane SAVE-4b
 	LargeGroupBonusUpdate(Thing *thing, const LargeGroupBonusUpdateModuleData *data); ///< RW 0x893765
 	UpdateSleepTime update() override;                                                 ///< RW 0x8938D9
 	void crc(StateHasher &h) const override;
-	bool active() const { return m_active; }
+	bool active() const { return m_active; } ///< RW 0x734403
 	bool reached() const { return m_reached; }
 	unsigned lastCount() const { return m_lastCount; }
 

@@ -20,6 +20,7 @@
 #include "GameLogic/Combat/CombatState.h"
 #include "GameLogic/Combat/WeaponDelivery.h"
 #include "GameLogic/GameLogic.h"
+#include "GameLogic/Locomotor.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/BehaviorModule.h"
 #include "GameLogic/Module/InvisibilityModules.h"
@@ -1362,6 +1363,152 @@ bool ObjectWeapons::canAttackObjectNoShroud(const Object &victim, CommandSourceT
 	return false;
 }
 
+// PORT-208 (issue #490): RW 0x68B5FA Object::getAbleToUseWeaponAgainstTarget -> RW 0x6C8652 WeaponSet::getAbleToUseWeaponAgainstTarget
+CanAttackResult ObjectWeapons::getAbleToUseWeaponAgainstTarget(int attackType, const Object *victim, const Coord3D *pos, CommandSourceType source) const
+{
+	if (victim)
+	{
+		pos = victim->getPosition();
+	}
+	if (!pos)
+	{
+		return ATTACKRESULT_NOT_POSSIBLE; // RW 0x68B613
+	}
+	const unsigned targetAntiMask = victim ? victimAntiMask(*victim) : (unsigned)WEAPON_ANTI_GROUND; // RW 0x6C8672: 2
+	Object *containedBy = m_owner->getContainedBy();
+	ContainModuleInterface *contain = containedBy ? containedBy->getContain() : nullptr;
+	static const int kContesting = CombatNames::status("CONTESTING_BUILDING");
+	const bool contesting = kContesting >= 0 && m_owner->testStatus((unsigned)kContesting);
+	if (contesting && (attackType & ATTACK_CONTINUED) == 0 && !containedBy)
+	{
+		return ATTACKRESULT_INVALID_SHOT; // RW 0x6C86B6 .. 0x6C86C2 (getFiringOwner RW 0x6C86CF .. 0x6C86FB is S-2480 / S-1103)
+	}
+
+	unsigned setAntiMask = 0;
+	for (const std::unique_ptr<Weapon> &w : m_weapons)
+	{
+		if (w && w->getTemplate())
+		{
+			setAntiMask |= w->getTemplate()->m_antiMask; // WeaponSet + 0x2C
+		}
+	}
+
+	bool hasAWeapon = false;
+	bool hasAWeaponInRange = false;
+	bool withinAttackRange = false;
+	const CombatNames::Kind &kinds = CombatNames::kinds();
+	for (int slot = 0; slot < WEAPONSLOT_COUNT; ++slot)
+	{
+		const Weapon *weapon = weaponInSlot(slot);
+		if (!weapon || !weapon->getTemplate())
+		{
+			continue;
+		}
+		const WeaponTemplate &wt = *weapon->getTemplate();
+		hasAWeapon = true;
+		if ((wt.m_antiMask & targetAntiMask) == 0)
+		{
+			continue; // RW 0x6C8728 .. 0x6C8735
+		}
+		if (victim && wt.m_bombardType)
+		{
+			continue; // RW 0x6C8737 .. 0x6C8742: WeaponTemplate + 0x170
+		}
+		withinAttackRange = false;
+		if (contesting)
+		{
+			withinAttackRange = true; // RW 0x6C8744 .. 0x6C8755
+		}
+		else if (contain && contain->isGarrisonable())
+		{
+			// RW 0x6C8757 .. 0x6C87D5: non-HORDE riders ask calcBestGarrisonPosition (contain slot 0x130, RW 0x87B7E3) +
+			// isSourceWithGoalPositionWithinAttackRange (RW 0x6CBFF1)
+			Coord3D targetPos = *pos;
+			Coord3D goalPos{ 0.0f, 0.0f, 0.0f };
+			if (!m_owner->isKindOf((unsigned)kinds.horde) && contain->calcBestGarrisonPosition(&goalPos, &targetPos))
+			{
+				withinAttackRange = isSlotSourceWithGoalWithinAttackRange(slot, goalPos, victim, targetPos);
+			}
+			else if (victim)
+			{
+				withinAttackRange = isSlotWithinAttackRange(slot, *victim, 0.0f, true);
+			}
+			else
+			{
+				// NOT RETAIL (stop S-1675): retail RW 0x6C87C5 .. 0x6C87C9 tests `if (victim)` only because Ctrl force-attack is disabled in retail 2.01
+				// (S-1675, CommandXlat.cpp:960) and RW 0x77232F / 0x81DA80 are the only two callers in game.dat that pass victim == nullptr. With Ctrl
+				// force-attack enabled (S-1675), a HORDE inside HordeGarrisonContain checks its rangefinder against *pos via RW 0x6CC622 so its
+				// HordeAttackNugget orders the archer members to fire from the garrison points
+				withinAttackRange = isSlotWithinAttackRange(slot, *pos);
+			}
+		}
+		else
+		{
+			// RW 0x6C87D7 .. 0x6C87FB
+			withinAttackRange = victim ? isSlotWithinAttackRange(slot, *victim, 0.0f, true) : isSlotWithinAttackRange(slot, *pos);
+		}
+		if (withinAttackRange)
+		{
+			// RW 0x6C8804 .. 0x6C8859: an IMMOBILE owner without a locomotor must already face within AcceptableAimDelta (+ 0xDC)
+			AIUpdateInterface *ai = m_owner->getAIUpdateInterface();
+			if (m_owner->isKindOf((unsigned)kinds.immobile) && (!ai || !ai->curLocomotor()))
+			{
+				constexpr float kPi = 3.14159274f;
+				constexpr float kTwoPi = 6.28318548f;
+				const float bearing = (float)SimMath::atan2d(SimMath::subf32(pos->y, m_owner->getPosition()->y),
+				                                            SimMath::subf32(pos->x, m_owner->getPosition()->x));
+				float rel = SimMath::subf32(bearing, m_owner->getOrientation());
+				while (rel > kPi)
+				{
+					rel = SimMath::subf32(rel, kTwoPi);
+				}
+				while (rel <= -kPi)
+				{
+					rel = SimMath::addf32(rel, kTwoPi);
+				}
+				const float absRel = rel < 0.0f ? SimMath::subf32(0.0f, rel) : rel;
+				if (absRel > wt.m_aimDelta)
+				{
+					withinAttackRange = false;
+				}
+			}
+			if (withinAttackRange)
+			{
+				hasAWeaponInRange = true;
+				break;
+			}
+		}
+	}
+
+	// RW 0x6C8880 .. 0x6C88DE: an owner that cannot move (IMMOBILE, SPAWNS_ARE_THE_WEAPONS, contained in a non-HORDE container, or 0-speed locomotor)
+	// with a weapon but none in range answers INVALID_SHOT unless this is a tunnel-network guard check (attackType == 4)
+	static const int kSpawnsAreWeapons = CombatNames::kindOf("SPAWNS_ARE_THE_WEAPONS");
+	AIUpdateInterface *ai = m_owner->getAIUpdateInterface();
+	const bool cannotMove = m_owner->isKindOf((unsigned)kinds.immobile) ||
+	                        (kSpawnsAreWeapons >= 0 && m_owner->isKindOf((unsigned)kSpawnsAreWeapons)) ||
+	                        (containedBy && !containedBy->isKindOf((unsigned)kinds.horde)) ||
+	                        (ai && ai->curLocomotor() && ai->curLocomotorSpeed() <= 0.0f);
+	if (cannotMove && hasAWeapon && !hasAWeaponInRange && attackType != ATTACK_TUNNEL_NETWORK_GUARD)
+	{
+		return ATTACKRESULT_INVALID_SHOT;
+	}
+
+	const CanAttackResult okResult = withinAttackRange ? ATTACKRESULT_POSSIBLE : ATTACKRESULT_POSSIBLE_AFTER_MOVING;
+	if ((setAntiMask & targetAntiMask) == 0)
+	{
+		return ATTACKRESULT_INVALID_SHOT; // RW 0x6C88EE .. 0x6C88FF
+	}
+	if (!victim)
+	{
+		return okResult; // RW 0x6C8901 .. 0x6C8907
+	}
+	if (!canAttackObject(*victim, source, (attackType & 1) != 0))
+	{
+		return ATTACKRESULT_NOT_POSSIBLE;
+	}
+	return okResult;
+}
+
 // ---------------------------------------------------------------------------------------------------------------------------------
 // range
 // ---------------------------------------------------------------------------------------------------------------------------------
@@ -1493,7 +1640,12 @@ bool ObjectWeapons::isWithinAttackRangeWithBonus(const Object &victim, const Wea
 
 bool ObjectWeapons::isWithinAttackRange(const Coord3D &pos) const
 {
-	const Weapon *w = weaponInSlot(m_curSlot);
+	return isSlotWithinAttackRange(m_curSlot, pos);
+}
+
+bool ObjectWeapons::isSlotWithinAttackRange(int slot, const Coord3D &pos) const
+{
+	const Weapon *w = weaponInSlot(slot);
 	if (!w || !w->getTemplate())
 	{
 		return false;
@@ -1503,6 +1655,28 @@ bool ObjectWeapons::isWithinAttackRange(const Coord3D &pos) const
 	w->computeBonus(*self->m_host, 0, bonus);
 	const RangeSubject src = subjectOf(*m_owner);
 	return WeaponIsWithinAttackRange(*w->getTemplate(), bonus, *self->m_rangeHost, src, src.position, nullptr, pos, 0.0f, true);
+}
+
+bool ObjectWeapons::isSlotSourceWithGoalWithinAttackRange(int slot, const Coord3D &goalPos, const Object *victim, const Coord3D &targetPos) const
+{
+	const Weapon *w = weaponInSlot(slot);
+	if (!w || !w->getTemplate())
+	{
+		return false;
+	}
+	const WeaponTemplate &t = *w->getTemplate();
+	ObjectWeapons *self = const_cast<ObjectWeapons *>(this);
+	WeaponBonus bonus;
+	w->computeBonus(*self->m_host, 0, bonus);
+	const RangeSubject src = subjectOf(*m_owner);
+	if (victim)
+	{
+		const RangeSubject vic = subjectOf(*victim);
+		const float dz = SimMath::subf32(vic.position.z, src.position.z);
+		self->m_rangeHost->m_meleeReach = WeaponGetAttackRange(t, bonus, *self->m_rangeHost, src, dz);
+		return WeaponIsSourceWithGoalPositionWithinAttackRange(t, bonus, *self->m_rangeHost, src, goalPos, &vic, targetPos);
+	}
+	return WeaponIsSourceWithGoalPositionWithinAttackRange(t, bonus, *self->m_rangeHost, src, goalPos, nullptr, targetPos);
 }
 
 bool ObjectWeapons::isWithinAttackRangeFrom(const Coord3D &sourcePos, const Object *victim, const Coord3D &victimPos, float extra, bool checkMin) const

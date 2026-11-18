@@ -6,6 +6,7 @@
 #endif
 
 #include "GameLogic/Module/GeometryUpgrade.h"
+// RW 0x8BAC26 (name literal 0xC0AE18), RW 0x8BAC2C (ModuleData factory via 0xA3CEF0/0x5487EC), RW 0x8BAD6F (scalar deleting dtor), RW 0x8BB094 (scalar deleting dtor via 0x8BB0B0), RW 0x00464A09 / 0x004B612F (shared UpgradeModule thunks, ported elsewhere via ModuleFactory)
 
 #include "Common/StateHash.h"
 #include "Common/Thing/ModuleFactory.h"
@@ -57,6 +58,15 @@ void GeometryUpgrade::registerModule(ModuleFactory &modules)
 		}
 		return std::make_unique<GeometryUpgrade>(thing, typed); // RW 0x6503A4 -> constructor RW 0x8BABCB
 	});
+}
+
+// RW 0x8BAE07 is checked in implementation, not in wouldUpgrade: a conflicting upgrade still marks executed but does not change geometry
+bool GeometryUpgrade::wouldUpgrade(const UpgradeMaskType &mask) const
+{
+	const UpgradeModuleData *d = muxData();
+	if (!d->m_activationMask.any() || isAlreadyUpgraded())
+		return false;
+	return d->m_requiresAllTriggers ? mask.testForAll(d->m_activationMask) : mask.testForAny(d->m_activationMask);
 }
 
 // RW 0x8BADC0

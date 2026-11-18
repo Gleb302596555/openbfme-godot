@@ -8,42 +8,53 @@ TSV outside Git; this report holds counts and retail addresses only.
 
 | measure | value |
 |---|---|
-| matrix rows with result DISABLED | 587 |
-| unique buttons behind them | 177 |
-| condition rows in the TSV | 2227 |
-| buttons with no recognized gating field (`none`) | 42 |
+| matrix rows with result DISABLED | 601 |
+| unique buttons behind them | 191 |
+| condition rows in the TSV | 2332 |
+| buttons with no recognized gating field (`none`) | 8 |
 
 | condition | rows |
 |---|---|
-| model | 49 |
-| none | 59 |
+| model | 53 |
+| none | 13 |
 | object | 303 |
-| option | 486 |
-| other | 892 |
-| upgrade | 438 |
+| option | 503 |
+| other | 897 |
+| upgrade | 563 |
 
 | Options bit seen (retail names, RW 0xDA4C88) | rows |
 |---|---|
+| HIDE_WHILE_DISABLED | 13 |
 | MOUNTED_ONLY | 7 |
-| NEED_UPGRADE | 438 |
+| NEED_UPGRADE | 442 |
 | NOT_QUEUEABLE | 6 |
 | ON_GROUND_ONLY | 35 |
 
 | matrix `detail` | rows |
 |---|---|
-| state 2 at level 0 (not enabled) | 91 |
-| state 2 at level 1 (not enabled) | 342 |
-| state 2 at level 10 (not enabled) | 19 |
-| state 2 at level 10 after the weapon toggle / mount (not enabled) | 31 |
-| state 2 at level 2 (not enabled) | 9 |
-| state 2 at level 5 (not enabled) | 29 |
-| state 3 at level 1 (not enabled) | 1 |
-| state 4 at level 0 (not enabled) | 1 |
-| state 4 at level 1 (not enabled) | 13 |
-| state 4 at level 10 (not enabled) | 32 |
-| state 4 at level 5 (not enabled) | 2 |
-| state 6 at level 1 (not enabled) | 13 |
-| state 6 at level 2 (not enabled) | 4 |
+| DISABLED: needs its condition (HIDE_WHILE_DISABLED: hidden while disabled, as in retail) | 13 |
+| DISABLED: needs model USER_1 (the sweep could not set it: no known setter) | 11 |
+| DISABLED: needs model USER_2 (the sweep could not set it: no known setter) | 3 |
+| DISABLED: needs model USER_3 (the sweep could not set it: no known setter) | 2 |
+| DISABLED: needs model USER_8 | 1 |
+| DISABLED: needs model USER_9 | 1 |
+| DISABLED: needs model USER_9 (the sweep could not set it: no known setter) | 2 |
+| DISABLED: needs model WEAPONLOCK_SECONDARY (the sweep could not set it: no known setter) | 1 |
+| DISABLED: needs none - | 59 |
+| DISABLED: needs option MOUNTED_ONLY | 7 |
+| DISABLED: needs option NEED_UPGRADE | 434 |
+| DISABLED: needs option NOT_QUEUEABLE | 6 |
+| DISABLED: needs option ON_GROUND_ONLY | 34 |
+| DISABLED: needs other 100 | 1 |
+| DISABLED: needs other 150 | 12 |
+| DISABLED: needs other 300 | 2 |
+| DISABLED: needs other 3000 | 1 |
+| DISABLED: needs other 350 | 1 |
+| DISABLED: needs other 500 | 5 |
+| GREY-BUG: still restricted with model MOUNTED met | 2 |
+| GREY-BUG: still restricted with model USER_9 met | 1 |
+| GREY-BUG: still restricted with model WEAPONSET_TOGGLE_1 met | 1 |
+| state 2 at level 10 (not enabled) | 1 |
 
 `none` is not "unexplained gray": it says the button carries no INI field this tool
 recognizes as a gate. Retail's common gates below still apply to it (its object may be
@@ -85,7 +96,7 @@ per-command switch is `docs/re/rotwk/RW_0x942733.md`.
 
 ## The `none` list and the run
 
-The 42 buttons whose row is `none` are listed in the TSV next to every other row.
+The 8 buttons whose row is `none` are listed in the TSV next to every other row.
 `none` means the button carries no INI field the tool recognizes as a gate, so its gray comes from
 a runtime state (the common gates above: disabled, unpowered, out of rank, single-use spent) or
 from the sweep fixture's own state, not from a data requirement the sweep could buy.

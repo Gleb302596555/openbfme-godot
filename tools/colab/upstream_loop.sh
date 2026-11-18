@@ -27,13 +27,18 @@ while true; do
     echo "== $(date -u '+%F %T') UTC"
     cd "$REPO" && git fetch -q origin && git fetch -q upstream && git checkout -q main && git reset -q --hard origin/main
     [ -d workspace/wt/upstream-pr/.git ] || [ -f workspace/wt/upstream-pr/.git ] || git worktree add -q --detach workspace/wt/upstream-pr upstream/main
+    st() { mkdir -p /content/status && echo "$*" > /content/status/upstream.txt; }   # the dashboard's "what it does" line
+    st "ветки up/*: перенос на свежий upstream/main"
     python3 tools/upstream_pr.py rebase
+    st "ветки up/*: проверка (сборка, тесты, текст)"
     python3 tools/upstream_pr.py check
+    st "ветки up/*: открываю PR готовых"
     python3 tools/upstream_pr.py open --ready
     python3 tools/upstream_pr.py check  # the report and the dashboard's PR list see the PRs just opened
     cp -f workspace/upstream-pr/report.md workspace/upstream-pr/report.json "$OUT/" 2>/dev/null
     # the dashboard (/local, "PR в апстрим") finds the report on Drive by this name
     cp -f workspace/upstream-pr/report.json "$OUT/openbfme-upstream-report.json" 2>/dev/null
+    st "сплю до следующего круга ($(date -u -d '+3 hours' '+%H:%M') UTC)"
   } >> "$OUT/loop.log" 2>&1
   sleep 10800
 done

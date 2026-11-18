@@ -84,6 +84,19 @@ public:
 		return out;
 	}
 	int categoryCount(int category) const { return (category >= 0 && category < 15) ? m_categoryCount[(size_t)category] : 0; }
+	// the expiry frame of the entry of `listName` (RW 0x805A8E: frame + duration, 0x3FFFFFFF when it never expires); 0 when the pool has no such entry.
+	// Read by the button matrix (MATRIX_TODO 2: an effect must end after its Duration)
+	unsigned expireOf(const std::string &listName) const
+	{
+		for (const Entry &e : m_entries)
+		{
+			if (e.name == listName)
+			{
+				return e.expire;
+			}
+		}
+		return 0;
+	}
 	void crc(StateHasher &hasher) const override;
 
 private:

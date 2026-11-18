@@ -109,6 +109,8 @@ print(f"audit zip: replaced ({len(buf.getvalue())} bytes, main {rev})")
 PY
 }
 
+st() { mkdir -p /content/status && echo "$*" > /content/status/maps.txt; }   # the dashboard's "what it does" line (watchdog.py)
+
 run() {
   local day; day=$(date -u +%F)
   echo "== $day $(date -u +%T) start" >> "$LOG"
@@ -116,22 +118,33 @@ run() {
   cd "$T" || return 1
   git fetch -q origin && git checkout -q -f --detach origin/main || return 1
   local rev; rev=$(git rev-parse --short=8 HEAD)
+  st "карты на main $rev: сборка"
   bash tools/colab/build_tests.sh > "$RUNS/nightly_build.log" 2>&1 || { echo "build failed at $rev" >> "$LOG"; return 1; }
+  st "карты на main $rev: матрица кнопок (все фракции)"
   python3 tools/matrix_run.py all --jobs 5 > "$RUNS/nightly_matrix.log" 2>&1 || { echo "matrix failed at $rev" >> "$LOG"; return 1; }
   # the matrix review (owner 2026-11-17): layer 1 ran inside `all` (recheck: every red object swept again alone, ORDER when fine alone);
   # layers 2 and 3 here: the lint against the mod's INI, and every button whose verdict moved since the main the previous run measured
   python3 tools/mod/matrix_review.py --ini "$INI" --before "$(cat "$RUNS/last_rev" 2>/dev/null)" > "$RUNS/nightly_review.log" 2>&1       || echo "matrix review failed at $rev (the run goes on)" >> "$LOG"
   # the field audit on this main (2026-11-17): the engine's module coverage table, then field_audit.py with the newest hand verdicts
   mkdir -p "$AUDIT"
+  st "карты на main $rev: аудит полей"
   OPENBFME_MODULE_COVERAGE_OUT="$AUDIT/module-coverage.tsv" engine/build/openbfme_tests "-tc=module coverage: every registry class*" \
       > "$RUNS/nightly_audit.log" 2>&1
   local manual; manual=$(ls -d "$DRIVE"/openbfme-audit/field-audit-v* 2>/dev/null | sort -V | tail -1)/manual-check.tsv
   python3 tools/mod/field_audit.py --base "$ROTWK_INSTALL" --overlay "$OPENBFME_ENNORATH_INSTALL" --coverage "$AUDIT/module-coverage.tsv" \
       --manual "$manual" --out "$AUDIT" >> "$RUNS/nightly_audit.log" 2>&1 || { echo "field audit failed at $rev" >> "$LOG"; return 1; }
+  # field-audit-auto is the one place every reader takes the audit from (owner 2026-11-18: "чтобы ночной сам везде обновлял"): the hand
+  # verdicts this run applied sit next to it, and README.txt says which main and which vN they are; the numbered vN stay hand releases
+  # (Claude adds new verdicts there), so no prompt or document names a version or a date that goes stale
+  cp -f "$manual" "$AUDIT/manual-check.tsv"
+  printf 'field-audit-auto: main %s, %s UTC (tools/colab/nightly_maps.sh, sandbox %s); hand verdicts from %s
+%s
+' "$rev" "$(date -u '+%F %T')" "$SB"       "$(basename "$(dirname "$manual")")" "$(grep -m1 'fields of the mod' "$AUDIT/field-audit.md" 2>/dev/null)" > "$AUDIT/README.txt"
   audit_zip "$rev" "$manual" || echo "audit zip failed at $rev" >> "$LOG"   # never stops the run
   [ -d /content/py219/angr ] || python3 -m pip install -q --target /content/py219 angr==9.2.213 bitstring==4.4.0 pycparser==3.0 > /dev/null 2>&1
   export PYTHONPATH=/content/py219
   cp -f "$INV" workspace/rebuild_inventory.json 2>/dev/null
+  st "карты на main $rev: карта функций RotWK"
   decomp_map   # fills the map's decomp column (Port 240); a failure leaves the column empty, it never stops the night
   python3 tools/mod/rw_function_map.py --game "$RW_GAME_DAT" --ini "$INI" --inventory workspace/rebuild_inventory.json \
       --decomp "$XMAP/rw_map.csv" --out docs/ennorath/RW_FUNCTION_MAP > "$RUNS/nightly_map.log" 2>&1 || { echo "map failed at $rev" >> "$LOG"; return 1; }
@@ -151,6 +164,7 @@ run() {
   # this run's audit, matrix and gaps, and the stop curve against the previous row
   python3 tools/mod/progress_snapshot.py --audit "$AUDIT/field-audit.tsv" --audit-name auto --write >> "$LOG" 2>&1 || echo "progress row failed at $rev" >> "$LOG"
   local stops; stops=$(tail -1 docs/ennorath/PROGRESS.tsv | awk -F'\t' '{print "open " $8 ", new " $12 ", closed " $13}')
+  st "карты на main $rev: коммит auto/maps"
   git checkout -q -B auto/maps
   git add docs/ennorath/MATRIX.tsv docs/ennorath/README.md docs/ennorath/RW_FUNCTION_MAP.tsv docs/ennorath/RW_FUNCTION_MAP.md \
       docs/ennorath/MATRIX_GAPS.tsv docs/ennorath/MATRIX_GAPS.md docs/ennorath/FIELD_GAPS.tsv docs/ennorath/PROGRESS.tsv docs/ennorath/MATRIX_FACTIONS.tsv docs/ennorath/MATRIX_REVIEW.md
@@ -179,6 +193,7 @@ run() {
   cp -f "$RUNS/$day.md" "$RUNS/latest.md"
   echo "$rev" > "$RUNS/last_rev"
   echo "== $day $(date -u +%T) done ($red)" >> "$LOG"
+  st "жду следующего переноса в main (последний прогон: main $rev, красных кнопок / пробелов $red)"
 }
 
 if [ "${1:-}" = "--now" ]; then

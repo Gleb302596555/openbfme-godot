@@ -21,6 +21,7 @@
 #include "GameLogic/Module/UpgradeModuleClasses.h"
 #include "GameLogic/Object/ExperienceTracker.h"
 #include "GameLogic/Object/Object.h"
+#include "GameLogic/ObjectTemplateInfo.h"
 
 #include <variant>
 
@@ -78,9 +79,13 @@ std::string portraitFor(const HudContext &ctx, ObjectID contextObject, const std
 	{
 		// RW 0x92FE44: a context drawable decides alone
 		const Object *obj = ctx.logic.findObjectByID(contextObject);
-		return obj ? objectPortrait(*obj) : std::string();
+		return obj && !obj->isDestroyed() ? objectPortrait(*obj) : std::string();
 	}
-	// RW 0x92FE6D .. 0x92FECF: the first selected drawable's portrait when every selected drawable shares it
+	// RW 0x92FE6D .. 0x92FECF: the first non-IGNORED_IN_GUI selected drawable's portrait when every non-IGNORED_IN_GUI
+	// selected drawable shares it (RW 0x92FA83 / 0x92FAA5 skip IGNORED_IN_GUI, KindOf bit 47); RW 0x92FF07 reads the
+	// first selected drawable overall when all are IGNORED_IN_GUI or portraits differ.
+	static const int kIgnoredInGui = ObjectTemplateInfoBuilder::kindOfIndex("IGNORED_IN_GUI");
+	const Object *firstAny = nullptr;
 	const Object *first = nullptr;
 	std::string shared;
 	bool same = true;
@@ -88,7 +93,15 @@ std::string portraitFor(const HudContext &ctx, ObjectID contextObject, const std
 	for (ObjectID id : selected)
 	{
 		const Object *obj = ctx.logic.findObjectByID(id);
-		if (!obj)
+		if (!obj || obj->isDestroyed())
+		{
+			continue;
+		}
+		if (!firstAny)
+		{
+			firstAny = obj;
+		}
+		if (kIgnoredInGui >= 0 && obj->isKindOf(static_cast<unsigned>(kIgnoredInGui)))
 		{
 			continue;
 		}
@@ -119,12 +132,12 @@ std::string portraitFor(const HudContext &ctx, ObjectID contextObject, const std
 	{
 		return shared;
 	}
-	if (!first)
+	if (!firstAny)
 	{
 		return std::string(); // 0x92FF0D: nothing selected
 	}
 	// RW 0x92FF0F .. 0x92FF47: the first selected object's team's controlling player's MultiSelectionPortrait, else the image "MultiPortrait"
-	if (const Team *team = first->getTeam())
+	if (const Team *team = firstAny->getTeam())
 	{
 		if (const Player *owner = team->getControllingPlayer())
 		{
@@ -291,8 +304,10 @@ RankInfo rankInfoFor(const HudContext &ctx, ObjectID contextObject, const std::v
 	if (contextObject != INVALID_ID)
 	{
 		const Object *obj = ctx.logic.findObjectByID(contextObject);
-		return obj ? rankInfo(ctx, *obj) : RankInfo{};
+		return obj && !obj->isDestroyed() ? rankInfo(ctx, *obj) : RankInfo{};
 	}
+	// RW 0x93062C / 0x93068F -> RW 0x92FA83 / 0x92FAA5: skip IGNORED_IN_GUI (KindOf bit 47) when comparing rank info.
+	static const int kIgnoredInGui = ObjectTemplateInfoBuilder::kindOfIndex("IGNORED_IN_GUI");
 	RankInfo info;
 	bool first = true;
 	// lane SELPERF-1: rankInfo of an object without a LifetimeUpdate is its experience tracker's (the level, the experience, the level chain's template,
@@ -326,7 +341,7 @@ RankInfo rankInfoFor(const HudContext &ctx, ObjectID contextObject, const std::v
 	for (ObjectID id : selected)
 	{
 		const Object *obj = ctx.logic.findObjectByID(id);
-		if (!obj)
+		if (!obj || obj->isDestroyed() || (kIgnoredInGui >= 0 && obj->isKindOf(static_cast<unsigned>(kIgnoredInGui))))
 		{
 			continue;
 		}

@@ -50,6 +50,8 @@ NOT_CONTENT = {"requiredobject", "buildingrequired", "displaynameinvisibleforene
 CATEGORIES = [
     ("CRASH", re.compile(r"^CRASH")),                                # the engine died at this press: the first thing to fix
     ("STANCE", re.compile(r"^S-289")),                              # the stance button opens the radial: a known stop, not a fault
+    ("NO-END", re.compile(r"never expires, though its Duration")),        # MATRIX_TODO 2: a modifier applied for good though its list has a Duration (RW 0x805A8E)
+    ("UPGRADE-IDLE", re.compile(r"bought, but .* did not execute")),      # MATRIX_TODO 1: an upgrade bought whose triggered module did not run (UpgradeMux)
     ("NO-FIRE", re.compile(r"did not fire")),
     ("NO-RULE", re.compile(r"no effect of .* is asserted")),         # the test cannot judge it yet
     ("NO-EFFECT", re.compile(r"fired but|fired with \d+ unported")),

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """The sandbox watchdog (owner 2026-11-17: "сторож песочниц"): every 5 minutes on each Colab sandbox it
-  - checks that the sandbox's own loops run (ROLES: sb1 the PR checker, sb3 the maps run, sb4 the upstream loop) and starts a missing one
+  - checks that the sandbox's own loops run (ROLES: sb1 the PR checker, sb2 the batch bot's loop, sb3 the maps run, sb4 the upstream loop) and starts a missing one
     again from origin/main's copy, as autostart.d does after a restart (a loop missing at two checks in a row, at most 3 starts an hour;
     /content/sandbox/watchdog.off or a file /content/sandbox/watchdog.off.<loop> holds it off while Claude swaps a loop by hand);
   - writes a heartbeat to the Drive, openbfme-runs/upstream/openbfme-health-sb<N>.json (the folder the dashboard's Drive key reads; the
@@ -34,10 +34,13 @@ LOOPS = {
                 {"PRCHECK_STATE": "/content/sandbox/prcheck-state.json"}),
     "maps": ("nightly_maps.sh", ["bash", "/content/sandbox/nightly_maps.sh"], "/content/nightly_maps.log",
              [str(DRIVE / "maps/nightly_maps.log"), str(DRIVE / "maps/last_rev")], {}),
+    # a running batch writes its own log on the Drive and its status line, not the loop's log (2026-11-18: "активность 2.3 ч назад" in mid-batch)
+    "batch": ("batch_bot.py", ["python3", "/content/sandbox/batch_bot.py", "loop"], "/content/batch_loop.log",
+              ["/content/batch_loop.log", "/content/status/batch*.txt", str(DRIVE / "batch" / "2*.log")], {}),
     "upstream": ("upstream_loop.sh", ["bash", "/content/sandbox/upstream_loop.sh"], "/content/upstream.log",
                  [str(DRIVE / "upstream/loop.log")], {}),
 }
-ROLES = {"1": ["prcheck"], "2": [], "3": ["maps"], "4": ["upstream"]}
+ROLES = {"1": ["prcheck"], "2": ["batch"], "3": ["maps"], "4": ["upstream"]}
 
 
 def procs() -> list[list[str]]:
@@ -54,7 +57,8 @@ def procs() -> list[list[str]]:
 
 def running(loop: str, ps: list[list[str]]) -> bool:
     path = LOOPS[loop][1][1]
-    return any(len(a) >= 2 and a[1] == path and a[0].endswith(("python3", "bash", "python")) for a in ps)
+    extra = LOOPS[loop][1][2:]   # the batch loop is `batch_bot.py loop`: a hand `batch_bot.py run` of the same copy is not the loop
+    return any(len(a) >= 2 and a[1] == path and a[2:2 + len(extra)] == extra and a[0].endswith(("python3", "bash", "python")) for a in ps)
 
 
 def start(loop: str) -> str:
@@ -72,7 +76,10 @@ def start(loop: str) -> str:
 
 
 def age(paths: list[str]) -> int | None:
-    ages = [time.time() - Path(p).stat().st_mtime for p in paths if Path(p).exists()]
+    """Seconds since the newest of the files (a path may be a glob pattern)."""
+    import glob
+    found = [f for p in paths for f in (glob.glob(p) if any(c in p for c in "*?[") else [p])]
+    ages = [time.time() - Path(f).stat().st_mtime for f in found if Path(f).exists()]
     return int(min(ages)) if ages else None
 
 
@@ -90,7 +97,8 @@ def busy(ps: list[list[str]]) -> dict:
     names = [os.path.basename(a[0]) for a in ps if a]
     joined = [" ".join(a) for a in ps]
     return {"tests": sum(1 for n in names if n == "openbfme_tests"), "compilers": sum(1 for n in names if n in ("cc1plus", "cc1")),
-            "batch_bot": any("batch_bot.py" in j and j.startswith("python") for j in joined),
+            "batch_bot": any(len(a) >= 3 and a[0].endswith(("python3", "python")) and a[1].endswith("batch_bot.py") and a[2] == "run"
+                             for a in ps),   # a batch being built, not the loop that waits
             "matrix": any("matrix_run.py" in j and j.startswith("python") for j in joined)}
 
 
@@ -134,8 +142,27 @@ def round_once(state: dict) -> dict:
         loops.append({"loop": loop, "running": ok, "action": action, "activity_age_s": age(LOOPS[loop][3]),
                       "last_start": st.get("last_start"), "starts_last_hour": len(st["starts"]), "log_tail": tail(LOOPS[loop][2])})
     head = subprocess.run(["git", "-C", str(REPO), "log", "-1", "--format=%h %cI", "origin/main"], capture_output=True, text=True).stdout.strip()
-    return {"sandbox": SB, "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "loops": loops, "busy": busy(ps), "machine": machine(),
+    return {"sandbox": SB, "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "loops": loops, "busy": busy(ps), "doing": doing(), "machine": machine(),
             "origin_main": head, "watchdog_pid": os.getpid()}
+
+
+STATUS_DIR = Path("/content/status")
+STATUS_MAX_AGE = 6 * 3600
+
+
+def doing() -> list[dict]:
+    """The bots' own one-line statuses (/content/status/<key>.txt, written by pr_checker.py, batch_bot.py, nightly_maps.sh,
+    upstream_loop.sh), newest first; a line older than STATUS_MAX_AGE is dropped (its bot died or forgot it)."""
+    out = []
+    for f in STATUS_DIR.glob("*.txt") if STATUS_DIR.exists() else []:
+        try:
+            age_s = int(time.time() - f.stat().st_mtime)
+            text = f.read_text(encoding="utf-8", errors="replace").strip()
+        except OSError:
+            continue
+        if text and age_s < STATUS_MAX_AGE:
+            out.append({"who": f.stem, "text": text[:300], "age_s": age_s})
+    return sorted(out, key=lambda d: d["age_s"])
 
 
 def publish(beat: dict) -> None:
