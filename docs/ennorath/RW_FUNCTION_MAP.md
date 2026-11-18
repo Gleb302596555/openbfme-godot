@@ -2,7 +2,7 @@
 
 Command: `python tools/mod/rw_function_map.py --game /content/game_assets/bfme_assets/RotWK/game.dat --ini /content/drive/MyDrive/for-arena/ennorath-ini-1.9.8.3.zip --inventory workspace/rebuild_inventory.json --decomp workspace/rebuild/xmap/rw_map.csv --out docs/ennorath/RW_FUNCTION_MAP`
 
-Rows: 52638; ported 26531, partial 823, none 25284.
+Rows: 52638; ported 27089, partial 824, none 24725.
 Counts are per module/function pair, not unique functions.
 
 ## Stop list
@@ -92,11 +92,9 @@ calls; their targets are not followed.
 | ObjectCreationUpgrade | 8914 | 0 | 0x008B812F | 2 | none |  |
 | ObjectCreationUpgrade | 8914 | 0 | 0x008B8142 | 2 | none |  |
 | ObjectCreationUpgrade | 8914 | 0 | 0x008B8168 | 2 | none |  |
-| ShareExperienceBehavior | 8914 | 0 | 0x00464A09 | 2 | none | W3DQuadrupedDrawModuleData::W3DQuadrupedDrawModuleData (tier C) |
 | ShareExperienceBehavior | 8914 | 0 | 0x008830A2 | 2 | none |  |
 | TemporarilyDefectUpdate | 8914 | 0 | 0x008D0AB1 | 2 | none |  |
 | AttributeModifierPoolUpdate | 8914 | 1 | 0x006EFE24 | 31 | none | UBfmePod492::_Deque_base<>::_Deque_base<> (tier A) |
-| ShareExperienceBehavior | 8914 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | AttributeModifierPoolUpdate | 8914 | 1 | 0x008052C4 | 25 | none | VRva00297360Element::vector<>::erase (tier A) |
 | AttributeModifierPoolUpdate | 8914 | 1 | 0x008055C9 | 20 | none | MonitorConditionUpdate::~MonitorConditionUpdate (tier A) |
 | AttributeModifierPoolUpdate | 8914 | 1 | 0x0061452E | 18 | none | AttributeModifierStore::getEndFX (tier A) |
@@ -114,13 +112,7 @@ calls; their targets are not followed.
 | DamageFilteredCreateObjectDie | 8914 | 1 | 0x0088916B | 5 | none |  |
 | ShareExperienceBehavior | 8914 | 1 | 0x00883082 | 5 | none | Rva0049C3FC::~Rva0049C3FC (tier A) |
 | TemporarilyDefectUpdate | 8914 | 1 | 0x008D0A98 | 4 | none | ObjectDefectionHelper::~ObjectDefectionHelper (tier A) |
-| AttributeModifierPoolUpdate | 8914 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| AttributeModifierUpgrade | 8914 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| DamageFilteredCreateObjectDie | 8914 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| ObjectCreationUpgrade | 8914 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | ObjectCreationUpgrade | 8914 | 1 | 0x00A3CF22 | 1 | none | ji_00629182 (tier A) |
-| ShareExperienceBehavior | 8914 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| TemporarilyDefectUpdate | 8914 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | AttributeModifierPoolUpdate | 8914 | 2 | 0x007B4A72 | 64 | none | UBfmeWordValue4::_Deque_base<>::_M_initialize_map (tier A) |
 | AttributeModifierPoolUpdate | 8914 | 2 | 0x00804E8A | 34 | none |  |
 | AttributeModifierPoolUpdate | 8914 | 2 | 0x00805517 | 23 | none |  |
@@ -145,7 +137,6 @@ calls; their targets are not followed.
 | AttributeModifierPoolUpdate | 8914 | 3 | 0x00435D50 | 42 | none |  |
 | AttributeModifierUpgrade | 8914 | 3 | 0x00435D50 | 42 | none |  |
 | AttributeModifierPoolUpdate | 8914 | 3 | 0x00678816 | 27 | partial |  |
-| AttributeModifierUpgrade | 8914 | 3 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | AttributeModifierUpgrade | 8914 | 3 | 0x00805A57 | 25 | none | VRva00297360Element::vector<>::push_back (tier A) |
 | AttributeModifierUpgrade | 8914 | 3 | 0x0042C978 | 23 | none | VAsciiString::_Rb_tree<>::~_Rb_tree<> (tier D) |
 | ShareExperienceBehavior | 8914 | 3 | 0x0076293A | 23 | none | Rva00360CB0Release (tier A) |
@@ -288,7 +279,6 @@ calls; their targets are not followed.
 | AttributeModifierPoolUpdate | 8914 | 6 | 0x006750FA | 29 | none |  |
 | AttributeModifierUpgrade | 8914 | 6 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
 | ShareExperienceBehavior | 8914 | 6 | 0x005E0A39 | 28 | partial | QBVGameWindow::U?$pair::hashtable<>::begin (tier A) |
-| TemporarilyDefectUpdate | 8914 | 6 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | TemporarilyDefectUpdate | 8914 | 6 | 0x007A2045 | 25 | none |  |
 | AttributeModifierUpgrade | 8914 | 6 | 0x0068FF46 | 20 | none | Rva00211EAACopy (tier A) |
 | TemporarilyDefectUpdate | 8914 | 6 | 0x006745D2 | 20 | none | Drawable::changedTeam (tier A) |
@@ -377,7 +367,6 @@ calls; their targets are not followed.
 | TemporarilyDefectUpdate | 8914 | 8 | 0x00767DF1 | 33 | none | IIURva002F3759Compare::map<>::operator[] (tier A) |
 | AttributeModifierUpgrade | 8914 | 8 | 0x006750FA | 29 | none |  |
 | TemporarilyDefectUpdate | 8914 | 8 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
-| DamageFilteredCreateObjectDie | 8914 | 8 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | TemporarilyDefectUpdate | 8914 | 8 | 0x00B61EA0 | 27 | none | _luaG_typeerror (tier C) |
 | TemporarilyDefectUpdate | 8914 | 8 | 0x00B64240 | 26 | none | _hash_s (tier A) |
 | TemporarilyDefectUpdate | 8914 | 8 | 0x00A3CD70 | 25 | none |  |
@@ -760,7 +749,6 @@ calls; their targets are not followed.
 | W3DScriptedModelDraw | 8022 | 1 | 0x004374E0 | 30 | none | D::StringBase<>::StringBase<> (tier A) |
 | W3DScriptedModelDraw | 8022 | 1 | 0x00478E00 | 29 | none |  |
 | W3DScriptedModelDraw | 8022 | 1 | 0x00478389 | 28 | none | Rva00078AE3::rva00078AE3 (tier B) |
-| W3DScriptedModelDraw | 8022 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | W3DScriptedModelDraw | 8022 | 1 | 0x004C2B4A | 25 | none | UBfmeStringRecord000B9534::vector<>::push_back (tier A) |
 | W3DScriptedModelDraw | 8022 | 1 | 0x004C3D1F | 25 | none | Rva000C4657::erase (tier A) |
 | W3DScriptedModelDraw | 8022 | 1 | 0x0042C978 | 23 | none | VAsciiString::_Rb_tree<>::~_Rb_tree<> (tier D) |
@@ -1156,7 +1144,6 @@ calls; their targets are not followed.
 | ActiveBody | 4811 | 1 | 0x00435D50 | 42 | none |  |
 | ActiveBody | 4811 | 1 | 0x005FC2FE | 38 | none | Make001FCBD7 (tier C) |
 | ActiveBody | 4811 | 1 | 0x004374E0 | 30 | none | D::StringBase<>::StringBase<> (tier A) |
-| ActiveBody | 4811 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | ActiveBody | 4811 | 1 | 0x008C3AED | 26 | none |  |
 | ActiveBody | 4811 | 1 | 0x00A3CE80 | 19 | none |  |
 | ActiveBody | 4811 | 1 | 0x00A3D28E | 18 | none |  |
@@ -1170,7 +1157,6 @@ calls; their targets are not followed.
 | ActiveBody | 4811 | 1 | 0x0042F6E0 | 5 | none |  |
 | ActiveBody | 4811 | 1 | 0x00450762 | 5 | none |  |
 | ActiveBody | 4811 | 1 | 0x006DAD81 | 2 | none | Rva002D9C2F::rva002D9C2F (tier A) |
-| ActiveBody | 4811 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | ActiveBody | 4811 | 1 | 0x00A3CF22 | 1 | none | ji_00629182 (tier A) |
 | ActiveBody | 4811 | 2 | 0x00970ED8 | 54 | none | PBVModuleData::vector<>::insert (tier A) |
 | ActiveBody | 4811 | 2 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
@@ -1417,7 +1403,6 @@ calls; their targets are not followed.
 | SlowDeathBehavior | 4548 | 1 | 0x0068BF44 | 7 | none |  |
 | SlowDeathBehavior | 4548 | 1 | 0x0068FC98 | 6 | none |  |
 | SlowDeathBehavior | 4548 | 1 | 0x008603CC | 6 | none | ShipSlowDeathBehavior::~ShipSlowDeathBehavior (tier A) |
-| SlowDeathBehavior | 4548 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | SlowDeathBehavior | 4548 | 1 | 0x00A3CF22 | 1 | none | ji_00629182 (tier A) |
 | SlowDeathBehavior | 4548 | 2 | 0x008E3B71 | 26 | none | Rva004DF7DB::rva004DF7DB (tier A) |
 | SlowDeathBehavior | 4548 | 2 | 0x004A86AC | 13 | none | Rva0036CA00Str::Rva0036CA00Str (tier A) |
@@ -1503,7 +1488,6 @@ calls; their targets are not followed.
 | SlowDeathBehavior | 4548 | 7 | 0x00A3CF72 | 8 | none | _atexit (tier A) |
 | SlowDeathBehavior | 4548 | 7 | 0x00A3CE04 | 1 | none | __CxxThrowException@8 (tier A) |
 | SlowDeathBehavior | 4548 | 8 | 0x004360C0 | 63 | none |  |
-| SlowDeathBehavior | 4548 | 8 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | SlowDeathBehavior | 4548 | 8 | 0x0079FEAF | 18 | none | Rva0039D8FBLess (tier B) |
 | SlowDeathBehavior | 4548 | 8 | 0x007A0626 | 16 | none |  |
 | SlowDeathBehavior | 4548 | 8 | 0x0082F0FF | 15 | none | _STL::PAPAXIPAX::fill_n<> (tier B) |
@@ -1607,7 +1591,6 @@ calls; their targets are not followed.
 | PhysicsBehavior | 3667 | 0 | 0x00792DA1 | 11 | none | PhysicsBehavior::`scalar deleting destructor' (tier A) |
 | PhysicsBehavior | 3667 | 0 | 0x00792C64 | 2 | none |  |
 | PhysicsBehavior | 3667 | 1 | 0x00792C85 | 23 | none |  |
-| PhysicsBehavior | 3667 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | PhysicsBehavior | 3667 | 2 | 0x00430170 | 4 | none |  |
 | PhysicsBehavior | 3667 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
 | PhysicsBehavior | 3667 | 3 | 0x00678816 | 27 | partial |  |
@@ -1668,7 +1651,6 @@ calls; their targets are not followed.
 | DestroyDie | 2656 | 0 | 0x008897E9 | 11 | none | CreateObjectDieIfEldestKindofModuleData::`scalar deleting destructor' (tier A) |
 | DestroyDie | 2656 | 0 | 0x00889774 | 2 | none |  |
 | DestroyDie | 2656 | 1 | 0x0088975B | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
-| DestroyDie | 2656 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | DestroyDie | 2656 | 2 | 0x005EB775 | 12 | none | PAVObject::list<>::push_back (tier A) |
 | DestroyDie | 2656 | 2 | 0x0085FE9D | 4 | none | DieModule::~DieModule (tier B) |
 | DestroyDie | 2656 | 3 | 0x005EB44F | 12 | none | PAVObject::list<>::insert (tier A) |
@@ -1702,7 +1684,6 @@ calls; their targets are not followed.
 | DestroyDie | 2656 | 7 | 0x0042F6E0 | 5 | none |  |
 | DestroyDie | 2656 | 7 | 0x00A3CE04 | 1 | none | __CxxThrowException@8 (tier A) |
 | DestroyDie | 2656 | 8 | 0x004360C0 | 63 | none |  |
-| DestroyDie | 2656 | 8 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | DestroyDie | 2656 | 8 | 0x0079FEAF | 18 | none | Rva0039D8FBLess (tier B) |
 | DestroyDie | 2656 | 8 | 0x00440B21 | 8 | none |  |
 | DestroyDie | 2656 | 9 | 0x00608BCA | 116 | partial | ScriptEngine::setCounterToThreat (tier B) |
@@ -1882,7 +1863,6 @@ calls; their targets are not followed.
 | AIUpdateInterface | 2606 | 1 | 0x0068B44B | 5 | none | Object::rva0028AD7C (tier A) |
 | AIUpdateInterface | 2606 | 1 | 0x0078B099 | 3 | none | UnicodeString::UnicodeString (tier A) |
 | AIUpdateInterface | 2606 | 1 | 0x00753266 | 2 | none | Rva00351759::rva00351759 (tier A) |
-| AIUpdateInterface | 2606 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | AIUpdateInterface | 2606 | 2 | 0x00752FAC | 94 | none |  |
 | AIUpdateInterface | 2606 | 2 | 0x004813E1 | 79 | none | UBfmePod44::vector<>::_M_insert_overflow (tier B) |
 | AIUpdateInterface | 2606 | 2 | 0x00435D50 | 42 | none |  |
@@ -1925,7 +1905,6 @@ calls; their targets are not followed.
 | AIUpdateInterface | 2606 | 3 | 0x00767DF1 | 33 | none | IIURva002F3759Compare::map<>::operator[] (tier A) |
 | AIUpdateInterface | 2606 | 3 | 0x00B60DD0 | 32 | none | _luaD_adjusttop (tier A) |
 | AIUpdateInterface | 2606 | 3 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
-| AIUpdateInterface | 2606 | 3 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | AIUpdateInterface | 2606 | 3 | 0x008E3B71 | 26 | none | Rva004DF7DB::rva004DF7DB (tier A) |
 | AIUpdateInterface | 2606 | 3 | 0x004DF9DF | 19 | none | PBUBfmeVectorRecord000BDF17::_M_allocate_and_copy<> (tier A) |
 | AIUpdateInterface | 2606 | 3 | 0x006652BE | 18 | none | PBUBfmeStringRecord0022074B::__uninitialized_copy<> (tier A) |
@@ -2121,13 +2100,11 @@ calls; their targets are not followed.
 | SquishCollide | 2146 | 0 | 0x008BFAAB | 2 | none |  |
 | SquishCollide | 2146 | 1 | 0x004503DF | 18 | none | GeometryInfo::~GeometryInfo (tier B) |
 | SquishCollide | 2146 | 1 | 0x008BFA92 | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
-| SquishCollide | 2146 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | SquishCollide | 2146 | 2 | 0x00AD4790 | 63 | partial | rva006C0630 (tier A) |
 | SquishCollide | 2146 | 2 | 0x00435D50 | 42 | none |  |
 | SquishCollide | 2146 | 2 | 0x00492333 | 38 | none | UBfmeStringRecord00063BE4::vector<>::vector<> (tier A) |
 | SquishCollide | 2146 | 2 | 0x00492393 | 35 | none | UGeometryRecord::vector<>::vector<> (tier A) |
 | SquishCollide | 2146 | 2 | 0x004374E0 | 30 | none | D::StringBase<>::StringBase<> (tier A) |
-| SquishCollide | 2146 | 2 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | SquishCollide | 2146 | 2 | 0x0045032E | 23 | none |  |
 | SquishCollide | 2146 | 2 | 0x0045036D | 23 | none |  |
 | SquishCollide | 2146 | 2 | 0x00450762 | 5 | none |  |
@@ -2310,16 +2287,13 @@ calls; their targets are not followed.
 | ProductionUpdate | 2058 | 0 | 0x008A196F | 6 | none |  |
 | ProductionUpdate | 2058 | 0 | 0x008A05A7 | 3 | none |  |
 | ProductionUpdate | 2058 | 0 | 0x008A1916 | 3 | none |  |
-| ProductionUpdate | 2058 | 0 | 0x00464A09 | 2 | none | W3DQuadrupedDrawModuleData::W3DQuadrupedDrawModuleData (tier C) |
 | ProductionUpdate | 2058 | 0 | 0x008A18DA | 2 | none |  |
 | ProductionUpdate | 2058 | 0 | 0x008A1923 | 2 | none |  |
 | ProductionUpdate | 2058 | 0 | 0x009F9F37 | 2 | none |  |
 | ProductionUpdate | 2058 | 1 | 0x008A198B | 52 | none |  |
 | ProductionUpdate | 2058 | 1 | 0x008A1A9D | 51 | none | ProductionUpdateModuleData::~ProductionUpdateModuleData (tier A) |
 | ProductionUpdate | 2058 | 1 | 0x00435D50 | 42 | none |  |
-| ProductionUpdate | 2058 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | ProductionUpdate | 2058 | 1 | 0x006AF484 | 17 | none | Rva002AE98B::rva002AE98B (tier B) |
-| ProductionUpdate | 2058 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | ProductionUpdate | 2058 | 1 | 0x00A3CF22 | 1 | none | ji_00629182 (tier A) |
 | ProductionUpdate | 2058 | 2 | 0x0042CED7 | 72 | none | VAsciiString::vector<>::_M_insert_overflow (tier A) |
 | ProductionUpdate | 2058 | 2 | 0x005DCBB3 | 60 | none | Eva::internalReportEvaEvent (tier A) |
@@ -2453,9 +2427,7 @@ calls; their targets are not followed.
 | SpecialPowerModule | 1965 | 0 | 0x008981BE | 28 | none |  |
 | SpecialPowerModule | 1965 | 0 | 0x00896A32 | 23 | none |  |
 | SpecialPowerModule | 1965 | 0 | 0x00654F8E | 22 | none |  |
-| SpecialPowerModule | 1965 | 0 | 0x008972B2 | 18 | none |  |
 | SpecialPowerModule | 1965 | 0 | 0x0089753E | 15 | none |  |
-| SpecialPowerModule | 1965 | 0 | 0x0089679D | 14 | none |  |
 | SpecialPowerModule | 1965 | 0 | 0x00896C4C | 14 | none | SpecialPowerModule::getPowerName (tier A) |
 | SpecialPowerModule | 1965 | 0 | 0x0089796B | 11 | none | SpecialPowerModule::`scalar deleting destructor' (tier A) |
 | SpecialPowerModule | 1965 | 0 | 0x006519A6 | 4 | none |  |
@@ -2466,7 +2438,6 @@ calls; their targets are not followed.
 | SpecialPowerModule | 1965 | 1 | 0x00897583 | 51 | none |  |
 | SpecialPowerModule | 1965 | 1 | 0x00435D50 | 42 | none |  |
 | SpecialPowerModule | 1965 | 1 | 0x004374E0 | 30 | none | D::StringBase<>::StringBase<> (tier A) |
-| SpecialPowerModule | 1965 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | SpecialPowerModule | 1965 | 1 | 0x00645716 | 12 | none | Rva0027EA49::operator= (tier A) |
 | SpecialPowerModule | 1965 | 1 | 0x00896A70 | 9 | none |  |
 | SpecialPowerModule | 1965 | 1 | 0x0079D11D | 4 | partial | ExperienceTracker::rva0039ABFF (tier A) |
@@ -2762,7 +2733,6 @@ calls; their targets are not followed.
 | StancesBehavior | 1794 | 0 | 0x008620C1 | 11 | none | StancesBehavior::`scalar deleting destructor' (tier A) |
 | StancesBehavior | 1794 | 0 | 0x0086200F | 2 | none |  |
 | StancesBehavior | 1794 | 1 | 0x0086205A | 31 | none |  |
-| StancesBehavior | 1794 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | StancesBehavior | 1794 | 2 | 0x00861F79 | 13 | none | Rva0045EF37List::forEach (tier A) |
 | StancesBehavior | 1794 | 2 | 0x00430170 | 4 | none |  |
 | StancesBehavior | 1794 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
@@ -2772,7 +2742,6 @@ calls; their targets are not followed.
 | StancesBehavior | 1794 | 3 | 0x00434F90 | 12 | none |  |
 | StancesBehavior | 1794 | 3 | 0x007AEAFD | 2 | none | SecondBase005D2111::~SecondBase005D2111 (tier A) |
 | StancesBehavior | 1794 | 4 | 0x00435D50 | 42 | none |  |
-| StancesBehavior | 1794 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | StancesBehavior | 1794 | 4 | 0x008052C4 | 25 | none | VRva00297360Element::vector<>::erase (tier A) |
 | StancesBehavior | 1794 | 4 | 0x00805A57 | 25 | none | VRva00297360Element::vector<>::push_back (tier A) |
 | StancesBehavior | 1794 | 4 | 0x0042C978 | 23 | none | VAsciiString::_Rb_tree<>::~_Rb_tree<> (tier D) |
@@ -2845,7 +2814,6 @@ calls; their targets are not followed.
 | LargeGroupAudioUpdate | 1692 | 1 | 0x0073ED06 | 10 | none | HeaderTemplateManager::HeaderTemplateManager (tier A) |
 | LargeGroupAudioUpdate | 1692 | 1 | 0x008AEFD7 | 7 | none | LargeGroupAudioUpdate::~LargeGroupAudioUpdate (tier A) |
 | LargeGroupAudioUpdate | 1692 | 1 | 0x007B3CE0 | 6 | none |  |
-| LargeGroupAudioUpdate | 1692 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | LargeGroupAudioUpdate | 1692 | 2 | 0x007EE86B | 71 | none | bfmeClearMembers (tier A) |
 | LargeGroupAudioUpdate | 1692 | 2 | 0x007EE532 | 33 | none | Rva003ED498Count (tier A) |
 | LargeGroupAudioUpdate | 1692 | 2 | 0x006ACA3D | 31 | none | _STL::I::IV?$allocator::vector<>::vector<> (tier A) |
@@ -2908,7 +2876,6 @@ calls; their targets are not followed.
 | EmotionTrackerUpdate | 1622 | 3 | 0x00A3AC70 | 40 | none | FlightDeckBehavior::PAUFlightDeckInfo::__uninitialized_fill_n<> (tier D) |
 | EmotionTrackerUpdate | 1622 | 3 | 0x00B5B830 | 36 | none | _lua_pushstring (tier A) |
 | EmotionTrackerUpdate | 1622 | 3 | 0x00B5B910 | 35 | none | _lua_getglobal (tier A) |
-| EmotionTrackerUpdate | 1622 | 3 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | EmotionTrackerUpdate | 1622 | 3 | 0x00406346 | 25 | none | D::StringBase<>::compareNoCase (tier B) |
 | EmotionTrackerUpdate | 1622 | 3 | 0x00B611B0 | 25 | none | _lua_call (tier A) |
 | EmotionTrackerUpdate | 1622 | 3 | 0x00A3CE80 | 19 | none |  |
@@ -3132,7 +3099,6 @@ calls; their targets are not followed.
 | LifetimeUpdate | 1605 | 0 | 0x007A7E88 | 8 | none |  |
 | LifetimeUpdate | 1605 | 0 | 0x007A7D78 | 2 | none |  |
 | LifetimeUpdate | 1605 | 1 | 0x007A7D5F | 4 | none |  |
-| LifetimeUpdate | 1605 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | LifetimeUpdate | 1605 | 2 | 0x00767DF1 | 33 | none | IIURva002F3759Compare::map<>::operator[] (tier A) |
 | LifetimeUpdate | 1605 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
 | LifetimeUpdate | 1605 | 3 | 0x008EA106 | 57 | none |  |
@@ -3191,13 +3157,11 @@ calls; their targets are not followed.
 | LifetimeUpdate | 1605 | 9 | 0x00A3CF22 | 1 | none | ji_00629182 (tier A) |
 | LifetimeUpdate | 1605 | 10 | 0x0042C17A | 14 | none | AsciiStringCopyConstructAtRva0002C485 (tier A) |
 | LifetimeUpdate | 1605 | 10 | 0x00828D5C | 4 | none |  |
-| LifetimeUpdate | 1605 | 11 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | AISpecialPowerUpdate | 1553 | 0 | 0x008B6FE4 | 15 | none |  |
 | AISpecialPowerUpdate | 1553 | 0 | 0x008B74A6 | 15 | partial |  |
 | AISpecialPowerUpdate | 1553 | 0 | 0x008B706F | 11 | none | AISpecialPowerUpdate::`scalar deleting destructor' (tier A) |
 | AISpecialPowerUpdate | 1553 | 0 | 0x008B6FDE | 2 | none |  |
 | AISpecialPowerUpdate | 1553 | 1 | 0x008B6F89 | 28 | none |  |
-| AISpecialPowerUpdate | 1553 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | AISpecialPowerUpdate | 1553 | 2 | 0x008EDCBA | 20 | none | Rva004E9600::rva004E95D4 (tier A) |
 | AISpecialPowerUpdate | 1553 | 2 | 0x004380C0 | 12 | none | _bfme_debugRecordCallsite (tier D) |
 | AISpecialPowerUpdate | 1553 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
@@ -3213,11 +3177,9 @@ calls; their targets are not followed.
 | AISpecialPowerUpdate | 1553 | 5 | 0x0045486C | 11 | none |  |
 | AISpecialPowerUpdate | 1553 | 5 | 0x006A95E6 | 11 | none | Rva0029FB63::Rva0029FB63 (tier A) |
 | AISpecialPowerUpdate | 1553 | 5 | 0x00A3D01A | 1 | none | _strncat (tier A) |
-| AISpecialPowerUpdate | 1553 | 6 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | AISpecialPowerUpdate | 1553 | 6 | 0x00455176 | 8 | none |  |
 | SpecialAbilityUpdate | 1545 | 0 | 0x00851E38 | 15 | none |  |
 | SpecialAbilityUpdate | 1545 | 0 | 0x0085536C | 11 | none | Rva0045232D::`scalar deleting destructor' (tier A) |
-| SpecialAbilityUpdate | 1545 | 0 | 0x00852782 | 8 | none |  |
 | SpecialAbilityUpdate | 1545 | 0 | 0x00851E83 | 7 | none |  |
 | SpecialAbilityUpdate | 1545 | 0 | 0x00851E7D | 2 | none |  |
 | SpecialAbilityUpdate | 1545 | 0 | 0x009D4099 | 2 | none |  |
@@ -3227,7 +3189,6 @@ calls; their targets are not followed.
 | SpecialAbilityUpdate | 1545 | 1 | 0x00854D9A | 16 | none |  |
 | SpecialAbilityUpdate | 1545 | 1 | 0x006650CC | 10 | none |  |
 | SpecialAbilityUpdate | 1545 | 1 | 0x0068FC98 | 6 | none |  |
-| SpecialAbilityUpdate | 1545 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | SpecialAbilityUpdate | 1545 | 2 | 0x005DCBB3 | 60 | none | Eva::internalReportEvaEvent (tier A) |
 | SpecialAbilityUpdate | 1545 | 2 | 0x0081C193 | 48 | none | HURva004393D6::map<>::operator[] (tier A) |
 | SpecialAbilityUpdate | 1545 | 2 | 0x0085251A | 46 | partial | SpecialAbilityUpdate::killSpecialObjects (tier B) |
@@ -3254,7 +3215,6 @@ calls; their targets are not followed.
 | SpecialAbilityUpdate | 1545 | 3 | 0x00436030 | 44 | none | D::StringBase<>::set (tier A) |
 | SpecialAbilityUpdate | 1545 | 3 | 0x00435D50 | 42 | none |  |
 | SpecialAbilityUpdate | 1545 | 3 | 0x00A3AC70 | 40 | none | FlightDeckBehavior::PAUFlightDeckInfo::__uninitialized_fill_n<> (tier D) |
-| SpecialAbilityUpdate | 1545 | 3 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | SpecialAbilityUpdate | 1545 | 3 | 0x00678816 | 27 | partial |  |
 | SpecialAbilityUpdate | 1545 | 3 | 0x005D91D1 | 22 | none | OpaqueRefElement4::operator= (tier A) |
 | SpecialAbilityUpdate | 1545 | 3 | 0x005DC7CD | 21 | none | Rva001DD063::Rva001DD063 (tier A) |
@@ -3583,14 +3543,8 @@ calls; their targets are not followed.
 | SpecialAbilityUpdate | 1545 | 16 | 0x007B327D | 5 | none | Condition::rva003B275A (tier A) |
 | SpecialAbilityUpdate | 1545 | 17 | 0x00A3CD70 | 25 | none |  |
 | SpecialAbilityUpdate | 1545 | 18 | 0x007ED77A | 21 | none |  |
-| SubObjectsUpgrade | 1442 | 0 | 0x008B8E9F | 15 | none |  |
-| SubObjectsUpgrade | 1442 | 0 | 0x008B8F24 | 11 | none | Rva004B4CDF::`scalar deleting destructor' (tier A) |
-| SubObjectsUpgrade | 1442 | 0 | 0x008B8E86 | 10 | none |  |
-| SubObjectsUpgrade | 1442 | 0 | 0x008B90F4 | 6 | none |  |
-| SubObjectsUpgrade | 1442 | 0 | 0x008B8E80 | 2 | none |  |
 | SubObjectsUpgrade | 1442 | 1 | 0x008B8F40 | 39 | partial | Rva004B4DBF::rva004B4DBF (tier B) |
 | SubObjectsUpgrade | 1442 | 1 | 0x008B8E60 | 5 | none |  |
-| SubObjectsUpgrade | 1442 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | SubObjectsUpgrade | 1442 | 2 | 0x004BFC03 | 23 | none | Rva000C0495::~Rva000C0495 (tier D) |
 | SubObjectsUpgrade | 1442 | 2 | 0x0086393B | 5 | none |  |
 | SubObjectsUpgrade | 1442 | 3 | 0x004BC9E8 | 10 | none | PAURva00B6CF1::_Destroy<> (tier A) |
@@ -3637,7 +3591,6 @@ calls; their targets are not followed.
 | BezierProjectileBehavior | 1379 | 1 | 0x0085EFD2 | 27 | none |  |
 | BezierProjectileBehavior | 1379 | 1 | 0x0044A2A5 | 15 | none | BfmeWideResult::~BfmeWideResult (tier A) |
 | BezierProjectileBehavior | 1379 | 1 | 0x0085EBCC | 14 | none | Gen_001EFD20::bfmeIsNew (tier A) |
-| BezierProjectileBehavior | 1379 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | BezierProjectileBehavior | 1379 | 2 | 0x00A3CE80 | 19 | none |  |
 | BezierProjectileBehavior | 1379 | 2 | 0x00A3D28E | 18 | none |  |
 | BezierProjectileBehavior | 1379 | 2 | 0x006CF34B | 14 | none |  |
@@ -3650,7 +3603,6 @@ calls; their targets are not followed.
 | BezierProjectileBehavior | 1379 | 3 | 0x00AD4790 | 63 | partial | rva006C0630 (tier A) |
 | BezierProjectileBehavior | 1379 | 3 | 0x00435D50 | 42 | none |  |
 | BezierProjectileBehavior | 1379 | 3 | 0x009D6BBA | 29 | none | Rva005C76C0::rva005C7636 (tier A) |
-| BezierProjectileBehavior | 1379 | 3 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | BezierProjectileBehavior | 1379 | 3 | 0x00678816 | 27 | partial |  |
 | BezierProjectileBehavior | 1379 | 3 | 0x006787DA | 20 | none | Rva002784AFHost::rva002784AF (tier B) |
 | BezierProjectileBehavior | 1379 | 3 | 0x00A3CD14 | 19 | none | __SEH_prolog (tier A) |
@@ -3849,7 +3801,6 @@ calls; their targets are not followed.
 | ImmortalBody | 1203 | 2 | 0x00435D50 | 42 | none |  |
 | ImmortalBody | 1203 | 2 | 0x004374E0 | 30 | none | D::StringBase<>::StringBase<> (tier A) |
 | ImmortalBody | 1203 | 2 | 0x008C3AED | 26 | none |  |
-| ImmortalBody | 1203 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | ImmortalBody | 1203 | 3 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
 | ImmortalBody | 1203 | 3 | 0x00B6C700 | 15 | partial | BfmeLinkXX::bfmeDropXX (tier D) |
 | ImmortalBody | 1203 | 3 | 0x00430170 | 4 | none |  |
@@ -3897,7 +3848,6 @@ calls; their targets are not followed.
 | StructureCollapseUpdate | 1130 | 0 | 0x008A8110 | 6 | none |  |
 | StructureCollapseUpdate | 1130 | 0 | 0x008A78AD | 2 | none |  |
 | StructureCollapseUpdate | 1130 | 1 | 0x008A788D | 5 | none | Rva004A0E0C::~Rva004A0E0C (tier A) |
-| StructureCollapseUpdate | 1130 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | StructureCollapseUpdate | 1130 | 2 | 0x008A7A62 | 77 | partial | StructureCollapseUpdate::doPhaseStuff (tier A) |
 | StructureCollapseUpdate | 1130 | 2 | 0x006FFB68 | 43 | none | AI::destroyGroup (tier A) |
 | StructureCollapseUpdate | 1130 | 2 | 0x00690B8C | 17 | partial |  |
@@ -4005,7 +3955,6 @@ calls; their targets are not followed.
 | InactiveBody | 1088 | 0 | 0x008C18F1 | 2 | none |  |
 | InactiveBody | 1088 | 1 | 0x004374E0 | 30 | none | D::StringBase<>::StringBase<> (tier A) |
 | InactiveBody | 1088 | 1 | 0x008C18D8 | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
-| InactiveBody | 1088 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | InactiveBody | 1088 | 2 | 0x007A2589 | 78 | none |  |
 | InactiveBody | 1088 | 2 | 0x00806D18 | 73 | none | VictorySystemGridUpdateView::rva004050CE (tier B) |
 | InactiveBody | 1088 | 2 | 0x00619513 | 27 | none | CreateAHeroManager::UnbindHeroFromObjectAndUpdate (tier B) |
@@ -4032,7 +3981,6 @@ calls; their targets are not followed.
 | InactiveBody | 1088 | 4 | 0x00B5B910 | 35 | none | _lua_getglobal (tier A) |
 | InactiveBody | 1088 | 4 | 0x0072CDAB | 32 | none | Rva0032B389Join (tier A) |
 | InactiveBody | 1088 | 4 | 0x006799A2 | 28 | none |  |
-| InactiveBody | 1088 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | InactiveBody | 1088 | 4 | 0x00678816 | 27 | partial |  |
 | InactiveBody | 1088 | 4 | 0x00973BB9 | 27 | none | CellGrid::rva0056C0A5 (tier A) |
 | InactiveBody | 1088 | 4 | 0x008E3B71 | 26 | none | Rva004DF7DB::rva004DF7DB (tier A) |
@@ -4359,15 +4307,7 @@ calls; their targets are not followed.
 | InactiveBody | 1088 | 15 | 0x006CB569 | 18 | none | PAUCoord3D::__uninitialized_fill_n<> (tier A) |
 | InactiveBody | 1088 | 15 | 0x0082F0FF | 15 | none | _STL::PAPAXIPAX::fill_n<> (tier B) |
 | InactiveBody | 1088 | 15 | 0x006BF945 | 9 | none |  |
-| AutoHealBehavior | 1000 | 0 | 0x008553D0 | 15 | none |  |
-| AutoHealBehavior | 1000 | 0 | 0x00855466 | 14 | none |  |
-| AutoHealBehavior | 1000 | 0 | 0x008556EA | 11 | none | SpecialAbilityUpdate::`scalar deleting destructor' (tier A) |
-| AutoHealBehavior | 1000 | 0 | 0x008554C5 | 6 | none | FireWeaponWhenDeadBehavior::loadPostProcess (tier A) |
-| AutoHealBehavior | 1000 | 0 | 0x00862758 | 6 | none |  |
-| AutoHealBehavior | 1000 | 0 | 0x0088744E | 3 | none |  |
-| AutoHealBehavior | 1000 | 0 | 0x00855415 | 2 | none |  |
 | AutoHealBehavior | 1000 | 1 | 0x008553A9 | 6 | none | FireWeaponWhenDeadBehavior::~FireWeaponWhenDeadBehavior (tier A) |
-| AutoHealBehavior | 1000 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | AutoHealBehavior | 1000 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
 | AutoHealBehavior | 1000 | 3 | 0x004380C0 | 12 | none | _bfme_debugRecordCallsite (tier D) |
 | AutoHealBehavior | 1000 | 3 | 0x0068BB4B | 10 | none | Object::isInList (tier A) |
@@ -4377,13 +4317,10 @@ calls; their targets are not followed.
 | UnpauseSpecialPowerUpgrade | 960 | 0 | 0x009D3AA2 | 11 | none | Rva005C4758::`scalar deleting destructor' (tier A) |
 | UnpauseSpecialPowerUpgrade | 960 | 0 | 0x004B612F | 10 | none | Rva002115D0::rva002115D0 (tier A) |
 | UnpauseSpecialPowerUpgrade | 960 | 0 | 0x008B9666 | 7 | none |  |
-| UnpauseSpecialPowerUpgrade | 960 | 0 | 0x00464A09 | 2 | none | W3DQuadrupedDrawModuleData::W3DQuadrupedDrawModuleData (tier C) |
 | UnpauseSpecialPowerUpgrade | 960 | 0 | 0x008B958C | 2 | none |  |
 | UnpauseSpecialPowerUpgrade | 960 | 1 | 0x00697B6E | 49 | none | Object::AddCreateAHeroSpecialPowerUpgrade (tier B) |
-| UnpauseSpecialPowerUpgrade | 960 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | UnpauseSpecialPowerUpgrade | 960 | 1 | 0x008B956C | 5 | none |  |
 | UnpauseSpecialPowerUpgrade | 960 | 1 | 0x007AEAFD | 2 | none | SecondBase005D2111::~SecondBase005D2111 (tier A) |
-| UnpauseSpecialPowerUpgrade | 960 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | UnpauseSpecialPowerUpgrade | 960 | 2 | 0x00435D50 | 42 | none |  |
 | UnpauseSpecialPowerUpgrade | 960 | 2 | 0x0086393B | 5 | none |  |
 | UnpauseSpecialPowerUpgrade | 960 | 3 | 0x0073B36C | 73 | none |  |
@@ -4393,14 +4330,6 @@ calls; their targets are not followed.
 | UnpauseSpecialPowerUpgrade | 960 | 4 | 0x00688E9D | 9 | none |  |
 | UnpauseSpecialPowerUpgrade | 960 | 4 | 0x00430170 | 4 | none |  |
 | UnpauseSpecialPowerUpgrade | 960 | 5 | 0x00430130 | 6 | none |  |
-| AttributeModifierAuraUpdate | 958 | 0 | 0x0089EE1D | 17 | none |  |
-| AttributeModifierAuraUpdate | 958 | 0 | 0x0089EDD8 | 15 | none |  |
-| AttributeModifierAuraUpdate | 958 | 0 | 0x0089F00E | 11 | none | AttributeModifierAuraUpdate::`scalar deleting destructor' (tier A) |
-| AttributeModifierAuraUpdate | 958 | 0 | 0x0089EE44 | 5 | none |  |
-| AttributeModifierAuraUpdate | 958 | 0 | 0x0089EE53 | 3 | none |  |
-| AttributeModifierAuraUpdate | 958 | 0 | 0x0089EE5D | 3 | none |  |
-| AttributeModifierAuraUpdate | 958 | 0 | 0x0089EDD2 | 2 | none |  |
-| AttributeModifierAuraUpdate | 958 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | AttributeModifierAuraUpdate | 958 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
 | AttributeModifierAuraUpdate | 958 | 3 | 0x004380C0 | 12 | none | _bfme_debugRecordCallsite (tier D) |
 | AttributeModifierAuraUpdate | 958 | 3 | 0x0068BB4B | 10 | none | Object::isInList (tier A) |
@@ -4409,7 +4338,6 @@ calls; their targets are not followed.
 | StatusBitsUpgrade | 870 | 0 | 0x008B8B1F | 11 | none | StatusBitsUpgrade::`scalar deleting destructor' (tier A) |
 | StatusBitsUpgrade | 870 | 0 | 0x008B8A81 | 2 | none |  |
 | StatusBitsUpgrade | 870 | 1 | 0x008B8A61 | 5 | none |  |
-| StatusBitsUpgrade | 870 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | StatusBitsUpgrade | 870 | 2 | 0x008E3B71 | 26 | none | Rva004DF7DB::rva004DF7DB (tier A) |
 | StatusBitsUpgrade | 870 | 2 | 0x0068CC38 | 13 | none | Rva0028C570::rva0028C570 (tier A) |
 | StatusBitsUpgrade | 870 | 2 | 0x0086393B | 5 | none |  |
@@ -4460,7 +4388,6 @@ calls; their targets are not followed.
 | W3DHordeModelDraw | 869 | 1 | 0x0047946B | 31 | none |  |
 | W3DHordeModelDraw | 869 | 1 | 0x004374E0 | 30 | none | D::StringBase<>::StringBase<> (tier A) |
 | W3DHordeModelDraw | 869 | 1 | 0x00478E00 | 29 | none |  |
-| W3DHordeModelDraw | 869 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | W3DHordeModelDraw | 869 | 1 | 0x00479CFE | 27 | none | BfmeHelperYS::BfmeHelperYS (tier A) |
 | W3DHordeModelDraw | 869 | 1 | 0x0042C978 | 23 | none | VAsciiString::_Rb_tree<>::~_Rb_tree<> (tier D) |
 | W3DHordeModelDraw | 869 | 1 | 0x00479707 | 22 | none | URva00079EA1Element::vector<>::erase (tier A) |
@@ -4669,7 +4596,6 @@ calls; their targets are not followed.
 | GettingBuiltBehavior | 834 | 1 | 0x0085618D | 16 | none |  |
 | GettingBuiltBehavior | 834 | 1 | 0x00856B93 | 12 | none | PAVRva00453B06Obj::list<>::push_back (tier A) |
 | GettingBuiltBehavior | 834 | 1 | 0x00856170 | 8 | none | Rva004530ED::Rva004530ED (tier A) |
-| GettingBuiltBehavior | 834 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | GettingBuiltBehavior | 834 | 2 | 0x006AE112 | 21 | none | Rva002AD5ED::rva002AD5ED (tier B) |
 | GettingBuiltBehavior | 834 | 2 | 0x00856B45 | 12 | none | UBridgeBehaviorListValue12::list<>::insert (tier A) |
 | GettingBuiltBehavior | 834 | 2 | 0x005DD47E | 10 | none | $$CBHURva00148B27Element::U?$pair::hashtable<>::H::find<> (tier A) |
@@ -4679,7 +4605,6 @@ calls; their targets are not followed.
 | GettingBuiltBehavior | 834 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
 | GettingBuiltBehavior | 834 | 2 | 0x008097CF | 2 | none |  |
 | GettingBuiltBehavior | 834 | 3 | 0x00435D50 | 42 | none |  |
-| GettingBuiltBehavior | 834 | 3 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | GettingBuiltBehavior | 834 | 3 | 0x008EDCBA | 20 | none | Rva004E9600::rva004E95D4 (tier A) |
 | GettingBuiltBehavior | 834 | 3 | 0x00430170 | 4 | none |  |
 | GettingBuiltBehavior | 834 | 3 | 0x008565F0 | 4 | none |  |
@@ -4752,7 +4677,6 @@ calls; their targets are not followed.
 | WeaponSetUpgrade | 821 | 0 | 0x008B98D6 | 11 | none | WeaponSetUpgrade::`scalar deleting destructor' (tier A) |
 | WeaponSetUpgrade | 821 | 0 | 0x008B9838 | 2 | none |  |
 | WeaponSetUpgrade | 821 | 1 | 0x008B9818 | 5 | none |  |
-| WeaponSetUpgrade | 821 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | WeaponSetUpgrade | 821 | 2 | 0x0068CC38 | 13 | none | Rva0028C570::rva0028C570 (tier A) |
 | WeaponSetUpgrade | 821 | 2 | 0x0086393B | 5 | none |  |
 | WeaponSetUpgrade | 821 | 3 | 0x006CA161 | 8 | none | Rva002C9424::rva002C9424 (tier A) |
@@ -4830,7 +4754,6 @@ calls; their targets are not followed.
 | StructureBody | 794 | 2 | 0x00435D50 | 42 | none |  |
 | StructureBody | 794 | 2 | 0x004374E0 | 30 | none | D::StringBase<>::StringBase<> (tier A) |
 | StructureBody | 794 | 2 | 0x008C3AED | 26 | none |  |
-| StructureBody | 794 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | StructureBody | 794 | 3 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
 | StructureBody | 794 | 3 | 0x00B6C700 | 15 | partial | BfmeLinkXX::bfmeDropXX (tier D) |
 | StructureBody | 794 | 3 | 0x00430170 | 4 | none |  |
@@ -4877,7 +4800,6 @@ calls; their targets are not followed.
 | HitReactionBehavior | 784 | 0 | 0x0085C1E1 | 6 | none |  |
 | HitReactionBehavior | 784 | 0 | 0x0085C1DB | 2 | none |  |
 | HitReactionBehavior | 784 | 1 | 0x0085C1C2 | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
-| HitReactionBehavior | 784 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | HitReactionBehavior | 784 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
 | HitReactionBehavior | 784 | 3 | 0x007AEAFD | 2 | none | SecondBase005D2111::~SecondBase005D2111 (tier A) |
 | HordeAIUpdate | 782 | 0 | 0x0089E0F6 | 22 | none |  |
@@ -4897,7 +4819,6 @@ calls; their targets are not followed.
 | HordeAIUpdate | 782 | 1 | 0x0089DDF0 | 7 | none |  |
 | HordeAIUpdate | 782 | 2 | 0x0066EB5E | 34 | none |  |
 | HordeAIUpdate | 782 | 2 | 0x0068B44B | 5 | none | Object::rva0028AD7C (tier A) |
-| HordeAIUpdate | 782 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | HordeAIUpdate | 782 | 3 | 0x00435D50 | 42 | none |  |
 | HordeAIUpdate | 782 | 3 | 0x00B5B910 | 35 | none | _lua_getglobal (tier A) |
 | HordeAIUpdate | 782 | 3 | 0x005E7607 | 34 | none |  |
@@ -4914,7 +4835,6 @@ calls; their targets are not followed.
 | HordeAIUpdate | 782 | 4 | 0x00767DF1 | 33 | none | IIURva002F3759Compare::map<>::operator[] (tier A) |
 | HordeAIUpdate | 782 | 4 | 0x00B60DD0 | 32 | none | _luaD_adjusttop (tier A) |
 | HordeAIUpdate | 782 | 4 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
-| HordeAIUpdate | 782 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | HordeAIUpdate | 782 | 4 | 0x00B645E0 | 18 | none | _luaS_new (tier A) |
 | HordeAIUpdate | 782 | 4 | 0x007666FF | 13 | none | Path::~Path (tier A) |
 | HordeAIUpdate | 782 | 4 | 0x005FF9D3 | 12 | none | _STL::PAX::PAXV?$allocator::vector<>::erase (tier A) |
@@ -4991,7 +4911,6 @@ calls; their targets are not followed.
 | LevelUpUpgrade | 776 | 0 | 0x008B7F74 | 11 | none | ReplaceObjectUpdateModuleData::`scalar deleting destructor' (tier A) |
 | LevelUpUpgrade | 776 | 0 | 0x008B7ED6 | 2 | none |  |
 | LevelUpUpgrade | 776 | 1 | 0x008B7EB6 | 5 | none |  |
-| LevelUpUpgrade | 776 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | LevelUpUpgrade | 776 | 2 | 0x0086393B | 5 | none |  |
 | LevelUpUpgrade | 776 | 3 | 0x00642037 | 9 | none | MultiPlayMults::getBuildingXPMult (tier A) |
 | LevelUpUpgrade | 776 | 3 | 0x007AEAFD | 2 | none | SecondBase005D2111::~SecondBase005D2111 (tier A) |
@@ -5014,13 +4933,11 @@ calls; their targets are not followed.
 | WeaponFireSpecialAbilityUpdate | 744 | 0 | 0x00895D15 | 15 | none | WeaponFireSpecialAbilityUpdate::getModuleNameKey (tier A) |
 | WeaponFireSpecialAbilityUpdate | 744 | 0 | 0x00895E44 | 11 | none | WeaponFireSpecialAbilityUpdateModuleData::`scalar deleting destructor' (tier A) |
 | WeaponFireSpecialAbilityUpdate | 744 | 0 | 0x00895C65 | 2 | none |  |
-| WeaponFireSpecialAbilityUpdate | 744 | 0 | 0x008E38D8 | 1 | none | Rva004DFCE1::~Rva004DFCE1 (tier A) |
 | WeaponFireSpecialAbilityUpdate | 744 | 2 | 0x00852914 | 88 | none | SpecialAbilityUpdate::initLaser (tier B) |
 | WeaponFireSpecialAbilityUpdate | 744 | 2 | 0x00852590 | 34 | none |  |
 | WeaponFireSpecialAbilityUpdate | 744 | 2 | 0x006CA701 | 20 | none | BfmeRangedWeaponTemplate::getAttackRange (tier A) |
 | WeaponFireSpecialAbilityUpdate | 744 | 2 | 0x00854D9A | 16 | none |  |
 | WeaponFireSpecialAbilityUpdate | 744 | 2 | 0x0068FC98 | 6 | none |  |
-| WeaponFireSpecialAbilityUpdate | 744 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | WeaponFireSpecialAbilityUpdate | 744 | 2 | 0x00A3ED38 | 1 | none | _D3DXGetFVFVertexSize@4 (tier A) |
 | WeaponFireSpecialAbilityUpdate | 744 | 3 | 0x0085251A | 46 | partial | SpecialAbilityUpdate::killSpecialObjects (tier B) |
 | WeaponFireSpecialAbilityUpdate | 744 | 3 | 0x008E3B71 | 26 | none | Rva004DF7DB::rva004DF7DB (tier A) |
@@ -5037,7 +4954,6 @@ calls; their targets are not followed.
 | WeaponFireSpecialAbilityUpdate | 744 | 4 | 0x00436030 | 44 | none | D::StringBase<>::set (tier A) |
 | WeaponFireSpecialAbilityUpdate | 744 | 4 | 0x00435D50 | 42 | none |  |
 | WeaponFireSpecialAbilityUpdate | 744 | 4 | 0x00A3AC70 | 40 | none | FlightDeckBehavior::PAUFlightDeckInfo::__uninitialized_fill_n<> (tier D) |
-| WeaponFireSpecialAbilityUpdate | 744 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | WeaponFireSpecialAbilityUpdate | 744 | 4 | 0x00678816 | 27 | partial |  |
 | WeaponFireSpecialAbilityUpdate | 744 | 4 | 0x005D91D1 | 22 | none | OpaqueRefElement4::operator= (tier A) |
 | WeaponFireSpecialAbilityUpdate | 744 | 4 | 0x006787DA | 20 | none | Rva002784AFHost::rva002784AF (tier B) |
@@ -5202,14 +5118,12 @@ calls; their targets are not followed.
 | HordeMemberCollide | 729 | 0 | 0x008C04FC | 11 | none | Rva004BC325::`scalar deleting destructor' (tier A) |
 | HordeMemberCollide | 729 | 0 | 0x008C0487 | 2 | none |  |
 | HordeMemberCollide | 729 | 1 | 0x008C046E | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
-| HordeMemberCollide | 729 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | HordeMemberCollide | 729 | 2 | 0x008BF7D7 | 4 | none | Rva004BB68E::~Rva004BB68E (tier B) |
 | HordeMemberCollide | 729 | 3 | 0x007AEAFD | 2 | none | SecondBase005D2111::~SecondBase005D2111 (tier A) |
 | PickupStuffUpdate | 692 | 0 | 0x0089547E | 15 | none |  |
 | PickupStuffUpdate | 692 | 0 | 0x00895556 | 11 | none | PickupStuffUpdate::`scalar deleting destructor' (tier A) |
 | PickupStuffUpdate | 692 | 0 | 0x00895478 | 2 | none |  |
 | PickupStuffUpdate | 692 | 1 | 0x0089545F | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
-| PickupStuffUpdate | 692 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | PickupStuffUpdate | 692 | 2 | 0x008EDCBA | 20 | none | Rva004E9600::rva004E95D4 (tier A) |
 | PickupStuffUpdate | 692 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
 | PickupStuffUpdate | 692 | 3 | 0x007AEAFD | 2 | none | SecondBase005D2111::~SecondBase005D2111 (tier A) |
@@ -5219,7 +5133,6 @@ calls; their targets are not followed.
 | ArmorUpgrade | 680 | 0 | 0x008B7602 | 11 | none | AISpecialPowerUpdateModuleData::`scalar deleting destructor' (tier A) |
 | ArmorUpgrade | 680 | 0 | 0x008B7586 | 2 | none |  |
 | ArmorUpgrade | 680 | 1 | 0x008B7566 | 5 | none |  |
-| ArmorUpgrade | 680 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | ArmorUpgrade | 680 | 2 | 0x0086393B | 5 | none |  |
 | ArmorUpgrade | 680 | 3 | 0x007AEAFD | 2 | none | SecondBase005D2111::~SecondBase005D2111 (tier A) |
 | ArmorUpgrade | 680 | 5 | 0x00678816 | 27 | partial |  |
@@ -5254,7 +5167,6 @@ calls; their targets are not followed.
 | HordeContain | 644 | 0 | 0x0086CA78 | 151 | none | HordeContain::rva00469967 (tier B) |
 | HordeContain | 644 | 0 | 0x0086F7A3 | 95 | none |  |
 | HordeContain | 644 | 0 | 0x008713F6 | 91 | partial | HordeContain::rva0046E113 (tier A) |
-| HordeContain | 644 | 0 | 0x00871A90 | 89 | none | HordeContain::rva0046E7E3 (tier A) |
 | HordeContain | 644 | 0 | 0x0087545C | 87 | none | HordeContain::rva00472235 (tier B) |
 | HordeContain | 644 | 0 | 0x0086F60A | 78 | none | HordeContain::rva0046C327 (tier A) |
 | HordeContain | 644 | 0 | 0x0086F6E1 | 74 | none | HordeContain::rva0046CC09 (tier D) |
@@ -5264,7 +5176,6 @@ calls; their targets are not followed.
 | HordeContain | 644 | 0 | 0x00870AEE | 56 | none | HordeContain::rva0046D80B (tier A) |
 | HordeContain | 644 | 0 | 0x00871184 | 53 | none |  |
 | HordeContain | 644 | 0 | 0x0086F93F | 52 | none |  |
-| HordeContain | 644 | 0 | 0x0086ECAB | 51 | none | HordeContain::rva0046B9DC (tier A) |
 | HordeContain | 644 | 0 | 0x0086DF44 | 49 | none |  |
 | HordeContain | 644 | 0 | 0x00871110 | 47 | none | HordeContain::rva0046DE2D (tier A) |
 | HordeContain | 644 | 0 | 0x00871F8B | 47 | none |  |
@@ -5330,7 +5241,6 @@ calls; their targets are not followed.
 | HordeContain | 644 | 1 | 0x00873322 | 34 | none | GMURva00470041Less::map<>::operator[] (tier A) |
 | HordeContain | 644 | 1 | 0x00875619 | 30 | none | HordeContain::rva004723F2 (tier A) |
 | HordeContain | 644 | 1 | 0x008666A1 | 29 | none |  |
-| HordeContain | 644 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | HordeContain | 644 | 1 | 0x0086CE05 | 26 | none | _STL::$$CBGH::GU?$pair::_Rb_tree<>::G::_M_find<> (tier A) |
 | HordeContain | 644 | 1 | 0x00877182 | 25 | none | VRva00064640Record::vector<>::push_back (tier A) |
 | HordeContain | 644 | 1 | 0x0086C997 | 20 | none |  |
@@ -5777,7 +5687,6 @@ calls; their targets are not followed.
 | AutoAbilityBehavior | 627 | 0 | 0x0085D5CE | 11 | none | AutoAbilityBehavior::`scalar deleting destructor' (tier A) |
 | AutoAbilityBehavior | 627 | 0 | 0x0085D436 | 2 | none |  |
 | AutoAbilityBehavior | 627 | 1 | 0x0085D3ED | 20 | none | MonitorConditionUpdate::~MonitorConditionUpdate (tier A) |
-| AutoAbilityBehavior | 627 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | AutoAbilityBehavior | 627 | 2 | 0x00435D50 | 42 | none |  |
 | AutoAbilityBehavior | 627 | 2 | 0x00694636 | 23 | none |  |
 | AutoAbilityBehavior | 627 | 2 | 0x004050E6 | 16 | none |  |
@@ -5795,7 +5704,6 @@ calls; their targets are not followed.
 | AutoAbilityBehavior | 627 | 4 | 0x0062FF03 | 33 | partial | GameLogic::rva00246F8E (tier A) |
 | AutoAbilityBehavior | 627 | 4 | 0x004374E0 | 30 | none | D::StringBase<>::StringBase<> (tier A) |
 | AutoAbilityBehavior | 627 | 4 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
-| AutoAbilityBehavior | 627 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | AutoAbilityBehavior | 627 | 4 | 0x006AE112 | 21 | none | Rva002AD5ED::rva002AD5ED (tier B) |
 | AutoAbilityBehavior | 627 | 4 | 0x004355D0 | 19 | none |  |
 | AutoAbilityBehavior | 627 | 4 | 0x004503DF | 18 | none | GeometryInfo::~GeometryInfo (tier B) |
@@ -6111,7 +6019,6 @@ calls; their targets are not followed.
 | FireWeaponUpdate | 597 | 0 | 0x0088F419 | 2 | none |  |
 | FireWeaponUpdate | 597 | 1 | 0x0088F37D | 52 | none | FireWeaponUpdateModuleData::~FireWeaponUpdateModuleData (tier D) |
 | FireWeaponUpdate | 597 | 1 | 0x00403156 | 15 | none |  |
-| FireWeaponUpdate | 597 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | FireWeaponUpdate | 597 | 2 | 0x0088EFD0 | 11 | none |  |
 | FireWeaponUpdate | 597 | 2 | 0x005FFE47 | 10 | none |  |
 | FireWeaponUpdate | 597 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
@@ -6127,7 +6034,6 @@ calls; their targets are not followed.
 | GrantUpgradeCreate | 521 | 0 | 0x008BD142 | 11 | none | Rva004B8F92::`scalar deleting destructor' (tier A) |
 | GrantUpgradeCreate | 521 | 0 | 0x008BD0CD | 2 | none |  |
 | GrantUpgradeCreate | 521 | 1 | 0x008BD0D3 | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
-| GrantUpgradeCreate | 521 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | GrantUpgradeCreate | 521 | 2 | 0x0042F6E0 | 5 | none |  |
 | GrantUpgradeCreate | 521 | 2 | 0x008BCE1F | 4 | none |  |
 | GrantUpgradeCreate | 521 | 2 | 0x00A3CF22 | 1 | none | ji_00629182 (tier A) |
@@ -6149,7 +6055,6 @@ calls; their targets are not followed.
 | CommandSetUpgrade | 515 | 0 | 0x008B7C4C | 11 | none | CommandSetUpgrade::`scalar deleting destructor' (tier A) |
 | CommandSetUpgrade | 515 | 0 | 0x008B7B85 | 2 | none |  |
 | CommandSetUpgrade | 515 | 1 | 0x008B7B65 | 5 | none |  |
-| CommandSetUpgrade | 515 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | CommandSetUpgrade | 515 | 2 | 0x00436030 | 44 | none | D::StringBase<>::set (tier A) |
 | CommandSetUpgrade | 515 | 2 | 0x008E3D1E | 22 | none | AIStatCollector::Register (tier B) |
 | CommandSetUpgrade | 515 | 2 | 0x0086393B | 5 | none |  |
@@ -6172,7 +6077,6 @@ calls; their targets are not followed.
 | CommandSetUpgrade | 515 | 5 | 0x005E0A7D | 70 | none | $$CBW4NameKeyType::U?$pair::hashtable<>::resize (tier B) |
 | CommandSetUpgrade | 515 | 5 | 0x005F19CD | 59 | none |  |
 | CommandSetUpgrade | 515 | 5 | 0x00423EA0 | 40 | none | _STL::_N::_Rb_global<>::_M_increment (tier A) |
-| CommandSetUpgrade | 515 | 5 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | CommandSetUpgrade | 515 | 5 | 0x00678816 | 27 | partial |  |
 | CommandSetUpgrade | 515 | 5 | 0x006787DA | 20 | none | Rva002784AFHost::rva002784AF (tier B) |
 | CommandSetUpgrade | 515 | 5 | 0x007194D6 | 20 | none |  |
@@ -6238,7 +6142,6 @@ calls; their targets are not followed.
 | RespawnBody | 512 | 2 | 0x00435D50 | 42 | none |  |
 | RespawnBody | 512 | 2 | 0x004374E0 | 30 | none | D::StringBase<>::StringBase<> (tier A) |
 | RespawnBody | 512 | 2 | 0x008C3AED | 26 | none |  |
-| RespawnBody | 512 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | RespawnBody | 512 | 3 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
 | RespawnBody | 512 | 3 | 0x00B6C700 | 15 | partial | BfmeLinkXX::bfmeDropXX (tier D) |
 | RespawnBody | 512 | 3 | 0x00430170 | 4 | none |  |
@@ -6283,9 +6186,7 @@ calls; their targets are not followed.
 | FireWeaponWhenDeadBehavior | 508 | 0 | 0x00885F87 | 15 | none |  |
 | FireWeaponWhenDeadBehavior | 508 | 0 | 0x00885E47 | 14 | none |  |
 | FireWeaponWhenDeadBehavior | 508 | 0 | 0x00886129 | 11 | none | FireWeaponWhenDeadBehavior::`scalar deleting destructor' (tier A) |
-| FireWeaponWhenDeadBehavior | 508 | 0 | 0x00862758 | 6 | none |  |
 | FireWeaponWhenDeadBehavior | 508 | 0 | 0x00885EA5 | 6 | none | FireWeaponWhenDeadBehavior::loadPostProcess (tier A) |
-| FireWeaponWhenDeadBehavior | 508 | 0 | 0x0088744E | 3 | none |  |
 | FireWeaponWhenDeadBehavior | 508 | 0 | 0x00885F81 | 2 | none |  |
 | FireWeaponWhenDeadBehavior | 508 | 1 | 0x00885FCC | 6 | none | FireWeaponWhenDeadBehavior::~FireWeaponWhenDeadBehavior (tier A) |
 | FireWeaponWhenDeadBehavior | 508 | 1 | 0x00A3CF22 | 1 | none | ji_00629182 (tier A) |
@@ -6301,7 +6202,6 @@ calls; their targets are not followed.
 | CastleMemberBehavior | 463 | 0 | 0x00893738 | 11 | none | LargeGroupBonusUpdateModuleData::`scalar deleting destructor' (tier A) |
 | CastleMemberBehavior | 463 | 0 | 0x00660E31 | 10 | none |  |
 | CastleMemberBehavior | 463 | 0 | 0x00797CEC | 2 | none |  |
-| CastleMemberBehavior | 463 | 0 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | CastleMemberBehavior | 463 | 1 | 0x00435D50 | 42 | none |  |
 | CastleMemberBehavior | 463 | 1 | 0x00797C40 | 26 | none |  |
 | CastleMemberBehavior | 463 | 1 | 0x00797A1E | 14 | none | Rva00395561::Rva00395561 (tier A) |
@@ -6310,7 +6210,6 @@ calls; their targets are not followed.
 | CastleMemberBehavior | 463 | 1 | 0x00893629 | 2 | none | TScorch::~TScorch (tier A) |
 | CastleMemberBehavior | 463 | 2 | 0x00714A09 | 30 | none | Dict::findPairByKey (tier A) |
 | CastleMemberBehavior | 463 | 2 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
-| CastleMemberBehavior | 463 | 2 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | CastleMemberBehavior | 463 | 2 | 0x00401158 | 8 | none |  |
 | CastleMemberBehavior | 463 | 2 | 0x007AEAFD | 2 | none | SecondBase005D2111::~SecondBase005D2111 (tier A) |
 | CastleMemberBehavior | 463 | 3 | 0x0073B36C | 73 | none |  |
@@ -6513,13 +6412,10 @@ calls; their targets are not followed.
 | TerrainResourceBehavior | 461 | 0 | 0x004B612F | 10 | none | Rva002115D0::rva002115D0 (tier A) |
 | TerrainResourceBehavior | 461 | 0 | 0x008853F9 | 9 | none |  |
 | TerrainResourceBehavior | 461 | 0 | 0x008A18ED | 6 | none |  |
-| TerrainResourceBehavior | 461 | 0 | 0x00464A09 | 2 | none | W3DQuadrupedDrawModuleData::W3DQuadrupedDrawModuleData (tier C) |
 | TerrainResourceBehavior | 461 | 0 | 0x008851DE | 2 | none |  |
 | TerrainResourceBehavior | 461 | 0 | 0x008851E7 | 2 | none |  |
-| TerrainResourceBehavior | 461 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | TerrainResourceBehavior | 461 | 1 | 0x008854A3 | 15 | none | TerrainResourceBehaviorModuleData::~TerrainResourceBehaviorModuleData (tier A) |
 | TerrainResourceBehavior | 461 | 1 | 0x008851B7 | 6 | none | ShipSlowDeathBehavior::~ShipSlowDeathBehavior (tier A) |
-| TerrainResourceBehavior | 461 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | TerrainResourceBehavior | 461 | 2 | 0x007A19AB | 28 | none |  |
 | TerrainResourceBehavior | 461 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
 | TerrainResourceBehavior | 461 | 2 | 0x007629B0 | 4 | none |  |
@@ -6576,16 +6472,12 @@ calls; their targets are not followed.
 | OCLSpecialPower | 459 | 0 | 0x008C7377 | 11 | none | OCLSpecialPower::`scalar deleting destructor' (tier A) |
 | OCLSpecialPower | 459 | 0 | 0x008C7A17 | 11 | none | ElvenWoodSpecialPowerModuleData::`scalar deleting destructor' (tier A) |
 | OCLSpecialPower | 459 | 0 | 0x004B612F | 10 | none | Rva002115D0::rva002115D0 (tier A) |
-| OCLSpecialPower | 459 | 0 | 0x008C6606 | 4 | none |  |
-| OCLSpecialPower | 459 | 0 | 0x00464A09 | 2 | none | W3DQuadrupedDrawModuleData::W3DQuadrupedDrawModuleData (tier C) |
 | OCLSpecialPower | 459 | 0 | 0x008C7313 | 2 | none |  |
 | OCLSpecialPower | 459 | 0 | 0x008C6583 | 1 | none | Rva004D9F75::rva004D9F75 (tier A) |
 | OCLSpecialPower | 459 | 1 | 0x00435D50 | 42 | none |  |
 | OCLSpecialPower | 459 | 1 | 0x004BB893 | 35 | none | VAsciiString::vector<>::vector<> (tier A) |
-| OCLSpecialPower | 459 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | OCLSpecialPower | 459 | 1 | 0x008C7A33 | 26 | none | ElvenWoodSpecialPowerModuleData::~ElvenWoodSpecialPowerModuleData (tier D) |
 | OCLSpecialPower | 459 | 1 | 0x0042C978 | 23 | none | VAsciiString::_Rb_tree<>::~_Rb_tree<> (tier D) |
-| OCLSpecialPower | 459 | 1 | 0x008972B2 | 18 | none |  |
 | OCLSpecialPower | 459 | 1 | 0x008C7319 | 4 | none | OCLSpecialPower::~OCLSpecialPower (tier A) |
 | OCLSpecialPower | 459 | 2 | 0x00897583 | 51 | none |  |
 | OCLSpecialPower | 459 | 2 | 0x00896AE3 | 32 | none | SpecialPowerModuleData::~SpecialPowerModuleData (tier A) |
@@ -6841,16 +6733,13 @@ calls; their targets are not followed.
 | W3DDefaultDraw | 423 | 0 | 0x004B1B3F | 4 | none |  |
 | BuildingBehavior | 423 | 0 | 0x0085921F | 2 | none |  |
 | W3DDefaultDraw | 423 | 0 | 0x004B1B39 | 2 | none |  |
-| W3DDefaultDraw | 423 | 0 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | BuildingBehavior | 423 | 1 | 0x00859206 | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
-| BuildingBehavior | 423 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | BuildingBehavior | 423 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
 | BuildingBehavior | 423 | 3 | 0x007AEAFD | 2 | none | SecondBase005D2111::~SecondBase005D2111 (tier A) |
 | ModelConditionUpgrade | 409 | 0 | 0x008BA57D | 15 | none |  |
 | ModelConditionUpgrade | 409 | 0 | 0x008BA64C | 11 | none | AttributeModifierUpgrade::`scalar deleting destructor' (tier A) |
 | ModelConditionUpgrade | 409 | 0 | 0x008BA577 | 2 | none |  |
 | ModelConditionUpgrade | 409 | 1 | 0x008BA557 | 5 | none |  |
-| ModelConditionUpgrade | 409 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | ModelConditionUpgrade | 409 | 2 | 0x0086393B | 5 | none |  |
 | ModelConditionUpgrade | 409 | 3 | 0x007AEAFD | 2 | none | SecondBase005D2111::~SecondBase005D2111 (tier A) |
 | ModelConditionUpgrade | 409 | 4 | 0x00605152 | 12 | none | VAsciiString::U?$pair::list<>::insert (tier A) |
@@ -6889,7 +6778,6 @@ calls; their targets are not followed.
 | QueueProductionExitUpdate | 405 | 0 | 0x008A3941 | 3 | none |  |
 | QueueProductionExitUpdate | 405 | 0 | 0x008A3896 | 2 | none |  |
 | QueueProductionExitUpdate | 405 | 1 | 0x008A3831 | 5 | none | Rva004A0E0C::~Rva004A0E0C (tier A) |
-| QueueProductionExitUpdate | 405 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | QueueProductionExitUpdate | 405 | 2 | 0x00444D65 | 6 | none |  |
 | QueueProductionExitUpdate | 405 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
 | QueueProductionExitUpdate | 405 | 2 | 0x007629B0 | 4 | none |  |
@@ -6939,12 +6827,10 @@ calls; their targets are not followed.
 | QueueProductionExitUpdate | 405 | 9 | 0x004052F9 | 11 | none |  |
 | QueueProductionExitUpdate | 405 | 9 | 0x00688E9D | 9 | none |  |
 | QueueProductionExitUpdate | 405 | 9 | 0x00828D5C | 4 | none |  |
-| QueueProductionExitUpdate | 405 | 10 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | KeepObjectDie | 380 | 0 | 0x00889F46 | 15 | none |  |
 | KeepObjectDie | 380 | 0 | 0x00889F8B | 11 | none | KeepObjectDie::`scalar deleting destructor' (tier A) |
 | KeepObjectDie | 380 | 0 | 0x00889F40 | 2 | none |  |
 | KeepObjectDie | 380 | 1 | 0x00889F27 | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
-| KeepObjectDie | 380 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | KeepObjectDie | 380 | 2 | 0x005EB775 | 12 | none | PAVObject::list<>::push_back (tier A) |
 | KeepObjectDie | 380 | 2 | 0x0042F6E0 | 5 | none |  |
 | KeepObjectDie | 380 | 2 | 0x0085FE9D | 4 | none | DieModule::~DieModule (tier B) |
@@ -6991,7 +6877,6 @@ calls; their targets are not followed.
 | KeepObjectDie | 380 | 8 | 0x004360C0 | 63 | none |  |
 | KeepObjectDie | 380 | 8 | 0x00677898 | 37 | none | Drawable::rva0027756D (tier A) |
 | KeepObjectDie | 380 | 8 | 0x006750FA | 29 | none |  |
-| KeepObjectDie | 380 | 8 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | KeepObjectDie | 380 | 8 | 0x0079FEAF | 18 | none | Rva0039D8FBLess (tier B) |
 | KeepObjectDie | 380 | 8 | 0x004A86AC | 13 | none | Rva0036CA00Str::Rva0036CA00Str (tier A) |
 | KeepObjectDie | 380 | 8 | 0x00671FB0 | 12 | none |  |
@@ -7112,7 +6997,6 @@ calls; their targets are not followed.
 | W3DFloorDraw | 375 | 1 | 0x00435D50 | 42 | none |  |
 | W3DFloorDraw | 375 | 1 | 0x004CE9B6 | 35 | none | W3DFloorDraw::~W3DFloorDraw (tier A) |
 | W3DFloorDraw | 375 | 1 | 0x004CEA1C | 28 | none | W3DFloorDraw::rva000CF20C (tier A) |
-| W3DFloorDraw | 375 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | W3DFloorDraw | 375 | 1 | 0x004CEEB6 | 24 | none |  |
 | W3DFloorDraw | 375 | 1 | 0x0046AFCA | 20 | none | BaseHeightMapRenderObjClass::rva0006B7BF (tier A) |
 | W3DFloorDraw | 375 | 1 | 0x00467B4D | 9 | none |  |
@@ -7155,8 +7039,6 @@ calls; their targets are not followed.
 | RespawnUpdate | 363 | 1 | 0x004374E0 | 30 | none | D::StringBase<>::StringBase<> (tier A) |
 | RespawnUpdate | 363 | 1 | 0x0061B379 | 9 | none | CreateAHeroManager::GetButtonImageName (tier A) |
 | DoCommandUpgrade | 363 | 1 | 0x008B8D22 | 5 | none |  |
-| DoCommandUpgrade | 363 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| RespawnUpdate | 363 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | RespawnUpdate | 363 | 1 | 0x0085C0B0 | 1 | none | HURva00462D35Mapped::map<>::~map<> (tier A) |
 | RespawnUpdate | 363 | 1 | 0x00A3CF22 | 1 | none | ji_00629182 (tier A) |
 | DoCommandUpgrade | 363 | 2 | 0x00694636 | 23 | none |  |
@@ -7189,7 +7071,6 @@ calls; their targets are not followed.
 | DoCommandUpgrade | 363 | 4 | 0x00861F06 | 37 | none |  |
 | DoCommandUpgrade | 363 | 4 | 0x004374E0 | 30 | none | D::StringBase<>::StringBase<> (tier A) |
 | DoCommandUpgrade | 363 | 4 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
-| DoCommandUpgrade | 363 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | RespawnUpdate | 363 | 4 | 0x00678816 | 27 | partial |  |
 | RespawnUpdate | 363 | 4 | 0x006D871C | 27 | none | Rva002D76C6Remove (tier B) |
 | DoCommandUpgrade | 363 | 4 | 0x006AE112 | 21 | none | Rva002AD5ED::rva002AD5ED (tier B) |
@@ -7311,7 +7192,6 @@ calls; their targets are not followed.
 | DoCommandUpgrade | 363 | 6 | 0x006799A2 | 28 | none |  |
 | DoCommandUpgrade | 363 | 6 | 0x0047B7DA | 27 | none |  |
 | DoCommandUpgrade | 363 | 6 | 0x00491AEF | 27 | none | UGeometryShape::_Vector_base<>::_Vector_base<> (tier A) |
-| RespawnUpdate | 363 | 6 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | DoCommandUpgrade | 363 | 6 | 0x008E5A05 | 26 | none | PBUBfmeE12::__copy<> (tier A) |
 | DoCommandUpgrade | 363 | 6 | 0x0067A343 | 25 | none |  |
 | DoCommandUpgrade | 363 | 6 | 0x005DC7CD | 21 | none | Rva001DD063::Rva001DD063 (tier A) |
@@ -7644,7 +7524,6 @@ calls; their targets are not followed.
 | NotifyTargetsOfImminentProbableCrushingUpdate | 347 | 0 | 0x00653C95 | 11 | none | Rva00253EF5::`scalar deleting destructor' (tier A) |
 | NotifyTargetsOfImminentProbableCrushingUpdate | 347 | 0 | 0x00653C8F | 2 | none |  |
 | NotifyTargetsOfImminentProbableCrushingUpdate | 347 | 1 | 0x00653CB1 | 4 | none | Rva000CAEC6::~Rva000CAEC6 (tier A) |
-| NotifyTargetsOfImminentProbableCrushingUpdate | 347 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | NotifyTargetsOfImminentProbableCrushingUpdate | 347 | 2 | 0x004503DF | 18 | none | GeometryInfo::~GeometryInfo (tier B) |
 | NotifyTargetsOfImminentProbableCrushingUpdate | 347 | 2 | 0x0044A2A5 | 15 | none | BfmeWideResult::~BfmeWideResult (tier A) |
 | NotifyTargetsOfImminentProbableCrushingUpdate | 347 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
@@ -7679,7 +7558,6 @@ calls; their targets are not followed.
 | NotifyTargetsOfImminentProbableCrushingUpdate | 347 | 6 | 0x004355D0 | 19 | none |  |
 | NotifyTargetsOfImminentProbableCrushingUpdate | 347 | 6 | 0x0044DDC8 | 19 | none | GeometryRecord::operator= (tier A) |
 | NotifyTargetsOfImminentProbableCrushingUpdate | 347 | 7 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
-| NotifyTargetsOfImminentProbableCrushingUpdate | 347 | 7 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | NotifyTargetsOfImminentProbableCrushingUpdate | 347 | 7 | 0x00440B21 | 8 | none |  |
 | NotifyTargetsOfImminentProbableCrushingUpdate | 347 | 7 | 0x00430130 | 6 | none |  |
 | NotifyTargetsOfImminentProbableCrushingUpdate | 347 | 8 | 0x004052F9 | 11 | none |  |
@@ -7694,7 +7572,6 @@ calls; their targets are not followed.
 | HighlanderBody | 346 | 2 | 0x00435D50 | 42 | none |  |
 | HighlanderBody | 346 | 2 | 0x004374E0 | 30 | none | D::StringBase<>::StringBase<> (tier A) |
 | HighlanderBody | 346 | 2 | 0x008C3AED | 26 | none |  |
-| HighlanderBody | 346 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | HighlanderBody | 346 | 3 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
 | HighlanderBody | 346 | 3 | 0x00B6C700 | 15 | partial | BfmeLinkXX::bfmeDropXX (tier D) |
 | HighlanderBody | 346 | 3 | 0x00430170 | 4 | none |  |
@@ -7740,7 +7617,6 @@ calls; their targets are not followed.
 | CreateObjectDie | 303 | 0 | 0x00888D3E | 11 | none | CreateObjectDie::`scalar deleting destructor' (tier A) |
 | CreateObjectDie | 303 | 0 | 0x00888BC7 | 2 | none |  |
 | CreateObjectDie | 303 | 1 | 0x00888BAE | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
-| CreateObjectDie | 303 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | CreateObjectDie | 303 | 2 | 0x0085FE9D | 4 | none | DieModule::~DieModule (tier B) |
 | CreateObjectDie | 303 | 2 | 0x00691435 | 1 | none |  |
 | CreateObjectDie | 303 | 2 | 0x006AC2C3 | 1 | none |  |
@@ -7753,7 +7629,6 @@ calls; their targets are not followed.
 | PassiveAreaEffectBehavior | 302 | 1 | 0x00887DAE | 20 | none | PassiveAreaEffectBehaviorModuleData::~PassiveAreaEffectBehaviorModuleData (tier D) |
 | PassiveAreaEffectBehavior | 302 | 1 | 0x0076EC18 | 19 | none | VUnicodeString::U?$_List_iterator::find<> (tier A) |
 | PassiveAreaEffectBehavior | 302 | 1 | 0x0044A2A5 | 15 | none | BfmeWideResult::~BfmeWideResult (tier A) |
-| PassiveAreaEffectBehavior | 302 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | PassiveAreaEffectBehavior | 302 | 2 | 0x005F3FD7 | 16 | none | _STL::H::HU?$_Nonconst_traits::U?$_List_iterator::__find<> (tier A) |
 | PassiveAreaEffectBehavior | 302 | 2 | 0x005FFFBF | 12 | none | VAsciiString::list<>::insert (tier A) |
 | PassiveAreaEffectBehavior | 302 | 2 | 0x005FFE47 | 10 | none |  |
@@ -7762,7 +7637,6 @@ calls; their targets are not followed.
 | PassiveAreaEffectBehavior | 302 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
 | PassiveAreaEffectBehavior | 302 | 2 | 0x00691435 | 1 | none |  |
 | PassiveAreaEffectBehavior | 302 | 3 | 0x00435D50 | 42 | none |  |
-| PassiveAreaEffectBehavior | 302 | 3 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | PassiveAreaEffectBehavior | 302 | 3 | 0x00805A57 | 25 | none | VRva00297360Element::vector<>::push_back (tier A) |
 | PassiveAreaEffectBehavior | 302 | 3 | 0x0042C978 | 23 | none | VAsciiString::_Rb_tree<>::~_Rb_tree<> (tier D) |
 | PassiveAreaEffectBehavior | 302 | 3 | 0x0080508C | 22 | none | Rva00368270::Rva00368270 (tier A) |
@@ -7817,13 +7691,11 @@ calls; their targets are not followed.
 | ToggleMountedSpecialAbilityUpdate | 297 | 0 | 0x008B1126 | 11 | none | Rva004C6CC1::`scalar deleting destructor' (tier A) |
 | ToggleMountedSpecialAbilityUpdate | 297 | 0 | 0x008B42E6 | 6 | none |  |
 | ToggleMountedSpecialAbilityUpdate | 297 | 0 | 0x008B104E | 2 | none |  |
-| ToggleMountedSpecialAbilityUpdate | 297 | 0 | 0x008E38D8 | 1 | none | Rva004DFCE1::~Rva004DFCE1 (tier A) |
 | ToggleMountedSpecialAbilityUpdate | 297 | 1 | 0x008B1024 | 6 | none |  |
 | ToggleMountedSpecialAbilityUpdate | 297 | 2 | 0x00852914 | 88 | none | SpecialAbilityUpdate::initLaser (tier B) |
 | ToggleMountedSpecialAbilityUpdate | 297 | 2 | 0x00854D9A | 16 | none |  |
 | ToggleMountedSpecialAbilityUpdate | 297 | 2 | 0x006650CC | 10 | none |  |
 | ToggleMountedSpecialAbilityUpdate | 297 | 2 | 0x0068FC98 | 6 | none |  |
-| ToggleMountedSpecialAbilityUpdate | 297 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | ToggleMountedSpecialAbilityUpdate | 297 | 3 | 0x0081C193 | 48 | none | HURva004393D6::map<>::operator[] (tier A) |
 | ToggleMountedSpecialAbilityUpdate | 297 | 3 | 0x0085251A | 46 | partial | SpecialAbilityUpdate::killSpecialObjects (tier B) |
 | ToggleMountedSpecialAbilityUpdate | 297 | 3 | 0x008E3B71 | 26 | none | Rva004DF7DB::rva004DF7DB (tier A) |
@@ -7844,7 +7716,6 @@ calls; their targets are not followed.
 | ToggleMountedSpecialAbilityUpdate | 297 | 4 | 0x00436030 | 44 | none | D::StringBase<>::set (tier A) |
 | ToggleMountedSpecialAbilityUpdate | 297 | 4 | 0x00435D50 | 42 | none |  |
 | ToggleMountedSpecialAbilityUpdate | 297 | 4 | 0x00A3AC70 | 40 | none | FlightDeckBehavior::PAUFlightDeckInfo::__uninitialized_fill_n<> (tier D) |
-| ToggleMountedSpecialAbilityUpdate | 297 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | ToggleMountedSpecialAbilityUpdate | 297 | 4 | 0x005D91D1 | 22 | none | OpaqueRefElement4::operator= (tier A) |
 | ToggleMountedSpecialAbilityUpdate | 297 | 4 | 0x00548930 | 13 | none | Rva00148F5ECache::get (tier A) |
 | ToggleMountedSpecialAbilityUpdate | 297 | 4 | 0x0081BB0C | 11 | none | Rva00416504::Rva00416504 (tier A) |
@@ -8186,7 +8057,6 @@ calls; their targets are not followed.
 | InvisibilityUpdate | 291 | 0 | 0x008A6EEA | 2 | none |  |
 | InvisibilityUpdate | 291 | 1 | 0x0044A2A5 | 15 | none | BfmeWideResult::~BfmeWideResult (tier A) |
 | InvisibilityUpdate | 291 | 1 | 0x008A6F18 | 5 | none | Rva004A0E0C::~Rva004A0E0C (tier A) |
-| InvisibilityUpdate | 291 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | InvisibilityUpdate | 291 | 2 | 0x0081C193 | 48 | none | HURva004393D6::map<>::operator[] (tier A) |
 | InvisibilityUpdate | 291 | 2 | 0x0081B91D | 18 | none | Rva004393D6::operator= (tier A) |
 | InvisibilityUpdate | 291 | 2 | 0x0081B4E5 | 13 | none | Rva004393D6::~Rva004393D6 (tier A) |
@@ -8277,7 +8147,6 @@ calls; their targets are not followed.
 | FXListDie | 280 | 0 | 0x008898B8 | 11 | none | FXListDie::`scalar deleting destructor' (tier A) |
 | FXListDie | 280 | 0 | 0x00889843 | 2 | none |  |
 | FXListDie | 280 | 1 | 0x0088982A | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
-| FXListDie | 280 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | FXListDie | 280 | 2 | 0x0085FE9D | 4 | none | DieModule::~DieModule (tier B) |
 | FXListDie | 280 | 3 | 0x0075B746 | 9 | none | URva002923DFElement::list<>::size (tier A) |
 | FXListDie | 280 | 3 | 0x00665342 | 7 | none | Object::getPlanarDirectionTo (tier A) |
@@ -8291,10 +8160,7 @@ calls; their targets are not followed.
 | W3DTreeDraw | 276 | 0 | 0x004CE4FD | 11 | none | W3DTreeDrawModuleData::`scalar deleting destructor' (tier A) |
 | W3DTreeDraw | 276 | 0 | 0x004CE75C | 11 | none | W3DTreeDrawModuleData::rva000CED14 (tier A) |
 | W3DTreeDraw | 276 | 0 | 0x004B1B3F | 4 | none |  |
-| W3DTreeDraw | 276 | 0 | 0x00464A09 | 2 | none | W3DQuadrupedDrawModuleData::W3DQuadrupedDrawModuleData (tier C) |
 | W3DTreeDraw | 276 | 0 | 0x004CE35D | 2 | none |  |
-| W3DTreeDraw | 276 | 0 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| W3DTreeDraw | 276 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | W3DTreeDraw | 276 | 1 | 0x004CE48F | 25 | none | W3DTreeDrawModuleData::~W3DTreeDrawModuleData (tier B) |
 | W3DTreeDraw | 276 | 2 | 0x00435D50 | 42 | none |  |
 | SlavedUpdate | 268 | 0 | 0x008A4F1C | 15 | none |  |
@@ -8306,7 +8172,6 @@ calls; their targets are not followed.
 | SlavedUpdate | 268 | 0 | 0x008A4F61 | 2 | none |  |
 | SlavedUpdate | 268 | 1 | 0x00771726 | 18 | partial |  |
 | SlavedUpdate | 268 | 1 | 0x008A4EFC | 5 | none | Rva004A0E0C::~Rva004A0E0C (tier A) |
-| SlavedUpdate | 268 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | SlavedUpdate | 268 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
 | SlavedUpdate | 268 | 3 | 0x00740B38 | 57 | none |  |
 | SlavedUpdate | 268 | 3 | 0x00678816 | 27 | partial |  |
@@ -8347,7 +8212,6 @@ calls; their targets are not followed.
 | BannerCarrierUpdate | 242 | 0 | 0x0089A282 | 11 | none | BannerCarrierUpdate::`scalar deleting destructor' (tier A) |
 | BannerCarrierUpdate | 242 | 0 | 0x0089A1A6 | 2 | none |  |
 | BannerCarrierUpdate | 242 | 1 | 0x0089A18D | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
-| BannerCarrierUpdate | 242 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | BannerCarrierUpdate | 242 | 2 | 0x0044A2A5 | 15 | none | BfmeWideResult::~BfmeWideResult (tier A) |
 | BannerCarrierUpdate | 242 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
 | BannerCarrierUpdate | 242 | 2 | 0x00691435 | 1 | none |  |
@@ -8360,13 +8224,10 @@ calls; their targets are not followed.
 | BannerCarrierUpdate | 242 | 5 | 0x0042F6E0 | 5 | none |  |
 | HeroModeSpecialAbilityUpdate | 234 | 0 | 0x0089585C | 15 | none |  |
 | HeroModeSpecialAbilityUpdate | 234 | 0 | 0x008958A1 | 11 | none | Rva00492179::`scalar deleting destructor' (tier A) |
-| HeroModeSpecialAbilityUpdate | 234 | 0 | 0x008C6E67 | 4 | none |  |
 | HeroModeSpecialAbilityUpdate | 234 | 0 | 0x00895836 | 2 | none |  |
-| HeroModeSpecialAbilityUpdate | 234 | 0 | 0x008E38D8 | 1 | none | Rva004DFCE1::~Rva004DFCE1 (tier A) |
 | HeroModeSpecialAbilityUpdate | 234 | 1 | 0x0089583C | 5 | none | Rva0049C3FC::~Rva0049C3FC (tier A) |
 | HeroModeSpecialAbilityUpdate | 234 | 2 | 0x00854D9A | 16 | none |  |
 | HeroModeSpecialAbilityUpdate | 234 | 2 | 0x0068FC98 | 6 | none |  |
-| HeroModeSpecialAbilityUpdate | 234 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | HeroModeSpecialAbilityUpdate | 234 | 3 | 0x00642037 | 9 | none | MultiPlayMults::getBuildingXPMult (tier A) |
 | HeroModeSpecialAbilityUpdate | 234 | 3 | 0x006CA161 | 8 | none | Rva002C9424::rva002C9424 (tier A) |
 | HeroModeSpecialAbilityUpdate | 234 | 4 | 0x00436030 | 44 | none | D::StringBase<>::set (tier A) |
@@ -8465,7 +8326,6 @@ calls; their targets are not followed.
 | DualWeaponBehavior | 223 | 0 | 0x0085DF21 | 11 | none | DualWeaponBehavior::`scalar deleting destructor' (tier A) |
 | DualWeaponBehavior | 223 | 0 | 0x0085DE48 | 2 | none |  |
 | DualWeaponBehavior | 223 | 1 | 0x0085DE2F | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
-| DualWeaponBehavior | 223 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | DualWeaponBehavior | 223 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
 | DualWeaponBehavior | 223 | 3 | 0x00678816 | 27 | partial |  |
 | DualWeaponBehavior | 223 | 3 | 0x006787DA | 20 | none | Rva002784AFHost::rva002784AF (tier B) |
@@ -8547,7 +8407,6 @@ calls; their targets are not followed.
 | TransitionDamageFX | 220 | 0 | 0x008BE90D | 11 | none | TransitionDamageFX::`scalar deleting destructor' (tier A) |
 | TransitionDamageFX | 220 | 0 | 0x008BE57A | 2 | none |  |
 | TransitionDamageFX | 220 | 1 | 0x008BE5C5 | 20 | none | TransitionDamageFX::~TransitionDamageFX (tier B) |
-| TransitionDamageFX | 220 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | TransitionDamageFX | 220 | 2 | 0x008BE4A3 | 23 | none |  |
 | TransitionDamageFX | 220 | 2 | 0x008BD831 | 4 | none | DamageModule::~DamageModule (tier B) |
 | TransitionDamageFX | 220 | 3 | 0x005FC2FE | 38 | none | Make001FCBD7 (tier C) |
@@ -8561,7 +8420,6 @@ calls; their targets are not followed.
 | TransitionDamageFX | 220 | 4 | 0x0044C43F | 14 | none | RvaSmartPtr12::attach (tier A) |
 | TransitionDamageFX | 220 | 4 | 0x00A3CF72 | 8 | none | _atexit (tier A) |
 | TransitionDamageFX | 220 | 4 | 0x008BE311 | 2 | none | Rva00501E3FElement::~Rva00501E3FElement (tier A) |
-| TransitionDamageFX | 220 | 5 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | TransitionDamageFX | 220 | 5 | 0x0042C978 | 23 | none | VAsciiString::_Rb_tree<>::~_Rb_tree<> (tier D) |
 | TransitionDamageFX | 220 | 5 | 0x00401399 | 10 | none |  |
 | TransitionDamageFX | 220 | 5 | 0x005FB451 | 9 | none | FXParticleSystem::ParticleSystemTemplateTail::ParticleSystemTemplateTail (tier A) |
@@ -8578,12 +8436,9 @@ calls; their targets are not followed.
 | FlammableUpdate | 217 | 0 | 0x00890C86 | 11 | none | FlammableUpdateModuleData::`scalar deleting destructor' (tier A) |
 | FlammableUpdate | 217 | 0 | 0x004B612F | 10 | none | Rva002115D0::rva002115D0 (tier A) |
 | FlammableUpdate | 217 | 0 | 0x0088FBEE | 8 | none |  |
-| FlammableUpdate | 217 | 0 | 0x00464A09 | 2 | none | W3DQuadrupedDrawModuleData::W3DQuadrupedDrawModuleData (tier C) |
 | FlammableUpdate | 217 | 0 | 0x0088FD62 | 2 | none |  |
-| FlammableUpdate | 217 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | FlammableUpdate | 217 | 1 | 0x008906EF | 21 | none | FlammableUpdateModuleData::~FlammableUpdateModuleData (tier A) |
 | FlammableUpdate | 217 | 1 | 0x0088FDAD | 20 | none | FlammableUpdate::~FlammableUpdate (tier A) |
-| FlammableUpdate | 217 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | FlammableUpdate | 217 | 2 | 0x0089067D | 23 | none |  |
 | FlammableUpdate | 217 | 2 | 0x004B64EB | 21 | none | DelayedLuaEventList::DelayedLuaEventList (tier B) |
 | FlammableUpdate | 217 | 2 | 0x00450762 | 5 | none |  |
@@ -8856,16 +8711,9 @@ calls; their targets are not followed.
 | FlammableUpdate | 217 | 16 | 0x00AE7990 | 5 | none |  |
 | FlammableUpdate | 217 | 16 | 0x00A3D79A | 1 | none | ji_00629a36 (tier A) |
 | FlammableUpdate | 217 | 17 | 0x007A0626 | 16 | none |  |
-| GeometryUpgrade | 204 | 0 | 0x008BAC2C | 15 | none |  |
-| GeometryUpgrade | 204 | 0 | 0x008BAD6F | 11 | none | GeometryUpgrade::`scalar deleting destructor' (tier A) |
-| GeometryUpgrade | 204 | 0 | 0x008BB094 | 11 | none | GeometryUpgradeModuleData::`scalar deleting destructor' (tier A) |
 | GeometryUpgrade | 204 | 0 | 0x004B612F | 10 | none | Rva002115D0::rva002115D0 (tier A) |
-| GeometryUpgrade | 204 | 0 | 0x00464A09 | 2 | none | W3DQuadrupedDrawModuleData::W3DQuadrupedDrawModuleData (tier C) |
-| GeometryUpgrade | 204 | 0 | 0x008BAC26 | 2 | none |  |
-| GeometryUpgrade | 204 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | GeometryUpgrade | 204 | 1 | 0x008BB0B0 | 27 | none | GeometryUpgradeModuleData::~GeometryUpgradeModuleData (tier B) |
 | GeometryUpgrade | 204 | 1 | 0x008BAD8B | 17 | none | GeometryUpgrade::~GeometryUpgrade (tier A) |
-| GeometryUpgrade | 204 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | GeometryUpgrade | 204 | 2 | 0x00435D50 | 42 | none |  |
 | GeometryUpgrade | 204 | 2 | 0x0042C978 | 23 | none | VAsciiString::_Rb_tree<>::~_Rb_tree<> (tier D) |
 | GeometryUpgrade | 204 | 2 | 0x0086393B | 5 | none |  |
@@ -8875,15 +8723,9 @@ calls; their targets are not followed.
 | GeometryUpgrade | 204 | 4 | 0x005FCBC4 | 1 | none | Rva001FD85E::rva001FD85E (tier A) |
 | WeaponModeSpecialPowerUpdate | 203 | 0 | 0x00898290 | 15 | none | WeaponModeSpecialPowerUpdate::getModuleNameKey (tier A) |
 | WeaponModeSpecialPowerUpdate | 203 | 0 | 0x0089833B | 11 | none | Rva00494A97::`scalar deleting destructor' (tier A) |
-| WeaponModeSpecialPowerUpdate | 203 | 0 | 0x00898357 | 6 | none |  |
 | WeaponModeSpecialPowerUpdate | 203 | 0 | 0x00898276 | 2 | none |  |
 | WeaponModeSpecialPowerUpdate | 203 | 0 | 0x009E7051 | 2 | none |  |
-| WeaponModeSpecialPowerUpdate | 203 | 0 | 0x008E38D8 | 1 | none | Rva004DFCE1::~Rva004DFCE1 (tier A) |
-| WeaponModeSpecialPowerUpdate | 203 | 1 | 0x0089822B | 6 | none | SiegeDeployHordeSpecialPower::~SiegeDeployHordeSpecialPower (tier A) |
-| WeaponModeSpecialPowerUpdate | 203 | 2 | 0x0099113F | 6 | none | SiegeDeployHordeSpecialPower::~SiegeDeployHordeSpecialPower (tier A) |
-| WeaponModeSpecialPowerUpdate | 203 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | WeaponModeSpecialPowerUpdate | 203 | 3 | 0x00435D50 | 42 | none |  |
-| WeaponModeSpecialPowerUpdate | 203 | 3 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | WeaponModeSpecialPowerUpdate | 203 | 3 | 0x008052C4 | 25 | none | VRva00297360Element::vector<>::erase (tier A) |
 | WeaponModeSpecialPowerUpdate | 203 | 3 | 0x00805A57 | 25 | none | VRva00297360Element::vector<>::push_back (tier A) |
 | WeaponModeSpecialPowerUpdate | 203 | 3 | 0x0042C978 | 23 | none | VAsciiString::_Rb_tree<>::~_Rb_tree<> (tier D) |
@@ -8998,7 +8840,6 @@ calls; their targets are not followed.
 | DeletionUpdate | 195 | 0 | 0x0088B814 | 11 | none | DeletionUpdate::`scalar deleting destructor' (tier A) |
 | DeletionUpdate | 195 | 0 | 0x0088B731 | 2 | none |  |
 | DeletionUpdate | 195 | 1 | 0x0088B718 | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
-| DeletionUpdate | 195 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | DeletionUpdate | 195 | 2 | 0x005EB775 | 12 | none | PAVObject::list<>::push_back (tier A) |
 | DeletionUpdate | 195 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
 | DeletionUpdate | 195 | 3 | 0x005EB44F | 12 | none | PAVObject::list<>::insert (tier A) |
@@ -9031,7 +8872,6 @@ calls; their targets are not followed.
 | DeletionUpdate | 195 | 7 | 0x0042F6E0 | 5 | none |  |
 | DeletionUpdate | 195 | 7 | 0x00A3CE04 | 1 | none | __CxxThrowException@8 (tier A) |
 | DeletionUpdate | 195 | 8 | 0x004360C0 | 63 | none |  |
-| DeletionUpdate | 195 | 8 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | DeletionUpdate | 195 | 8 | 0x0079FEAF | 18 | none | Rva0039D8FBLess (tier B) |
 | DeletionUpdate | 195 | 8 | 0x00440B21 | 8 | none |  |
 | DeletionUpdate | 195 | 9 | 0x00608BCA | 116 | partial | ScriptEngine::setCounterToThreat (tier B) |
@@ -9133,7 +8973,6 @@ calls; their targets are not followed.
 | MonitorConditionUpdate | 170 | 0 | 0x00894CED | 2 | none |  |
 | MonitorConditionUpdate | 170 | 1 | 0x00436030 | 44 | none | D::StringBase<>::set (tier A) |
 | MonitorConditionUpdate | 170 | 1 | 0x00894D38 | 20 | none | MonitorConditionUpdate::~MonitorConditionUpdate (tier A) |
-| MonitorConditionUpdate | 170 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | MonitorConditionUpdate | 170 | 2 | 0x00435D50 | 42 | none |  |
 | MonitorConditionUpdate | 170 | 2 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
 | MonitorConditionUpdate | 170 | 2 | 0x008E3D1E | 22 | none | AIStatCollector::Register (tier B) |
@@ -9147,7 +8986,6 @@ calls; their targets are not followed.
 | CommandButtonHuntUpdate | 160 | 0 | 0x00898B60 | 11 | none | CommandButtonHuntUpdate::`scalar deleting destructor' (tier A) |
 | CommandButtonHuntUpdate | 160 | 0 | 0x00898ACC | 2 | none |  |
 | CommandButtonHuntUpdate | 160 | 1 | 0x00898B17 | 20 | none | CommandButtonHuntUpdate::~CommandButtonHuntUpdate (tier A) |
-| CommandButtonHuntUpdate | 160 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | CommandButtonHuntUpdate | 160 | 2 | 0x00435D50 | 42 | none |  |
 | CommandButtonHuntUpdate | 160 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
 | CommandButtonHuntUpdate | 160 | 3 | 0x007AEAFD | 2 | none | SecondBase005D2111::~SecondBase005D2111 (tier A) |
@@ -9208,7 +9046,6 @@ calls; their targets are not followed.
 | W3DTruckDraw | 155 | 3 | 0x007AEAFD | 2 | none | SecondBase005D2111::~SecondBase005D2111 (tier A) |
 | W3DTruckDraw | 155 | 3 | 0x00732801 | 1 | none | RadiusDecal::~RadiusDecal (tier A) |
 | W3DTruckDraw | 155 | 3 | 0x00A3ED38 | 1 | none | _D3DXGetFVFVertexSize@4 (tier A) |
-| W3DTruckDraw | 155 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | W3DTruckDraw | 155 | 4 | 0x00675655 | 27 | none | Rva0027532F::rva0027532F (tier B) |
 | W3DTruckDraw | 155 | 4 | 0x004BF529 | 22 | none |  |
 | W3DTruckDraw | 155 | 4 | 0x004C44B6 | 22 | none | Rva000C24EAVector::eraseRange (tier A) |
@@ -9405,7 +9242,6 @@ calls; their targets are not followed.
 | FireSpreadUpdate | 154 | 0 | 0x008E3BB1 | 4 | none |  |
 | FireSpreadUpdate | 154 | 0 | 0x0088ECFB | 2 | none |  |
 | FireSpreadUpdate | 154 | 1 | 0x0088ECE2 | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
-| FireSpreadUpdate | 154 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | FireSpreadUpdate | 154 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
 | FireSpreadUpdate | 154 | 3 | 0x00A3B930 | 99 | none |  |
 | FireSpreadUpdate | 154 | 3 | 0x00A3AC70 | 40 | none | FlightDeckBehavior::PAUFlightDeckInfo::__uninitialized_fill_n<> (tier D) |
@@ -9523,7 +9359,6 @@ calls; their targets are not followed.
 | HorseHordeContain | 136 | 11 | 0x0042F6E0 | 5 | none |  |
 | HorseHordeContain | 136 | 11 | 0x00A3CE04 | 1 | none | __CxxThrowException@8 (tier A) |
 | HorseHordeContain | 136 | 12 | 0x004360C0 | 63 | none |  |
-| HorseHordeContain | 136 | 12 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | HorseHordeContain | 136 | 12 | 0x0079FEAF | 18 | none | Rva0039D8FBLess (tier B) |
 | HorseHordeContain | 136 | 12 | 0x00440B21 | 8 | none |  |
 | HorseHordeContain | 136 | 13 | 0x00608BCA | 116 | partial | ScriptEngine::setCounterToThreat (tier B) |
@@ -9616,12 +9451,10 @@ calls; their targets are not followed.
 | SpawnBehavior | 130 | 0 | 0x00862E4F | 29 | none |  |
 | SpawnBehavior | 130 | 0 | 0x00862351 | 26 | none |  |
 | SpawnBehavior | 130 | 0 | 0x008637BE | 26 | none | SpawnBehavior::orderSlavesToAttackTarget (tier B) |
-| SpawnBehavior | 130 | 0 | 0x00863807 | 26 | none | SpawnBehavior::orderSlavesToAttackPosition (tier B) |
 | SpawnBehavior | 130 | 0 | 0x00863636 | 16 | partial |  |
 | SpawnBehavior | 130 | 0 | 0x0086270D | 15 | none | SpawnBehavior::getModuleNameKey (tier B) |
 | SpawnBehavior | 130 | 0 | 0x00863388 | 11 | none | SpawnBehavior::`scalar deleting destructor' (tier A) |
 | SpawnBehavior | 130 | 0 | 0x008623E0 | 6 | none |  |
-| SpawnBehavior | 130 | 0 | 0x00862758 | 6 | none |  |
 | SpawnBehavior | 130 | 0 | 0x00862765 | 6 | none |  |
 | SpawnBehavior | 130 | 0 | 0x00862772 | 6 | none |  |
 | SpawnBehavior | 130 | 0 | 0x008A18ED | 6 | none |  |
@@ -9633,7 +9466,6 @@ calls; their targets are not followed.
 | SpawnBehavior | 130 | 1 | 0x00862783 | 34 | none | SpawnBehavior::~SpawnBehavior (tier A) |
 | SpawnBehavior | 130 | 1 | 0x0076EC18 | 19 | none | VUnicodeString::U?$_List_iterator::find<> (tier A) |
 | SpawnBehavior | 130 | 1 | 0x0086232E | 16 | none |  |
-| SpawnBehavior | 130 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | SpawnBehavior | 130 | 2 | 0x005F3FD7 | 16 | none | _STL::H::HU?$_Nonconst_traits::U?$_List_iterator::__find<> (tier A) |
 | SpawnBehavior | 130 | 2 | 0x005EB775 | 12 | none | PAVObject::list<>::push_back (tier A) |
 | SpawnBehavior | 130 | 2 | 0x005FFFBF | 12 | none | VAsciiString::list<>::insert (tier A) |
@@ -9650,10 +9482,8 @@ calls; their targets are not followed.
 | SpawnBehavior | 130 | 3 | 0x00767DF1 | 33 | none | IIURva002F3759Compare::map<>::operator[] (tier A) |
 | SpawnBehavior | 130 | 3 | 0x004374E0 | 30 | none | D::StringBase<>::StringBase<> (tier A) |
 | SpawnBehavior | 130 | 3 | 0x00961353 | 29 | none |  |
-| SpawnBehavior | 130 | 3 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | SpawnBehavior | 130 | 3 | 0x006C80A9 | 26 | none | WeaponSet::isAnyWithinTargetPitch (tier A) |
 | SpawnBehavior | 130 | 3 | 0x009614C7 | 23 | none | ScoredKillTracker::friend_addTrackedKill (tier A) |
-| SpawnBehavior | 130 | 3 | 0x006CC622 | 21 | none | Weapon::isWithinAttackRange (tier A) |
 | SpawnBehavior | 130 | 3 | 0x005EB44F | 12 | none | PAVObject::list<>::insert (tier A) |
 | SpawnBehavior | 130 | 3 | 0x00809698 | 6 | none | Rva00406E8F::rva00406E8F (tier A) |
 | SpawnBehavior | 130 | 3 | 0x00809686 | 5 | none | Rva00406E7D::rva00406E7D (tier A) |
@@ -9893,11 +9723,8 @@ calls; their targets are not followed.
 | SlaveWatcherBehavior | 127 | 0 | 0x0088796A | 11 | none | SlaveWatcherBehaviorModuleData::`scalar deleting destructor' (tier A) |
 | SlaveWatcherBehavior | 127 | 0 | 0x00887B56 | 11 | none | SlaveWatcherBehaviorModuleData::`scalar deleting destructor' (tier A) |
 | SlaveWatcherBehavior | 127 | 0 | 0x004B612F | 10 | none | Rva002115D0::rva002115D0 (tier A) |
-| SlaveWatcherBehavior | 127 | 0 | 0x00464A09 | 2 | none | W3DQuadrupedDrawModuleData::W3DQuadrupedDrawModuleData (tier C) |
 | SlaveWatcherBehavior | 127 | 0 | 0x008878B4 | 2 | none |  |
-| SlaveWatcherBehavior | 127 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | SlaveWatcherBehavior | 127 | 1 | 0x00887986 | 18 | none | SlaveWatcherBehaviorModuleData::~SlaveWatcherBehaviorModuleData (tier A) |
-| SlaveWatcherBehavior | 127 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | SlaveWatcherBehavior | 127 | 2 | 0x00435D50 | 42 | none |  |
 | SlaveWatcherBehavior | 127 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
 | SlaveWatcherBehavior | 127 | 2 | 0x00780114 | 4 | none |  |
@@ -9936,7 +9763,6 @@ calls; their targets are not followed.
 | CastleBehavior | 126 | 2 | 0x00B4E2C0 | 7 | none |  |
 | CastleBehavior | 126 | 2 | 0x008580CE | 5 | none | Rva00458402::~Rva00458402 (tier A) |
 | CastleBehavior | 126 | 2 | 0x00430170 | 4 | none |  |
-| CastleBehavior | 126 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | CastleBehavior | 126 | 3 | 0x008DE2FF | 63 | none | $$CBIPAVImage::IU?$pair::_Rb_tree<>::insert_unique (tier A) |
 | CastleBehavior | 126 | 3 | 0x0072BB37 | 59 | none | BuildListInfo::BuildListInfo (tier A) |
 | CastleBehavior | 126 | 3 | 0x0067C694 | 49 | none | Rva0027C36A::Rva0027C36A (tier A) |
@@ -9945,7 +9771,6 @@ calls; their targets are not followed.
 | CastleBehavior | 126 | 3 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
 | CastleBehavior | 126 | 3 | 0x005E0A39 | 28 | partial | QBVGameWindow::U?$pair::hashtable<>::begin (tier A) |
 | CastleBehavior | 126 | 3 | 0x006799A2 | 28 | none |  |
-| CastleBehavior | 126 | 3 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | CastleBehavior | 126 | 3 | 0x00678816 | 27 | partial |  |
 | CastleBehavior | 126 | 3 | 0x00798344 | 27 | partial |  |
 | CastleBehavior | 126 | 3 | 0x00825C45 | 26 | none | CrowdResponseTemplate::getCrowdResponseDataForThreshold (tier A) |
@@ -10380,12 +10205,9 @@ calls; their targets are not followed.
 | RadiateFearUpdate | 118 | 0 | 0x0089F7D3 | 5 | none |  |
 | RadiateFearUpdate | 118 | 0 | 0x0089F7E2 | 3 | none |  |
 | RadiateFearUpdate | 118 | 0 | 0x0089F7EC | 3 | none |  |
-| RadiateFearUpdate | 118 | 0 | 0x00464A09 | 2 | none | W3DQuadrupedDrawModuleData::W3DQuadrupedDrawModuleData (tier C) |
 | RadiateFearUpdate | 118 | 0 | 0x0089F761 | 2 | none |  |
-| RadiateFearUpdate | 118 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | RadiateFearUpdate | 118 | 1 | 0x0089F978 | 15 | none | RadiateFearUpdateModuleData::~RadiateFearUpdateModuleData (tier A) |
 | RadiateFearUpdate | 118 | 1 | 0x0089F741 | 5 | none | Rva0049C3FC::~Rva0049C3FC (tier A) |
-| RadiateFearUpdate | 118 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | RadiateFearUpdate | 118 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
 | RadiateFearUpdate | 118 | 2 | 0x007629B0 | 4 | none |  |
 | RadiateFearUpdate | 118 | 3 | 0x0076293A | 23 | none | Rva00360CB0Release (tier A) |
@@ -10395,12 +10217,10 @@ calls; their targets are not followed.
 | ToggleHiddenSpecialAbilityUpdate | 115 | 0 | 0x008B18A8 | 15 | none |  |
 | ToggleHiddenSpecialAbilityUpdate | 115 | 0 | 0x008B18ED | 11 | none | Rva004AE1AC::`scalar deleting destructor' (tier A) |
 | ToggleHiddenSpecialAbilityUpdate | 115 | 0 | 0x008B1882 | 2 | none |  |
-| ToggleHiddenSpecialAbilityUpdate | 115 | 0 | 0x008E38D8 | 1 | none | Rva004DFCE1::~Rva004DFCE1 (tier A) |
 | ToggleHiddenSpecialAbilityUpdate | 115 | 1 | 0x008B1888 | 5 | none | Rva004B29BE::~Rva004B29BE (tier A) |
 | ToggleHiddenSpecialAbilityUpdate | 115 | 2 | 0x00852914 | 88 | none | SpecialAbilityUpdate::initLaser (tier B) |
 | ToggleHiddenSpecialAbilityUpdate | 115 | 2 | 0x00852590 | 34 | none |  |
 | ToggleHiddenSpecialAbilityUpdate | 115 | 2 | 0x00854D9A | 16 | none |  |
-| ToggleHiddenSpecialAbilityUpdate | 115 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | ToggleHiddenSpecialAbilityUpdate | 115 | 3 | 0x0085251A | 46 | partial | SpecialAbilityUpdate::killSpecialObjects (tier B) |
 | ToggleHiddenSpecialAbilityUpdate | 115 | 3 | 0x00678816 | 27 | partial |  |
 | ToggleHiddenSpecialAbilityUpdate | 115 | 3 | 0x008E3B71 | 26 | none | Rva004DF7DB::rva004DF7DB (tier A) |
@@ -10421,7 +10241,6 @@ calls; their targets are not followed.
 | ToggleHiddenSpecialAbilityUpdate | 115 | 4 | 0x00435D50 | 42 | none |  |
 | ToggleHiddenSpecialAbilityUpdate | 115 | 4 | 0x00A3AC70 | 40 | none | FlightDeckBehavior::PAUFlightDeckInfo::__uninitialized_fill_n<> (tier D) |
 | ToggleHiddenSpecialAbilityUpdate | 115 | 4 | 0x0067876B | 36 | none | Rva00278440Host::rva00278440 (tier A) |
-| ToggleHiddenSpecialAbilityUpdate | 115 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | ToggleHiddenSpecialAbilityUpdate | 115 | 4 | 0x0073EE52 | 25 | none | UModelConditionInfo::SparseMatchFinder<>::findBestInfo (tier A) |
 | ToggleHiddenSpecialAbilityUpdate | 115 | 4 | 0x005D91D1 | 22 | none | OpaqueRefElement4::operator= (tier A) |
 | ToggleHiddenSpecialAbilityUpdate | 115 | 4 | 0x004380C0 | 12 | none | _bfme_debugRecordCallsite (tier D) |
@@ -10689,7 +10508,6 @@ calls; their targets are not followed.
 | CitadelSlaughterHordeContain | 111 | 10 | 0x00828D5C | 4 | none |  |
 | CitadelSlaughterHordeContain | 111 | 11 | 0x004375B0 | 52 | none | D::StringBase<>::set (tier A) |
 | CitadelSlaughterHordeContain | 111 | 11 | 0x007A14A0 | 37 | none | Rva0039EA4E::rva0039EA4E (tier A) |
-| CitadelSlaughterHordeContain | 111 | 11 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | CitadelSlaughterHordeContain | 111 | 11 | 0x004355D0 | 19 | none |  |
 | CitadelSlaughterHordeContain | 111 | 11 | 0x004380C0 | 12 | none | _bfme_debugRecordCallsite (tier D) |
 | CitadelSlaughterHordeContain | 111 | 11 | 0x0068BB4B | 10 | none | Object::isInList (tier A) |
@@ -10784,13 +10602,10 @@ calls; their targets are not followed.
 | CitadelSlaughterHordeContain | 111 | 20 | 0x007ED77A | 21 | none |  |
 | ActivateModuleSpecialPower | 108 | 0 | 0x008D21C9 | 15 | none |  |
 | ActivateModuleSpecialPower | 108 | 0 | 0x008D220E | 11 | none | ActivateModuleSpecialPower::`scalar deleting destructor' (tier A) |
-| ActivateModuleSpecialPower | 108 | 0 | 0x008C6E67 | 4 | none |  |
 | ActivateModuleSpecialPower | 108 | 0 | 0x008D21A3 | 2 | none |  |
-| ActivateModuleSpecialPower | 108 | 0 | 0x008E38D8 | 1 | none | Rva004DFCE1::~Rva004DFCE1 (tier A) |
 | ActivateModuleSpecialPower | 108 | 1 | 0x008D21A9 | 5 | none | Rva004C6943::~Rva004C6943 (tier A) |
 | ActivateModuleSpecialPower | 108 | 2 | 0x00854D9A | 16 | none |  |
 | ActivateModuleSpecialPower | 108 | 2 | 0x004380C0 | 12 | none | _bfme_debugRecordCallsite (tier D) |
-| ActivateModuleSpecialPower | 108 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | ActivateModuleSpecialPower | 108 | 3 | 0x008E3B71 | 26 | none | Rva004DF7DB::rva004DF7DB (tier A) |
 | ActivateModuleSpecialPower | 108 | 3 | 0x0068CC38 | 13 | none | Rva0028C570::rva0028C570 (tier A) |
 | ActivateModuleSpecialPower | 108 | 3 | 0x00851770 | 10 | none |  |
@@ -10840,7 +10655,6 @@ calls; their targets are not followed.
 | PorcupineFormationBodyModule | 104 | 1 | 0x008C61CA | 4 | none | OCLSpecialPower::~OCLSpecialPower (tier A) |
 | StealthDetectorUpdate | 104 | 1 | 0x008A6273 | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
 | StealthDetectorUpdate | 104 | 1 | 0x006DAD81 | 2 | none | Rva002D9C2F::rva002D9C2F (tier A) |
-| StealthDetectorUpdate | 104 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | PorcupineFormationBodyModule | 104 | 2 | 0x00AD35B0 | 120 | none |  |
 | StealthDetectorUpdate | 104 | 2 | 0x0081C193 | 48 | none | HURva004393D6::map<>::operator[] (tier A) |
 | PorcupineFormationBodyModule | 104 | 2 | 0x00435D50 | 42 | none |  |
@@ -10859,12 +10673,10 @@ calls; their targets are not followed.
 | StealthDetectorUpdate | 104 | 2 | 0x00917B0D | 6 | none |  |
 | StealthDetectorUpdate | 104 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
 | StealthDetectorUpdate | 104 | 2 | 0x005DC493 | 2 | none | Drawable::getID (tier A) |
-| PorcupineFormationBodyModule | 104 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | StealthDetectorUpdate | 104 | 2 | 0x00691435 | 1 | none |  |
 | StealthDetectorUpdate | 104 | 3 | 0x0081B880 | 56 | none | UBfmePod196::list<>::operator= (tier B) |
 | StealthDetectorUpdate | 104 | 3 | 0x00436030 | 44 | none | D::StringBase<>::set (tier A) |
 | PorcupineFormationBodyModule | 104 | 3 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
-| StealthDetectorUpdate | 104 | 3 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | PorcupineFormationBodyModule | 104 | 3 | 0x00B6C700 | 15 | partial | BfmeLinkXX::bfmeDropXX (tier D) |
 | StealthDetectorUpdate | 104 | 3 | 0x004052F9 | 11 | none |  |
 | StealthDetectorUpdate | 104 | 3 | 0x0081BB0C | 11 | none | Rva00416504::Rva00416504 (tier A) |
@@ -11049,17 +10861,10 @@ calls; their targets are not followed.
 | PorcupineFormationBodyModule | 104 | 12 | 0x00A3CF4C | 7 | none |  |
 | PorcupineFormationBodyModule | 104 | 13 | 0x00A3D936 | 1 | none | ji_00629b0e (tier A) |
 | PorcupineFormationBodyModule | 104 | 14 | 0x00645716 | 12 | none | Rva0027EA49::operator= (tier A) |
-| CostModifierUpgrade | 102 | 0 | 0x008B9B44 | 15 | none |  |
-| CostModifierUpgrade | 102 | 0 | 0x008B9BD6 | 11 | none | Rva004B5982::`scalar deleting destructor' (tier A) |
-| CostModifierUpgrade | 102 | 0 | 0x008B9F05 | 6 | none |  |
-| CostModifierUpgrade | 102 | 0 | 0x008B9B3C | 3 | none |  |
-| CostModifierUpgrade | 102 | 0 | 0x008B9B36 | 2 | none |  |
 | CostModifierUpgrade | 102 | 1 | 0x008B9B0F | 6 | none |  |
-| CostModifierUpgrade | 102 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | CostModifierUpgrade | 102 | 2 | 0x006B0060 | 33 | none |  |
 | CostModifierUpgrade | 102 | 2 | 0x006AB681 | 28 | none | Rva002AAC9EEqual (tier A) |
 | CostModifierUpgrade | 102 | 2 | 0x006AE86E | 28 | none | Rva002ADD75Equal (tier A) |
-| CostModifierUpgrade | 102 | 2 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | CostModifierUpgrade | 102 | 2 | 0x006B2028 | 25 | none | UBfmeVectorRecord002AF478::vector<>::push_back (tier A) |
 | CostModifierUpgrade | 102 | 2 | 0x006AFCE3 | 23 | none |  |
 | CostModifierUpgrade | 102 | 2 | 0x0042F6E0 | 5 | none |  |
@@ -11097,7 +10902,6 @@ calls; their targets are not followed.
 | RefundDie | 101 | 0 | 0x008884FD | 11 | none | RefundDie::`scalar deleting destructor' (tier A) |
 | RefundDie | 101 | 0 | 0x00888488 | 2 | none |  |
 | RefundDie | 101 | 1 | 0x0088846F | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
-| RefundDie | 101 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | RefundDie | 101 | 2 | 0x007A19AB | 28 | none |  |
 | RefundDie | 101 | 2 | 0x0085FE9D | 4 | none | DieModule::~DieModule (tier B) |
 | RefundDie | 101 | 2 | 0x006AC2C3 | 1 | none |  |
@@ -11144,29 +10948,19 @@ calls; their targets are not followed.
 | RefundDie | 101 | 12 | 0x0042C17A | 14 | none | AsciiStringCopyConstructAtRva0002C485 (tier A) |
 | RefundDie | 101 | 12 | 0x00688E9D | 9 | none |  |
 | RefundDie | 101 | 12 | 0x00828D5C | 4 | none |  |
-| RefundDie | 101 | 13 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | W3DBuffDraw | 100 | 0 | 0x004CE5D5 | 15 | none |  |
 | W3DBuffDraw | 100 | 0 | 0x004CE672 | 11 | none | StreakDrawBase::`scalar deleting destructor' (tier A) |
 | W3DBuffDraw | 100 | 0 | 0x004B612F | 10 | none | Rva002115D0::rva002115D0 (tier A) |
 | W3DBuffDraw | 100 | 0 | 0x004B1B3F | 4 | none |  |
-| W3DBuffDraw | 100 | 0 | 0x00464A09 | 2 | none | W3DQuadrupedDrawModuleData::W3DQuadrupedDrawModuleData (tier C) |
 | W3DBuffDraw | 100 | 0 | 0x004CE5CF | 2 | none |  |
-| W3DBuffDraw | 100 | 0 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| W3DBuffDraw | 100 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | W3DBuffDraw | 100 | 1 | 0x004CE62B | 16 | none | Rva00109C27::~Rva00109C27 (tier A) |
 | W3DBuffDraw | 100 | 2 | 0x00435D50 | 42 | none |  |
-| InheritUpgradeCreate | 98 | 0 | 0x008BD5D6 | 15 | none |  |
 | ModelConditionSoundSelectorClientBehavior | 98 | 0 | 0x0065492E | 15 | none |  |
-| InheritUpgradeCreate | 98 | 0 | 0x008BD62C | 11 | none | InheritUpgradeCreate::`scalar deleting destructor' (tier A) |
 | ModelConditionSoundSelectorClientBehavior | 98 | 0 | 0x008CF0D2 | 8 | none |  |
 | ModelConditionSoundSelectorClientBehavior | 98 | 0 | 0x008CF003 | 7 | none |  |
-| InheritUpgradeCreate | 98 | 0 | 0x008BD648 | 6 | none |  |
 | ModelConditionSoundSelectorClientBehavior | 98 | 0 | 0x008CE37F | 4 | none |  |
-| InheritUpgradeCreate | 98 | 0 | 0x008BD5B1 | 2 | none |  |
-| InheritUpgradeCreate | 98 | 0 | 0x008BD829 | 2 | none |  |
 | ModelConditionSoundSelectorClientBehavior | 98 | 0 | 0x00654973 | 2 | none |  |
 | InheritUpgradeCreate | 98 | 1 | 0x008BD5B7 | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
-| InheritUpgradeCreate | 98 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | ModelConditionSoundSelectorClientBehavior | 98 | 2 | 0x00456726 | 37 | none | VAsciiString::U?$pair::_M_find<> (tier A) |
 | InheritUpgradeCreate | 98 | 2 | 0x0044A2A5 | 15 | none | BfmeWideResult::~BfmeWideResult (tier A) |
 | ModelConditionSoundSelectorClientBehavior | 98 | 2 | 0x006CA738 | 12 | none | UBfmePod128::$$CBHV?$vector::pair<>::pair<> (tier A) |
@@ -11193,7 +10987,6 @@ calls; their targets are not followed.
 | TransportContain | 91 | 0 | 0x0086B14D | 11 | none | TransportContain::`scalar deleting destructor' (tier A) |
 | PlayerHealSpecialPower | 91 | 0 | 0x008CC574 | 10 | partial |  |
 | TransportContain | 91 | 0 | 0x00869E86 | 6 | none |  |
-| PlayerHealSpecialPower | 91 | 0 | 0x008C6606 | 4 | none |  |
 | TransportContain | 91 | 0 | 0x00869ED4 | 3 | partial |  |
 | ExperienceLevelCreate | 91 | 0 | 0x008BD2E6 | 2 | none |  |
 | PlayerHealSpecialPower | 91 | 0 | 0x008CC2C7 | 2 | none |  |
@@ -11204,10 +10997,8 @@ calls; their targets are not followed.
 | TransportContain | 91 | 0 | 0x00869ECF | 1 | none | Rva0046AD86::rva0046AD86 (tier A) |
 | TransportContain | 91 | 1 | 0x00866D04 | 31 | none |  |
 | TransportContain | 91 | 1 | 0x0086AF85 | 27 | none | TransportContain::~TransportContain (tier A) |
-| PlayerHealSpecialPower | 91 | 1 | 0x008972B2 | 18 | none |  |
 | TransportContain | 91 | 1 | 0x005FFE47 | 10 | none |  |
 | PlayerHealSpecialPower | 91 | 1 | 0x008CC2CD | 4 | none | PlayerHealSpecialPower::~PlayerHealSpecialPower (tier A) |
-| ExperienceLevelCreate | 91 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | ExperienceLevelCreate | 91 | 1 | 0x00888434 | 1 | none | Rva004885DE::~Rva004885DE (tier A) |
 | TransportContain | 91 | 2 | 0x00867947 | 59 | none | OpenContain::~OpenContain (tier B) |
 | PlayerHealSpecialPower | 91 | 2 | 0x00897583 | 51 | none |  |
@@ -11224,7 +11015,6 @@ calls; their targets are not followed.
 | TransportContain | 91 | 2 | 0x00450762 | 5 | none |  |
 | ExperienceLevelCreate | 91 | 2 | 0x008BCE1F | 4 | none |  |
 | TransportContain | 91 | 2 | 0x00430170 | 4 | none |  |
-| TransportContain | 91 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | TransportContain | 91 | 2 | 0x00A3CE04 | 1 | none | __CxxThrowException@8 (tier A) |
 | TransportContain | 91 | 3 | 0x00762C65 | 41 | none |  |
 | TransportContain | 91 | 3 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
@@ -11256,7 +11046,6 @@ calls; their targets are not followed.
 | PlayerHealSpecialPower | 91 | 4 | 0x006D527E | 81 | none | RadarWindowOverrideSource::rva002D4240 (tier B) |
 | TransportContain | 91 | 4 | 0x00436030 | 44 | none | D::StringBase<>::set (tier A) |
 | TransportContain | 91 | 4 | 0x0067876B | 36 | none | Rva00278440Host::rva00278440 (tier A) |
-| PlayerHealSpecialPower | 91 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | TransportContain | 91 | 4 | 0x0073EE52 | 25 | none | UModelConditionInfo::SparseMatchFinder<>::findBestInfo (tier A) |
 | TransportContain | 91 | 4 | 0x007633E0 | 25 | none |  |
 | TransportContain | 91 | 4 | 0x004B8F60 | 24 | none | VRvaSmartPtr12::U?$_List_iterator::_M_insert_dispatch<> (tier A) |
@@ -11541,7 +11330,6 @@ calls; their targets are not followed.
 | PlayerHealSpecialPower | 91 | 10 | 0x006225CE | 33 | none | Rva002228E8Get (tier A) |
 | PlayerHealSpecialPower | 91 | 10 | 0x0092AA60 | 31 | none | Rva00524021::rva00523F8C (tier A) |
 | PlayerHealSpecialPower | 91 | 10 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
-| TransportContain | 91 | 10 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | PlayerHealSpecialPower | 91 | 10 | 0x00AE7230 | 25 | none | EAStringC::IsEqualTo (tier A) |
 | PlayerHealSpecialPower | 91 | 10 | 0x0075A8C0 | 24 | none | URva003597C3Element::_Rb_tree<>::erase (tier D) |
 | PlayerHealSpecialPower | 91 | 10 | 0x00AEFD90 | 24 | none | BfmeAptValue006DCD20::setTypeAt006DBBC0 (tier C) |
@@ -11676,21 +11464,11 @@ calls; their targets are not followed.
 | TransportContain | 91 | 17 | 0x00A3CD70 | 25 | none |  |
 | TransportContain | 91 | 17 | 0x009A2783 | 4 | none |  |
 | TransportContain | 91 | 18 | 0x007ED77A | 21 | none |  |
-| ReplaceSelfUpgrade | 76 | 0 | 0x008BB1B9 | 15 | none |  |
-| ReplaceSelfUpgrade | 76 | 0 | 0x008BB126 | 14 | none |  |
-| ReplaceSelfUpgrade | 76 | 0 | 0x008BB1FE | 11 | none | ReplaceSelfUpgrade::`scalar deleting destructor' (tier A) |
-| ReplaceSelfUpgrade | 76 | 0 | 0x008BB21F | 11 | none | ReplaceSelfUpgrade::~ReplaceSelfUpgrade (tier B) |
-| ReplaceSelfUpgrade | 76 | 0 | 0x008BBA8D | 11 | none | ReplaceSelfUpgradeModuleData::`scalar deleting destructor' (tier A) |
 | ReplaceSelfUpgrade | 76 | 0 | 0x004B612F | 10 | none | Rva002115D0::rva002115D0 (tier A) |
-| ReplaceSelfUpgrade | 76 | 0 | 0x008B9F05 | 6 | none |  |
-| ReplaceSelfUpgrade | 76 | 0 | 0x00464A09 | 2 | none | W3DQuadrupedDrawModuleData::W3DQuadrupedDrawModuleData (tier C) |
-| ReplaceSelfUpgrade | 76 | 0 | 0x008BB1B3 | 2 | none |  |
 | ReplaceSelfUpgrade | 76 | 1 | 0x00435D50 | 42 | none |  |
 | ReplaceSelfUpgrade | 76 | 1 | 0x004BB893 | 35 | none | VAsciiString::vector<>::vector<> (tier A) |
-| ReplaceSelfUpgrade | 76 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | ReplaceSelfUpgrade | 76 | 1 | 0x0042C978 | 23 | none | VAsciiString::_Rb_tree<>::~_Rb_tree<> (tier D) |
 | ReplaceSelfUpgrade | 76 | 1 | 0x008BBAA9 | 15 | none | ReplaceSelfUpgradeModuleData::~ReplaceSelfUpgradeModuleData (tier B) |
-| ReplaceSelfUpgrade | 76 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | ReplaceSelfUpgrade | 76 | 1 | 0x008BB21A | 1 | none | CallHelpOnDamage::~CallHelpOnDamage (tier A) |
 | ReplaceSelfUpgrade | 76 | 2 | 0x006D01C1 | 26 | none | H::HV?$Rva002444BEAllocator::_Vector_base<>::_Vector_base<> (tier A) |
 | ReplaceSelfUpgrade | 76 | 2 | 0x004BB149 | 18 | none | Rva0007E2FACopy (tier A) |
@@ -11912,10 +11690,7 @@ calls; their targets are not followed.
 | W3DPropDraw | 75 | 0 | 0x004CE75C | 11 | none | W3DTreeDrawModuleData::rva000CED14 (tier A) |
 | W3DPropDraw | 75 | 0 | 0x004CE84C | 11 | none | W3DPropDrawModuleData::`scalar deleting destructor' (tier A) |
 | W3DPropDraw | 75 | 0 | 0x004B1B3F | 4 | none |  |
-| W3DPropDraw | 75 | 0 | 0x00464A09 | 2 | none | W3DQuadrupedDrawModuleData::W3DQuadrupedDrawModuleData (tier C) |
 | W3DPropDraw | 75 | 0 | 0x004CE6AE | 2 | none |  |
-| W3DPropDraw | 75 | 0 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| W3DPropDraw | 75 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | W3DPropDraw | 75 | 1 | 0x00467AD4 | 24 | none |  |
 | W3DPropDraw | 75 | 1 | 0x004CE715 | 16 | none | Rva000F1B8F::~Rva000F1B8F (tier A) |
 | W3DPropDraw | 75 | 1 | 0x005DC493 | 2 | none | Drawable::getID (tier A) |
@@ -11944,10 +11719,8 @@ calls; their targets are not followed.
 | ArrowStormUpdate | 72 | 0 | 0x008940E4 | 11 | none | ArrowStormUpdate::`scalar deleting destructor' (tier A) |
 | ArrowStormUpdate | 72 | 0 | 0x00894327 | 6 | none |  |
 | ArrowStormUpdate | 72 | 0 | 0x00893E7D | 2 | none |  |
-| ArrowStormUpdate | 72 | 0 | 0x008E38D8 | 1 | none | Rva004DFCE1::~Rva004DFCE1 (tier A) |
 | ArrowStormUpdate | 72 | 1 | 0x006652E4 | 18 | none | PAVTeamPrototype::_List_base<>::clear (tier A) |
 | ArrowStormUpdate | 72 | 1 | 0x00893E4C | 11 | none |  |
-| ArrowStormUpdate | 72 | 1 | 0x00852782 | 8 | none |  |
 | ArrowStormUpdate | 72 | 2 | 0x00852914 | 88 | none | SpecialAbilityUpdate::initLaser (tier B) |
 | ArrowStormUpdate | 72 | 2 | 0x00852CA2 | 36 | none |  |
 | ArrowStormUpdate | 72 | 2 | 0x006A057C | 16 | none | Rva0029FB3BMember::init (tier A) |
@@ -11957,7 +11730,6 @@ calls; their targets are not followed.
 | ArrowStormUpdate | 72 | 2 | 0x006A253A | 12 | none | _STL::F::FV?$allocator::list<>::push_back (tier A) |
 | ArrowStormUpdate | 72 | 2 | 0x00667E94 | 11 | none | Rva002AAC74PoolList::destroy (tier A) |
 | ArrowStormUpdate | 72 | 2 | 0x0068FC98 | 6 | none |  |
-| ArrowStormUpdate | 72 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | ArrowStormUpdate | 72 | 3 | 0x005DCBB3 | 60 | none | Eva::internalReportEvaEvent (tier A) |
 | ArrowStormUpdate | 72 | 3 | 0x0085251A | 46 | partial | SpecialAbilityUpdate::killSpecialObjects (tier B) |
 | ArrowStormUpdate | 72 | 3 | 0x005DD140 | 26 | none | URva001DD1B3::_Rb_tree<>::insert_equal (tier A) |
@@ -11981,7 +11753,6 @@ calls; their targets are not followed.
 | ArrowStormUpdate | 72 | 4 | 0x00435D50 | 42 | none |  |
 | ArrowStormUpdate | 72 | 4 | 0x00401DEB | 40 | none |  |
 | ArrowStormUpdate | 72 | 4 | 0x00A3AC70 | 40 | none | FlightDeckBehavior::PAUFlightDeckInfo::__uninitialized_fill_n<> (tier D) |
-| ArrowStormUpdate | 72 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | ArrowStormUpdate | 72 | 4 | 0x00678816 | 27 | partial |  |
 | ArrowStormUpdate | 72 | 4 | 0x005D91D1 | 22 | none | OpaqueRefElement4::operator= (tier A) |
 | ArrowStormUpdate | 72 | 4 | 0x005DC7CD | 21 | none | Rva001DD063::Rva001DD063 (tier A) |
@@ -12159,8 +11930,6 @@ calls; their targets are not followed.
 | FoundationAIUpdate | 71 | 1 | 0x004374E0 | 30 | none | D::StringBase<>::StringBase<> (tier A) |
 | FoundationAIUpdate | 71 | 1 | 0x008580CE | 5 | none | Rva00458402::~Rva00458402 (tier A) |
 | AutoDepositUpdate | 71 | 1 | 0x0089D95A | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
-| AutoDepositUpdate | 71 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| FoundationAIUpdate | 71 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | AutoDepositUpdate | 71 | 2 | 0x007A19AB | 28 | none |  |
 | FoundationAIUpdate | 71 | 2 | 0x004355D0 | 19 | none |  |
 | FoundationAIUpdate | 71 | 2 | 0x0044A2A5 | 15 | none | BfmeWideResult::~BfmeWideResult (tier A) |
@@ -12242,7 +12011,6 @@ calls; their targets are not followed.
 | AutoDepositUpdate | 71 | 9 | 0x005FCF2F | 59 | none | W4ScienceType::_Rb_tree<>::_M_insert (tier A) |
 | AutoDepositUpdate | 71 | 9 | 0x00423F10 | 51 | none | _STL::_N::_Rb_global<>::_M_decrement (tier A) |
 | AutoDepositUpdate | 71 | 9 | 0x00423EA0 | 40 | none | _STL::_N::_Rb_global<>::_M_increment (tier A) |
-| FoundationAIUpdate | 71 | 9 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | AutoDepositUpdate | 71 | 9 | 0x00763127 | 22 | none | PBUBfmePod148::__uninitialized_copy<> (tier A) |
 | AutoDepositUpdate | 71 | 9 | 0x006ADB12 | 20 | none | Rva002ACFFBEqual (tier A) |
 | AutoDepositUpdate | 71 | 9 | 0x00763156 | 18 | none | PAUBfmePod148::__uninitialized_fill_n<> (tier A) |
@@ -12323,7 +12091,6 @@ calls; their targets are not followed.
 | FoundationAIUpdate | 71 | 13 | 0x007B6287 | 37 | none | Rva003B573E::rva003B573E (tier A) |
 | FoundationAIUpdate | 71 | 13 | 0x00606604 | 34 | none | VAsciiString::YA_NABU?$pair::operator< (tier A) |
 | FoundationAIUpdate | 71 | 13 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
-| AutoDepositUpdate | 71 | 13 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | FoundationAIUpdate | 71 | 13 | 0x006042CC | 22 | none | VAsciiString::pair<>::pair<> (tier A) |
 | FoundationAIUpdate | 71 | 13 | 0x007A0086 | 17 | none | TeamPrototype::findTeamByID (tier A) |
 | FoundationAIUpdate | 71 | 13 | 0x00809D87 | 15 | none | _STL::$$CBIPAX::IU?$pair::_Rb_tree<>::_M_lower_bound (tier A) |
@@ -12362,14 +12129,11 @@ calls; their targets are not followed.
 | FoundationAIUpdate | 71 | 17 | 0x007ED77A | 21 | none |  |
 | ModelConditionSpecialAbilityUpdate | 69 | 0 | 0x00894422 | 15 | none |  |
 | ModelConditionSpecialAbilityUpdate | 69 | 0 | 0x0089453F | 11 | none | Rva00490D3F::`scalar deleting destructor' (tier A) |
-| ModelConditionSpecialAbilityUpdate | 69 | 0 | 0x008C6E67 | 4 | none |  |
 | ModelConditionSpecialAbilityUpdate | 69 | 0 | 0x008943FC | 2 | none |  |
-| ModelConditionSpecialAbilityUpdate | 69 | 0 | 0x008E38D8 | 1 | none | Rva004DFCE1::~Rva004DFCE1 (tier A) |
 | ModelConditionSpecialAbilityUpdate | 69 | 1 | 0x00894402 | 5 | none | Rva0049C3FC::~Rva0049C3FC (tier A) |
 | ModelConditionSpecialAbilityUpdate | 69 | 2 | 0x00852914 | 88 | none | SpecialAbilityUpdate::initLaser (tier B) |
 | ModelConditionSpecialAbilityUpdate | 69 | 2 | 0x00854D9A | 16 | none |  |
 | ModelConditionSpecialAbilityUpdate | 69 | 2 | 0x0068FC98 | 6 | none |  |
-| ModelConditionSpecialAbilityUpdate | 69 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | ModelConditionSpecialAbilityUpdate | 69 | 3 | 0x0085251A | 46 | partial | SpecialAbilityUpdate::killSpecialObjects (tier B) |
 | ModelConditionSpecialAbilityUpdate | 69 | 3 | 0x00678816 | 27 | partial |  |
 | ModelConditionSpecialAbilityUpdate | 69 | 3 | 0x008E3B71 | 26 | none | Rva004DF7DB::rva004DF7DB (tier A) |
@@ -12389,7 +12153,6 @@ calls; their targets are not followed.
 | ModelConditionSpecialAbilityUpdate | 69 | 4 | 0x00435D50 | 42 | none |  |
 | ModelConditionSpecialAbilityUpdate | 69 | 4 | 0x00A3AC70 | 40 | none | FlightDeckBehavior::PAUFlightDeckInfo::__uninitialized_fill_n<> (tier D) |
 | ModelConditionSpecialAbilityUpdate | 69 | 4 | 0x0067876B | 36 | none | Rva00278440Host::rva00278440 (tier A) |
-| ModelConditionSpecialAbilityUpdate | 69 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | ModelConditionSpecialAbilityUpdate | 69 | 4 | 0x005D91D1 | 22 | none | OpaqueRefElement4::operator= (tier A) |
 | ModelConditionSpecialAbilityUpdate | 69 | 4 | 0x0045121F | 9 | none | BfmePoolRef10::~BfmePoolRef10 (tier D) |
 | ModelConditionSpecialAbilityUpdate | 69 | 4 | 0x00A3CF72 | 8 | none | _atexit (tier A) |
@@ -12550,17 +12313,13 @@ calls; their targets are not followed.
 | AimWeaponBehavior | 68 | 0 | 0x0085E2EF | 11 | none | AimWeaponBehavior::`scalar deleting destructor' (tier A) |
 | AimWeaponBehavior | 68 | 0 | 0x0085E1C1 | 2 | none |  |
 | AimWeaponBehavior | 68 | 1 | 0x0085E1A8 | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
-| AimWeaponBehavior | 68 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | AimWeaponBehavior | 68 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
 | AimWeaponBehavior | 68 | 3 | 0x007AEAFD | 2 | none | SecondBase005D2111::~SecondBase005D2111 (tier A) |
 | LevelGrantSpecialPower | 67 | 0 | 0x008C6DAD | 15 | none |  |
 | LevelGrantSpecialPower | 67 | 0 | 0x008C6E46 | 11 | none | LevelGrantSpecialPowerModuleData::`scalar deleting destructor' (tier A) |
-| LevelGrantSpecialPower | 67 | 0 | 0x008C6E67 | 4 | none |  |
 | LevelGrantSpecialPower | 67 | 0 | 0x008C6D2B | 2 | none |  |
-| LevelGrantSpecialPower | 67 | 0 | 0x008E38D8 | 1 | none | Rva004DFCE1::~Rva004DFCE1 (tier A) |
 | LevelGrantSpecialPower | 67 | 1 | 0x008C6E62 | 1 | none | LevelGrantSpecialPower::~LevelGrantSpecialPower (tier A) |
 | LevelGrantSpecialPower | 67 | 2 | 0x00854D9A | 16 | none |  |
-| LevelGrantSpecialPower | 67 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | LevelGrantSpecialPower | 67 | 3 | 0x00642037 | 9 | none | MultiPlayMults::getBuildingXPMult (tier A) |
 | LevelGrantSpecialPower | 67 | 4 | 0x00436030 | 44 | none | D::StringBase<>::set (tier A) |
 | LevelGrantSpecialPower | 67 | 4 | 0x00435D50 | 42 | none |  |
@@ -12598,11 +12357,7 @@ calls; their targets are not followed.
 | SiegeDeployHordeSpecialPower | 66 | 0 | 0x008CA8A5 | 8 | none |  |
 | SiegeDeployHordeSpecialPower | 66 | 0 | 0x0066F125 | 3 | none | ExperienceTracker::setExperienceSink (tier A) |
 | SiegeDeployHordeSpecialPower | 66 | 0 | 0x008CA867 | 2 | none |  |
-| SiegeDeployHordeSpecialPower | 66 | 0 | 0x008E38D8 | 1 | none | Rva004DFCE1::~Rva004DFCE1 (tier A) |
 | SiegeDeployHordeSpecialPower | 66 | 1 | 0x008CA87E | 6 | none | SiegeDeployHordeSpecialPower::~SiegeDeployHordeSpecialPower (tier A) |
-| SiegeDeployHordeSpecialPower | 66 | 1 | 0x009912DB | 6 | none |  |
-| SiegeDeployHordeSpecialPower | 66 | 2 | 0x0099113F | 6 | none | SiegeDeployHordeSpecialPower::~SiegeDeployHordeSpecialPower (tier A) |
-| SiegeDeployHordeSpecialPower | 66 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | SiegeDeployHordeSpecialPower | 66 | 3 | 0x004380C0 | 12 | none | _bfme_debugRecordCallsite (tier D) |
 | SiegeDeployHordeSpecialPower | 66 | 3 | 0x0068BB4B | 10 | none | Object::isInList (tier A) |
 | SiegeDeployHordeSpecialPower | 66 | 3 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
@@ -12613,13 +12368,10 @@ calls; their targets are not followed.
 | W3DStreakDraw | 65 | 0 | 0x004CFE66 | 11 | none | W3DStreakDrawModuleData::`scalar deleting destructor' (tier A) |
 | W3DStreakDraw | 65 | 0 | 0x004B612F | 10 | none | Rva002115D0::rva002115D0 (tier A) |
 | W3DStreakDraw | 65 | 0 | 0x004B1B3F | 4 | none |  |
-| W3DStreakDraw | 65 | 0 | 0x00464A09 | 2 | none | W3DQuadrupedDrawModuleData::W3DQuadrupedDrawModuleData (tier C) |
 | W3DStreakDraw | 65 | 0 | 0x004CF87E | 2 | none |  |
 | W3DStreakDraw | 65 | 0 | 0x004CFC4C | 2 | none |  |
 | W3DStreakDraw | 65 | 0 | 0x004CFC54 | 2 | none |  |
-| W3DStreakDraw | 65 | 0 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | W3DStreakDraw | 65 | 1 | 0x004CF7C6 | 29 | none |  |
-| W3DStreakDraw | 65 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | W3DStreakDraw | 65 | 1 | 0x004CFD6F | 19 | none | W3DStreakDrawModuleData::~W3DStreakDrawModuleData (tier A) |
 | W3DStreakDraw | 65 | 2 | 0x00435D50 | 42 | none |  |
 | W3DStreakDraw | 65 | 2 | 0x00567947 | 33 | none | Rva001680A6::rva001680ED (tier B) |
@@ -12648,14 +12400,12 @@ calls; their targets are not followed.
 | TeleportSpecialAbilityUpdate | 61 | 0 | 0x00896484 | 11 | none | Rva00492C90::`scalar deleting destructor' (tier A) |
 | GiantBirdAIUpdate | 61 | 0 | 0x0076D5D8 | 2 | none |  |
 | TeleportSpecialAbilityUpdate | 61 | 0 | 0x0089640F | 2 | none |  |
-| GiantBirdAIUpdate | 61 | 0 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | GiantBirdAIUpdate | 61 | 0 | 0x00769EA0 | 1 | none | Rva00365304::rva00365304 (tier A) |
 | GiantBirdAIUpdate | 61 | 0 | 0x00769F95 | 1 | none | Rva003652FF::rva003652FF (tier A) |
 | GiantBirdAIUpdate | 61 | 0 | 0x00769F9A | 1 | none | W4NameKeyType::hash_map<>::~hash_map<> (tier A) |
 | GiantBirdAIUpdate | 61 | 0 | 0x00892C33 | 1 | none | WanderAIUpdateModuleData::~WanderAIUpdateModuleData (tier A) |
 | TeleportSpecialAbilityUpdate | 61 | 0 | 0x00896435 | 1 | none | WanderAIUpdateModuleData::~WanderAIUpdateModuleData (tier A) |
 | TeleportSpecialAbilityUpdate | 61 | 0 | 0x0089643A | 1 | none | WanderAIUpdateModuleData::~WanderAIUpdateModuleData (tier A) |
-| TeleportSpecialAbilityUpdate | 61 | 0 | 0x008E38D8 | 1 | none | Rva004DFCE1::~Rva004DFCE1 (tier A) |
 | GiantBirdAIUpdate | 61 | 1 | 0x0076D5DE | 28 | none | GiantBirdAIUpdate::~GiantBirdAIUpdate (tier B) |
 | GiantBirdAIUpdate | 61 | 1 | 0x006622A9 | 8 | none |  |
 | GiantBirdAIUpdate | 61 | 1 | 0x0042F6E0 | 5 | none |  |
@@ -12680,7 +12430,6 @@ calls; their targets are not followed.
 | TeleportSpecialAbilityUpdate | 61 | 2 | 0x0068FC98 | 6 | none |  |
 | GiantBirdAIUpdate | 61 | 2 | 0x0068B44B | 5 | none | Object::rva0028AD7C (tier A) |
 | GiantBirdAIUpdate | 61 | 2 | 0x00626355 | 4 | partial | Rva0023D607Get (tier A) |
-| TeleportSpecialAbilityUpdate | 61 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | GiantBirdAIUpdate | 61 | 3 | 0x00740B38 | 57 | none |  |
 | TeleportSpecialAbilityUpdate | 61 | 3 | 0x0085251A | 46 | partial | SpecialAbilityUpdate::killSpecialObjects (tier B) |
 | GiantBirdAIUpdate | 61 | 3 | 0x00435D50 | 42 | none |  |
@@ -12724,8 +12473,6 @@ calls; their targets are not followed.
 | GiantBirdAIUpdate | 61 | 4 | 0x00767DF1 | 33 | none | IIURva002F3759Compare::map<>::operator[] (tier A) |
 | GiantBirdAIUpdate | 61 | 4 | 0x00B60DD0 | 32 | none | _luaD_adjusttop (tier A) |
 | GiantBirdAIUpdate | 61 | 4 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
-| GiantBirdAIUpdate | 61 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
-| TeleportSpecialAbilityUpdate | 61 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | TeleportSpecialAbilityUpdate | 61 | 4 | 0x00678816 | 27 | partial |  |
 | GiantBirdAIUpdate | 61 | 4 | 0x008E5A05 | 26 | none | PBUBfmeE12::__copy<> (tier A) |
 | TeleportSpecialAbilityUpdate | 61 | 4 | 0x005D91D1 | 22 | none | OpaqueRefElement4::operator= (tier A) |
@@ -13054,7 +12801,6 @@ calls; their targets are not followed.
 | RemoveUpgradeUpgrade | 59 | 0 | 0x008BC0F3 | 11 | none | RemoveUpgradeUpgrade::`scalar deleting destructor' (tier A) |
 | RemoveUpgradeUpgrade | 59 | 0 | 0x008BC03F | 2 | none |  |
 | RemoveUpgradeUpgrade | 59 | 1 | 0x008BC01F | 5 | none |  |
-| RemoveUpgradeUpgrade | 59 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | RemoveUpgradeUpgrade | 59 | 2 | 0x0086393B | 5 | none |  |
 | RemoveUpgradeUpgrade | 59 | 3 | 0x007AEAFD | 2 | none | SecondBase005D2111::~SecondBase005D2111 (tier A) |
 | RemoveUpgradeUpgrade | 59 | 5 | 0x00678816 | 27 | partial |  |
@@ -13129,7 +12875,6 @@ calls; their targets are not followed.
 | WorkerAIUpdate | 56 | 2 | 0x0042F6E0 | 5 | none |  |
 | WorkerAIUpdate | 56 | 2 | 0x0068B44B | 5 | none | Object::rva0028AD7C (tier A) |
 | TerrainResourceClientBehavior | 56 | 2 | 0x007AEAFD | 2 | none | SecondBase005D2111::~SecondBase005D2111 (tier A) |
-| WorkerAIUpdate | 56 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | WorkerAIUpdate | 56 | 3 | 0x00752FAC | 94 | none |  |
 | WorkerAIUpdate | 56 | 3 | 0x00436030 | 44 | none | D::StringBase<>::set (tier A) |
 | WorkerAIUpdate | 56 | 3 | 0x00435D50 | 42 | none |  |
@@ -13169,7 +12914,6 @@ calls; their targets are not followed.
 | WorkerAIUpdate | 56 | 4 | 0x0067876B | 36 | none | Rva00278440Host::rva00278440 (tier A) |
 | WorkerAIUpdate | 56 | 4 | 0x00767DF1 | 33 | none | IIURva002F3759Compare::map<>::operator[] (tier A) |
 | WorkerAIUpdate | 56 | 4 | 0x00B60DD0 | 32 | none | _luaD_adjusttop (tier A) |
-| WorkerAIUpdate | 56 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | WorkerAIUpdate | 56 | 4 | 0x00806199 | 25 | none | VRva00403927::vector<>::push_back (tier A) |
 | WorkerAIUpdate | 56 | 4 | 0x0042C978 | 23 | none | VAsciiString::_Rb_tree<>::~_Rb_tree<> (tier D) |
 | TerrainResourceClientBehavior | 56 | 4 | 0x008E9B69 | 21 | none | UBfmePod60::list<>::push_front (tier D) |
@@ -13625,7 +13369,6 @@ calls; their targets are not followed.
 | CommandPointsUpgrade | 49 | 0 | 0x008BC7D9 | 11 | none | CommandPointsUpgrade::`scalar deleting destructor' (tier A) |
 | CommandPointsUpgrade | 49 | 0 | 0x008BC73B | 2 | none |  |
 | CommandPointsUpgrade | 49 | 1 | 0x008BC71B | 5 | none |  |
-| CommandPointsUpgrade | 49 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | CommandPointsUpgrade | 49 | 2 | 0x0086393B | 5 | none |  |
 | CommandPointsUpgrade | 49 | 2 | 0x007629B0 | 4 | none |  |
 | CommandPointsUpgrade | 49 | 3 | 0x006A80C2 | 80 | none | URva002A76A0Element::vector<>::_M_insert_overflow (tier A) |
@@ -13675,7 +13418,6 @@ calls; their targets are not followed.
 | CommandPointsUpgrade | 49 | 10 | 0x004052F9 | 11 | none |  |
 | CommandPointsUpgrade | 49 | 10 | 0x00688E9D | 9 | none |  |
 | CommandPointsUpgrade | 49 | 10 | 0x00828D5C | 4 | none |  |
-| CommandPointsUpgrade | 49 | 11 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | EvaAnnounceClientCreate | 48 | 0 | 0x008CDF07 | 68 | partial |  |
 | EvaAnnounceClientCreate | 48 | 0 | 0x008CDE91 | 15 | none |  |
 | HeroDie | 48 | 0 | 0x008C645D | 15 | none |  |
@@ -13684,7 +13426,6 @@ calls; their targets are not followed.
 | EvaAnnounceClientCreate | 48 | 0 | 0x008CDE8B | 2 | none |  |
 | HeroDie | 48 | 0 | 0x008C6427 | 2 | none |  |
 | HeroDie | 48 | 1 | 0x008C640E | 4 | none | OCLSpecialPower::~OCLSpecialPower (tier A) |
-| HeroDie | 48 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | EvaAnnounceClientCreate | 48 | 2 | 0x005DCBB3 | 60 | none | Eva::internalReportEvaEvent (tier A) |
 | EvaAnnounceClientCreate | 48 | 2 | 0x005DD140 | 26 | none | URva001DD1B3::_Rb_tree<>::insert_equal (tier A) |
 | EvaAnnounceClientCreate | 48 | 2 | 0x005DC91B | 12 | none | Rva001DD063::Rva001DD063 (tier A) |
@@ -13795,7 +13536,6 @@ calls; their targets are not followed.
 | GateOpenAndCloseBehavior | 46 | 6 | 0x00430130 | 6 | none |  |
 | GateOpenAndCloseBehavior | 46 | 6 | 0x008E1C5A | 6 | none | rva004DD890 (tier A) |
 | GateOpenAndCloseBehavior | 46 | 7 | 0x007F1A2B | 29 | none | Rva003F1093::rva003F083A (tier B) |
-| GateOpenAndCloseBehavior | 46 | 7 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | GateOpenAndCloseBehavior | 46 | 7 | 0x0081368A | 12 | none | Rva000427195::bucketIndex (tier A) |
 | GateOpenAndCloseBehavior | 46 | 7 | 0x00462AC3 | 11 | none |  |
 | GateOpenAndCloseBehavior | 46 | 7 | 0x009346AC | 11 | none | MixFileInfoBuffer::releaseInto (tier A) |
@@ -13824,8 +13564,6 @@ calls; their targets are not followed.
 | SpecialEnemySenseUpdate | 44 | 0 | 0x0089D70D | 2 | none |  |
 | SiegeDockingBehavior | 44 | 1 | 0x0085CE0A | 25 | none |  |
 | SpecialEnemySenseUpdate | 44 | 1 | 0x0089D6F4 | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
-| SiegeDockingBehavior | 44 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| SpecialEnemySenseUpdate | 44 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | SiegeDockingBehavior | 44 | 2 | 0x0085CC87 | 24 | none |  |
 | SiegeDockingBehavior | 44 | 2 | 0x00A3CE80 | 19 | none |  |
 | SiegeDockingBehavior | 44 | 2 | 0x00A3D28E | 18 | none |  |
@@ -13876,7 +13614,6 @@ calls; their targets are not followed.
 | SpecialEnemySenseUpdate | 44 | 7 | 0x0042F6E0 | 5 | none |  |
 | SpecialEnemySenseUpdate | 44 | 10 | 0x00645716 | 12 | none | Rva0027EA49::operator= (tier A) |
 | AnimalAIUpdate | 42 | 0 | 0x00881EA9 | 15 | none |  |
-| DominateEnemySpecialPower | 42 | 0 | 0x008D0E3D | 15 | none |  |
 | WeaponChangeSpecialPowerModule | 42 | 0 | 0x008C82FA | 15 | none | WeaponChangeSpecialPowerModule::getModuleNameKey (tier A) |
 | AnimalAIUpdate | 42 | 0 | 0x00881FB0 | 11 | none | RiderChangeContainModuleData::`scalar deleting destructor' (tier A) |
 | DominateEnemySpecialPower | 42 | 0 | 0x008D0F50 | 11 | none | Rva004CC9BF::`scalar deleting destructor' (tier A) |
@@ -13884,32 +13621,21 @@ calls; their targets are not followed.
 | WeaponChangeSpecialPowerModule | 42 | 0 | 0x008C83BA | 11 | none | WeaponChangeSpecialPowerModuleData::`scalar deleting destructor' (tier A) |
 | WeaponChangeSpecialPowerModule | 42 | 0 | 0x004B612F | 10 | none | Rva002115D0::rva002115D0 (tier A) |
 | AnimalAIUpdate | 42 | 0 | 0x00881EF8 | 7 | none |  |
-| DominateEnemySpecialPower | 42 | 0 | 0x008C6E67 | 4 | none |  |
-| WeaponChangeSpecialPowerModule | 42 | 0 | 0x008C6606 | 4 | none |  |
 | AnimalAIUpdate | 42 | 0 | 0x00881EEE | 3 | none |  |
 | WeaponChangeSpecialPowerModule | 42 | 0 | 0x008C82EE | 3 | none |  |
 | AnimalAIUpdate | 42 | 0 | 0x00881E38 | 2 | none |  |
-| DominateEnemySpecialPower | 42 | 0 | 0x008D0E17 | 2 | none |  |
-| WeaponChangeSpecialPowerModule | 42 | 0 | 0x00464A09 | 2 | none | W3DQuadrupedDrawModuleData::W3DQuadrupedDrawModuleData (tier C) |
 | WeaponChangeSpecialPowerModule | 42 | 0 | 0x008C82A7 | 2 | none |  |
 | AnimalAIUpdate | 42 | 0 | 0x00892C33 | 1 | none | WanderAIUpdateModuleData::~WanderAIUpdateModuleData (tier A) |
-| DominateEnemySpecialPower | 42 | 0 | 0x008E38D8 | 1 | none | Rva004DFCE1::~Rva004DFCE1 (tier A) |
 | WeaponChangeSpecialPowerModule | 42 | 0 | 0x008C6583 | 1 | none | Rva004D9F75::rva004D9F75 (tier A) |
-| WeaponChangeSpecialPowerModule | 42 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
-| WeaponChangeSpecialPowerModule | 42 | 1 | 0x008C83D6 | 20 | none |  |
-| WeaponChangeSpecialPowerModule | 42 | 1 | 0x008972B2 | 18 | none |  |
 | AnimalAIUpdate | 42 | 1 | 0x00881E07 | 7 | none |  |
 | AnimalAIUpdate | 42 | 1 | 0x0042F6E0 | 5 | none |  |
 | DominateEnemySpecialPower | 42 | 1 | 0x008D0E1D | 5 | none | Rva004C6943::~Rva004C6943 (tier A) |
-| WeaponChangeSpecialPowerModule | 42 | 1 | 0x008C82C9 | 4 | none | OCLSpecialPower::~OCLSpecialPower (tier A) |
 | WeaponChangeSpecialPowerModule | 42 | 2 | 0x00897583 | 51 | none |  |
 | WeaponChangeSpecialPowerModule | 42 | 2 | 0x00435D50 | 42 | none |  |
 | AnimalAIUpdate | 42 | 2 | 0x0066EB5E | 34 | none |  |
 | WeaponChangeSpecialPowerModule | 42 | 2 | 0x00896AE3 | 32 | none | SpecialPowerModuleData::~SpecialPowerModuleData (tier A) |
 | DominateEnemySpecialPower | 42 | 2 | 0x00854D9A | 16 | none |  |
 | AnimalAIUpdate | 42 | 2 | 0x0068B44B | 5 | none | Object::rva0028AD7C (tier A) |
-| AnimalAIUpdate | 42 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| DominateEnemySpecialPower | 42 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | AnimalAIUpdate | 42 | 3 | 0x00752FAC | 94 | none |  |
 | AnimalAIUpdate | 42 | 3 | 0x00435D50 | 42 | none |  |
 | AnimalAIUpdate | 42 | 3 | 0x00B5B910 | 35 | none | _lua_getglobal (tier A) |
@@ -13938,7 +13664,6 @@ calls; their targets are not followed.
 | AnimalAIUpdate | 42 | 4 | 0x00767DF1 | 33 | none | IIURva002F3759Compare::map<>::operator[] (tier A) |
 | AnimalAIUpdate | 42 | 4 | 0x00B60DD0 | 32 | none | _luaD_adjusttop (tier A) |
 | AnimalAIUpdate | 42 | 4 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
-| AnimalAIUpdate | 42 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | AnimalAIUpdate | 42 | 4 | 0x008E3B71 | 26 | none | Rva004DF7DB::rva004DF7DB (tier A) |
 | WeaponChangeSpecialPowerModule | 42 | 4 | 0x0076293A | 23 | none | Rva00360CB0Release (tier A) |
 | DominateEnemySpecialPower | 42 | 4 | 0x005D91D1 | 22 | none | OpaqueRefElement4::operator= (tier A) |
@@ -14333,15 +14058,12 @@ calls; their targets are not followed.
 | AnimalAIUpdate | 42 | 14 | 0x007ED77A | 21 | none |  |
 | RepairSpecialPower | 41 | 0 | 0x008CCB24 | 15 | none |  |
 | RepairSpecialPower | 41 | 0 | 0x008CCB69 | 11 | none | DevastateSpecialPowerModuleData::`scalar deleting destructor' (tier A) |
-| RepairSpecialPower | 41 | 0 | 0x008C6606 | 4 | none |  |
 | RepairSpecialPower | 41 | 0 | 0x008CCB05 | 2 | none |  |
 | RepairSpecialPower | 41 | 0 | 0x008C6583 | 1 | none | Rva004D9F75::rva004D9F75 (tier A) |
-| RepairSpecialPower | 41 | 1 | 0x008972B2 | 18 | none |  |
 | RepairSpecialPower | 41 | 1 | 0x008CCB0B | 4 | none | PlayerHealSpecialPower::~PlayerHealSpecialPower (tier A) |
 | RepairSpecialPower | 41 | 2 | 0x00897583 | 51 | none |  |
 | RepairSpecialPower | 41 | 3 | 0x00896C4C | 14 | none | SpecialPowerModule::getPowerName (tier A) |
 | RepairSpecialPower | 41 | 3 | 0x007AEAFD | 2 | none | SecondBase005D2111::~SecondBase005D2111 (tier A) |
-| RepairSpecialPower | 41 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | RepairSpecialPower | 41 | 4 | 0x0069C0D4 | 13 | none | PAURva002AF6C5Element::__copy_ptrs<> (tier A) |
 | RepairSpecialPower | 41 | 5 | 0x008E5A05 | 26 | none | PBUBfmeE12::__copy<> (tier A) |
 | ThreatFinderUpdate | 40 | 0 | 0x005B4B9A | 128 | none | SubsystemInterface::loadIniFilesFromLegend (tier B) |
@@ -14371,14 +14093,11 @@ calls; their targets are not followed.
 | HordeGarrisonContain | 40 | 0 | 0x0087CF57 | 5 | none |  |
 | AttachUpdate | 40 | 0 | 0x00894F32 | 2 | none |  |
 | EvacuateDamage | 40 | 0 | 0x008BEFC6 | 2 | none |  |
-| GiantBirdSlowDeathBehavior | 40 | 0 | 0x00464A09 | 2 | none | W3DQuadrupedDrawModuleData::W3DQuadrupedDrawModuleData (tier C) |
 | GiantBirdSlowDeathBehavior | 40 | 0 | 0x00864FDC | 2 | none |  |
-| HordeGarrisonContain | 40 | 0 | 0x00464A09 | 2 | none | W3DQuadrupedDrawModuleData::W3DQuadrupedDrawModuleData (tier C) |
 | HordeGarrisonContain | 40 | 0 | 0x0087CEA8 | 2 | none |  |
 | HordeGarrisonContain | 40 | 0 | 0x0087D35E | 2 | none |  |
 | ThreatFinderUpdate | 40 | 0 | 0x007EDD6B | 2 | none |  |
 | ThreatFinderUpdate | 40 | 0 | 0x007EE258 | 2 | none | Rva003B3536::~Rva003B3536 (tier A) |
-| GiantBirdSlowDeathBehavior | 40 | 0 | 0x008E38D8 | 1 | none | Rva004DFCE1::~Rva004DFCE1 (tier A) |
 | HordeGarrisonContain | 40 | 0 | 0x0087CE61 | 1 | none | HordeGarrisonContain::~HordeGarrisonContain (tier A) |
 | HordeGarrisonContain | 40 | 0 | 0x0087CFE6 | 1 | none | HordeGarrisonContain::~HordeGarrisonContain (tier A) |
 | ThreatFinderUpdate | 40 | 1 | 0x0042E343 | 55 | none |  |
@@ -14388,10 +14107,7 @@ calls; their targets are not followed.
 | ThreatFinderUpdate | 40 | 1 | 0x0042CAB8 | 40 | none | INI::INI (tier A) |
 | ThreatFinderUpdate | 40 | 1 | 0x008E3EA1 | 29 | none |  |
 | ThreatFinderUpdate | 40 | 1 | 0x007EDFFF | 28 | none | ThreatFinderUpdate::~ThreatFinderUpdate (tier A) |
-| GiantBirdSlowDeathBehavior | 40 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
-| HordeGarrisonContain | 40 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | ThreatFinderUpdate | 40 | 1 | 0x0042C2B5 | 27 | none | Rva0002C5E6 (tier A) |
-| ThreatFinderUpdate | 40 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | ThreatFinderUpdate | 40 | 1 | 0x007EE2D1 | 24 | none | Rva003ED1FC::~Rva003ED1FC (tier A) |
 | HordeGarrisonContain | 40 | 1 | 0x00865631 | 23 | none | SlaughterHordeContain::rva00462516 (tier A) |
 | ThreatFinderUpdate | 40 | 1 | 0x0042C978 | 23 | none | VAsciiString::_Rb_tree<>::~_Rb_tree<> (tier D) |
@@ -14404,13 +14120,10 @@ calls; their targets are not followed.
 | GiantBirdSlowDeathBehavior | 40 | 1 | 0x00864FE2 | 6 | none | ShipSlowDeathBehavior::~ShipSlowDeathBehavior (tier A) |
 | ThreatFinderUpdate | 40 | 1 | 0x0042F6E0 | 5 | none |  |
 | AttachUpdate | 40 | 1 | 0x00894F19 | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
-| AttachUpdate | 40 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| EvacuateDamage | 40 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | GiantBirdSlowDeathBehavior | 40 | 1 | 0x008619E8 | 1 | none | ShipSlowDeathBehaviorModuleData::~ShipSlowDeathBehaviorModuleData (tier A) |
 | HordeGarrisonContain | 40 | 1 | 0x00657479 | 1 | none | Rva0025753F::~Rva0025753F (tier A) |
 | HordeGarrisonContain | 40 | 1 | 0x0086970E | 1 | none | Rva0046468D::~Rva0046468D (tier A) |
 | HordeGarrisonContain | 40 | 1 | 0x0087D3C5 | 1 | none | HordeGarrisonContain::~HordeGarrisonContain (tier A) |
-| ThreatFinderUpdate | 40 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | ThreatFinderUpdate | 40 | 2 | 0x0042CED7 | 72 | none | VAsciiString::vector<>::_M_insert_overflow (tier A) |
 | AttachUpdate | 40 | 2 | 0x005DCBB3 | 60 | none | Eva::internalReportEvaEvent (tier A) |
 | GiantBirdSlowDeathBehavior | 40 | 2 | 0x008614FF | 41 | none | SlowDeathBehaviorModuleData::~SlowDeathBehaviorModuleData (tier A) |
@@ -14445,7 +14158,6 @@ calls; their targets are not followed.
 | ThreatFinderUpdate | 40 | 2 | 0x00430170 | 4 | none |  |
 | ThreatFinderUpdate | 40 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
 | ThreatFinderUpdate | 40 | 2 | 0x005B468A | 3 | none |  |
-| GiantBirdSlowDeathBehavior | 40 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | GiantBirdSlowDeathBehavior | 40 | 2 | 0x00A3CF22 | 1 | none | ji_00629182 (tier A) |
 | ThreatFinderUpdate | 40 | 2 | 0x00A3CE04 | 1 | none | __CxxThrowException@8 (tier A) |
 | ThreatFinderUpdate | 40 | 3 | 0x00435DE0 | 63 | none |  |
@@ -14492,7 +14204,6 @@ calls; their targets are not followed.
 | HordeGarrisonContain | 40 | 3 | 0x00A39050 | 2 | none | PartitionManager::rva00625330 (tier A) |
 | HordeGarrisonContain | 40 | 3 | 0x00A39060 | 2 | none | PartitionManager::rva00625320 (tier A) |
 | ThreatFinderUpdate | 40 | 3 | 0x007AEAFD | 2 | none | SecondBase005D2111::~SecondBase005D2111 (tier A) |
-| HordeGarrisonContain | 40 | 3 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | HordeGarrisonContain | 40 | 3 | 0x00A3CE04 | 1 | none | __CxxThrowException@8 (tier A) |
 | HordeGarrisonContain | 40 | 3 | 0x00A3D936 | 1 | none | ji_00629b0e (tier A) |
 | ThreatFinderUpdate | 40 | 3 | 0x005FCBC4 | 1 | none | Rva001FD85E::rva001FD85E (tier A) |
@@ -15009,11 +14720,11 @@ calls; their targets are not followed.
 | HordeGarrisonContain | 40 | 19 | 0x007ED77A | 21 | none |  |
 | W3DLightDraw | 38 | 0 | 0x004CF2B5 | 71 | none |  |
 | FloodUpdate | 38 | 0 | 0x0089176E | 15 | none |  |
-| LargeGroupBonusUpdate | 38 | 0 | 0x00893670 | 15 | none |  |
+| LargeGroupBonusUpdate | 38 | 0 | 0x00893670 | 15 | partial |  |
 | StealthUpdate | 38 | 0 | 0x00776023 | 15 | none |  |
 | W3DLightDraw | 38 | 0 | 0x004CF4D0 | 15 | none | W3DLightDraw::getModuleNameKey (tier A) |
 | FloodUpdate | 38 | 0 | 0x00891C93 | 11 | none | FloodUpdate::`scalar deleting destructor' (tier A) |
-| LargeGroupBonusUpdate | 38 | 0 | 0x008937F4 | 11 | none | Rva0048FFB4::`scalar deleting destructor' (tier A) |
+| LargeGroupBonusUpdate | 38 | 0 | 0x008937F4 | 11 | partial | Rva0048FFB4::`scalar deleting destructor' (tier A) |
 | StealthUpdate | 38 | 0 | 0x00776278 | 11 | none | StealthUpdate::`scalar deleting destructor' (tier A) |
 | W3DLightDraw | 38 | 0 | 0x004CF5B6 | 11 | none | W3DLightDrawModuleData::`scalar deleting destructor' (tier A) |
 | W3DLightDraw | 38 | 0 | 0x004CF5D2 | 11 | none | W3DLightDraw::`scalar deleting destructor' (tier A) |
@@ -15021,31 +14732,24 @@ calls; their targets are not followed.
 | W3DLightDraw | 38 | 0 | 0x004B612F | 10 | none | Rva002115D0::rva002115D0 (tier A) |
 | StealthUpdate | 38 | 0 | 0x00776C7D | 9 | none |  |
 | StealthUpdate | 38 | 0 | 0x00776E23 | 9 | none |  |
-| LargeGroupBonusUpdate | 38 | 0 | 0x008936C9 | 8 | none |  |
+| LargeGroupBonusUpdate | 38 | 0 | 0x008936C9 | 8 | partial |  |
 | W3DLightDraw | 38 | 0 | 0x004CF29D | 8 | none |  |
 | LargeGroupBonusUpdate | 38 | 0 | 0x00893869 | 3 | none | AptMpGameSetup::rva0043FFCF (tier A) |
 | FloodUpdate | 38 | 0 | 0x00891768 | 2 | none |  |
-| LargeGroupBonusUpdate | 38 | 0 | 0x00734403 | 2 | none | Rva006D89D0ByteField::get (tier A) |
 | LargeGroupBonusUpdate | 38 | 0 | 0x008267CB | 2 | none |  |
-| LargeGroupBonusUpdate | 38 | 0 | 0x008936B5 | 2 | none |  |
+| LargeGroupBonusUpdate | 38 | 0 | 0x008936B5 | 2 | partial |  |
 | StealthUpdate | 38 | 0 | 0x00776068 | 2 | none |  |
-| W3DLightDraw | 38 | 0 | 0x00464A09 | 2 | none | W3DQuadrupedDrawModuleData::W3DQuadrupedDrawModuleData (tier C) |
 | W3DLightDraw | 38 | 0 | 0x004CF240 | 2 | none |  |
 | StealthUpdate | 38 | 0 | 0x0077730B | 1 | none | Rva00373153::rva00373153 (tier A) |
-| W3DLightDraw | 38 | 0 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | StealthUpdate | 38 | 1 | 0x0077661E | 64 | partial | StealthUpdate::calcStealthedStatusForPlayer (tier B) |
 | FloodUpdate | 38 | 1 | 0x00891AE4 | 48 | none |  |
 | LargeGroupBonusUpdate | 38 | 1 | 0x00893810 | 37 | none | LargeGroupBonusUpdate::notify (tier B) |
 | W3DLightDraw | 38 | 1 | 0x004CF246 | 28 | none | W3DFloorDrawModuleData::~W3DFloorDrawModuleData (tier D) |
-| W3DLightDraw | 38 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | W3DLightDraw | 38 | 1 | 0x004CF580 | 16 | none |  |
 | LargeGroupBonusUpdate | 38 | 1 | 0x0044A2A5 | 15 | none | BfmeWideResult::~BfmeWideResult (tier A) |
 | W3DLightDraw | 38 | 1 | 0x00442846 | 8 | none |  |
 | LargeGroupBonusUpdate | 38 | 1 | 0x00893650 | 5 | none | Rva0049C3FC::~Rva0049C3FC (tier A) |
 | StealthUpdate | 38 | 1 | 0x0077600A | 4 | none |  |
-| FloodUpdate | 38 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| LargeGroupBonusUpdate | 38 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| StealthUpdate | 38 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | W3DLightDraw | 38 | 2 | 0x00435D50 | 42 | none |  |
 | StealthUpdate | 38 | 2 | 0x00776759 | 27 | partial | StealthUpdate::hintDetectableWhileUnstealthed (tier A) |
 | StealthUpdate | 38 | 2 | 0x0044A2A5 | 15 | none | BfmeWideResult::~BfmeWideResult (tier A) |
@@ -15063,7 +14767,6 @@ calls; their targets are not followed.
 | W3DLightDraw | 38 | 2 | 0x007AEAFD | 2 | none | SecondBase005D2111::~SecondBase005D2111 (tier A) |
 | StealthUpdate | 38 | 3 | 0x0081C193 | 48 | none | HURva004393D6::map<>::operator[] (tier A) |
 | LargeGroupBonusUpdate | 38 | 3 | 0x00435D50 | 42 | none |  |
-| LargeGroupBonusUpdate | 38 | 3 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | StealthUpdate | 38 | 3 | 0x006D871C | 27 | none | Rva002D76C6Remove (tier B) |
 | LargeGroupBonusUpdate | 38 | 3 | 0x008052C4 | 25 | none | VRva00297360Element::vector<>::erase (tier A) |
 | LargeGroupBonusUpdate | 38 | 3 | 0x00805A57 | 25 | none | VRva00297360Element::vector<>::push_back (tier A) |
@@ -15232,8 +14935,6 @@ calls; their targets are not followed.
 | ClickReactionBehavior | 36 | 0 | 0x0085CA3D | 2 | none |  |
 | CastleUpgrade | 36 | 1 | 0x008BA912 | 5 | none |  |
 | ClickReactionBehavior | 36 | 1 | 0x0085C5B8 | 5 | none | Rva00458402::~Rva00458402 (tier A) |
-| CastleUpgrade | 36 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| ClickReactionBehavior | 36 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | CastleUpgrade | 36 | 2 | 0x007997E7 | 33 | none |  |
 | CastleUpgrade | 36 | 2 | 0x0044A2A5 | 15 | none | BfmeWideResult::~BfmeWideResult (tier A) |
 | CastleUpgrade | 36 | 2 | 0x0086393B | 5 | none |  |
@@ -15288,7 +14989,6 @@ calls; their targets are not followed.
 | CastleUpgrade | 36 | 14 | 0x0042C17A | 14 | none | AsciiStringCopyConstructAtRva0002C485 (tier A) |
 | CastleUpgrade | 36 | 14 | 0x00688E9D | 9 | none |  |
 | CastleUpgrade | 36 | 14 | 0x00828D5C | 4 | none |  |
-| CastleUpgrade | 36 | 15 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | DozerAIUpdate | 35 | 0 | 0x0088BED2 | 23 | none | Rva00488C48::rva00488C48 (tier B) |
 | DozerAIUpdate | 35 | 0 | 0x0088C8CA | 15 | none |  |
 | FellBeastSwoopPower | 35 | 0 | 0x008CB106 | 15 | none |  |
@@ -15313,7 +15013,6 @@ calls; their targets are not followed.
 | DozerAIUpdate | 35 | 0 | 0x0088D1A1 | 2 | none |  |
 | DozerAIUpdate | 35 | 0 | 0x008F114D | 2 | none |  |
 | FellBeastSwoopPower | 35 | 0 | 0x008CB0E0 | 2 | none |  |
-| FellBeastSwoopPower | 35 | 0 | 0x008E38D8 | 1 | none | Rva004DFCE1::~Rva004DFCE1 (tier A) |
 | DozerAIUpdate | 35 | 1 | 0x0082C84C | 35 | partial | ActionManager::canResumeConstructionOf (tier B) |
 | DozerAIUpdate | 35 | 1 | 0x0085B874 | 18 | none |  |
 | DozerAIUpdate | 35 | 1 | 0x006A038F | 7 | none | Rva0029F93A::rva0029F93A (tier A) |
@@ -15330,8 +15029,6 @@ calls; their targets are not followed.
 | DozerAIUpdate | 35 | 2 | 0x0079DCCB | 7 | none | Rva0039B7AD::rva0039B7AD (tier A) |
 | DozerAIUpdate | 35 | 2 | 0x0042F6E0 | 5 | none |  |
 | DozerAIUpdate | 35 | 2 | 0x0068B44B | 5 | none | Object::rva0028AD7C (tier A) |
-| DozerAIUpdate | 35 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| FellBeastSwoopPower | 35 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | DozerAIUpdate | 35 | 3 | 0x00752FAC | 94 | none |  |
 | DozerAIUpdate | 35 | 3 | 0x00463D42 | 79 | none | MixFileCreator::UFileInfoStruct::vector<>::operator= (tier A) |
 | DozerAIUpdate | 35 | 3 | 0x00AD40B0 | 71 | none |  |
@@ -15341,7 +15038,6 @@ calls; their targets are not followed.
 | DozerAIUpdate | 35 | 3 | 0x00B5B910 | 35 | none | _lua_getglobal (tier A) |
 | DozerAIUpdate | 35 | 3 | 0x00734C93 | 31 | none | Rva00333374Get (tier A) |
 | DozerAIUpdate | 35 | 3 | 0x0094EF1A | 28 | none |  |
-| DozerAIUpdate | 35 | 3 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | DozerAIUpdate | 35 | 3 | 0x00678816 | 27 | partial |  |
 | FellBeastSwoopPower | 35 | 3 | 0x00678816 | 27 | partial |  |
 | DozerAIUpdate | 35 | 3 | 0x0045032E | 23 | none |  |
@@ -15691,7 +15387,6 @@ calls; their targets are not followed.
 | WallHubBehavior | 34 | 0 | 0x00855F7D | 9 | none |  |
 | WallHubBehavior | 34 | 0 | 0x00855F95 | 9 | none |  |
 | WallHubBehavior | 34 | 0 | 0x00855FAD | 9 | none |  |
-| DynamicPortalBehaviour | 34 | 0 | 0x008B9F05 | 6 | none |  |
 | WallHubBehavior | 34 | 0 | 0x0079AA4A | 5 | none |  |
 | WallHubBehavior | 34 | 0 | 0x00855E2C | 3 | none |  |
 | WallHubBehavior | 34 | 0 | 0x00855E88 | 3 | none |  |
@@ -15703,10 +15398,7 @@ calls; their targets are not followed.
 | WallHubBehavior | 34 | 0 | 0x00855E38 | 2 | none |  |
 | DynamicPortalBehaviour | 34 | 1 | 0x00672F68 | 8 | partial | Drawable::rva0027292F (tier B) |
 | WallHubBehavior | 34 | 1 | 0x00855E00 | 5 | none | Rva00458402::~Rva00458402 (tier A) |
-| DynamicPortalBehaviour | 34 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| RebuildHoleExposeDie | 34 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | RebuildHoleExposeDie | 34 | 1 | 0x00889AAA | 1 | none | RebuildHoleExposeDie::~RebuildHoleExposeDie (tier A) |
-| WallHubBehavior | 34 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | WallHubBehavior | 34 | 1 | 0x0085603C | 1 | none |  |
 | DynamicPortalBehaviour | 34 | 2 | 0x006ACA3D | 31 | none | _STL::I::IV?$allocator::vector<>::vector<> (tier A) |
 | DynamicPortalBehaviour | 34 | 2 | 0x00A3CE80 | 19 | none |  |
@@ -15807,23 +15499,19 @@ calls; their targets are not followed.
 | W3DSupplyDraw | 33 | 0 | 0x004CA6B8 | 6 | none |  |
 | SupplyWarehouseCreate | 33 | 0 | 0x008BCFE3 | 2 | none |  |
 | SupplyWarehouseDockUpdate | 33 | 0 | 0x008AB44B | 2 | none |  |
-| W3DSupplyDraw | 33 | 0 | 0x00464A09 | 2 | none | W3DQuadrupedDrawModuleData::W3DQuadrupedDrawModuleData (tier C) |
 | W3DSupplyDraw | 33 | 0 | 0x004CA699 | 2 | none |  |
 | W3DSupplyDraw | 33 | 0 | 0x0066F121 | 2 | none |  |
 | W3DSupplyDraw | 33 | 0 | 0x004CA6F0 | 1 | none | Rva000BBF4B::rva000BBF4B (tier A) |
-| W3DSupplyDraw | 33 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | W3DSupplyDraw | 33 | 1 | 0x004CA70E | 18 | none | W3DSupplyDrawModuleData::~W3DSupplyDrawModuleData (tier A) |
 | W3DSupplyDraw | 33 | 1 | 0x004B32FD | 8 | none |  |
 | SupplyWarehouseDockUpdate | 33 | 1 | 0x008AB42B | 5 | none | Rva004A0E0C::~Rva004A0E0C (tier A) |
 | SupplyWarehouseCreate | 33 | 1 | 0x008BCFE9 | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
 | W3DSupplyDraw | 33 | 1 | 0x004CA69F | 4 | none | Rva000CAEC6::~Rva000CAEC6 (tier A) |
-| SupplyWarehouseCreate | 33 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | W3DSupplyDraw | 33 | 2 | 0x004C70C3 | 137 | none | W3DScriptedModelDraw::~W3DScriptedModelDraw (tier B) |
 | W3DSupplyDraw | 33 | 2 | 0x004C82DA | 71 | none | W3DModelDrawModuleData::~W3DModelDrawModuleData (tier A) |
 | W3DSupplyDraw | 33 | 2 | 0x00435D50 | 42 | none |  |
 | SupplyWarehouseDockUpdate | 33 | 2 | 0x00992170 | 36 | none |  |
 | SupplyWarehouseCreate | 33 | 2 | 0x008BCE1F | 4 | none |  |
-| SupplyWarehouseDockUpdate | 33 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | W3DSupplyDraw | 33 | 3 | 0x004BC0CD | 60 | none | Rva000BC9B1::rva000BC9B1 (tier A) |
 | W3DSupplyDraw | 33 | 3 | 0x004C6D93 | 31 | none |  |
 | W3DSupplyDraw | 33 | 3 | 0x004B3531 | 30 | none | Rva000B3C61::rva000B3C61 (tier A) |
@@ -15961,20 +15649,13 @@ calls; their targets are not followed.
 | ElvenWoodSpecialPower | 32 | 0 | 0x008C7BD6 | 11 | none | ElvenWoodSpecialPower::`scalar deleting destructor' (tier A) |
 | FireWeaponWhenDamagedBehavior | 32 | 0 | 0x00885CB9 | 11 | none | Rva00482A4DRecord::`scalar deleting destructor' (tier A) |
 | TooltipUpgrade | 32 | 0 | 0x008BBBB0 | 11 | none | TooltipUpgrade::`scalar deleting destructor' (tier A) |
-| FireWeaponWhenDamagedBehavior | 32 | 0 | 0x008554C5 | 6 | none | FireWeaponWhenDeadBehavior::loadPostProcess (tier A) |
-| FireWeaponWhenDamagedBehavior | 32 | 0 | 0x00862758 | 6 | none |  |
-| ElvenWoodSpecialPower | 32 | 0 | 0x008C6606 | 4 | none |  |
-| FireWeaponWhenDamagedBehavior | 32 | 0 | 0x0088744E | 3 | none |  |
 | ElvenWoodSpecialPower | 32 | 0 | 0x008C7B72 | 2 | none |  |
 | FireWeaponWhenDamagedBehavior | 32 | 0 | 0x00885885 | 2 | none |  |
 | TooltipUpgrade | 32 | 0 | 0x008BBAFC | 2 | none |  |
 | ElvenWoodSpecialPower | 32 | 0 | 0x008C6583 | 1 | none | Rva004D9F75::rva004D9F75 (tier A) |
 | FireWeaponWhenDamagedBehavior | 32 | 1 | 0x0088579B | 71 | none |  |
-| ElvenWoodSpecialPower | 32 | 1 | 0x008972B2 | 18 | none |  |
 | TooltipUpgrade | 32 | 1 | 0x008BBADC | 5 | none |  |
 | ElvenWoodSpecialPower | 32 | 1 | 0x008C7B78 | 4 | none | OCLSpecialPower::~OCLSpecialPower (tier A) |
-| FireWeaponWhenDamagedBehavior | 32 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| TooltipUpgrade | 32 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | ElvenWoodSpecialPower | 32 | 2 | 0x00897583 | 51 | none |  |
 | TooltipUpgrade | 32 | 2 | 0x00436030 | 44 | none | D::StringBase<>::set (tier A) |
 | TooltipUpgrade | 32 | 2 | 0x00435D50 | 42 | none |  |
@@ -15992,7 +15673,6 @@ calls; their targets are not followed.
 | TooltipUpgrade | 32 | 3 | 0x007AEAFD | 2 | none | SecondBase005D2111::~SecondBase005D2111 (tier A) |
 | TooltipUpgrade | 32 | 3 | 0x00A3CF10 | 1 | none | ji_006291a8 (tier A) |
 | ElvenWoodSpecialPower | 32 | 4 | 0x006D527E | 81 | none | RadarWindowOverrideSource::rva002D4240 (tier B) |
-| ElvenWoodSpecialPower | 32 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | ElvenWoodSpecialPower | 32 | 4 | 0x008E3B71 | 26 | none | Rva004DF7DB::rva004DF7DB (tier A) |
 | ElvenWoodSpecialPower | 32 | 4 | 0x0073C667 | 21 | none | ModuleInfo::getNthData (tier A) |
 | ElvenWoodSpecialPower | 32 | 4 | 0x0068CC38 | 13 | none | Rva0028C570::rva0028C570 (tier A) |
@@ -16209,18 +15889,9 @@ calls; their targets are not followed.
 | ElvenWoodSpecialPower | 32 | 13 | 0x004AD0EF | 9 | none |  |
 | ElvenWoodSpecialPower | 32 | 14 | 0x0051147C | 33 | none | BfmeStringRecord00111ACF::BfmeStringRecord00111ACF (tier A) |
 | ElvenWoodSpecialPower | 32 | 14 | 0x005017E1 | 26 | none | BfmeStringRecord00111ACF::operator= (tier A) |
-| BloodthirstyUpdate | 31 | 0 | 0x00850DF9 | 43 | partial |  |
-| BloodthirstyUpdate | 31 | 0 | 0x00850E83 | 38 | partial |  |
-| BloodthirstyUpdate | 31 | 0 | 0x008511B5 | 30 | none |  |
-| BloodthirstyUpdate | 31 | 0 | 0x00850D1E | 15 | none |  |
-| BloodthirstyUpdate | 31 | 0 | 0x00850CD0 | 14 | none |  |
-| BloodthirstyUpdate | 31 | 0 | 0x00851003 | 12 | none | BloodthirstyUpdate::rva0044E2F7 (tier A) |
-| BloodthirstyUpdate | 31 | 0 | 0x00850DDD | 11 | none | BloodthirstyUpdate::`scalar deleting destructor' (tier A) |
-| BloodthirstyUpdate | 31 | 0 | 0x00850CCA | 2 | none |  |
 | BloodthirstyUpdate | 31 | 1 | 0x00645716 | 12 | none | Rva0027EA49::operator= (tier A) |
 | BloodthirstyUpdate | 31 | 1 | 0x0068C878 | 11 | none |  |
 | BloodthirstyUpdate | 31 | 1 | 0x00850CAA | 5 | none | Rva00458402::~Rva00458402 (tier A) |
-| BloodthirstyUpdate | 31 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | BloodthirstyUpdate | 31 | 2 | 0x004A86AC | 13 | none | Rva0036CA00Str::Rva0036CA00Str (tier A) |
 | BloodthirstyUpdate | 31 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
 | BloodthirstyUpdate | 31 | 3 | 0x00762C65 | 41 | none |  |
@@ -16264,14 +15935,12 @@ calls; their targets are not followed.
 | BloodthirstyUpdate | 31 | 9 | 0x0042C17A | 14 | none | AsciiStringCopyConstructAtRva0002C485 (tier A) |
 | BloodthirstyUpdate | 31 | 9 | 0x00688E9D | 9 | none |  |
 | BloodthirstyUpdate | 31 | 9 | 0x00828D5C | 4 | none |  |
-| BloodthirstyUpdate | 31 | 10 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | AIGateUpdate | 30 | 0 | 0x008B4989 | 15 | none |  |
 | AIGateUpdate | 30 | 0 | 0x008B4A69 | 15 | partial |  |
 | AIGateUpdate | 30 | 0 | 0x008B4A33 | 11 | none | AIGateUpdate::`scalar deleting destructor' (tier A) |
 | AIGateUpdate | 30 | 0 | 0x008B4983 | 2 | none |  |
 | AIGateUpdate | 30 | 1 | 0x008B490F | 32 | none |  |
 | AIGateUpdate | 30 | 1 | 0x008B4A4F | 11 | none | Rva004B0942::rva004B0942 (tier A) |
-| AIGateUpdate | 30 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | AIGateUpdate | 30 | 2 | 0x008EDCBA | 20 | none | Rva004E9600::rva004E95D4 (tier A) |
 | AIGateUpdate | 30 | 2 | 0x006E4A7F | 10 | none | Rva002E36D5Find (tier A) |
 | AIGateUpdate | 30 | 2 | 0x0042F6E0 | 5 | none |  |
@@ -16292,13 +15961,11 @@ calls; their targets are not followed.
 | FakePathfindPortalBehaviour | 28 | 0 | 0x00864A8A | 2 | none |  |
 | ShipSlowDeathBehavior | 28 | 0 | 0x00861A37 | 2 | none |  |
 | W3DSailModelDraw | 28 | 0 | 0x004D0003 | 2 | none |  |
-| ShipSlowDeathBehavior | 28 | 0 | 0x008E38D8 | 1 | none | Rva004DFCE1::~Rva004DFCE1 (tier A) |
 | W3DSailModelDraw | 28 | 0 | 0x004CA6F0 | 1 | none | Rva000BBF4B::rva000BBF4B (tier A) |
 | W3DSailModelDraw | 28 | 1 | 0x004B32FD | 8 | none |  |
 | W3DSailModelDraw | 28 | 1 | 0x00A3CF72 | 8 | none | _atexit (tier A) |
 | ShipSlowDeathBehavior | 28 | 1 | 0x008603F9 | 6 | none |  |
 | ShipSlowDeathBehavior | 28 | 1 | 0x00861A82 | 6 | none | ShipSlowDeathBehavior::~ShipSlowDeathBehavior (tier A) |
-| FakePathfindPortalBehaviour | 28 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | W3DSailModelDraw | 28 | 1 | 0x004D00C8 | 1 | none | W3DSailModelDraw::~W3DSailModelDraw (tier A) |
 | W3DSailModelDraw | 28 | 2 | 0x004C70C3 | 137 | none | W3DScriptedModelDraw::~W3DScriptedModelDraw (tier B) |
 | FakePathfindPortalBehaviour | 28 | 2 | 0x008EDCBA | 20 | none | Rva004E9600::rva004E95D4 (tier A) |
@@ -16309,7 +15976,6 @@ calls; their targets are not followed.
 | ShipSlowDeathBehavior | 28 | 2 | 0x008603CC | 6 | none | ShipSlowDeathBehavior::~ShipSlowDeathBehavior (tier A) |
 | FakePathfindPortalBehaviour | 28 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
 | W3DSailModelDraw | 28 | 2 | 0x008CE37F | 4 | none |  |
-| ShipSlowDeathBehavior | 28 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | W3DSailModelDraw | 28 | 3 | 0x004BC0CD | 60 | none | Rva000BC9B1::rva000BC9B1 (tier A) |
 | W3DSailModelDraw | 28 | 3 | 0x00435D50 | 42 | none |  |
 | W3DSailModelDraw | 28 | 3 | 0x004C6D93 | 31 | none |  |
@@ -16371,7 +16037,6 @@ calls; their targets are not followed.
 | ShipSlowDeathBehavior | 28 | 5 | 0x0067876B | 36 | none | Rva00278440Host::rva00278440 (tier A) |
 | ShipSlowDeathBehavior | 28 | 5 | 0x006B5351 | 28 | none | Rva002BA8F1Logic::rva002B488E (tier A) |
 | W3DSailModelDraw | 28 | 5 | 0x00408D30 | 27 | none |  |
-| W3DSailModelDraw | 28 | 5 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | W3DSailModelDraw | 28 | 5 | 0x004797F0 | 23 | none | _STL::D::DV?$char_traits::PBV?$basic_string::__copy<> (tier A) |
 | ShipSlowDeathBehavior | 28 | 5 | 0x005D91D1 | 22 | none | OpaqueRefElement4::operator= (tier A) |
 | ShipSlowDeathBehavior | 28 | 5 | 0x006C09E1 | 21 | none | LivingWorld::FindClickableObject (tier A) |
@@ -16461,7 +16126,6 @@ calls; their targets are not followed.
 | ShipSlowDeathBehavior | 28 | 8 | 0x00A3CF72 | 8 | none | _atexit (tier A) |
 | ShipSlowDeathBehavior | 28 | 8 | 0x00A3CE04 | 1 | none | __CxxThrowException@8 (tier A) |
 | ShipSlowDeathBehavior | 28 | 9 | 0x004360C0 | 63 | none |  |
-| ShipSlowDeathBehavior | 28 | 9 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | ShipSlowDeathBehavior | 28 | 9 | 0x0079FEAF | 18 | none | Rva0039D8FBLess (tier B) |
 | ShipSlowDeathBehavior | 28 | 9 | 0x007A0626 | 16 | none |  |
 | ShipSlowDeathBehavior | 28 | 9 | 0x0082F0FF | 15 | none | _STL::PAPAXIPAX::fill_n<> (tier B) |
@@ -16574,7 +16238,6 @@ calls; their targets are not followed.
 | HordeTransportContain | 27 | 0 | 0x0087A46B | 11 | none | HordeTransportContain::`scalar deleting destructor' (tier A) |
 | RebuildHoleBehavior | 27 | 0 | 0x008868A6 | 11 | none | RebuildHoleBehaviorModuleData::`scalar deleting destructor' (tier A) |
 | HordeTransportContain | 27 | 0 | 0x0087A3A4 | 8 | none |  |
-| GiveUpgradeUpdate | 27 | 0 | 0x0089FD5C | 7 | none |  |
 | GiveUpgradeUpdate | 27 | 0 | 0x0089FB9F | 6 | none |  |
 | HordeTransportContain | 27 | 0 | 0x0087A3EB | 6 | none |  |
 | RebuildHoleBehavior | 27 | 0 | 0x0088659F | 6 | none |  |
@@ -16582,24 +16245,19 @@ calls; their targets are not followed.
 | GiveUpgradeUpdate | 27 | 0 | 0x0089FB79 | 2 | none |  |
 | HordeTransportContain | 27 | 0 | 0x0087A31B | 2 | none |  |
 | RebuildHoleBehavior | 27 | 0 | 0x00886599 | 2 | none |  |
-| GiveUpgradeUpdate | 27 | 0 | 0x008E38D8 | 1 | none | Rva004DFCE1::~Rva004DFCE1 (tier A) |
 | HordeTransportContain | 27 | 0 | 0x0087CFE6 | 1 | none | HordeGarrisonContain::~HordeGarrisonContain (tier A) |
 | HordeTransportContain | 27 | 1 | 0x0076CAF1 | 36 | none | URva0036ADF9Element::list<>::list<> (tier A) |
-| GiveUpgradeUpdate | 27 | 1 | 0x0089FD15 | 29 | none | Rva0049C592::rva0049C592 (tier A) |
 | HordeTransportContain | 27 | 1 | 0x00865631 | 23 | none | SlaughterHordeContain::rva00462516 (tier A) |
 | HordeTransportContain | 27 | 1 | 0x005FFFBF | 12 | none | VAsciiString::list<>::insert (tier A) |
 | HordeTransportContain | 27 | 1 | 0x00401399 | 10 | none |  |
 | HordeTransportContain | 27 | 1 | 0x005FFE1E | 10 | none |  |
 | HordeTransportContain | 27 | 1 | 0x00990C50 | 10 | none |  |
-| GiveUpgradeUpdate | 27 | 1 | 0x00852782 | 8 | none |  |
 | GiveUpgradeUpdate | 27 | 1 | 0x0089FB7F | 5 | none | Rva0049C3FC::~Rva0049C3FC (tier A) |
 | HordeTransportContain | 27 | 1 | 0x0086970E | 1 | none | Rva0046468D::~Rva0046468D (tier A) |
 | HordeTransportContain | 27 | 1 | 0x0087A487 | 1 | none | HordeTransportContain::~HordeTransportContain (tier A) |
-| RebuildHoleBehavior | 27 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | HordeTransportContain | 27 | 2 | 0x008EA106 | 57 | none |  |
 | HordeTransportContain | 27 | 2 | 0x00866D04 | 31 | none |  |
 | HordeTransportContain | 27 | 2 | 0x004374E0 | 30 | none | D::StringBase<>::StringBase<> (tier A) |
-| HordeTransportContain | 27 | 2 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | HordeTransportContain | 27 | 2 | 0x0086AF85 | 27 | none | TransportContain::~TransportContain (tier A) |
 | GiveUpgradeUpdate | 27 | 2 | 0x00854D9A | 16 | none |  |
 | GiveUpgradeUpdate | 27 | 2 | 0x0044A2A5 | 15 | none | BfmeWideResult::~BfmeWideResult (tier A) |
@@ -16613,7 +16271,6 @@ calls; their targets are not followed.
 | RebuildHoleBehavior | 27 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
 | HordeTransportContain | 27 | 2 | 0x00794353 | 3 | none |  |
 | HordeTransportContain | 27 | 2 | 0x00942368 | 2 | none | CreateAHeroManager::VCreateAHeroSubClass::vector<>::get_allocator (tier A) |
-| GiveUpgradeUpdate | 27 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | HordeTransportContain | 27 | 3 | 0x009768C2 | 125 | none | $$CBHURva00559076Mapped::HU?$pair::_Rb_tree<>::insert_unique (tier A) |
 | HordeTransportContain | 27 | 3 | 0x00867947 | 59 | none | OpenContain::~OpenContain (tier B) |
 | RebuildHoleBehavior | 27 | 3 | 0x0067C694 | 49 | none | Rva0027C36A::Rva0027C36A (tier A) |
@@ -16649,7 +16306,6 @@ calls; their targets are not followed.
 | HordeTransportContain | 27 | 3 | 0x00A39050 | 2 | none | PartitionManager::rva00625330 (tier A) |
 | HordeTransportContain | 27 | 3 | 0x00A39060 | 2 | none | PartitionManager::rva00625320 (tier A) |
 | RebuildHoleBehavior | 27 | 3 | 0x007AEAFD | 2 | none | SecondBase005D2111::~SecondBase005D2111 (tier A) |
-| HordeTransportContain | 27 | 3 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | HordeTransportContain | 27 | 3 | 0x00A3CE04 | 1 | none | __CxxThrowException@8 (tier A) |
 | HordeTransportContain | 27 | 4 | 0x00762AEE | 92 | none | Rva00360F55::rva00360E64 (tier A) |
 | HordeTransportContain | 27 | 4 | 0x005FCF2F | 59 | none | W4ScienceType::_Rb_tree<>::_M_insert (tier A) |
@@ -16725,7 +16381,6 @@ calls; their targets are not followed.
 | HordeTransportContain | 27 | 5 | 0x006AE86E | 28 | none | Rva002ADD75Equal (tier A) |
 | HordeTransportContain | 27 | 5 | 0x007628FD | 28 | none | ?8W4ScienceType<> (tier A) |
 | RebuildHoleBehavior | 27 | 5 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
-| GiveUpgradeUpdate | 27 | 5 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | HordeTransportContain | 27 | 5 | 0x008E3B71 | 26 | none | Rva004DF7DB::rva004DF7DB (tier A) |
 | HordeTransportContain | 27 | 5 | 0x0073EE52 | 25 | none | UModelConditionInfo::SparseMatchFinder<>::findBestInfo (tier A) |
 | RebuildHoleBehavior | 27 | 5 | 0x00764293 | 25 | none | BuffInstance::TurnOff (tier A) |
@@ -16895,7 +16550,6 @@ calls; their targets are not followed.
 | HordeTransportContain | 27 | 8 | 0x004267C0 | 41 | none | _STL::PAX::PAXV?$allocator::vector<>::swap (tier A) |
 | HordeTransportContain | 27 | 8 | 0x004266A0 | 40 | none | _STL::PAX::PAXV?$allocator::vector<>::vector<> (tier A) |
 | RebuildHoleBehavior | 27 | 8 | 0x0067876B | 36 | none | Rva00278440Host::rva00278440 (tier A) |
-| RebuildHoleBehavior | 27 | 8 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | HordeTransportContain | 27 | 8 | 0x006D01C1 | 26 | none | H::HV?$Rva002444BEAllocator::_Vector_base<>::_Vector_base<> (tier A) |
 | HordeTransportContain | 27 | 8 | 0x009EFE5B | 26 | none | Rva005DCE72::rva005DCE72 (tier A) |
 | GiveUpgradeUpdate | 27 | 8 | 0x0083697E | 25 | none | _STL::$$CBIH::U?$pair::_Hashtable_iterator<>::_M_skip_to_next (tier A) |
@@ -17146,19 +16800,14 @@ calls; their targets are not followed.
 | AudioLoopUpgrade | 26 | 0 | 0x008BBCD9 | 15 | none |  |
 | AudioLoopUpgrade | 26 | 0 | 0x008BBFDB | 11 | none | AudioLoopUpgradeModuleData::`scalar deleting destructor' (tier A) |
 | AudioLoopUpgrade | 26 | 0 | 0x004B612F | 10 | none | Rva002115D0::rva002115D0 (tier A) |
-| AudioLoopUpgrade | 26 | 0 | 0x008554C5 | 6 | none | FireWeaponWhenDeadBehavior::loadPostProcess (tier A) |
-| AudioLoopUpgrade | 26 | 0 | 0x00862758 | 6 | none |  |
 | AudioLoopUpgrade | 26 | 0 | 0x008BBF4B | 5 | none |  |
 | AudioLoopUpgrade | 26 | 0 | 0x008BBF2C | 3 | none |  |
 | AudioLoopUpgrade | 26 | 0 | 0x008BBF37 | 3 | none |  |
 | AudioLoopUpgrade | 26 | 0 | 0x008BBF41 | 3 | none |  |
-| AudioLoopUpgrade | 26 | 0 | 0x00464A09 | 2 | none | W3DQuadrupedDrawModuleData::W3DQuadrupedDrawModuleData (tier C) |
 | AudioLoopUpgrade | 26 | 0 | 0x008BBCB0 | 2 | none |  |
-| AudioLoopUpgrade | 26 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | AudioLoopUpgrade | 26 | 1 | 0x008BBD6A | 18 | none | Rva00785140Handle::~Rva00785140Handle (tier B) |
 | AudioLoopUpgrade | 26 | 1 | 0x0086232E | 16 | none |  |
 | AudioLoopUpgrade | 26 | 1 | 0x007B3CE0 | 6 | none |  |
-| AudioLoopUpgrade | 26 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | AudioLoopUpgrade | 26 | 2 | 0x00450762 | 5 | none |  |
 | AudioLoopUpgrade | 26 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
 | AudioLoopUpgrade | 26 | 2 | 0x00A3CF22 | 1 | none | ji_00629182 (tier A) |
@@ -17188,14 +16837,11 @@ calls; their targets are not followed.
 | HordeDispatchSpecialPower | 25 | 0 | 0x008CCE9B | 11 | none | Rva004C8A16::`scalar deleting destructor' (tier A) |
 | PillageModule | 25 | 0 | 0x008881CD | 11 | none | Rva00484F5D::`scalar deleting destructor' (tier A) |
 | PillageModule | 25 | 0 | 0x00888247 | 6 | none |  |
-| HordeDispatchSpecialPower | 25 | 0 | 0x008C6606 | 4 | none |  |
 | HordeDispatchSpecialPower | 25 | 0 | 0x008CCE37 | 2 | none |  |
 | PillageModule | 25 | 0 | 0x008881C7 | 2 | none |  |
 | HordeDispatchSpecialPower | 25 | 0 | 0x008C6583 | 1 | none | Rva004D9F75::rva004D9F75 (tier A) |
-| HordeDispatchSpecialPower | 25 | 1 | 0x008972B2 | 18 | none |  |
 | HordeDispatchSpecialPower | 25 | 1 | 0x008CCE3D | 4 | none | ObjectHelper::~ObjectHelper (tier A) |
 | PillageModule | 25 | 1 | 0x008881E9 | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
-| PillageModule | 25 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | HordeDispatchSpecialPower | 25 | 2 | 0x00897583 | 51 | none |  |
 | PillageModule | 25 | 2 | 0x0079DCCB | 7 | none | Rva0039B7AD::rva0039B7AD (tier A) |
 | PillageModule | 25 | 2 | 0x0079DCB3 | 6 | none | Rva0039B795::rva0039B795 (tier A) |
@@ -17209,7 +16855,6 @@ calls; their targets are not followed.
 | PillageModule | 25 | 4 | 0x00762AEE | 92 | none | Rva00360F55::rva00360E64 (tier A) |
 | HordeDispatchSpecialPower | 25 | 4 | 0x006D527E | 81 | none | RadarWindowOverrideSource::rva002D4240 (tier B) |
 | PillageModule | 25 | 4 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
-| HordeDispatchSpecialPower | 25 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | PillageModule | 25 | 4 | 0x007633E0 | 25 | none |  |
 | PillageModule | 25 | 4 | 0x0042C978 | 23 | none | VAsciiString::_Rb_tree<>::~_Rb_tree<> (tier D) |
 | HordeDispatchSpecialPower | 25 | 4 | 0x006D4609 | 8 | none | RadarWindowOverrideSource::hasOverrideWindow (tier A) |
@@ -17393,7 +17038,6 @@ calls; their targets are not followed.
 | HordeDispatchSpecialPower | 25 | 10 | 0x006225CE | 33 | none | Rva002228E8Get (tier A) |
 | HordeDispatchSpecialPower | 25 | 10 | 0x0092AA60 | 31 | none | Rva00524021::rva00523F8C (tier A) |
 | HordeDispatchSpecialPower | 25 | 10 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
-| PillageModule | 25 | 10 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | HordeDispatchSpecialPower | 25 | 10 | 0x00AE7230 | 25 | none | EAStringC::IsEqualTo (tier A) |
 | HordeDispatchSpecialPower | 25 | 10 | 0x0075A8C0 | 24 | none | URva003597C3Element::_Rb_tree<>::erase (tier D) |
 | HordeDispatchSpecialPower | 25 | 10 | 0x00AEFD90 | 24 | none | BfmeAptValue006DCD20::setTypeAt006DBBC0 (tier C) |
@@ -17450,7 +17094,6 @@ calls; their targets are not followed.
 | HordeDispatchSpecialPower | 25 | 14 | 0x005017E1 | 26 | none | BfmeStringRecord00111ACF::operator= (tier A) |
 | TunnelContain | 23 | 0 | 0x0088117A | 33 | none |  |
 | CloudBreakSpecialPower | 23 | 0 | 0x008C89DA | 15 | none |  |
-| CurseSpecialPower | 23 | 0 | 0x008D1249 | 15 | none | CurseSpecialPower::getModuleNameKey (tier A) |
 | OathbreakersFadeAwayBehavior | 23 | 0 | 0x008BCB1E | 15 | none |  |
 | SpawnPointProductionExitUpdate | 23 | 0 | 0x008A724F | 15 | none | SpawnPointProductionExitUpdate::getModuleNameKey (tier A) |
 | TunnelContain | 23 | 0 | 0x00880DD3 | 15 | none |  |
@@ -17466,21 +17109,14 @@ calls; their targets are not followed.
 | TunnelContain | 23 | 0 | 0x00880FA8 | 7 | none |  |
 | SpawnPointProductionExitUpdate | 23 | 0 | 0x008A720E | 6 | none |  |
 | TunnelContain | 23 | 0 | 0x00880E44 | 6 | none |  |
-| CloudBreakSpecialPower | 23 | 0 | 0x008C6606 | 4 | none |  |
-| CurseSpecialPower | 23 | 0 | 0x008C6E67 | 4 | none |  |
-| CloudBreakSpecialPower | 23 | 0 | 0x00464A09 | 2 | none | W3DQuadrupedDrawModuleData::W3DQuadrupedDrawModuleData (tier C) |
 | CloudBreakSpecialPower | 23 | 0 | 0x008C89BB | 2 | none |  |
-| CurseSpecialPower | 23 | 0 | 0x008D120E | 2 | none |  |
 | OathbreakersFadeAwayBehavior | 23 | 0 | 0x008BCB63 | 2 | none |  |
 | SpawnPointProductionExitUpdate | 23 | 0 | 0x008A7208 | 2 | none |  |
 | TunnelContain | 23 | 0 | 0x00880E18 | 2 | none |  |
 | TunnelContain | 23 | 0 | 0x00880E1E | 2 | none |  |
 | CloudBreakSpecialPower | 23 | 0 | 0x008C6583 | 1 | none | Rva004D9F75::rva004D9F75 (tier A) |
-| CurseSpecialPower | 23 | 0 | 0x008E38D8 | 1 | none | Rva004DFCE1::~Rva004DFCE1 (tier A) |
 | TunnelContain | 23 | 0 | 0x00880E8B | 1 | none | CitadelSlaughterHordeContain::~CitadelSlaughterHordeContain (tier A) |
-| CloudBreakSpecialPower | 23 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | SpawnPointProductionExitUpdate | 23 | 1 | 0x008A71AE | 25 | none |  |
-| CloudBreakSpecialPower | 23 | 1 | 0x008972B2 | 18 | none |  |
 | CloudBreakSpecialPower | 23 | 1 | 0x008C8CAC | 17 | none | CloudBreakSpecialPowerModuleData::~CloudBreakSpecialPowerModuleData (tier A) |
 | OathbreakersFadeAwayBehavior | 23 | 1 | 0x008BCC50 | 16 | none |  |
 | TunnelContain | 23 | 1 | 0x0087CFA6 | 14 | none |  |
@@ -17490,7 +17126,6 @@ calls; their targets are not followed.
 | CurseSpecialPower | 23 | 1 | 0x008D1214 | 5 | none | Rva004C6943::~Rva004C6943 (tier A) |
 | CloudBreakSpecialPower | 23 | 1 | 0x008C89C1 | 4 | none | GrabPassengerSpecialPower::~GrabPassengerSpecialPower (tier A) |
 | OathbreakersFadeAwayBehavior | 23 | 1 | 0x008BCB05 | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
-| SpawnPointProductionExitUpdate | 23 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | TunnelContain | 23 | 1 | 0x0087CFE6 | 1 | none | HordeGarrisonContain::~HordeGarrisonContain (tier A) |
 | CloudBreakSpecialPower | 23 | 2 | 0x00897583 | 51 | none |  |
 | CloudBreakSpecialPower | 23 | 2 | 0x00435D50 | 42 | none |  |
@@ -17506,7 +17141,6 @@ calls; their targets are not followed.
 | OathbreakersFadeAwayBehavior | 23 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
 | SpawnPointProductionExitUpdate | 23 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
 | TunnelContain | 23 | 2 | 0x00430170 | 4 | none |  |
-| CurseSpecialPower | 23 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | TunnelContain | 23 | 2 | 0x0086970E | 1 | none | Rva0046468D::~Rva0046468D (tier A) |
 | TunnelContain | 23 | 3 | 0x00867947 | 59 | none | OpenContain::~OpenContain (tier B) |
 | TunnelContain | 23 | 3 | 0x00866D04 | 31 | none |  |
@@ -17561,7 +17195,6 @@ calls; their targets are not followed.
 | TunnelContain | 23 | 4 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
 | TunnelContain | 23 | 4 | 0x0081A76C | 4 | none |  |
 | TunnelContain | 23 | 4 | 0x00828D5C | 4 | none |  |
-| TunnelContain | 23 | 4 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | TunnelContain | 23 | 4 | 0x00A3CE04 | 1 | none | __CxxThrowException@8 (tier A) |
 | TunnelContain | 23 | 5 | 0x00762AEE | 92 | none | Rva00360F55::rva00360E64 (tier A) |
 | TunnelContain | 23 | 5 | 0x00436030 | 44 | none | D::StringBase<>::set (tier A) |
@@ -17687,7 +17320,6 @@ calls; their targets are not followed.
 | CloudBreakSpecialPower | 23 | 7 | 0x004374E0 | 30 | none | D::StringBase<>::StringBase<> (tier A) |
 | CurseSpecialPower | 23 | 7 | 0x005E0A39 | 28 | partial | QBVGameWindow::U?$pair::hashtable<>::begin (tier A) |
 | CloudBreakSpecialPower | 23 | 7 | 0x00436990 | 27 | none | G::StringBase<>::StringBase<> (tier A) |
-| TunnelContain | 23 | 7 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | CloudBreakSpecialPower | 23 | 7 | 0x00622163 | 26 | none |  |
 | CloudBreakSpecialPower | 23 | 7 | 0x008E5A05 | 26 | none | PBUBfmeE12::__copy<> (tier A) |
 | CloudBreakSpecialPower | 23 | 7 | 0x00AE71D0 | 25 | none |  |
@@ -17764,7 +17396,6 @@ calls; their targets are not followed.
 | TunnelContain | 23 | 8 | 0x006750FA | 29 | none |  |
 | CloudBreakSpecialPower | 23 | 8 | 0x00B10070 | 28 | none | Rva006FBE80::find2 (tier A) |
 | CloudBreakSpecialPower | 23 | 8 | 0x00AF0750 | 27 | none |  |
-| OathbreakersFadeAwayBehavior | 23 | 8 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | CloudBreakSpecialPower | 23 | 8 | 0x0061637E | 26 | none | BannerUI::SetBannerSlotXOffset (tier A) |
 | CloudBreakSpecialPower | 23 | 8 | 0x00A3CD70 | 25 | none |  |
 | CloudBreakSpecialPower | 23 | 8 | 0x00AE7040 | 25 | none | EAStringC::FreeData (tier C) |
@@ -18171,19 +17802,14 @@ calls; their targets are not followed.
 | PlayerUpgradeSpecialPower | 22 | 0 | 0x008CC0B0 | 11 | none | PlayerUpgradeSpecialPower::`scalar deleting destructor' (tier A) |
 | PlayerUpgradeSpecialPower | 22 | 0 | 0x008CC1D7 | 11 | none | PlayerUpgradeSpecialPowerModuleData::`scalar deleting destructor' (tier A) |
 | PlayerUpgradeSpecialPower | 22 | 0 | 0x004B612F | 10 | none | Rva002115D0::rva002115D0 (tier A) |
-| PlayerUpgradeSpecialPower | 22 | 0 | 0x008C6606 | 4 | none |  |
 | BuildableHeroListUpgrade | 22 | 0 | 0x008BC40C | 2 | none |  |
-| PlayerUpgradeSpecialPower | 22 | 0 | 0x00464A09 | 2 | none | W3DQuadrupedDrawModuleData::W3DQuadrupedDrawModuleData (tier C) |
 | PlayerUpgradeSpecialPower | 22 | 0 | 0x008CC04C | 2 | none |  |
 | PlayerUpgradeSpecialPower | 22 | 0 | 0x008C6583 | 1 | none | Rva004D9F75::rva004D9F75 (tier A) |
 | BuildableHeroListUpgrade | 22 | 1 | 0x008BC519 | 57 | none |  |
 | BuildableHeroListUpgrade | 22 | 1 | 0x0078138B | 28 | none | UnitRevivalTracker::removeBuildUnit (tier B) |
-| PlayerUpgradeSpecialPower | 22 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
-| PlayerUpgradeSpecialPower | 22 | 1 | 0x008972B2 | 18 | none |  |
 | PlayerUpgradeSpecialPower | 22 | 1 | 0x008CC1F3 | 17 | none | PlayerUpgradeSpecialPowerModuleData::~PlayerUpgradeSpecialPowerModuleData (tier A) |
 | BuildableHeroListUpgrade | 22 | 1 | 0x008BC3EC | 5 | none |  |
 | PlayerUpgradeSpecialPower | 22 | 1 | 0x008CC052 | 4 | none | PlayerHealSpecialPower::~PlayerHealSpecialPower (tier A) |
-| BuildableHeroListUpgrade | 22 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | PlayerUpgradeSpecialPower | 22 | 2 | 0x00897583 | 51 | none |  |
 | PlayerUpgradeSpecialPower | 22 | 2 | 0x00896AE3 | 32 | none | SpecialPowerModuleData::~SpecialPowerModuleData (tier A) |
 | PlayerUpgradeSpecialPower | 22 | 2 | 0x0042C978 | 23 | none | VAsciiString::_Rb_tree<>::~_Rb_tree<> (tier D) |
@@ -18195,7 +17821,6 @@ calls; their targets are not followed.
 | BuildableHeroListUpgrade | 22 | 3 | 0x00435D50 | 42 | none |  |
 | PlayerUpgradeSpecialPower | 22 | 3 | 0x00435D50 | 42 | none |  |
 | BuildableHeroListUpgrade | 22 | 3 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
-| BuildableHeroListUpgrade | 22 | 3 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | BuildableHeroListUpgrade | 22 | 3 | 0x0073C667 | 21 | none | ModuleInfo::getNthData (tier A) |
 | BuildableHeroListUpgrade | 22 | 3 | 0x005EA852 | 17 | none | Rva001EB05E::~Rva001EB05E (tier A) |
 | BuildableHeroListUpgrade | 22 | 3 | 0x006E29C8 | 14 | none | URva002E160FElement::_Construct<> (tier A) |
@@ -18265,7 +17890,6 @@ calls; their targets are not followed.
 | EntEnragedUpdate | 20 | 0 | 0x008B6698 | 11 | none | EntEnragedUpdateModuleData::`scalar deleting destructor' (tier A) |
 | EntEnragedUpdate | 20 | 0 | 0x008B6499 | 2 | none |  |
 | EntEnragedUpdate | 20 | 1 | 0x008B6480 | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
-| EntEnragedUpdate | 20 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | EntEnragedUpdate | 20 | 2 | 0x005E42B6 | 7 | none | Rva001E4A4E::rva001E4A4E (tier A) |
 | EntEnragedUpdate | 20 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
 | EntEnragedUpdate | 20 | 3 | 0x008E3B71 | 26 | none | Rva004DF7DB::rva004DF7DB (tier A) |
@@ -18344,42 +17968,27 @@ calls; their targets are not followed.
 | EntEnragedUpdate | 20 | 10 | 0x00424030 | 52 | none | _STL::_N::_Rb_global<>::_Rotate_right (tier A) |
 | EntEnragedUpdate | 20 | 11 | 0x00645716 | 12 | none | Rva0027EA49::operator= (tier A) |
 | UpgradeSoundSelectorClientBehavior | 18 | 0 | 0x008CF8C5 | 53 | none |  |
-| DeflectSpecialPower | 18 | 0 | 0x008C997A | 15 | none | NetProgressCommandMsg::getPercentage (tier B) |
 | FlingPassengerSpecialAbilityUpdate | 18 | 0 | 0x008986C9 | 15 | none |  |
 | RubbleRiseUpdate | 18 | 0 | 0x008A82E0 | 15 | none | RubbleRiseUpdate::getModuleNameKey (tier A) |
 | SplitHordeSpecialPower | 18 | 0 | 0x008CC9E4 | 15 | none |  |
 | UpgradeSoundSelectorClientBehavior | 18 | 0 | 0x00652A80 | 15 | none |  |
-| DeflectSpecialPower | 18 | 0 | 0x008C99BF | 11 | none | SiegeDeploySpecialPower::`scalar deleting destructor' (tier A) |
 | FlingPassengerSpecialAbilityUpdate | 18 | 0 | 0x0089873E | 11 | none | Rva00494F1B::`scalar deleting destructor' (tier A) |
 | RubbleRiseUpdate | 18 | 0 | 0x008A83B2 | 11 | none | Rva004A4C19::`scalar deleting destructor' (tier A) |
 | SplitHordeSpecialPower | 18 | 0 | 0x008C6C70 | 11 | none | UntamedAllegianceSpecialPowerModuleData::`scalar deleting destructor' (tier A) |
 | SplitHordeSpecialPower | 18 | 0 | 0x008CCA29 | 11 | none | SplitHordeSpecialPower::`scalar deleting destructor' (tier A) |
 | SplitHordeSpecialPower | 18 | 0 | 0x004B612F | 10 | none | Rva002115D0::rva002115D0 (tier A) |
-| DeflectSpecialPower | 18 | 0 | 0x008C993F | 6 | none |  |
-| DeflectSpecialPower | 18 | 0 | 0x008C99FB | 6 | partial |  |
-| FlingPassengerSpecialAbilityUpdate | 18 | 0 | 0x008C6E67 | 4 | none |  |
-| SplitHordeSpecialPower | 18 | 0 | 0x008C6606 | 4 | none |  |
 | UpgradeSoundSelectorClientBehavior | 18 | 0 | 0x008CE37F | 4 | none |  |
-| DeflectSpecialPower | 18 | 0 | 0x008C9939 | 2 | none |  |
 | FlingPassengerSpecialAbilityUpdate | 18 | 0 | 0x008986A3 | 2 | none |  |
 | RubbleRiseUpdate | 18 | 0 | 0x008A8297 | 2 | none |  |
-| SplitHordeSpecialPower | 18 | 0 | 0x00464A09 | 2 | none | W3DQuadrupedDrawModuleData::W3DQuadrupedDrawModuleData (tier C) |
 | SplitHordeSpecialPower | 18 | 0 | 0x008CC9C5 | 2 | none |  |
 | UpgradeSoundSelectorClientBehavior | 18 | 0 | 0x00652AC5 | 2 | none |  |
-| DeflectSpecialPower | 18 | 0 | 0x008E38D8 | 1 | none | Rva004DFCE1::~Rva004DFCE1 (tier A) |
-| FlingPassengerSpecialAbilityUpdate | 18 | 0 | 0x008E38D8 | 1 | none | Rva004DFCE1::~Rva004DFCE1 (tier A) |
 | SplitHordeSpecialPower | 18 | 0 | 0x008C6583 | 1 | none | Rva004D9F75::rva004D9F75 (tier A) |
-| SplitHordeSpecialPower | 18 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
-| SplitHordeSpecialPower | 18 | 1 | 0x008972B2 | 18 | none |  |
 | UpgradeSoundSelectorClientBehavior | 18 | 1 | 0x006CA738 | 12 | none | UBfmePod128::$$CBHV?$vector::pair<>::pair<> (tier A) |
 | UpgradeSoundSelectorClientBehavior | 18 | 1 | 0x008CF59D | 12 | none | Rva004CB51CEntry::rva004CB167 (tier B) |
-| DeflectSpecialPower | 18 | 1 | 0x008C994C | 7 | none | DeflectSpecialPower::~DeflectSpecialPower (tier A) |
-| DeflectSpecialPower | 18 | 1 | 0x009912DB | 6 | none |  |
 | FlingPassengerSpecialAbilityUpdate | 18 | 1 | 0x008986A9 | 5 | none | Rva0049C3FC::~Rva0049C3FC (tier A) |
 | RubbleRiseUpdate | 18 | 1 | 0x008A8277 | 5 | none | Rva004A0E0C::~Rva004A0E0C (tier A) |
 | UpgradeSoundSelectorClientBehavior | 18 | 1 | 0x00450762 | 5 | none |  |
 | SplitHordeSpecialPower | 18 | 1 | 0x008CC9CB | 4 | none | PlayerHealSpecialPower::~PlayerHealSpecialPower (tier A) |
-| RubbleRiseUpdate | 18 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | SplitHordeSpecialPower | 18 | 1 | 0x008C98CB | 1 | none | Rva004C6CC1::~Rva004C6CC1 (tier A) |
 | SplitHordeSpecialPower | 18 | 2 | 0x00897583 | 51 | none |  |
 | UpgradeSoundSelectorClientBehavior | 18 | 2 | 0x00456726 | 37 | none | VAsciiString::U?$pair::_M_find<> (tier A) |
@@ -18388,10 +17997,7 @@ calls; their targets are not followed.
 | FlingPassengerSpecialAbilityUpdate | 18 | 2 | 0x00854D9A | 16 | none |  |
 | UpgradeSoundSelectorClientBehavior | 18 | 2 | 0x00645716 | 12 | none | Rva0027EA49::operator= (tier A) |
 | RubbleRiseUpdate | 18 | 2 | 0x00665342 | 7 | none | Object::getPlanarDirectionTo (tier A) |
-| DeflectSpecialPower | 18 | 2 | 0x0099113F | 6 | none | SiegeDeployHordeSpecialPower::~SiegeDeployHordeSpecialPower (tier A) |
 | RubbleRiseUpdate | 18 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
-| DeflectSpecialPower | 18 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| FlingPassengerSpecialAbilityUpdate | 18 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | SplitHordeSpecialPower | 18 | 3 | 0x00435D50 | 42 | none |  |
 | DeflectSpecialPower | 18 | 3 | 0x00678816 | 27 | partial |  |
 | DeflectSpecialPower | 18 | 3 | 0x006787DA | 20 | none | Rva002784AFHost::rva002784AF (tier B) |
@@ -18477,7 +18083,6 @@ calls; their targets are not followed.
 | ReflectDamage | 17 | 0 | 0x008BED27 | 11 | none | ReflectDamage::`scalar deleting destructor' (tier A) |
 | ReflectDamage | 17 | 0 | 0x008BEC98 | 2 | none |  |
 | ReflectDamage | 17 | 1 | 0x008BEC7F | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
-| ReflectDamage | 17 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | ReflectDamage | 17 | 2 | 0x008BD831 | 4 | none | DamageModule::~DamageModule (tier B) |
 | ReflectDamage | 17 | 3 | 0x00693C86 | 12 | none | UBfmePod124::list<>::insert (tier A) |
 | ReflectDamage | 17 | 3 | 0x00672C81 | 8 | none | Drawable::rva00272945 (tier B) |
@@ -18530,7 +18135,6 @@ calls; their targets are not followed.
 | ReflectDamage | 17 | 10 | 0x00AE0CF0 | 123 | none | Rva006CCB80CallFunction (tier C) |
 | ReflectDamage | 17 | 10 | 0x00677898 | 37 | none | Drawable::rva0027756D (tier A) |
 | ReflectDamage | 17 | 10 | 0x006750FA | 29 | none |  |
-| ReflectDamage | 17 | 10 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | ReflectDamage | 17 | 10 | 0x0040511A | 16 | none |  |
 | ReflectDamage | 17 | 10 | 0x00671FB0 | 12 | none |  |
 | ReflectDamage | 17 | 10 | 0x006746FD | 8 | partial |  |
@@ -18648,7 +18252,6 @@ calls; their targets are not followed.
 | W3DTornadoDraw | 16 | 0 | 0x004D1071 | 2 | none |  |
 | W3DTornadoDraw | 16 | 0 | 0x004D13A7 | 2 | none | TBuff::TBuff (tier C) |
 | W3DQuadrupedDraw | 16 | 0 | 0x004CA6F0 | 1 | none | Rva000BBF4B::rva000BBF4B (tier A) |
-| W3DTornadoDraw | 16 | 0 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | W3DTornadoDraw | 16 | 1 | 0x004D13AD | 20 | none | Rva006DABB0::~Rva006DABB0 (tier A) |
 | W3DTornadoDraw | 16 | 1 | 0x00732828 | 13 | none | RadiusDecal::setPosition (tier A) |
 | W3DQuadrupedDraw | 16 | 1 | 0x004C9A23 | 9 | none | UCoord3D::vector<>::resize (tier A) |
@@ -18656,9 +18259,7 @@ calls; their targets are not followed.
 | AutoPickUpUpdate | 16 | 1 | 0x008993D6 | 5 | none | Rva0049C3FC::~Rva0049C3FC (tier A) |
 | W3DQuadrupedDraw | 16 | 1 | 0x004C9831 | 4 | none | Rva000CAEC6::~Rva000CAEC6 (tier A) |
 | W3DTornadoDraw | 16 | 1 | 0x008CE37F | 4 | none |  |
-| AnnounceBirthAndDeathBehavior | 16 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | AnnounceBirthAndDeathBehavior | 16 | 1 | 0x00888434 | 1 | none | Rva004885DE::~Rva004885DE (tier A) |
-| AutoPickUpUpdate | 16 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | W3DQuadrupedDraw | 16 | 2 | 0x004C70C3 | 137 | none | W3DScriptedModelDraw::~W3DScriptedModelDraw (tier B) |
 | W3DQuadrupedDraw | 16 | 2 | 0x004C99DA | 37 | none | UCoord3D::vector<>::resize (tier A) |
 | W3DTornadoDraw | 16 | 2 | 0x004D0F54 | 24 | none | W3DTornadoDraw::rva000D1743 (tier A) |
@@ -18718,7 +18319,6 @@ calls; their targets are not followed.
 | W3DQuadrupedDraw | 16 | 4 | 0x00A3ED38 | 1 | none | _D3DXGetFVFVertexSize@4 (tier A) |
 | W3DQuadrupedDraw | 16 | 5 | 0x005FC2FE | 38 | none | Make001FCBD7 (tier C) |
 | W3DQuadrupedDraw | 16 | 5 | 0x00408D30 | 27 | none |  |
-| W3DQuadrupedDraw | 16 | 5 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | W3DQuadrupedDraw | 16 | 5 | 0x008E5A05 | 26 | none | PBUBfmeE12::__copy<> (tier A) |
 | W3DQuadrupedDraw | 16 | 5 | 0x008E5A35 | 26 | none | PAUBfmeE12::__copy_backward<> (tier A) |
 | W3DQuadrupedDraw | 16 | 5 | 0x004797F0 | 23 | none | _STL::D::DV?$char_traits::PBV?$basic_string::__copy<> (tier A) |
@@ -18766,9 +18366,7 @@ calls; their targets are not followed.
 | RandomSoundSelectorClientBehavior | 15 | 0 | 0x008D00E2 | 2 | none |  |
 | RunOffMapBehavior | 15 | 0 | 0x008652BA | 2 | none |  |
 | UpgradeDie | 15 | 0 | 0x00889E20 | 2 | none |  |
-| RunOffMapBehavior | 15 | 0 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | UpgradeDie | 15 | 1 | 0x00889E07 | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
-| UpgradeDie | 15 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | RandomSoundSelectorClientBehavior | 15 | 2 | 0x00456726 | 37 | none | VAsciiString::U?$pair::_M_find<> (tier A) |
 | RandomSoundSelectorClientBehavior | 15 | 2 | 0x006CA738 | 12 | none | UBfmePod128::$$CBHV?$vector::pair<>::pair<> (tier A) |
 | UpgradeDie | 15 | 2 | 0x0085FE9D | 4 | none | DieModule::~DieModule (tier B) |
@@ -18800,14 +18398,11 @@ calls; their targets are not followed.
 | AODCrushCollide | 14 | 0 | 0x008C0199 | 11 | none | AODCrushCollide::`scalar deleting destructor' (tier A) |
 | GrabPassengerSpecialPower | 14 | 0 | 0x008C94BB | 11 | none | GrabPassengerSpecialPower::`scalar deleting destructor' (tier A) |
 | AODCrushCollide | 14 | 0 | 0x008C004C | 6 | none |  |
-| GrabPassengerSpecialPower | 14 | 0 | 0x008C6606 | 4 | none |  |
 | AODCrushCollide | 14 | 0 | 0x008C0046 | 2 | none |  |
 | GrabPassengerSpecialPower | 14 | 0 | 0x008C949C | 2 | none |  |
 | GrabPassengerSpecialPower | 14 | 0 | 0x008C6583 | 1 | none | Rva004D9F75::rva004D9F75 (tier A) |
-| GrabPassengerSpecialPower | 14 | 1 | 0x008972B2 | 18 | none |  |
 | AODCrushCollide | 14 | 1 | 0x008C0026 | 5 | none | Rva004B29BE::~Rva004B29BE (tier A) |
 | GrabPassengerSpecialPower | 14 | 1 | 0x008C94A2 | 4 | none | GrabPassengerSpecialPower::~GrabPassengerSpecialPower (tier A) |
-| AODCrushCollide | 14 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | GrabPassengerSpecialPower | 14 | 2 | 0x00897583 | 51 | none |  |
 | AODCrushCollide | 14 | 2 | 0x004380C0 | 12 | none | _bfme_debugRecordCallsite (tier D) |
 | AODCrushCollide | 14 | 2 | 0x0068BB4B | 10 | none | Object::isInList (tier A) |
@@ -18835,7 +18430,6 @@ calls; their targets are not followed.
 | GrabPassengerSpecialPower | 14 | 4 | 0x00A3ABD0 | 32 | none | FlightDeckBehavior::PAUFlightDeckInfo::__uninitialized_copy<> (tier A) |
 | GrabPassengerSpecialPower | 14 | 4 | 0x00A3AC20 | 31 | none |  |
 | AODCrushCollide | 14 | 4 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
-| GrabPassengerSpecialPower | 14 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | AODCrushCollide | 14 | 4 | 0x007633E0 | 25 | none |  |
 | AODCrushCollide | 14 | 4 | 0x0042C978 | 23 | none | VAsciiString::_Rb_tree<>::~_Rb_tree<> (tier D) |
 | AODCrushCollide | 14 | 4 | 0x004A86AC | 13 | none | Rva0036CA00Str::Rva0036CA00Str (tier A) |
@@ -18922,7 +18516,6 @@ calls; their targets are not followed.
 | AODCrushCollide | 14 | 9 | 0x00828D5C | 4 | none |  |
 | AODCrushCollide | 14 | 9 | 0x00A3D936 | 1 | none | ji_00629b0e (tier A) |
 | AODCrushCollide | 14 | 10 | 0x00AE0CF0 | 123 | none | Rva006CCB80CallFunction (tier C) |
-| AODCrushCollide | 14 | 10 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | AODCrushCollide | 14 | 10 | 0x0040511A | 16 | none |  |
 | AODCrushCollide | 14 | 10 | 0x00437A90 | 6 | none | AsciiString::format (tier B) |
 | AODCrushCollide | 14 | 11 | 0x00B13F30 | 194 | none |  |
@@ -19011,23 +18604,14 @@ calls; their targets are not followed.
 | AODCrushCollide | 14 | 15 | 0x00AE70E0 | 13 | none |  |
 | AODCrushCollide | 14 | 15 | 0x00AE7990 | 5 | none |  |
 | AODCrushCollide | 14 | 15 | 0x00A3D79A | 1 | none | ji_00629a36 (tier A) |
-| SpellRechargeModifierUpgrade | 13 | 0 | 0x008B9F12 | 15 | none |  |
-| SpellRechargeModifierUpgrade | 13 | 0 | 0x008BA208 | 11 | none | SpellRechargeModifierUpgradeModuleData::`scalar deleting destructor' (tier A) |
 | SpellRechargeModifierUpgrade | 13 | 0 | 0x004B612F | 10 | none | Rva002115D0::rva002115D0 (tier A) |
-| SpellRechargeModifierUpgrade | 13 | 0 | 0x008B9F05 | 6 | none |  |
-| SpellRechargeModifierUpgrade | 13 | 0 | 0x008B9B3C | 3 | none |  |
-| SpellRechargeModifierUpgrade | 13 | 0 | 0x00464A09 | 2 | none | W3DQuadrupedDrawModuleData::W3DQuadrupedDrawModuleData (tier C) |
-| SpellRechargeModifierUpgrade | 13 | 0 | 0x008B9EFF | 2 | none |  |
-| SpellRechargeModifierUpgrade | 13 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | SpellRechargeModifierUpgrade | 13 | 1 | 0x008BA224 | 21 | none |  |
 | SpellRechargeModifierUpgrade | 13 | 1 | 0x008B9ED8 | 6 | none |  |
-| SpellRechargeModifierUpgrade | 13 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | SpellRechargeModifierUpgrade | 13 | 2 | 0x00435D50 | 42 | none |  |
 | SpellRechargeModifierUpgrade | 13 | 2 | 0x0086393B | 5 | none |  |
 | SpellRechargeModifierUpgrade | 13 | 2 | 0x00430170 | 4 | none |  |
 | SpellRechargeModifierUpgrade | 13 | 3 | 0x007AEAFD | 2 | none | SecondBase005D2111::~SecondBase005D2111 (tier A) |
 | StructureToppleUpdate | 12 | 0 | 0x008A94B9 | 25 | none |  |
-| SpecialPowerTimerRefreshSpecialPower | 12 | 0 | 0x006519CE | 15 | none |  |
 | StructureToppleUpdate | 12 | 0 | 0x008A8B6F | 15 | none | StructureToppleUpdate::getModuleNameKey (tier A) |
 | SummonReplacementSpecialAbilityUpdate | 12 | 0 | 0x008B1F14 | 15 | none |  |
 | SpecialPowerTimerRefreshSpecialPower | 12 | 0 | 0x006548BC | 11 | none | ManTheWallsSpecialPower::`scalar deleting destructor' (tier A) |
@@ -19035,18 +18619,12 @@ calls; their targets are not followed.
 | SummonReplacementSpecialAbilityUpdate | 12 | 0 | 0x008B1FA3 | 11 | none | Rva004AD9B0::`scalar deleting destructor' (tier A) |
 | SummonReplacementSpecialAbilityUpdate | 12 | 0 | 0x008B1EE7 | 6 | none |  |
 | SummonReplacementSpecialAbilityUpdate | 12 | 0 | 0x008B42E6 | 6 | none |  |
-| SpecialPowerTimerRefreshSpecialPower | 12 | 0 | 0x00651A13 | 2 | none |  |
 | StructureToppleUpdate | 12 | 0 | 0x008A8B26 | 2 | none |  |
 | SummonReplacementSpecialAbilityUpdate | 12 | 0 | 0x008B1E94 | 2 | none |  |
 | SpecialPowerTimerRefreshSpecialPower | 12 | 0 | 0x008C6583 | 1 | none | Rva004D9F75::rva004D9F75 (tier A) |
-| SpecialPowerTimerRefreshSpecialPower | 12 | 0 | 0x008C7B43 | 1 | none | HURva004D1B38Mapped::map<>::~map<> (tier A) |
-| SummonReplacementSpecialAbilityUpdate | 12 | 0 | 0x008E38D8 | 1 | none | Rva004DFCE1::~Rva004DFCE1 (tier A) |
-| SpecialPowerTimerRefreshSpecialPower | 12 | 1 | 0x008972B2 | 18 | none |  |
-| SpecialPowerTimerRefreshSpecialPower | 12 | 1 | 0x0089679D | 14 | none |  |
 | SummonReplacementSpecialAbilityUpdate | 12 | 1 | 0x008B1E6A | 6 | none |  |
 | StructureToppleUpdate | 12 | 1 | 0x008A8B06 | 5 | none | Rva004A0E0C::~Rva004A0E0C (tier A) |
 | SpecialPowerTimerRefreshSpecialPower | 12 | 1 | 0x008C65CD | 1 | none | IPAVState::map<>::~map<> (tier A) |
-| StructureToppleUpdate | 12 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | SpecialPowerTimerRefreshSpecialPower | 12 | 2 | 0x00897583 | 51 | none |  |
 | StructureToppleUpdate | 12 | 2 | 0x006FFB68 | 43 | none | AI::destroyGroup (tier A) |
 | SpecialPowerTimerRefreshSpecialPower | 12 | 2 | 0x00435D50 | 42 | none |  |
@@ -19059,7 +18637,6 @@ calls; their targets are not followed.
 | SummonReplacementSpecialAbilityUpdate | 12 | 2 | 0x0068FC98 | 6 | none |  |
 | SpecialPowerTimerRefreshSpecialPower | 12 | 2 | 0x0079D11D | 4 | partial | ExperienceTracker::rva0039ABFF (tier A) |
 | StructureToppleUpdate | 12 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
-| SummonReplacementSpecialAbilityUpdate | 12 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | StructureToppleUpdate | 12 | 3 | 0x00758E47 | 46 | none | ScriptEngine::rva00357340 (tier B) |
 | SummonReplacementSpecialAbilityUpdate | 12 | 3 | 0x00678816 | 27 | partial |  |
 | SummonReplacementSpecialAbilityUpdate | 12 | 3 | 0x008E3B71 | 26 | none | Rva004DF7DB::rva004DF7DB (tier A) |
@@ -19091,7 +18668,6 @@ calls; their targets are not followed.
 | SummonReplacementSpecialAbilityUpdate | 12 | 4 | 0x00435D50 | 42 | none |  |
 | SummonReplacementSpecialAbilityUpdate | 12 | 4 | 0x00A3AC70 | 40 | none | FlightDeckBehavior::PAUFlightDeckInfo::__uninitialized_fill_n<> (tier D) |
 | SummonReplacementSpecialAbilityUpdate | 12 | 4 | 0x0067876B | 36 | none | Rva00278440Host::rva00278440 (tier A) |
-| SpecialPowerTimerRefreshSpecialPower | 12 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | StructureToppleUpdate | 12 | 4 | 0x006D871C | 27 | none | Rva002D76C6Remove (tier B) |
 | SpecialPowerTimerRefreshSpecialPower | 12 | 4 | 0x00805A57 | 25 | none | VRva00297360Element::vector<>::push_back (tier A) |
 | SpecialPowerTimerRefreshSpecialPower | 12 | 4 | 0x0042C978 | 23 | none | VAsciiString::_Rb_tree<>::~_Rb_tree<> (tier D) |
@@ -19130,7 +18706,6 @@ calls; their targets are not followed.
 | SummonReplacementSpecialAbilityUpdate | 12 | 5 | 0x004374E0 | 30 | none | D::StringBase<>::StringBase<> (tier A) |
 | SummonReplacementSpecialAbilityUpdate | 12 | 5 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
 | StructureToppleUpdate | 12 | 5 | 0x00678816 | 27 | partial |  |
-| SummonReplacementSpecialAbilityUpdate | 12 | 5 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | SpecialPowerTimerRefreshSpecialPower | 12 | 5 | 0x008052C4 | 25 | none | VRva00297360Element::vector<>::erase (tier A) |
 | StructureToppleUpdate | 12 | 5 | 0x00764293 | 25 | none | BuffInstance::TurnOff (tier A) |
 | StructureToppleUpdate | 12 | 5 | 0x007ED77A | 21 | none |  |
@@ -19536,26 +19111,19 @@ calls; their targets are not followed.
 | SupplyCenterProductionExitUpdate | 11 | 0 | 0x008A9CA0 | 11 | none | SupplyCenterProductionExitUpdate::`scalar deleting destructor' (tier A) |
 | ProductionSpeedBonus | 11 | 0 | 0x004B612F | 10 | none | Rva002115D0::rva002115D0 (tier A) |
 | SupplyCenterProductionExitUpdate | 11 | 0 | 0x008A9D7C | 6 | partial |  |
-| ProductionSpeedBonus | 11 | 0 | 0x008C6606 | 4 | none |  |
 | LockWeaponCreate | 11 | 0 | 0x008BCD79 | 2 | none |  |
-| ProductionSpeedBonus | 11 | 0 | 0x00464A09 | 2 | none | W3DQuadrupedDrawModuleData::W3DQuadrupedDrawModuleData (tier C) |
 | ProductionSpeedBonus | 11 | 0 | 0x008C7126 | 2 | none |  |
 | SupplyCenterCreate | 11 | 0 | 0x008BCEEC | 2 | none |  |
 | SupplyCenterDockUpdate | 11 | 0 | 0x008A44D2 | 2 | none |  |
 | SupplyCenterProductionExitUpdate | 11 | 0 | 0x008A9BBB | 2 | none |  |
 | ProductionSpeedBonus | 11 | 0 | 0x008C6583 | 1 | none | Rva004D9F75::rva004D9F75 (tier A) |
 | SupplyCenterDockUpdate | 11 | 0 | 0x008A4ABF | 1 | none | WeaponSetUpgrade::loadPostProcess (tier A) |
-| ProductionSpeedBonus | 11 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
-| ProductionSpeedBonus | 11 | 1 | 0x008972B2 | 18 | none |  |
 | ProductionSpeedBonus | 11 | 1 | 0x008C726B | 17 | none | ProductionSpeedBonusModuleData::~ProductionSpeedBonusModuleData (tier A) |
 | SupplyCenterDockUpdate | 11 | 1 | 0x008A44D8 | 5 | none | Rva004A0E0C::~Rva004A0E0C (tier A) |
 | SupplyCenterProductionExitUpdate | 11 | 1 | 0x008A9B9B | 5 | none | Rva004A0E0C::~Rva004A0E0C (tier A) |
 | LockWeaponCreate | 11 | 1 | 0x008BCD7F | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
 | SupplyCenterCreate | 11 | 1 | 0x008BCEF2 | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
-| LockWeaponCreate | 11 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | ProductionSpeedBonus | 11 | 1 | 0x008C65CD | 1 | none | IPAVState::map<>::~map<> (tier A) |
-| SupplyCenterCreate | 11 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| SupplyCenterProductionExitUpdate | 11 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | ProductionSpeedBonus | 11 | 2 | 0x00897583 | 51 | none |  |
 | ProductionSpeedBonus | 11 | 2 | 0x005FD6A5 | 39 | none | Rva001FDE3F::rva001FDE3F (tier A) |
 | ProductionSpeedBonus | 11 | 2 | 0x006AEFBE | 38 | none | Rva002AE4C5::rva002AE4C5 (tier A) |
@@ -19567,7 +19135,6 @@ calls; their targets are not followed.
 | LockWeaponCreate | 11 | 2 | 0x008BCE1F | 4 | none |  |
 | SupplyCenterCreate | 11 | 2 | 0x008BCE1F | 4 | none |  |
 | SupplyCenterProductionExitUpdate | 11 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
-| SupplyCenterDockUpdate | 11 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | SupplyCenterDockUpdate | 11 | 3 | 0x00610D25 | 54 | none |  |
 | ProductionSpeedBonus | 11 | 3 | 0x00435D50 | 42 | none |  |
 | ProductionSpeedBonus | 11 | 3 | 0x005FD431 | 27 | none | Rva000427195::rva0020D638 (tier A) |
@@ -19675,22 +19242,15 @@ calls; their targets are not followed.
 | InvisibilitySpecialPower | 10 | 0 | 0x008C6697 | 11 | none | InvisibilitySpecialPowerModuleData::`scalar deleting destructor' (tier A) |
 | UntamedAllegianceSpecialPower | 10 | 0 | 0x008CBFB3 | 11 | none | UntamedAllegianceSpecialPower::`scalar deleting destructor' (tier A) |
 | InvisibilitySpecialPower | 10 | 0 | 0x004B612F | 10 | none | Rva002115D0::rva002115D0 (tier A) |
-| InvisibilitySpecialPower | 10 | 0 | 0x008C6606 | 4 | none |  |
-| UntamedAllegianceSpecialPower | 10 | 0 | 0x008C6606 | 4 | none |  |
 | HordeTransportContainDamage | 10 | 0 | 0x008BF22E | 2 | none |  |
-| InvisibilitySpecialPower | 10 | 0 | 0x00464A09 | 2 | none | W3DQuadrupedDrawModuleData::W3DQuadrupedDrawModuleData (tier C) |
 | InvisibilitySpecialPower | 10 | 0 | 0x008C657D | 2 | none |  |
 | UntamedAllegianceSpecialPower | 10 | 0 | 0x008CBF4F | 2 | none |  |
 | InvisibilitySpecialPower | 10 | 0 | 0x008C6583 | 1 | none | Rva004D9F75::rva004D9F75 (tier A) |
 | UntamedAllegianceSpecialPower | 10 | 0 | 0x008C6583 | 1 | none | Rva004D9F75::rva004D9F75 (tier A) |
-| InvisibilitySpecialPower | 10 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
-| InvisibilitySpecialPower | 10 | 1 | 0x008972B2 | 18 | none |  |
-| UntamedAllegianceSpecialPower | 10 | 1 | 0x008972B2 | 18 | none |  |
 | InvisibilitySpecialPower | 10 | 1 | 0x008C66B3 | 17 | none | InvisibilitySpecialPowerModuleData::~InvisibilitySpecialPowerModuleData (tier B) |
 | InvisibilitySpecialPower | 10 | 1 | 0x0044A2A5 | 15 | none | BfmeWideResult::~BfmeWideResult (tier A) |
 | HordeTransportContainDamage | 10 | 1 | 0x008BF215 | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
 | UntamedAllegianceSpecialPower | 10 | 1 | 0x008CBF55 | 4 | none | PlayerHealSpecialPower::~PlayerHealSpecialPower (tier A) |
-| HordeTransportContainDamage | 10 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | InvisibilitySpecialPower | 10 | 1 | 0x008C65CD | 1 | none | IPAVState::map<>::~map<> (tier A) |
 | InvisibilitySpecialPower | 10 | 2 | 0x00897583 | 51 | none |  |
 | UntamedAllegianceSpecialPower | 10 | 2 | 0x00897583 | 51 | none |  |
@@ -19733,7 +19293,6 @@ calls; their targets are not followed.
 | InvisibilitySpecialPower | 10 | 4 | 0x006D527E | 81 | none | RadarWindowOverrideSource::rva002D4240 (tier B) |
 | UntamedAllegianceSpecialPower | 10 | 4 | 0x006AE011 | 67 | none |  |
 | InvisibilitySpecialPower | 10 | 4 | 0x0094EB38 | 27 | none | VUnicodeString::list<>::erase (tier A) |
-| UntamedAllegianceSpecialPower | 10 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | UntamedAllegianceSpecialPower | 10 | 4 | 0x00678816 | 27 | partial |  |
 | UntamedAllegianceSpecialPower | 10 | 4 | 0x007A2045 | 25 | none |  |
 | UntamedAllegianceSpecialPower | 10 | 4 | 0x00805A57 | 25 | none | VRva00297360Element::vector<>::push_back (tier A) |
@@ -20156,20 +19715,16 @@ calls; their targets are not followed.
 | ClearanceTestingSlowDeathBehavior | 9 | 0 | 0x00886EF2 | 6 | none |  |
 | SiegeEngineContain | 9 | 0 | 0x0087EC6E | 6 | none |  |
 | ClearanceTestingSlowDeathBehavior | 9 | 0 | 0x00887082 | 4 | none |  |
-| DarknessSpecialPower | 9 | 0 | 0x008C6606 | 4 | none |  |
 | ClearanceTestingSlowDeathBehavior | 9 | 0 | 0x00887013 | 3 | none |  |
 | ClearanceTestingSlowDeathBehavior | 9 | 0 | 0x00886EE0 | 2 | none |  |
 | DarknessSpecialPower | 9 | 0 | 0x008C924E | 2 | none |  |
 | SiegeEngineContain | 9 | 0 | 0x0087F2D4 | 2 | none |  |
 | SiegeEngineContain | 9 | 0 | 0x0087F2F5 | 2 | none |  |
-| ClearanceTestingSlowDeathBehavior | 9 | 0 | 0x008E38D8 | 1 | none | Rva004DFCE1::~Rva004DFCE1 (tier A) |
 | DarknessSpecialPower | 9 | 0 | 0x008C6583 | 1 | none | Rva004D9F75::rva004D9F75 (tier A) |
-| SiegeEngineContain | 9 | 0 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | SiegeEngineContain | 9 | 0 | 0x0087FCEF | 1 | none | HorseHordeContainModuleData::~HorseHordeContainModuleData (tier A) |
 | SiegeEngineContain | 9 | 1 | 0x0087F205 | 51 | none |  |
 | SiegeEngineContain | 9 | 1 | 0x0076CAF1 | 36 | none | URva0036ADF9Element::list<>::list<> (tier A) |
 | SiegeEngineContain | 9 | 1 | 0x008666A1 | 29 | none |  |
-| DarknessSpecialPower | 9 | 1 | 0x008972B2 | 18 | none |  |
 | SiegeEngineContain | 9 | 1 | 0x00866267 | 9 | none |  |
 | SiegeEngineContain | 9 | 1 | 0x0086629F | 9 | none |  |
 | ClearanceTestingSlowDeathBehavior | 9 | 1 | 0x00886EB2 | 7 | none |  |
@@ -20190,7 +19745,6 @@ calls; their targets are not followed.
 | ClearanceTestingSlowDeathBehavior | 9 | 2 | 0x008603CC | 6 | none | ShipSlowDeathBehavior::~ShipSlowDeathBehavior (tier A) |
 | SiegeEngineContain | 9 | 2 | 0x00430170 | 4 | none |  |
 | SiegeEngineContain | 9 | 2 | 0x00942368 | 2 | none | CreateAHeroManager::VCreateAHeroSubClass::vector<>::get_allocator (tier A) |
-| ClearanceTestingSlowDeathBehavior | 9 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | SiegeEngineContain | 9 | 2 | 0x00A3CF22 | 1 | none | ji_00629182 (tier A) |
 | ClearanceTestingSlowDeathBehavior | 9 | 3 | 0x00A3B930 | 99 | none |  |
 | SiegeEngineContain | 9 | 3 | 0x00867947 | 59 | none | OpenContain::~OpenContain (tier B) |
@@ -20234,7 +19788,6 @@ calls; their targets are not followed.
 | SiegeEngineContain | 9 | 4 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
 | ClearanceTestingSlowDeathBehavior | 9 | 4 | 0x0047B7DA | 27 | none |  |
 | ClearanceTestingSlowDeathBehavior | 9 | 4 | 0x00491AEF | 27 | none | UGeometryShape::_Vector_base<>::_Vector_base<> (tier A) |
-| DarknessSpecialPower | 9 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | SiegeEngineContain | 9 | 4 | 0x008E3B71 | 26 | none | Rva004DF7DB::rva004DF7DB (tier A) |
 | SiegeEngineContain | 9 | 4 | 0x006D9004 | 25 | none | Rva002D7FAEOwner::rva002D7FAE (tier B) |
 | SiegeEngineContain | 9 | 4 | 0x0073EE52 | 25 | none | UModelConditionInfo::SparseMatchFinder<>::findBestInfo (tier A) |
@@ -20283,7 +19836,6 @@ calls; their targets are not followed.
 | SiegeEngineContain | 9 | 5 | 0x00734C93 | 31 | none | Rva00333374Get (tier A) |
 | SiegeEngineContain | 9 | 5 | 0x006AE86E | 28 | none | Rva002ADD75Equal (tier A) |
 | SiegeEngineContain | 9 | 5 | 0x007628FD | 28 | none | ?8W4ScienceType<> (tier A) |
-| SiegeEngineContain | 9 | 5 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | SiegeEngineContain | 9 | 5 | 0x006D871C | 27 | none | Rva002D76C6Remove (tier B) |
 | SiegeEngineContain | 9 | 5 | 0x00406346 | 25 | none | D::StringBase<>::compareNoCase (tier B) |
 | SiegeEngineContain | 9 | 5 | 0x00764293 | 25 | none | BuffInstance::TurnOff (tier A) |
@@ -20409,7 +19961,6 @@ calls; their targets are not followed.
 | SiegeEngineContain | 9 | 7 | 0x006ACA3D | 31 | none | _STL::I::IV?$allocator::vector<>::vector<> (tier A) |
 | SiegeEngineContain | 9 | 7 | 0x0082FEB0 | 31 | none | W4ScienceType::$$CBHV?$vector::U?$pair::hashtable<>::_M_insert (tier A) |
 | DarknessSpecialPower | 9 | 7 | 0x004374E0 | 30 | none | D::StringBase<>::StringBase<> (tier A) |
-| ClearanceTestingSlowDeathBehavior | 9 | 7 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | DarknessSpecialPower | 9 | 7 | 0x00436990 | 27 | none | G::StringBase<>::StringBase<> (tier A) |
 | DarknessSpecialPower | 9 | 7 | 0x00622163 | 26 | none |  |
 | DarknessSpecialPower | 9 | 7 | 0x008E5A05 | 26 | none | PBUBfmeE12::__copy<> (tier A) |
@@ -20756,38 +20307,23 @@ calls; their targets are not followed.
 | BoredUpdate | 8 | 0 | 0x004B612F | 10 | none | Rva002115D0::rva002115D0 (tier A) |
 | TaintSpecialPower | 8 | 0 | 0x004B612F | 10 | none | Rva002115D0::rva002115D0 (tier A) |
 | StoreObjectsSpecialPower | 8 | 0 | 0x008D1EA7 | 8 | partial |  |
-| DevastateSpecialPower | 8 | 0 | 0x008C6606 | 4 | none |  |
 | ReplaceObjectUpdate | 8 | 0 | 0x008B6AE3 | 4 | none |  |
-| StoreObjectsSpecialPower | 8 | 0 | 0x008C6E67 | 4 | none |  |
-| TaintSpecialPower | 8 | 0 | 0x008C6606 | 4 | none |  |
-| TeleportToCasterSpecialPower | 8 | 0 | 0x008C6E67 | 4 | none |  |
-| BoredUpdate | 8 | 0 | 0x00464A09 | 2 | none | W3DQuadrupedDrawModuleData::W3DQuadrupedDrawModuleData (tier C) |
 | BoredUpdate | 8 | 0 | 0x00899E41 | 2 | none |  |
 | DevastateSpecialPower | 8 | 0 | 0x008CC639 | 2 | none |  |
 | ReplaceObjectUpdate | 8 | 0 | 0x008B6ABD | 2 | none |  |
 | ScavengerSpecialPower | 8 | 0 | 0x008C8820 | 2 | none |  |
 | StoreObjectsSpecialPower | 8 | 0 | 0x008D1DD3 | 2 | none |  |
-| TaintSpecialPower | 8 | 0 | 0x00464A09 | 2 | none | W3DQuadrupedDrawModuleData::W3DQuadrupedDrawModuleData (tier C) |
 | TaintSpecialPower | 8 | 0 | 0x008C8D79 | 2 | none |  |
 | TeleportToCasterSpecialPower | 8 | 0 | 0x008D1878 | 2 | none |  |
 | WallUpgradeUpdate | 8 | 0 | 0x008AE968 | 2 | none |  |
 | DevastateSpecialPower | 8 | 0 | 0x008C6583 | 1 | none | Rva004D9F75::rva004D9F75 (tier A) |
-| ReplaceObjectUpdate | 8 | 0 | 0x008E38D8 | 1 | none | Rva004DFCE1::~Rva004DFCE1 (tier A) |
 | ScavengerSpecialPower | 8 | 0 | 0x008C6583 | 1 | none | Rva004D9F75::rva004D9F75 (tier A) |
-| StoreObjectsSpecialPower | 8 | 0 | 0x008E38D8 | 1 | none | Rva004DFCE1::~Rva004DFCE1 (tier A) |
 | TaintSpecialPower | 8 | 0 | 0x008C6583 | 1 | none | Rva004D9F75::rva004D9F75 (tier A) |
-| TeleportToCasterSpecialPower | 8 | 0 | 0x008E38D8 | 1 | none | Rva004DFCE1::~Rva004DFCE1 (tier A) |
-| BoredUpdate | 8 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
-| TaintSpecialPower | 8 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | StoreObjectsSpecialPower | 8 | 1 | 0x008D1E1E | 24 | none |  |
-| DevastateSpecialPower | 8 | 1 | 0x008972B2 | 18 | none |  |
-| ScavengerSpecialPower | 8 | 1 | 0x008972B2 | 18 | none |  |
-| TaintSpecialPower | 8 | 1 | 0x008972B2 | 18 | none |  |
 | TaintSpecialPower | 8 | 1 | 0x008C8FC0 | 17 | none | TaintSpecialPowerModuleData::~TaintSpecialPowerModuleData (tier A) |
 | WallUpgradeUpdate | 8 | 1 | 0x008AEBA6 | 16 | none |  |
 | BoredUpdate | 8 | 1 | 0x0089A145 | 15 | none | BoredUpdateModuleData::~BoredUpdateModuleData (tier A) |
 | DevastateSpecialPower | 8 | 1 | 0x004380C0 | 12 | none | _bfme_debugRecordCallsite (tier D) |
-| ReplaceObjectUpdate | 8 | 1 | 0x00852782 | 8 | none |  |
 | WallUpgradeUpdate | 8 | 1 | 0x008AE941 | 6 | none | SiegeDeployHordeSpecialPower::~SiegeDeployHordeSpecialPower (tier A) |
 | ReplaceObjectUpdate | 8 | 1 | 0x008B6AC3 | 5 | none | Rva004B29BE::~Rva004B29BE (tier A) |
 | TeleportToCasterSpecialPower | 8 | 1 | 0x008D187E | 5 | none | Rva004C6943::~Rva004C6943 (tier A) |
@@ -20795,8 +20331,6 @@ calls; their targets are not followed.
 | DevastateSpecialPower | 8 | 1 | 0x008CC63F | 4 | none | PlayerHealSpecialPower::~PlayerHealSpecialPower (tier A) |
 | ScavengerSpecialPower | 8 | 1 | 0x008C8842 | 4 | none | GrabPassengerSpecialPower::~GrabPassengerSpecialPower (tier A) |
 | TaintSpecialPower | 8 | 1 | 0x008C8D7F | 4 | none | GrabPassengerSpecialPower::~GrabPassengerSpecialPower (tier A) |
-| BoredUpdate | 8 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| WallUpgradeUpdate | 8 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | DevastateSpecialPower | 8 | 2 | 0x00897583 | 51 | none |  |
 | ScavengerSpecialPower | 8 | 2 | 0x00897583 | 51 | none |  |
 | TaintSpecialPower | 8 | 2 | 0x00897583 | 51 | none |  |
@@ -20810,9 +20344,6 @@ calls; their targets are not followed.
 | BoredUpdate | 8 | 2 | 0x007629B0 | 4 | none |  |
 | StoreObjectsSpecialPower | 8 | 2 | 0x00430170 | 4 | none |  |
 | WallUpgradeUpdate | 8 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
-| ReplaceObjectUpdate | 8 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| StoreObjectsSpecialPower | 8 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| TeleportToCasterSpecialPower | 8 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | BoredUpdate | 8 | 3 | 0x00A3B930 | 99 | none |  |
 | BoredUpdate | 8 | 3 | 0x00A3AC70 | 40 | none | FlightDeckBehavior::PAUFlightDeckInfo::__uninitialized_fill_n<> (tier D) |
 | DevastateSpecialPower | 8 | 3 | 0x006D5397 | 26 | none |  |
@@ -20855,8 +20386,6 @@ calls; their targets are not followed.
 | WallUpgradeUpdate | 8 | 4 | 0x00A3AC70 | 40 | none | FlightDeckBehavior::PAUFlightDeckInfo::__uninitialized_fill_n<> (tier D) |
 | BoredUpdate | 8 | 4 | 0x00A3ABD0 | 32 | none | FlightDeckBehavior::PAUFlightDeckInfo::__uninitialized_copy<> (tier A) |
 | BoredUpdate | 8 | 4 | 0x00A3AC20 | 31 | none |  |
-| DevastateSpecialPower | 8 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
-| ScavengerSpecialPower | 8 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | TaintSpecialPower | 8 | 4 | 0x0076293A | 23 | none | Rva00360CB0Release (tier A) |
 | ReplaceObjectUpdate | 8 | 4 | 0x005D91D1 | 22 | none | OpaqueRefElement4::operator= (tier A) |
 | StoreObjectsSpecialPower | 8 | 4 | 0x005D91D1 | 22 | none | OpaqueRefElement4::operator= (tier A) |
@@ -21612,7 +21141,6 @@ calls; their targets are not followed.
 | AODHordeContain | 6 | 0 | 0x0087E784 | 2 | none |  |
 | SpecialDisguiseUpdate | 6 | 0 | 0x008B42E0 | 2 | none |  |
 | AODHordeContain | 6 | 0 | 0x0087D917 | 1 | none | HorseHordeContainModuleData::~HorseHordeContainModuleData (tier A) |
-| SpecialDisguiseUpdate | 6 | 0 | 0x008E38D8 | 1 | none | Rva004DFCE1::~Rva004DFCE1 (tier A) |
 | AODHordeContain | 6 | 1 | 0x0087E7CF | 45 | none | AODHordeContain::~AODHordeContain (tier D) |
 | AODHordeContain | 6 | 1 | 0x0087E516 | 26 | none |  |
 | SpecialDisguiseUpdate | 6 | 1 | 0x008B4271 | 6 | none |  |
@@ -21629,7 +21157,6 @@ calls; their targets are not followed.
 | SpecialDisguiseUpdate | 6 | 2 | 0x006650CC | 10 | none |  |
 | SpecialDisguiseUpdate | 6 | 2 | 0x0068FC98 | 6 | none |  |
 | AODHordeContain | 6 | 2 | 0x00430170 | 4 | none |  |
-| SpecialDisguiseUpdate | 6 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | AODHordeContain | 6 | 3 | 0x0087336F | 79 | none | VRva00064640Record::vector<>::_M_insert_overflow (tier B) |
 | SpecialDisguiseUpdate | 6 | 3 | 0x0081C193 | 48 | none | HURva004393D6::map<>::operator[] (tier A) |
 | SpecialDisguiseUpdate | 6 | 3 | 0x0085251A | 46 | partial | SpecialAbilityUpdate::killSpecialObjects (tier B) |
@@ -21677,7 +21204,6 @@ calls; their targets are not followed.
 | SpecialDisguiseUpdate | 6 | 4 | 0x00A3AC70 | 40 | none | FlightDeckBehavior::PAUFlightDeckInfo::__uninitialized_fill_n<> (tier D) |
 | AODHordeContain | 6 | 4 | 0x0067876B | 36 | none | Rva00278440Host::rva00278440 (tier A) |
 | AODHordeContain | 6 | 4 | 0x005E0A39 | 28 | partial | QBVGameWindow::U?$pair::hashtable<>::begin (tier A) |
-| SpecialDisguiseUpdate | 6 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | AODHordeContain | 6 | 4 | 0x008E3B71 | 26 | none | Rva004DF7DB::rva004DF7DB (tier A) |
 | AODHordeContain | 6 | 4 | 0x0042C978 | 23 | none | VAsciiString::_Rb_tree<>::~_Rb_tree<> (tier D) |
 | SpecialDisguiseUpdate | 6 | 4 | 0x005D91D1 | 22 | none | OpaqueRefElement4::operator= (tier A) |
@@ -21857,7 +21383,6 @@ calls; their targets are not followed.
 | AODHordeContain | 6 | 12 | 0x004360C0 | 63 | none |  |
 | SpecialDisguiseUpdate | 6 | 12 | 0x007B48A5 | 46 | partial |  |
 | SpecialDisguiseUpdate | 6 | 12 | 0x004367B0 | 42 | none |  |
-| AODHordeContain | 6 | 12 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | AODHordeContain | 6 | 12 | 0x0079FEAF | 18 | none | Rva0039D8FBLess (tier B) |
 | SpecialDisguiseUpdate | 6 | 12 | 0x00676B5A | 10 | none | Drawable::rva0027682F (tier A) |
 | SpecialDisguiseUpdate | 6 | 12 | 0x00676B73 | 10 | none | Drawable::rva00276848 (tier A) |
@@ -22049,8 +21574,6 @@ calls; their targets are not followed.
 | LocomotorSetUpgrade | 5 | 0 | 0x008B80F6 | 7 | none |  |
 | DeployStyleAIUpdate | 5 | 0 | 0x00891D88 | 6 | none |  |
 | DeployStyleAIUpdate | 5 | 0 | 0x00891F87 | 5 | none |  |
-| FreezingRainSpecialPower | 5 | 0 | 0x008C6606 | 4 | none |  |
-| ToggleDeploySpecialAbilityUpdate | 5 | 0 | 0x008C6E67 | 4 | none |  |
 | AllowBannerSpawnUpgrade | 5 | 0 | 0x008BC651 | 2 | none |  |
 | DeployStyleAIUpdate | 5 | 0 | 0x00891F81 | 2 | none |  |
 | FreezingRainSpecialPower | 5 | 0 | 0x008C9084 | 2 | none |  |
@@ -22061,24 +21584,15 @@ calls; their targets are not followed.
 | ToggleDeploySpecialAbilityUpdate | 5 | 0 | 0x008B1BB8 | 2 | none |  |
 | DeployStyleAIUpdate | 5 | 0 | 0x00892C33 | 1 | none | WanderAIUpdateModuleData::~WanderAIUpdateModuleData (tier A) |
 | FreezingRainSpecialPower | 5 | 0 | 0x008C6583 | 1 | none | Rva004D9F75::rva004D9F75 (tier A) |
-| RousingSpeechUpdate | 5 | 0 | 0x008E38D8 | 1 | none | Rva004DFCE1::~Rva004DFCE1 (tier A) |
-| ToggleDeploySpecialAbilityUpdate | 5 | 0 | 0x008E38D8 | 1 | none | Rva004DFCE1::~Rva004DFCE1 (tier A) |
-| SpawnUnitBehavior | 5 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | DeployStyleAIUpdate | 5 | 1 | 0x00891EE2 | 22 | none | DeployStyleAIUpdate::~DeployStyleAIUpdate (tier B) |
-| FreezingRainSpecialPower | 5 | 1 | 0x008972B2 | 18 | none |  |
 | RousingSpeechUpdate | 5 | 1 | 0x008B050A | 16 | none |  |
 | LocomotorSetUpgrade | 5 | 1 | 0x006624E5 | 11 | none | AIUpdateInterface::rva00262804 (tier A) |
-| RousingSpeechUpdate | 5 | 1 | 0x00852782 | 8 | none |  |
 | AllowBannerSpawnUpgrade | 5 | 1 | 0x008BC631 | 5 | none |  |
 | LocomotorSetUpgrade | 5 | 1 | 0x008B801B | 5 | none |  |
 | SpawnUnitBehavior | 5 | 1 | 0x008BC879 | 5 | none | Rva004B29BE::~Rva004B29BE (tier A) |
 | ToggleDeploySpecialAbilityUpdate | 5 | 1 | 0x008B1BBE | 5 | none | Rva004B29BE::~Rva004B29BE (tier A) |
 | FreezingRainSpecialPower | 5 | 1 | 0x008C908A | 4 | none | GrabPassengerSpecialPower::~GrabPassengerSpecialPower (tier A) |
 | StrafeAreaUpdate | 5 | 1 | 0x007A803C | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
-| AllowBannerSpawnUpgrade | 5 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| LocomotorSetUpgrade | 5 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| SpawnUnitBehavior | 5 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| StrafeAreaUpdate | 5 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | RousingSpeechUpdate | 5 | 2 | 0x00852914 | 88 | none | SpecialAbilityUpdate::initLaser (tier B) |
 | ToggleDeploySpecialAbilityUpdate | 5 | 2 | 0x00852914 | 88 | none | SpecialAbilityUpdate::initLaser (tier B) |
 | FreezingRainSpecialPower | 5 | 2 | 0x00687059 | 71 | none |  |
@@ -22100,9 +21614,6 @@ calls; their targets are not followed.
 | LocomotorSetUpgrade | 5 | 2 | 0x0086393B | 5 | none |  |
 | SpawnUnitBehavior | 5 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
 | StrafeAreaUpdate | 5 | 2 | 0x0064A492 | 4 | none | ObjectHelper::~ObjectHelper (tier B) |
-| DeployStyleAIUpdate | 5 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| RousingSpeechUpdate | 5 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| ToggleDeploySpecialAbilityUpdate | 5 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | DeployStyleAIUpdate | 5 | 3 | 0x00752FAC | 94 | none |  |
 | RousingSpeechUpdate | 5 | 3 | 0x005DCBB3 | 60 | none | Eva::internalReportEvaEvent (tier A) |
 | RousingSpeechUpdate | 5 | 3 | 0x0085251A | 46 | partial | SpecialAbilityUpdate::killSpecialObjects (tier B) |
@@ -22179,10 +21690,6 @@ calls; their targets are not followed.
 | DeployStyleAIUpdate | 5 | 4 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
 | SpawnUnitBehavior | 5 | 4 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
 | SpawnUnitBehavior | 5 | 4 | 0x007A19AB | 28 | none |  |
-| DeployStyleAIUpdate | 5 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
-| FreezingRainSpecialPower | 5 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
-| RousingSpeechUpdate | 5 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
-| ToggleDeploySpecialAbilityUpdate | 5 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | DeployStyleAIUpdate | 5 | 4 | 0x008E3B71 | 26 | none | Rva004DF7DB::rva004DF7DB (tier A) |
 | DeployStyleAIUpdate | 5 | 4 | 0x00805A57 | 25 | none | VRva00297360Element::vector<>::push_back (tier A) |
 | DeployStyleAIUpdate | 5 | 4 | 0x0042C978 | 23 | none | VAsciiString::_Rb_tree<>::~_Rb_tree<> (tier D) |
@@ -23295,11 +22802,9 @@ calls; their targets are not followed.
 | SiegeAIUpdate | 4 | 0 | 0x00893BF2 | 2 | none |  |
 | SiegeDeploySpecialPower | 4 | 0 | 0x008C9BC5 | 2 | none |  |
 | SymbioticStructuresBody | 4 | 0 | 0x008C4C01 | 2 | none |  |
-| HordeSiegeEngineContain | 4 | 0 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | HordeSiegeEngineContain | 4 | 0 | 0x0087FCD7 | 1 | none | HorseHordeContainModuleData::~HorseHordeContainModuleData (tier A) |
 | HordeSiegeEngineContain | 4 | 0 | 0x0087FCEF | 1 | none | HorseHordeContainModuleData::~HorseHordeContainModuleData (tier A) |
 | SiegeAIUpdate | 4 | 0 | 0x00892C33 | 1 | none | WanderAIUpdateModuleData::~WanderAIUpdateModuleData (tier A) |
-| SiegeDeploySpecialPower | 4 | 0 | 0x008E38D8 | 1 | none | Rva004DFCE1::~Rva004DFCE1 (tier A) |
 | SymbioticStructuresBody | 4 | 0 | 0x008C4CF1 | 1 | none |  |
 | SymbioticStructuresBody | 4 | 1 | 0x008C4DE3 | 61 | none | SymbioticStructuresBody::rva004C0C52 (tier A) |
 | HordeSiegeEngineContain | 4 | 1 | 0x00880242 | 51 | none | HordeSiegeEngineContain::~HordeSiegeEngineContain (tier B) |
@@ -23308,14 +22813,12 @@ calls; their targets are not followed.
 | HordeSiegeEngineContain | 4 | 1 | 0x0076CAF1 | 36 | none | URva0036ADF9Element::list<>::list<> (tier A) |
 | SymbioticStructuresBody | 4 | 1 | 0x004374E0 | 30 | none | D::StringBase<>::StringBase<> (tier A) |
 | HordeSiegeEngineContain | 4 | 1 | 0x008666A1 | 29 | none |  |
-| SymbioticStructuresBody | 4 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | SymbioticStructuresBody | 4 | 1 | 0x008C4CF4 | 25 | none |  |
 | SiegeDeploySpecialPower | 4 | 1 | 0x008C9C50 | 21 | none | SiegeDeploySpecialPower::~SiegeDeploySpecialPower (tier A) |
 | HordeSiegeEngineContain | 4 | 1 | 0x00866267 | 9 | none |  |
 | HordeSiegeEngineContain | 4 | 1 | 0x0086629F | 9 | none |  |
 | HordeSiegeEngineContain | 4 | 1 | 0x0087A3EB | 6 | none |  |
 | SiegeAIUpdate | 4 | 1 | 0x00893BF8 | 6 | none | ShipSlowDeathBehavior::~ShipSlowDeathBehavior (tier A) |
-| SiegeDeploySpecialPower | 4 | 1 | 0x009912DB | 6 | none |  |
 | SymbioticStructuresBody | 4 | 1 | 0x008C4BE8 | 4 | none | OCLSpecialPower::~OCLSpecialPower (tier A) |
 | HordeSiegeEngineContain | 4 | 1 | 0x0087CFE6 | 1 | none | HordeGarrisonContain::~HordeGarrisonContain (tier A) |
 | SymbioticStructuresBody | 4 | 1 | 0x00A3CF22 | 1 | none | ji_00629182 (tier A) |
@@ -23336,15 +22839,12 @@ calls; their targets are not followed.
 | HordeSiegeEngineContain | 4 | 2 | 0x005FFE1E | 10 | none |  |
 | HordeSiegeEngineContain | 4 | 2 | 0x005FFE47 | 10 | none |  |
 | OilSpillUpdate | 4 | 2 | 0x005DD47E | 10 | none | $$CBHURva00148B27Element::U?$pair::hashtable<>::H::find<> (tier A) |
-| SiegeDeploySpecialPower | 4 | 2 | 0x0099113F | 6 | none | SiegeDeployHordeSpecialPower::~SiegeDeployHordeSpecialPower (tier A) |
 | SiegeAIUpdate | 4 | 2 | 0x0068B44B | 5 | none | Object::rva0028AD7C (tier A) |
 | HordeSiegeEngineContain | 4 | 2 | 0x00430170 | 4 | none |  |
 | OilSpillUpdate | 4 | 2 | 0x00430170 | 4 | none |  |
 | HordeSiegeEngineContain | 4 | 2 | 0x00942368 | 2 | none | CreateAHeroManager::VCreateAHeroSubClass::vector<>::get_allocator (tier A) |
 | HordeSiegeEngineContain | 4 | 2 | 0x0086970E | 1 | none | Rva0046468D::~Rva0046468D (tier A) |
 | HordeSiegeEngineContain | 4 | 2 | 0x00A3CF22 | 1 | none | ji_00629182 (tier A) |
-| SiegeAIUpdate | 4 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| SiegeDeploySpecialPower | 4 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | HordeSiegeEngineContain | 4 | 3 | 0x00752FAC | 94 | none |  |
 | HordeSiegeEngineContain | 4 | 3 | 0x004813E1 | 79 | none | UBfmePod44::vector<>::_M_insert_overflow (tier B) |
 | HordeSiegeEngineContain | 4 | 3 | 0x00867947 | 59 | none | OpenContain::~OpenContain (tier B) |
@@ -23410,7 +22910,6 @@ calls; their targets are not followed.
 | HordeSiegeEngineContain | 4 | 4 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
 | HordeSiegeEngineContain | 4 | 4 | 0x006799A2 | 28 | none |  |
 | SiegeAIUpdate | 4 | 4 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
-| SiegeAIUpdate | 4 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | SiegeDeploySpecialPower | 4 | 4 | 0x00678816 | 27 | partial |  |
 | HordeSiegeEngineContain | 4 | 4 | 0x008E3B71 | 26 | none | Rva004DF7DB::rva004DF7DB (tier A) |
 | SiegeDeploySpecialPower | 4 | 4 | 0x006D01C1 | 26 | none | H::HV?$Rva002444BEAllocator::_Vector_base<>::_Vector_base<> (tier A) |
@@ -23498,7 +22997,6 @@ calls; their targets are not followed.
 | HordeSiegeEngineContain | 4 | 5 | 0x006AE86E | 28 | none | Rva002ADD75Equal (tier A) |
 | HordeSiegeEngineContain | 4 | 5 | 0x007628FD | 28 | none | ?8W4ScienceType<> (tier A) |
 | OilSpillUpdate | 4 | 5 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
-| HordeSiegeEngineContain | 4 | 5 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | HordeSiegeEngineContain | 4 | 5 | 0x006D871C | 27 | none | Rva002D76C6Remove (tier B) |
 | HordeSiegeEngineContain | 4 | 5 | 0x008E5A05 | 26 | none | PBUBfmeE12::__copy<> (tier A) |
 | HordeSiegeEngineContain | 4 | 5 | 0x00406346 | 25 | none | D::StringBase<>::compareNoCase (tier B) |
@@ -23881,7 +23379,6 @@ calls; their targets are not followed.
 | HordeWorkerAIUpdate | 3 | 0 | 0x0089E5CC | 6 | none |  |
 | OneRingPenaltyUpdate | 3 | 0 | 0x0089D109 | 6 | none |  |
 | ToppleUpdate | 3 | 0 | 0x008ABDBD | 6 | none |  |
-| CombineHordeSpecialPower | 3 | 0 | 0x008C6606 | 4 | none |  |
 | CombineHordeSpecialPower | 3 | 0 | 0x008CCC15 | 2 | none |  |
 | GateProxyBehavior | 3 | 0 | 0x0064E03B | 2 | none |  |
 | GateProxyBehavior | 3 | 0 | 0x006530AC | 2 | none |  |
@@ -23889,7 +23386,6 @@ calls; their targets are not followed.
 | LaserUpdate | 3 | 0 | 0x00764BB3 | 2 | none |  |
 | OCLUpdate | 3 | 0 | 0x0089EA82 | 2 | none |  |
 | OneRingPenaltyUpdate | 3 | 0 | 0x0089D103 | 2 | none |  |
-| ToppleUpdate | 3 | 0 | 0x00464A09 | 2 | none | W3DQuadrupedDrawModuleData::W3DQuadrupedDrawModuleData (tier C) |
 | ToppleUpdate | 3 | 0 | 0x008AB787 | 2 | none |  |
 | CombineHordeSpecialPower | 3 | 0 | 0x008C6583 | 1 | none | Rva004D9F75::rva004D9F75 (tier A) |
 | GateProxyBehavior | 3 | 0 | 0x0089C45B | 1 | none | WeaponSetUpgrade::loadPostProcess (tier A) |
@@ -23898,10 +23394,8 @@ calls; their targets are not followed.
 | W3DLaserDraw | 3 | 1 | 0x004C9229 | 41 | none |  |
 | W3DLaserDraw | 3 | 1 | 0x0055E9F0 | 41 | none |  |
 | ToppleUpdate | 3 | 1 | 0x0068D58C | 35 | none | Object::topple (tier A) |
-| ToppleUpdate | 3 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | HordeWorkerAIUpdate | 3 | 1 | 0x0089E623 | 23 | none | Rva0049AE5E::rva0049AE5E (tier B) |
 | HordeWorkerAIUpdate | 3 | 1 | 0x0089E41F | 19 | none | HordeAIUpdate::bfmePrivateCommand42 (tier D) |
-| CombineHordeSpecialPower | 3 | 1 | 0x008972B2 | 18 | none |  |
 | GateProxyBehavior | 3 | 1 | 0x0089C37A | 18 | none |  |
 | ToppleUpdate | 3 | 1 | 0x008ABA7D | 15 | none | ToppleUpdateModuleData::~ToppleUpdateModuleData (tier A) |
 | W3DLaserDraw | 3 | 1 | 0x0055DBE0 | 13 | none |  |
@@ -23914,9 +23408,6 @@ calls; their targets are not followed.
 | W3DLaserDraw | 3 | 1 | 0x0055DB80 | 2 | none | SegmentedLineClass::Set_Texture_Tile_Factor (tier A) |
 | W3DLaserDraw | 3 | 1 | 0x0055DCE0 | 2 | none | SegmentedLineClass::Set_Texture_Tile_Factor (tier A) |
 | HordeWorkerAIUpdate | 3 | 1 | 0x00892C33 | 1 | none | WanderAIUpdateModuleData::~WanderAIUpdateModuleData (tier A) |
-| OCLUpdate | 3 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| OneRingPenaltyUpdate | 3 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| ToppleUpdate | 3 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | ToppleUpdate | 3 | 2 | 0x008ABAAD | 147 | none |  |
 | CombineHordeSpecialPower | 3 | 2 | 0x00897583 | 51 | none |  |
 | GateProxyBehavior | 3 | 2 | 0x00436030 | 44 | none | D::StringBase<>::set (tier A) |
@@ -23953,14 +23444,12 @@ calls; their targets are not followed.
 | OCLUpdate | 3 | 3 | 0x007AEAFD | 2 | none | SecondBase005D2111::~SecondBase005D2111 (tier A) |
 | OneRingPenaltyUpdate | 3 | 3 | 0x007AEAFD | 2 | none | SecondBase005D2111::~SecondBase005D2111 (tier A) |
 | ToppleUpdate | 3 | 3 | 0x007AEAFD | 2 | none | SecondBase005D2111::~SecondBase005D2111 (tier A) |
-| HordeWorkerAIUpdate | 3 | 3 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | HordeWorkerAIUpdate | 3 | 3 | 0x00A3CF10 | 1 | none | ji_006291a8 (tier A) |
 | HordeWorkerAIUpdate | 3 | 4 | 0x00435D50 | 42 | none |  |
 | LaserUpdate | 3 | 4 | 0x005FC2FE | 38 | none | Make001FCBD7 (tier C) |
 | HordeWorkerAIUpdate | 3 | 4 | 0x00B5B910 | 35 | none | _lua_getglobal (tier A) |
 | HordeWorkerAIUpdate | 3 | 4 | 0x005E7607 | 34 | none |  |
 | HordeWorkerAIUpdate | 3 | 4 | 0x00734C93 | 31 | none | Rva00333374Get (tier A) |
-| CombineHordeSpecialPower | 3 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | OneRingPenaltyUpdate | 3 | 4 | 0x008E3B71 | 26 | none | Rva004DF7DB::rva004DF7DB (tier A) |
 | HordeWorkerAIUpdate | 3 | 4 | 0x00B5B2F0 | 19 | none | _lua_type (tier A) |
 | HordeWorkerAIUpdate | 3 | 4 | 0x008C2233 | 18 | none | Rva0028F528::rva0028F528 (tier A) |
@@ -23991,7 +23480,6 @@ calls; their targets are not followed.
 | LaserUpdate | 3 | 5 | 0x004374E0 | 30 | none | D::StringBase<>::StringBase<> (tier A) |
 | GateProxyBehavior | 3 | 5 | 0x006799A2 | 28 | none |  |
 | ToppleUpdate | 3 | 5 | 0x006799A2 | 28 | none |  |
-| HordeWorkerAIUpdate | 3 | 5 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | HordeWorkerAIUpdate | 3 | 5 | 0x008E5A05 | 26 | none | PBUBfmeE12::__copy<> (tier A) |
 | GateProxyBehavior | 3 | 5 | 0x0067A343 | 25 | none |  |
 | ToppleUpdate | 3 | 5 | 0x0067A343 | 25 | none |  |
@@ -24037,7 +23525,6 @@ calls; their targets are not followed.
 | GateProxyBehavior | 3 | 6 | 0x00462DBA | 33 | none |  |
 | OneRingPenaltyUpdate | 3 | 6 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
 | ToppleUpdate | 3 | 6 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
-| LaserUpdate | 3 | 6 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | HordeWorkerAIUpdate | 3 | 6 | 0x00B64760 | 23 | none | _luaH_getstr (tier A) |
 | HordeWorkerAIUpdate | 3 | 6 | 0x004355D0 | 19 | none |  |
 | HordeWorkerAIUpdate | 3 | 6 | 0x00B64CC0 | 19 | none |  |
@@ -24137,7 +23624,6 @@ calls; their targets are not followed.
 | HordeWorkerAIUpdate | 3 | 9 | 0x00B616E0 | 62 | none |  |
 | HordeWorkerAIUpdate | 3 | 9 | 0x00B61B40 | 54 | none |  |
 | HordeWorkerAIUpdate | 3 | 9 | 0x008E1B05 | 31 | none |  |
-| GateProxyBehavior | 3 | 9 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | HordeWorkerAIUpdate | 3 | 9 | 0x00B60EB0 | 27 | none | _luaD_lineHook (tier C) |
 | HordeWorkerAIUpdate | 3 | 9 | 0x00B64C60 | 16 | none | _luaH_setstrnum (tier A) |
 | ToppleUpdate | 3 | 9 | 0x006633EE | 15 | none |  |
@@ -24174,7 +23660,6 @@ calls; their targets are not followed.
 | GarrisonContain | 2 | 0 | 0x0087BB6A | 22 | none |  |
 | ProjectileStreamUpdate | 2 | 0 | 0x00740AE5 | 18 | none | ProjectileStreamUpdate::update (tier B) |
 | DetachableRiderBody | 2 | 0 | 0x008C5DD3 | 17 | none |  |
-| GarrisonContain | 2 | 0 | 0x0087B7E3 | 16 | none |  |
 | CivilianSpawnCollide | 2 | 0 | 0x008C1755 | 15 | none |  |
 | DetachableRiderBody | 2 | 0 | 0x008C5D8E | 15 | none |  |
 | DetachableRiderUpdate | 2 | 0 | 0x008B28F0 | 15 | none | DetachableRiderUpdate::getModuleNameKey (tier A) |
@@ -24212,11 +23697,8 @@ calls; their targets are not followed.
 | FreeLifeBody | 2 | 0 | 0x008C5B1E | 6 | none |  |
 | PoisonedBehavior | 2 | 0 | 0x00886326 | 6 | none |  |
 | DetachableRiderBody | 2 | 0 | 0x008C5E17 | 5 | none |  |
-| ManTheWallsSpecialPower | 2 | 0 | 0x008C6606 | 4 | none |  |
-| StopSpecialPower | 2 | 0 | 0x008C6606 | 4 | none |  |
 | DetachableRiderBody | 2 | 0 | 0x008C5DFD | 3 | none |  |
 | DetachableRiderBody | 2 | 0 | 0x008C5E0A | 3 | none |  |
-| CivilianSpawnCollide | 2 | 0 | 0x00464A09 | 2 | none | W3DQuadrupedDrawModuleData::W3DQuadrupedDrawModuleData (tier C) |
 | CivilianSpawnCollide | 2 | 0 | 0x008C174F | 2 | none |  |
 | DetachableRiderBody | 2 | 0 | 0x008C5D78 | 2 | none |  |
 | DetachableRiderUpdate | 2 | 0 | 0x008B2859 | 2 | none |  |
@@ -24234,10 +23716,8 @@ calls; their targets are not followed.
 | GarrisonContain | 2 | 0 | 0x0086970E | 1 | none | Rva0046468D::~Rva0046468D (tier A) |
 | ManTheWallsSpecialPower | 2 | 0 | 0x008C6583 | 1 | none | Rva004D9F75::rva004D9F75 (tier A) |
 | ProductionQueueHordeContain | 2 | 0 | 0x00880E8B | 1 | none | CitadelSlaughterHordeContain::~CitadelSlaughterHordeContain (tier A) |
-| SalvageCrateCollide | 2 | 0 | 0x008E38D8 | 1 | none | Rva004DFCE1::~Rva004DFCE1 (tier A) |
 | StopSpecialPower | 2 | 0 | 0x008C6583 | 1 | none | Rva004D9F75::rva004D9F75 (tier A) |
 | SwayClientUpdate | 2 | 0 | 0x008CD9CD | 1 | none | ManTheWallsSpecialPower::~ManTheWallsSpecialPower (tier A) |
-| W3DProjectileStreamDraw | 2 | 0 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | SwayClientUpdate | 2 | 1 | 0x008CD55F | 91 | none | SwayClientUpdate::updateSway (tier B) |
 | DetachableRiderBody | 2 | 1 | 0x008C35AF | 65 | none | Rva004BF40F::rva004BF40F (tier A) |
 | W3DProjectileStreamDraw | 2 | 1 | 0x004D0A7C | 65 | none |  |
@@ -24247,11 +23727,8 @@ calls; their targets are not followed.
 | W3DProjectileStreamDraw | 2 | 1 | 0x004D0C77 | 41 | none |  |
 | GarrisonContain | 2 | 1 | 0x00866D04 | 31 | none |  |
 | GarrisonContain | 2 | 1 | 0x0087B312 | 30 | none | GarrisonContain::~GarrisonContain (tier A) |
-| CivilianSpawnCollide | 2 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | ProjectileStreamUpdate | 2 | 1 | 0x007409F9 | 24 | none | ProjectileStreamUpdate::cullFrontOfList (tier A) |
 | ManTheWallsSpecialPower | 2 | 1 | 0x008CBB86 | 23 | none |  |
-| ManTheWallsSpecialPower | 2 | 1 | 0x008972B2 | 18 | none |  |
-| StopSpecialPower | 2 | 1 | 0x008972B2 | 18 | none |  |
 | CivilianSpawnCollide | 2 | 1 | 0x008C1873 | 15 | none | EvacuateDamageModuleData::~EvacuateDamageModuleData (tier A) |
 | ManTheWallsSpecialPower | 2 | 1 | 0x0044A2A5 | 15 | none | BfmeWideResult::~BfmeWideResult (tier A) |
 | PoisonedBehavior | 2 | 1 | 0x0088616B | 15 | none |  |
@@ -24269,13 +23746,9 @@ calls; their targets are not followed.
 | ProjectileStreamUpdate | 2 | 1 | 0x0074088F | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
 | SalvageCrateCollide | 2 | 1 | 0x008C12F2 | 4 | none | Rva004BCB0D::~Rva004BCB0D (tier A) |
 | StopSpecialPower | 2 | 1 | 0x008CAC2A | 4 | none | Rva004C67A0::~Rva004C67A0 (tier A) |
-| CivilianSpawnCollide | 2 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| DetachableRiderUpdate | 2 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | ManTheWallsSpecialPower | 2 | 1 | 0x008C65CD | 1 | none | IPAVState::map<>::~map<> (tier A) |
-| PoisonedBehavior | 2 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | PoisonedBehavior | 2 | 1 | 0x00A3CF22 | 1 | none | ji_00629182 (tier A) |
 | ProductionQueueHordeContain | 2 | 1 | 0x0087CFE6 | 1 | none | HordeGarrisonContain::~HordeGarrisonContain (tier A) |
-| ProjectileStreamUpdate | 2 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | SalvageCrateCollide | 2 | 1 | 0x008C1419 | 1 | none |  |
 | DetachableRiderBody | 2 | 2 | 0x00AD35B0 | 120 | none |  |
 | GarrisonContain | 2 | 2 | 0x00867947 | 59 | none | OpenContain::~OpenContain (tier B) |
@@ -24331,11 +23804,8 @@ calls; their targets are not followed.
 | W3DProjectileStreamDraw | 2 | 2 | 0x0055DB80 | 2 | none | SegmentedLineClass::Set_Texture_Tile_Factor (tier A) |
 | W3DProjectileStreamDraw | 2 | 2 | 0x0055DCE0 | 2 | none | SegmentedLineClass::Set_Texture_Tile_Factor (tier A) |
 | W3DProjectileStreamDraw | 2 | 2 | 0x007AEAFD | 2 | none | SecondBase005D2111::~SecondBase005D2111 (tier A) |
-| DetachableRiderBody | 2 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| GarrisonContain | 2 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | GarrisonContain | 2 | 2 | 0x00A3CE04 | 1 | none | __CxxThrowException@8 (tier A) |
 | ProductionQueueHordeContain | 2 | 2 | 0x0086970E | 1 | none | Rva0046468D::~Rva0046468D (tier A) |
-| SalvageCrateCollide | 2 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | ManTheWallsSpecialPower | 2 | 3 | 0x008CBBE3 | 73 | none | URva004C7878Record::vector<>::_M_insert_overflow (tier A) |
 | ManTheWallsSpecialPower | 2 | 3 | 0x005F19CD | 59 | none |  |
 | ManTheWallsSpecialPower | 2 | 3 | 0x0076F037 | 59 | partial |  |
@@ -24427,8 +23897,6 @@ calls; their targets are not followed.
 | GarrisonContain | 2 | 4 | 0x0067876B | 36 | none | Rva00278440Host::rva00278440 (tier A) |
 | ManTheWallsSpecialPower | 2 | 4 | 0x008CB9E4 | 30 | none | PAUBfmeE8::sort<> (tier A) |
 | CivilianSpawnCollide | 2 | 4 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
-| ManTheWallsSpecialPower | 2 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
-| StopSpecialPower | 2 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | W3DProjectileStreamDraw | 2 | 4 | 0x0048FA88 | 27 | none |  |
 | CivilianSpawnCollide | 2 | 4 | 0x008E3B71 | 26 | none | Rva004DF7DB::rva004DF7DB (tier A) |
 | ProjectileStreamUpdate | 2 | 4 | 0x008E3B71 | 26 | none | Rva004DF7DB::rva004DF7DB (tier A) |
@@ -24499,7 +23967,6 @@ calls; their targets are not followed.
 | DetachableRiderUpdate | 2 | 4 | 0x00A3D01A | 1 | none | _strncat (tier A) |
 | GarrisonContain | 2 | 4 | 0x00A3CF22 | 1 | none | ji_00629182 (tier A) |
 | GarrisonContain | 2 | 4 | 0x00A3D01A | 1 | none | _strncat (tier A) |
-| ProductionQueueHordeContain | 2 | 4 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | ProductionQueueHordeContain | 2 | 4 | 0x00A3CE04 | 1 | none | __CxxThrowException@8 (tier A) |
 | GarrisonContain | 2 | 5 | 0x00762AEE | 92 | none | Rva00360F55::rva00360E64 (tier A) |
 | DetachableRiderUpdate | 2 | 5 | 0x00678578 | 85 | none | Drawable::rva0027824D (tier A) |
@@ -24627,7 +24094,6 @@ calls; their targets are not followed.
 | GarrisonContain | 2 | 6 | 0x006750FA | 29 | none |  |
 | GarrisonContain | 2 | 6 | 0x006AE86E | 28 | none | Rva002ADD75Equal (tier A) |
 | GarrisonContain | 2 | 6 | 0x007628FD | 28 | none | ?8W4ScienceType<> (tier A) |
-| ProductionQueueHordeContain | 2 | 6 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | PoisonedBehavior | 2 | 6 | 0x005DD140 | 26 | none | URva001DD1B3::_Rb_tree<>::insert_equal (tier A) |
 | SalvageCrateCollide | 2 | 6 | 0x0083697E | 25 | none | _STL::$$CBIH::U?$pair::_Hashtable_iterator<>::_M_skip_to_next (tier A) |
 | CivilianSpawnCollide | 2 | 6 | 0x00763127 | 22 | none | PBUBfmePod148::__uninitialized_copy<> (tier A) |
@@ -24834,7 +24300,6 @@ calls; their targets are not followed.
 | GarrisonContain | 2 | 8 | 0x006ACA3D | 31 | none | _STL::I::IV?$allocator::vector<>::vector<> (tier A) |
 | PoisonedBehavior | 2 | 8 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
 | ProductionQueueHordeContain | 2 | 8 | 0x00B61EA0 | 27 | none | _luaG_typeerror (tier C) |
-| ProjectileStreamUpdate | 2 | 8 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | CivilianSpawnCollide | 2 | 8 | 0x006D01C1 | 26 | none | H::HV?$Rva002444BEAllocator::_Vector_base<>::_Vector_base<> (tier A) |
 | ProductionQueueHordeContain | 2 | 8 | 0x00B64240 | 26 | none | _hash_s (tier A) |
 | ProductionQueueHordeContain | 2 | 8 | 0x00764293 | 25 | none | BuffInstance::TurnOff (tier A) |
@@ -24974,8 +24439,6 @@ calls; their targets are not followed.
 | PoisonedBehavior | 2 | 10 | 0x006750FA | 29 | none |  |
 | ProductionQueueHordeContain | 2 | 10 | 0x006750FA | 29 | none |  |
 | ProductionQueueHordeContain | 2 | 10 | 0x00406307 | 28 | none | D::StringBase<>::compare (tier A) |
-| GarrisonContain | 2 | 10 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
-| PoisonedBehavior | 2 | 10 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | ProductionQueueHordeContain | 2 | 10 | 0x00B60EB0 | 27 | none | _luaD_lineHook (tier C) |
 | CivilianSpawnCollide | 2 | 10 | 0x0076FF65 | 22 | none | Rva0036E2A7::rva0036E2A7 (tier B) |
 | ProjectileStreamUpdate | 2 | 10 | 0x0076FF65 | 22 | none | Rva0036E2A7::rva0036E2A7 (tier B) |
@@ -25480,15 +24943,12 @@ calls; their targets are not followed.
 | BridgeBehavior | 1 | 0 | 0x0085A30C | 9 | none |  |
 | W3DTankDraw | 1 | 0 | 0x004CDBD7 | 8 | none |  |
 | BeaconClientUpdate | 1 | 0 | 0x008CDA03 | 6 | none |  |
-| BridgeBehavior | 1 | 0 | 0x00862758 | 6 | none |  |
 | BridgeBehavior | 1 | 0 | 0x008A18ED | 6 | none |  |
 | W3DDebrisDraw | 1 | 0 | 0x004B12FE | 6 | none |  |
 | W3DDebrisDraw | 1 | 0 | 0x004B130F | 6 | none |  |
 | W3DTankDraw | 1 | 0 | 0x004CE22D | 3 | none |  |
-| BaseUpgrade | 1 | 0 | 0x00464A09 | 2 | none | W3DQuadrupedDrawModuleData::W3DQuadrupedDrawModuleData (tier C) |
 | BaseUpgrade | 1 | 0 | 0x008B77B6 | 2 | none |  |
 | BeaconClientUpdate | 1 | 0 | 0x008CD9FD | 2 | none |  |
-| BridgeBehavior | 1 | 0 | 0x00464A09 | 2 | none | W3DQuadrupedDrawModuleData::W3DQuadrupedDrawModuleData (tier C) |
 | BridgeBehavior | 1 | 0 | 0x00859AA2 | 2 | none |  |
 | BridgeBehavior | 1 | 0 | 0x0085A249 | 2 | none |  |
 | BridgeBehavior | 1 | 0 | 0x0085A24F | 2 | none |  |
@@ -25501,8 +24961,6 @@ calls; their targets are not followed.
 | RadarMarkerClientUpdate | 1 | 0 | 0x008CE027 | 2 | none |  |
 | W3DDebrisDraw | 1 | 0 | 0x004B1601 | 2 | none |  |
 | W3DTankDraw | 1 | 0 | 0x004CE227 | 2 | none |  |
-| DamageFieldUpdate | 1 | 0 | 0x008E38D8 | 1 | none | Rva004DFCE1::~Rva004DFCE1 (tier A) |
-| W3DDebrisDraw | 1 | 0 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | W3DTankDraw | 1 | 0 | 0x004CDBD2 | 1 | none | Rva000D089D::~Rva000D089D (tier A) |
 | BeaconClientUpdate | 1 | 1 | 0x008CDAAE | 110 | partial | createParticleSystem (tier A) |
 | W3DDebrisDraw | 1 | 1 | 0x00536E49 | 86 | none |  |
@@ -25513,8 +24971,6 @@ calls; their targets are not followed.
 | W3DTankDraw | 1 | 1 | 0x004CE154 | 42 | none | W3DTankDraw::~W3DTankDraw (tier A) |
 | DamageFieldUpdate | 1 | 1 | 0x006AC9F9 | 31 | none | UBfmePod12::list<>::remove (tier B) |
 | BridgeBehavior | 1 | 1 | 0x0085B0BC | 30 | none | BridgeBehaviorModuleData::~BridgeBehaviorModuleData (tier A) |
-| BaseUpgrade | 1 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
-| BridgeBehavior | 1 | 1 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | DynamicShroudClearingRangeUpdate | 1 | 1 | 0x0088E820 | 26 | none | DynamicShroudClearingRangeUpdate::~DynamicShroudClearingRangeUpdate (tier A) |
 | W3DTankDraw | 1 | 1 | 0x004CD8DE | 22 | none | W3DTankDraw::rva000CE09E (tier D) |
 | RadarMarkerClientUpdate | 1 | 1 | 0x008CE072 | 21 | none | RadarMarkerClientUpdate::~RadarMarkerClientUpdate (tier B) |
@@ -25546,15 +25002,6 @@ calls; their targets are not followed.
 | W3DDebrisDraw | 1 | 1 | 0x008CE37F | 4 | none |  |
 | W3DDebrisDraw | 1 | 1 | 0x00499E84 | 3 | none |  |
 | RadarMarkerClientUpdate | 1 | 1 | 0x009F9E7B | 2 | none | ProcessAnimateWindowSlideFromBottomTimed::reverseAnimateWindow (tier A) |
-| BaseUpgrade | 1 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| BridgeBehavior | 1 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| CivilianSpawnUpdate | 1 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| CritterEmitterUpdate | 1 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| DelayedLuaEventUpdate | 1 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| DestroyEnvironmentUpdate | 1 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| DynamicShroudClearingRangeUpdate | 1 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| FadeAndDieOrnamentUpdate | 1 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
-| PartTheHeavensUpdate | 1 | 1 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | W3DTankDraw | 1 | 2 | 0x004C70C3 | 137 | none | W3DScriptedModelDraw::~W3DScriptedModelDraw (tier B) |
 | W3DDebrisDraw | 1 | 2 | 0x00536310 | 135 | none |  |
 | W3DDebrisDraw | 1 | 2 | 0x00536BB9 | 74 | none |  |
@@ -25614,7 +25061,6 @@ calls; their targets are not followed.
 | RadarMarkerClientUpdate | 1 | 2 | 0x007AEAFD | 2 | none | SecondBase005D2111::~SecondBase005D2111 (tier A) |
 | W3DDebrisDraw | 1 | 2 | 0x007AEAFD | 2 | none | SecondBase005D2111::~SecondBase005D2111 (tier A) |
 | BeaconClientUpdate | 1 | 2 | 0x00A3ED38 | 1 | none | _D3DXGetFVFVertexSize@4 (tier A) |
-| DamageFieldUpdate | 1 | 2 | 0x004D0EAF | 1 | none | UVBufferClass::~UVBufferClass (tier A) |
 | DamageFieldUpdate | 1 | 2 | 0x00691435 | 1 | none |  |
 | RadarMarkerClientUpdate | 1 | 2 | 0x00A3ED38 | 1 | none | _D3DXGetFVFVertexSize@4 (tier A) |
 | W3DDebrisDraw | 1 | 2 | 0x00A3CF16 | 1 | none | _memset (tier A) |
@@ -25638,7 +25084,6 @@ calls; their targets are not followed.
 | BeaconClientUpdate | 1 | 3 | 0x004374E0 | 30 | none | D::StringBase<>::StringBase<> (tier A) |
 | W3DTankDraw | 1 | 3 | 0x004374E0 | 30 | none | D::StringBase<>::StringBase<> (tier A) |
 | W3DTankDraw | 1 | 3 | 0x004B3531 | 30 | none | Rva000B3C61::rva000B3C61 (tier A) |
-| DelayedLuaEventUpdate | 1 | 3 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | DelayedLuaEventUpdate | 1 | 3 | 0x00B611B0 | 25 | none | _lua_call (tier A) |
 | W3DTankDraw | 1 | 3 | 0x004BFB07 | 23 | none |  |
 | W3DTankDraw | 1 | 3 | 0x004BFC03 | 23 | none | Rva000C0495::~Rva000C0495 (tier D) |
@@ -25724,9 +25169,6 @@ calls; their targets are not followed.
 | DelayedLuaEventUpdate | 1 | 4 | 0x00B60DD0 | 32 | none | _luaD_adjusttop (tier A) |
 | DelayedLuaEventUpdate | 1 | 4 | 0x00734C93 | 31 | none | Rva00333374Get (tier A) |
 | W3DDebrisDraw | 1 | 4 | 0x0091507F | 28 | none | YA?AUAsciiStringCharPlusText::operator+ (tier A) |
-| BeaconClientUpdate | 1 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
-| W3DDebrisDraw | 1 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
-| W3DTankDraw | 1 | 4 | 0x00435F30 | 27 | none | D::StringBase<>::StringBase<> (tier A) |
 | DelayedLuaEventUpdate | 1 | 4 | 0x008E3B71 | 26 | none | Rva004DF7DB::rva004DF7DB (tier A) |
 | BeaconClientUpdate | 1 | 4 | 0x00A3CD70 | 25 | none |  |
 | DelayedLuaEventUpdate | 1 | 4 | 0x00435260 | 23 | none |  |

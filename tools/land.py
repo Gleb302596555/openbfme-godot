@@ -81,7 +81,7 @@ def main() -> int:
     changed = [l[3:] for l in run("git", "status", "--porcelain").splitlines() if l.strip()]
     if changed:
         paths = ["README.md", "docs/STOPS.md", "docs/stops.d", "docs/ennorath/NIGHT_WATCH.md", "docs/ennorath/night_watch.d",
-                 "docs/ennorath/PROGRESS.tsv", "engine/tests/test_module_coverage.cpp"]
+                 "docs/ennorath/PROGRESS.tsv", "docs/ennorath/MATRIX_FACTIONS.tsv", "engine/tests/test_module_coverage.cpp"]  # progress_snapshot.py writes the faction table too
         # a fragment directory exists only while it holds files (git keeps no empty directory); a deleted fragment is tracked
         tracked = set(run("git", "ls-files", "--", *paths).splitlines())
         run("git", "add", "-A", "--", *[p for p in paths if (TREE / p).exists() or any(t.startswith(p) for t in tracked)])

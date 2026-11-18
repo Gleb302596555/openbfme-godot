@@ -284,6 +284,15 @@ def next_free_id() -> int:
     return int(out.removeprefix("S-"))
 
 
+def pr_added_lines(n: int, f: str) -> list[str]:
+    """The lines PR n adds to file f against the batch's base (the `+` side of its diff, without the header)."""
+    out = []
+    for line in git("diff", f"{BASE}...refs/batch/{n}", "--", f).split("\n"):
+        if line.startswith("+") and not line.startswith("+++"):
+            out.append(line[1:].rstrip("\r"))
+    return out
+
+
 def renumber(n: int, old: int, content: str, why: str, renumbered: list[str]) -> None:
     """Writes PR n's stop fragment under the next free id and moves its mentions in the PR's own files."""
     new = next_free_id()
@@ -297,8 +306,21 @@ def renumber(n: int, old: int, content: str, why: str, renumbered: list[str]) ->
             text = p.read_text(encoding="utf-8")
         except UnicodeDecodeError:
             continue
-        if re.search(rf"\bS-{old}\b", text):
-            p.write_text(re.sub(rf"\bS-{old}\b", f"S-{new}", text), encoding="utf-8")
+        if not re.search(rf"\bS-{old}\b", text):
+            continue
+        if f in UNION:
+            # a shared table: only the lines this PR added, never another stop's row (2026-11-18h / i: main already had a row S-7493, #654's
+            # fragment S-7493 went to S-7507, and the global replace renamed main's row too: "S-7507 is already a row")
+            added = set(pr_added_lines(n, f))
+            lines = text.split("\n")
+            for i, line in enumerate(lines):
+                if line in added and not line.startswith(f"| S-{old} |"):
+                    lines[i] = re.sub(rf"\bS-{old}\b", f"S-{new}", line)
+            new_text = "\n".join(lines)
+        else:
+            new_text = re.sub(rf"\bS-{old}\b", f"S-{new}", text)
+        if new_text != text:
+            p.write_text(new_text, encoding="utf-8")
             git("add", f)
     renumbered.append(f"#{n}: S-{old} -> S-{new} ({why})")
 

@@ -163,3 +163,20 @@ def test_the_next_batch_waits_seven_minutes_for_a_landing_then_goes_on_top_of_th
     base, wait = bb.stack_base("2026-11-18f", True, 60)
     assert base is None and wait == bb.STACK_AFTER_S - 60 == 360
     assert bb.stack_base("2026-11-18f", True, 7 * 60) == ("origin/batch/2026-11-18f", 0.0)
+
+
+def test_a_renumbered_stop_moves_only_the_prs_own_lines_of_a_shared_table(monkeypatch, tmp_path):
+    # 2026-11-18h / i: main had a row S-7493; #654's fragment S-7493 went to S-7507 and the global replace renamed main's row too
+    (tmp_path / "docs" / "stops.d").mkdir(parents=True)
+    stops = tmp_path / "docs" / "STOPS.md"
+    stops.write_text("| S-7493 | code | someone else's stop |\n| S-1022 | code | emotions, see S-7493 |\n", encoding="utf-8")
+    monkeypatch.setattr(bb, "WT", tmp_path)
+    monkeypatch.setattr(bb, "next_free_id", lambda: 7507)
+    monkeypatch.setattr(bb, "git", lambda *a: "")
+    monkeypatch.setattr(bb, "pr_files", lambda n: ["docs/STOPS.md"])
+    monkeypatch.setattr(bb, "pr_added_lines", lambda n, f: ["| S-1022 | code | emotions, see S-7493 |"])
+    done = []
+    bb.renumber(654, 7493, "| S-7493 | code | the PR's stop |\n", "taken", done)
+    assert stops.read_text(encoding="utf-8") == "| S-7493 | code | someone else's stop |\n| S-1022 | code | emotions, see S-7507 |\n"
+    assert (tmp_path / "docs" / "stops.d" / "S-7507.md").read_text(encoding="utf-8").startswith("| S-7507 |")
+    assert done == ["#654: S-7493 -> S-7507 (taken)"]

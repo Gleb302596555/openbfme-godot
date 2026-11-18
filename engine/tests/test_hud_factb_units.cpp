@@ -21,6 +21,9 @@
 #include "GameClient/Drawable.h"
 #include "GameClient/HudObjects.h"
 #include "GameClient/GUI/AptScreens/AptSpellStore.h"
+#include "GameClient/GUI/AptScreens/AptPalantir.h"
+#include "GameClient/GUI/AptScreens/InGameCommandButtonSubMenu.h"
+#include "GameClient/GUI/WindowManager.h"
 #include "GameClient/SpellBookUI.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/StancesBehavior.h"
@@ -43,6 +46,7 @@
 #include "GameLogic/WallSpan.h"
 #include "GameLogic/ObjectCreationList.h"
 #include "GameLogic/Combat/CombatState.h"
+#include "GameLogic/Combat/CombatQueries.h"
 #include "GameLogic/Module/EmotionModules.h"
 #include "GameLogic/Module/ExtraUpdateModules.h" // DeletionUpdate: a temporary object (the matrix's first-frames verdict)
 #include "GameLogic/Module/SlavedUpdate.h"
@@ -533,11 +537,6 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 					res.pass(item, "NONPRESSABLE (option bit 28): a passive ability's indicator, not pressed");
 					continue;
 				}
-				if (cmd == GUI_COMMAND_TOGGLE_STANCE)
-				{
-					res.fail(item, "S-289: the stance button opens the Palantir's radial (RW 0x96FAC6, tested by test_campui1_stance.cpp), not a command press; the STANCE_* hotkeys change the stance");
-					continue;
-				}
 				// an enemy-object power tries the first of a horde's soldier, an enemy hero and an enemy troll that its SpecialPower's ObjectFilter takes
 				// (Dominate Troll: ATTACK_TROLL_DOMINATE_OBJECT_FILTER), then, when it did not fire or showed no result, an enemy hero (Corrode Allegiance
 				// and the curse take heroes only, a grab takes no hero)
@@ -858,6 +857,12 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 				{
 					fixtureDetail = "DISABLED: needs a production queue on the object (RW 0x943050 case 7, RW 0x68C327: disabled in retail too; its horde or master buys it)";
 				}
+				// MATRIX_TODO 3 (2026-11-18): RW 0x942A77 restricts the stance button of an object without a StancesBehavior; a horde member made alone
+				// (RhudaurWolfRider) has none of its own: its horde carries it and is swept on its own
+				if (fixtureDetail.empty() && cmd == GUI_COMMAND_TOGGLE_STANCE && !StancesBehavior::of(*u) && b.state == ButtonState::Restricted)
+				{
+					fixtureDetail = "DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)";
+				}
 				if (b.state != ButtonState::Enabled && b.state != ButtonState::Active && !modelGated)
 				{
 					res.fail(item, !fixtureDetail.empty() ? fixtureDetail
@@ -1035,7 +1040,7 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 							{
 								out += str("%u ", (unsigned)((o->getWeaponSetFlags()[0] >> 24) & 0xFu));
 							}
-							else if (cmd == GUI_COMMAND_SET_STANCE)
+							else if (cmd == GUI_COMMAND_SET_STANCE || cmd == GUI_COMMAND_TOGGLE_STANCE)
 							{
 								for (const std::unique_ptr<BehaviorModule> &m : o->modules())
 								{
@@ -1059,6 +1064,106 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 					if (cmd == GUI_COMMAND_HORDE_TOGGLE_FORMATION && self && !self->getContain())
 					{
 						res.fail(item, "MEMBER: a horde member made alone has no horde: the formation toggle acts on its horde, swept on its own");
+						continue;
+					}
+					if (cmd == GUI_COMMAND_TOGGLE_STANCE)
+					{
+						// MATRIX_TODO 3 (2026-11-18; before: 1224 rows "S-289 ... not a command press"): the stance button pressed as a player does it, the
+						// flow of test_campui1_stance.cpp: its Palantir content's press opens the arc window's sub-menu with one item per stance of the
+						// button's Stances (RW 0x96FAC6, Show RW 0x9D32F9); an item's press sends MSG_CHANGE_STANCE with its stance (RW 0x96F85A ->
+						// 0x96F53C) and closes the menu. Every item in turn: each selected object with a StancesBehavior must take the item's stance, as
+						// MSG_CHANGE_STANCE sets it on the player's selection group alone (RW 0x77BC59 -> 0x76FF27; a horde member outside the selection
+						// keeps its own: AngmarBarrowWarden has a StancesBehavior of its own, RhudaurWolfRider none)
+						auto selectedStances = [&]() {
+							std::string out;
+							for (ObjectID id : g.rig.local ? g.rig.local->selection() : std::vector<ObjectID>{})
+							{
+								Object *o = g.logic().findObjectByID(id);
+								if (const StancesBehavior *sb = o ? StancesBehavior::of(*o) : nullptr)
+								{
+									out += str("%d ", (int)sb->getStance());
+								}
+							}
+							return out;
+						};
+						AptPalantir *pal = g.hud->palantir();
+						const InGameCommandButtonSubMenu *menu = pal && b.inPalantir ? pal->subMenu(b.position) : nullptr;
+						if (!menu)
+						{
+							res.fail(item, str("STANCE: the button sits in %s %d, which has no stance sub-menu", b.inPalantir ? "arc window" : "side bar position", b.position));
+							continue;
+						}
+						const std::string level = "_level" + std::to_string(pal->movieLevel()) + ".";
+						auto movieClick = [&](const std::string &content) {
+							const std::string name = content + "_OnPress"; // the FSCommand the movie's button sends on a left click
+							g.hud->windows().setPressButton(0);
+							return g.hud->windows().hasCommand(name) && g.hud->windows().invokeCallback(name, "");
+						};
+						const std::string stanceBefore = selectedStances();
+						if (stanceBefore.empty())
+						{
+							res.fail(item, "STANCE: no selected object has a StancesBehavior");
+							continue;
+						}
+						std::string trail = stanceBefore, problem;
+						for (size_t k = 0; problem.empty() && k < cb->m_stances.size(); ++k)
+						{
+							if (!movieClick(level + "CommandButtons." + std::to_string(b.position) + ".content"))
+							{
+								problem = "the button's Palantir content has no press command";
+								break;
+							}
+							if (!menu->isOpen() || menu->itemCount() != (int)cb->m_stances.size())
+							{
+								problem = str("the press opened %s with %d items for the %zu stances the button lists", menu->isOpen() ? "the sub-menu" : "no sub-menu",
+									menu->itemCount(), cb->m_stances.size());
+								break;
+							}
+							bool ready = false;
+							for (int f = 0; f < 90 && !ready; ++f)
+							{
+								ready = menu->item((int)k).content && menu->item((int)k).initialized;
+								if (!ready)
+								{
+									g.step(1);
+								}
+							}
+							const int want = menu->item((int)k).value;
+							if (!ready || !movieClick(level + menu->item((int)k).frame + ".Button"))
+							{
+								problem = str("item %zu (stance %d) %s", k, want, ready ? "has no press command" : "never got its button");
+								break;
+							}
+							for (int f = 0; f < 90 && menu->isOpen(); ++f)
+							{
+								g.step(1);
+							}
+							g.step(3);
+							const std::string now = selectedStances();
+							trail += "-> " + now;
+							for (size_t a = 0; a < now.size();)
+							{
+								const size_t e = now.find(' ', a);
+								const std::string one = now.substr(a, e == std::string::npos ? std::string::npos : e - a);
+								a = e == std::string::npos ? now.size() : e + 1;
+								if (!one.empty() && std::atoi(one.c_str()) != want)
+								{
+									problem = str("item %zu (stance %d) left the stances at %s", k, want, now.c_str());
+								}
+							}
+						}
+						if (!problem.empty())
+						{
+							res.fail(item, "STANCE: " + problem + " (" + trail + ")");
+						}
+						else if (g.hud->controlBar().unportedPresses() != unportedBefore)
+						{
+							res.fail(item, "STANCE: the stance radial's presses are counted as unported");
+						}
+						else
+						{
+							res.pass(item, "TOGGLE_STANCE radial: " + trail);
+						}
 						continue;
 					}
 					const std::string stateBefore = stateOf();
@@ -1348,6 +1453,15 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 						}
 					}
 				}
+				else if (cb->hasOption(COMMAND_OPTION_NEED_TARGET_ALLY_OBJECT) && t && t->getSpecialPowerType() == 0x8A)
+				{
+					// item 4 (MATRIX_TODO, 2026-11-18): SPECIAL_REPAIR_STRUCTURE (0x8A) takes an own STRUCTURE (ActionManager RW 0x82DAE9 case 0x8A,
+					// RepairSpecialPower RW 0x8CCB85), not the unit's own copy (the scene's ally): one is made, at half health so a repair has work
+					Object *own = g.rig.make("GondorBarracks", c.x - 140.0f, c.y - 80.0f);
+					own->getBodyModule()->setInitialHealthPercent(50.0f);
+					tempTarget.id = own->getID();
+					g.step(3);
+				}
 				else if (cb->hasOption(COMMAND_OPTION_NEED_TARGET_ENEMY_OBJECT) && t && t->m_objectFilter)
 				{
 					Object *eu = g.logic().findObjectByID(enemyUnitId);
@@ -1582,6 +1696,7 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 					continue;
 				}
 				std::string target = "none";
+				unsigned long long unportedTestsBefore = 0; // ActionManager's unported per-type object test (RW 0x82DAE9) before the click
 				if (cb->hasOption(COMMAND_OPTION_NEED_TARGET_ENEMY_OBJECT | COMMAND_OPTION_NEED_TARGET_NEUTRAL_OBJECT | COMMAND_OPTION_NEED_TARGET_ALLY_OBJECT | COMMAND_OPTION_NEED_TARGET_POS))
 				{
 					Object *on = plannedOnId != INVALID_ID ? g.logic().findObjectByID(plannedOnId) : nullptr;
@@ -1611,9 +1726,24 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 						}
 					}
 					const size_t sentBefore = g.hud->input().messageLog().size();
+					unportedTestsBefore = t ? ActionManager::stats().unportedObjectTypeTests[(size_t)t->getSpecialPowerType() & 0x9F] : 0;
 					bool reached = false;
 					Coord3D at = on ? *on->getPosition() : ground;
 					int tries = 0;
+					// item 4 (MATRIX_TODO, 2026-11-18): a structure is also clicked half its radius off its centre on four sides: a building's middle
+					// may be open (HaradBarracks: collision 0x104, the drawn-model ray at its centre a Miss), a player clicks its walls
+					std::vector<Coord3D> offsets{ Coord3D{ 0.0f, 0.0f, 0.0f } };
+					if (on && factb::hasKindOf(*on->getTemplate(), "STRUCTURE"))
+					{
+						for (float r : { 25.0f, 50.0f }) // test click spots on the building's body, not an engine rule
+						{
+							for (const Coord3D d : { Coord3D{ r, 0.0f, 0.0f }, Coord3D{ -r, 0.0f, 0.0f }, Coord3D{ 0.0f, r, 0.0f }, Coord3D{ 0.0f, -r, 0.0f } })
+							{
+								offsets.push_back(d);
+							}
+						}
+					}
+					for (const Coord3D &off : offsets)
 					for (float back : { 420.0f, -420.0f })
 					{
 						for (float dz : { 5.0f, 25.0f, 45.0f, 70.0f })
@@ -1636,6 +1766,8 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 								}
 							}
 							at = on ? *on->getPosition() : ground;
+							at.x += off.x;
+							at.y += off.y;
 							g.cameraBack = back;
 							g.clickAt({ at.x, at.y, at.z + dz });
 							const std::vector<std::string> &log = g.hud->input().messageLog();
@@ -1650,6 +1782,18 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 					{
 						// nothing sent: what the pointer hits there (for the report)
 						const ICoord2D px = g.pointAt({ at.x, at.y, at.z + 5.0f });
+						target += str(" at %.0f,%.0f,%.0f%s, owner %s", at.x, at.y, at.z, on->isUnderConstruction() ? ", under construction" : "",
+									  on->getControllingPlayer() ? on->getControllingPlayer()->getPlayerName().c_str() : "-");
+						{
+							// item 4 (MATRIX_TODO): why the pick missed: the target's collision type (RW 0x4B583C) and the drawn-model ray test there
+							const HudContext &hc = g.hud->input().context();
+							Coord3D ro{}, rd{};
+							float tt = 0.0f;
+							const bool ray = hc.view.screenToRay(px, ro, rd);
+							const int drawn = ray && hc.pickRay ? (int)hc.pickRay(*on, ro, rd, &tt) : -1;
+							target += str(" [pixel %d,%d, collision 0x%X, model pick %d, %d clicks of %zu spots]", px.x, px.y, HudObjects::collisionTypeOf(hc, *on), drawn,
+										  tries, offsets.size());
+						}
 						target += " (nothing sent; the pick there hits";
 						for (const HudObjects::PickHit &h : HudObjects::pickHits(g.hud->input().context(), px, HudObjects::pickTypesForContext(g.hud->input().context()) | 0x100))
 						{
@@ -1679,12 +1823,74 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 						res.fail(item, "NO-TARGET: the scene has no fitting target for " + cb->m_specialPowerName + " (the sweep clicked " + target + ")");
 						continue;
 					}
+					// item 4 (MATRIX_TODO): the click was refused by a per-type object test the port has not ported (a repair's canRepairObject,
+					// RW 0x82D7F2, S-1282): a port gap, named as such
+					if (t && ActionManager::stats().unportedObjectTypeTests[(size_t)t->getSpecialPowerType() & 0x9F] > unportedTestsBefore)
+					{
+						res.fail(item, str("UNPORTED: the click on %s was refused by ActionManager's unported object test for power type 0x%X (RW 0x82DAE9; a repair: "
+										   "canRepairObject RW 0x82D7F2, S-1282)", target.c_str(), t->getSpecialPowerType()));
+						continue;
+					}
 					res.fail(item, cb->m_specialPowerName + ": the click on its target sent nothing (target " + target + ")" + (firstTry.empty() ? "" : " (first try, " + firstTry + ")"));
 					continue;
 				}
 				// the modules belong to the unit (and its members): a power that replaces the unit (a fell beast's rider dismounting,
 				// ToggleMountedSpecialAbilityUpdate's MountedTemplate) destroys them, so the unit's presence is checked first, by id
+				// item 4 (MATRIX_TODO, 2026-11-18): a repair (SPECIAL_REPAIR_STRUCTURE 0x8A) does not run SpecialPowerModule's do* (no recharge to
+				// watch, RepairSpecialPower RW 0x8CCB85): it gives the dozer's AI a repair order (RW 0x7714C1 -> DozerAIUpdate RW 0x88BD8D); its effect is
+				// the structure's health going up
+				if (t && t->getSpecialPowerType() == 0x8A && tempTarget.id != INVALID_ID)
+				{
+					// a control: the same structure at the same health far from the porter; a structure's own healing raises both, the repair only the target
+					Object *st = g.logic().findObjectByID(tempTarget.id);
+					Object *ctl = st ? g.rig.make(st->getTemplate()->getName(), c.x + 500.0f, c.y + 500.0f) : nullptr;
+					if (ctl)
+					{
+						ctl->getBodyModule()->setInitialHealthPercent(50.0f);
+						fixtureObjects.push_back(ctl->getID());
+					}
+					const ObjectID ctlId = ctl ? ctl->getID() : INVALID_ID;
+					const float h0 = st ? st->getBodyModule()->getHealth() : 0.0f;
+					const float c0 = ctl ? ctl->getBodyModule()->getHealth() : 0.0f;
+					float h1 = h0, c1 = c0;
+					int f = 0;
+					for (; f < 300 && st; ++f)
+					{
+						g.step(1);
+						st = g.logic().findObjectByID(tempTarget.id);
+						h1 = st ? st->getBodyModule()->getHealth() : h1;
+						Object *cc = g.logic().findObjectByID(ctlId);
+						c1 = cc ? cc->getBodyModule()->getHealth() : c1;
+					}
+					if (h1 - h0 > c1 - c0 + 1.0f)
+					{
+						res.pass(item, str("REPAIR: %s health %.0f -> %.0f in %d frames, an unrepaired twin %.0f -> %.0f (RepairSpecialPower RW 0x8CCB85 -> the "
+										   "dozer's repair, RW 0x88BD8D)", target.c_str(), h0, h1, f, c0, c1));
+					}
+					else
+					{
+						res.fail(item, str("NO-EFFECT: the repair order on %s was sent, but its health went %.0f -> %.0f in %d frames as an unrepaired twin's "
+										   "%.0f -> %.0f (RepairSpecialPower RW 0x8CCB85 -> aiRepair RW 0x7714C1 -> DozerAIUpdate RW 0x88BD8D)", target.c_str(), h0, h1, f, c0, c1));
+					}
+					g.hud->input().ui().setGUICommand(nullptr);
+					continue;
+				}
 				bool fired = false, replaced = false;
+				// the templates the unit's replacement modules name (SummonReplacement's / ToggleMounted's MountedTemplate): such an object replaces
+				// the unit even when it is not SELECTABLE (2026-11-18, #527: the Loremaster's Manwe choice turns him into LoremasterThingObjectManveReal,
+				// KindOf SUMMONED UNATTACKABLE, which the check below did not count)
+				std::set<std::string> mountedNames;
+				for (const std::unique_ptr<BehaviorModule> &bm : u->modules())
+				{
+					if (const auto *sr = dynamic_cast<const SummonReplacementSpecialAbilityUpdateModuleData *>(bm->getModuleData()))
+					{
+						mountedNames.insert(sr->m_mountedTemplate);
+					}
+					else if (const auto *tm = dynamic_cast<const ToggleMountedSpecialAbilityUpdateModuleData *>(bm->getModuleData()))
+					{
+						mountedNames.insert(tm->m_mountedTemplate);
+					}
+				}
 				std::vector<ObjectID> holders;
 				holders.push_back(uid);
 				if (u->getContain())
@@ -1725,7 +1931,8 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 					for (Object *o = g.logic().getFirstObject(); o; o = o->getNextObject())
 					{
 						if (o->getID() > uid && o->getControllingPlayer() == g.rig.local && o->getTemplate() && o->getTemplate()->getName() != e->name
-							&& dist2d(*o->getPosition(), c) < 600.0f && factb::hasKindOf(*o->getTemplate(), "SELECTABLE"))
+							&& dist2d(*o->getPosition(), c) < 600.0f
+							&& (factb::hasKindOf(*o->getTemplate(), "SELECTABLE") || mountedNames.count(o->getTemplate()->getName())))
 						{
 							after = o;
 						}
@@ -1836,6 +2043,158 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 				res.pass(item, str("%s fired (target %s) after %u frames: %s%s", cb->m_specialPowerName.c_str(), target.c_str(), g.frame() - pressFrame, effect.c_str(),
 								   unported ? " (S-920 noted)" : ""));
 				g.hud->input().ui().setGUICommand(nullptr);
+				}
+			}
+		}
+		// MATRIX_TODO 5 (2026-11-18): not a button: each AttributeModifierAuraUpdate of the object and its members (RW 0x89F42D), active on a fresh
+		// object (StartsActive; a TriggeredBy aura after its upgrades, given as the grey fixture gives them), must put its ModifierName on a fitting
+		// object in its Range (its own side, the enemy with TargetEnemy; its ObjectFilter; RW 0x89F114) within RefreshDelay + 10 frames
+		if (sweep && wearSet.empty() && spawn())
+		{
+			struct Aura
+			{
+				ObjectID holder;
+				const AttributeModifierAuraUpdate *module;
+				std::string tag;
+			};
+			std::vector<Aura> auras;
+			Object *src = g.logic().findObjectByID(uid);
+			std::vector<Object *> holders{ src };
+			if (src && src->getContain() && src->getContain()->getContainedItemsList())
+			{
+				holders.insert(holders.end(), src->getContain()->getContainedItemsList()->begin(), src->getContain()->getContainedItemsList()->end());
+			}
+			for (Object *h : holders)
+			{
+				if (!h)
+				{
+					continue;
+				}
+				for (const std::unique_ptr<BehaviorModule> &bm : h->modules())
+				{
+					if (const AttributeModifierAuraUpdate *a = dynamic_cast<const AttributeModifierAuraUpdate *>(bm.get()))
+					{
+						const std::string tag = bm->getModuleData() ? bm->getModuleData()->getModuleTagName() : "?";
+						bool dup = false;
+						for (const Aura &x : auras)
+						{
+							dup = dup || x.tag == tag; // a horde's members carry the same module: one row per module tag
+						}
+						if (!dup)
+						{
+							auras.push_back(Aura{ h->getID(), a, tag });
+						}
+					}
+				}
+			}
+			for (const Aura &aura : auras)
+			{
+				const std::string item = e->name + " (aura) " + aura.tag;
+				trace(item);
+				const AttributeModifierAuraUpdateModuleData *d = aura.module->auraData();
+				Object *h = g.logic().findObjectByID(aura.holder);
+				if (!h || !d)
+				{
+					res.fail(item, "the aura's holder left the world");
+					continue;
+				}
+				if (d->m_affectContainedOnly)
+				{
+					// AffectContainedOnly: the Range scan (RW 0x89F676) is skipped, the pulse reaches the holder's contained objects: a garrison check, not this scene's
+					res.fail(item, "DISABLED: the aura affects only the objects its holder contains (AffectContainedOnly); the sweep garrisons nobody");
+					continue;
+				}
+				if (d->m_requiredConditions)
+				{
+					res.fail(item, str("DISABLED: the aura needs a state the fresh object lacks (RequiredConditions bits 0x%X: MOUNTED / TAINT / ELVEN_WOOD)", d->m_requiredConditions));
+					continue;
+				}
+				std::string given;
+				const UpgradeMux *mux = const_cast<AttributeModifierAuraUpdate *>(aura.module)->getUpgrade();
+				if (!d->m_startsActive && mux && !mux->isAlreadyUpgraded())
+				{
+					for (const std::string &up : mux->muxData()->m_triggeredBy)
+					{
+						const UpgradeTemplate *ut = s.world->upgrades().findUpgrade(up);
+						if (!ut)
+						{
+							continue;
+						}
+						if (ut->getUpgradeType() == UPGRADE_TYPE_PLAYER)
+						{
+							g.rig.local->addCompletedUpgrade(up);
+							fixtureUpgrades.push_back(up);
+						}
+						else
+						{
+							h->giveUpgrade(up);
+						}
+						given += (given.empty() ? "" : ", ") + up;
+					}
+					g.step(2);
+				}
+				// the target: the first template the aura's filter takes (its named ones first), else the enemy's or the own side's soldiers
+				Player *owner = d->m_targetEnemy ? enemy : g.rig.local;
+				std::string targetName = d->m_targetEnemy ? std::string("GondorFighterHorde") : std::string(ownHordeOf(faction));
+				if (d->m_objectFilter)
+				{
+					auto usable = [&](const ThingTemplate *x) {
+						return x && factb::hasKindOf(*x, "SELECTABLE") && !factb::hasKindOf(*x, "UNATTACKABLE") && !factb::hasKindOf(*x, "INERT")
+							   && ObjectFilterMatch::allows(g.logic(), *d->m_objectFilter, x, owner, g.rig.local);
+					};
+					const ThingTemplate *pick = nullptr;
+					for (const std::string &inc : d->m_objectFilter->includeNames)
+					{
+						if (!pick && usable(g.logic().things().findTemplate(inc)))
+						{
+							pick = g.logic().things().findTemplate(inc);
+						}
+					}
+					if (!pick && !usable(g.logic().things().findTemplate(targetName)))
+					{
+						for (const ThingTemplate *x : g.logic().things().templates())
+						{
+							if (!pick && usable(x) && !factb::hasKindOf(*x, "STRUCTURE"))
+							{
+								pick = x;
+							}
+						}
+					}
+					if (pick)
+					{
+						targetName = pick->getName();
+					}
+				}
+				const Coord3D at = *h->getPosition();
+				const float off = std::min(40.0f, d->m_range * 0.5f);
+				Object *t = g.rig.make(targetName, at.x + off, at.y, owner);
+				fixtureObjects.push_back(t->getID());
+				const ObjectID tid = t->getID();
+				bool on = false;
+				for (unsigned f = 0; f < d->m_refreshDelay + 10 && !on; ++f)
+				{
+					g.step(1);
+					Object *tt = g.logic().findObjectByID(tid);
+					std::vector<Object *> check{ tt };
+					if (tt && tt->getContain() && tt->getContain()->getContainedItemsList())
+					{
+						check.insert(check.end(), tt->getContain()->getContainedItemsList()->begin(), tt->getContain()->getContainedItemsList()->end());
+					}
+					for (Object *o : check)
+					{
+						const AttributeModifierPool *pool = o ? static_cast<const AttributeModifierPool *>(o->findModule("AttributeModifierPoolUpdate")) : nullptr;
+						on = on || (pool && pool->hasList(d->m_bonusName));
+					}
+				}
+				const std::string what = str("%s on %s (%s) at %.0f of Range %.0f%s", d->m_bonusName.c_str(), targetName.c_str(), d->m_targetEnemy ? "enemy" : "own",
+											off, d->m_range, given.empty() ? "" : (", after " + given).c_str());
+				if (on)
+				{
+					res.pass(item, "AURA: " + what);
+				}
+				else
+				{
+					res.fail(item, str("NO-AURA: %s never arrived in %u frames (pulses %u)", what.c_str(), d->m_refreshDelay + 10, aura.module->pulses()));
 				}
 			}
 		}

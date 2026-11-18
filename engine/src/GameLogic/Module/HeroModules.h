@@ -255,6 +255,7 @@ public:
 	// and restricts targets in affect() to wall layers [0x11, 0x40] (RW 0x89F1DB .. 0x89F1FA).
 	void onDelete() override;
 	void crc(StateHasher &h) const override;
+	const AttributeModifierAuraUpdateModuleData *auraData() const { return m_data; } ///< read-only (the button matrix's aura check)
 	unsigned pulses() const { return m_pulses; }
 	unsigned long long antiCategoryRequests() const { return m_anti; }
 
