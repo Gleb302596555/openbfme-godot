@@ -272,3 +272,90 @@ TEST_CASE("PORT-239 CommandMap: planning modifier-only transitions share the sam
 	CHECK(probe.key(KEY_LCTRL, KEY_STATE_UP).empty());
 	CHECK(probe.translator.metasMade() == 2);
 }
+
+#include "IniTestUtil.h"
+#include "GameClient/MessageStream/CommandMapList.h"
+
+namespace
+{
+const char *const kPort239Legend = "Data\\INI\\Default\\SubsystemLegendExpansion1.ini";
+
+const CommandMapEntry *findKey(const std::vector<CommandMapEntry> &rows, const std::string &name)
+{
+	for (const auto &row : rows) if (row.name == name) return &row;
+	return nullptr;
+}
+} // namespace
+
+TEST_CASE("PORT-239 CommandMap loading: all legend files then paths then language override")
+{
+	// RW 0x63AF2D registers TheMetaMap at 0x63C1F3, then separately loads
+	// CommandMap.ini at 0x63C506. RW 0x5B4B9A processes InitFiles before InitPaths.
+	// Call the existing production list reader so this test also compiles with
+	// the old loader, which misses SyntheticExtra.ini and SyntheticKeys entirely.
+	initest::Fixture files({
+		{ kPort239Legend, "LoadSubsystem TheMetaMap\n Loader = INI\n InitFile = Data\\INI\\CommandMap.ini\n InitFile = SyntheticExtra.ini\n InitPath = SyntheticKeys\nEnd\n" },
+		{ "Data\\INI\\CommandMap.ini", "CommandMap STOP\n Key = KEY_A\n Transition = DOWN\n UseableIn = GAME\nEnd\n" },
+		{ "SyntheticExtra.ini", "CommandMap STOP\n Key = KEY_B\n Transition = UP\nEnd\nCommandMap SCATTER\n Key = KEY_F9\n UseableIn = GAME\nEnd\n" },
+		{ "SyntheticKeys\\One.ini", "CommandMap STOP\n Key = KEY_C\nEnd\nCommandMap SCATTER\n Key = KEY_F10\nEnd\n" },
+		{ "CommandMap.ini", "CommandMap STOP\n Key = KEY_Z\nEnd\n" }
+	});
+	std::vector<CommandMapEntry> rows;
+	std::string error;
+	REQUIRE_MESSAGE(ListCommandMap(files.fsys, rows, &error), error);
+	REQUIRE(rows.size() == 2);
+	const auto *stop = findKey(rows, "STOP");
+	const auto *scatter = findKey(rows, "SCATTER");
+	REQUIRE(stop);
+	REQUIRE(scatter);
+	CHECK(stop->key == "KEY_Z"); // root override last
+	CHECK(stop->transition == TRANSITION_UP); // the second InitFile was read
+	CHECK(stop->game); // unspecified fields survive each overwrite
+	CHECK(scatter->key == "KEY_F10"); // InitPath overrides the earlier InitFile
+	CHECK(scatter->game);
+}
+
+TEST_CASE("PORT-239 CommandMap loading: no legend entry does not invent a default path")
+{
+	// RW 0x5B4B9A returns false for no entry; TheMetaMap's registration passed
+	// no fallback paths (RW 0x63AF2D, 0x63C1D5..0x63C1D8). The direct root load
+	// still happens. A broken decoy base file must never be opened.
+	initest::Fixture files({
+		{ kPort239Legend, "LoadSubsystem UnrelatedSyntheticSubsystem\n Loader = INI\nEnd\n" },
+		{ "Data\\INI\\CommandMap.ini", "NotARealBlock Broken\nEnd\n" },
+		{ "CommandMap.ini", "CommandMap STOP\n Key = KEY_F12\n UseableIn = GAME\nEnd\n" }
+	});
+	std::vector<CommandMapEntry> rows;
+	std::string error;
+	REQUIRE_MESSAGE(ListCommandMap(files.fsys, rows, &error), error);
+	REQUIRE(rows.size() == 1);
+	CHECK(rows[0].name == "STOP");
+	CHECK(rows[0].key == "KEY_F12");
+}
+
+TEST_CASE("PORT-239 CommandMap loading: missing or malformed manifest inputs fail loudly")
+{
+	// Same loader chain as above, with the port's existing strict INI error
+	// contract: a broken declared file must not fall back to the old hardcoded
+	// base and language pair and pretend the installation loaded successfully.
+	initest::FileList tree{
+		{ "Data\\INI\\CommandMap.ini", "CommandMap STOP\n Key = KEY_S\nEnd\n" },
+		{ "CommandMap.ini", "CommandMap STOP\n Key = KEY_S\nEnd\n" }
+	};
+	SUBCASE("missing manifest") {}
+	SUBCASE("malformed manifest") { tree.push_back({ kPort239Legend, "NotARealBlock Broken\nEnd\n" }); }
+	SUBCASE("missing declared input")
+	{
+		tree.push_back({ kPort239Legend, "LoadSubsystem TheMetaMap\n InitFile = MissingKeys.ini\nEnd\n" });
+	}
+	SUBCASE("malformed second declared input")
+	{
+		tree.push_back({ kPort239Legend, "LoadSubsystem TheMetaMap\n InitFile = Data\\INI\\CommandMap.ini\n InitFile = BrokenKeys.ini\nEnd\n" });
+		tree.push_back({ "BrokenKeys.ini", "CommandMap STOP\n Key = KEY_NOT_REAL\nEnd\n" });
+	}
+	initest::Fixture files(tree);
+	std::vector<CommandMapEntry> rows;
+	std::string error;
+	CHECK_FALSE(ListCommandMap(files.fsys, rows, &error));
+	CHECK_FALSE(error.empty());
+}
