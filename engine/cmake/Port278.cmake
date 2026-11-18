@@ -3,4 +3,5 @@
 # carries no engine change, only the synthetic tests that pin the binary's rules (filter shapes, the empty-mask NONE rule, the absent filter, expiry).
 
 set(OPENBFME_PORT278_TESTS
-    tests/test_port_278.cpp)
+    tests/test_port_278.cpp
+    tests/test_port_278_horn.cpp)
