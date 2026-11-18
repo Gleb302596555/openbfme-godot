@@ -55,6 +55,10 @@ public:
 	// ZH CommandTranslator::evaluateContextCommand: the logic message type the click on `target` (null: the ground at `pos`) would issue, 0 for none.
 	int evaluateContextCommand(Object *target, const Coord3D *pos, EvaluateType type);
 	int evaluateForceAttack(Object *target, const Coord3D *pos, EvaluateType type);
+	// PORT-208 (issue #490, S-2480): the force attack on a clicked map tree, which has no object of its own: the picker answers one of the reserved ids
+	// 99999996 .. 99999999 (RW 0x48ACF5 .. 0x48ADA0) and the message carries that id with the click's point. False (no command) when AIData AllowForestFires
+	// is off (RW 0x77AF29) or no selected object can attack at all (RW 0x691269)
+	bool evaluateForceAttackTree(ObjectID treeID, const Coord3D &pos, EvaluateType type);
 
 	// the standard (false) or alternate (true) mouse setup: which button issues the order (GlobalData m_useAlternateMouse; RotWK's default is true, RW 0x642A4B: the right click orders; lane PLAY-1)
 	void setUseAlternateMouse(bool on) { m_alternateMouse = on; }

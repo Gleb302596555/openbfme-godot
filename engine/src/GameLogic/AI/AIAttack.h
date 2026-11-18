@@ -122,7 +122,8 @@ public:
 		MADE_MELEE = 2,
 		MADE_HORDE_MELEE = 3,
 		MADE_HORDE_RANGED = 4,
-		MADE_CHARGE = 5 // PORT-133: RW kind 8 (RW 0x74D02A), AIAttackCharge.h
+		MADE_CHARGE = 5, // PORT-133: RW kind 8 (RW 0x74D02A), AIAttackCharge.h
+		MADE_HORDE_POSITION = 6 // PORT-165: RW kind 7 (0x74D009)
 	};
 
 private:

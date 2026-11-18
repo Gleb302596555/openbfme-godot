@@ -39,3 +39,9 @@ def test_write_has_the_header(tmp_path):
     fg.write([["parsed-unused", "object", "C", "F", "1", "struct", "", "yes", "1", "1", "0", "0x00400000@0"]], out)
     lines = out.read_text(encoding="utf-8").splitlines()
     assert lines[0].split("\t") == fg.HEADER and lines[1].endswith("0x00400000@0")
+
+
+def test_a_module_field_is_one_row():
+    audit = [{"status": "parsed-unused", "block": "Object", "owner": "SomeUpdate", "field": "Rate", "defs": "3"}]
+    rows = fg.join(audit, {"SomeUpdate": {}}, {"SomeUpdate"}, block_candidates={})
+    assert len(rows) == 1 and rows[0][-1] == "module"

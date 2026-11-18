@@ -27,6 +27,7 @@
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/Module/BehaviorModule.h"
+#include "GameLogic/Module/SpawnBehavior.h"
 #include "GameLogic/Module/BloodthirstyUpdate.h"
 #include "GameLogic/Module/SiegeModules.h"
 #include "GameLogic/AI/AIPathfind.h"
@@ -148,6 +149,19 @@ bool CommandTranslator::objectCanAttack(Object &obj)
 			}
 		}
 	}
+	// PORT-208 (issue #490): RW 0x6913B7 .. 0x691416, the tail of Object::isAbleToAttack: a SPAWNS_ARE_THE_WEAPONS object (KindOf bit 84) whose spawn
+	// interface (RW 0x68C3A3) answers slot 0x1C canAnySlavesAttack (RW 0x862A4E) can attack through its slaves — the AngForStronghold-style lair has no
+	// weapon of its own, so without this branch a selection of it never reaches the force attack
+	if (obj.isKindOf((unsigned)CombatNames::kinds().spawnsAreTheWeapons))
+	{
+		if (const SpawnBehaviorInterface *spawn = SpawnBehaviorInterface::of(obj))
+		{
+			if (spawn->canAnySlavesAttack())
+			{
+				return true;
+			}
+		}
+	}
 	return false;
 }
 
@@ -191,6 +205,22 @@ bool CommandTranslator::objectCanDamage(Object &obj, Object &victim)
 				{
 					return true;
 				}
+			}
+		}
+	}
+	// PORT-208 (issue #490): RW 0x6913B7 .. 0x691416 as in objectCanAttack: a spawner's slaves decide whether the spawner can hurt the victim
+	if (obj.isKindOf((unsigned)CombatNames::kinds().spawnsAreTheWeapons))
+	{
+		if (SpawnBehaviorInterface *spawn = SpawnBehaviorInterface::of(obj))
+		{
+			bool any = false;
+			spawn->forEachSpawnID([&](ObjectID slaveId) {
+				Object *slave = m_ctx.logic.findObjectByID(slaveId);
+				any = any || (slave && !slave->isDestroyed() && objectCanDamage(*slave, victim));
+			});
+			if (any)
+			{
+				return true;
 			}
 		}
 	}
@@ -406,6 +436,41 @@ int CommandTranslator::evaluateForceAttack(Object *target, const Coord3D *pos, E
 		hint(target ? MouseCursorName::ForceAttackObj : MouseCursorName::ForceAttackGround);
 	}
 	return msgType;
+}
+
+// PORT-208 (issue #490, S-2480): RW 0x81E4B5 (evaluateForceAttack) with the picker's tree stand-in instead of an object. The eligibility test is the
+// same one RW 0x81D9DE makes for an object (the selection's Object::isAbleToAttack, RW 0x691269), plus the object form's reserved-id gate: the message
+// carries the stand-in id and the click's point, and the logic refuses it when AIData AllowForestFires is off (RW 0x77AF29: TheAI's data + 0xBC == 0
+// jumps to the null victim at RW 0x77AF67). A tree the selection cannot attack is no command at all.
+bool CommandTranslator::evaluateForceAttackTree(ObjectID treeID, const Coord3D &pos, EvaluateType type)
+{
+	if (!GameLogic::isTreeStandInID(treeID) || !m_ctx.logic.settings().allowForestFires)
+	{
+		return false;
+	}
+	Object *first = nullptr;
+	for (ObjectID id : m_ctx.ui.selected())
+	{
+		if ((first = m_ctx.logic.findObjectByID(id)) != nullptr)
+		{
+			break;
+		}
+	}
+	if (!first || !objectCanAttack(*first))
+	{
+		return false;
+	}
+	if (type == EvaluateType::DoCommand)
+	{
+		ClientMessage &m = m_ctx.stream.append(MSG_DO_FORCE_ATTACK_OBJECT);
+		m.appendObjectID(treeID);
+		m.appendLocation(pos);
+	}
+	else if (type == EvaluateType::DoHint)
+	{
+		hint(MouseCursorName::ForceAttackObj);
+	}
+	return true;
 }
 
 int CommandTranslator::evaluateContextCommand(Object *obj, const Coord3D *pos, EvaluateType type)
@@ -1180,6 +1245,10 @@ MessageDisposition CommandTranslator::translate(const ClientMessage &msg)
 				++m_clickOutcomes["off-terrain"];
 				break;
 			}
+			// PORT-208 (issue #490, S-2480): RW 0x81E63D .. 0x81E68A, the head of evaluateContextCommand (RW 0x81E60B): when the picked id is one of the four
+			// tree stand-ins (99999996 .. 99999999), the click's world point is taken from the pointer again (the tactical view slot 0x168) rather than
+			// from an object: a tree is a point, and the commands below carry it. The port's picker never returns a stand-in object (the stand-ins have
+			// no Object; HudObjects::pickTreeStandIn answers the id), and `pos` is already that pointer point
 			if (!isPoint)
 			{
 				++m_clickOutcomes["region"];
@@ -1192,6 +1261,24 @@ MessageDisposition CommandTranslator::translate(const ClientMessage &msg)
 			{
 				Object *draw = pending && pending->m_command == GUI_COMMAND_SPECIAL_POWER
 					? HudObjects::pickForGuiCommand(m_ctx, region.lo, *pending) : HudObjects::pickObject(m_ctx, region.lo);
+				// PORT-208 (issue #490, S-2480): RW 0x48ACF5 .. 0x48ADA0 hands the picker's tree as one of the reserved ids (99999996 .. 99999999) when
+				// its own hit-test found no object and the local player sees the tree; the force attack then names that id with the click's point
+				// (MSG_DO_FORCE_ATTACK_OBJECT) and the logic makes the tree an object (RW 0x77AF3B -> RW 0x68449B)
+				ObjectID treeID = INVALID_ID;
+				if (!draw && m_ctx.ui.isInForceAttackMode() && HudObjects::pickTreeStandIn(m_ctx, region.lo, treeID))
+				{
+					if (evaluateForceAttackTree(treeID, pos, EvaluateType::DoCommand))
+					{
+						++m_clickOutcomes["command on a tree"];
+						disp = MessageDisposition::Destroy;
+						m_ctx.ui.clearAttackMoveToMode();
+					}
+					else
+					{
+						++m_clickOutcomes["no command on a tree"];
+					}
+					break;
+				}
 				int issued = 0;
 				if (m_ctx.ui.isInForceAttackMode())
 				{

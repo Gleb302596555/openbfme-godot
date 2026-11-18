@@ -2277,6 +2277,28 @@ TeleportSpecialAbilityUpdate::TeleportSpecialAbilityUpdate(Thing *thing, const T
 {
 }
 
+// RW 0x896608 (slot 8 of the class's special power update table RW 0xC6490C; the base's slot is RW 0x851B6E): the place must lie within
+// MaxDistance (+ 0xDC) of the object. A null place (RW 0x89660C), no data (0x896611) or no object (0x896629) and MaxDistance 0 or below
+// (0x896618 / 0x896620 against the zero RW 0xC1B594) answer the base's; otherwise |place - position|^2 (RW 0x896630 .. 0x896675 of the
+// object's + 0x38 / + 0x3C / + 0x40) above MaxDistance^2 (RW 0x896679) answers no (0x89667E). The data and the object cannot be null in the
+// port: the constructor takes the data and the object is the module's owner.
+bool TeleportSpecialAbilityUpdate::allowsSpecialPowerUse(const Coord3D *loc) const
+{
+	if (loc && 0.0f < m_tp->m_maxDistance)
+	{
+		const Coord3D *pos = getObject()->getPosition();
+		const float dz = SimMath::subf32(loc->z, pos->z);
+		const float dy = SimMath::subf32(loc->y, pos->y);
+		const float dx = SimMath::subf32(loc->x, pos->x);
+		const float d2 = SimMath::addf32(SimMath::addf32(SimMath::mulf32(dz, dz), SimMath::mulf32(dy, dy)), SimMath::mulf32(dx, dx));
+		if (SimMath::mulf32(m_tp->m_maxDistance, m_tp->m_maxDistance) < d2)
+		{
+			return false; // RW 0x89667E
+		}
+	}
+	return SpecialAbilityUpdate::allowsSpecialPowerUse(loc); // RW 0x851B6E (RW 0x896682)
+}
+
 // TheWeaponStore->createAndFireTempWeapon(weapon, object, position) (RW 0x6CC5DF + 0x6CF530)
 void TeleportSpecialAbilityUpdate::fireTempWeapon(const std::string &name, const Coord3D &at)
 {

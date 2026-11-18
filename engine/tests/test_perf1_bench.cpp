@@ -692,6 +692,9 @@ TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after a
 	// moves it); PRs 588, 591, 587 and the merge of upstream 16474d71 keep it; the battle and the blob are unchanged
 	// pin: batch 2026-11-17a re-measured the skirmish once on the batch tree (OPENBFME_PERF1_REGEN=1, Linux GCC on Colab): Port 237 (#596: death / create
 	// modules, ObjectCreationList, OCLUpdate) moves it from frame 1661; merge-point bisect: 6e3b8a16 (before #596) passes, 2ce6a623 (with it) differs
+	// pin: batch 2026-11-18a re-measured the skirmish once on the batch tree (OPENBFME_PERF1_REGEN=1, Linux GCC on Colab): Port 224 (#581: a creep lair
+	// or hole destroyed while it rebuilds gives no money or treasure and stays destroyed) moves it from line 1964 of the file; merge-point bisect: 61d4dfa7
+	// (main + #586 + #584) passes, de944025 (+ #581) differs; the battle and the blob are unchanged
 	const std::vector<std::uint32_t> skirmishRef = perf1::readHashes("skirmish4_6000.hashes");
 	// OPENBFME_PERF1_REGEN=1 rewrites the two reference vectors from this build instead of comparing: run it only when a merged change is MEANT to
 	// change the simulation (a retail port), and say so in the commit; a pure optimisation must pass against the stored vectors unchanged

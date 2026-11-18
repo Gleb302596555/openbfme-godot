@@ -1492,3 +1492,48 @@ void HordeContain::xfer(Xfer &x)
 	SnapshotXfer::checkRange(m_wallIdlePasses, 0, 4, "a horde's wall scaling idle passes"); // checkWallScalingDone: the fifth idle pass ends the scaling and resets it
 	x.xferReal(&m_scalingReach);
 }
+
+// lane PORT-199 (issue #466): RW 0x86ECAB is HordeContainInterface vslot 0xAC (table RW 0xC5B1F8). Its body walks the
+// contain's member list (the iterators of RW 0x865598, `lea ecx, [edi - 0x11c]` — the interface at module + 0x11C) and
+// asks every member Object::affectedByUpgrade (RW 0x694914, `mov ecx, [esi + 8]`), then walks the id map at interface
+// + 0x54 (the members on their way into a garrison, `findObjectByID` RW 0x449681 first) the same way; the first member
+// that answers true answers for the horde (RW 0x86ED21), no answer at all is false (RW 0x86ED18).
+bool HordeContain::affectedByUpgrade(const UpgradeTemplate *upgrade) const
+{
+	if (!upgrade) return false;
+	for (const Object *member : m_members)
+	{
+		if (member && member->affectedByUpgrade(upgrade)) return true; // RW 0x86ECCF .. 0x86ECDC
+	}
+	GameLogic &logic = getObject()->logic();
+	for (const ObjectID id : m_garrisonEntering) // RW 0x86ECE4: interface + 0x54
+	{
+		const Object *member = logic.findObjectByID(id);
+		if (member && member->affectedByUpgrade(upgrade)) return true; // RW 0x86ECEE .. 0x86ED08
+	}
+	return false;
+}
+
+// lane PORT-199 (issue #466): RW 0x871A90 is HordeContainInterface vslot 0xB8. The horde's own object takes the whole
+// mask first (`mov ecx, [edi - 0x114]; call RW 0x69388B`, RW 0x871AE5), then every member of the list above: with the
+// flag (RW 0x871AEC `cmp byte ptr [ebp + 0xc], 0`) every member, without it only a member that is affectedByUpgrade
+// (RW 0x871AFA). Every member that takes it flashes (`call RW 0x70E013`, the drawable, then `push 0xf; push 4; push 4;
+// lea ecx, [ebp - 0x24]; call RW 0x675749`, RW 0x871B0D .. 0x871B1E) with the three floats of RW 0xBE53BC.
+void HordeContain::giveUpgrade(const UpgradeTemplate *upgrade, bool allMembers)
+{
+	Object *self = getObject();
+	if (!self || !upgrade) return;
+	self->giveUpgrade(upgrade); // RW 0x871AE5 -> RW 0x69388B on the horde object
+	const RGBColor flash{ 0.99f, 0.99f, 0.99f }; // RW 0xBE53BC, the same float in all three components (RW 0x871AC1 .. 0x871AE0)
+	for (Object *member : m_members)
+	{
+		if (!member) continue;
+		if (!allMembers && !member->affectedByUpgrade(upgrade)) continue; // RW 0x871AF5
+		member->giveUpgrade(upgrade);                                              // RW 0x871B08 -> RW 0x69388B
+		// RW 0x871B0F -> RW 0x70E013 asks the member's drawable; the port reaches it through the logic's client hooks.
+		if (ObjectClientHooks *client = self->logic().clientHooks())
+		{
+			client->flashAsSelected(*member, &flash);                              // RW 0x871B23 -> RW 0x675749
+		}
+	}
+}

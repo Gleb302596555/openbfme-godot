@@ -130,7 +130,7 @@ class ToggleDeploySpecialAbilityUpdate : public SpecialAbilityUpdate
 public:
 	OBFME_MODULE_XFER(ToggleDeploySpecialAbilityUpdate) // the save (SAVE-4b): SpecialAbilityUpdate's and the counts
 	ToggleDeploySpecialAbilityUpdate(Thing *thing, const ToggleDeploySpecialAbilityUpdateModuleData *data); // RW 0x8B1B87
-	bool allowsSpecialPowerUse() const override; // RW 0x8B1C5F
+	bool allowsSpecialPowerUse(const Coord3D *loc = nullptr) const override; // RW 0x8B1C5F
 	unsigned deploys() const { return m_deploys; }
 	unsigned undeploys() const { return m_undeploys; }
 

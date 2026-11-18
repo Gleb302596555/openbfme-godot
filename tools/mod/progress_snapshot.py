@@ -5,18 +5,25 @@ Columns:
   date             the day of the snapshot (YYYY-MM-DD)
   rev              the commit the docs were read at
   fields_total     Ennorath INI fields in the last field audit (tools/mod/field_audit.py)
-  fields_open      fields with work left: parsed-unused, not-read, stub-block, missing-module, parsed-only-module, no-table-row
+  fields_open      fields with work left: parsed-unused, not-read, stub-block, missing-module, parsed-only-module, no-table-row, less the
+                   fields proven unread in RotWK (from 2026-11-17: fields_proven_unread)
   modules_missing  docs/ennorath/MODULE_GAPS.md rows with state `missing`
   problems_total   docs/ennorath/PROBLEMS.md entries (### P-N)
   problems_done    entries whose status line is checked ([x])
   stops_open       docs/STOPS.md rows not `closed` (tools/stops_count.py)
   audit            which field audit the two field columns come from ("-" = carried from the row before)
   buttons_red      distinct failing buttons of the button matrix (docs/ennorath/MATRIX.tsv: any result but PASS, STANCE, DISABLED, INVENTORY)
+  stops_new        stop ids open now that were not open at the previous row's rev (2026-11-17: the stop curve, per landing)
+  stops_closed     stop ids open at the previous row's rev that are closed or gone now
+  buttons_total    distinct (object, button) pairs the matrix pressed: the scale of buttons_red (the home page's share)
+  fields_proven_unread  open-status fields a stop proves RotWK never reads (owner 2026-11-17): done for the port, left out of fields_open
+                   (the rule: proven_unread below); empty in rows before 2026-11-17 and in rows that carry the field columns
   gaps_specific    distinct RotWK functions the failing buttons' main classes lack (docs/ennorath/MATRIX_GAPS.tsv, `main class` rows,
                    `specific none`): the work the matrix still points at. Both empty in rows before 2026-11-16 and when a file is missing
 
 Usage:
   python tools/mod/progress_snapshot.py [--audit <field-audit.tsv>] [--audit-name v12] [--date YYYY-MM-DD] [--rev <commit>] [--write]
+  python tools/mod/progress_snapshot.py --backfill-stops      # fills stops_new / stops_closed of every row from git (their revs)
 Without --audit the field columns are carried from the last row. --rev reads the docs at that commit (the backfill); default the
 working tree. --write replaces the row of that date in PROGRESS.tsv (rows stay sorted by date); without it the row is printed.
 The audit tsv holds counts only here: no game data enters the repository.
@@ -37,8 +44,8 @@ import stops_count  # noqa: E402
 
 OUT = REPO / "docs" / "ennorath" / "PROGRESS.tsv"
 COLUMNS = ["date", "rev", "fields_total", "fields_open", "modules_missing", "problems_total", "problems_done", "stops_open", "audit",
-           "buttons_red", "gaps_specific"]
-GREEN = {"PASS", "STANCE", "DISABLED", "INVENTORY"}
+           "buttons_red", "gaps_specific", "stops_new", "stops_closed", "buttons_total", "fields_proven_unread"]
+GREEN = {"PASS", "STANCE", "DISABLED", "INVENTORY", "TEMPORARY", "MEMBER", "MOD-DATA", "NO-TARGET", "BY-DESIGN", "ORDER"}  # by design, or fine when swept alone (matrix review 2026-11-17)
 OPEN_STATUSES = {"parsed-unused", "not-read", "stub-block", "missing-module", "parsed-only-module", "no-table-row"}
 
 
@@ -63,12 +70,42 @@ def problems(text: str) -> tuple[int, int]:
     return total, done
 
 
-def audit_counts(tsv: Path) -> tuple[int, int]:
+# A field RotWK itself never reads is done for the port (owner 2026-11-17: "засчитывай поля с доказательством как закрытые"): its audit row
+# names a stop (`stop` column) whose row in docs/STOPS.md is a no-reader verdict for that field, i.e. the verdict is the stop's title
+# ("Locomotor unread fields", "... without a reachable reader") and the stop names the field, or the verdict sentence stands within 300
+# characters of the field's name ("`DarkeningFactor` (+ 0x1C) has NO READER in RotWK 2.01"). A stop that only says "not ported" counts
+# nothing; neither does a verdict about another field of the same stop.
+NO_READER = re.compile(r"reads? none|read by nobody|reads? nothing|no (reachable |known |live )?reader|nothing to port|zero (callers|reads|readers)"
+                       r"|never read|not read by|without a (reachable )?reader|unread in RotWK|no instruction reads|no read of|has no reader"
+                       r"|no consumer|are dead|dead branch", re.I)
+NO_READER_TITLE = re.compile(NO_READER.pattern + r"|\bunread\b|rows without a reader", re.I)
+STOP_TEXT = re.compile(r"^\| (S-\d+) \| \w+ \|([^|]*)\|(.*)$", re.M)
+
+
+def proven_unread(field: str, stop_ids: list[str], stops: dict[str, tuple[str, str]]) -> bool:
+    for sid in stop_ids:
+        title, body = stops.get(sid, ("", ""))
+        text = title + " | " + body
+        names = [m.start() for m in re.finditer(rf"\b{re.escape(field)}\b", text)]
+        if not names:
+            continue
+        if NO_READER_TITLE.search(title):
+            return True
+        if any(abs(v.start() - n) <= 300 for v in NO_READER.finditer(text) for n in names):
+            return True
+    return False
+
+
+def audit_counts(tsv: Path, stops_text: str = "") -> tuple[int, int, int]:
+    """(fields, open fields, of them proven unread in RotWK); the open count already leaves the proven ones out."""
     with tsv.open(encoding="utf-8", newline="") as f:
-        rows = list(csv.DictReader(f, delimiter="\t"))
+        rows = list(csv.DictReader(f, delimiter="\t", quoting=csv.QUOTE_NONE))
     if not rows or "status" not in rows[0]:
         raise SystemExit(f"{tsv}: not a field-audit.tsv (no status column)")
-    return len(rows), sum(1 for r in rows if r["status"] in OPEN_STATUSES)
+    stops = {m.group(1): (m.group(2), m.group(3)) for m in STOP_TEXT.finditer(stops_text)}
+    open_rows = [r for r in rows if r["status"] in OPEN_STATUSES]
+    proven = sum(1 for r in open_rows if proven_unread(r["field"], re.findall(r"S-\d+\b", r.get("stop") or ""), stops))
+    return len(rows), len(open_rows) - proven, proven
 
 
 def matrix_counts(rev: str | None) -> tuple[str, str]:
@@ -91,6 +128,75 @@ def matrix_counts(rev: str | None) -> tuple[str, str]:
     return str(len(red)), str(len(funcs))
 
 
+STOP_ROW = re.compile(r"^\|\s*S-(\d+)\s*\|\s*(code|project|closed)\s*\|", re.M)
+
+
+def open_ids(rev: str | None) -> set[int] | None:
+    try:
+        text = read("docs/STOPS.md", rev)
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return {int(i) for i, kind in STOP_ROW.findall(text) if kind != "closed"}
+
+
+def stop_delta(prev_rev: str | None, rev: str | None) -> tuple[str, str]:
+    """(stops_new, stops_closed) between two revs; "" when either STOPS.md cannot be read."""
+    if not prev_rev:
+        return "", ""
+    before, now = open_ids(prev_rev), open_ids(rev)
+    if before is None or now is None:
+        return "", ""
+    return str(len(now - before)), str(len(before - now))
+
+
+def save(rows: list[dict[str, str]]) -> None:
+    with OUT.open("w", encoding="utf-8", newline="\n") as f:
+        f.write("\t".join(COLUMNS) + "\n")
+        for r in rows:
+            f.write("\t".join(r[c] for c in COLUMNS) + "\n")
+
+
+FACTIONS_OUT = REPO / "docs" / "ennorath" / "MATRIX_FACTIONS.tsv"
+
+
+def write_matrix_factions() -> None:
+    """The matrix per faction for the dashboard's faction table (2026-11-17; MATRIX.tsv is ~1 MB): pressed object/button pairs that work
+    (PASS), that are off by design in the scene (STANCE, DISABLED, INVENTORY), that fail, and the three most common failure kinds."""
+    path = REPO / "docs" / "ennorath" / "MATRIX.tsv"
+    if not path.exists():
+        return
+    lines = [l for l in path.read_text(encoding="utf-8").splitlines() if l and not l.startswith("#")]
+    per: dict[str, dict] = {}
+    for r in csv.DictReader(lines, delimiter="\t"):
+        f = per.setdefault(r["faction"], {"pass": set(), "idle": set(), "red": {}, })
+        key = (r["object"], r["button"])
+        if r["result"] == "PASS":
+            f["pass"].add(key)
+        elif r["result"] in GREEN:
+            f["idle"].add(key)
+        else:
+            f["red"].setdefault(key, r["result"])
+    with FACTIONS_OUT.open("w", encoding="utf-8", newline="\n") as out:
+        out.write("faction\tpass\tidle\tred\tred_top\n")
+        for name, f in sorted(per.items()):
+            idle = f["idle"] - f["pass"]
+            red = {k: v for k, v in f["red"].items() if k not in f["pass"] and k not in idle}
+            kinds: dict[str, int] = {}
+            for v in red.values():
+                kinds[v] = kinds.get(v, 0) + 1
+            top = ", ".join(f"{k} {n}" for k, n in sorted(kinds.items(), key=lambda x: -x[1])[:3])
+            out.write(f"{name}\t{len(f['pass'])}\t{len(idle)}\t{len(red)}\t{top}\n")
+
+
+def matrix_total(rev: str | None) -> str:
+    try:
+        matrix = read("docs/ennorath/MATRIX.tsv", rev)
+    except (OSError, subprocess.CalledProcessError):
+        return ""
+    lines = [l for l in matrix.splitlines() if l and not l.startswith("#")]
+    return str(len({(r["object"], r["button"]) for r in csv.DictReader(lines, delimiter="\t")}))
+
+
 def load() -> list[dict[str, str]]:
     if not OUT.exists():
         return []
@@ -105,15 +211,23 @@ def main() -> int:
     ap.add_argument("--date", default=dt.date.today().isoformat())
     ap.add_argument("--rev")
     ap.add_argument("--write", action="store_true")
+    ap.add_argument("--backfill-stops", action="store_true")
     a = ap.parse_args()
 
     rows = load()
+    if a.backfill_stops:
+        for prev, r in zip([None] + rows[:-1], rows):
+            r["stops_new"], r["stops_closed"] = stop_delta(prev["rev"] if prev else None, r["rev"])
+            if r["buttons_red"]:
+                r["buttons_total"] = matrix_total(r["rev"])
+        save(rows)
+        return 0
     rev = a.rev or subprocess.run(["git", "-C", str(REPO), "rev-parse", "--short=8", "HEAD"], capture_output=True, text=True).stdout.strip()
     total, done = problems(read("docs/ennorath/PROBLEMS.md", a.rev))
     missing = sum(1 for l in read("docs/ennorath/MODULE_GAPS.md", a.rev).splitlines() if "| missing |" in l)
     stops = stops_count.open_count(read("docs/STOPS.md", a.rev))
     if a.audit:
-        ftotal, fopen = audit_counts(a.audit)
+        ftotal, fopen, fproven = audit_counts(a.audit, read("docs/STOPS.md", a.rev))
         audit = a.audit_name or a.audit.parent.name
     else:
         # the day's own row counts too: a landing after the day's audit must not carry yesterday's numbers over it (2026-11-16)
@@ -121,19 +235,22 @@ def main() -> int:
         if not before:
             raise SystemExit("no earlier row to carry the field columns from: give --audit")
         last = before[-1]
-        ftotal, fopen = int(last["fields_total"]), int(last["fields_open"])
+        ftotal, fopen, fproven = int(last["fields_total"]), int(last["fields_open"]), last.get("fields_proven_unread") or ""
         audit = last["audit"] if last["date"] == a.date else "-"
     row = {"date": a.date, "rev": rev[:8], "fields_total": str(ftotal), "fields_open": str(fopen), "modules_missing": str(missing),
-           "problems_total": str(total), "problems_done": str(done), "stops_open": str(stops), "audit": audit}
+           "problems_total": str(total), "problems_done": str(done), "stops_open": str(stops), "audit": audit,
+           "fields_proven_unread": str(fproven)}
     row["buttons_red"], row["gaps_specific"] = matrix_counts(a.rev)
+    row["buttons_total"] = matrix_total(a.rev)
+    earlier = [r for r in rows if r["date"] < a.date]
+    row["stops_new"], row["stops_closed"] = stop_delta(earlier[-1]["rev"] if earlier else None, a.rev)
     if not a.write:
         print("\t".join(row[c] for c in COLUMNS))
         return 0
     rows = sorted([r for r in rows if r["date"] != a.date] + [row], key=lambda r: r["date"])
-    with OUT.open("w", encoding="utf-8", newline="\n") as f:
-        f.write("\t".join(COLUMNS) + "\n")
-        for r in rows:
-            f.write("\t".join(r[c] for c in COLUMNS) + "\n")
+    save(rows)
+    if not a.rev:
+        write_matrix_factions()
     print(f"{OUT.relative_to(REPO)}: {a.date} written ({len(rows)} rows)")
     return 0
 

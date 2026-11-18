@@ -344,7 +344,7 @@ public:
 	bool drivesSpecialPower(const SpecialPowerTemplate *t) const override { return t && t == m_data->m_specialPowerTemplate; } // RW 0x89827C
 	void initiateIntentToDoSpecialPower(const SpecialPowerTemplate *, Object *, const Coord3D *, unsigned, int) override { initiate(); } // RW 0x89841E
 	bool isActive() const override { return m_active; }
-	bool allowsSpecialPowerUse() const override { return true; } // slot 0x20 of RW 0xC65158 is RW 0x9B501B: mov al, 1 (merge q2: AIPOW-1's slot on FACT-C's interface)
+	bool allowsSpecialPowerUse(const Coord3D *) const override { return true; } // slot 0x20 of RW 0xC65158 is RW 0x9B501B: mov al, 1 (merge q2: AIPOW-1's slot on FACT-C's interface)
 	UpdateSleepTime update() override; // RW 0x8983B5
 	void crc(StateHasher &h) const override;
 	bool active() const { return m_active; }
@@ -645,6 +645,8 @@ public:
 	OBFME_MODULE_XFER(TeleportSpecialAbilityUpdate) // lane SAVE-4b
 	TeleportSpecialAbilityUpdate(Thing *thing, const TeleportSpecialAbilityUpdateModuleData *data);
 	unsigned teleports() const { return m_teleports; }
+	// RW 0x896608 (slot 8 of the class's special power update table RW 0xC6490C): the ability may only be used at a place within MaxDistance
+	bool allowsSpecialPowerUse(const Coord3D *loc = nullptr) const override;
 	void crc(StateHasher &h) const override;
 
 protected:

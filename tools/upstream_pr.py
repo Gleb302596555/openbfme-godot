@@ -7,7 +7,8 @@ incremental): the Colab token cannot open PRs in Open-BFME (403), the PC's gh ca
                                                         # (owner 2026-11-16: no build, upstream's CI builds the PR); writes the report
     python -I tools/upstream_pr.py check --build        # also builds each branch on upstream/main and runs its tests with and without it
     python -I tools/upstream_pr.py rebase [branch ...]  # squashes branches onto upstream/main, resolving list-file conflicts and "#N"
-    python -I tools/upstream_pr.py open up/port-217 ... # opens the PRs of branches that passed the last check (never all at once)
+    python -I tools/upstream_pr.py open up/port-217 ... # opens the PRs of branches that passed the last check
+    python -I tools/upstream_pr.py open --ready         # every ready branch without an upstream PR (sandbox 4's loop, owner 2026-11-17)
 
 The checks are upstream's rules (docs/ennorath/PROCESS.md, "Как собирается PR в upstream"; their CONTRIBUTING / REVIEW):
   * the branch merges into the current upstream/main without a conflict;
@@ -448,6 +449,12 @@ if __name__ == "__main__":
     elif sys.argv[1] == "rebase":
         rebase(args)
     else:
-        if not args:
-            sys.exit("name the branches to open (never all at once)")
+        if "--ready" in sys.argv:
+            # owner 2026-11-17: the loop opens every branch the last check found ready and that has no upstream PR yet (sandbox 4, every 3 h);
+            # visual and failing branches stay for the owner's captures / the agent's rework
+            report = json.loads((OUT / "report.json").read_text(encoding="utf-8"))
+            args = [b for b in ready_branches() if report.get(b, {}).get("verdict") == "ready"]
+            print(f"open --ready: {len(args)} branch(es): {' '.join(args) or '-'}", flush=True)
+        elif not args:
+            sys.exit("name the branches to open, or --ready for every ready branch without an upstream PR")
         open_prs(args)

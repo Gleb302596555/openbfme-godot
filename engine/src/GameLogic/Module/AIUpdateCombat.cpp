@@ -463,8 +463,8 @@ bool AIUpdateInterface::aiAttackPosition(const Coord3D &pos, int maxShotsToFire,
 	{
 		return false;
 	}
-	// RW 0x66DE32 .. 0x66DE3C: a unit outside the playable area (Object + 0x458 bit 3) ignores it; the port never sets that bit (S-920, S-2480)
-	if (m_mover->isAiDead() || !CombatQueries::isAlive(*obj))
+	// RW 0x66DE32 .. 0x66DE3C: a unit outside the playable area (Object + 0x458 bit 3, Object::isOffMap) ignores it
+	if (obj->isOffMap() || m_mover->isAiDead() || !CombatQueries::isAlive(*obj))
 	{
 		return false;
 	}
@@ -480,9 +480,11 @@ bool AIUpdateInterface::aiAttackPosition(const Coord3D &pos, int maxShotsToFire,
 	{
 		static const int kIgnoringStealth = CombatNames::status("IGNORING_STEALTH");
 		obj->setStatus((unsigned)kIgnoringStealth, true);
-		// INFERENCE (S-2480): PartitionFilterPossibleToAttack(ATTACK_NEW_TARGET) is the non-forced canAttackObject; the off-map filter keeps everything (the bit is never set)
+		// RW 0x660E93 PartitionFilterSameMapStatus (vtable RW 0xC0F374): candidate's off-map bit (Object + 0x458 bit 3) matches the attacker's;
+		// INFERENCE (S-2480): PartitionFilterPossibleToAttack(ATTACK_NEW_TARGET, RW 0x660CA4 -> 0x68D6A6) is the non-forced canAttackObject
+		PartitionFilterFn sameMapStatus([&](Object &o) { return o.isOffMap() == obj->isOffMap(); });
 		PartitionFilterFn possible([&](Object &o) { return w->canAttackObject(o, source, false); });
-		Object *victim = obj->logic().partition().getClosestObject(localPos, continueRange, FROM_CENTER_2D, { &possible });
+		Object *victim = obj->logic().partition().getClosestObject(localPos, continueRange, FROM_CENTER_2D, { &sameMapStatus, &possible });
 		obj->setStatus((unsigned)kIgnoringStealth, false);
 		if (victim)
 		{

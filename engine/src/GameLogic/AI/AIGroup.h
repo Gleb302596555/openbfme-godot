@@ -105,8 +105,15 @@ public:
 	// RW 0x76FB64 (decomp AIGroup::releaseWeaponLockForGroup, tier A): Object::releaseWeaponLock (RW 0x68DF11) on every member
 	void releaseWeaponLockForGroup(WeaponLockType type);
 	// RW 0x77229A (decomp AIGroupAttackTeam.cpp:AIGroup::groupAttackPosition, tier B same-shape; ZH AIGroup.cpp:2223): every member attacks the position
-	// (aiAttackPosition RW 0x6961F1)
+	// (aiAttackPosition RW 0x6961F1), the members whose container lets its passengers fire forwarding it to them (contain slot 0xB4 / 0x118, each
+	// passenger's RW 0x68B5FA) and a spawner's slaves through RW 0x863807
 	void groupAttackPosition(const Coord3D &pos, int maxShotsToFire, CommandSourceType source);
+	// PORT-208 (issue #490), RW 0x77208A AIGroup::groupAttackObject (decomp AIGroupAttackTeam.cpp:AIGroup::groupAttackObject): every member attacks
+	// `victim`; a member whose contain lets its passengers fire forwards the order to every passenger whose Object::getAbleToAttackSpecificObject (RW
+	// 0x68D6A6) answers POSSIBLE / POSSIBLE_AFTER_MOVING, and a member with an AI asks the same of itself before its aiForceAttackObject (RW 0x771380) /
+	// aiAttackObject (RW 0x66C536) — a firing container's member answers through its passengers, so the gap-filling order is not lost. True when any
+	// order was taken. The caller owns the weapon locks and the speed caps (RW 0x77AF7C / 0x76FD04)
+	bool groupAttackObject(Object *victim, bool force, CommandSourceType source);
 	// RW 0x76FD04 (RotWK only): every member's current locomotor (AI + 0x1F0) loses its temporary speed cap (+ 0x2C = -1.0, RW 0xBD19DC). The attack
 	// commands end with it (RW 0x77B00A -> 0x77A342)
 	void clearTemporarySpeedCaps();

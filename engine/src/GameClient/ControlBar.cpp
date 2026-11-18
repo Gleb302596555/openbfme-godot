@@ -279,9 +279,7 @@ ButtonState ControlBar::evaluate(const CommandButton &b, Object &obj, bool &comm
 	{
 		case GUI_COMMAND_REVIVE:
 			return ButtonState::Enabled; // record-specific rules follow in reviveButton; these common gates run first
-		case GUI_COMMAND_UNIT_BUILD:
-		case GUI_COMMAND_DOZER_CONSTRUCT:     // BUILD-1: a builder's or a plot's building button (the same availability: command set, price, command points, maximum)
-		case GUI_COMMAND_FOUNDATION_CONSTRUCT:
+		case GUI_COMMAND_UNIT_BUILD: // RW 0x942733 arm 3: the production path, the only arm that asks canMakeUnit
 		{
 			const ThingTemplate *tt = b.getThingTemplate();
 			if (!tt)
@@ -301,12 +299,43 @@ ButtonState ControlBar::evaluate(const CommandButton &b, Object &obj, bool &comm
 			{
 				return ButtonState::Restricted;
 			}
+			// RW 0x942733 arm 3: 7 -> 7, canMakeUnit 6 / 5 -> 0 (disabled), 2 -> 6, anything else -> 1 (enabled). The maximum of the
+			// template is arm 3's alone (canMakeUnit RW 0x793ECB, its count at RW 0x794054).
 			const CanMakeType make = BuildAssistant::canMakeUnit(obj, tt, -1);
-			if (make == CANMAKE_UNKNOWN_7 && b.m_command != GUI_COMMAND_UNIT_BUILD)
+			return buildAvailability(make, commandPointsShort);
+		}
+		case GUI_COMMAND_FOUNDATION_CONSTRUCT: // PORT-212 (fork issue 502): RW 0x942733 arm 1 — a build plot's construction button
+		case GUI_COMMAND_DOZER_CONSTRUCT:      // RW 0x942733 arm 0x35 — a dozer's construction button
+		{
+			// PORT-212 (fork issue 502): the two construction arms of RW 0x942733 were read for what they do NOT contain (the switch
+			// inventory in docs/re/rotwk/RW_0x942733.md): arm 1 is "Buildable gate; template kind flags; ...; allowedToBuild / canBuild
+			// tests, radial hide, prerequisite and money results" and arm 0x35 is "Kind flags, controlling player +0x770 == 0, optional
+			// dozer slot 0x78, allowedToBuild/canBuild/money checks". Neither calls BuildAssistant::canMakeUnit, so MaxSimultaneousOfType,
+			// the production queue and the command points never restrict a construction button: those are arm 3's (UNIT_BUILD) and, for a
+			// builder, the per-click query of the placement translator (RW 0x83E771). This is why Ennorath's LothlorienEntMoot
+			// (MaxSimultaneousOfType = 1 in the mod's INI) may be built any number of times on its plots in RotWK; the shared arm the port
+			// used before made the second one unavailable through canMakeUnit's maximum (CANMAKE_MAXED_OUT_FOR_PLAYER).
+			const ThingTemplate *tt = b.getThingTemplate();
+			if (!tt)
+			{
+				return ButtonState::Hidden;
+			}
+			const int buildable = BuildAssistant::buildable(*tt, obj.logic());
+			if (buildable == 2 || (buildable == 3 && player->getPlayerType() != PLAYER_COMPUTER))
+			{
+				return ButtonState::Hidden; // Buildable = No, and Only_By_AI for a human
+			}
+			// Player::canBuild: allowedToBuild + Buildable + every prerequisite (RW 0x6AAA2E; the port's BuildAssistant::playerCanBuild)
+			if (!BuildAssistant::playerCanBuild(*player, tt, m_ctx.logic))
 			{
 				return ButtonState::Restricted;
 			}
-			return buildAvailability(make, commandPointsShort);
+			// the money result of the two arms: availability 6, the same state the production arm's CANMAKE_NO_MONEY gives
+			if ((std::uint32_t)BuildAssistant::calcCostToBuild(*tt, player, &obj, -1) > player->getMoney()->countMoney())
+			{
+				return ButtonState::CantAfford;
+			}
+			return ButtonState::Enabled;
 		}
 		case GUI_COMMAND_PUSH_VISIBLE_COMMAND_RANGE:
 		case GUI_COMMAND_POP_VISIBLE_COMMAND_RANGE:
@@ -966,6 +995,7 @@ void ControlBar::update()
 		}
 	}
 	bool multiSelectCommon = false;
+	bool multiSelectHero = false;
 	std::vector<Object *> commonObjects;
 	std::vector<Object *> evalObjects;
 	Object *obj = liveSelected.empty() ? nullptr : liveSelected.front();
@@ -1006,6 +1036,7 @@ void ControlBar::update()
 		}
 		if (bestHero)
 		{
+			multiSelectHero = true;
 			obj = bestHero; // RW 0x944826..0x944839: m_currentSelectedDrawable = bestHero -> populateObject(bestHero, 0)
 		}
 		else
@@ -1014,11 +1045,16 @@ void ControlBar::update()
 			obj = firstNonIgnored; // RW 0x9404D0..0x940511: processCommandUI resolves context object to first non-IGNORED_IN_GUI
 		}
 	}
+	// PORT-213 (issue #503): AptPalantir::setDrawable receives the single selected object (RW 0x9443BD -> 0x6D4671)
+	// or the senior qualifying HERO picked by populateMultiSelect (RW 0x94482B), and INVALID_ID otherwise (RW 0x9448FC).
+	const ObjectID contextId = (obj && (liveSelected.size() == 1 || multiSelectHero))
+		? obj->getID()
+		: (ObjectID)INVALID_ID;
 
 	const ObjectID id = obj ? obj->getID() : (ObjectID)INVALID_ID;
 	// PORT-189 (issue #455): clear click-predicted toggle indices whenever ControlBar would re-populate
 	// (selection, command set, under-construction context, or m_UIDirty RW 0x71FD81).
-	const bool contextChanged = wasDirty || id != m_source || m_ctx.ui.selected() != m_pendingSelection
+	const bool contextChanged = wasDirty || id != m_source || contextId != m_contextSource || m_ctx.ui.selected() != m_pendingSelection
 		|| !obj || (!multiSelectCommon && isUnderConstructionContext(*obj)) || obj->getCommandSetName() != m_setName;
 	if (contextChanged)
 	{
@@ -1031,6 +1067,7 @@ void ControlBar::update()
 		m_setName.clear();
 		resetRanges();
 	}
+	m_contextSource = contextId;
 	m_palantir.clear();
 	m_side.clear();
 	m_offBar.clear();
@@ -1758,7 +1795,7 @@ void ControlBar::populateUnderConstruction(Object &obj, bool mine)
 void ControlBar::emitStateKey()
 {
 	// the version moves when the picture of the bar changes
-	std::string key = std::to_string(m_source) + "|" + m_setName + (m_underConstruction ? "|uc" : "") + "|" + std::to_string(m_rangeStack.size()) + "|" + std::to_string(m_rangeStack.back().first) + "|" + std::to_string(m_money) + "|"
+	std::string key = std::to_string(m_source) + ":" + std::to_string(m_contextSource) + "|" + m_setName + (m_underConstruction ? "|uc" : "") + "|" + std::to_string(m_rangeStack.size()) + "|" + std::to_string(m_rangeStack.back().first) + "|" + std::to_string(m_money) + "|"
 		+ std::to_string(m_cpUsed) + "/" + std::to_string(m_cpLimit);
 	for (const auto *v : { &m_palantir, &m_side, &m_offBar })
 	{

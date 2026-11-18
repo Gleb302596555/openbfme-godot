@@ -16,7 +16,15 @@ checked yet (state in /content/prcheck/state.json):
     only what the PR changes is reported; perf1 / uber1 red where main is green = the PR moves a pin;
  5. open PRs that change the same files;
  6. a comment on the PR (marker <!-- prcheck -->) and /content/prcheck/reports/<pr>-<sha>.md.
+ 7. (2026-11-17) the field audit of the PR's tree beside its tests, against main's (once per main commit): fields the PR makes read,
+    fields it stops reading, fields the task / PR names that stay unused; and the function map's view (map_section). Notes and
+    warnings only: the verdict stays the tests'.
 The GitHub token is the sandbox's git credential (~/.git-credentials), never printed.
+
+A PR from another account's fork (a trusted person's agent, owner 2026-11-17) is never built or run on the owner's machines: GitHub's
+runner checks it (.github/workflows/fork-pr.yml), the checker only notes that once per head (<!-- prcheck-foreign <head> -->, not a verdict),
+and its retail tests run in the owner's batch after the code was read (batch_bot.py). foreign() fails closed: only a PR whose branch GitHub
+says lives in this repository is the owner's.
 
 Order and skips (owner 2026-11-17: the checker ran hours behind, re-checking what Claude had already taken):
  - the most recently updated PRs first;
@@ -32,6 +40,7 @@ from __future__ import annotations
 
 import argparse
 import concurrent.futures as cf
+import hashlib
 import json
 import os
 import re
@@ -46,8 +55,13 @@ HOME = Path(os.environ.get("PRCHECK_HOME", "/content/prcheck"))
 WT = HOME / "wt"
 STATE = Path(os.environ.get("PRCHECK_STATE", str(HOME / "state.json")))  # autostart keeps it in /content/sandbox (saved to Drive)
 REPORTS = HOME / "reports"
-BASE = ["ENNORATH scenario*", "module coverage*", "modgap2*", "mapobj*", "logic retail: the PlayerTemplate*",
-        "save4a retail*", "save4b retail*", "move retail*", "perf1*", "uber1*"]
+# The batch's whole set (batch_bot.py SUITE, owner 2026-11-17: batch 18b spent three hours bisecting skirmish ai vs ai, aiexpand1 and script2
+# angmar, which this checker did not run, down to PRs it had passed) plus the PlayerTemplate check; test_batch_bot.py keeps them equal.
+# The tests run one per core in parallel: the longest one sets the time.
+BASE = ["perf1*", "uber1*", "skirmish?ai?vs?ai*", "aiexpand1*", "save4a*", "save4b*", "save4c*", "script3*", "script2?angmar*",
+        "module?coverage*", "modgap1*", "modgap2*", "mod1*", "facta?stops*", "factb?spell?book*", "FACT-A?spell?book*", "factb?units*",
+        "factc?units*", "ENNORATH?scenario*", "mapobj*", "move?retail*", "LOCAL-*", "PORT-1*", "PORT-2*", "PORT-3*", "PORT-4*", "PORT-5*",
+        "PORT-6*", "PORT-7*", "PORT-8*", "PORT-9*", "logic retail: the PlayerTemplate*"]
 PINS = {"perf1*", "uber1*"}
 SHARED = ("docs/STOPS.md", "docs/ennorath/NIGHT_WATCH.md", "README.md")
 DOC_UNION = {"docs/STOPS.md", "docs/ennorath/NIGHT_WATCH.md", "docs/ennorath/PROBLEMS.md", "docs/ennorath/TOP20.md",
@@ -78,6 +92,19 @@ def gh(*args: str) -> str:
     return done.stdout
 
 
+STATUS_DIR = Path(os.environ.get("OPENBFME_STATUS_DIR", "/content/status"))
+
+
+def status(key: str, text: str) -> None:
+    """What this bot does right now, one line in /content/status/<key>.txt (owner 2026-11-18: the dashboard says what each bot is busy
+    with); watchdog.py puts every such line into the sandbox's heartbeat. Never fails the bot."""
+    try:
+        STATUS_DIR.mkdir(parents=True, exist_ok=True)
+        (STATUS_DIR / f"{key}.txt").write_text(text[:300] + "\n", encoding="utf-8")
+    except OSError:
+        pass
+
+
 def load_state() -> dict:
     return json.loads(STATE.read_text()) if STATE.exists() else {"checked": {}, "main": {}}
 
@@ -105,19 +132,57 @@ def build() -> tuple[bool, str]:
     return True, ""
 
 
+# What a test measured, not only its colour (owner 2026-11-18): a hash test red on main (aiexpand1, skirmish AI vs AI, save4b ...) that a PR
+# moves stays red, so pass / fail alone cannot see the move. The signature is the failures' own lines (the assertion and its values, file
+# paths and line numbers dropped): equal on main and on the PR = the PR does not move the test.
+SIG_LINE = re.compile(r"ERROR:|values:|TEST CASE:|logged:|FATAL|SIGSEGV|CRASH")
+SIG_PATH = re.compile(r"^\S*?\.(?:cpp|h|hpp)(?::\d+|\(\d+\))?:?\s*")
+
+
+def signature(status: str, out: str) -> str:
+    """'pass' / 'none', or a short hash of the failure lines of `out` (doctest's own output)."""
+    if status != "fail":
+        return status
+    keep = [SIG_PATH.sub("", l.strip()) for l in out.splitlines() if SIG_LINE.search(l)]
+    return "fail:" + hashlib.sha1("\n".join(keep).encode("utf-8", "replace")).hexdigest()[:12]
+
+
+SIGS: dict[str, str] = {}   # pattern -> signature of its last run (run_test fills it; each pattern runs in one thread)
+
+
+def moved_tests(res: dict[str, tuple[str, str]], base: dict[str, str], main_sigs: dict[str, str]) -> list[str]:
+    """The base tests whose result on the PR differs from main's: by signature where both have one, else by status."""
+    return [tc for tc in BASE if SIGS.get(tc, res[tc][0]) != main_sigs.get(tc, base.get(tc))]
+
+
+MOVES = re.compile(r"<!-- prcheck-moves ([^ ]*) ?-->")
+
+
+def moves_mark(moved: list[str]) -> str:
+    """The comment's lines for batch_bot.py (the hidden mark) and the reader."""
+    mark = f"<!-- prcheck-moves {','.join(moved)} -->"
+    if moved:
+        return mark + f"\n🧷 Сдвигает хеш-тесты {', '.join(f'`{t}`' for t in moved)} (их значения не как на main): в партию пойдёт один."
+    return mark + "\n🔕 Базовый набор не сдвинут (значения как на main): пойдёт в общую партию."
+
+
 def run_test(tc: str) -> tuple[str, str, str]:
-    """(pattern, 'pass'|'fail'|'none', first error lines)."""
+    """(pattern, 'pass'|'fail'|'none', first error lines); its signature goes to SIGS[pattern]."""
     exe = WT / "engine/build/openbfme_tests"
     try:
         done = sh([str(exe), f"-tc={tc}"], timeout=2400, env=agent_env())
         out = done.stdout + done.stderr
     except subprocess.TimeoutExpired:
+        SIGS[tc] = "fail:timeout"
         return tc, "fail", "timeout 40 min"
     m = re.search(r"test cases:\s*(\d+)\s*\|\s*(\d+) passed\s*\|\s*(\d+) failed", out)
     if not m or m.group(1) == "0":
+        SIGS[tc] = "none"
         return tc, "none", ""
     errs = "\n".join([l[:220] for l in out.splitlines() if re.search(r"ERROR|FATAL|SIGSEGV|CRASH", l)][:4])
-    return tc, ("fail" if (done.returncode or m.group(3) != "0") else "pass"), errs
+    st = "fail" if (done.returncode or m.group(3) != "0") else "pass"
+    SIGS[tc] = signature(st, out)
+    return tc, st, errs
 
 
 _ENV: dict | None = None
@@ -139,23 +204,88 @@ def run_set(patterns: list[str]) -> dict[str, tuple[str, str]]:
 
 def main_baseline(state: dict, main_sha: str) -> dict:
     """BASE on main itself, once per main commit."""
-    if state["main"].get("sha") == main_sha:
+    if not set(BASE) <= set(state["main"].get("results") or {}):  # BASE grew (2026-11-17: the batch's whole set): measure main again
+        state["main"] = {}
+    if not set(BASE) <= set(state["main"].get("sigs") or {}):   # measured before the signatures (2026-11-18): measure main again
+        state["main"] = {}
+    if state["main"].get("sha") == main_sha and "audit" in state["main"]:
         return state["main"]["results"]
     old = state["main"].get("sha")
-    if old:  # main moved by docs / tools only (a landing's own commits): the engine is the same, keep its results
+    if old and "audit" in state["main"]:  # main moved by docs / tools only (a landing's own commits): the engine is the same, keep its results
         moved = sh(["git", "diff", "--name-only", f"{old}..{main_sha}"]).stdout.split()
-        if moved and not any(f.startswith(("engine/", "godot/")) for f in moved):
+        if moved and not any(f.startswith(("engine/", "godot/")) or f == "tools/mod/field_audit.py" for f in moved):
             state["main"]["sha"] = main_sha
             save_state(state)
             return state["main"]["results"]
     sh(["git", "checkout", "-q", "-f", "--detach", main_sha]).check_returncode()
+    status("prcheck", f"main {main_sha[:8]}: сборка и эталонный набор ({len(BASE)} наборов), с ним сравниваются PR")
     ok, err = build()
     if not ok:
         raise RuntimeError(f"main {main_sha[:8]} does not build:\n{err}")
     res = run_set(BASE)
-    state["main"] = {"sha": main_sha, "results": {k: v[0] for k, v in res.items()}}
+    state["main"] = {"sha": main_sha, "results": {k: v[0] for k, v in res.items()}, "sigs": {k: SIGS.get(k, v[0]) for k, v in res.items()}}
+    state["main"]["audit"] = str(run_audit(HOME / "audit-main") or "")  # the field audit of this main: the PRs' audits compare with it
     save_state(state)
     return state["main"]["results"]
+
+
+# The field audit (owner 2026-11-17: the checker sees the nightly maps' tools too): tools/mod/field_audit.py on the built tree, the engine's
+# module coverage from the test binary, the newest hand verdicts from the Drive. About 8 minutes; for a PR it runs beside the tests.
+AUDIT_DRIVE = Path("/content/drive/MyDrive/openbfme-audit")
+USED = {"used", "used-raw", "used-outside", "own-reader"}
+UNUSED = {"parsed-unused", "not-read"}
+
+
+def run_audit(out: Path) -> Path | None:
+    if not (WT / "tools/mod/field_audit.py").exists():
+        return None
+    out.mkdir(parents=True, exist_ok=True)
+    for old in out.glob("*"):
+        old.unlink()
+    env = agent_env()
+    cov = out / "module-coverage.tsv"
+    sh([str(WT / "engine/build/openbfme_tests"), "-tc=module coverage: every registry class*"], timeout=1200,
+       env=dict(env, OPENBFME_MODULE_COVERAGE_OUT=str(cov)))
+    manuals = sorted(AUDIT_DRIVE.glob("field-audit-v*/manual-check.tsv"), key=lambda p: int(re.sub(r"\D", "", p.parent.name) or 0))
+    cmd = [sys.executable, "tools/mod/field_audit.py", "--base", env.get("ROTWK_INSTALL", ""), "--overlay",
+           env.get("OPENBFME_ENNORATH_INSTALL", ""), "--coverage", str(cov), "--out", str(out)]
+    if manuals:
+        cmd += ["--manual", str(manuals[-1])]
+    done = sh(cmd, timeout=1800)
+    tsv = out / "field-audit.tsv"
+    return tsv if done.returncode == 0 and tsv.exists() else None
+
+
+def audit_rows(tsv: Path) -> dict[tuple[str, str, str], str]:
+    import csv
+    with tsv.open(encoding="utf-8", newline="") as s:
+        return {(r["block"], r["owner"], r["field"]): r["status"] for r in csv.DictReader(s, delimiter="\t", quoting=csv.QUOTE_NONE)}
+
+
+def audit_section(base_tsv: str, pr_tsv: Path | None, claim_text: str) -> list[str]:
+    """What the PR does to the mod's fields: unused -> used (the port's evidence), used -> unused (a reader lost?), and fields the task or
+    PR names that the audit still sees unused. Warnings and notes only: the verdict stays the tests' (a red line is never the audit's)."""
+    if not pr_tsv or not base_tsv or not Path(base_tsv).exists():
+        return ["ℹ️ Аудит полей не посчитан (нет аудита main или PR) — статусы полей не сверены."]
+    was, now = audit_rows(Path(base_tsv)), audit_rows(pr_tsv)
+    name = lambda k: f"`{k[0]}{'/' + k[1] if k[1] else ''} {k[2]}`"
+    gained = sorted(k for k, st in now.items() if st in USED and was.get(k) in UNUSED)
+    lost = sorted(k for k, st in now.items() if st in UNUSED and was.get(k) in USED)
+    out = []
+    if gained:
+        out.append(f"📋 Аудит полей: PR переводит в «используется» {len(gained)}: " + ", ".join(map(name, gained[:15]))
+                   + (" …" if len(gained) > 15 else ""))
+    else:
+        out.append("📋 Аудит полей: PR не переводит ни одно поле мода в «используется».")
+    if lost:
+        out.append(f"⚠️ Поля, которые на main читаются, а с PR — нет ({len(lost)}; потерян читатель?): " + ", ".join(map(name, lost[:15])))
+    text = claim_text.lower()
+    named = sorted(k for k, st in now.items() if st in UNUSED and len(k[2]) >= 6 and re.search(rf"\b{re.escape(k[2].lower())}\b", text)
+                   and ((k[1].lower() in text) if k[1] else (k[0].lower() in text)))  # a module field needs its class named, not just "object"
+    if named:
+        out.append(f"⚠️ Названы в задаче или PR, но аудит по-прежнему видит их неиспользуемыми ({len(named)}): " + ", ".join(map(name, named[:15]))
+                   + ". Если правка читает их — проверь, что аудит находит читателя; если задача не про них — всё в порядке.")
+    return out
 
 
 def own_tests(diff: str, title: str) -> list[str]:
@@ -173,6 +303,7 @@ def check_pr(pr: dict, state: dict, main_sha: str, open_prs: list[dict], comment
     base = main_baseline(state, main_sha)
     sh(["git", "fetch", "-q", "origin", f"+pull/{n}/head:refs/prcheck/{n}"]).check_returncode()
     sh(["git", "checkout", "-q", "-f", "--detach", main_sha]).check_returncode()
+    status("prcheck", f"PR #{n} ({pr['title'][:60]}): вливаю в main {main_sha[:8]}")
     lines = [f"<!-- prcheck {sha} -->", f"**Проверка PR #{n}** на `main` {main_sha[:8]}, голова {sha[:8]} (песочница {SANDBOX}, `tools/colab/pr_checker.py`)", ""]
     merge = sh(["git", "-c", "user.name=prcheck", "-c", "user.email=prcheck@localhost", "merge", "--no-edit", "--no-verify", "-q", f"refs/prcheck/{n}"])
     if merge.returncode:
@@ -198,9 +329,25 @@ def check_pr(pr: dict, state: dict, main_sha: str, open_prs: list[dict], comment
                      "Новые строки — файлами `docs/stops.d/`, `docs/ennorath/night_watch.d/` (PROCESS 5.7).")
     changed = sh(["git", "diff", "--name-only", f"{main_sha}..HEAD"]).stdout.split()
     diff = sh(["git", "diff", f"{main_sha}..HEAD"]).stdout
-    frag = sh([sys.executable, "tools/fragments.py", "check"]) if (WT / "tools/fragments.py").exists() else None
+    # the PR's issue: its stop ids must not be another issue's reservation (Port 212 took #578's S-7423, 2026-11-17)
+    issue_m = re.search(r"(?:closes|fixes|resolves|issue)\s+#(\d+)", pr.get("body") or "", re.I)
+    frag = sh([sys.executable, "tools/fragments.py", "check"] + (["--issue", issue_m.group(1)] if issue_m else [])) \
+        if (WT / "tools/fragments.py").exists() else None
     if frag and frag.returncode:
-        lines.append(f"❌ Фрагменты: {frag.stdout.strip()[:600]}")
+        # a stop id another branch took first (PR 523's S-7387, taken by Port 228) is renumbered by the owner when landing, as every batch
+        # does: a warning; an id reserved for another issue and any other broken fragment stay red
+        problems = [l for l in frag.stdout.splitlines() if l.strip().startswith("- ") or ": " in l]
+        taken = [l for l in problems if "is already a row of docs/STOPS.md" in l]
+        foreign = [l for l in problems if "is reserved for issue" in l]
+        if problems and len(taken) == len(problems):
+            lines.append("⚠️ Номер стопа уже занят (владелец перенумерует при вливании; в следующий раз бери номер из своего диапазона "
+                         f"`docs/stops.d/RESERVED.tsv`): {'; '.join(t.strip(' -') for t in taken)[:400]}")
+        elif foreign and len(foreign) + len(taken) == len(problems):
+            lines.append("❌ **Номер стопа зарезервирован за другой задачей**: переименуй фрагмент на номер из диапазона своей issue "
+                         "(`python tools/fragments.py check --issue <номер>` покажет его; нет диапазона — `python tools/fragments.py next`): "
+                         + "; ".join(t.strip(' -') for t in foreign + taken)[:600])
+        else:
+            lines.append(f"❌ Фрагменты: {frag.stdout.strip()[:600]}")
     shared = [f for f in changed if f in SHARED]
     if shared:
         lines.append(f"⚠️ Правит общие таблицы {', '.join(f'`{f}`' for f in shared)}: новые строки — файлами `docs/stops.d/S-<id>.md` и `docs/ennorath/night_watch.d/…`, README не трогать (PROCESS 5.7). Допустимо только закрыть или сузить существующий стоп.")
@@ -213,6 +360,7 @@ def check_pr(pr: dict, state: dict, main_sha: str, open_prs: list[dict], comment
             "(строка `` `<объект> <кнопка>`: почему ``; ошибка теста — чинить тест, а не объяснять)"
         lines += [head, "```", out[:3500], "```"]
     t_build = time.time()
+    status("prcheck", f"PR #{n} ({pr['title'][:60]}): сборка")
     ok, err = build()
     t_build = time.time() - t_build
     if not ok:
@@ -222,7 +370,15 @@ def check_pr(pr: dict, state: dict, main_sha: str, open_prs: list[dict], comment
     own = own_tests(diff, pr["title"])
     base_needed = touches_engine(changed)
     t_tests = time.time()
-    res = run_set(own + (BASE if base_needed else []))
+    status("prcheck", f"PR #{n} ({pr['title'][:60]}): тесты, {len(own) + (len(BASE) if base_needed else 0)} наборов"
+           + (" и аудит полей" if base_needed else ""))
+    with cf.ThreadPoolExecutor(1) as side:  # the field audit of the PR's tree beside its tests (about 8 minutes, one core)
+        audit_job = side.submit(run_audit, HOME / "audit-pr") if base_needed else None
+        res = run_set(own + (BASE if base_needed else []))
+        try:
+            pr_audit = audit_job.result() if audit_job else None
+        except Exception:  # the audit never decides the verdict
+            pr_audit = None
     t_tests = time.time() - t_tests
     if not base_needed:
         res.update({tc: (base.get(tc, "none"), "") for tc in BASE})
@@ -241,12 +397,28 @@ def check_pr(pr: dict, state: dict, main_sha: str, open_prs: list[dict], comment
             worse.append((tc, e))
         elif st == "pass" and was == "fail":
             better.append(tc)
-    if worse:
+    # a pin the PR names a cause for (its text or diff mentions the test and a pin / cause word: Port 225's "## Pins" section) is no failure:
+    # the owner re-measures it when landing; a PR that moves a pin and says nothing, or breaks any other test, stays red (2026-11-17: PRs 582
+    # and 517 sat "for rework" on the dashboard although 582 had named its uber1 / perf1 cause)
+    text = ((pr.get("body") or "") + "\n" + diff).lower()
+    cause_word = re.search(r"\bpins?\b|пин|причин|cause|re-?measure|перемер", text) is not None
+
+    def named(tc):
+        return tc in PINS and cause_word and re.split(r"[*?]", tc)[0].lower() in text
+
+    real = [(tc, e) for tc, e in worse if not named(tc)]
+    if real:
         lines.append("❌ **Ломает то, что на main зелёное:**")
-        for tc, e in worse:
+        for tc, e in real:
             pin = " — **сдвигает пин**: назови причину в PR (владелец перемеряет)" if tc in PINS else ""
             lines.append(f"- `{tc}`{pin}" + (f"\n```\n{e}\n```" if e else ""))
-    else:
+    for tc, e in worse:
+        if named(tc):
+            lines.append(f"⚠️ `{tc}` сдвигает пин, причина в PR названа: владелец перемерит при вливании." + (f"\n```\n{e}\n```" if e else ""))
+    # the batch's split (owner 2026-11-18): a PR that moves any base test (its signature differs from main's, red on main or not) goes into
+    # a batch alone, the others together; batch_bot.py reads this mark. Without the base set run (no engine change) nothing moves.
+    lines.append(moves_mark(moved_tests(res, base, state["main"].get("sigs") or {}) if base_needed else []))
+    if not worse:
         reds = [tc for tc in BASE if base.get(tc) == "fail"]
         lines.append("✅ Базовый набор как на main" + (f" (на main и так красные: {', '.join(f'`{t}`' for t in reds)})" if reds else "") + ".")
     if better:
@@ -261,6 +433,18 @@ def check_pr(pr: dict, state: dict, main_sha: str, open_prs: list[dict], comment
             overlap.append(f"- #{other['number']} {other['title'][:80]}: {', '.join(f'`{c}`' for c in common[:6])}")
     if overlap:
         lines += ["⚠️ Те же файлы правят открытые PR (при слиянии сверить функции):"] + overlap
+    if base_needed:
+        claim = (pr.get("title") or "") + "\n" + (pr.get("body") or "")
+        m = re.search(r"(?:closes|fixes|resolves|issue)\s+#(\d+)", pr.get("body") or "", re.I)
+        if m:
+            try:
+                claim += "\n" + json.loads(gh("issue", "view", m.group(1), "--json", "title,body")).get("body", "")
+            except Exception:
+                pass
+        try:
+            lines += audit_section(state["main"].get("audit", ""), pr_audit, claim)
+        except (OSError, ValueError, KeyError) as exc:
+            lines.append(f"ℹ️ Аудит полей не сверен: {exc}")
     try:
         lines += map_section(diff, main_sha)
     except (OSError, ValueError, KeyError) as exc:
@@ -287,6 +471,17 @@ def touches_engine(changed: list[str]) -> bool:
 
 RETURNED = re.compile(r"<!-- returned -->|не принят")
 TAKEN_REFS = ("refs/remotes/origin/batch/", "refs/remotes/origin/land/", "refs/remotes/origin/agent/claude/station-0")
+
+
+def foreign(p: dict) -> bool:
+    """True unless GitHub says the PR's branch lives in this repository (only the owner and the agents working through the owner's account
+    push here). GitHub sets these fields, not the PR; a missing field or a deleted fork counts as foreign."""
+    return p.get("isCrossRepository") is not False or (p.get("headRepositoryOwner") or {}).get("login") != GH.split("/")[0]
+
+
+FOREIGN_NOTE = ("🔒 **PR из чужого форка**: на песочницах владельца его код не собирается и не запускается. Сборку и свои тесты "
+                "проверяет GitHub Actions — проверка «Fork PR: build and own tests» у этого PR (тесты, которым нужны файлы игры, там "
+                "пропускаются). Тесты на данных игры пройдут в батче владельца после того, как владелец прочитает код.")
 
 
 def skip_reason(p: dict) -> str:
@@ -365,19 +560,71 @@ def finish(n: int, sha: str, lines: list[str], comment: bool, state: dict) -> st
     return body
 
 
+def last_checked_head(comments: list[dict]) -> str:
+    """The head of the newest real check among the PR's comments ('' = none): `<!-- prcheck <sha> -->` reports, without the ⏸️ notes
+    (a skip is not a check)."""
+    heads = [m.group(1) for c in comments for m in [re.match(r"<!-- prcheck ([0-9a-f]{40}) -->", c.get("body") or "")]
+             if m and "⏸️" not in (c.get("body") or "")]
+    return heads[-1] if heads else ""
+
+
+def sync_from_comments(p: dict, state: dict) -> None:
+    """Once per PR head: when the local state does not know this head as checked, read the PR's comments. A report on this head = checked
+    (no second run); a report on an older head = the PR was checked before, so a new head is a rework and goes first."""
+    n, head = str(p["number"]), p["headRefOid"]
+    synced = state.setdefault("synced", {})
+    if state["checked"].get(n) == head or synced.get(n) == head or p["isDraft"]:
+        return
+    comments = json.loads(gh("pr", "view", n, "--json", "comments")).get("comments") or []
+    last = last_checked_head(comments)
+    if last:
+        state["checked"][n] = last
+    synced[n] = head
+    save_state(state)
+
+
 def cycle(args) -> int:
     state = load_state()
     sh(["git", "fetch", "-q", "origin"], cwd=REPO).check_returncode()
     main_sha = sh(["git", "rev-parse", "origin/main"], cwd=REPO).stdout.strip()
     prs = json.loads(gh("pr", "list", "--state", "open", "--limit", "100", "--json",
-                        "number,title,headRefOid,headRefName,files,isDraft,updatedAt"))
+                        "number,title,body,headRefOid,headRefName,files,isDraft,updatedAt,isCrossRepository,headRepositoryOwner"))
     sh(["git", "fetch", "-q", "origin", "+refs/pull/*/head:refs/prcheck/*"], cwd=REPO)  # the heads, for the batch test below
+    # A red PR whose description changed is checked again without a new commit: an agent that only names a pin's cause in the PR body
+    # (the named-pin rule reads the body) gets its new verdict (PR 583, 2026-11-17).
+    bodies = state.setdefault("body", {})
+
+    def body_hash(p) -> str:
+        return hashlib.sha1((p.get("body") or "").encode("utf-8")).hexdigest()
+
+    def body_changed(p) -> bool:
+        n, h = str(p["number"]), body_hash(p)
+        if n not in bodies:
+            bodies[n] = h
+            return False
+        report = REPORTS / f"{n}-{p['headRefOid'][:8]}.md"
+        return bodies[n] != h and report.exists() and "❌" in report.read_text(encoding="utf-8", errors="replace")
+
+    # GitHub is the record of what was checked, not the local state: a sandbox restored from an older backup (sb1 2026-11-18, a state from
+    # 2026-11-15) took every PR for new, re-checked the whole list and left reworked PR 523 behind the queue for hours.
+    for p in prs:
+        sync_from_comments(p, state)
     todo = [p for p in prs if (args.pr is None or p["number"] == args.pr) and not p["isDraft"]
-            and state["checked"].get(str(p["number"])) != p["headRefOid"]
+            and (state["checked"].get(str(p["number"])) != p["headRefOid"] or body_changed(p))
+            and state.get("errors", {}).get(str(p["number"])) != p["headRefOid"]
             and not p["headRefName"].startswith(("claude/", "agent/claude/"))]
     skipped = state.setdefault("skipped", {})
     keep = []
     for p in todo:
+        if foreign(p):  # GitHub's runner checks it; one note per head, never a build here
+            n, head = str(p["number"]), p["headRefOid"]
+            if state.setdefault("foreign", {}).get(n) != head:
+                print(f"#{n}: from another account's fork, left to GitHub Actions", flush=True)
+                if not args.no_comment:
+                    gh("pr", "comment", n, "--body", f"<!-- prcheck-foreign {head} -->\n{FOREIGN_NOTE}")
+                state["foreign"][n] = head
+                save_state(state)
+            continue
         why = skip_reason(p) if args.pr is None else ""
         if why:
             if skipped.get(str(p["number"])) != [p["headRefOid"], why]:
@@ -391,14 +638,45 @@ def cycle(args) -> int:
             continue
         keep.append(p)
     todo = keep
-    for p in sorted(todo, key=lambda p: p.get("updatedAt") or "", reverse=True):  # the freshest first
+    # a reworked PR (checked before, new head) first: its agent waits for the answer (PR 523 waited four hours behind new PRs); then the
+    # freshest first
+    todo = sorted(todo, key=lambda p: p.get("updatedAt") or "", reverse=True)
+    todo = sorted(todo, key=lambda p: str(p["number"]) not in state["checked"])
+    # one PR per cycle, then the list again: a PR reworked while another is being checked waits for that one check only, not the whole queue
+    for p in todo[:1]:
+        bodies[str(p["number"])] = body_hash(p)
         t0 = time.time()
         try:
             body = check_pr(p, state, main_sha, prs, not args.no_comment)
             print(f"#{p['number']}: {body.count('❌')} red, {time.time() - t0:.0f}s", flush=True)
-        except Exception as e:  # one PR's failure does not stop the others
+        except Exception as e:  # one PR's failure does not stop the others: that head is left until a new commit
             print(f"#{p['number']}: checker error: {e}", flush=True)
+            state.setdefault("errors", {})[str(p["number"])] = p["headRefOid"]
+            save_state(state)
     return len(todo)
+
+
+def self_update() -> None:
+    """Between cycles (owner 2026-11-17): the installed copy compares itself with origin/main's tools/colab/pr_checker.py and, when that
+    one compiles, replaces itself and restarts on it, so a landed change to the checker needs no hand swap. A copy inside a git tree (a run
+    from a checkout) is that tree's version and stays."""
+    me = Path(__file__).resolve()
+    if sh(["git", "-C", str(me.parent), "rev-parse", "--git-dir"]).returncode == 0:
+        return
+    sh(["git", "fetch", "-q", "origin"], cwd=REPO)
+    new = subprocess.run(["git", "show", "origin/main:tools/colab/pr_checker.py"], cwd=REPO, capture_output=True).stdout
+    if not new or new == me.read_bytes():
+        return
+    try:
+        compile(new, str(me), "exec")
+    except SyntaxError as e:
+        print(f"self-update: origin/main's pr_checker.py does not compile ({e}); keeping the running copy", flush=True)
+        return
+    tmp = me.with_name(me.name + ".new")
+    tmp.write_bytes(new)
+    os.replace(tmp, me)
+    print(f"== {time.strftime('%F %T', time.gmtime())} UTC self-update: restarting on origin/main's pr_checker.py", flush=True)
+    os.execv(sys.executable, [sys.executable, str(me)] + sys.argv[1:])
 
 
 def main() -> int:
@@ -406,14 +684,18 @@ def main() -> int:
     ap.add_argument("--once", action="store_true")
     ap.add_argument("--pr", type=int)
     ap.add_argument("--no-comment", action="store_true")
+    ap.add_argument("--no-self-update", action="store_true", help="keep the running copy (a branch version under test)")
     args = ap.parse_args()
     ensure_tree()
     while True:
+        if not (args.once or args.pr or args.no_self_update):
+            self_update()
         n = cycle(args)
         if args.once or args.pr:
             return 0
         if not n:
-            time.sleep(600)
+            status("prcheck", "все открытые PR проверены на своих головах: жду новых коммитов")
+            time.sleep(300)
 
 
 if __name__ == "__main__":

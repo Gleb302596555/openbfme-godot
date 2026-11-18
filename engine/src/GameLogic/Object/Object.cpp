@@ -1346,6 +1346,20 @@ void Object::friend_onDie(const DieModuleInterface::Event &event)
 {
 	// RW 0x698F06 (the dead flag RW + 0x458 bit 0 first: from now on the object is no target and takes no more damage)
 	m_effectivelyDead = true;
+	// PORT-224 (issue #534, P-143): RW 0x698F17 .. 0x698F41 (DONOR BFME2 ObjectOnDie.cpp:204-208): when an object dies while
+	// ACTIVELY_BEING_CONSTRUCTED (model condition 0x45), set BUILD_BEING_CANCELED (status 0x56) and clear ACTIVELY_BEING_CONSTRUCTED
+	// before die modules run. RebuildHoleBehavior::update (RW 0x886BDC .. 0x886C40) reads status 0x56 on its reconstructing object to
+	// kill the masked hole with DEATH_FADED (0x16, suppressing CreateObjectDie ALL -FADED treasure) instead of letting the hole survive.
+	static const int kActivelyBeingConstructed = CombatNames::modelCondition("ACTIVELY_BEING_CONSTRUCTED"); // RW 0x45
+	static const int kBuildBeingCanceled = CombatNames::status("BUILD_BEING_CANCELED");                     // RW 0x56
+	if (kActivelyBeingConstructed >= 0 && testModelCondition(kActivelyBeingConstructed))
+	{
+		if (kBuildBeingCanceled >= 0)
+		{
+			setStatus((unsigned)kBuildBeingCanceled, true);
+		}
+		setModelConditionState(kActivelyBeingConstructed, false);
+	}
 	// WOTR2 milestone 7: RW 0x6991F3: an object with a Living World building id (+ 0x484) destroys that building of the strategic region (RW 0x6B3095 ->
 	// RW 0x60EC74 -> LivingWorldRegion::DestroyBuilding RW 0x7F32F4); the war applies it with the battle's result
 	if (m_logic.livingWorldTags().active)

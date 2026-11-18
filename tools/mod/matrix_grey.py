@@ -71,7 +71,7 @@ BRANCHES = (
     ('0x9438CF ..', 'the per-command jump table: every GUI_COMMAND arm after the common gates',
      'partly ported, arm by arm; the inventory and the remaining arms are docs/re/rotwk/RW_0x942733.md\'s and S-290\'s, not re-read this session', 'differs', 'docs/re/rotwk/RW_0x942733.md'),
     ('arms 1 / 0x35 / 3', 'PR #518 (Port 212, issue #502) moves FOUNDATION_CONSTRUCT and DOZER_CONSTRUCT out of the UNIT_BUILD arm so a plot\'s button no longer asks canMakeUnit',
-     'not touched here: this branch stays in the common gates, before the switch; its own verdict and stop S-7423 are that PR\'s', 'same', 'gh pr diff 518'),
+     'not touched here: this branch stays in the common gates, before the switch; its own verdict and stop S-7444 are that PR\'s', 'same', 'gh pr diff 518'),
 )
 
 
