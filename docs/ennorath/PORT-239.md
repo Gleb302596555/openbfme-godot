@@ -4,11 +4,12 @@
 
 Baseline: `80803fe481c19a3e22d6d1b71fd6e93d12ea4742`.
 This is an **interim investigation**, not a completed port or acceptance report.
-No simulation or input behaviour has been changed. No stop is closed yet;
-S-3803 is narrowed by the owner-notification verdict below. Three asset-free
-PORT-239 neighbour/verdict tests are now registered in the full test target.
-They passed syntax validation only; the full `openbfme_tests` target is still
-building. No passing execution result or failing-before-fix result is claimed.
+Input changes implemented so far: PLANNING CommandMap applicability and shared
+RotWK installation loading through the subsystem legend, then the root override.
+No new simulation state. No stop is closed yet; S-3803 is narrowed by the
+owner-notification verdict below. Eleven asset-free PORT-239 tests are registered
+in the full target. They passed syntax validation only; the full target is still
+building. No passing execution or failing-before-fix result is claimed.
 
 The RotWK 2.01 executable was checked against the supplied MD5. Addresses below
 were read with `tools/mod/rw.py ... dis`; the donor is explanatory, not the
@@ -21,7 +22,7 @@ source of retail expectations. No game data or disassembly dumps are included.
 | S-146 | `GameLogic/Player*`, `PlayerList::newGame` | Unresolved: broad per-lane row; do not interpret its old summary as current dispatcher coverage. |
 | S-208 | `GameLogicDispatch`, registered lane handlers | Unresolved: enumerate actual handlers against the retail dispatcher before narrowing. |
 | S-223 | `AICommands`, `AIGroup`; RW 0x774897 | Unresolved: remaining tighten and formation-drag branches need linear reading. |
-| S-281 | `MessageStream/MetaEvent.cpp`, `GodotInGameHud.cpp` | Loader wrapper and subsystem loader read (below); caller paths and subsystem legend resolution remain to trace. German scan-code swap already exists. |
+| S-281 | `MessageStream/MetaEvent.cpp`, `GodotInGameHud.cpp` | Shared legend/root loader and planning mask implemented; full-target execution and red/green pending. German scan-code swap already exists. |
 | S-286 | `MessageStream/CommandXlat.cpp::evaluateContextCommand` | Unresolved: port explicitly labels context priority as inference; inventory each branch against retail, not just attack/enter. Keep off force-attack and special-power functions owned by other tasks. |
 | S-287 | `CommandXlat.cpp` meta switch | Unresolved: compare entire switch with RW 0x81F8D8; do not remove the deliberate force-attack addition (S-1675) without the owner's decision. |
 | S-1201 | Context resume/repair | Unresolved: read retail ActionManager eligibility and context priority before changing builder clicks. |
@@ -248,3 +249,28 @@ Correction: 0x63AF2D was an interior init call site, not a proven function
 entry; the proven loader entry is 0x5B4B9A and the call sites are listed above.
 Full single-thread build remains running (last observed 514/1683); do not
 start a second ninja in engine/build. Other issue-562 stops remain unfinished.
+
+## S-3803: eligibility chain, further linear reading
+
+RW entry 0x96FAC6 resolves the context object through 0x9D29CE -> 0x449681.
+A missing object jumps directly to the menu open/close branch (0x96FB11).
+An existing object requires PlayerList (global 0xDE4928) and RW 0x6A8803.
+The latter returns false without local player; otherwise RW 0x6AAC52 returns
+active iff **both** observer byte +0x35A and defeated byte +0x754 are zero.
+Inactive local players bypass the relationship restriction; active players
+require relationship 2 to the object's team (+0x31C), through 0x6ADBEB.
+RW entry 0x6ADBEB first checks a team override (+0x354), then calls 0x6ACEAF
+for the team's player. RW entry 0x6ACEAF checks player overrides (+0x350)
+and defaults to 1 (neutral), not to allied. All bodies read through return.
+DONOR BFME2: Common/RTS/Player.cpp::isPlayerActive uses observer/dead at
++0x33A/+0x734, confirming the names but not RotWK offsets; the target proof
+above is independent. The port already has observer, defeated, team/player
+relationships and ALLIES=2. Do not replace this by a selected-owner equality
+check or reuse the ordinary disabled-clip gate: neither is retail's predicate.
+Integration and asset-free press tests are still outstanding; no stance code
+was changed on this evidence alone.
+
+Additional loader neighbour tests now cover the unchanged BFME1/BFME2 paths
+and macro lifetime across the temporary manifest registry (11 total cases,
+syntax-only). The latter also checks no dangling LoadSubsystem callback is
+installed in the caller's persistent registry.

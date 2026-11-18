@@ -359,3 +359,50 @@ TEST_CASE("PORT-239 CommandMap loading: missing or malformed manifest inputs fai
 	CHECK_FALSE(ListCommandMap(files.fsys, rows, &error));
 	CHECK_FALSE(error.empty());
 }
+
+TEST_CASE("PORT-239 CommandMap loading: other-edition paths remain unchanged")
+{
+	// Neighbour coverage, not a RotWK binary claim: preserve the existing
+	// BFME1 base-only and BFME2 base-plus-root contracts when no expansion
+	// legend is mounted. The decoy default legend must not be parsed here.
+	bool bfme2 = false;
+	SUBCASE("BFME1 base only") {}
+	SUBCASE("BFME2 root override") { bfme2 = true; }
+	initest::FileList tree{
+		{ "Data\\INI\\Default\\SubsystemLegend.ini", "NotARealBlock Decoy\nEnd\n" },
+		{ "Data\\INI\\CommandMap.ini", "CommandMap STOP\n Key = KEY_A\n UseableIn = GAME\nEnd\n" },
+		{ "CommandMap.ini", bfme2 ? "CommandMap STOP\n Key = KEY_Z\nEnd\n" : "NotARealBlock Decoy\nEnd\n" }
+	};
+	if (bfme2) tree.push_back({ "Data\\INI\\AwardSystem.ini", "" });
+	initest::Fixture files(tree);
+	std::vector<CommandMapEntry> rows;
+	std::string error;
+	REQUIRE_MESSAGE(ListCommandMap(files.fsys, rows, &error), error);
+	REQUIRE(rows.size() == 1);
+	CHECK(rows[0].key == (bfme2 ? "KEY_Z" : "KEY_A"));
+	CHECK(rows[0].game);
+}
+
+TEST_CASE("PORT-239 CommandMap loading: shared macros survive the temporary legend registry")
+{
+	// The production INI environment's macro lifetime must span the temporary
+	// manifest registry and both command-file loads, without retaining a
+	// callback referring to the destroyed temporary SubsystemLegend.
+	initest::Fixture files({
+		{ "Before.ini", "#define PORT239_BEFORE 11\n" },
+		{ kPort239Legend, "#define PORT239_MANIFEST 22\nLoadSubsystem TheMetaMap\n InitFile = SyntheticKeys.ini\nEnd\n" },
+		{ "SyntheticKeys.ini", "#define PORT239_KEYS 33\nCommandMap STOP\n Key = KEY_S\nEnd\n" },
+		{ "CommandMap.ini", "#define PORT239_ROOT 44\n" }
+	});
+	INI before(files.env);
+	before.load("Before.ini", INI_LOAD_OVERWRITE);
+	MetaMap map;
+	map.registerBlocks(files.env);
+	std::string error;
+	REQUIRE_MESSAGE(map.loadInstalled(files.env, &error), error);
+	CHECK(files.env.macros.find("PORT239_BEFORE") != nullptr);
+	CHECK(files.env.macros.find("PORT239_MANIFEST") != nullptr);
+	CHECK(files.env.macros.find("PORT239_KEYS") != nullptr);
+	CHECK(files.env.macros.find("PORT239_ROOT") != nullptr);
+	CHECK(files.env.blocks.find("LoadSubsystem") == nullptr);
+}
