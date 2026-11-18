@@ -121,6 +121,9 @@ public:
 	void registerBlocks(INIEnvironment &env);
 	// loads one CommandMap file (the file names and their order are the caller's: the INI subsystem legend's); false + *error when the file throws
 	bool load(INIEnvironment &env, const std::string &file, std::string *error);
+	// RW 0x63AF2D: TheMetaMap legend load at 0x63C1F3, then root override at 0x63C506.
+	// The caller registers CommandMap on env before loading. Errors are returned, never defaulted.
+	bool loadInstalled(INIEnvironment &env, std::string *error);
 
 	// the records in the order the translator tries them (reverse of first appearance)
 	const std::vector<MetaMapRec> &records() const { return m_records; }

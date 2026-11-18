@@ -9,6 +9,8 @@
 #include "Common/INI.h"
 #include "Common/INIException.h"
 #include "Common/Player.h"
+#include "Common/GameEdition.h"
+#include "Common/SubsystemLegend.h"
 
 #include <algorithm>
 #include <cctype>
@@ -182,6 +184,48 @@ bool MetaMap::load(INIEnvironment &env, const std::string &file, std::string *er
 		{
 			*error = file + ": " + e.what();
 		}
+		return false;
+	}
+	return true;
+}
+
+// RW 0x63AF2D (GameEngine::init), 0x63C1CC..0x63C1F8: MetaMap ctor
+// RW 0x5DAB70 -> vtable 0xBF1BF4 slot +8 -> RW 0x5B4B9A. The registration
+// wrapper RW 0x638244 calls RW 0x5B4A7C with no hardcoded paths. Reuse the
+// existing legend mechanism (InitFile order, then InitPath), not a filename guess.
+// The later direct load at 0x63C506 applies the root language override last.
+bool MetaMap::loadInstalled(INIEnvironment &env, std::string *error)
+{
+	if (!env.fileSystem)
+	{
+		if (error) *error = "CommandMap installation load: no file system";
+		return false;
+	}
+	// Preserve the pre-existing other-edition paths; this port establishes RotWK only.
+	const bool bfme1 = isBfme1Data(*env.fileSystem);
+	if (bfme1 || isBfme2Data(*env.fileSystem))
+	{
+		return load(env, "Data\\INI\\CommandMap.ini", error) && (bfme1 || load(env, "CommandMap.ini", error));
+	}
+	try
+	{
+		// A temporary registry keeps the legend's callback out of the caller's
+		// persistent environment. Preserve the shared macro table across both loads.
+		SubsystemLegend legend;
+		INIEnvironment manifestEnv;
+		manifestEnv.fileSystem = env.fileSystem;
+		manifestEnv.macros = env.macros;
+		legend.registerBlock(manifestEnv.blocks);
+		INI manifest(manifestEnv);
+		manifest.load(kSubsystemLegendFile, INI_LOAD_OVERWRITE);
+		env.macros = manifestEnv.macros;
+		INI ini(env);
+		legend.loadIniFilesFromLegend("TheMetaMap", ini, SubsystemLoadOptions{}, nullptr);
+		ini.load("CommandMap.ini", INI_LOAD_OVERWRITE);
+	}
+	catch (const std::exception &e)
+	{
+		if (error) *error = std::string("CommandMap installation load: ") + e.what();
 		return false;
 	}
 	return true;
@@ -403,8 +447,7 @@ bool ListCommandMap(ArchiveFileSystem &fs, std::vector<CommandMapEntry> &out, st
 	env.fileSystem = &fs;
 	MetaMap map;
 	map.registerBlocks(env);
-	const bool bfme1Keys = env.fileSystem && isBfme1Data(*env.fileSystem); // BFME1: no root CommandMap.ini (docs/BFME1.md)
-	if (!map.load(env, "Data\\INI\\CommandMap.ini", error) || (!bfme1Keys && !map.load(env, "CommandMap.ini", error)))
+	if (!map.loadInstalled(env, error))
 	{
 		return false;
 	}

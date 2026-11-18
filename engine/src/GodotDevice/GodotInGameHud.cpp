@@ -2225,9 +2225,7 @@ Dictionary InGameHudNode::attach(const Ref<RetailFileSystem> &fs, GameWorld *wor
 	d->metaEnv = std::make_unique<INIEnvironment>();
 	d->metaEnv->fileSystem = &afs;
 	d->meta.registerBlocks(*d->metaEnv);
-	// BFME1 ships only Data\\INI\\CommandMap.ini (no root CommandMap.ini override; docs/BFME1.md)
-	const bool bfme1Keys = d->metaEnv->fileSystem && isBfme1Data(*d->metaEnv->fileSystem);
-	if (!d->meta.load(*d->metaEnv, "Data\\INI\\CommandMap.ini", &error) || (!bfme1Keys && !d->meta.load(*d->metaEnv, "CommandMap.ini", &error)))
+	if (!d->meta.loadInstalled(*d->metaEnv, &error))
 	{
 		errors.push_back(toGodot(error));
 	}
