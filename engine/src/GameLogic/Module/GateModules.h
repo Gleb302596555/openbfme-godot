@@ -148,7 +148,7 @@ public:
 	virtual GeometryState geometryState() const { return (GeometryState)m_geometryState; }
 	virtual float percent() const { return m_percent; }
 	int wantOpenRequest() const { return m_request; }
-	// the sounds the gate would have started (stop S-1942: not played), in order: "opening", "closing", "opened", "closed"
+	// the configured sounds requested from the audio owner (PORT-234), in order: "opening", "closing", "opened", "closed"
 	const std::vector<std::string> &soundRequests() const { return m_sounds; }
 	const GateOpenAndCloseBehaviorModuleData *data() const { return m_data; }
 

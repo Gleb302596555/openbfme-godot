@@ -4,6 +4,7 @@
 // the default background).  See GameClient/GUI/GameWindow.h.
 
 #include "GameClient/GUI/GameWindow.h"
+#include "Common/Audio/AudioEntryPoints.h"
 
 #include "GameClient/GUI/Gadget.h"
 #include "GameClient/GUI/GameWindowManager.h"
@@ -549,7 +550,8 @@ int GameWindow::winDrawWindow()
 	return WIN_ERR_OK;
 }
 
-GameWindow *GameWindow::winPointInChild(int x, int y, bool ignoreEnableCheck, bool)
+// RW 0x715A84. DONOR BFME2 0x003141BC (GameWindow.cpp).
+GameWindow *GameWindow::winPointInChild(int x, int y, bool ignoreEnableCheck, bool playDisabledSound)
 {
 	for (GameWindow *child = m_child; child; child = child->m_next)
 	{
@@ -563,11 +565,17 @@ GameWindow *GameWindow::winPointInChild(int x, int y, bool ignoreEnableCheck, bo
 		{
 			const bool enabled = ignoreEnableCheck || BitTest(child->m_status, WIN_STATUS_ENABLED);
 			const bool hidden = BitTest(child->m_status, WIN_STATUS_HIDDEN);
-			if (!hidden && enabled)
+			if (!hidden && (enabled || (child->m_status & 0x20000000u))) // RW 0x715B1C
 			{
-				return child->winPointInChild(x, y, ignoreEnableCheck);
+				return child->winPointInChild(x, y, ignoreEnableCheck, playDisabledSound);
 			}
-			// ZH plays "GUIClickDisabled" for a disabled child when asked: audio is a ShellServices concern, not ported (S-177)
+			if (!hidden && playDisabledSound)
+			{
+				if (AudioManager *audio = AudioApi::current())
+				{
+					audio->playUiSound(audio->miscAudio("DisabledButtonClicked")); // RW 0x715B30, view 2
+				}
+			}
 		}
 	}
 	return this;

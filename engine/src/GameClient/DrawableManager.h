@@ -43,6 +43,7 @@ public:
 
 	// the simulation's client events, in order: creation, destruction, model conditions, module / sub object visibility, placement
 	void applyEvents(const std::vector<ClientEvent> &events);
+	void setRevealMessageHandler(std::function<void(const char *)> handler) { m_revealMessage = std::move(handler); }
 	void setHeroAttackedHandler(std::function<void(ObjectID)> handler) { m_heroAttackedHandler = std::move(handler); }
 	// TOP20 rampage: ClientEvent::DESELECTED goes to the client's selection (the HUD installs InGameUI::deselectObject)
 	void setDeselectHandler(std::function<void(ObjectID)> handler) { m_deselectHandler = std::move(handler); }
@@ -164,6 +165,8 @@ private:
 	std::unordered_map<ObjectID, DrawableID> m_byObjectFar; ///< ids at or beyond kDenseObjectIds (a saved game's ids are kept: never expected so far)
 	static constexpr ObjectID kDenseObjectIds = 1u << 22;
 	void bindObject(ObjectID object, DrawableID id); ///< id 0 unbinds
+	void applyStealthReveal(const ClientEvent &e);
+	std::function<void(const char *)> m_revealMessage;
 	std::function<void(ObjectID)> m_heroAttackedHandler;
 	std::function<void(ObjectID)> m_deselectHandler;
 	EvaDamage::Stats m_evaDamage; ///< lane EVADAMAGE-1

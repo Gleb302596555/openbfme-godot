@@ -519,13 +519,6 @@ std::uint8_t LiveGameAudio::templateAudio(const ThingTemplate &tt)
 	{
 		kinds |= soundField(tt, f).empty() ? 0 : 1;
 	}
-	for (const char *f : { "EvaEventDieOwner", "EvaEventDieAlly", "EvaEventDieEnemy", "EvaEventDamagedOwner" })
-	{
-		const FieldValue *v = tt.findField(f);
-		const RawTokens *raw = v ? std::get_if<RawTokens>(v) : nullptr;
-		const std::string *str = v ? std::get_if<std::string>(v) : nullptr;
-		kinds |= ((raw && !raw->tokens.empty() && !raw->tokens.front().empty()) || (str && !str->empty())) ? 2 : 0;
-	}
 	m_templateAudio.emplace(&tt, kinds);
 	return kinds;
 }
@@ -575,50 +568,6 @@ void LiveGameAudio::stopAmbient(ObjectID, Ambient &a)
 	}
 	a.handle = 0;
 	a.tried = false;
-}
-
-std::string LiveGameAudio::evaField(const Object &obj, const char *field)
-{
-	// the template's Eva event rows (RW 0x5DE588: an Eva event name; "" = none)
-	const FieldValue *f = obj.getTemplate()->findField(field);
-	if (const RawTokens *raw = f ? std::get_if<RawTokens>(f) : nullptr)
-	{
-		return raw->tokens.empty() ? std::string() : raw->tokens.front();
-	}
-	if (const std::string *str = f ? std::get_if<std::string>(f) : nullptr)
-	{
-		return *str;
-	}
-	return std::string();
-}
-
-void LiveGameAudio::evaWatch(const Object &o)
-{
-	// INFERENCE (S-709): retail reports the deaths from the logic's death code (the call sites were not decoded); here the client watches the objects: a death
-	// reports EvaEventDieOwner / Ally / Enemy by the relationship of the object's player to the local player. Eva's own TimeBetweenEventsMS / QuietTime rules
-	// (Eva.ini) throttle the repeats. Lane EVADAMAGE-1: the damage events are retail's drawable damage notice (RW 0x67B4B7: ClientEvent::EVA_DAMAGED,
-	// GameClient/EvaDamage.h), no longer a watch of the health
-	const Player *local = m_game.players().getLocalPlayer();
-	const Player *owner = o.getControllingPlayer();
-	if (!o.getBodyModule() || !local || !owner)
-	{
-		return;
-	}
-	EvaWatch &w = m_eva[o.getID()];
-	const bool dead = o.isEffectivelyDead() || o.isDestroyed();
-	if (w.known && !w.dead && dead)
-	{
-		const Relationship r = owner == local ? ALLIES : owner->getRelationship(local);
-		const char *field = owner == local ? "EvaEventDieOwner" : r == ALLIES ? "EvaEventDieAlly" : r == ENEMIES ? "EvaEventDieEnemy" : nullptr;
-		const std::string ev = field ? evaField(o, field) : std::string();
-		if (!ev.empty())
-		{
-			AudioApi::reportEva(ev, o.getPosition());
-			++m_stats.evaDeaths;
-		}
-	}
-	w.known = true;
-	w.dead = dead;
 }
 
 void LiveGameAudio::largeGroupUpdate()
@@ -908,6 +857,7 @@ void LiveGameAudio::update()
 		return; // see the destructor
 	}
 	flushEventLog(); // AUDIO-3: the requests since the last update (their drawables and objects are looked up now)
+	m_stats.evaDeaths = AudioApi::deathReports(); // RW 0x698F06, no polling of dead bodies
 	m_stats.evaDamaged = m_game.drawables().evaDamageStats().picked; // lane EVADAMAGE-1
 	GameLogic &logic = m_game.logic();
 	m_audio.setLogFrame(logic.getFrame());
@@ -996,14 +946,7 @@ void LiveGameAudio::update()
 		{
 			m_stats.battleAmbientTemplates += soundField(*tt, "SoundAmbientBattle").empty() ? 0 : 1;
 		}
-		// lane PERF-HD: most objects (a battle's soldiers) have neither an Eva event nor an ambient sound in their template: the watch could report nothing
-		// for them and their wanted ambient is always none, so only a playing ambient of theirs (none in practice) is looked at
 		const std::uint8_t kinds = templateAudio(*tt);
-		if (kinds & 2)
-		{
-			AudioLog::Scope logScope("eva body watch");
-			evaWatch(*o);
-		}
 		// ZH: a drawable's ambient sound is enabled once the object is complete (construction keeps it off) and stops when the object dies
 		std::string want;
 		if ((kinds & 1) && !o->isDestroyed() && !o->isUnderConstruction() && !o->isEffectivelyDead())
@@ -1178,16 +1121,11 @@ std::vector<std::string> LiveGameAudio::acceptanceStops()
 		"whose pending stop frame also keeps the tracker awake in retail); the move sounds are AIInternalMoveToState's (lane AUDIO-3: startMoveSound RW 0x748C0B "
 		"at onEnter RW 0x74E06F, the loop removed at onEnter / onExit) with the move loop's handle kept by the audio side (AudioApi::postHeldSound), not at "
 		"state + 0x40, and without the draw module's sound overrides (RW 0x676A8A, S-701)",
-		"[S-709] Eva from deaths and sightings (narrowed by EVADAMAGE-1: the damage rows are retail's RW 0x67B4B7, stop S-7090): EvaEventDieOwner / Ally / "
-		"Enemy are reported by a client watch of the objects (a death); retail's death call sites (RW 0x698F06) were not decoded, nor the detection events; the "
-		"sighting events (EvaEnemyObjectSightedEvent, EvaOnFirstSightingEvent*: RW 0x678C69 on the shroud transition RW 0x678F54, TOP20 #2) are decoded and not ported",
+		"[S-709] closed: Object::friend_onDie reports EvaEventDieOwner/Ally/Enemy (RW 0x698F06); StealthUpdate / InvisibilityManager emit reveal events. Sighting is EvaSighting (LOCAL-13); damage is S-7090.",
 		"[S-1240] held sounds (lane AUDIO-3): the handles retail keeps in its modules (GettingBuiltBehavior + 0x24, the dozer's building sound, "
 		"AIInternalMoveToState + 0x40) are kept by the audio side keyed by the holder object (AudioApi::postHeldSound); an object keeps one move loop (retail: one per "
 		"move state instance); the dozer's building sound starts at RW's dock sub task 2 -> 3 (RW 0x88DD65, ported by lane BUILD-3)",
-		"[S-1241] request queue (lane AUDIO-3): RotWK's SoundManager::addAudioEvent requeue (RW 0x45CC91: a culled event waits when it loops or its Delay is at least "
-		"33.33 ms) and re-check (RW 0x461A83) are ported; not ported: canPlayNow's refusal of an event whose position cannot be resolved (RW 0x45CB92: the port skips "
-		"the distance gate instead), the processing pass's early check and preload of a soon-due request (RW 0x461AA1 .. 0x461B07, FUN 0x4A7C71); a requeued loop "
-		"whose owner is gone is dropped (port)",
+		"[S-1241] closed (PORT-234): RW 0x45CB3B refuses an unresolved positional sample unless exempt; RW 0x461A83 checks and retains the current portion below the preload window, and a refused loop waits again. Our sample cache holds decoded PCM (S-249).",
 		"[S-1463] large group audio: the INAUDIBLE half is ported (lane PORT-21: RW 0x692313 / 0x6923B7 set and clear status 52 through RW 0x690728 / "
 		"0x690772, which ask every behaviour module's interface 36 — the module's leave RW 0x8AF09D / join RW 0x8AF005 — and the drawable's audible flag "
 		"RW 0x674727 / 0x67896F; Object::setInaudible / setAudible); not ported: the two held sounds RW 0x674727 drops (RW 0x674738 -> RW 0x6717C4, "

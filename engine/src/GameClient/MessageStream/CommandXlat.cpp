@@ -2,6 +2,7 @@
 // See CommandXlat.h.
 
 #include "GameClient/MessageStream/CommandXlat.h"
+#include "Common/Audio/AudioRequests.h"
 #include "GameLogic/Module/StancesBehavior.h"
 
 #include "Common/Team.h"
@@ -1107,9 +1108,16 @@ MessageDisposition CommandTranslator::translate(const ClientMessage &msg)
 				}
 				return MessageDisposition::Destroy;
 			}
+			case CMSG_META_ALL_CHEER: // RW 0x81F8D8: 0x820128..0x820186 (RW 0x441B7C: LAN or Internet)
+				if (m_ctx.ui.networkGame()) // the HUD binds this for LAN / internet (the simulation also replays their orders in skirmish mode)
+				{
+					AudioApi::playMiscAudioForPlayer("AllCheerSound", -1); // tactical view, no player or object
+					m_ctx.stream.append(MSG_DO_CHEER);
+					return MessageDisposition::Destroy;
+				}
+				return MessageDisposition::Keep;
 			case CMSG_META_CHAT_BUDDIES:
 			case CMSG_META_TOGGLE_CONTROL_BAR:
-			case CMSG_META_ALL_CHEER:
 			case CMSG_META_ORDER_SYNCHRONIZE:
 			case CMSG_META_TOGGLE_PLANNING_MODE:
 			case CMSG_META_TOGGLE_FAST_FORWARD_MODE:

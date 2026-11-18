@@ -82,6 +82,7 @@ struct ClientEvent
 		SUPPLY_STATUS,   ///< PORT-77: RW 0x8AB623..0x8AB63A dispatches the supply look through RW 0x671948; event delivery is INFERENCE
 		ENSLAVED,        ///< P-87 (RW 0x8A51AE -> RW 0x6713A8): slaver; the slave's drawable copies the slaver drawable's Eva sighting flags
 		HOUSE_RECOLOR,   ///< PORT-47: name = first exclusion (or empty), houseColor = controlling player day colour, kind 1 (RW 0x4B873C / 0x4B872C)
+		STEALTH_REVEALED, // target position, reveal (client branch), name (its EVA), detector ID/place and local player at the reveal
 	};
 	std::string heroUniqueID;
 	std::vector<std::string> heroStatistics;
@@ -127,6 +128,11 @@ struct ClientEvent
 	int flashFrames = 0;
 	int customKind = 0;                             ///< CUSTOM_COLORS (lane CAH-2)
 	std::uint32_t customColors[3] = { 0u, 0u, 0u }; ///< CUSTOM_COLORS: ARGB
+	enum Reveal { HintOnly, Owner, Ally, Enemy } reveal = HintOnly;
+	bool revealHint = false;
+	int revealPlayer = -1;
+	ObjectID detector = INVALID_ID;
+	Coord3D detectorPosition{};
 	EvaDamageNotice eva;                            ///< EVA_DAMAGED (lane EVADAMAGE-1)
 	bool hasFlashColor = false;                     ///< FLASH_AS_SELECTED
 	RGBColor flashColor{};                          ///< FLASH_AS_SELECTED
@@ -175,6 +181,7 @@ public:
 	void setDrawableSelected(ObjectID id, bool selected);
 	bool isDrawableSelected(ObjectID id) const;
 	void flashAsSelected(Object &obj, const RGBColor *color) override;
+	void stealthRevealed(Object &obj, const Object *detector, int mode, bool hint, const StealthUpdateModuleData *data) override;
 	void evaDamaged(Object &obj, const EvaDamageNotice &notice) override; // lane EVADAMAGE-1
 	void flashHeroButton(const std::string &templateName, int frames) override;
 	void objectDied(Object &obj) override;

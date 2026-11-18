@@ -222,6 +222,7 @@ private:
 		bool untoggleHidden = false;  ///< + 0x20
 	};
 
+	static void notifyReveal(Object &obj, const Outcome &out, int mode);
 	static bool tracked(const Object &obj); ///< the horde guard of RW 0x81C217 / 0x81C32C / 0x81AA85
 	bool evaluate(Object *obj, Entry &e);                                    ///< RW 0x81BCBD
 	int computeType(Object *obj, Entry &e, Outcome &out);                     ///< RW 0x81BB8A

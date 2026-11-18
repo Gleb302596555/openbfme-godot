@@ -407,7 +407,7 @@ UpdateSleepTime SlavedUpdate::update()
 	const Team *slaverTeam = slaver->getTeam();
 	if (!slaverTeam || slaverTeam->getRelationship(obj->getTeam()) != ALLIES)
 	{
-		obj->setTeam(slaver->getTeam()); // RW 0x6996DC(team, 0)
+		obj->setCapturedTeam(slaver->getTeam(), 0); // RW 0x8A5D00: 0x8A5E4D calls capture with no detection window
 		stopSlavedEffects();
 		return UPDATE_SLEEP_FOREVER;
 	}

@@ -724,8 +724,6 @@ void StealthUpdate::swapDisguise()
 // RW 0x7767A9
 void StealthUpdate::markAsDetected(unsigned frames, int mode, Object *detector, bool horde)
 {
-	(void)mode;     // the client notification's mode
-	(void)detector; // the client notification's detector
 	Object *obj = getObject();
 	const StealthBits &b = stealthBits();
 	if (obj->testStatus((unsigned)b.detected))
@@ -765,6 +763,10 @@ void StealthUpdate::markAsDetected(unsigned frames, int mode, Object *detector, 
 	if (m_data->m_orderIdleEnemiesToAttackMeUponReveal)
 	{
 		obj->logic().invisibility().wakeEnemiesThatSee(obj); // RW 0x7768B4 .. 0x77690B
+	}
+	if (obj->clientHooks() && mode) // RW 0x77690D: not repeated on the already-DETECTED branch
+	{
+		obj->clientHooks()->stealthRevealed(*obj, detector, mode, false, m_data);
 	}
 	extendDetection(frames);
 }

@@ -433,7 +433,6 @@ void InvisibilityManager::applyNugget(Object *obj, unsigned frames, const Invisi
 // RW 0x81C32C
 bool InvisibilityManager::markDetected(Object *target, Object *detector, unsigned frames, int mode)
 {
-	(void)mode; // the client notification's mode (RW 0x81ACD7)
 	if (!target || !tracked(*target))
 	{
 		return false;
@@ -457,7 +456,7 @@ bool InvisibilityManager::markDetected(Object *target, Object *detector, unsigne
 	out.detector = detector;   // RW 0x81C42C
 	if (applyType(target, type, e, out, frames))
 	{
-		note("the reveal's client notification (RW 0x81ACD7: radar event, EVA, MESSAGE:StealthDiscovered, sounds) is the client's and is not run");
+		notifyReveal(*target, out, mode); // RW 0x81C32C
 		return true;
 	}
 	return false;
@@ -499,7 +498,7 @@ bool InvisibilityManager::evaluate(Object *obj, Entry &e)
 	const int type = computeType(obj, e, out);
 	if (applyType(obj, type, e, out, s.reinvisibilityDelay)) // RW 0x81BCFC with GlobalData + 0x11CC
 	{
-		note("the reveal's client notification (RW 0x81ACD7: radar event, EVA, MESSAGE:StealthDiscovered, sounds) is the client's and is not run");
+		notifyReveal(*obj, out, out.detector ? 2 : 1); // RW 0x81BD07..0x81BD16
 		const unsigned until = m_logic.getFrame() + s.reinvisibilityDelay; // RW 0x81A751
 		if (until > e.notBefore)
 		{
@@ -875,6 +874,24 @@ bool InvisibilityManager::applyType(Object *obj, int type, Entry &e, const Outco
 		++m_becameInvisible;
 	}
 	return false;
+}
+
+// RW 0x81ACD7: +10 in the outcome is the combined HintDetectableConditions. 0x75CDC4 tests any intersection.
+void InvisibilityManager::notifyReveal(Object &obj, const Outcome &out, int mode)
+{
+	if (auto *client = obj.clientHooks())
+	{
+		bool hint = false;
+		for (size_t i = 0; i < out.hint.size(); ++i)
+		{
+			if (out.hint[i] & obj.getStatusBits()[i])
+			{
+				hint = true;
+				break;
+			}
+		}
+		client->stealthRevealed(obj, out.detector, mode, hint, nullptr);
+	}
 }
 
 // RW 0x81AF68

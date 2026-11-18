@@ -48,6 +48,9 @@ std::atomic<std::uint64_t> g_without{ 0 };
 std::atomic<std::uint64_t> g_withoutEva{ 0 };
 std::atomic<std::uint64_t> g_withoutVoice{ 0 };
 Eva *g_eva = nullptr;
+std::uint64_t g_deathReports = 0; // per manager binding, under g_bindMutex
+constexpr const char *kHeldSoundTags[] = { "building loop", "move loop", "upgrade loop", "ability loop", "flammable loop", "gate loop" };
+static_assert(sizeof(kHeldSoundTags) / sizeof(*kHeldSoundTags) == AudioApi::HELD_SOUND_SLOTS);
 struct FireLoop
 {
 	AudioHandle handle = 0;
@@ -144,6 +147,7 @@ void install(AudioManager *manager)
 	g_manager = manager;
 	g_managerOwner = std::this_thread::get_id();
 	++g_managerGeneration; // requests queued for the previous manager are stale
+	g_deathReports = 0;
 	g_fireLoops.clear();   // handles of another manager mean nothing here
 	for (auto &held : g_heldSounds)
 	{
@@ -226,27 +230,43 @@ AudioHandle playSoundForObject(const std::string &n, std::uint32_t id, int playe
 	return AHSV_Error;
 }
 
-AudioHandle playMiscAudioForObject(const std::string &slotName, std::uint32_t id, int player)
+namespace
+{
+// Resolve the slot against the same generation of TheAudio that will play it. Never dereference the manager on the logic worker.
+template<class Play>
+AudioHandle playMiscSlot(const std::string &slot, Play play)
 {
 	AudioManager *mgr = nullptr;
-	switch (route(Binding::Manager, [slotName, id, player]() { playMiscAudioForObject(slotName, id, player); }, &mgr))
+	switch (route(Binding::Manager, [slot, play]() { playMiscSlot(slot, play); }, &mgr))
 	{
 	case Route::Run:
 	{
-		const std::string &eventName = mgr->miscAudio(slotName);
-		if (!eventName.empty())
-		{
-			return mgr->playSoundForObject(eventName, id, player);
-		}
-		return AHSV_Error;
+		const std::string &event = mgr->miscAudio(slot);
+		return event.empty() ? AudioHandle(AHSV_NoSound) : play(*mgr, event);
 	}
-	case Route::Deferred:
-		return AHSV_Error; // S-814: played on the audio owner at the next idle point; no handle comes back to a logic-thread caller
 	case Route::Unbound:
+		g_without.fetch_add(1, std::memory_order_relaxed);
+		break;
+	case Route::Deferred:
 		break;
 	}
-	g_without.fetch_add(1, std::memory_order_relaxed);
 	return AHSV_Error;
+}
+} // namespace
+
+AudioHandle playMiscAudioForObject(const std::string &slot, std::uint32_t id, int player)
+{
+	return playMiscSlot(slot, [id, player](AudioManager &mgr, const std::string &n) { return mgr.playSoundForObject(n, id, player); });
+}
+
+AudioHandle playMiscAudioForPlayer(const std::string &slot, int player)
+{
+	return playMiscSlot(slot, [player](AudioManager &mgr, const std::string &n) { return mgr.playSoundForPlayer(n, player); });
+}
+
+AudioHandle playMiscAudioAtPosition(const std::string &slot, const Coord3D &at)
+{
+	return playMiscSlot(slot, [at](AudioManager &mgr, const std::string &n) { return mgr.playSoundAt(n, at); });
 }
 
 AudioHandle playSoundAtPositionForPlayer(const std::string &n, const Coord3D &p, int player)
@@ -370,7 +390,7 @@ std::uint64_t callsWithoutEva()
 	return g_withoutEva.load(std::memory_order_relaxed);
 }
 
-bool reportEva(const std::string &n, const Coord3D *position, const Coord3D *position2)
+static bool reportNamedEva(const std::string &n, const Coord3D *position, const Coord3D *position2, bool death)
 {
 	// lane CAMP-1H: a report from the logic worker (AttachUpdate's cues, RW 0x8952BD / 0x895448) is queued for the audio owner like the other S-814
 	// requests (the Eva belongs to the manager's thread)
@@ -378,8 +398,8 @@ bool reportEva(const std::string &n, const Coord3D *position, const Coord3D *pos
 	const Coord3D at = hasPosition ? *position : Coord3D{ 0.0f, 0.0f, 0.0f };
 	const bool hasPosition2 = position2 != nullptr;
 	const Coord3D at2 = hasPosition2 ? *position2 : Coord3D{ 0.0f, 0.0f, 0.0f };
-	switch (route(Binding::Manager, [n, hasPosition, at, hasPosition2, at2]() {
-		reportEva(n, hasPosition ? &at : nullptr, hasPosition2 ? &at2 : nullptr);
+	switch (route(Binding::Manager, [n, hasPosition, at, hasPosition2, at2, death]() {
+		reportNamedEva(n, hasPosition ? &at : nullptr, hasPosition2 ? &at2 : nullptr, death);
 	}))
 	{
 	case Route::Run:
@@ -396,6 +416,7 @@ bool reportEva(const std::string &n, const Coord3D *position, const Coord3D *pos
 		std::lock_guard<std::mutex> lock(g_bindMutex);
 		eva = g_eva;
 		mgr = g_manager;
+		if (death && mgr) ++g_deathReports; // count the named report, not whether TheEva played or dropped it
 	}
 	if (!eva || !mgr)
 	{
@@ -405,6 +426,22 @@ bool reportEva(const std::string &n, const Coord3D *position, const Coord3D *pos
 	// Eva runs on the audio manager's client clock (presentation time, never the logic clock)
 	return eva->reportEventByName(n, position, mgr->nowMs(), position2);
 }
+bool reportEva(const std::string &n, const Coord3D *position, const Coord3D *position2)
+{
+	return reportNamedEva(n, position, position2, false);
+}
+
+void reportDeathEva(const std::string &name, const Coord3D &position)
+{
+	reportNamedEva(name, &position, nullptr, true);
+}
+
+std::uint64_t deathReports()
+{
+	std::lock_guard<std::mutex> lock(g_bindMutex);
+	return g_deathReports;
+}
+
 bool reportEva(int event, const Coord3D *position, const Coord3D *position2)
 {
 	const bool hasPosition = position != nullptr;
@@ -677,8 +714,7 @@ void postHeldSound(int slot, const std::string &n, std::uint32_t holderId, std::
 		mgr->removeAudioEvent(it->second);
 		held.erase(it);
 	}
-	static const char *const kTag[HELD_SOUND_SLOTS] = { "building loop", "move loop", "upgrade loop", "ability loop", "flammable loop" };
-	AudioLog::Scope scope(kTag[slot]);
+	AudioLog::Scope scope(kHeldSoundTags[slot]);
 	const AudioHandle h = mgr->playSoundForObject(n, objectId);
 	if (h >= AHSV_FirstHandle)
 	{
@@ -716,8 +752,7 @@ void resumeHeldSound(int slot, const std::string &n, std::uint32_t holderId, std
 	{
 		held.erase(it); // the kept handle outlived its sound: dropped, then the event is added below
 	}
-	static const char *const kTag[HELD_SOUND_SLOTS] = { "building loop", "move loop", "upgrade loop", "ability loop", "flammable loop" };
-	AudioLog::Scope scope(kTag[slot]);
+	AudioLog::Scope scope(kHeldSoundTags[slot]);
 	const AudioHandle h = mgr->playSoundForObject(n, objectId);
 	if (h >= AHSV_FirstHandle)
 	{

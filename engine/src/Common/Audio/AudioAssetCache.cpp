@@ -5,6 +5,7 @@
 #include "Common/AsciiString.h"
 
 #include <chrono>
+#include <iterator>
 
 AudioAssetCache::AudioAssetCache(ArchiveFileSystem *files, std::uint64_t decodedBudgetBytes) : m_files(files), m_budget(decodedBudgetBytes) {}
 
@@ -105,11 +106,18 @@ std::shared_ptr<const AudioDecode::DecodedAudio> AudioAssetCache::decoded(const 
 	// evict the least recently used entries beyond the budget (never the one just inserted)
 	while (m_stats.bytesCached > m_budget && m_lru.size() > 1)
 	{
-		const std::string &victim = m_lru.back();
-		auto v = m_entries.find(victim);
+		// A queued request can own a read-ahead reference (RW 0x461B18); do not evict its entry and
+		// decode the same sample again when the device starts it. The budget is soft while all are held.
+		auto victim = std::prev(m_lru.end());
+		while (victim != m_lru.begin() && m_entries.at(*victim).audio.use_count() > 1)
+		{
+			--victim;
+		}
+		if (victim == m_lru.begin()) break;
+		auto v = m_entries.find(*victim);
 		m_stats.bytesCached -= v->second.bytes;
 		m_entries.erase(v);
-		m_lru.pop_back();
+		m_lru.erase(victim);
 		++m_stats.evictions;
 	}
 	if (m_stats.bytesCached > m_stats.peakBytesCached)

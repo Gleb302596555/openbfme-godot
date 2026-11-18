@@ -6,6 +6,7 @@
 #include "Common/Thing/ModuleFactory.h"
 #include "GameLogic/Module/AutoDepositUpdate.h"
 #include "GameLogic/Module/MoneyEventModules.h"
+#include "GameLogic/Module/RewardCrates.h"
 #include "GameLogic/Module/SalvageCrateCollide.h"
 #include "GameLogic/Module/VeterancyCrateCollide.h"
 #include "GameLogic/Module/TerrainResourceBehavior.h"
@@ -46,6 +47,14 @@ void EconomyModules::registerAll(ModuleFactory &modules)
 	bindRuntime<RefundDie, RefundDieModuleData>(modules, "RefundDie");
 	modules.bindTypedData<PillageModuleData>("PillageModule", MODULETYPE_BEHAVIOR);
 	bindRuntime<PillageModule, PillageModuleData>(modules, "PillageModule");
+	modules.bindTypedData<CrateCollideModuleData>("HealCrateCollide", MODULETYPE_BEHAVIOR);
+	bindRuntime<HealCrateCollide, CrateCollideModuleData>(modules, "HealCrateCollide");
+	modules.bindTypedData<MoneyCrateData>("MoneyCrateCollide", MODULETYPE_BEHAVIOR);
+	bindRuntime<MoneyCrateCollide, MoneyCrateData>(modules, "MoneyCrateCollide");
+	modules.bindTypedData<CrateCollideModuleData>("ShroudCrateCollide", MODULETYPE_BEHAVIOR);
+	bindRuntime<ShroudCrateCollide, CrateCollideModuleData>(modules, "ShroudCrateCollide");
+	modules.bindTypedData<UnitCrateData>("UnitCrateCollide", MODULETYPE_BEHAVIOR);
+	bindRuntime<UnitCrateCollide, UnitCrateData>(modules, "UnitCrateCollide");
 	modules.bindTypedData<SalvageCrateCollideModuleData>("SalvageCrateCollide", MODULETYPE_BEHAVIOR);
 	modules.bindTypedData<VeterancyCrateCollideModuleData>("VeterancyCrateCollide", MODULETYPE_BEHAVIOR);
 	bindRuntime<VeterancyCrateCollide, VeterancyCrateCollideModuleData>(modules, "VeterancyCrateCollide");

@@ -310,7 +310,7 @@ func _load_prepared(prep: Dictionary, name: String) -> String:
 		var choice: Dictionary = game._shell.choose_load_screen({"game_mode": 2, "screen_kind": 0, "loading_save": true})
 		if choice.get("kind", "") != "still" or not String(choice.get("error", "")).is_empty():
 			return "load screen: " + str(choice)
-		var shown: Dictionary = game._shell.show_still_load_screen(String(choice.picture))
+		var shown: Dictionary = game._shell.show_still_load_screen(String(choice.picture), bool(choice.film_still))
 		print("GAME SAVE load screen: %s %s %s" % [choice.kind, choice.picture, "" if shown.ok else str(shown.error)])
 		if not shown.ok:
 			return "load screen: " + str(shown.error)

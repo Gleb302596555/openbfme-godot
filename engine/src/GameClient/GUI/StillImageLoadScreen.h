@@ -7,7 +7,7 @@
 //   * GameLogic::getLoadScreen (RW 0x626A87, called by the new game's start RW 0x62DC3E, which stores the screen at GameLogic + 0x120 and runs its
 //     init) switches on the game mode (GameLogic + 0x110):
 //       - 0 (a campaign mission), 3, 6: unless a save game is loading or the mode is 3, a non-empty picture name (GameLogic + 0x84) makes the picture
-//         screen (RW 0x757CA0) with that picture, + 0x88 and + 0x8C (the mission's LoadScreenMusicTrack and voice track; the tutorial INI fields
+//         screen (RW 0x757CA0) with that picture, + 0x88 and + 0x8C (the mission's voice and LoadScreenMusicTrack; the tutorial INI fields
 //         *LoadScreenStillImage / *MusicTrack / *VoiceTrack, RW 0xC01964 ..., are the same triple); otherwise the picture screen with the mapped
 //         image "StillImage_Film%02d" of a client random draw 1 .. 21 (RW 0x626362, BFME2 decomp GameLogic.cpp:Rva0023D614Set);
 //       - 1, 2, 5 (LAN, skirmish, internet): with GameLogic + 0x114 == 0 the picture screen as above, else the players' screen LoadScreen.apt
@@ -20,14 +20,17 @@
 //     text label "GUI:Loading" (RW 0xC2B5F0) in the font "SachaWynter" (RW 0xC2B5FC) of size 18 (RW 0xBE5270) at 0.5, 0.03125 (RW 0xBD869C,
 //     0xC2B5EC) in the colour 0xFFFFD554 (RW 0x7585D9).
 // INFERENCE (stop S-3505): the slots are drawn in slot order (0, 1, 2) over the 1024 x 768 stage as the shell's backdrop is; the text is centred on its
-// x; the music / voice tracks (+ 0x14 / + 0x18, RW 0x757DC7) are the caller's (campaign_flow.gd plays LoadScreenMusicTrack); the ring's flags
+// x; the music / voice tracks (+ 0x14 voice / + 0x18 music, RW 0x757DC7) are played by StillImageLoadAudio; the ring's flags
 // (0x14, 0x1000014 without music and voice) were not read.
 
 #pragma once
 
+#include <cstdint>
 #include <functional>
+#include <memory>
 #include <string>
 
+class AudioManager;
 class MappedImageCollection;
 
 enum class LoadScreenKind
@@ -42,10 +45,28 @@ struct LoadScreenChoice
 	LoadScreenKind kind = LoadScreenKind::Other;
 	std::string picture; // StillImage: the mapped image of slot 0
 	std::string error;   // a film still was needed and no client random source was given (no picture is picked)
+	bool filmStill = false; // RW 0x626A87: this branch supplies MiscAudio +A0, not the mission tracks
 };
 
 // RW 0x626A87. `clientRandom(lo, hi)` is GetGameClientRandomValue; it is called only when a film still is picked.
 LoadScreenChoice chooseLoadScreen(int gameMode, int screenKind, bool loadingSaveGame, const std::string &picture, const std::function<int(int, int)> &clientRandom);
+
+// RW 0x757DC7 / 0x757D01: a picture screen owns exactly the handles it started. Replacing the manager does not
+// transfer handles to the next manager. No simulation state, and no second campaign-flow play_music request.
+class StillImageLoadAudio
+{
+public:
+	StillImageLoadAudio() = default;
+	~StillImageLoadAudio() { stop(); }
+	StillImageLoadAudio(const StillImageLoadAudio &) = delete;
+	StillImageLoadAudio &operator=(const StillImageLoadAudio &) = delete;
+	void start(bool filmStill, const std::string &voice, const std::string &music);
+	void stop();
+private:
+	AudioManager *m_manager = nullptr;
+	std::weak_ptr<const int> m_lifetime;
+	std::uint32_t m_voice = 0, m_music = 0;
+};
 
 struct StillImageSlot
 {
@@ -66,7 +87,7 @@ struct StillImageLoadScreenLayout
 	float textX = 0.5f, textY = 0.03125f;
 	// what the port infers (reported in the shell report's unverified_device)
 	std::string unverified = "[S-3505] picture load screen: the display's image slots drawn in slot order over the 1024 x 768 stage, the text centred on its "
-							 "x, the ring looping on the wall clock; the music / voice tracks are the caller's, the ring's flags (RW 0x758502) were not read";
+							 "x, the ring looping on the wall clock; the ring's flags (RW 0x758502) were not read";
 };
 
 // RW 0x7583CC: the layout of the picture screen for `picture` (a mapped image name). False + *error when the picture or the foreground is not a

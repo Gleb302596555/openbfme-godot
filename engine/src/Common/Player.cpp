@@ -22,6 +22,46 @@
 
 #include <stdexcept>
 
+// RW 0x7B17EF / RW 0x7B18B8. DONOR BFME2 0x003B0CB3 / 0x003B0D7C (MoneyRva003B0D7C.cpp).
+std::uint32_t Money::withdraw(std::uint32_t amountToWithdraw, ScoreKeeper *score, bool playSound)
+{
+	if (amountToWithdraw > m_money)
+	{
+		amountToWithdraw = m_money; // RW 0x7B1809 cmova
+	}
+	if (amountToWithdraw == 0)
+	{
+		return 0;
+	}
+	if (playSound) // RW 0x7B1819 / 0x7B1829
+	{
+		AudioApi::playMiscAudioForPlayer("MoneyWithdrawSound", m_playerIndex);
+	}
+	m_money -= amountToWithdraw;
+	if (score)
+	{
+		score->addMoneySpent((std::int32_t)amountToWithdraw);
+	}
+	return amountToWithdraw;
+}
+
+void Money::deposit(std::uint32_t amountToDeposit, ScoreKeeper *score, bool playSound)
+{
+	if (amountToDeposit == 0)
+	{
+		return; // RW 0x7B18CD: test edi, edi; je end
+	}
+	if (playSound) // RW 0x7B18D1 / 0x7B18E7
+	{
+		AudioApi::playMiscAudioForPlayer("MoneyDepositSound", m_playerIndex);
+	}
+	m_money += amountToDeposit; // ZH: unsigned add (wraps; no retail game reaches 2^32)
+	if (score)
+	{
+		score->addMoneyEarned((std::int32_t)amountToDeposit);
+	}
+}
+
 Relationship Player::getRelationship(const Team *that) const
 {
 	if (that)

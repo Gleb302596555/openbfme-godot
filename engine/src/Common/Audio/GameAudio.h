@@ -311,6 +311,8 @@ private:
 		RequestType type = RQ_Play;
 		std::unique_ptr<AudioEventRTS> pending;
 		AudioHandle handle = 0;
+		// RW 0x461B18: keep the sample (not a second voice) alive until the request runs or is cancelled.
+		std::shared_ptr<const AudioDecode::DecodedAudio> sample;
 		bool requiresCheckForSample = false;
 		bool deferred = false;  ///< queued while the request list was being processed: waits for the next tick
 		bool cancelled = false; ///< cancelled while the request list was being processed: the pass erases it
@@ -331,8 +333,9 @@ private:
 	bool isObjectPlayingVoice(std::uint32_t objectId) const;
 	AudioEventRTS *findLowestPrioritySound(const AudioEventRTS &event);
 	bool killLowestPrioritySoundImmediately(const AudioEventRTS &event);
+	bool preloadSample(Request &req);
 	void processRequestList();
-	void processRequest(Request &req);
+	void processRequest(Request &req, bool sampleRefused);
 	bool shouldProcessRequestThisFrame(const Request &req) const;
 	void playAudioEvent(std::unique_ptr<AudioEventRTS> event);
 	// playing

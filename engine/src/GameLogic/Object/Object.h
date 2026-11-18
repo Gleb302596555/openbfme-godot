@@ -136,7 +136,7 @@ public:
 	bool friend_allowUndeadKill(int damageSubType, unsigned now);
 	// lane HERO-2: RW 0x6996DC (a capture's team change): an object that is not contained, not UNDER_CONSTRUCTION nor SOLD and of another team takes `team`
 	// (setTeam RW 0x69954A); its AI goes idle; see Object.cpp
-	void setCapturedTeam(Team *team);
+	void setCapturedTeam(Team *team, UnsignedInt detectionFrames = 1); // RW 0x854702 / 0x854725: capture passes one frame
 	// lane HERO-2: + 0x46C, the leader of a rousing speech this object follows (RousingSpeechUpdate RW 0x8B0AAE / 0x8B05D1); its other readers are not located
 	void setSpeechLeader(ObjectID id) { m_speechLeader = id; }
 	ObjectID getSpeechLeader() const { return m_speechLeader; }
@@ -713,6 +713,7 @@ private:
 	ObjectID m_speechLeader = INVALID_ID; ///< lane HERO-2: + 0x46C
 	bool m_receivingDifficultyBonus = false; ///< lane CAMP-1H: + 0x45C (hashed)
 	std::int8_t m_legendaryFactor = 1;       ///< lane RULES-1 (OpenBFME; hashed when not 1). One byte in the padding after + 0x45C: sizeof(Object) stays as it was (a larger Object changed the move3 crossing games: some code depends on the allocation layout, reported)
+	void startDefectionWindow(UnsignedInt frames, bool flash);
 	bool m_undetectable = false;             ///< PORT-237: RW + 0x458 bit 1 (RW 0x68B303 / 0x68C6C8; in padding after m_legendaryFactor: sizeof(Object) unchanged)
 	ObjectID m_capturerID = INVALID_ID;   ///< lane HERO-2: + 0x80
 	unsigned m_undeadKillFrame = 0;       ///< lane HERO-2: + 0x450

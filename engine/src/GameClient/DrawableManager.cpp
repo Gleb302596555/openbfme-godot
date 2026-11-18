@@ -6,6 +6,7 @@
 #include "GameClient/ClientEvents.h"
 #include "GameClient/EvaAnnounceClientCreate.h"
 #include "GameClient/EvaSighting.h"
+#include "GameClient/Radar.h"
 #include "Common/Audio/AudioRequests.h"
 
 #include "Common/AsciiString.h"
@@ -313,6 +314,25 @@ void DrawableManager::destroyed(const ClientEvent &ev)
 	m_events.push_back({ false, id });
 }
 
+// RW 0x81ACD7 / 0x7767A9: the sound, radar, message and EVA belong to one reveal, not a watch of detected units.
+void DrawableManager::applyStealthReveal(const ClientEvent &e)
+{
+	Drawable *draw = findByObject(e.object);
+	if (!draw) return;
+	if (e.revealHint) draw->hintDetectable(); // RW 0x81AD29, also with feedback zero
+	const bool enemy = e.reveal == ClientEvent::Enemy;
+	const bool owner = e.reveal == ClientEvent::Owner;
+	if (e.reveal == ClientEvent::HintOnly || (enemy && draw->shroudLook().fullyObscured)) return;
+	if (TheRadar && (enemy || owner)) TheRadar->createEvent(e.position, enemy ? 8 : 9, 4.0f);
+	if (enemy && !e.detector) return; // RW 0x81AE47: the ping stands, but no sound, text or EVA
+	AudioApi::playMiscAudioForObject(owner ? "StealthNeutralizedSound" : "StealthDiscoveredSound", enemy ? e.detector : e.object, e.revealPlayer);
+	if (m_revealMessage && (owner || enemy)) m_revealMessage(owner ? "MESSAGE:StealthNeutralized" : "MESSAGE:StealthDiscovered");
+	if (!e.name.empty() && AsciiStringUtil::compareNoCase(e.name, "None") != 0)
+	{
+		AudioApi::reportEva(e.name, enemy ? &e.detectorPosition : &e.position, enemy ? &e.position : nullptr);
+	}
+}
+
 void DrawableManager::applyEvents(const std::vector<ClientEvent> &events)
 {
 	for (const ClientEvent &ev : events)
@@ -470,6 +490,9 @@ void DrawableManager::applyEvents(const std::vector<ClientEvent> &events)
 			{
 				m_heroFlashHandler(ev.name, ev.flashFrames);
 			}
+			break;
+		case ClientEvent::STEALTH_REVEALED:
+			applyStealthReveal(ev);
 			break;
 		case ClientEvent::EVA_DAMAGED: // lane EVADAMAGE-1 (RW 0x67B4B7's Eva half)
 			EvaDamage::apply(ev, *this, m_evaDamage);

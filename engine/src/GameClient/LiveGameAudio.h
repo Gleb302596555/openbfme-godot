@@ -102,7 +102,7 @@ public:
 		size_t largeGroupPlaying = 0;   ///< qualifying cells whose sound is queued or playing
 		size_t largeGroupQualified = 0; ///< cells above their thresholds (with or without a sound)
 		std::uint64_t evaDamaged = 0; ///< lane EVADAMAGE-1: the damage notices that picked an event for TheEva (DrawableManager::evaDamageStats().picked)
-		std::uint64_t evaDeaths = 0;  ///< S-709: the death events the watch reported
+		std::uint64_t evaDeaths = 0;  ///< S-709: the death reports from Object::friend_onDie
 		std::uint64_t battleAmbientTemplates = 0; ///< S-706: objects whose template has SoundAmbientBattle (not ported)
 		size_t ambientPlaying = 0;
 	};
@@ -130,11 +130,6 @@ private:
 		unsigned seenPass = 0; ///< lane PERF-HD: the update pass that last saw its object (update's per-pass set before)
 	};
 	void stopAmbient(ObjectID id, Ambient &a);
-	struct EvaWatch
-	{
-		bool known = false, dead = false;
-	};
-	void evaWatch(const Object &o);
 	void largeGroupUpdate();
 	struct Group
 	{
@@ -160,8 +155,6 @@ public:
 private:
 	std::map<std::string, Group> m_groups; ///< "map/sound/cellx,celly" -> its playing sound
 	unsigned m_lgaFrame = 0xffffffffu;
-	static std::string evaField(const Object &obj, const char *field);
-	std::unordered_map<ObjectID, EvaWatch> m_eva; // lane PERF-HD: looked up per object per update (never iterated)
 	class Resolver; // the AudioOwnerResolver forwarding to objectPosition / drawablePosition
 
 	LiveGame &m_game;
@@ -171,7 +164,7 @@ private:
 	unsigned m_ambientPass = 0;                  // lane PERF-HD: Ambient::seenPass
 	UnsignedInt m_ambientFrame = 0xffffffffu;    // lane PERF-HD: the logic frame of the last object scan
 	ObjectID m_ambientNextId = INVALID_ID;       // the logic's next object id at the last object scan (a new object rescans between frames)
-	std::unordered_map<const ThingTemplate *, std::uint8_t> m_templateAudio; // lane PERF-HD: 1 = an ambient sound field, 2 = an Eva event field (templateAudio)
+	std::unordered_map<const ThingTemplate *, std::uint8_t> m_templateAudio; // lane PERF-HD: 1 = an ambient sound field (templateAudio)
 	std::uint8_t templateAudio(const ThingTemplate &tt);
 	Stats m_stats;
 	ScriptAudioStats m_scriptAudio;

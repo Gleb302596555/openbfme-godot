@@ -4,6 +4,9 @@
 // and writes only its own event list, never simulation state.
 
 #include "GameClient/ClientEvents.h"
+#include "Common/PlayerList.h"
+#include "GameLogic/Module/InvisibilityModules.h"
+#include "GameLogic/Object/EvaDamageNotice.h"
 #include "Common/AsciiString.h"
 
 #include "Common/Player.h"
@@ -256,6 +259,32 @@ void ClientEventRecorder::flashAsSelected(Object &obj, const RGBColor *color)
 	{
 		e.hasFlashColor = false;
 	}
+}
+
+// RW 0x81ACD7 and RW 0x7767A9: snapshot the player's relationship and event arguments while the objects exist.
+// The former reads the template's three events, the latter its module data. No Object pointers cross the frame boundary.
+void ClientEventRecorder::stealthRevealed(Object &obj, const Object *detector, int mode, bool hint, const StealthUpdateModuleData *data)
+{
+	const Player *local = obj.logic().players().getLocalPlayer();
+	if (!local) return;
+	const Player *owner = obj.getControllingPlayer();
+	const bool isOwner = owner == local;
+	const bool enemyBranch = !isOwner && local->getRelationship(owner) != ALLIES; // RW 0x6ADC43 -> 0x6ACEAF, not team overrides
+	hint = hint && isOwner;
+	if ((!mode || (mode != 2 && !enemyBranch)) && !hint) return;
+	ClientEvent &e = push(ClientEvent::STEALTH_REVEALED, obj);
+	e.revealHint = hint;
+	if (mode == 0 || (mode != 2 && !enemyBranch)) return;
+	e.reveal = isOwner ? ClientEvent::Owner : enemyBranch ? ClientEvent::Enemy : ClientEvent::Ally;
+	e.revealPlayer = local->getPlayerIndex();
+	e.position = *obj.getPosition();
+	if (detector)
+	{
+		e.detector = detector->getID();
+		e.detectorPosition = *detector->getPosition();
+	}
+	e.name = data ? (isOwner ? data->m_evaEventDetectedOwner : enemyBranch ? data->m_evaEventDetectedEnemy : data->m_evaEventDetectedAlly) :
+		EvaDamage::templateEvent(*obj.getTemplate(), isOwner ? "EvaEventDetectedOwner" : enemyBranch ? "EvaEventDetectedEnemy" : "EvaEventDetectedAlly");
 }
 
 void ClientEventRecorder::evaDamaged(Object &obj, const EvaDamageNotice &notice)

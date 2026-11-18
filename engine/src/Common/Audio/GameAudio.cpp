@@ -980,37 +980,40 @@ bool AudioManager::isObjectPlayingVoice(std::uint32_t objectId) const
 	return false;
 }
 
-// ZH SoundManager::canPlayNow (GameSounds.cpp), with the INI documented MinVolume exception to the MaxRange cull.
+// RW 0x45CB3B / 0x452726: the distance and shroud checks share the GLOBAL / CRITICAL / MinSampleVolume exemptions.
 bool AudioManager::canPlayNow(AudioEventRTS &event)
 {
 	const AudioEventInfo &info = *event.getAudioEventInfo();
 	const bool positional = event.isPositionalAudio();
-	if (positional && !(info.type & ST_GLOBAL) && info.priority != AP_CRITICAL)
+	if (positional && !(info.type & ST_GLOBAL) && info.priority != AP_CRITICAL && info.minVolume < m_ini.settings.minSampleVolume)
 	{
 		Coord3D pos;
-		if (event.getCurrentPosition(m_env, &pos))
+		if (!event.getCurrentPosition(m_env, &pos))
 		{
-			const float dist = length3(m_listenerPosition, pos);
-			if (dist >= info.maxRange && !(info.minVolume > 0.0f))
+			m_refusal = "unresolved position"; // RW 0x45CB3B: 0x45CB71 / 0x45CB92; cached positions still count
+			return false;
+		}
+
+		const float dist = length3(m_listenerPosition, pos);
+		if (dist >= info.maxRange)
+		{
+			++m_report.culledDistance;
+			m_refusal = "beyond MaxRange";
+			return false;
+		}
+		// RotWK: RW 0x45CBC6 calls vslot 0x1B0, RW 0x452003: only an event of the tactical view (+ 0x30 == 0) that is SHROUDED and has a position asks
+		// the local player's status at it (RW 0xB4D9A0 -> 0xB4FB20, not CLEAR: shrouded); any other view is never shrouded (review r1)
+		if ((info.type & ST_SHROUDED) && event.getViewType() == VIEW_TACTICAL)
+		{
+			if (!m_queries.isShroudClear || !m_queries.localPlayerIndex)
 			{
-				++m_report.culledDistance;
-				m_refusal = "beyond MaxRange";
-				return false;
+				noteMissingHook("shroud query (isShroudClear / localPlayerIndex)");
 			}
-			// RotWK: RW 0x45CBC6 calls vslot 0x1B0, RW 0x452003: only an event of the tactical view (+ 0x30 == 0) that is SHROUDED and has a position asks
-			// the local player's status at it (RW 0xB4D9A0 -> 0xB4FB20, not CLEAR: shrouded); any other view is never shrouded (review r1)
-			if ((info.type & ST_SHROUDED) && event.getViewType() == VIEW_TACTICAL)
+			else if (!m_queries.isShroudClear(m_queries.localPlayerIndex(), pos))
 			{
-				if (!m_queries.isShroudClear || !m_queries.localPlayerIndex)
-				{
-					noteMissingHook("shroud query (isShroudClear / localPlayerIndex)");
-				}
-				else if (!m_queries.isShroudClear(m_queries.localPlayerIndex(), pos))
-				{
-					++m_report.culledShroud;
-					m_refusal = "shrouded";
-					return false;
-				}
+				++m_report.culledShroud;
+				m_refusal = "shrouded";
+				return false;
 			}
 		}
 	}
@@ -1076,7 +1079,7 @@ bool AudioManager::doesViolateLimit(AudioEventRTS &event) const
 	}
 	for (const Request &r : m_requests)
 	{
-		if (!r.cancelled && r.pending && r.pending->getEventName() == event.getEventName())
+		if (!r.cancelled && r.pending && r.pending.get() != &event && r.pending->getEventName() == event.getEventName())
 		{
 			++totalRequestCount;
 			++totalCount;
@@ -1286,6 +1289,31 @@ template <class Pred> void AudioManager::cancelRequests(Pred pred, bool firstOnl
 	}
 }
 
+// RW 0x461AAC..0x461B18 -> 0x4A7C71: only samples, strictly inside the read-ahead window. This check's
+// result also decides admission if due on this pass. A held reference is NOT a reservation of a voice.
+bool AudioManager::preloadSample(Request &req)
+{
+	AudioEventRTS &event = *req.pending;
+	if (!canPlayNow(event))
+	{
+		return false;
+	}
+	// RW 0x6DB9B9: select the current portion without advancing or drawing a second filename.
+	const std::string *file = nullptr;
+	switch (event.getNextPlayPortion())
+	{
+	case PP_Attack: file = &event.getAttackFilename(); break;
+	case PP_Sound: file = &event.getFilename(m_env); break;
+	case PP_Decay: file = &event.getDecayFilename(); break;
+	case PP_Done: break;
+	}
+	if (file && !file->empty())
+	{
+		req.sample = m_cache.decoded(*file, nullptr); // S-249: this cache holds PCM; failure to play is reported at startVoice
+	}
+	return true;
+}
+
 // Every request that was in the list when the tick began runs at most once; whatever the processing queues (a looping event that rolled its
 // PlayPercent out, or found no channel) waits for the next tick, behind the entries that are still counting their delay down.
 void AudioManager::processRequestList()
@@ -1304,6 +1332,9 @@ void AudioManager::processRequestList()
 			++it;
 			continue;
 		}
+		const bool sample = req.type == RQ_Play && req.pending && req.pending->getAudioEventInfo() && req.pending->getAudioEventInfo()->soundType == AT_SoundEffect;
+		const bool checkEarly = sample && !req.sample && req.pending->getDelay() < m_ini.settings.millisecondsPriorToPlayingToReadSoundFile;
+		const bool refusedEarly = checkEarly && !preloadSample(req);
 		if (!shouldProcessRequestThisFrame(req))
 		{
 			req.pending->decrementDelay(kTick); // RW 0x6DA66B per step
@@ -1314,7 +1345,8 @@ void AudioManager::processRequestList()
 		// the request leaves the list before it runs: playing may add requests (re-queued loops, deferred) or cancel others (marked)
 		Request local = std::move(req);
 		it = m_requests.erase(it);
-		processRequest(local);
+		const bool refused = checkEarly ? refusedEarly : (sample && local.requiresCheckForSample && !canPlayNow(*local.pending));
+		processRequest(local, refused);
 	}
 	for (auto it = m_requests.begin(); it != m_requests.end();)
 	{
@@ -1329,7 +1361,7 @@ void AudioManager::processRequestList()
 	m_requestPassActive = false;
 }
 
-void AudioManager::processRequest(Request &req)
+void AudioManager::processRequest(Request &req, bool sampleRefused)
 {
 	switch (req.type)
 	{
@@ -1339,31 +1371,24 @@ void AudioManager::processRequest(Request &req)
 		{
 			return;
 		}
-		if (req.requiresCheckForSample)
+		if (sampleRefused)
 		{
-			const AudioEventInfo *info = req.pending->getAudioEventInfo();
-			if (info && info->soundType == AT_SoundEffect && !canPlayNow(*req.pending))
+			// RW 0x461A83: a loop that still cannot play rolls its delay again, including an unresolved owner.
+			if (req.pending->hasMoreLoops())
 			{
-				// AUDIO-3, RW 0x461A83: a loop that still cannot play rolls its delay again (RW 0x6DAC64) and stays queued; anything else is dropped. The port
-				// also drops a loop whose owner is gone (RW's canPlayNow refuses an event without a position, RW 0x45CB92, so such a loop would wait forever)
-				Coord3D ownerPos;
-				const bool ownerGone = (req.pending->getOwnerType() == OT_Drawable || req.pending->getOwnerType() == OT_Object) && !req.pending->getCurrentPosition(m_env, &ownerPos);
-				if (req.pending->hasMoreLoops() && !ownerGone)
+				req.pending->rollDelayAndPerFile(m_env);
+				if (req.pending->hasMoreLoops())
 				{
-					req.pending->rollDelayAndPerFile(m_env);
-					if (req.pending->hasMoreLoops())
-					{
-						Request again;
-						again.type = RQ_Play;
-						again.pending = std::move(req.pending);
-						again.requiresCheckForSample = true;
-						pushRequest(std::move(again));
-						return;
-					}
+					Request again;
+					again.type = RQ_Play;
+					again.pending = std::move(req.pending);
+					again.requiresCheckForSample = true;
+					pushRequest(std::move(again));
+					return;
 				}
-				logLine(*req.pending, req.pending->getPlayingHandle(), true, "refused after its delay: ", m_refusal);
-				return;
 			}
+			logLine(*req.pending, req.pending->getPlayingHandle(), true, "refused after its delay: ", m_refusal);
+			return;
 		}
 		playAudioEvent(std::move(req.pending));
 		break;
@@ -1616,6 +1641,10 @@ void AudioManager::playAudioEvent(std::unique_ptr<AudioEventRTS> evp)
 	{
 		file = pe.getFilename(m_env);
 		pe.setNextPlayPortion(PP_Sound);
+	}
+	else if (pe.getNextPlayPortion() == PP_Decay)
+	{
+		file = pe.getDecayFilename(); // RW 0x6DB9B9: the same portion whose sample was prefetched
 	}
 	else if (pe.getNextPlayPortion() == PP_Attack && !pe.getAttackFilename().empty())
 	{

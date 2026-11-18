@@ -56,7 +56,7 @@
 // WHAT IS INFERENCE / NOT PORTED (stop S-1041, reported per use):
 //   * the detector's, the broadcast and the DetectedByAnyoneRange queries run on ThePartitionManager (lanes MODULES-2 / STEALTH-2); the detector's vision test
 //     (RW 0x68FA3D) is the query's 2D centre distance within the range;
-//   * the detector's SpecialDisguiseUpdate reveal (Eowyn's module, lane HERO) and the client pings / IR particles / sounds are not run;
+//   * the detector's SpecialDisguiseUpdate reveal (Eowyn's module, lane HERO) and the IR particles are not run; the markAsDetected notification goes to the client (PORT-234);
 //   * onObjectCreated as InvisibilityUpdate's slot 5 (RW 0x8A6F84) is INFERENCE from the slot order (slot 4 is the module name key);
 //   * ToggleHiddenSpecialAbilityUpdate and InvisibilitySpecialPower (lane STEALTH-2) are GameLogic/Module/StealthAbilityModules.h;
 //   * StealthUpdate's One Ring mode and disguise (lane STEALTH-2) run as below; the ring and the transition branch of RW 0x777310 need the object's drawable

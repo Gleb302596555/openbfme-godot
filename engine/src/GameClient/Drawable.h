@@ -564,6 +564,7 @@ public:
 	// RW 0x673114, once per client frame: imitate the stealth parent or step the pulse / blend. `parent` is the drawable of stealthParent (null: none / early out)
 	void updateStealthLook(const Drawable *parent);
 	ObjectID stealthParentId() const { return m_stealthParentId; }
+	void hintDetectable() { m_stealth.secondPass = 1.0f; } // RW 0x81AD29
 	const StealthLook::State &stealth() const { return m_stealth; }
 	float stealthOpacity() const { return m_stealth.opacity; }
 	bool stealthHidden() const { return m_stealth.hidden; }

@@ -9,6 +9,7 @@
 #include "GameLogic/SnapshotXfer.h"
 
 #include "Common/AsciiString.h"
+#include "Common/Audio/AudioRequests.h"
 #include "Common/Player.h"
 #include "Common/StateHash.h"
 #include "Common/Thing/ModuleFactory.h"
@@ -299,6 +300,8 @@ void GateOpenAndCloseBehavior::setOpenCloseState(int state)
 		case OPENING:
 			if (!m_data->m_soundOpeningLoop.name.empty())
 			{
+				const ObjectID gate = getObject()->getID();
+				AudioApi::postHeldSound(AudioApi::HELD_GATE_LOOP, m_data->m_soundOpeningLoop.name, gate, gate); // RW 0x89C31B
 				m_sounds.push_back("opening");
 			}
 			m_soundPlayed = false;
@@ -306,6 +309,8 @@ void GateOpenAndCloseBehavior::setOpenCloseState(int state)
 		case CLOSING:
 			if (!m_data->m_soundClosingLoop.name.empty())
 			{
+				const ObjectID gate = getObject()->getID();
+				AudioApi::postHeldSound(AudioApi::HELD_GATE_LOOP, m_data->m_soundClosingLoop.name, gate, gate); // RW 0x89C31B
 				m_sounds.push_back("closing");
 			}
 			m_soundPlayed = false;
@@ -324,12 +329,15 @@ void GateOpenAndCloseBehavior::setOpenCloseState(int state)
 // RW 0x89C1A4: the finished sound of the state (opening / open: the opened sound, closing / closed: the closed one); the loop's handle is removed first
 void GateOpenAndCloseBehavior::playFinishedSound()
 {
+	AudioApi::stopHeldSound(AudioApi::HELD_GATE_LOOP, getObject()->getID()); // RW 0x89C1C2, even with no end cue
 	if ((m_state == OPENING || m_state == OPEN) && !m_data->m_soundFinishedOpening.name.empty())
 	{
+		AudioApi::playSoundForObject(m_data->m_soundFinishedOpening.name, getObject()->getID());
 		m_sounds.push_back("opened");
 	}
 	else if ((m_state == CLOSING || m_state == CLOSED) && !m_data->m_soundFinishedClosing.name.empty())
 	{
+		AudioApi::playSoundForObject(m_data->m_soundFinishedClosing.name, getObject()->getID());
 		m_sounds.push_back("closed");
 	}
 	m_soundPlayed = true;
@@ -494,6 +502,7 @@ UpdateSleepTime GateOpenAndCloseBehavior::update()
 			m_percent = 100.0f;
 		}
 		setGeometry(true, true, false);
+		AudioApi::stopHeldSound(AudioApi::HELD_GATE_LOOP, obj->getID()); // RW 0x89CD4A, no finished cue on death
 		obj->logic().skirmishAI().unregisterGate(*this); // RW 0x89CD4D .. 0x89CD59 -> 0x8ED772
 		m_settled = false;
 		return UPDATE_SLEEP_NONE;
@@ -853,8 +862,7 @@ std::vector<std::string> GateModules::acceptanceStops()
 		"update and the AI notification RW 0x68BE59(9); the pathfinder's gate-flag keeping removal (RW 0x6E861E) runs since lane WALLFOOT-1 and "
 		"FakePathfindPortalBehaviour since lane WALL-2 (PortalModules.h)",
 		"[S-1941] GateProxyBehavior and the Proxy link of GateOpenAndCloseBehavior (onObjectCreated RW 0x89CB19, Orthanc) are ported (Local 33: retail fallback and proxy forwarding run)",
-		"[S-1942] the gate sounds (SoundOpeningGateLoop / SoundFinishedOpeningGate / SoundClosingGateLoop / SoundFinishedClosingGate, RW 0x89C261 / 0x89C1A4) are "
-		"recorded, not played: the logic has no object sound path",
+		"[S-1942] closed (PORT-234): the gate requests the configured motion loop on its object and removes it before the endpoint or on death (RW 0x89C261 / 0x89C1A4 / 0x89CC29)",
 	};
 }
 

@@ -40,6 +40,7 @@
 #include "GameLogic/SimMath.h"
 
 #include "Common/Player.h"
+#include "Common/Audio/AudioRequests.h"
 #include "Common/PlayerTemplate.h"
 #include "Common/StateHash.h"
 #include "Common/Xfer.h"
@@ -1213,7 +1214,7 @@ void Object::defect(Object *newOwner, bool permanent)
 }
 
 // lane HERO-2: RW 0x6996DC
-void Object::setCapturedTeam(Team *team)
+void Object::setCapturedTeam(Team *team, UnsignedInt detectionFrames)
 {
 	if (getContainedBy() || !team)
 	{
@@ -1235,14 +1236,20 @@ void Object::setCapturedTeam(Team *team)
 	{
 		production->cancelAndReleaseAllProduction(); // RW 0x69974D -> RW 0x8A1666
 	}
-	// S-1225, still unported: RW 0x699750 .. 0x6997A7 counts the structure in the old and the new player's score keeper (RW 0x79F0E1 on Player + 0x3DC,
-	// for two active players) and tells the client (RW 0x6D9A71, a local player only); RW 0x699792 sets the undetected-defector bit (+ 0x458 bit 1,
-	// RW 0x68B303) and RW 0x8E3ABB its stealth countdown, which this port cannot set: no defection is ported (S-141)
-	m_logic.noteStop("[S-1225] Object::setCapturedTeam: the score keeper's structure count and RW 0x68B303 / 0x8E3ABB are not ported");
+	// RW 0x699750 / 0x699784: the infiltration notification needs the live radar record (S-2453).
+	m_logic.noteStop("[S-1225] Object::setCapturedTeam: score counts and the infiltration radar record are not ported");
+	startDefectionWindow(detectionFrames, true); // RW 0x699789..0x6997A6
 	setTeam(team); // RW 0x69954A
 	if (AIUpdateInterface *ai = getAIUpdateInterface())
 	{
 		ai->aiIdle(CMD_FROM_AI); // RW 0x6997C4: RW 0x68C213, then aiIdle(2)
+	}
+	if (m_client) // RW 0x6997D0: drawable (same client binding as SpecialAbilityUpdate's capture flash)
+	{
+		m_client->flashAsSelected(*this, nullptr);
+		Player *newOwner = team->getControllingPlayer();
+		AudioApi::playMiscAudioForObject("DefectorTimerTickSound", getID(), newOwner ? newOwner->getPlayerIndex() : -1);
+		AudioApi::postUnitVoice(0x7DF, getID()); // RW 0x699876
 	}
 	if (ContainModuleInterface *c = getContain())
 	{
@@ -1414,6 +1421,19 @@ void Object::friend_onDie(const DieModuleInterface::Event &event)
 	}
 	// lane MOD-4: RW 0x699082 -> RW 0x6938BD: the producer's spawn interface hears of the death (SpawnBehavior::onSpawnDeath)
 	SpawnBehaviorInterface::notifyProducerOfDeath(*this, event);
+	// RW 0x698F06: 0x698F63 captures self-inflicted, 0x6990DD excludes that and FADED. 0x699100..0x699140
+	// selects owner/ally/enemy from the LOCAL player's relationship to the victim team (neutral uses Enemy).
+	if (event.sourceId != getID() && event.deathType != DEATH_FADED && getTemplate())
+	{
+		const Player *local = m_logic.players().getLocalPlayer();
+		const char *field = getControllingPlayer() == local ? "EvaEventDieOwner" :
+			local && local->getRelationship(getTeam()) == ALLIES ? "EvaEventDieAlly" : "EvaEventDieEnemy";
+		const std::string eva = EvaDamage::templateEvent(*getTemplate(), field);
+		if (!eva.empty())
+		{
+			AudioApi::reportDeathEva(eva, *getPosition());
+		}
+	}
 	++m_logic.combat().counters().kills;
 }
 
@@ -1579,6 +1599,27 @@ void Object::setAudible()
 	}
 }
 
+namespace
+{
+// RW 0x6907F1 / RW 0x692443: STRUCTURE wins over VEHICLE; other objects have no power-state sound.
+void playPowerChange(const Object &obj, bool disabled)
+{
+	const char *slot = nullptr;
+	if (obj.isKindOfName("STRUCTURE"))
+	{
+		slot = disabled ? "BuildingDisabled" : "BuildingReenabled";
+	}
+	else if (obj.isKindOfName("MACHINE")) // RW 0x6908ED: template +109 bit 3 is KindOf 11, MACHINE in RotWK
+	{
+		slot = disabled ? "VehicleDisabled" : "VehicleReenabled";
+	}
+	if (slot)
+	{
+		AudioApi::playMiscAudioAtPosition(slot, *obj.getPosition());
+	}
+}
+} // namespace
+
 // RW 0x6907F1 (see Object.h)
 void Object::setDisabled(unsigned type, UnsignedInt untilFrame)
 {
@@ -1589,6 +1630,15 @@ void Object::setDisabled(unsigned type, UnsignedInt untilFrame)
 	if (untilFrame <= m_logic.getFrame())
 	{
 		return;
+	}
+	// RW 0x690843..0x690939: the UNMANNED cue is not a bit edge; it even precedes the equal-deadline test.
+	if (type == DISABLED_UNMANNED && !isKindOfName("DRONE"))
+	{
+		AudioApi::playMiscAudioAtPosition("SplatterVehiclePilotsBrain", *getPosition());
+	}
+	else if ((type == DISABLED_EMP || type == DISABLED_UNDERPOWERED) && !isDisabledByType(DISABLED_EMP) && !isDisabledByType(DISABLED_UNDERPOWERED))
+	{
+		playPowerChange(*this, true);
 	}
 	if (m_disabledExpire[type] == untilFrame)
 	{
@@ -1613,6 +1663,11 @@ void Object::clearDisabled(unsigned type)
 	if (!isDisabledByType(type))
 	{
 		return;
+	}
+	// RW 0x69248A..0x692512: only releasing the last of EMP and UNDERPOWERED restores the power sound.
+	if ((type == DISABLED_EMP && !isDisabledByType(DISABLED_UNDERPOWERED)) || (type == DISABLED_UNDERPOWERED && !isDisabledByType(DISABLED_EMP)))
+	{
+		playPowerChange(*this, false);
 	}
 	if (type != DISABLED_HELD)
 	{
@@ -2253,28 +2308,15 @@ void Object::setTemporarilyUndetectable(bool on)
 
 void Object::setInvulnerableTime(UnsignedInt frames)
 {
-	// RW 0x68C6C8: sets Object + 0x458 bit 1 (RW 0x68B303) and starts/clears DefectionHelper timer (RW 0x8E3ABB)
-	if (frames == 0)
+	startDefectionWindow(frames, false); // RW 0x68C6C8: invulnerable without defector FX
+}
+
+void Object::startDefectionWindow(UnsignedInt frames, bool flash)
+{
+	setTemporarilyUndetectable(frames != 0); // RW 0x68B303
+	if (auto *helper = dynamic_cast<DefectionHelper *>(findModule("DefectionHelper")))
 	{
-		setTemporarilyUndetectable(false);
-		for (const std::unique_ptr<BehaviorModule> &m : m_modules)
-		{
-			if (auto *dh = dynamic_cast<DefectionHelper *>(m.get()))
-			{
-				dh->startDefectionTimer(0, false);
-				break;
-			}
-		}
-		return;
-	}
-	setTemporarilyUndetectable(true);
-	for (const std::unique_ptr<BehaviorModule> &m : m_modules)
-	{
-		if (auto *dh = dynamic_cast<DefectionHelper *>(m.get()))
-		{
-			dh->startDefectionTimer(frames, false);
-			break;
-		}
+		helper->startDefectionTimer(frames, flash); // RW 0x8E3ABB
 	}
 }
 

@@ -198,6 +198,8 @@ public:
 	virtual void flashAsSelected(Object &obj, const RGBColor *color) { (void)obj; (void)color; }
 	// lane EVADAMAGE-1, RW 0x67B4B7's Eva half: a qualifying hit (ShouldPlayUnderAttackEva) on a local object, with the logic's part of the choice
 	// (GameLogic/Object/EvaDamageNotice.h); the client picks the event, keeps the drawable's far frame and reports it to TheEva
+	// RW 0x7767A9 / 0x81ACD7: reveal notification in event order. The client, not the simulation, owns the shroud bit on the drawable.
+	virtual void stealthRevealed(Object &, const Object *, int, bool, const class StealthUpdateModuleData *) {}
 	virtual void evaDamaged(Object &obj, const EvaDamageNotice &notice) { (void)obj; (void)notice; }
 	virtual void flashHeroButton(const std::string &templateName, int frames) { (void)templateName; (void)frames; }
 	// lane CAH-2, RW 0x80AF0B (a Create-a-Hero record's flag 8): the drawable's house colour set (RW 0x80959A: kind 3 and the record's three colours,
