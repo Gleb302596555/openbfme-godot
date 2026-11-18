@@ -68,6 +68,7 @@ public:
 	static std::vector<std::string> stopLines();
 	static const char *const kStopDrawMeshes;
 	static const char *const kStopWallUpgrade;
+	bool wouldUpgrade(const UpgradeMaskType &mask) const override; // RW 0x8BAE07 is in implementation, not wouldUpgrade
 
 protected:
 	void upgradeImplementation() override; // RW 0x8BADC0

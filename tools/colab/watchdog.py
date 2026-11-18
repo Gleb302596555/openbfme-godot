@@ -34,8 +34,9 @@ LOOPS = {
                 {"PRCHECK_STATE": "/content/sandbox/prcheck-state.json"}),
     "maps": ("nightly_maps.sh", ["bash", "/content/sandbox/nightly_maps.sh"], "/content/nightly_maps.log",
              [str(DRIVE / "maps/nightly_maps.log"), str(DRIVE / "maps/last_rev")], {}),
+    # a running batch writes its own log on the Drive and its status line, not the loop's log (2026-11-18: "активность 2.3 ч назад" in mid-batch)
     "batch": ("batch_bot.py", ["python3", "/content/sandbox/batch_bot.py", "loop"], "/content/batch_loop.log",
-              ["/content/batch_loop.log"], {}),
+              ["/content/batch_loop.log", "/content/status/batch*.txt", str(DRIVE / "batch" / "2*.log")], {}),
     "upstream": ("upstream_loop.sh", ["bash", "/content/sandbox/upstream_loop.sh"], "/content/upstream.log",
                  [str(DRIVE / "upstream/loop.log")], {}),
 }
@@ -75,7 +76,10 @@ def start(loop: str) -> str:
 
 
 def age(paths: list[str]) -> int | None:
-    ages = [time.time() - Path(p).stat().st_mtime for p in paths if Path(p).exists()]
+    """Seconds since the newest of the files (a path may be a glob pattern)."""
+    import glob
+    found = [f for p in paths for f in (glob.glob(p) if any(c in p for c in "*?[") else [p])]
+    ages = [time.time() - Path(f).stat().st_mtime for f in found if Path(f).exists()]
     return int(min(ages)) if ages else None
 
 

@@ -1537,6 +1537,12 @@ CanAttackResult Object::getAbleToAttackSpecificObject(AbleToAttackType attackTyp
 	if ((static_cast<unsigned>(attackType) & static_cast<unsigned>(ATTACK_CONTINUED_TARGET_NO_CONTAIN)) == 0u &&
 	    isKindOf((unsigned)CombatNames::kinds().horde) && m_contain && m_contain->getHordeContainInterface())
 	{
+		static const int kScalingWall = CombatNames::modelCondition("SCALING_WALL");
+		static const int kWallSegment = CombatNames::kindOf("WALL_SEGMENT");
+		if (testModelCondition(kScalingWall) && victim->isKindOf((unsigned)kWallSegment))
+		{
+			return ATTACKRESULT_NOT_POSSIBLE; // RW 0x68D740 .. 0x68D75A
+		}
 		const ContainModuleInterface::ContainedItemsList *items = m_contain->getContainedItemsList();
 		if (!items)
 		{

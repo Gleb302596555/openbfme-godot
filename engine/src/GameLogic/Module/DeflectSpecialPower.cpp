@@ -124,15 +124,20 @@ void DeflectSpecialPower::crc(StateHasher &h) const
 	h.addBool(m_pending);
 }
 
-// RW 0x8C99FB is the base xfer and, from version 1, the two bytes. OpenBFME native layout (S-4190): one version with all of it
+// RW 0x008C99FB: base xfer (RW 0x009912DB), early return on XFER_CRC (at 0x008C9A0D .. 0x008C9A12), else version 1 with m_active and m_pending
 void DeflectSpecialPower::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);
 	xferSpecialPowerUpdateBase(x);
+	if (x.getXferMode() == XFER_CRC)
+	{
+		return; // 0x008C9A0D .. 0x008C9A12 inside RW 0x008C99FB
+	}
 	x.xferBool(&m_active);
 	x.xferBool(&m_pending);
 }
 
+// RW 0x00651E79 (create), RW 0x008C9939 (getModuleName), RW 0x008C997A (getModuleNameKey)
 void DeflectSpecialPower::registerClass(ModuleFactory &modules)
 {
 	const char *name = "DeflectSpecialPower";

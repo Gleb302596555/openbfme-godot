@@ -150,9 +150,64 @@ inline Kind kindOf(const std::string &condition)
 	return Kind::Unfixable;
 }
 
-/// Every condition of the row is one the sweep can give. A row with no conditions names no gate the sweep can meet.
-inline bool fixable(const Row &row)
+/// The row's conditions as retail's ControlBar::getCommandAvailability (RW 0x942733; the port: ControlBar::evaluate) reads them (owner 2026-11-18:
+/// 434 NEED_UPGRADE buttons were never pressed because the option was taken for a condition of its own). The table lists every gating field
+/// of the data; RW tests them so:
+///   * option NEED_UPGRADE (RW 0x9428A3 .. 0x942993): the NeededUpgrade list alone (every entry, or one with NeededUpgradeAny); an empty list
+///     never restricts. Met by the list's upgrade rows: dropped. So is NeededUpgradeAny ("other"): giving every entry meets "any one";
+///   * option NEED_SPECIAL_POWER_SCIENCE: the power's RequiredSciences, listed as their own science rows: dropped;
+///   * option MOUNTED_ONLY (RW 0x9427BD .. 0x9427E5): restricted without the model condition MOUNTED: the model condition MOUNTED;
+///   * options UNMOUNTED_ONLY (RW 0x9427BD), NOT_QUEUEABLE (a production in the queue), SINGLE_USE_COMMAND (RW 0x942826, after its use),
+///     HIDE_WHILE_DISABLED (hides a restricted button: no gate of its own), NEEDS_CASTLE_KINDOF (RW 0x942993: hidden, never restricted),
+///     ON_GROUND_ONLY (RW 0x9427EB: the AI's vslot 0x228, not ported, stop S-7427: the port never restricts by it): each restricts only
+///     while a state is present that a fresh unit lacks: dropped;
+///   * a DisableOnModelCondition mask (RW 0x942490): restricts while the object HAS the condition: not a need: dropped;
+///   * an upgrade's BuildCost ("other"): its price; RW asks only whether the upgrade is complete: dropped;
+///   * a power's PreventActivationConditions ("other", RW 0x943343 .. 0x943433): restricts while the object has the status: dropped.
+/// Anything else is kept as listed (an unknown option or other stays unfixable).
+inline std::vector<Condition> effective(const Row &row)
 {
+	std::vector<Condition> out;
+	for (const Condition &c : row.conditions)
+	{
+		if (c.condition == "option")
+		{
+			if (c.value == "MOUNTED_ONLY")
+			{
+				out.push_back(Condition{ "model", "MOUNTED", c.satisfiedBy, c.note + " (RW 0x9427BD: MOUNTED_ONLY needs the model condition MOUNTED)" });
+				continue;
+			}
+			static const char *const kDropped[] = { "NEED_UPGRADE", "NEED_SPECIAL_POWER_SCIENCE", "UNMOUNTED_ONLY", "NOT_QUEUEABLE", "SINGLE_USE_COMMAND",
+			                                        "HIDE_WHILE_DISABLED", "NEEDS_CASTLE_KINDOF", "ON_GROUND_ONLY" };
+			bool dropped = false;
+			for (const char *d : kDropped)
+			{
+				dropped = dropped || c.value == d;
+			}
+			if (dropped)
+			{
+				continue;
+			}
+		}
+		if (c.condition == "model" && c.note.find("DisableOnModelCondition") != std::string::npos)
+		{
+			continue;
+		}
+		if (c.condition == "other" && (c.note.find("NeededUpgradeAny") != std::string::npos || c.note.find(".BuildCost") != std::string::npos ||
+		                               c.note.find("PreventActivationConditions") != std::string::npos))
+		{
+			continue;
+		}
+		out.push_back(c);
+	}
+	return out;
+}
+
+/// Every condition of the row (as RW reads it: effective) is one the sweep can give. A row with no conditions names no gate the sweep can meet.
+inline bool fixable(const Row &listed)
+{
+	Row row = listed;
+	row.conditions = effective(listed);
 	if (row.conditions.empty())
 	{
 		return false;
@@ -168,13 +223,22 @@ inline bool fixable(const Row &row)
 }
 
 /// The verdict of a button whose condition the sweep cannot give: the first unmet condition, in table order.
-inline std::string needsDetail(const Row &row)
+inline std::string needsDetail(const Row &listed)
 {
-	if (row.conditions.empty())
+	const std::vector<Condition> conditions = effective(listed);
+	if (conditions.empty())
 	{
-		return "DISABLED: needs none";
+		// every listed gate restricts only while a state is present (effective): the grey has a cause the table does not name
+		return listed.conditions.empty() ? "DISABLED: needs none" : "DISABLED: needs none (every listed gate restricts only while a state is present, RW 0x942733)";
 	}
-	const Condition &c = row.conditions.front();
+	const Condition &c = conditions.front();
+	for (const Condition &u : conditions)
+	{
+		if (kindOf(u.condition) == Kind::Unfixable)
+		{
+			return "DISABLED: needs " + u.condition + (u.value.empty() ? std::string() : " " + u.value); // the condition the sweep cannot give
+		}
+	}
 	return "DISABLED: needs " + c.condition + (c.value.empty() ? std::string() : " " + c.value);
 }
 
@@ -198,14 +262,15 @@ inline std::string unmetDetail(const Condition &c, const std::string &why)
 }
 
 /// The verdict of a button still grey with every condition met: the port's availability rule differs from RotWK's.
-inline std::string bugDetail(const Row &row)
+inline std::string bugDetail(const Row &listed)
 {
+	const std::vector<Condition> conditions = effective(listed);
 	std::string out = "GREY-BUG: still restricted with";
-	for (const Condition &c : row.conditions)
+	for (const Condition &c : conditions)
 	{
 		out += " " + c.condition + (c.value.empty() ? std::string() : " " + c.value) + ",";
 	}
-	if (!row.conditions.empty())
+	if (!conditions.empty())
 	{
 		out.pop_back(); // the trailing comma of the last condition
 	}
@@ -226,9 +291,14 @@ struct Action
 inline std::vector<Action> fixturePlan(const Row &row)
 {
 	std::vector<Action> plan;
+	if (!fixable(row))
+	{
+		return plan; // an unfixable row plans nothing: the sweep does not fake option / other / none
+	}
+	const std::vector<Condition> conditions = effective(row);
 	for (Kind want : { Kind::Object, Kind::Upgrade, Kind::Science, Kind::Level, Kind::Model })
 	{
-		for (const Condition &c : row.conditions)
+		for (const Condition &c : conditions)
 		{
 			if (kindOf(c.condition) == want)
 			{

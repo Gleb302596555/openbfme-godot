@@ -155,3 +155,11 @@ def test_the_batch_reads_the_checkers_moves_mark(monkeypatch):
     fake_view(monkeypatch, [{"body": f"<!-- prcheck {p['headRefOid']} -->\n✅ ok\n<!-- prcheck-moves uber1*,aiexpand1* -->",
                              "createdAt": "2026-11-18T10:00:00Z"}])
     assert bb.verdict(p) == "green" and p["_moves"] == ["uber1*", "aiexpand1*"]
+
+
+def test_the_next_batch_waits_seven_minutes_for_a_landing_then_goes_on_top_of_the_unlanded_one():
+    assert bb.stack_base(None, False, 0) == ("origin/main", 0.0)
+    assert bb.stack_base("2026-11-18f", False, 10) == ("origin/main", 0.0)   # landed or given up
+    base, wait = bb.stack_base("2026-11-18f", True, 60)
+    assert base is None and wait == bb.STACK_AFTER_S - 60 == 360
+    assert bb.stack_base("2026-11-18f", True, 7 * 60) == ("origin/batch/2026-11-18f", 0.0)

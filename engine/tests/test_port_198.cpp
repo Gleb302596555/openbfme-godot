@@ -1,4 +1,4 @@
-// OpenBFME. PORT-198 tests (issue #465, stop S-7499):
+// OpenBFME. PORT-198 tests (issue #465, stop S-7505):
 //   1. SpawnBehaviorInterface / SpawnBehavior / SpawnBehaviorUnion (RW vtable 0xC58D94) slots 2..6 and 10:
 //      getClosestSlave (0x86292C), orderSlavesToAttackTarget (0x8637BE), orderSlavesToAttackPosition (0x863807),
 //      getCanAnySlavesAttackSpecificTarget (0x862990), getCanAnySlavesUseWeaponAgainstTarget (0x8629ED), reEnslaveSlaves (0x862E4F).
@@ -33,6 +33,7 @@
 #include "GameLogic/AI/AIStateMachine.h"
 #include "GameLogic/Combat/CombatNames.h"
 #include "GameLogic/Combat/ObjectWeapons.h"
+#include "GameLogic/Construction.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Module/ActiveBody.h"
 #include "GameLogic/Module/AIUpdate.h"
@@ -343,6 +344,20 @@ const char kPort198Objects[] =
 	"End\n"
 	"Object P198WalkableWall\n"
 	"  KindOf = STRUCTURE IMMOBILE SELECTABLE WALK_ON_TOP_OF_WALL\n"
+	"  Geometry = BOX\n"
+	"  GeometryMajorRadius = 15\n"
+	"  GeometryMinorRadius = 15\n"
+	"  GeometryHeight = 20\n"
+	"  ArmorSet\n"
+	"    Conditions = None\n"
+	"    Armor = PlainArmor\n"
+	"  End\n"
+	"  Body = ActiveBody ModuleTag_Body\n"
+	"    MaxHealth = 500\n"
+	"  End\n"
+	"End\n"
+	"Object P198WallSegment\n"
+	"  KindOf = STRUCTURE IMMOBILE SELECTABLE WALL_SEGMENT\n"
 	"  Geometry = BOX\n"
 	"  GeometryMajorRadius = 15\n"
 	"  GeometryMinorRadius = 15\n"
@@ -713,9 +728,15 @@ TEST_CASE("PORT-198 WeaponSet::getAbleToUseWeaponAgainstTarget & Object containm
 	Object *horde = r.world.unit("P198BowHorde", 'A', 400.0f, 700.0f);
 	Object *nearTarget = r.world.unit("Dummy", 'B', 500.0f, 700.0f);
 	Object *farTarget = r.world.unit("Dummy", 'B', 780.0f, 700.0f);
+	Object *wallSeg = r.world.unit("P198WallSegment", 'B', 520.0f, 700.0f);
 	r.world.frames(3);
 	CHECK(horde->getAbleToAttackSpecificObject(ATTACK_NEW_TARGET, nearTarget, CMD_FROM_PLAYER) == ATTACKRESULT_POSSIBLE);
 	CHECK(horde->getAbleToAttackSpecificObject(ATTACK_NEW_TARGET, farTarget, CMD_FROM_PLAYER) == ATTACKRESULT_POSSIBLE_AFTER_MOVING);
+	CHECK(horde->getAbleToAttackSpecificObject(ATTACK_NEW_TARGET, wallSeg, CMD_FROM_PLAYER) == ATTACKRESULT_POSSIBLE);
+	horde->setModelConditionState(CombatNames::modelCondition("SCALING_WALL"), true);
+	CHECK(horde->getAbleToAttackSpecificObject(ATTACK_NEW_TARGET, wallSeg, CMD_FROM_PLAYER) == ATTACKRESULT_NOT_POSSIBLE); // RW 0x68D740 .. 0x68D75A
+	CHECK(horde->getAbleToAttackSpecificObject(ATTACK_NEW_TARGET, nearTarget, CMD_FROM_PLAYER) == ATTACKRESULT_POSSIBLE);
+	horde->setModelConditionState(CombatNames::modelCondition("SCALING_WALL"), false);
 
 	const ContainModuleInterface::ContainedItemsList *members = horde->getContain()->getContainedItemsList();
 	REQUIRE(members != nullptr);
@@ -869,4 +890,19 @@ TEST_CASE("PORT-198 Player::onUnitCreated -> SkirmishAIManager::unitCreated -> A
 	REQUIRE(spy.calls.size() == 1);
 	CHECK(spy.calls[0].first == nullptr);
 	CHECK(spy.calls[0].second->getTemplate()->getName() == "P198UnitTrained");
+
+	// 5. Construction::buildObjectNow (RW 0x79797E): calls Player::onUnitCreated(builder, obj) for non-STRUCTURE, not for STRUCTURE.
+	spy.calls.clear();
+	f.bob()->setEconomyHost(&spy);
+	const ThingTemplate *barracksTt = f.w.get("P198AiBarracks");
+	REQUIRE(barracksTt != nullptr);
+	Object *builtStructure = Construction::buildObjectNow(*f.logic, f.barracks, *barracksTt, Coord3D{ 600.0f, 600.0f, 0.0f }, 0.0f, *f.bob());
+	REQUIRE(builtStructure != nullptr);
+	CHECK(spy.calls.empty());
+	Object *builtUnit = Construction::buildObjectNow(*f.logic, f.barracks, *unitTt, Coord3D{ 650.0f, 600.0f, 0.0f }, 0.0f, *f.bob());
+	REQUIRE(builtUnit != nullptr);
+	REQUIRE(spy.calls.size() == 1);
+	CHECK(spy.calls[0].first == f.barracks);
+	CHECK(spy.calls[0].second == builtUnit);
+	f.bob()->setEconomyHost(&f.economy());
 }

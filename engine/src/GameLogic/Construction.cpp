@@ -491,6 +491,10 @@ Object *Construction::buildObjectNow(GameLogic &logic, Object *builder, const Th
 			onStructureConstructionComplete(owner, builder, *obj, false);
 		}
 	}
+	else
+	{
+		owner.onUnitCreated(builder, obj); // PORT-198 (RW 0x79797E -> 0x6AA688)
+	}
 	// lane PORT-117 (issue #301, P-57): RW 0x7979D4 .. 0x797A02. A KindOf HORDE object is completed WITHOUT its producer. RotWK reads the new object's
 	// template (Object + 4) KindOf word + 0x114 for bit 0x2000 (RW 0x7979DC: KindOf bit 109 = HORDE in the name table RW 0xDA0E68) and, when it is set, calls
 	// Object::setProducer(NULL) (RW 0x7979E8 -> RW 0x68B6A1), then Object::onBuildComplete (RW 0x7979EF -> RW 0x68D252), then tests the bit again
