@@ -43,6 +43,23 @@ that module. It does not remove or test the queue fix, nor prove real HUD
 delivery, the actual mod transformation, visuals, transferred state or timing
 in the loaded game. Shared replacement limitations remain S-861.
 
+## WotR candidate route (literal declarations only)
+
+`mordornecromantwotr.ini:676..756` declares `MordorNekromantWotr` with
+ring-triggered unpause and `DoCommandUpgrade`, a toggle whose
+`MountedTemplate` is `MordorGreatSauronWotr`, a ring contain granting the
+same two upgrades, an all-triggers `ONE_RING` condition and a ring drop OCL
+requiring both upgrades. This is a separately declared object, not a tested
+alias of `MordorNekromantReborn`. The Great Sauron WotR child
+(`greatsauron.ini:879..935`) declares its own weapon, respawn and death/body
+modules and removes nine `ModuleTag_SauronLevel2..10` modules. Those removed
+modules are parent `LevelUpUpgrade` entries triggered by respawn-level
+upgrades (`:775..826`); the separate experience level entries for both names
+still exist in the literal experience file. Do not infer their effective
+inheritance, rank restoration, ring delivery, death/respawn behavior or
+appearance from the Reborn synthetic test; WotR's route and command/visual
+inventory remain to be audited and tested independently.
+
 ## Heal
 
 | Bounded piece | RW and port | Test / remaining work |
@@ -54,9 +71,12 @@ in the loaded game. Shared replacement limitations remain S-861.
 | Matrix heal result | The older audit had a NO-EFFECT entry. At merged main `e32b67a3`, `docs/ennorath/MATRIX.tsv` instead records `PASS`: firing after 38 frames with `PlayerHealSpecialPower` reporting 5000 health restored (S-920 noted). The button is absent from that revision's `MATRIX_GAPS.tsv`. | This is a pre-existing automated sweep result, not a run in this branch or in-game confirmation. Loaded-mod level award, effects, lifecycle and visual parity remain unverified; the branch's level and cooldown assertions were synthetic. |
 | Ring passive, will, fire form and Fires of Doom | Literal buttons also occur in `SauronCommandSet`. The same upstream matrix marks passive `PASS` as NONPRESSABLE (not a press); Will `PASS` after 58 frames with target ownership changed; Fire Form `PASS` after 51 frames with an attribute modifier applied; Fires of Doom `PASS` after 64 frames with an OCL object made. These are recorded effect probes, not RW parity or in-game checks. | RW behavior, the real entry/lifecycle and appearance for each remain to be audited. All three active probes note S-920. |
 
-Before merging main e32b67a3, the temporary isolated runner reported `PORT-238*`
-12/12 cases and 276/276 assertions. A post-merge rebuild, the full executable
-run and mod in-game tests remain pending.
+The temporary isolated runner against the rebuilt core at merged main
+`958dc704` passed `PORT-238*` 13/13 cases and 310/310 assertions. It is not the
+full executable; its build was stopped after the core linked and before the
+full executable linked. Main was subsequently merged again at `3f0105c8`,
+which changed ring-adjacent modules; the new full build and all post-`3f0105c8`
+test runs remain pending. No in-game tests have been performed.
 
 ## Will of the Ring: bounded area-domination trace
 
@@ -82,7 +102,10 @@ configured filter, construction, horde-producer and airborne cases before
 `TemporarilyDefectUpdate` and calls `0x8D0BF3` if found. The corresponding port
 is `DominateEnemySpecialPower::triggerAbilityEffect` / `dominate` and
 `Object::defect`. Shared defection gaps, including non-horde containment and
-some AI/client paths, are S-1222.
+some AI/client paths, are S-1222. PORT-258 on main (`87d644cb`, included
+in `3f0105c8`) also added the same-on/off-map area filter and resolves scanned
+IDs before applying effects; its `test_port_258.cpp` has a synthetic area-filter
+case. That upstream change has not yet been tested in this branch's full build.
 
 A detail worth testing, not silently "fixing": the configured filter names
 `ENEMIES NEUTRAL`, but the area scan also has an upstream relationship filter
@@ -151,8 +174,11 @@ In an **isolated pre-merge** runner built with source/fixture headers from
 this new case (34/34). As a test-sensitivity control, changing only the
 synthetic `HeroModeTrigger` to `No` failed 3/34 assertions: shots and damage
 occurred before activation and shots continued after expiry. This is not a
-negative control of a code fix, nor a post-merge full-suite or in-game result.
-The post-merge full executable and actual mod testing remain pending.
+negative control of a code fix, nor a full-suite or in-game result. The same
+13 cases also passed in a separate isolated runner against the freshly linked
+core after main `958dc704` was merged (310/310); main `3f0105c8` was merged
+later, so it does not validate the current core. The current full executable
+and actual mod testing remain pending.
 
 For appearance, the literal draw declaration names default model `MUBsauron_EA`
 and a `HERO` condition model `musauronfire` with several particle bones
