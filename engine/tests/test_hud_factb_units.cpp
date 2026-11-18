@@ -30,6 +30,8 @@
 #include "GameLogic/Combat/ObjectWeapons.h"
 #include "GameLogic/Module/ActiveBody.h"
 #include "GameLogic/Module/SpecialAbilityModules.h"
+#include "GameLogic/Object/Contain/HordeContainBehaviorData.h"
+#include "GameLogic/Module/TransportContain.h"
 #include "GameLogic/Module/HeroAbilityModules.h"
 #include "GameLogic/Module/HordeDispatchSpecialPower.h"
 #include "Common/Thing/ThingTemplate.h"
@@ -763,7 +765,8 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 								// a model setter that replaces the unit (a mount toggle swaps the object): the replacement is swept as its own
 								// object, so this one's button cannot be pressed with the condition met here (2026-11-17, Gorkil)
 								const greyfix::Condition *model = nullptr;
-								for (const greyfix::Condition &c : greyRow->conditions)
+								const std::vector<greyfix::Condition> eff = greyfix::effective(*greyRow); // as RW 0x942733 reads the row (GreyFixture.h)
+								for (const greyfix::Condition &c : eff)
 								{
 									model = model ? model : (greyfix::kindOf(c.condition) == greyfix::Kind::Model ? &c : nullptr);
 								}
@@ -775,6 +778,22 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 							if (!g.reveal(u, [&](const CommandButton &x) { return &x == cb; }, b))
 							{
 								res.fail(item, "the button left the bar after the fixture");
+								continue;
+							}
+							// 2026-11-18: an unpause upgrade with ObeyRechageOnTrigger starts the power's recharge (RW 0x943585 .. 0x9435D2: not paused,
+							// progress below 1 -> not ready, the clock), as in retail: the sweep waits the recharge out (up to 3 minutes of game time)
+							// before it judges the button, instead of calling a recharging button GREY-BUG
+							for (int waited = 0; b.state == ButtonState::NotReady && waited < 30 * 180; waited += 30)
+							{
+								g.step(30);
+								if (!(u = g.logic().findObjectByID(uid)) || !g.select(u) || !g.reveal(u, [&](const CommandButton &x) { return &x == cb; }, b))
+								{
+									break;
+								}
+							}
+							if (!u)
+							{
+								res.fail(item, "the unit left the world while its power recharged after the fixture");
 								continue;
 							}
 							// the fixture may have pressed a toggle: the model gate is read again
@@ -790,7 +809,7 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 							modelGated = modelGated && !upgrade && b.state == ButtonState::Restricted;
 							// GREY-BUG only when every condition really holds now (2026-11-17): a condition the fixture did not give is the
 							// grey verdict with its reason, not a port bug
-							for (const greyfix::Condition &c : greyRow->conditions)
+							for (const greyfix::Condition &c : greyfix::effective(*greyRow)) // as RW 0x942733 reads the row (GreyFixture.h)
 							{
 								if (!fixtureDetail.empty())
 								{
@@ -832,10 +851,17 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 						}
 					}
 				}
+				// 2026-11-18 (owner: "все бери из кода"): RW 0x943050 (getCommandAvailability case 7, OBJECT_UPGRADE): an object with no production
+				// queue (RW 0x68C327) has the button disabled in retail too. A horde member or slaved unit swept alone has none (its horde or master
+				// buys it): the grey verdict with that reason, not GREY-BUG
+				if (fixtureDetail.empty() && cb->m_command == GUI_COMMAND_OBJECT_UPGRADE && !u->getProductionUpdate() && b.state == ButtonState::Restricted)
+				{
+					fixtureDetail = "DISABLED: needs a production queue on the object (RW 0x943050 case 7, RW 0x68C327: disabled in retail too; its horde or master buys it)";
+				}
 				if (b.state != ButtonState::Enabled && b.state != ButtonState::Active && !modelGated)
 				{
 					res.fail(item, !fixtureDetail.empty() ? fixtureDetail
-						: fixtureApplied && greyRow ? greyfix::bugDetail(*greyRow)
+						: fixtureApplied && greyRow ? greyfix::bugDetail(*greyRow) + str(" (button state %d)", (int)b.state) // the state tells restricted from not ready
 						: str("state %d at level %d (not enabled)", (int)b.state, u->getExperienceTracker() ? u->getExperienceTracker()->getRank() : 0));
 					continue;
 				}
@@ -1058,6 +1084,49 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 							const SpecialPowerModuleData *d = dynamic_cast<const SpecialPowerModuleData *>(nug.data.get());
 							listed = listed || (d && d->m_specialPowerTemplateName == cb->m_specialPowerName);
 						}
+					}
+					// 2026-11-18 (owner: "все бери из кода"): a horde member swept alone. RW 0x9434F7 .. 0x943564 finds no module on the member,
+					// but in a game the member lives in its horde (HordeContain InitialPayload) and the button is the horde's: when a horde
+					// whose payload names this template carries a module for the power, the press belongs to the horde, swept as its own object
+					// (37 of 49 MOD-DATA rows: the wolf riders' howl, Mirkwood's cloak, Dale's black arrows, the Harad slaves ...)
+					std::string hordeWith;
+					for (const ThingTemplate *ht : g.logic().things().templates())
+					{
+						if (listed)
+						{
+							break;
+						}
+						bool holds = false, carries = false;
+						for (const ThingTemplate::Nugget &nug : ht->behaviorModules().nuggets())
+						{
+							if (const HordeContainBehaviorData *hd = dynamic_cast<const HordeContainBehaviorData *>(nug.data.get()))
+							{
+								for (const InitialPayloadEntry &pe : hd->horde.m_transport.m_initialPayload)
+								{
+									holds = holds || pe.name == u->getTemplate()->getName();
+									// a payload template's BuildVariations are made in its place (the Harad slaves' HaradOrcSlaveAxe / Hammer)
+									const ThingTemplate *pt = s.world->things().findTemplate(pe.name);
+									const FieldValue *vars = pt ? pt->getFinalOverride()->findField("BuildVariations") : nullptr;
+									if (const std::vector<std::string> *list = vars ? std::get_if<std::vector<std::string>>(vars) : nullptr)
+									{
+										holds = holds || std::find(list->begin(), list->end(), u->getTemplate()->getName()) != list->end();
+									}
+								}
+							}
+							const SpecialPowerModuleData *d = dynamic_cast<const SpecialPowerModuleData *>(nug.data.get());
+							carries = carries || (d && d->m_specialPowerTemplateName == cb->m_specialPowerName);
+						}
+						if (holds && carries)
+						{
+							hordeWith = ht->getName();
+							break;
+						}
+					}
+					if (!hordeWith.empty())
+					{
+						res.fail(item, "MEMBER: a horde member made alone; its horde " + hordeWith + " (HordeContain InitialPayload) carries the module for " +
+						                   cb->m_specialPowerName + " and is swept as its own object");
+						continue;
 					}
 					res.fail(item, listed ? "no module of the unit or its members carries " + cb->m_specialPowerName
 					                      : "MOD-DATA: the mod gives the unit no module for " + cb->m_specialPowerName +

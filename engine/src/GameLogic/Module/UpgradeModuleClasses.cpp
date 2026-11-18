@@ -651,6 +651,15 @@ void DoCommandUpgrade::processUpgradeRemoval()
 	run(m_data->m_removeUpgradeCommandButtonName); // + 0x13C
 }
 
+// RW 0x8B8FD7 is checked in implementation, not in wouldUpgrade: a conflicting upgrade still marks executed but hides nothing
+bool SubObjectsUpgrade::wouldUpgrade(const UpgradeMaskType &mask) const
+{
+	const UpgradeModuleData *d = muxData();
+	if (!d->m_activationMask.any() || isAlreadyUpgraded())
+		return false;
+	return d->m_requiresAllTriggers ? mask.testForAll(d->m_activationMask) : mask.testForAny(d->m_activationMask);
+}
+
 // ---- SubObjectsUpgrade --------------------------------------------------------------------------------------------------------------------
 void SubObjectsUpgrade::upgradeImplementation()
 {
@@ -1000,12 +1009,15 @@ void RemoveUpgradeUpgrade::xfer(Xfer &x)
 	UpgradeModule::xfer(x);
 }
 
-// OpenBFME native (S-4190): the mux, then RW module + 0x20 (the sub objects are shown)
+// RW 0x8B90F4 (xfer): version (1,1) via RW 0x404F15, bool at +0x20 via Xfer slot 0x90 (RW 0x8B910B call [eax+0x90]), then UpgradeModule xfer RW 0x8D284A
+// Fixes S-4190 order: the bool is before the base mux.
+// DONOR BFME2 0x004B4F67 (SubObjectsUpgradeXfer.cpp): Version1 via 0x53EE then bool at +0x20 then base.
+// Missing functions of SubObjectsUpgrade now cited: RW 0x8B8E80 (getModuleName literal 0xC0AF28), RW 0x8B8E86 (draw thunk checking +0x20 then mux slot 0x28 -> RW 0x4D0EAF), RW 0x8B8E9F (ModuleData table 0xC0A3B8, field parse RW 0x42E59E etc), RW 0x8B8F24 (scalar deleting dtor calling 0x42F6A0), RW 0x8B90F4 (xfer as above).
 void SubObjectsUpgrade::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);
-	UpgradeModule::xfer(x);
 	x.xferBool(&m_shown);
+	UpgradeModule::xfer(x);
 }
 
 void GrantUpgradeCreate::xfer(Xfer &x)

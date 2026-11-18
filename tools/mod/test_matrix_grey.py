@@ -151,3 +151,47 @@ def test_markdown_report_counts_and_branches_without_mod_values(tmp_path):
     # the committable half carries no fixture name or value
     for leaked in ('NoGate', 'NeedsModel', 'NeedsUpgrade', 'Upgrade_Fictional', 'Workshop', 'FakeFaction'):
         assert leaked not in text
+
+
+PAUSED_INI = '''
+CommandButton PausedPower
+  Command = SPECIAL_POWER
+  SpecialPower = PausedSP
+End
+SpecialPower PausedSP
+  ReloadTime = 1000
+End
+Object PausedHero
+  Behavior = UnpauseSpecialPowerUpgrade ModuleTag_Unpause
+    SpecialPowerTemplate = PausedSP
+    TriggeredBy = Upgrade_Level_1
+  End
+  Behavior = SpecialPowerModule ModuleTag_Power
+    SpecialPowerTemplate = PausedSP
+    StartsPaused = Yes
+  End
+End
+Object FreeHero
+  Behavior = UnpauseSpecialPowerUpgrade ModuleTag_Unpause
+    SpecialPowerTemplate = PausedSP
+    TriggeredBy = Upgrade_Level_1
+  End
+  Behavior = SpecialPowerModule ModuleTag_Power
+    SpecialPowerTemplate = PausedSP
+  End
+End
+'''
+
+
+def test_a_power_that_starts_paused_needs_its_unpause_upgrade(tmp_path):
+    """2026-11-18 (Port 281): RW 0x943585 restricts a paused power; StartsPaused = Yes holds until the UnpauseSpecialPowerUpgrade of the same
+    power triggers, so its TriggeredBy upgrade is the button's condition. A power that does not start paused needs nothing of it."""
+    ini = tmp_path / 'data/ini/paused.ini'
+    ini.parent.mkdir(parents=True)
+    ini.write_text(PAUSED_INI, encoding='ascii')
+    e = m.Explainer(m.load(tmp_path))
+    paused = e.explain({'faction': 'F', 'object': 'PausedHero', 'button': 'PausedPower'})
+    assert [(x['condition'], x['value']) for x in paused] == [('upgrade', 'Upgrade_Level_1')]
+    assert 'ModuleTag_Unpause' in paused[0]['note']
+    free = e.explain({'faction': 'F', 'object': 'FreeHero', 'button': 'PausedPower'})
+    assert [x['condition'] for x in free] == ['none']

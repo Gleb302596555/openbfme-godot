@@ -247,9 +247,44 @@ class Explainer:
                 for key, value in self.fields(typ, ref):
                     if key.lower() in allowed:
                         emit(allowed[key.lower()], value, typ + '.' + key + ' (' + ref + ')')
+        for power in dict.fromkeys(powers):
+            for upgrade, tag in self.unpause_upgrades(row['object'], power):
+                emit('upgrade', upgrade, f'UnpauseSpecialPowerUpgrade.TriggeredBy ({tag}): the power starts paused, RW 0x943585 restricts a paused power')
         if not result:
             emit('none', '-', 'No recognized gating field; runtime and fixture checks still apply')
         return result
+
+    def unpause_upgrades(self, object_name, power):
+        """The upgrades that unpause `power` on the object (owner 2026-11-18, Port 281's Erkenbrand / Gorkil): retail's SPECIAL_POWER arm
+        (RW 0x943585 .. 0x9435D2) restricts a power whose module is paused with no progress; a module with StartsPaused = Yes is paused until
+        an UnpauseSpecialPowerUpgrade naming the same SpecialPowerTemplate triggers (its TriggeredBy upgrades). Nothing when no module of the
+        power starts paused."""
+        name = self.names.get(('object', object_name.lower()))
+        if not name:
+            return []
+        # one group per module, started by its `Behavior =` line: the graph loses the module tags of an object whose Draw block the mod
+        # closes with an extra End (Gorkil's WildGoblinKingMounted, 2026-11-18: its modules' fields come untagged), so tags are not used
+        modules = defaultdict(list)
+        n = 0
+        for key, val, _src, tag in graph.effective_fields(self.db, 'object', name):
+            if key.lower() == 'behavior':
+                n += 1
+            if n:
+                modules[f'{tag or "-"}#{n}'].append((key.lower(), val))
+        def field(fields, key):
+            return next((v for k, v in fields if k == key), '')
+        def class_of(fields):
+            return next((v.split()[0] for k, v in fields if k == 'behavior' and v.split()), '')
+        paused = any(field(f, 'specialpowertemplate').strip().lower() == power.lower()
+                     and field(f, 'startspaused').strip().split()[:1] == ['Yes'] for f in modules.values())
+        if not paused:
+            return []
+        out = []
+        for tag, f in modules.items():
+            if class_of(f).lower() == 'unpausespecialpowerupgrade' and field(f, 'specialpowertemplate').strip().lower() == power.lower():
+                label = (next((v.split()[1] for k, v in f if k == 'behavior' and len(v.split()) > 1), tag.split('#')[0]))
+                out.extend((u, label) for u in graph.tokens_of(field(f, 'triggeredby')))
+        return out
 
 
 def markdown(rows, result, matrix_name, ini_name):
@@ -339,7 +374,8 @@ def read_matrix(path):
         reader = csv.DictReader((line for line in f if not line.startswith('#')), delimiter='\t')
         if not reader.fieldnames or not {'faction', 'object', 'button', 'result'} <= set(reader.fieldnames):
             raise ValueError('matrix is missing required columns')
-        return [r for r in reader if r['result'] == 'DISABLED']
+        # the grey buttons: DISABLED, and GREY-BUG (a grey button the last fixture did not open: its conditions are re-read every run, 2026-11-18)
+        return [r for r in reader if r['result'] in ('DISABLED', 'GREY-BUG')]
 
 
 def main(argv=None):
