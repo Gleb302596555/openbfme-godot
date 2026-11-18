@@ -17,6 +17,7 @@
 #include "GameLogic/Object/AttributeModifierPool.h"
 #include "GameLogic/Object/Contain/GarrisonContainRuntime.h"
 #include "GameLogic/Object/PartitionManager.h"
+#include "GameLogic/ObjectFilterMatch.h"
 #include "GameLogic/Module/InvisibilityModules.h"
 #include "GameLogic/Module/HeroAbilityModules.h"
 #include "GameLogic/Module/SpellEffectModules.h"
@@ -774,4 +775,80 @@ TEST_CASE("PORT-238 synthetic fire form gates two pulses on HERO and ends")
     const auto shotsAfterExpiry = fire->shots();
     w.frames(20);
     CHECK(fire->shots() == shotsAfterExpiry);
+}
+
+TEST_CASE("PORT-238 synthetic Will temporarily dominates eligible enemies in an area")
+{
+    HealWorld w;
+    w.combat().setAutoAcquireEnabled(false);
+    const char *data =
+        "SpecialPower P238Will\n Enum = SPECIAL_DOMINATE_ENEMY\n ReloadTime = 280000\n End\n"
+        "Object P238WillCaster\n KindOf = INFANTRY HERO SELECTABLE CAN_ATTACK\n"
+        " Geometry = CYLINDER\n GeometryMajorRadius = 5\n GeometryHeight = 10\n"
+        " Body = ActiveBody Body\n MaxHealth = 1000\n End\n Behavior = AIUpdateInterface AI\n End\n"
+        " Behavior = SpecialPowerModule Power\n SpecialPowerTemplate = P238Will\n UpdateModuleStartsAttack = Yes\n End\n"
+        " Behavior = DominateEnemySpecialPower Will\n SpecialPowerTemplate = P238Will\n StartAbilityRange = 275\n"
+        "  UnpackTime = 2000\n PreparationTime = 1\n FreezeAfterTriggerDuration = 1000\n IgnoreFacingCheck = Yes\n"
+        "  AttributeModifierAffects = ALL -DOZER -HERO -STRUCTURE -ARMY_OF_DEAD -MOVE_ONLY ENEMIES NEUTRAL\n"
+        "  DominateRadius = 120\n PermanentlyConvert = No\n End\n End\n"
+        "Object P238WillTroop\n KindOf = INFANTRY SELECTABLE\n Geometry = CYLINDER\n GeometryMajorRadius = 5\n GeometryHeight = 10\n"
+        " Body = ActiveBody Body\n MaxHealth = 1000\n End\n Behavior = AIUpdateInterface AI\n End\n"
+        " Behavior = TemporarilyDefectUpdate Defect\n DefectDuration = 30000\n End\n End\n"
+        "Object P238WillHero\n KindOf = INFANTRY HERO SELECTABLE\n Geometry = CYLINDER\n GeometryMajorRadius = 5\n GeometryHeight = 10\n"
+        " Body = ActiveBody Body\n MaxHealth = 1000\n End\n Behavior = TemporarilyDefectUpdate Defect\n DefectDuration = 30000\n End\n End\n"
+        "Object P238WillDozer\n KindOf = INFANTRY DOZER SELECTABLE\n Geometry = CYLINDER\n GeometryMajorRadius = 5\n GeometryHeight = 10\n"
+        " Body = ActiveBody Body\n MaxHealth = 1000\n End\n Behavior = TemporarilyDefectUpdate Defect\n DefectDuration = 30000\n End\n End\n"
+        "Object P238WillBuilding\n KindOf = STRUCTURE SELECTABLE\n Geometry = CYLINDER\n GeometryMajorRadius = 5\n GeometryHeight = 10\n"
+        " Body = ActiveBody Body\n MaxHealth = 1000\n End\n Behavior = TemporarilyDefectUpdate Defect\n DefectDuration = 30000\n End\n End\n";
+    const std::string error = w.w.load(data, INI_LOAD_OVERWRITE, "port238_will.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    Object *caster = w.unit("P238WillCaster", 'A', 300, 300);
+    Object *enemy = w.unit("P238WillTroop", 'B', 350, 300);
+    Object *enemyHero = w.unit("P238WillHero", 'B', 360, 300);
+    Object *enemyDozer = w.unit("P238WillDozer", 'B', 370, 300);
+    Object *enemyBuilding = w.unit("P238WillBuilding", 'B', 380, 300);
+    Object *farEnemy = w.unit("P238WillTroop", 'B', 500, 300);
+    Object *ally = w.unit("P238WillTroop", 'A', 340, 300);
+    Player *neutral = w.players.getNeutralPlayer();
+    REQUIRE(neutral != nullptr);
+    Object *neutralTroop = w.spawn("P238WillTroop", 355, 310, 0, neutral->getDefaultTeam());
+    REQUIRE(caster->getRelationship(*neutralTroop) == NEUTRAL);
+    Player *a = caster->getControllingPlayer();
+    Player *b = enemy->getControllingPlayer();
+    Team *originalTeam = enemy->getTeam();
+    auto *will = dynamic_cast<DominateEnemySpecialPower *>(caster->findModule("DominateEnemySpecialPower"));
+    REQUIRE(will != nullptr);
+    const auto *dataForWill = dynamic_cast<const DominateEnemySpecialPowerModuleData *>(will->abilityData());
+    REQUIRE(dataForWill != nullptr);
+    REQUIRE(dataForWill->m_affects.get() != nullptr);
+    CHECK(ObjectFilterMatch::allows(*w.logic, *dataForWill->m_affects, *neutralTroop, a));
+    CHECK_FALSE(ObjectFilterMatch::allows(*w.logic, *dataForWill->m_affects, *enemyHero, a));
+    const Coord3D target{350, 300, 0};
+    will->initiateIntentToDoSpecialPower(will->abilityData()->m_specialPowerTemplate, nullptr, &target, 0, 0);
+    for (int i = 0; i < 40 && will->abilitiesTriggered() == 0; ++i) w.frames(1);
+    REQUIRE(will->abilitiesTriggered() == 1);
+    CHECK(will->dominated() == 1);
+    CHECK(enemy->getControllingPlayer() == a);
+    CHECK(enemy->getOriginalTeam() == originalTeam);
+    CHECK(enemyHero->getControllingPlayer() == b);
+    CHECK(enemyDozer->getControllingPlayer() == b);
+    CHECK(enemyBuilding->getControllingPlayer() == b);
+    CHECK(farEnemy->getControllingPlayer() == b);
+    CHECK(ally->getControllingPlayer() == a);
+    CHECK(neutralTroop->getControllingPlayer() == neutral); // area relationship gate precedes the filter's NEUTRAL
+    auto *defect = TemporarilyDefectUpdate::of(*enemy);
+    REQUIRE(defect != nullptr);
+    CHECK(defect->dominator() == caster->getID());
+    CHECK(defect->endFrame() == w.logic->getFrame() + 150u); // 30000 ms at 5 fps
+    const int status = CombatNames::status("TEMPORARILY_DEFECTED");
+    REQUIRE(status == 0x3E); // TEMPORARILY_DEFECTED
+    CHECK(enemy->testStatus((unsigned)status));
+    w.frames(100);
+    CHECK(enemy->getControllingPlayer() == a);
+    w.frames(65); // update polls every ten frames after the expiry
+    CHECK(enemy->getControllingPlayer() == b);
+    CHECK(enemy->getTeam() == originalTeam);
+    CHECK_FALSE(enemy->testStatus((unsigned)status));
+    CHECK(defect->endFrame() == 0);
+    CHECK(defect->dominator() == INVALID_ID);
 }

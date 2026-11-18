@@ -71,12 +71,13 @@ inventory remain to be audited and tested independently.
 | Matrix heal result | The older audit had a NO-EFFECT entry. At merged main `e32b67a3`, `docs/ennorath/MATRIX.tsv` instead records `PASS`: firing after 38 frames with `PlayerHealSpecialPower` reporting 5000 health restored (S-920 noted). The button is absent from that revision's `MATRIX_GAPS.tsv`. | This is a pre-existing automated sweep result, not a run in this branch or in-game confirmation. Loaded-mod level award, effects, lifecycle and visual parity remain unverified; the branch's level and cooldown assertions were synthetic. |
 | Ring passive, will, fire form and Fires of Doom | Literal buttons also occur in `SauronCommandSet`. The same upstream matrix marks passive `PASS` as NONPRESSABLE (not a press); Will `PASS` after 58 frames with target ownership changed; Fire Form `PASS` after 51 frames with an attribute modifier applied; Fires of Doom `PASS` after 64 frames with an OCL object made. These are recorded effect probes, not RW parity or in-game checks. | RW behavior, the real entry/lifecycle and appearance for each remain to be audited. All three active probes note S-920. |
 
-The temporary isolated runner against the rebuilt core at merged main
-`958dc704` passed `PORT-238*` 13/13 cases and 310/310 assertions. It is not the
-full executable; its build was stopped after the core linked and before the
-full executable linked. Main was subsequently merged again at `3f0105c8`,
-which changed ring-adjacent modules; the new full build and all post-`3f0105c8`
-test runs remain pending. No in-game tests have been performed.
+A temporary isolated runner against the rebuilt core and test-fixture headers
+at merged main `958dc704` passed `PORT-238*` 14/14 cases and 357/357 assertions,
+including the later Fire Form and Will cases. It is not the full executable;
+its build was stopped after the core linked and before the full executable
+linked. Main was subsequently merged again at `3f0105c8`, which changed
+ring-adjacent modules; the new full build and all post-`3f0105c8` test runs
+remain pending. No in-game tests have been performed.
 
 ## Will of the Ring: bounded area-domination trace
 
@@ -116,11 +117,21 @@ branch still matter. The literal default `data/ini/default/object.ini:210`
 contains an inheritable `TemporarilyDefectUpdate` with 30000 ms duration, but
 its effective presence on each target has **not** been established by this
 scan. The existing synthetic `hero2` cases separately exercise temporary
-direct defection and permanent area horde conversion; neither is a full test
-of Sauron's temporary area ability. The pre-existing matrix `PASS` observes an
-ownership change on one horde, not its eventual restoration or all exclusions.
-The effects, HUD target path, real target inheritance and in-game behavior remain
-open.
+direct defection and permanent area horde conversion. A new `PORT-238` test
+combines a synthetic 120-radius, position-targeted temporary area domination
+with a 30000 ms explicitly installed defect update: an enemy infantry unit
+changes owner, retains its original team and returns after expiry; an ally,
+neutral troop, enemy HERO, DOZER, STRUCTURE and distant troop stay unchanged.
+The test independently confirms that the later synthetic object filter accepts
+the neutral troop even though the earlier area relationship gate excludes it.
+In the `958dc704` isolated core runner this case passed 47/47 assertions; a
+fixture changed only to `PermanentlyConvert = Yes` failed 5/47, including
+expiry and return. This tests sensitivity, not a code-fix negative control.
+It omits the named Watcher exclusions, horde/member behavior, the HUD, upgrades,
+FX and real effective inheritance, and directly initiates the ability with
+`IgnoreFacingCheck`. The upstream matrix `PASS` observes an ownership change
+on one horde, not its eventual restoration or all exclusions. Current-core,
+mod and in-game behavior remain open.
 
 ## Fire Form: bounded logic and visual declarations
 
