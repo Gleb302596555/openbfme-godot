@@ -377,6 +377,7 @@ struct EffectProbe
 		int rank = 0;
 		float experience = 0.0f;
 		std::set<std::string> modifiers;
+		std::map<std::string, unsigned> expires; ///< MATRIX_TODO 2: each list's expiry frame (AttributeModifierPool::expireOf)
 		unsigned long long readySum = 0;
 		ObjectStatusMaskType status{};
 		WeaponConditionFlags weaponFlags{};
@@ -1035,6 +1036,7 @@ struct EffectProbe
 				for (const std::string &n : pool->listNames())
 				{
 					s.modifiers.insert(n);
+					s.expires[n] = pool->expireOf(n);
 				}
 			}
 			for (const std::unique_ptr<BehaviorModule> &m : o->modules())
@@ -1247,12 +1249,24 @@ struct EffectProbe
 				break;
 			case MODIFIER:
 			{
+				std::string neverEnds;
 				auto checkMod = [&](const std::string &modName) {
 					for (const auto &kv : after.seen)
 					{
 						const Seen *b = was(kv.first);
 						if (kv.second.modifiers.count(modName) && (!b || !b->modifiers.count(modName)))
 						{
+							// MATRIX_TODO 2 (owner 2026-11-18): the effect must end. A list with a positive Duration applied with the list's
+							// own duration (SpecialPowerModule RW 0x68F1A8 passes -1 -> RW 0x805A8E: frame + Duration) expires; an entry that
+							// never expires (0x3FFFFFFF) while its list says Duration > 0 is a buff that stays for ever
+							const ModifierListTemplate *list = TheAttributeModifierStore ? TheAttributeModifierStore->find(modName) : nullptr;
+							const auto ex = kv.second.expires.find(modName);
+							if (list && list->m_duration > 0 && ex != kv.second.expires.end() && ex->second == 0x3FFFFFFFu)
+							{
+								neverEnds = str("%s on object %u never expires, though its Duration is %u frames (RW 0x805A8E)", modName.c_str(),
+								                (unsigned)kv.first, list->m_duration);
+								return true;
+							}
 							got = str("%s on object %u", modName.c_str(), (unsigned)kv.first);
 							return true;
 						}
@@ -1284,6 +1298,11 @@ struct EffectProbe
 				else if (!e.modifier.empty())
 				{
 					checkMod(e.modifier);
+				}
+				if (!neverEnds.empty())
+				{
+					missing += e.what + ": " + neverEnds + "; "; // a fault of its own, not "no result"
+					continue;
 				}
 				break;
 			}

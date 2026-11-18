@@ -216,6 +216,17 @@ public:
 	// slot 0xB4 isPassengerAllowedToFire (OpenContain RW 0x865A7E; GarrisonContain, HordeGarrisonContain and TunnelContain RW 0x8BD372: true; HordeContain
 	// RW 0x86C713: its container's answer)
 	virtual bool isPassengerAllowedToFire() const { return false; }
+	// slot 0x130 calcBestGarrisonPosition(sourcePos, targetPos) (OpenContain RW 0x8655C2: zeroes *sourcePos and answers false; GarrisonContain /
+	// HordeGarrisonContain RW 0x87B7E3: loads the points if needed and answers the free point of the current damage state nearest *targetPos)
+	virtual bool calcBestGarrisonPosition(Coord3D *sourcePos, const Coord3D *targetPos)
+	{
+		if (sourcePos)
+		{
+			*sourcePos = Coord3D{ 0.0f, 0.0f, 0.0f };
+		}
+		(void)targetPos;
+		return false;
+	}
 	// slot 0xC0 (OpenContain RW 0x865B33, the same in every contain table read): a rider's shot at `victim` is blocked by its container (PassengersTestCollisionHeight)
 	virtual bool isPassengerShotBlocked(const Object *rider, const Object *victim) const { (void)rider; (void)victim; return false; }
 	// slots 0x158 / 0x15C / 0x160: the entry position, the entry offset and the exit offset in the world (HordeGarrisonContain RW 0x87D1A7 / 0x87D1E0 / 0x87D219:

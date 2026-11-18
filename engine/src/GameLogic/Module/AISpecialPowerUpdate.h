@@ -207,6 +207,7 @@ private:
 	bool decideCaptureCreep(Object &obj);                       // RW 0x9E86BE
 	bool decideShroudReveal(Object &obj);                       // RW 0x9E7CA3
 	bool decideAssistBattle(Object &obj);                       // RW 0x9E896E
+	bool decideArmyBreaker(Object &obj);                        // RW 0x9E92CA (lane PORT-196: the brain's attacked-at records, RW 0x9E9222's timers)
 	bool decideBuffTerrain(Object &obj);                        // RW 0x9E77EE
 	bool decideRebuild(Object &obj);                            // RW 0x9E7744
 	bool decideEnshroudingMist(Object &obj);                    // RW 0x9E7869

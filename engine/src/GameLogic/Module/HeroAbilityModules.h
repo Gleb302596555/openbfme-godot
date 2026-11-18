@@ -313,11 +313,23 @@ private:
 //     0x6AD1B0); else reload = ftol((unsigned)ReloadTime * fstp(the player's recharge discount + 1) * the RECHARGE attribute modifier product (RW 0x68C82D,
 //     1.0 here as SpecialPowerModule's, S-529)); below 1.0: nothing when the percent is 0, else ready = now + ftol((1 - max(0, percent - p)) * reload); else
 //     now + reload); do* (RW 0x9911FB / 0x991231 / 0x991269): not paused and not disabled (RW 0x9325B4): the special power update's initiate (slot 0);
-//   * initiate (RW 0x89841E): LockWeaponSlot none: every WeaponSetFlags bit on (RW 0x691059, when the object has a weapon set RW 0x68FDF7); else the slot is
+//   * initiate (RW 0x89841E): LockWeaponSlot none: when the data's WeaponSetFlags words are not empty (RW 0x68FDF7, a popcount over the four words,
+//     RW 0x89843E) every set bit goes on through RW 0x691059, which is an OBJECT method (Object + 0x38C, the weapon set update RW 0x6C99E2, then the model
+//     condition the table RW 0xC16958 names): an object without a weapon set, a horde container included, keeps the bits in its own words and mirrors the
+//     condition too (Port 256, fork issue 604: the weapons object was null there, so the mode did nothing -- the matrix's WildMarauderSwordHorde
+//     Command_HalftrollChargeAttack); else the slot is
 //     locked (RW 0x69121A(slot, 2): LOCKED_PERMANENTLY); the AttributeModifier for Duration (RW 0x68F1A8); the update wakes in Duration; active; the recharge
 //     starts (slot 0x3C, 1.0); the firing tracker resets (RW 0x8E302A(1): COMBAT-1's, not called, S-1228);
 //   * update (RW 0x8983B5): the PERMANENT weapon lock is released (RW 0x68DF11(2)), every WeaponSetFlags bit off (RW 0x691106), the modifier removed (RW
 //     0x68F259), not active, the countdown unpaused (slot 0x24(0)); sleeps forever.
+// Port 256 (fork issue 604): the class's own map rows that carried no citation, classified by reading them (RW_FUNCTION_MAP depth 0):
+//   0x898276 / 0x898290  the static type descriptor accessor (returns RW 0xC0B4D0) and its one-shot initializer (the pool object RW 0x5487EC); slots + 0x08 and
+//                       + 0x10 of the primary vtable RW 0xC65188, no game code calls them -- the port has no RTTI descriptor, nothing to port;
+//   0x89833B            the scalar deleting destructor (the destructor RW 0x89822B, then operator delete RW 0x42F6A0 for argument bit 0) -- the port's
+//                       implicit destructor;
+//   0x8E38D8            a thunk chain RW 0x8B88B0 -> RW 0x4D0EAF -> the empty stub RW 0x63F3BF (slot + 0x04 of RW 0xC65188: nothing);
+//   0x9E7051            the getter of + 0x38 ("active"): mov al, [ecx+0x18] on the + 0x20 subobject -- the port's isActive() / active();
+//   0x898357            the xfer override: version (1, 1) RW 0x404F15, the base RW 0x9912DB, then Xfer slot 0x90 on + 0x38 -- the port's xfer().
 class WeaponModeSpecialPowerUpdateModuleData : public ModuleData
 {
 public:
@@ -447,6 +459,7 @@ private:
 	bool m_ended = false;                    // + 0x2C
 };
 
+// RW 0x008D0E82 (ctor: m_affects initialized to RULE_ALL via RW 0x0076406F / 0x00763DAA; RW 0x008D0DCB buildFieldParse)
 class DominateEnemySpecialPowerModuleData : public SpecialAbilityUpdateModuleData
 {
 public:
@@ -455,22 +468,23 @@ public:
 	std::string m_dominatedFX;                             // + 0xD8
 	bool m_permanentlyConvert = false;                     // + 0xDC
 	std::shared_ptr<const ObjectFilter> m_affects;         // + 0xE0
-	static void buildFieldParse(MultiIniFieldParse &p);
+	static void buildFieldParse(MultiIniFieldParse &p);    // RW 0x008D0DCB
 };
 
+// RW 0x008D0DE6 (ctor), RW 0x008E38D8 (loadPostProcess -> no-op RW 0x0063F3BF)
 class DominateEnemySpecialPower : public SpecialAbilityUpdate
 {
 public:
-	OBFME_MODULE_XFER(DominateEnemySpecialPower) // lane SAVE-4b
-	DominateEnemySpecialPower(Thing *thing, const DominateEnemySpecialPowerModuleData *data);
+	OBFME_MODULE_XFER(DominateEnemySpecialPower) // RW 0x008C6E67
+	DominateEnemySpecialPower(Thing *thing, const DominateEnemySpecialPowerModuleData *data); // RW 0x008D0DE6
 	unsigned dominated() const { return m_dominated; }
 	void crc(StateHasher &h) const override;
 
 protected:
-	void triggerAbilityEffect() override; // RW 0x8D103D
+	void triggerAbilityEffect() override; // RW 0x008D103D
 
 private:
-	void dominate(Object *victim, bool direct); // RW 0x8D0F6C
+	void dominate(Object *victim, bool direct); // RW 0x008D0F6C
 	const DominateEnemySpecialPowerModuleData *m_de;
 	unsigned m_dominated = 0;
 };
@@ -543,28 +557,30 @@ private:
 	bool m_done = false;                   // + 0x98
 };
 
+// RW 0x008D1192 (ctor: m_cursePercentage = 1.0f from RW 0x00BD1908; RW 0x008D11C2 buildFieldParse)
 class CurseSpecialPowerModuleData : public SpecialAbilityUpdateModuleData
 {
 public:
-	std::string m_triggerFX;       // + 0xD0
-	std::string m_cursedFX;        // + 0xD4
-	float m_cursePercentage = 0.0f; // + 0xD8
-	static void buildFieldParse(MultiIniFieldParse &p);
+	std::string m_triggerFX;        // + 0xD0
+	std::string m_cursedFX;         // + 0xD4
+	float m_cursePercentage = 1.0f; // + 0xD8 (RW 0x008D1192 -> RW 0x00BD1908)
+	static void buildFieldParse(MultiIniFieldParse &p); // RW 0x008D11C2
 };
 
+// RW 0x008D11DD (ctor), RW 0x008E38D8 (loadPostProcess -> no-op RW 0x0063F3BF)
 class CurseSpecialPower : public SpecialAbilityUpdate
 {
 public:
-	OBFME_MODULE_XFER(CurseSpecialPower) // lane SAVE-4b
-	CurseSpecialPower(Thing *thing, const CurseSpecialPowerModuleData *data);
+	OBFME_MODULE_XFER(CurseSpecialPower) // RW 0x008C6E67
+	CurseSpecialPower(Thing *thing, const CurseSpecialPowerModuleData *data); // RW 0x008D11DD
 	unsigned cursed() const { return m_cursed; }
 	void crc(StateHasher &h) const override;
 
 protected:
-	void triggerAbilityEffect() override; // RW 0x8D134C
+	void triggerAbilityEffect() override; // RW 0x008D134C
 
 private:
-	void curse(Object &victim);           // RW 0x8D12E3
+	void curse(Object &victim);           // RW 0x008D12E3
 	const CurseSpecialPowerModuleData *m_cs;
 	unsigned m_cursed = 0;
 };
@@ -659,16 +675,17 @@ private:
 	unsigned m_teleports = 0;
 };
 
+// RW 0x00654884 (create), RW 0x0065197C (ctor)
 class SpecialPowerTimerRefreshSpecialPower : public SpecialPowerModule
 {
 public:
-	OBFME_MODULE_XFER(SpecialPowerTimerRefreshSpecialPower) // lane SAVE-4b
-	SpecialPowerTimerRefreshSpecialPower(Thing *thing, const SpecialPowerModuleData *data) : SpecialPowerModule(thing, data) {}
+	OBFME_MODULE_XFER(SpecialPowerTimerRefreshSpecialPower) // RW 0x008C7B43 -> RW 0x0089679D
+	SpecialPowerTimerRefreshSpecialPower(Thing *thing, const SpecialPowerModuleData *data) : SpecialPowerModule(thing, data) {} // RW 0x0065197C
 	unsigned refreshed() const { return m_refreshed; }
 	void crc(StateHasher &h) const override;
 
 protected:
-	void applyToVictim(Object &victim, unsigned until, unsigned antiMask) override; // RW 0x8C7B26
+	void applyToVictim(Object &victim, unsigned until, unsigned antiMask) override; // RW 0x008C7B26
 
 private:
 	unsigned m_refreshed = 0;

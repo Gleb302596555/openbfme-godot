@@ -6,6 +6,8 @@
 #endif
 
 #include "GameLogic/Module/UpgradeModules.h"
+// CostModifierUpgrade missing: RW 0x8B9B36 (name 0xC0AFE4), RW 0x8B9B3C (thunk add ecx 0x10 jmp [eax+0x20]), RW 0x8B9B44 (ModuleData factory), RW 0x8B9BD6 (scalar deleting dtor), RW 0x8B9F05 (thunk lea ecx-0xC)
+// SpellRechargeModifierUpgrade missing: RW 0x00464A09/0x004B612F/0x008B9B3C (shared), RW 0x8B9EFF (name 0xC0AFC4), RW 0x8B9F05 (thunk), RW 0x8B9F12 (data), RW 0x8BA208 (dtor) — simulation impl RW 0x8BA139, removal RW 0x8B9FE0, xfer RW 0x8B9D39, onCapture RW 0x8BA05E already ported.
 #include "GameLogic/SnapshotXfer.h"
 
 #include "Common/Player.h"
@@ -274,14 +276,14 @@ void SpellRechargeModifierUpgrade::upgradeImplementation()
 void SpellRechargeModifierUpgrade::processUpgradeRemoval()
 {
 	// RW 0x8B9FE0: only an executed upgrade (mux slot 0), then the count - 1 and the discount again; the flag stays (the mux's removeUpgrade
-	// RW 0x8D2688 clears it after the removal)
-	if (!isAlreadyUpgraded())
-	{
-		return;
-	}
+	// RW 0x8D2688 clears it after the removal). Object::removeUpgrade clears executed via mux->resetUpgrade before calling removeUpgrade,
+	// so executed is already false there; check count instead to keep single reaction (no second path) and match retail discount update (RW 0x6AAAEE).
 	if (Player *owner = getObject()->getControllingPlayer())
 	{
-		owner->science().removeSpellRechargeModifier(m_data->m_percentage); // RW 0x6AAAE7, RW 0x6AAAEE
+		if (owner->science().spellRechargeModifierCount() > 0)
+		{
+			owner->science().removeSpellRechargeModifier(m_data->m_percentage); // RW 0x6AAAE7, RW 0x6AAAEE
+		}
 	}
 }
 

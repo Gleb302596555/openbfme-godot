@@ -17,7 +17,10 @@
 //   * onCollide (collide interface slot 0, RW 0x8C9A3C): active, `other` given and its template's KindOf DEFLECT_BY_SPECIAL_POWER (bit 102, template byte + 0x114 bit 6):
 //     every behavior module of `other` that answers the projectile update interface (behavior slot 18, +0x48) gets projectileNowJammed (slot 5, RW 0x85E54D: kill with
 //     damage type 8, death type 0) with the owner as the (unused) argument;
-//   * xfer (RW 0x8C99FB): the base's, and (not a light CRC) version 1 with the two bytes. OpenBFME native layout (S-4190): one version with all of it.
+//   * xfer (RW 0x008C99FB): SpecialPowerUpdateBase::xfer (RW 0x009912DB), then early return on XFER_CRC (0x008C9A0D .. 0x008C9A12, Xfer::isLightCRC);
+//     otherwise version 1 with m_active and m_pending.
+//   * lifecycle/identity: ctor RW 0x008C98EB, dtor RW 0x008C99BF -> RW 0x008C994C -> SpecialPowerUpdateBase dtor RW 0x0099113F,
+//     loadPostProcess RW 0x008E38D8 (no-op RW 0x0063F3BF), getCollide RW 0x008C993F, getModuleName RW 0x008C9939, getModuleNameKey RW 0x008C997A.
 // WHY IT DOES NOTHING IN ENNORATH (stop S-5601, INFERENCE from the data): nothing issues SPECIAL_DEFLECT_PROJECTILES (index 44): the command button
 // Command_SpecialAbilityShieldWall is commented out in commandbutton.ini and its slot in commandset.ini too, no module data names the power, and the RW callers of the
 // special-power-by-type lookup (RW 0x691526) push other types; and every object with KindOf DEFLECT_BY_SPECIAL_POWER (25 definitions) also has NO_COLLIDE, which the
@@ -41,10 +44,11 @@ public:
 class DeflectSpecialPower : public SpecialPowerUpdateBase, public CollideModuleInterface
 {
 public:
-	OBFME_MODULE_XFER(DeflectSpecialPower)
-	DeflectSpecialPower(Thing *thing, const DeflectSpecialPowerModuleData *data); // RW 0x8C98EB
-	CollideModuleInterface *getCollide() override { return this; }
-	UpdateSleepTime update() override;                                            // RW 0x8C9A86
+	OBFME_MODULE_XFER(DeflectSpecialPower) // RW 0x008C99FB
+	DeflectSpecialPower(Thing *thing, const DeflectSpecialPowerModuleData *data); // RW 0x008C98EB
+	~DeflectSpecialPower() override = default;                                    // RW 0x008C99BF -> RW 0x008C994C -> RW 0x0099113F
+	CollideModuleInterface *getCollide() override { return this; }                // RW 0x008C993F
+	UpdateSleepTime update() override;                                            // RW 0x008C9A86
 	void crc(StateHasher &h) const override;
 
 	// ---- the special power update interface (+ 0x20) ----

@@ -121,6 +121,8 @@ public:
 	int getContainMax() const override;
 	// RW 0x87B0F1: 0 pristine, 1 damaged, 2 really damaged / rubble, -1 otherwise
 	int findConditionIndex() const;
+	// RW 0x87B7E3 (contain slot 0x130): the free garrison point of the current damage state nearest *targetPos
+	bool calcBestGarrisonPosition(Coord3D *sourcePos, const Coord3D *targetPos) override;
 	const std::array<GarrisonPoint, MAX_GARRISON_POINTS> &points() const { return m_points; }
 	int pointsInUse() const { return m_pointsInUse; }
 	int pointCount(int condition) const { return condition >= 0 && condition < GARRISON_POINT_CONDITIONS ? m_pointCount[condition] : 0; }

@@ -86,10 +86,16 @@ TEST_CASE("PORT-530: upgrade, science, object, model and level are fixable; opti
 	CHECK(greyfix::fixable(rowOf(t, "Command_MultiBtn")));
 	CHECK_FALSE(greyfix::fixable(rowOf(t, "Command_OptionBtn")));
 	CHECK_FALSE(greyfix::fixable(rowOf(t, "Command_NoneBtn")));
-	// a row that mixes a fixable and an unfixable condition is not faked either
+	// 2026-11-18 (owner: "все бери из кода"): option NEED_UPGRADE is met by the NeededUpgrade rows (RW 0x9428A3 .. 0x942993 reads only the
+	// list), so the upgrade row with its option is fixable (434 matrix buttons were never pressed); a row that mixes a fixable condition with
+	// one the sweep cannot give is still not faked
+	Row needUpgrade;
+	needUpgrade.conditions.push_back(greyfix::Condition{ "upgrade", "Upgrade_TestPlayer", "-", "CommandButton.NeededUpgrade" });
+	needUpgrade.conditions.push_back(greyfix::Condition{ "option", "NEED_UPGRADE", "-", "CommandButton.Options" });
+	CHECK(greyfix::fixable(needUpgrade));
 	Row mixed;
 	mixed.conditions.push_back(greyfix::Condition{ "upgrade", "Upgrade_TestPlayer", "-", "" });
-	mixed.conditions.push_back(greyfix::Condition{ "option", "NEED_UPGRADE", "-", "" });
+	mixed.conditions.push_back(greyfix::Condition{ "other", "?", "-", "a field the table cannot place" });
 	CHECK_FALSE(greyfix::fixable(mixed));
 	// no conditions: nothing the sweep can meet
 	Row empty;
@@ -100,7 +106,8 @@ TEST_CASE("PORT-530: the verdicts name the first unmet condition, or GREY-BUG wi
 {
 	const Table t = greyfix::parseGreyTable(kTable);
 	// a condition the sweep cannot give: the button keeps its grey verdict with the reason
-	CHECK(greyfix::needsDetail(rowOf(t, "Command_OptionBtn")) == "DISABLED: needs option NEED_UPGRADE");
+	// NEED_UPGRADE with no NeededUpgrade row: RW 0x9428A3 never restricts on an empty list, so the grey has a cause the table does not name
+	CHECK(greyfix::needsDetail(rowOf(t, "Command_OptionBtn")) == "DISABLED: needs none (every listed gate restricts only while a state is present, RW 0x942733)");
 	CHECK(greyfix::needsDetail(rowOf(t, "Command_NoneBtn")) == "DISABLED: needs none -");
 	// a button still grey with every condition met: the port's rule differs from RotWK's (RW 0x942733)
 	CHECK(greyfix::bugDetail(rowOf(t, "Command_UpgradeBtn")) == "GREY-BUG: still restricted with upgrade Upgrade_TestPlayer met");
@@ -127,4 +134,49 @@ TEST_CASE("PORT-530: the fixture plan gives the object, the upgrades, the scienc
 	REQUIRE(one.size() == 1);
 	CHECK(one[0].kind == Kind::Science);
 	CHECK(one[0].value == "Science_Test");
+}
+
+// 2026-11-17 (matrix GREY-BUG review): the satisfied-by column carries a note after the button name, and "-" / "Object:ModuleTag" name no
+// pressable button; a condition the fixture did not give reads as the grey verdict with its reason, never as GREY-BUG.
+TEST_CASE("PORT-530: the model setter is the satisfied-by name without its note; '-' and a module tag name no button")
+{
+	CHECK(greyfix::setterButton("Command_GorkilToggleWeapon (weapon-set toggle)") == "Command_GorkilToggleWeapon");
+	CHECK(greyfix::setterButton("Command_ToggleMounted") == "Command_ToggleMounted");
+	CHECK(greyfix::setterButton("-").empty());
+	CHECK(greyfix::setterButton("").empty());
+	CHECK(greyfix::setterButton("RohanErkenbrand:ModuleTag_HorseToggle (mount replacement)").empty());
+	greyfix::Condition c;
+	c.condition = "model";
+	c.value = "USER_1";
+	CHECK(greyfix::unmetDetail(c, "the sweep could not set it: no known setter") ==
+	      "DISABLED: needs model USER_1 (the sweep could not set it: no known setter)");
+}
+
+// 2026-11-18 (owner: "все бери из кода"): the table's conditions as RW 0x942733 reads them (greyfix::effective)
+TEST_CASE("PORT-530: the conditions as getCommandAvailability reads them: needs kept, state gates dropped, MOUNTED_ONLY is the model MOUNTED")
+{
+	Row r;
+	r.conditions.push_back(greyfix::Condition{ "option", "MOUNTED_ONLY", "-", "CommandButton.Options" });            // RW 0x9427BD: needs MOUNTED
+	r.conditions.push_back(greyfix::Condition{ "option", "ON_GROUND_ONLY", "-", "CommandButton.Options" });          // RW 0x9427EB: restricts while airborne
+	r.conditions.push_back(greyfix::Condition{ "option", "NOT_QUEUEABLE", "-", "CommandButton.Options" });           // restricts while producing
+	r.conditions.push_back(greyfix::Condition{ "model", "USER_9", "-", "CommandButton.DisableOnModelCondition" });  // RW 0x942490: restricts while set
+	r.conditions.push_back(greyfix::Condition{ "upgrade", "Upgrade_X", "-", "CommandButton.NeededUpgrade" });
+	r.conditions.push_back(greyfix::Condition{ "other", "150", "-", "upgrade.BuildCost (Upgrade_X)" });              // the upgrade's price
+	r.conditions.push_back(greyfix::Condition{ "other", "STATUS", "-", "specialpower.PreventActivationConditions (P)" });
+	r.conditions.push_back(greyfix::Condition{ "model", "USER_1", "Command_Set", "CommandButton.EnableOnModelCondition" });
+	const std::vector<greyfix::Condition> e = greyfix::effective(r);
+	REQUIRE(e.size() == 3);
+	CHECK(e[0].condition == "model");
+	CHECK(e[0].value == "MOUNTED");
+	CHECK(e[1].condition == "upgrade");
+	CHECK(e[1].value == "Upgrade_X");
+	CHECK(e[2].condition == "model");
+	CHECK(e[2].value == "USER_1");
+	CHECK(greyfix::fixable(r));
+	const std::vector<Action> plan = greyfix::fixturePlan(r);
+	REQUIRE(plan.size() == 3);
+	CHECK(plan[0].kind == Kind::Upgrade);
+	CHECK(plan[1].kind == Kind::Model);
+	CHECK(plan[2].kind == Kind::Model);
+	CHECK(greyfix::bugDetail(r) == "GREY-BUG: still restricted with model MOUNTED, upgrade Upgrade_X, model USER_1 met");
 }
