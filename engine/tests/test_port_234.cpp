@@ -2,7 +2,8 @@
 // The names deliberately differ from the slots. No game archives or renderer are needed.
 #include "doctest.h"
 #include "ProdTestUtil.h"
-#include "PathfindTestUtil.h"
+#include "MoveTestUtil.h"
+#include "GameLogic/Module/DozerAIUpdate.h"
 #include "GameLogic/AI/AIWorld.h"
 #include "SyntheticHudTestUtil.h"
 #include "Common/Audio/AudioEntryPoints.h"
@@ -37,18 +38,18 @@ struct Audio : AudioOwnerResolver
 {
 	initest::Fixture fx;
 	AudioIniState ini;
-	AudioAssetCache cache{ &fx.fsys, 65536 };
+	AudioAssetCache cache;
 	SimulatedAudioDevice device{ &cache };
 	std::unique_ptr<AudioManager> mgr;
 	bool ownerPresent = true;
-	Audio(std::initializer_list<const char *> slots, const std::string &extra = {})
+	Audio(std::initializer_list<const char *> slots, const std::string &extra = {}, unsigned budget = 65536) : cache(&fx.fsys, budget)
 	{
 		// A mono 8-bit PCM file with one second of silence. Cache misses/decodes below are real.
 		std::string wav = "RIFF";
 		auto le = [&](unsigned v, int bytes) { while (bytes--) { wav.push_back(static_cast<char>(v & 255)); v >>= 8; } };
 		le(8036, 4); wav += "WAVEfmt "; le(16, 4); le(1, 2); le(1, 2); le(8000, 4); le(8000, 4); le(1, 2); le(8, 2);
 		wav += "data"; le(8000, 4); wav.append(8000, char(128));
-		fx.mount({ { "data\\audio\\sounds\\bell.wav", wav }, { "data\\audio\\tracks\\music.mp3", "x" } });
+		fx.mount({ { "data\\audio\\sounds\\bell.wav", wav }, { "data\\audio\\sounds\\end.wav", wav }, { "data\\audio\\sounds\\other.wav", wav }, { "data\\audio\\tracks\\music.mp3", "x" } });
 		device.setFileLength("Data\\Audio\\Tracks\\music.mp3", 60000.0);
 		ini.registerBlocks(fx.env.blocks);
 		std::string source = "AudioSettings\n AudioRoot = Data\\Audio\n DefaultSoundVolume = 100%\n DefaultMusicVolume = 100%\n SoundsFolder = Sounds\n SoundsExtension = wav\n MusicFolder = Tracks\n"
@@ -354,4 +355,54 @@ TEST_CASE("PORT-234 request queue: missing owner admission, strict preload windo
 	a.ownerPresent = false; const auto loop = a.mgr->playSoundForObject("Forever", 15); REQUIRE(loop == one + 1);
 	a.mgr->update(201); CHECK(a.mgr->isCurrentlyPlaying(loop)); CHECK(a.mgr->report().played == 1);
 	a.ownerPresent = true; a.mgr->update(301); CHECK(a.mgr->report().played == 2); // same request survives an unresolved position, RW 0x461C34..0x461C6E
+}
+
+TEST_CASE("PORT-234 dozer: only the active phantom's truncated paid cost is placement credit")
+{
+	// RW 0x77B0B6 -> 0x88BF1A -> 0x88D0C6: do not count a completed building or the advertised cost.
+	movetest::MoveWorld w(60, 60,
+		"Object Porter\n KindOf = INFANTRY DOZER\n Behavior = DozerAIUpdate ModuleTag_AI\n End\n"
+		" LocomotorSet\n Locomotor = WalkerLoco\n Condition = SET_NORMAL\n Speed = 40\n End\nEnd\n"
+		"Object Site\n KindOf = STRUCTURE\n BuildCost = 120\n Behavior = GettingBuiltBehavior ModuleTag_GB\n End\nEnd\n");
+	CommandStore commands;
+	struct RestoreStore { CommandStore *old; ~RestoreStore() { TheCommandStore = old; } } restore{ TheCommandStore };
+	TheCommandStore = &commands;
+	commands.setThingFactory(&w.w.things);
+	w.logic->settings().buildRulesLoaded = true;
+	w.logic->productionSettings() = prodtest::defaultSettings();
+	w.buildMap(); w.frames(3);
+	Player *p = w.players.findPlayerWithName("Alice");
+	Object *porter = w.spawn("Porter", 50, 50, 0, w.teamOf("Alice"));
+	auto *dozer = dynamic_cast<DozerAIUpdate *>(porter->getAIUpdateInterface()); REQUIRE(dozer);
+	const ThingTemplate *site = w.w.get("Site");
+	Object *phantom = dozer->construct(*site, { 200, 200, 0 }, 0, *p); REQUIRE(phantom);
+	REQUIRE(dozer->unplacedStructure() == phantom->getID()); REQUIRE(phantom->getBuildCostPaid() == 120);
+	p->getMoney()->withdraw(p->getMoney()->countMoney(), false);
+	BuildCommands builds; builds.registerHandlers(w.dispatcher); p->selection().push_back(porter->getID());
+	GameMessage m(MSG_DOZER_CONSTRUCT, p->getPlayerIndex());
+	m.appendIntegerArgument(site->getTemplateID()); m.appendLocationArgument({ -50, -50, 0 }); m.appendRealArgument(0);
+	Audio a({ "BuildingPlacementSound" });
+	phantom->setBuildCostPaid(119.75f); w.dispatcher.dispatch(m); CHECK(a.requests().empty());
+	phantom->setBuildCostPaid(120.25f); w.dispatcher.dispatch(m); a.one("BuildingPlacementSound", porter->getID(), p->getPlayerIndex());
+	REQUIRE(dozer->unplacedStructure() == phantom->getID()); // refused inside the assistant, cue still follows it
+}
+
+TEST_CASE("PORT-234 read-ahead: only the current attack or decay is pinned, cancellation releases it without starting a voice")
+{
+	// RW 0x461A83 / 0x6DB9B9 / 0x4A7C71. One decoded WAV fits this budget. Looking up another
+	// sample must not invalidate the request's reference. Cancelling must not leave that reference in the LRU.
+	Audio a({}, "AudioEvent AttackFirst\n Attack = bell\n Sounds = other\n Delay = 65 65\nEnd\n"
+		"AudioEvent DecayOnly\n Decay = end\n Delay = 65 65\nEnd\n", 16000);
+	const auto h = a.mgr->playSound("AttackFirst"); REQUIRE(a.mgr->isCurrentlyPlaying(h));
+	a.mgr->update(34); CHECK(a.device.log().empty()); REQUIRE(a.cache.stats().decodes == 1);
+	const std::string dir = "Data\\Audio\\Sounds\\";
+	std::weak_ptr<const AudioDecode::DecodedAudio> attack = a.cache.decoded(dir + "bell.wav", nullptr);
+	REQUIRE(a.cache.stats().decodes == 1); REQUIRE(a.cache.decoded(dir + "other.wav", nullptr).get() != nullptr); CHECK_FALSE(attack.expired());
+	a.mgr->removeAudioEvent(h); REQUIRE_FALSE(a.mgr->isCurrentlyPlaying(h));
+	REQUIRE(a.cache.decoded(dir + "end.wav", nullptr).get() != nullptr); CHECK(attack.expired());
+	a.mgr->update(101); CHECK(a.device.log().empty());
+	const auto decay = a.mgr->playSound("DecayOnly"); REQUIRE(a.mgr->isCurrentlyPlaying(decay));
+	a.mgr->update(135); CHECK(a.device.log().empty()); CHECK(a.cache.stats().decodes == 3);
+	a.mgr->update(168); const auto &log = a.device.log(); REQUIRE(log.size() == 1);
+	CHECK(log[0].kind == SimulatedAudioDevice::LogEntry::Start); CHECK(log[0].file == dir + "end.wav"); CHECK(a.cache.stats().decodes == 3);
 }

@@ -38,3 +38,39 @@
 - `698F06:698F63/6990DD–699140`: self-kill и DEATH_FADED молчат; остальные — owner, иначе local→team ALLIES, иначе enemy (в т.ч. NEUTRAL); источник позиции — жертва. Watch живых объектов в `LiveGameAudio` не знает причину смерти. `67B4B7/5DCC88` — другой, damage, с drawable far-frame, contain и таймерами EVA (S-7090).
 - `64DF64 → 89C04B`, gate interfaces: `89C261` новый OPENING/CLOSING добавляет configured loop на gate ID и сохраняет handle; `89C1A4` сначала remove handle, затем конечный звук прежнего направления один раз. `89CC29` dead снимает loop. Аудио-сторона умеет хранить handle (S-1942). `45CB3B:45CB71/45CB92` — позиционный запрос, не освобождённый от проверки `452726`, обязан иметь позицию. `461A83:461AAC–461B25 → 4A7C71`: предзагрузка **семпла** при Delay меньше окна, не ещё одно addAudioEvent (S-1241).
 - S-1240: fire/dozer/move уже удерживаются на audio owner. Вложенные move states одного объекта не разделены. S-712: `8E3411` ставит конец fire loop на tracker; нельзя решать время пробуждения логики по возвращённому хэндлу с другого потока. S-1242: AnimationSoundClientBehavior и dock 2→3 уже есть; остаток зависит от общего selector lookup / CrushDie. S-7226 устарел: `7549A2/7549A8`, `AIAttackCharge.cpp` уже **постит** голос. S-7341: `66C0B9` отдаёт attack-move машине 21; `AIIdleState::update → resumeAttackMove` — другой путь S-328. Не добавлять голос на внутренний re-issue.
+
+## Что перенесено и что осталось (итог 2026-11-18)
+
+Читатель, который уже был в `main`, не переносится второй раз: для 24 имён из 39 поле помечено `used` с адресом кода (`docs/ennorath/port234-manual-check.tsv`, строка на каждое из 51 полей issue). Перенесено в этой ветке:
+
+- **Деньги** `MoneyDepositSound` / `MoneyWithdrawSound`: `Money::deposit` / `withdraw` играют слот **до** изменения баланса и счёта, нулевая операция молчит (`Common/Player.cpp`).
+- **Статусы питания** `BuildingDisabled` / `BuildingReenabled` / `VehicleDisabled` / `VehicleReenabled` / `SplatterVehiclePilotsBrain`: `Object::setDisabled` / `clearDisabled`, STRUCTURE раньше MACHINE, EMP/UNDERPOWERED только на первом бите, UNMANNED не ребро и не DRONE.
+- **Крышки-награды** `CrateHeal` / `CrateShroud` / `CrateFreeUnit` / `CrateMoney`: четыре разных override (лечение — позиция сборщика, остальные — его id), `GameLogic/Module/RewardCrates.cpp`.
+- **Дефектор** `DefectorTimerTickSound` / `DefectorTimerDingSound`: тик на новой стороне и звонок на чётном переходе фазы, не каждый кадр (`ObjectHelper`, `SpecialAbilityModules`).
+- **Стелс** `StealthDiscoveredSound` / `StealthNeutralizedSound`: звук, пинг радара, текст и EVA одного раскрытия (`DrawableManager::applyStealthReveal`), а не опрос обнаруженных объектов.
+- **GUI / HUD**: `DisabledButtonClicked`, `AllCheerSound` (LAN/internet, одно `MSG_DO_CHEER`), `TargetObjectWithSpecialPowerSound`, `SaveFileLoadMusic` (+ голос до музыки, film still).
+- **Размещение**: `BuildingPlacementSound` / `WallPlacementSound` — после вызова BuildAssistant, без проверки результата; цена по RW 0x6AAA2E со знаком и с зачётом стоимости призрака у dozer'а.
+- **Смерть**: Eva-объявления из `Object::friend_onDie`, без клиентского сторожа трупов (S-709 закрыт).
+- **Ворота**: петля движения на объекте, снятие до конечного звука и при смерти (S-1942 закрыт).
+- **Очередь звука**: отказ события без позиции, предзагрузка семпла внутри окна опережения (S-1241 закрыт).
+
+Голос `VoiceStartCharging` (0x7EA) уже постится состоянием заряда — RW 0x7549A2 в `AIChargeTargetState::onEnter`, тот же порядок, что в доноре; S-7226 сужен до очереди поста (S-814), второго поста нет.
+
+Осталось без читателя или без механизма (вердикты, новых стопов четыре):
+
+| Поле | Почему нет звука | Стоп |
+|---|---|---|
+| `EnterCloseCombat`, `ExitCloseCombat` | ни одна инструкция RotWK не читает manager +6C / +70 (и донор тоже) | вердикт |
+| `BuddyMessageNotification` | ни одна инструкция не читает manager +7C | вердикт |
+| `UnitPromoted` | единственный читатель RW 0x6957B9 не вызывается и не адресуется в образе; живой путь XP идёт через LevelUpFx | вердикт |
+| `RadarNotifyOnline` / `Offline` / `InfiltrationSound` | ребро `hasRadar` и запись радара `Object + 0x268` в порте отсутствуют | S-7499 |
+| `FastForwardModeOn` / `Off` | только переключатель перемотки реплея (GlobalData + 0xBBD) | S-7500 |
+| `GameSpyCommunicatorOpen`, `PrivateMessageNotification` | самих онлайн-экранов (оверлей GameSpy, приём личного сообщения) нет | S-7501 |
+| `RepairSparks` | подмашина ремонта SlavedUpdate не перенесена | S-7502 (S-1426) |
+| `UnableToSetRallyPoint` | звучит только при отказе `QuickDoesPathExist`, проверки пути у ралли в порте нет | S-202 |
+| `ShellMapLoadMusic` | загрузочного экрана карты оболочки нет | S-1912 |
+| `RIFThingTemplateReloadedSound`, `RIFObjectsRefreshedSound` | тип перезагрузки 5 (developer reload) не перенесён | S-632 |
+| `VoiceEnterUnitTransportShip` | имя строится динамически из имени цели; объекта `TransportShip` в моде нет | вердикт |
+| `VoicePrimaryWeaponMode` / `VoiceSecondaryWeaponMode` | читатель только в ветке 0x43A, производителя нет | S-7285 / S-703 |
+| `VoiceSpecialAbilityCurseEnemy` | все ссылки в 1.9.8.3 закомментированы | вердикт |
+| `SoundImpact`, `SoundMoveLoop` в селекторах | играются из строки шаблона, не через селектор draw-модуля | S-701 / S-707 |

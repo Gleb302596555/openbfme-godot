@@ -262,7 +262,7 @@ TEST_CASE("hud5 gates retail: Helm's Deep's main gate closes and opens by MSG_CL
 	CHECK_FALSE(g.shapeActive(*gate, "OpenLeft"));
 	CHECK(g.blocksCentre(*gate));
 	CHECK(gate->testModelCondition(doorClosing));
-	// the sounds the retail data names (stop S-1942: recorded, not played)
+	// the sounds the retail data names (S-1942 closed by PORT-234: posted to the audio owner and recorded here)
 	CHECK(b->soundRequests() == std::vector<std::string>{ "closing", "closed" });
 	// open again
 	g.send(MSG_OPEN_GATE, owner->getPlayerIndex(), gate->getID());

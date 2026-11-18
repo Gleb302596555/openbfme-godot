@@ -1414,7 +1414,7 @@ bool UnitVoiceResponse::pickAndPlay(const std::vector<ObjectID> &selection, int 
 				break;
 			case VOICE_EVENT_START_CHARGING:
 				// RW 0x8DFD0D .. 0x8DFD2B: the literal VoiceStartCharging through the name lookup RW 0x8DDB2A (UnitSpecificSounds, tt + 0x388).
-				// The post of 0x7EA is not ported: stop S-7226 (docs/ennorath/PORT87_RW_ANALYSIS.md)
+				// The charge state posts 0x7EA at RW 0x7549A2 (AIChargeTargetState::onEnter); no second post here.
 				fillName(c, obj, "VoiceStartCharging");
 				break;
 			case VOICE_EVENT_NO_BUILD:

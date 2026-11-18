@@ -38,8 +38,8 @@ class Shell extends RefCounted:
 	func tick(_delta: float) -> void:
 		pass
 	func choose_load_screen(_options: Dictionary) -> Dictionary:
-		return {"kind": "still", "picture": "SyntheticPicture"}
-	func show_still_load_screen(_picture: String) -> Dictionary:
+		return {"kind": "still", "picture": "SyntheticPicture", "film_still": true}
+	func show_still_load_screen(_picture: String, _film_still := false, _voice := "", _music := "") -> Dictionary:
 		still = true
 		drawn = "Loading"
 		return {"ok": true}

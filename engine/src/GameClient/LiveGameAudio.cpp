@@ -1134,6 +1134,6 @@ std::vector<std::string> LiveGameAudio::acceptanceStops()
 		"[S-1464] footsteps (lane AUDIO-4: AnimationSoundClientBehavior and TheAnimationSoundModuleManager, RW 0x8CE75B / 0x83F321): the module's slot 11 is read as "
 		"reactToTransformChange (every re-posed drawable is dirty each render frame), the manager runs once per render frame after the animations advanced "
 		"(retail: per client frame with the lazy advance RW 0x4BFAF4), animations are matched by upper-cased name (retail: name keys)",
-		"[S-1242] retail sound triggers that never fire here (lane AUDIO-3 sweep): CrushDie's TotalCrushSound / BackEndCrushSound / FrontEndCrushSound (RW 0x8895D8: the module is not ported; no retail template uses it), and the S-707 object sounds",
+		"[S-1242] retail sound triggers that never fire here (lane AUDIO-3 sweep, narrowed by PORT-234): the object sound rows of the template (SoundStealthOn / Off, SoundCreated, SoundEnter / Exit, SoundPromoted*, SoundFallingFromPlane, SoundAmbientBattle; S-707) are still not played, while the reveal cues a client needs are now their own producer (DrawableManager::applyStealthReveal posts StealthDiscovered / NeutralizedSound off the reveal event, RW 0x81ACD7 / 0x7767A9); CrushDie's TotalCrushSound / BackEndCrushSound / FrontEndCrushSound (RW 0x8895D8: the module is not ported; no retail template uses it)",
 	};
 }
