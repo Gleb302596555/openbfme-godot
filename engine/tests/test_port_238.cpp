@@ -10,13 +10,16 @@
 #include "GameClient/HudInput.h"
 #include "GameLogic/AI/AIOrdersManager.h"
 #include "GameLogic/AI/AIWorld.h"
+#include "GameLogic/AttributeModifiers.h"
 #include "GameLogic/Combat/CombatNames.h"
 #include "GameLogic/ExperienceLevels.h"
 #include "GameLogic/Object/ExperienceTracker.h"
+#include "GameLogic/Object/AttributeModifierPool.h"
 #include "GameLogic/Object/Contain/GarrisonContainRuntime.h"
 #include "GameLogic/Object/PartitionManager.h"
 #include "GameLogic/Module/InvisibilityModules.h"
 #include "GameLogic/Module/HeroAbilityModules.h"
+#include "GameLogic/Module/SpellEffectModules.h"
 #include "GameLogic/Module/SpecialAbilityModules.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/SpellCommands.h"
@@ -691,4 +694,84 @@ TEST_CASE("PORT-238 synthetic necromancer transforms after ring delivery")
     CHECK(replacement->getControllingPlayer() == w.playerOf('A'));
     w.frames(3);
     CHECK(w.byId(originalId) == nullptr);
+}
+
+TEST_CASE("PORT-238 synthetic fire form gates two pulses on HERO and ends")
+{
+    World w;
+    AttributeModifierStore modifiers;
+    AttributeModifierStore *savedModifiers = TheAttributeModifierStore;
+    struct RestoreModifiers
+    {
+        World &world;
+        AttributeModifierStore *saved;
+        ~RestoreModifiers() { world.logic->reset(); TheAttributeModifierStore = saved; }
+    } restore{w, savedModifiers};
+    TheAttributeModifierStore = &modifiers;
+    modifiers.registerBlock(w.w.fx.env.blocks);
+    SpecialAbilityModules::registerAll(w.w.modules);
+    SpellEffectModules::registerAll(w.w.modules);
+    w.combat().setAutoAcquireEnabled(false);
+    // The timings, damage and radius mirror the literal Sauron declarations,
+    // with synthetic names, armor and no HUD, real assets, FX or mod loading.
+    const char *data =
+        "ModifierList P238FlameBuff\n Category = SPELL\n Modifier = ARMOR 50%\n Modifier = SPEED 125%\n Duration = 60000\n End\n"
+        "Weapon P238FlameInitial\n RadiusDamageAffects = ENEMIES\n AttackRange = 50\n LeechRangeWeapon = Yes\n"
+        " DelayBetweenShots = 80000\n PreAttackDelay = 0\n PreAttackType = PER_SHOT\n FiringDuration = 0\n"
+        " DamageNugget\n Damage = 300\n Radius = 150\n DamageType = FLAME\n DeathType = BURNED\n End\n End\n"
+        "Weapon P238FlamePulse\n RadiusDamageAffects = ENEMIES\n AttackRange = 50\n LeechRangeWeapon = Yes\n"
+        " DelayBetweenShots = 3000\n PreAttackDelay = 0\n PreAttackType = PER_SHOT\n FiringDuration = 0\n"
+        " DamageNugget\n Damage = 5\n Radius = 50\n DamageType = FLAME\n DeathType = BURNED\n End\n End\n"
+        "Object P238FireHero\n KindOf = INFANTRY HERO SELECTABLE CAN_ATTACK\n"
+        " Geometry = CYLINDER\n GeometryMajorRadius = 5\n GeometryHeight = 10\n"
+        " Body = ActiveBody Body\n MaxHealth = 1000\n End\n"
+        " Behavior = AIUpdateInterface AI\n End\n"
+        " Behavior = AttributeModifierPoolUpdate Pool\n End\n"
+        " Behavior = FireWeaponUpdate Fire\n"
+        "  FireWeaponNugget\n WeaponName = P238FlameInitial\n FireDelay = 0\n OneShot = No\n End\n"
+        "  FireWeaponNugget\n WeaponName = P238FlamePulse\n FireDelay = 100\n OneShot = No\n End\n"
+        "  HeroModeTrigger = Yes\n End\n"
+        " Behavior = HeroModeSpecialAbilityUpdate Ignite\n UnpackTime = 1000\n PackTime = 500\n"
+        "  StopUnitBeforeActivating = Yes\n IgnoreFacingCheck = Yes\n HeroAttributeModifier = P238FlameBuff\n HeroEffectDuration = 60000\n End\n End\n"
+        "Object P238FireTarget\n KindOf = INFANTRY SELECTABLE\n Geometry = CYLINDER\n GeometryMajorRadius = 5\n GeometryHeight = 10\n"
+        " ArmorSet\n Conditions = None\n Armor = NoArmor\n End\n"
+        " Body = ActiveBody Body\n MaxHealth = 1000\n End\n End\n";
+    const std::string error = w.w.load(data, INI_LOAD_OVERWRITE, "port238_fire.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    Object *hero = w.unit("P238FireHero", 'A', 300, 300);
+    Object *nearEnemy = w.unit("P238FireTarget", 'B', 320, 300);
+    Object *midEnemy = w.unit("P238FireTarget", 'B', 400, 300);
+    Object *farEnemy = w.unit("P238FireTarget", 'B', 480, 300);
+    Object *ally = w.unit("P238FireTarget", 'A', 320, 300);
+    auto *fire = dynamic_cast<FireWeaponUpdate *>(hero->findModule("FireWeaponUpdate"));
+    auto *ability = dynamic_cast<HeroModeSpecialAbilityUpdate *>(hero->findModule("HeroModeSpecialAbilityUpdate"));
+    auto *pool = dynamic_cast<AttributeModifierPool *>(hero->findModule("AttributeModifierPoolUpdate"));
+    REQUIRE(fire != nullptr);
+    REQUIRE(ability != nullptr);
+    REQUIRE(pool != nullptr);
+    const int heroCondition = CombatNames::modelCondition("HERO");
+    REQUIRE(heroCondition == 220); // RW model condition HERO = 0xDC
+    w.frames(10);
+    CHECK_FALSE(hero->testModelCondition(heroCondition));
+    CHECK(fire->shots() == 0);
+    CHECK(nearEnemy->getBodyModule()->getHealth() == 1000.0f);
+    ability->initiateIntentToDoSpecialPower(nullptr, nullptr, nullptr, 0, 0);
+    for (int i = 0; i < 40 && ability->abilitiesTriggered() == 0; ++i) w.frames(1);
+    REQUIRE(ability->abilitiesTriggered() == 1);
+    REQUIRE(hero->testModelCondition(heroCondition));
+    REQUIRE(pool->hasList("P238FlameBuff"));
+    for (int i = 0; i < 10 && fire->shots() < 2; ++i) w.frames(1);
+    REQUIRE(fire->shots() == 2);
+    CHECK(nearEnemy->getBodyModule()->getHealth() == 695.0f);
+    CHECK(midEnemy->getBodyModule()->getHealth() == 700.0f);
+    CHECK(farEnemy->getBodyModule()->getHealth() == 1000.0f);
+    CHECK(ally->getBodyModule()->getHealth() == 1000.0f);
+    w.frames(20);
+    CHECK(fire->shots() == 3); // the 3-second nugget repeats, rather than OneShot
+    for (int i = 0; i < 330 && hero->testModelCondition(heroCondition); ++i) w.frames(1);
+    REQUIRE_FALSE(hero->testModelCondition(heroCondition));
+    CHECK_FALSE(pool->hasList("P238FlameBuff"));
+    const auto shotsAfterExpiry = fire->shots();
+    w.frames(20);
+    CHECK(fire->shots() == shotsAfterExpiry);
 }

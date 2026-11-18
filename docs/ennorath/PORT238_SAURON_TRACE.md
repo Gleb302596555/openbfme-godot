@@ -137,9 +137,22 @@ has damage 300, radius 150 and 80000 ms delay between shots; the other has
 damage 5, radius 50 and 3000 ms delay (`weapon.ini:29500..29546`). Both have
 `OneShot = No`: the "initial" name is **not** proof of a one-time shot per
 activation. Forced-position-fire and unported weapon-nugget details remain
-under S-924. No new PORT-238 test of the combined ability, pulse damage,
-recast, expiry or unlock has yet been run; the existing automated mod sweep
-only observed the modifier (matrix PASS), not either pulse.
+under S-924. A new `PORT-238` synthetic test directly initiates HeroMode and
+checks that the HERO bit and buff appear, two synthetic pulses damage a nearby
+enemy for 305 and a farther enemy for 300 while leaving an ally and an out-of-
+range enemy unharmed, the shorter-delay pulse repeats, and pulses stop after
+HERO and the buff expire. It uses a 5-fps fixture, synthetic armor and simplified
+weapons (not the actual `NOT_SIMILAR`, structure scalar, height or FX fields),
+`IgnoreFacingCheck` and no real HUD, level unlock, recast or assets. The existing
+automated mod sweep only observed the modifier (matrix PASS), not either pulse.
+
+In an **isolated pre-merge** runner built with source/fixture headers from
+`8b9c4ed`, the 13 `PORT-238*` cases passed (310/310 assertions), including
+this new case (34/34). As a test-sensitivity control, changing only the
+synthetic `HeroModeTrigger` to `No` failed 3/34 assertions: shots and damage
+occurred before activation and shots continued after expiry. This is not a
+negative control of a code fix, nor a post-merge full-suite or in-game result.
+The post-merge full executable and actual mod testing remain pending.
 
 For appearance, the literal draw declaration names default model `MUBsauron_EA`
 and a `HERO` condition model `musauronfire` with several particle bones
