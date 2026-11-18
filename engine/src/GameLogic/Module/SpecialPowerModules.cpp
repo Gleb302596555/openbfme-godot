@@ -1099,7 +1099,8 @@ bool SpecialPowerModule::initiate(Object *target, const Coord3D *loc, unsigned o
 		// PORT-251: RW 0x897FD9 .. 0x897FEB (BFME2 donor SpecialPowerModuleRva0049466D.cpp):
 		// when the driving update is active (slot 2, +0x08; SAU RW 0x9D4099) and options carries 0x40000, mark +0x28 update-disabled
 		// (cleared by startPowerRecharge RW 0x896E31 or interface slots 0x44 / 0x4C RW 0x896751).
-		if (u->isActive() && (options & kOptionUngated) != 0)
+		// DIAGNOSTIC (temporary, prcheck bisect step 2 for aiexpand1 / skirmish ai vs ai): the +0x28 mark is not set.
+		if (false && u->isActive() && (options & kOptionUngated) != 0)
 		{
 			m_updateDisabled = true;
 		}

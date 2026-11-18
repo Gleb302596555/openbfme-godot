@@ -756,8 +756,7 @@ void GameLogic::update(int phase)
 			}
 			// PORT-251: RW 0x6AF39A -> RW 0x6ADD22 (Player::update, right before ScoreKeeper::recordPerFrameStats RW 0x6AF3AD):
 			// syncs each spellbook power's requirements pause (interface slot 0x58, RW 0x896A32)
-			// DIAGNOSTIC (temporary, for the prcheck bisect of aiexpand1 / skirmish ai vs ai): the per-frame call is disabled.
-			(void)0; // SpecialPowerModules::updateSpellBookRequirements(*this, *p);
+			SpecialPowerModules::updateSpellBookRequirements(*this, *p);
 			p->getScoreKeeper().recordPerFrameStats(*this, *p, m_frame);
 		}
 		// lane SDK-2: the OpenBFME end-of-frame listeners (mod scripts); a copy, as a listener may remove itself
