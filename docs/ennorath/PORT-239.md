@@ -212,7 +212,7 @@ not a nonexistent null-player fixture. No private-state test backdoor is added.
 The stop's old premise was wrong: RW 0x63874B is the preceding AI-target
 heuristic subsystem wrapper, not CommandMap's loader. The actual chain is:
 
-- RW 0x63AF2D (GameEngine::init), call site 0x63C1CC creates MetaMap through
+- GameEngine::init call sites, call site 0x63C1CC creates MetaMap through
   RW 0x5DAB70; constructor installs vtable 0xBF1BF4. Its init slot +4 is the
   empty RW 0x63F3BF, load-from-legend slot +8 is RW 0x5B4B9A.
 - The registration at 0x63C1F3 calls RW 0x638244 with name `TheMetaMap` and
@@ -236,3 +236,15 @@ Required fix: route both real installation readers (`GodotInGameHud` and
 `ListCommandMap`) through one MetaMap installation loader; reuse the existing
 legend parser/loader, then load the root override. Preserve other-edition
 paths, report missing/malformed files, and do not add another command handler.
+
+## Latest implementation checkpoint
+
+Commits e896f06b/ea4ebfcd implement the shared installation loader and three
+additional production-reader tests. Both HUD and ListCommandMap now use the
+existing SubsystemLegend, followed by the root override. Non-RotWK paths are
+preserved. Nine PORT-239 cases syntax-check; none has been executed yet.
+S-281 is not marked closed until full-target execution and red/green succeed.
+Correction: 0x63AF2D was an interior init call site, not a proven function
+entry; the proven loader entry is 0x5B4B9A and the call sites are listed above.
+Full single-thread build remains running (last observed 514/1683); do not
+start a second ninja in engine/build. Other issue-562 stops remain unfinished.

@@ -189,7 +189,7 @@ bool MetaMap::load(INIEnvironment &env, const std::string &file, std::string *er
 	return true;
 }
 
-// RW 0x63AF2D (GameEngine::init), 0x63C1CC..0x63C1F8: MetaMap ctor
+// GameEngine::init call sites, 0x63C1CC..0x63C1F8: MetaMap ctor
 // RW 0x5DAB70 -> vtable 0xBF1BF4 slot +8 -> RW 0x5B4B9A. The registration
 // wrapper RW 0x638244 calls RW 0x5B4A7C with no hardcoded paths. Reuse the
 // existing legend mechanism (InitFile order, then InitPath), not a filename guess.

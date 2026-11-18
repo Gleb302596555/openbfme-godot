@@ -13,9 +13,10 @@
 // field table RW 0xBF0E70: Key (INI::parseLookupList RW 0x42E9B7 over the 86 {name, scan code} pairs RW 0xBF0B50, KEY_ESC .. KEY_KPSLASH, KEY_NONE last),
 // Transition (lookup RW 0xBF0E08: DOWN 0, UP 1, DOUBLEDOWN 2), Modifiers (lookup RW 0xBF0E28: NONE 0, CTRL 4, ALT 0x40, SHIFT 0x10, CTRL_ALT 0x44,
 // SHIFT_CTRL 0x14, SHIFT_ALT 0x50, SHIFT_ALT_CTRL 0x54), UseableIn (INI::parseBitString32 RW 0x42E840 with SHELL, GAME, PLANNING, RW 0xD9DCAC),
-// Category (lookup RW 0xBF0B08) and Description / DisplayName (RW 0x73B192: the label). GameClient's subsystem table loads one entry "CommandMap.ini"
-// (RW 0x63C4F6); which files that resolves to (here Data\INI\CommandMap.ini, then the language archive's CommandMap.ini) is the INI subsystem
-// loader's (RW 0x63874B, not compared: stop S-281).
+// Category (lookup RW 0xBF0B08) and Description / DisplayName (RW 0x73B192: the label).
+// TheMetaMap registration at RW 0x63C1F3 dispatches through RW 0x638244 and RW 0x5B4A7C
+// to load-from-legend entry RW 0x5B4B9A (vtable 0xBF1BF4 slot +8); root CommandMap.ini
+// is loaded separately at RW 0x63C506. loadInstalled shares this resolution across readers.
 // The translator (RW 0x5DA83D, BFME2 decomp MetaEvent.cpp, tier B: the player field + 0x770 instead of + 0x750) is ZH's with three changes: with
 // OurLanguage 2 (German) the Y and Z scan codes swap; a record applies when its UseableIn bits meet SHELL while the shell is up, else GAME, plus PLANNING
 // while the local player's order mode (+ 0x770) is 2; an autorepeated key of a record is eaten unless a debug flag (the object at RW 0xDFEF18, + 0x18)
@@ -121,7 +122,7 @@ public:
 	void registerBlocks(INIEnvironment &env);
 	// loads one CommandMap file (the file names and their order are the caller's: the INI subsystem legend's); false + *error when the file throws
 	bool load(INIEnvironment &env, const std::string &file, std::string *error);
-	// RW 0x63AF2D: TheMetaMap legend load at 0x63C1F3, then root override at 0x63C506.
+	// TheMetaMap legend load at 0x63C1F3, then root override at 0x63C506.
 	// The caller registers CommandMap on env before loading. Errors are returned, never defaulted.
 	bool loadInstalled(INIEnvironment &env, std::string *error);
 

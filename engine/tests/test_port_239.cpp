@@ -289,7 +289,7 @@ const CommandMapEntry *findKey(const std::vector<CommandMapEntry> &rows, const s
 
 TEST_CASE("PORT-239 CommandMap loading: all legend files then paths then language override")
 {
-	// RW 0x63AF2D registers TheMetaMap at 0x63C1F3, then separately loads
+	// GameEngine::init registers TheMetaMap at 0x63C1F3, then separately loads
 	// CommandMap.ini at 0x63C506. RW 0x5B4B9A processes InitFiles before InitPaths.
 	// Call the existing production list reader so this test also compiles with
 	// the old loader, which misses SyntheticExtra.ini and SyntheticKeys entirely.
@@ -318,7 +318,7 @@ TEST_CASE("PORT-239 CommandMap loading: all legend files then paths then languag
 TEST_CASE("PORT-239 CommandMap loading: no legend entry does not invent a default path")
 {
 	// RW 0x5B4B9A returns false for no entry; TheMetaMap's registration passed
-	// no fallback paths (RW 0x63AF2D, 0x63C1D5..0x63C1D8). The direct root load
+	// no fallback paths (call sites 0x63C1D5..0x63C1D8). The direct root load
 	// still happens. A broken decoy base file must never be opened.
 	initest::Fixture files({
 		{ kPort239Legend, "LoadSubsystem UnrelatedSyntheticSubsystem\n Loader = INI\nEnd\n" },
