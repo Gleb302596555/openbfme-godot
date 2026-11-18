@@ -2268,8 +2268,13 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 			}
 			if (ev.instance >= 0)
 			{
-				if (tinted && ev.tintModelId >= 0 &&
-					(ev.lastTint.red != renderTint.red || ev.lastTint.green != renderTint.green || ev.lastTint.blue != renderTint.blue))
+				// P-72 / PORT-167: RW 0x46F4E7 (renderOneObject) applies the custom tint to the render object every frame it is
+				// active. The port cached it in `lastTint` and re-sent only on change, assuming the per-drawable instance uniform
+				// `w3d_tint` (w3dshadergen.cpp:229, `instance uniform vec3 w3d_tint = vec3(0.0)`) persists on the node; a reallocated
+				// instance-uniform slot (P-99) resets it to its (0,0,0) default and the cache then never re-sends, so the tint is
+				// dropped for good (Lurtz no longer turns red under Fury after Local 21). Re-apply every frame while active, as the
+				// original does, so a lost slot is recovered next frame.
+				if (tinted && ev.tintModelId >= 0)
 				{
 					dyn->set_model_tint(ev.tintModelId, Vector3(renderTint.red, renderTint.green, renderTint.blue));
 					ev.lastTint = renderTint;
@@ -2469,8 +2474,10 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 					ev.shadowUseMapping = useShadowMappingNow;
 				}
 			}
-			if (ev.instance >= 0 && tinted && ev.tintModelId >= 0 &&
-				(ev.lastTint.red != renderTint.red || ev.lastTint.green != renderTint.green || ev.lastTint.blue != renderTint.blue))
+			// P-72 / PORT-167: re-apply the tint every frame while active (RW 0x46F4E7), not only when it changes: a reallocated
+			// instance-uniform slot (P-99) resets `w3d_tint` to its (0,0,0) default, and the old change-gated re-send would then
+			// never recover it (the static-model twin of the animated path above).
+			if (ev.instance >= 0 && tinted && ev.tintModelId >= 0)
 			{
 				dyn->set_model_tint(ev.tintModelId, Vector3(renderTint.red, renderTint.green, renderTint.blue));
 				ev.lastTint = renderTint;
