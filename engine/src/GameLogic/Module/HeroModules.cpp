@@ -32,7 +32,10 @@
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/HeroSystem.h"
 #include "GameLogic/Module/ActiveBody.h"
+#include "GameLogic/Module/ProductionUpdate.h"
 #include "GameLogic/AI/AIGuard.h"
+#include "GameLogic/AI/AIPathfindHost.h"
+#include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/ExitInterface.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
@@ -43,6 +46,7 @@
 #include "GameLogic/Object/ExperienceTracker.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/Object/Object.h"
+#include "GameLogic/Object/ObjectGeometry.h"
 #include "GameLogic/SimMath.h"
 
 #include <cstddef>
@@ -845,16 +849,25 @@ void AttributeModifierAuraUpdate::upgradeImplementation()
 }
 
 // RW 0x89F42D
-	UpdateSleepTime AttributeModifierAuraUpdate::update()
+UpdateSleepTime AttributeModifierAuraUpdate::update()
 {
 	Object *obj = getObject();
 	GameLogic &logic = obj->logic();
 	const AttributeModifierAuraUpdateModuleData *d = m_data;
-	if ((obj->isEffectivelyDead() && !d->m_runWhileDead) || !isAlreadyUpgraded())
+	if (obj->isEffectivelyDead() && !d->m_runWhileDead) // RW 0x89F441 .. 0x89F457
 	{
 		return UPDATE_SLEEP_FOREVER;
 	}
 	const UpdateSleepTime next = (UpdateSleepTime)((obj->getID() % 5u) + d->m_refreshDelay); // RW 0x89F6BD: id % 5 + RefreshDelay
+	static const int kStoned = mcIndex("STONED"); // RW 0x89F459: Object + 0x11C bit 1 = ModelCondition 0x81
+	if (obj->testModelCondition(kStoned))
+	{
+		return next;
+	}
+	if (!isAlreadyUpgraded()) // RW 0x89F469 .. 0x89F479
+	{
+		return UPDATE_SLEEP_FOREVER;
+	}
 	static const int kMounted = mcIndex("MOUNTED");     // RW 0x89F49A: 0xD6
 	static const int kAttacking = mcIndex("ATTACKING"); // RW 0x89F4AE: 0x25
 	if ((d->m_requiredConditions & 1u) && !obj->testModelCondition(kMounted))
@@ -867,12 +880,14 @@ void AttributeModifierAuraUpdate::upgradeImplementation()
 	}
 	// RW 0x89F4CA .. 0x89F4D5: eax = [esi+4] = esi->m_template (Thing+4), then the dword at eax+0x10C is shifted right by 28 and masked to bit 0 — that is bit 28 of
 	// m_kindOf word 1 (word index 1, bit 28, TheKindOfNames index 1*32+28 = 60 = WALK_ON_TOP_OF_WALL). This "special" flag skips the ALLIES relationship filter
-	// (RW 0x89F61F .. 0x89F62A) and makes the scan use the object's bounding radius instead of Range (RW 0x89F63C .. 0x89F655).
+	// (RW 0x89F61F .. 0x89F62A), makes the scan use the object's bounding circle radius instead of Range (RW 0x89F63C .. 0x89F655), and restricts targets in
+	// affect() to wall layers [0x11, 0x40] (RW 0x89F1DB .. 0x89F1FA).
 	static const int kSpecialAuraBit = 1 * 32 + 28;
 	const ObjectTemplateInfo &ttInfo = logic.templateInfo(obj->getTemplate());
 	const bool specialAuraSource = (ttInfo.kindOf[kSpecialAuraBit >> 5] & (1u << (kSpecialAuraBit & 31))) != 0;
 	Pulse pulse;
 	pulse.source = obj;
+	pulse.specialAuraSource = specialAuraSource;
 	if (d->m_antiCategory != 0 && !d->m_bonusName.empty())
 	{
 		// RW 0x89F4F8 .. 0x89F537: now + the list's Duration (RW 0x614495), 999999 for a list without one
@@ -880,32 +895,39 @@ void AttributeModifierAuraUpdate::upgradeImplementation()
 		const unsigned duration = list ? list->m_duration : 0u;
 		pulse.antiExpire = logic.getFrame() + (duration != 0 ? duration : 999999u);
 	}
-	static const int kWalkOnWall = ObjectTemplateInfoBuilder::kindOfIndex("WALK_ON_TOP_OF_WALL");
-	if (kWalkOnWall >= 0 && obj->isKindOf((unsigned)kWalkOnWall) && !specialAuraSource)
-	{
-		logic.noteStop("[S-856] AttributeModifierAuraUpdate: a WALK_ON_TOP_OF_WALL source (geometry radius, no relationship filter; RW 0x89F5F8) is not ported: Range is used");
-	}
 	++m_pulses;
 	if (!d->m_affectContainedOnly)
 	{
-		// RW 0x89F676: ThePartitionManager within Range (or the geometry radius for the special source, RW 0x89F63C .. 0x89F655), distance type 0 (FROM_CENTER_2D),
-		// sort mode 1 (near to far, the STLport introsort: lane MODULES-2), with the filters RW 0xC10E20 (not effectively dead), RW 0xC1D660 (not the source),
-		// RW 0xC0F374 (the same Object + 0x458 bit 3 as the source: never set here, S-856), the relationship filter RW 0xC11DC0 (enemies 1 / allies 4, RW 0x89F610;
-		// skipped for the special source when not targeting enemies, RW 0x89F61F .. 0x89F62A) and the ObjectFilter for the owner (RW 0xBE4CC8); an applied modifier
-		// can grant an upgrade at once (a CostModifierUpgrade appends to the player's ordered list), so the order is state
+		// RW 0x89F676: ThePartitionManager within Range (or the bounding circle radius Object + 0xB8 for a WALK_ON_TOP_OF_WALL source, RW 0x89F63C .. 0x89F655),
+		// distance type 0 (FROM_CENTER_2D), sort mode 1 (near to far, the STLport introsort: lane MODULES-2), with the filters RW 0xC10E20 (not effectively dead),
+		// RW 0xC1D660 (not the source), RW 0xC0F374 (PartitionFilterSameMapStatus RW 0x660E93: same Object + 0x458 bit 3 = isOffMap()), the relationship filter
+		// RW 0xC11DC0 (enemies 1 / allies 4, RW 0x89F610; skipped for a WALK_ON_TOP_OF_WALL source when not targeting enemies, RW 0x89F61F .. 0x89F62A) and the
+		// ObjectFilter for the owner (RW 0xBE4CC8); an applied modifier can grant an upgrade at once (a CostModifierUpgrade appends to the player's ordered list),
+		// so the order is state.
 		const Player *owner = obj->getControllingPlayer();
-		// RW 0x89F63C .. 0x89F655: radius = m_special ? bounding radius : data->Range. The bounding-radius path is S-856 (WALK_ON_TOP_OF_WALL); TAINT/ElvenWood area
-		// objects use Range (matching onDelete's clear at RW 0x89EEA9 with Range, not bounding radius). Keep Range for all non-S-856 sources.
-		const float scanRadius = d->m_range;
+		float scanRadius = d->m_range;
+		if (specialAuraSource)
+		{
+			if (logic.aiWorld())
+			{
+				scanRadius = CombatQueries::boundingCircleRadius(*obj); // RW 0x89F647: Object + 0xB8
+			}
+			else
+			{
+				PathfindGeometry pg;
+				ObjectGeometry::fillPathfindGeometry(obj->geometryShapes(), pg);
+				scanRadius = pg.boundingCircleRadius();
+			}
+		}
 		PartitionFilterFn targets([&](Object &o) {
-			if (o.isEffectivelyDead() || &o == obj)
+			if (o.isEffectivelyDead() || &o == obj || o.isOffMap() != obj->isOffMap())
 			{
 				return false;
 			}
 			if (!d->m_affectGood && !d->m_affectEvil)
 			{
 				// RW 0x89F605 .. 0x89F62A: TargetEnemy links the enemy filter; non-TargetEnemy links the allies filter only when neither the
-				// special-source bit (KindOf word 1 bit 28 = WALK_ON_TOP_OF_WALL, S-856) nor a terrain condition (TAINT=bit1/ELVEN_WOOD=bit2) is set.
+				// special-source bit (KindOf word 1 bit 28 = WALK_ON_TOP_OF_WALL) nor a terrain condition (TAINT=bit1/ELVEN_WOOD=bit2) is set.
 				// Terrain-conditional auras (e.g. neutral ElvenGrove) defer the friendly/foe decision to affect(), which checks the taint cell's
 				// area owner against the target's relationship (RW 0x89F200 .. 0x89F271).
 				constexpr std::uint32_t kTerrainCondMask = 2u | 4u; // TAINT | ELVEN_WOOD
@@ -1005,6 +1027,18 @@ void AttributeModifierAuraUpdate::affect(Object &o, const Pulse &pulse)
 			return;
 		}
 	}
+	static const int kStoned = mcIndex("STONED"); // RW 0x89F1CB: Object + 0x11C bit 1 = ModelCondition 0x81
+	if (o.testModelCondition(kStoned))
+	{
+		return;
+	}
+	if (pulse.specialAuraSource) // RW 0x89F1DB .. 0x89F1FA: WALK_ON_TOP_OF_WALL source requires target on wall layer [0x11, 0x40]
+	{
+		if (!isWallLayer(AIWorld::objectLayer(o)))
+		{
+			return;
+		}
+	}
 	if (d->m_requiredConditions & 6u)
 	{
 		// RW 0x89F200 .. 0x89F271: TAINT (bit 2) needs TheTaintManager's state 2 at the object (RW 0xAD49B0 -> 0xAD4FA0), else ELVEN_WOOD (bit 4) state 1;
@@ -1095,7 +1129,10 @@ void AutoHealBehavior::upgradeImplementation()
 
 void AutoHealBehavior::processUpgradeRemoval()
 {
-	setWakeFrame(getObject(), UPDATE_SLEEP_FOREVER); // RW 0x85544E (the slot 0x24 sleep; + 0xC cleared)
+	// RW 0x85544E: clears m_nextHealFrame (+0x2C / mux +0xC) and calls UpgradeMux slot 9 setUpgradeExecuted(false) (RW 0x5B462D).
+	// Next update() wake sees !isAlreadyUpgraded() and returns UPDATE_SLEEP_FOREVER (RW 0x8558F0).
+	m_nextHealFrame = 0;
+	setUpgradeExecuted(false);
 }
 
 // RW 0x85541B: + 0x30 = 1, + 0x2C = 0x3FFFFFFF, sleep forever
@@ -1337,10 +1374,49 @@ void BuildableHeroListUpgrade::upgradeImplementation()
 	// (RW 0x8BC4F3: TheControlBar + 0x28 = 1, the control bar refresh; RW 0x8D28F1 the custom anim of the mux)
 }
 
+// RW 0x008BC5CB (UpgradeMux slot 8)
+void BuildableHeroListUpgrade::processUpgradeRemoval()
+{
+	Object *obj = getObject();
+	Player *player = obj ? obj->getControllingPlayer() : nullptr;
+	if (!player || !player->getPlayerTemplate())
+	{
+		return;
+	}
+	GameLogic &logic = obj->logic();
+	for (const std::string &name : player->getPlayerTemplate()->m_buildableRingHeroesMP) // template + 0x198
+	{
+		const ThingTemplate *tt = logic.things().findTemplate(name); // RW 0x6D1305
+		if (!tt)
+		{
+			logic.reportError("BuildableHeroListUpgrade: BuildableRingHeroesMP name '" + name + "' is no template");
+			continue;
+		}
+		// RW 0x008BC519: schedule cancellation of this hero on every player FS_FACTORY (template + 0x10F & 0x80) with queued entries
+		for (Object *cand = logic.getFirstObject(); cand; cand = cand->getNextObject())
+		{
+			if (cand->isDestroyed() || cand->getControllingPlayer() != player || !cand->isKindOfName("FS_FACTORY"))
+			{
+				continue;
+			}
+			if (ProductionUpdateInterface *prod = cand->getProductionUpdate())
+			{
+				if (prod->getProductionCount() > 0)
+				{
+					prod->cancelUnitCreateByTemplate(tt, false); // slot 13, RW 0x008A30A0
+				}
+			}
+		}
+		player->heroes().removePurchase(*tt); // RW 0x0078138B
+	}
+	// (RW 0x8BC624: TheControlBar + 0x28 = 1, the control bar refresh)
+	setCustomAnim(false); // RW 0x008D28F9
+}
+
 void HeroModules::registerAll(ModuleFactory &modules)
 {
 	bindRuntime<RespawnUpdate, RespawnUpdateModuleData>(modules, "RespawnUpdate");
-	bindRuntime<BuildableHeroListUpgrade, BuildableHeroListUpgradeModuleData>(modules, "BuildableHeroListUpgrade");
+	bindRuntime<BuildableHeroListUpgrade, BuildableHeroListUpgradeModuleData>(modules, "BuildableHeroListUpgrade"); // GetSnapshotName RW 0x008BC40C, getModuleNameKey RW 0x008BC412
 	bindRuntime<UnpauseSpecialPowerUpgrade, UnpauseSpecialPowerUpgradeModuleData>(modules, "UnpauseSpecialPowerUpgrade");
 	bindRuntime<AttributeModifierAuraUpdate, AttributeModifierAuraUpdateModuleData>(modules, "AttributeModifierAuraUpdate");
 	bindRuntime<AutoHealBehavior, AutoHealBehaviorModuleData>(modules, "AutoHealBehavior");

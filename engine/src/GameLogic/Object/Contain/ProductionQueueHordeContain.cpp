@@ -66,6 +66,7 @@ ProductionQueueHordeContain::ProductionQueueHordeContain(Thing *thing, const Pro
 {
 }
 
+// RW 0x008844D5 (getModuleName), RW 0x00884511 (getModuleNameKey), RW 0x008845EF (scalar deleting dtor)
 void ProductionQueueHordeContain::registerClass(ModuleFactory &modules)
 {
 	modules.bindTypedData<ProductionQueueHordeContainBehaviorData>("ProductionQueueHordeContain", MODULETYPE_BEHAVIOR);
@@ -153,7 +154,7 @@ void ProductionQueueHordeContain::crc(StateHasher &hasher) const
 	GarrisonContain::crc(hasher);
 }
 
-// RW 0x0088451F (slot 3, DONOR BFME2 0x0048127E): Version(1, 1), calls HordeGarrisonContain::xfer
+// RW 0x008844DB (slot 3, DONOR BFME2 0x0048127E): Version(1, 1), calls HordeGarrisonContain::xfer; RW 0x00880E8B (loadPostProcess thunk)
 void ProductionQueueHordeContain::xfer(Xfer &xfer)
 {
 	SnapshotXfer::version(xfer, 1, 1);

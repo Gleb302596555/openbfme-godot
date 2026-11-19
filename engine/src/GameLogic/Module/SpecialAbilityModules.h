@@ -210,35 +210,42 @@ public:
 	virtual bool isActive() const = 0;
 	// slot 0x20 (lane AIPOW-1, asked by the module's location requirements RW 0x897E01 with the place: RW 0x897E82 pushes it): may the power be
 	// used now at that place. SpecialAbilityUpdate's RW 0x851B6E does not read it (it hands it to RW 0x851551, which ignores it);
-	// TeleportSpecialAbilityUpdate's RW 0x896608 cuts its MaxDistance with it. A null place is what the object form RW 0x82DAAB hands over and
+	// TeleportSpecialAbilityUpdate's RW 0x896608 cuts its MaxDistance with it, ArrowStormUpdate's RW 0x893D61 its
+	// MinimumAttackRange (PORT-260). A null place is what the object form RW 0x82DAAB hands over and
 	// the branch RW 0x89660C falls back to the base with.
 	virtual bool allowsSpecialPowerUse(const Coord3D *loc = nullptr) const = 0;
 };
 
+// RW vtable 0x00C61844; name/key RW 0x00851E7D / 0x00851E38
 class SpecialAbilityUpdate : public UpdateModule, public SpecialPowerUpdateInterface
 {
 public:
 	OBFME_MODULE_XFER(SpecialAbilityUpdate) // lane SAVE-4b
 	SpecialAbilityUpdate(Thing *thing, const SpecialAbilityUpdateModuleData *data); // RW 0x851D42
+	~SpecialAbilityUpdate() override; // RW 0x0085536C -> 0x00854D9A (chained by subclass dtors 0x008958A1, 0x0089453F, 0x00896484, 0x0089873E)
 	UpdateSleepTime update() override;                                              // RW 0x854DF7
 	DisabledMaskType getDisabledTypesToProcess() const override { return (DisabledMaskType)(1u << 3); } // RW 0x855830: DISABLED_HELD
 
+	// RW 0x00851E83 (interface +0x20 slot 7)
 	bool drivesSpecialPower(const SpecialPowerTemplate *t) const override { return t && t == m_data->m_specialPowerTemplate; }
 	// RW 0x852E8F
 	void initiateIntentToDoSpecialPower(const SpecialPowerTemplate *t, Object *target, const Coord3D *loc, unsigned options, int extra) override;
+	// RW 0x009D4099 (interface +0x20 slot 2)
 	bool isActive() const override { return m_active; }
 	// lane BACKLOG4 (S-1222) / PORT-188: the special power update interface's slot 0x18 (RW 0x851C92) asked without a command button, as Object RW 0x693919
 	// and SpecialAbilityUpdate::initiateIntentToDoSpecialPower RW 0x85307F ask it: false with the packing state (+ 0x30) 0; else true for the template types
 	// 0x1A and 0x1D, else the within-range flag (+ 0x80). The command button branches (RW 0x851C9E .. 0x851CE1) are not these callers'
 	bool isPowerCurrentlyInUse() const;
 	// RW 0x851B6E: the RequiredConditions / RejectedConditions (RW 0x851551); a power of the garrison types 0x27 / 0x28 also needs room in the object's
-	// contain (contain slots 0x114 / 0x70). The place argument is passed on to RW 0x851551, which does not read it: only subclasses cut with it.
+	// contain (contain slots 0x114 / 0x70). The place argument is passed on to RW 0x851551, which does not read it: only subclasses cut with it
+	// (Teleport's RW 0x896608, ArrowStorm's RW 0x893D61).
 	bool allowsSpecialPowerUse(const Coord3D *loc = nullptr) const override;
 	void crc(StateHasher &h) const override;
 
 	const SpecialAbilityUpdateModuleData *abilityData() const { return m_data; }
 	int packingState() const { return m_packingState; }
 	unsigned prepFrames() const { return m_prepFrames; }
+	unsigned effectExpiry() const { return m_effectExpiry; }
 	int triggerCount() const { return m_triggerCount; }
 	unsigned abilitiesTriggered() const { return m_abilitiesTriggered; } // effects run (a test counter, hashed)
 	unsigned long long unported() const { return m_unported; }
@@ -262,7 +269,7 @@ protected:
 	virtual void startPreparation();               // slot 0x3C, RW 0x853BEC
 	virtual bool continuePreparation();            // slot 0x40, RW 0x852A3E
 	virtual void triggerAbilityEffect();           // slot 0x44, RW 0x853EDF
-	virtual void onEffectExpired() {}              // slot 0x48, RW 0x851E9A
+	virtual void onEffectExpired() { m_effectExpiry = 0; } // slot 0x48, RW 0x00851E9A: clears +0x2C
 	virtual void finishAfterPacking();             // slot 0x4C, RW 0x8549E7
 	void clearAbilityModelConditions();             // RW 0x851BCF: shared by initiate and finish
 	virtual bool handlePackingProcessing();        // slot 0x50, RW 0x851E9F
@@ -385,6 +392,7 @@ private:
 	ObjectID m_replacement = INVALID_ID; // the MountedTemplate object of the last replacement (tests; hashed)
 };
 
+// RW vtable 0x00C64D14; name/key RW 0x00895836 / 0x0089585C; s1 no-op RW 0x008E38D8
 class HeroModeSpecialAbilityUpdate : public SpecialAbilityUpdate
 {
 public:
@@ -400,6 +408,7 @@ private:
 	const HeroModeSpecialAbilityUpdateModuleData *m_hm;
 };
 
+// Local 87: RW 0x008C6D2B (getModuleName), RW 0x008C6DAD (getModuleNameKey), RW 0x008C6E46 (data dtor).
 class LevelGrantSpecialPower : public SpecialAbilityUpdate
 {
 public:
@@ -423,6 +432,7 @@ private:
 	unsigned m_granted = 0;
 };
 
+// RW vtable 0x00C64C54; name/key RW 0x008943FC / 0x00894422; s1 no-op RW 0x008E38D8
 class ModelConditionSpecialAbilityUpdate : public SpecialAbilityUpdate
 {
 public:
@@ -448,12 +458,13 @@ private:
 // it merges: ToggleMounted's trigger with the replacement RW 0x8B228C (RW 0x8B140D's twin over the + 0xE8 / + 0xEC fields) and ModelCondition's emotion
 // pulse (RW 0x8B2584), ToggleMounted's finishAfterPacking (RW 0x8B202A) and initiate (RW 0x8B1FDA), ModelCondition's startUnpacking (RW 0x89455B), a
 // finishAbility of both (RW 0x8B208A), and the base continuePreparation (RW 0x852A3E: no early out at the second trigger).
+// RW 0x008B1E94 (getModuleName), RW 0x008B1F14 (getModuleNameKey), RW 0x008B1FA3 (scalar deleting dtor -> 0x008B1E6A).
 class SummonReplacementSpecialAbilityUpdate : public SpecialAbilityUpdate, public CreateModuleInterface
 {
 public:
 	OBFME_MODULE_XFER(SummonReplacementSpecialAbilityUpdate)
 	SummonReplacementSpecialAbilityUpdate(Thing *thing, const SummonReplacementSpecialAbilityUpdateModuleData *data); // RW 0x8B1F59
-	CreateModuleInterface *getCreate() override { return this; }
+	CreateModuleInterface *getCreate() override { return this; } // RW 0x008B42E6 (BehaviorModule::getCreate, shared with SpecialDisguiseUpdate)
 	void onCreate() override {}
 	void onBuildComplete() override; // RW 0x8B1FBF: TriggerInstantlyOnCreate triggers at once
 	void initiateIntentToDoSpecialPower(const SpecialPowerTemplate *t, Object *target, const Coord3D *loc, unsigned options, int extra) override; // RW 0x8B1FDA
@@ -481,12 +492,13 @@ private:
 // + 0x130 bit 12) on with ForceMountedWhenDisguising's mount (RW 0x8B45BF), or off; the drawable of DisguiseAsTemplate replaces the object's (client). RW 0x8B4702
 // ends it from SPECIAL_SMITE_CANCELDISGUISE's unpack (RW 0x8538DD), SPECIAL_ATTRIBUTEMOD_CANCELDISGUISE's trigger (RW 0x8549DD) and attribute modifier power
 // (RW 0x897840), a stealth detector (RW 0x8A6644) and the mount toggles' CancelDisguiseWhenDismounting (RW 0x8B17C2 / 0x8B26BB).
+// RW 0x008B42E0 (getModuleName), RW 0x008B429B (getModuleNameKey), RW 0x008B43F4 (scalar deleting dtor -> 0x008B4271).
 class SpecialDisguiseUpdate : public SpecialAbilityUpdate, public CreateModuleInterface
 {
 public:
 	OBFME_MODULE_XFER(SpecialDisguiseUpdate) // lane SAVE-4b
 	SpecialDisguiseUpdate(Thing *thing, const SpecialDisguiseUpdateModuleData *data); // RW 0x8B439F
-	CreateModuleInterface *getCreate() override { return this; }
+	CreateModuleInterface *getCreate() override { return this; } // RW 0x008B42E6 (BehaviorModule::getCreate, shared with SummonReplacementSpecialAbilityUpdate)
 	void onCreate() override {}
 	void onBuildComplete() override;                            // RW 0x8B4410
 	void finishAbility(bool ownerDying, bool aborted) override; // RW 0x8B4521

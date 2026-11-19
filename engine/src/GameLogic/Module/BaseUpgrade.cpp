@@ -121,7 +121,7 @@ void BaseUpgrade::xfer(Xfer &x)
 	UpgradeModule::xfer(x);
 }
 
-// RW 0x65A28A / DONOR BFME2 0x659074
+// RW 0x65A28A / DONOR BFME2 0x659074 (GetSnapshotName RW 0x008B77B6, getModuleNameKey RW 0x008B77BC)
 void BaseUpgrade::registerClass(ModuleFactory &modules)
 {
 	modules.bindTypedData<BaseUpgradeModuleData>("BaseUpgrade", MODULETYPE_BEHAVIOR);

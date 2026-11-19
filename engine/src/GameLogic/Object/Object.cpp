@@ -195,12 +195,22 @@ Object::~Object()
 			hooks->objectDestroyed(*this);
 		}
 	}
+	m_client = nullptr; // RW Object::~Object detaches the drawable before deleting modules (prevents post-DESTROYED events)
 	if (m_team)
 	{
 		m_team->friend_removeMember(this);
 		m_team = nullptr;
 	}
+	// RW 0x0069A8D7 .. 0x0069A8E9: cached module interface pointers (+0x258 .. +0x264) are cleared before deleting modules
+	m_ai = nullptr;
+	m_body = nullptr;
+	m_contain = nullptr;
+	m_attributePool = nullptr;
+	m_physics = nullptr;
+	m_slaved = nullptr;
+	m_moduleCachesBuilt = false;
 	m_moduleLookupsCached = false; // a lookup while the modules go scans what is left, as before the caches
+	m_collideModules.clear();
 	for (std::unique_ptr<BehaviorModule> &m : m_modules)
 	{
 		m.reset();
@@ -1233,7 +1243,7 @@ void Object::setCapturedTeam(Team *team)
 	// owner's P-122), the unit in the doorway leaves for the old team and releaseLastExit frees a partial horde
 	if (ProductionUpdateInterface *production = getProductionUpdate())
 	{
-		production->cancelAndReleaseAllProduction(); // RW 0x69974D -> RW 0x8A1666
+		production->cancelAndReleaseAllProduction(); // RW 0x69974D -> getDie RW 0x008A18ED -> onDie RW 0x008A05A7 -> RW 0x8A1666
 	}
 	// S-1225, still unported: RW 0x699750 .. 0x6997A7 counts the structure in the old and the new player's score keeper (RW 0x79F0E1 on Player + 0x3DC,
 	// for two active players) and tells the client (RW 0x6D9A71, a local player only); RW 0x699792 sets the undetected-defector bit (+ 0x458 bit 1,
@@ -1420,7 +1430,7 @@ void Object::friend_onDie(const DieModuleInterface::Event &event)
 // PORT-218 (issue 515, docs/re/rotwk/RW_0x68D6A6.md): RotWK Object::getAbleToAttackSpecificObject RW 0x68D6A6, the object level of "can I attack that
 // object now". Ported: the null victim (RW 0x68D6B3), the model condition 0x1BA with a WALL_SEGMENT victim (RW 0x68D740 .. 0x68D75A), the type bit 0x10
 // (RW 0x68D719) and every object that is not SPAWNS_ARE_THE_WEAPONS answer through their own weapon set (+ 0x34C, RW 0x68D791). NOT PORTED (stop
-// S-7450): the gate path test RW 0x68D6BC .. 0x68D6F1 (CAN_ATTACK + no CanPathThroughGates against a STRUCTURE), the wall module's veto
+// S-7429): the gate path test RW 0x68D6BC .. 0x68D6F1 (CAN_ATTACK + no CanPathThroughGates against a STRUCTURE), the wall module's veto
 // RW 0x68D6FA .. 0x68D717 (RW 0x8AE8F0 slot 0) and the container / rider branch RW 0x68D722 .. 0x68D78B (a SPAWNS_ARE_THE_WEAPONS object asks its
 // contain's slots 0x7C / 0x50 / 0x114 for a rider's weapon set; the port has none of the three queries), so such an object answers through its own set,
 // as it did before this port.
@@ -1438,7 +1448,7 @@ CanAttackResult Object::getAbleToAttackSpecificObject(AbleToAttackType type, con
 		// a SPAWNS_ARE_THE_WEAPONS object would ask its riders here (RW 0x68D722 .. 0x68D78B): not ported
 		if (isKindOf((unsigned)CombatNames::kinds().spawnsAreTheWeapons))
 		{
-			m_logic.noteStop("[S-7450] Object::getAbleToAttackSpecificObject RW 0x68D6A6: the container / rider branch of a SPAWNS_ARE_THE_WEAPONS "
+			m_logic.noteStop("[S-7429] Object::getAbleToAttackSpecificObject RW 0x68D6A6: the container / rider branch of a SPAWNS_ARE_THE_WEAPONS "
 			                 "object (contain slots 0x7C, 0x50, 0x114) is not ported");
 		}
 		return ATTACKRESULT_NOT_POSSIBLE; // no weapon set: RW's set is empty, so nothing can be shot
@@ -1662,7 +1672,7 @@ BehaviorModule *Object::findModule(std::string_view className) const
 {
 	for (const std::unique_ptr<BehaviorModule> &m : m_modules)
 	{
-		if (m->getModuleClassName() == className)
+		if (m && m->getModuleClassName() == className)
 		{
 			return m.get();
 		}
@@ -1674,7 +1684,7 @@ ExitInterface *Object::getObjectExitInterface() const
 {
 	for (const std::unique_ptr<BehaviorModule> &m : m_modules)
 	{
-		if (ExitInterface *e = m->getExitInterface())
+		if (ExitInterface *e = m ? m->getExitInterface() : nullptr)
 		{
 			return e;
 		}
@@ -1687,7 +1697,7 @@ DockUpdateInterface *Object::getDockUpdateInterface() const
 {
 	for (const std::unique_ptr<BehaviorModule> &m : m_modules)
 	{
-		if (DockUpdateInterface *d = m->getDockUpdateInterface())
+		if (DockUpdateInterface *d = m ? m->getDockUpdateInterface() : nullptr)
 		{
 			return d;
 		}
@@ -1699,7 +1709,7 @@ ProductionUpdateInterface *Object::getProductionUpdate() const
 {
 	for (const std::unique_ptr<BehaviorModule> &m : m_modules)
 	{
-		if (ProductionUpdateInterface *p = m->getProductionUpdateInterface())
+		if (ProductionUpdateInterface *p = m ? m->getProductionUpdateInterface() : nullptr)
 		{
 			return p;
 		}
@@ -1711,7 +1721,7 @@ BehaviorModule *Object::findModuleByTag(NameKeyType tagKey) const
 {
 	for (const std::unique_ptr<BehaviorModule> &m : m_modules)
 	{
-		if (m->getModuleTagNameKey() == tagKey)
+		if (m && m->getModuleTagNameKey() == tagKey)
 		{
 			return m.get();
 		}
@@ -1724,7 +1734,7 @@ const SpecialPowerModuleInterface *Object::findSpecialPowerModuleInterface(int p
 	// RW 0x691526: iterates modules, finds first with SpecialPowerModuleInterface whose template has powerType
 	for (const std::unique_ptr<BehaviorModule> &m : m_modules)
 	{
-		const SpecialPowerModuleInterface *sp = m->getSpecialPower();
+		const SpecialPowerModuleInterface *sp = m ? m->getSpecialPower() : nullptr;
 		if (!sp)
 		{
 			continue;
@@ -2049,11 +2059,11 @@ void Object::giveUpgrade(const UpgradeTemplate *upgrade)
 	}
 	giveUpgradeSelf(upgrade);
 	ContainModuleInterface *contain = getContain();
-	if (!contain || !contain->getHordeContainInterface())
+	if (!contain)
 	{
-		return; // INFERENCE: only HordeContain's slot 0x174 (RW 0x87566B) was read; the other contain classes' slot is not ported (S-483)
+		return;
 	}
-	// RW 0x87566B: the templates of the set bits in bit order, then every member in list order (the second list at HordeContain + 0x150 is S-486)
+	// RW 0x006938B3 (contain slot 0x174): HordeContain RW 0x87566B and HordeTransportContain / HordeSiegeEngineContain RW 0x0087A988
 	std::vector<const UpgradeTemplate *> granted;
 	for (unsigned bit = 0; bit < UpgradeMaskType::BITS; ++bit)
 	{
@@ -2064,6 +2074,11 @@ void Object::giveUpgrade(const UpgradeTemplate *upgrade)
 				granted.push_back(t);
 			}
 		}
+	}
+	if (!contain->getHordeContainInterface())
+	{
+		contain->onContainerUpgrade(granted);
+		return;
 	}
 	if (const ContainModuleInterface::ContainedItemsList *items = contain->getContainedItemsList())
 	{
@@ -2906,6 +2921,12 @@ void Object::crcOmittingModules(StateHasher &h, const std::function<bool(const B
 	{
 		h.addU32(0x4A5Bu); // lane MODCOMPAT-MOD1: hashed only when set (a game without rebuild holes keeps its hash)
 	}
+	if (m_scriptThreatDeadline != 0)
+	{
+		h.addU32(0x7E4A0000u); // lane THREATLEVEL-1: the script threat cache, hashed once a refresh armed it (a game without threat scripts keeps its hash)
+		h.addU32(m_scriptThreatDeadline);
+		h.addFloat(m_scriptThreat);
+	}
 	if (m_geometrySource) // lane MODCOMPAT-MOD1: another template's GeometryInfo (setGeometryInfoFrom), hashed when set
 	{
 		h.addU32(0x6E100000u | m_geometrySource->getTemplateID());
@@ -3174,7 +3195,11 @@ void Object::setScriptStatus(std::uint8_t bits, bool set)
 // (the Objects block's order) and the team links (the TeamFactory's post-process).
 void Object::xfer(Xfer &x)
 {
-	XferVersion version{ 1, 7 }; // v2 campaignCarryover, v3 fireWeaponDeadline, v4 PORT-5 Object + 0x251, v5 PORT-34 geometryHeights, v6 PORT-237 m_undetectable, v7 PORT-220 Object + 0x45B
+	// v2 campaignCarryover, v3 fireWeaponDeadline, v4 PORT-5 Object + 0x251, v5 PORT-34 geometryHeights, v6 PORT-237 m_undetectable, v7 PORT-220
+	// Object + 0x45B; v8 upstream lane THREATLEVEL-1's script threat cache (+ 0x464 / + 0x468; upstream's own version 3), written only once a
+	// refresh armed it (every other object keeps version 7's block, so the hash pins do not move)
+	const bool threatArmed = m_scriptThreatDeadline != 0 || m_scriptThreat != 0.0f;
+	XferVersion version{ 1, (std::uint8_t)(x.isLoading() || threatArmed ? 8 : 7) };
 	x.xferVersion(version);
 	// a load never reads its destination: the save-side values are built from the members only when saving (SAVES.md, rules for xfer authors)
 	const bool saving = !x.isLoading();
@@ -3302,6 +3327,19 @@ void Object::xfer(Xfer &x)
 	else if (x.isLoading())
 	{
 		m_undetectable = false;
+	}
+	// lane THREATLEVEL-1 (Sol review): the script threat cache. RotWK's Object::xfer (RW 0x697F28) does not write it (a retail load starts from the
+	// constructor's cleared pair); BFME2 1.06's does (+ 0x448 then + 0x444, ObjectDoXfer.cpp:715-716). The OpenBFME snapshot keeps it in both editions:
+	// the state hash covers it, and a load must give the saved hash back (CommandLogLoad::beginSnapshot refuses anything else)
+	if (version.current >= 8)
+	{
+		x.xferUnsignedInt(&m_scriptThreatDeadline);
+		x.xferReal(&m_scriptThreat);
+	}
+	else if (x.isLoading())
+	{
+		m_scriptThreat = 0.0f;
+		m_scriptThreatDeadline = 0;
 	}
 	x.xferBool(&m_scriptSelectable);
 	x.xferBool(&m_masked); // lane MODCOMPAT-MOD1: RW + 0x459 bit 1

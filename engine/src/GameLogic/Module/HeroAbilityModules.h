@@ -226,7 +226,7 @@ private:
 //     (127), STUNNED_STANDING_UP (163), INVISIBLE_STEALTH (546, RW 0x68FC06), none of AutoAbilityDisallowedOnModelCondition (+ 0x13C), not IGNORE_AI_COMMAND
 //     (status 74), the AI's + 0x34 zero (RW 0x85D69B: m_temporaryKeptMachine == nullptr);
 //   * the command (RW 0x696FD2 / 0x697890 / 0x6979D9 for the SPECIAL_POWER (24) and SPELL_BOOK (38) buttons): Object::doSpecialPower* of the button's power with
-//     the button's options | 0x40000 (| AUTO_ABILITY_TRIGGERED 0x20000000 from this module). The other command types are counted (S-1227).
+//     the button's options | 0x40000 (| AUTO_ABILITY_TRIGGERED 0x20000000 from this module); FIRE_WEAPON (RW 0x75CC3E) and all other command types dispatch through Object::doCommandButton*.
 class AutoAbilityBehaviorModuleData : public ModuleData
 {
 public:
@@ -313,11 +313,25 @@ private:
 //     0x6AD1B0); else reload = ftol((unsigned)ReloadTime * fstp(the player's recharge discount + 1) * the RECHARGE attribute modifier product (RW 0x68C82D,
 //     1.0 here as SpecialPowerModule's, S-529)); below 1.0: nothing when the percent is 0, else ready = now + ftol((1 - max(0, percent - p)) * reload); else
 //     now + reload); do* (RW 0x9911FB / 0x991231 / 0x991269): not paused and not disabled (RW 0x9325B4): the special power update's initiate (slot 0);
-//   * initiate (RW 0x89841E): LockWeaponSlot none: every WeaponSetFlags bit on (RW 0x691059, when the object has a weapon set RW 0x68FDF7); else the slot is
+//   * initiate (RW 0x89841E): LockWeaponSlot none: when the data's WeaponSetFlags words are not empty (RW 0x68FDF7, a popcount over the four words,
+//     RW 0x89843E) every set bit goes on through RW 0x691059, which is an OBJECT method (Object + 0x38C, the weapon set update RW 0x6C99E2, then the model
+//     condition the table RW 0xC16958 names): an object without a weapon set, a horde container included, keeps the bits in its own words and mirrors the
+//     condition too (Port 256, fork issue 604: the weapons object was null there, so the mode did nothing -- the matrix's WildMarauderSwordHorde
+//     Command_HalftrollChargeAttack); else the slot is
 //     locked (RW 0x69121A(slot, 2): LOCKED_PERMANENTLY); the AttributeModifier for Duration (RW 0x68F1A8); the update wakes in Duration; active; the recharge
-//     starts (slot 0x3C, 1.0); the firing tracker resets (RW 0x8E302A(1): COMBAT-1's, not called, S-1228);
+//     starts (slot 0x3C, 1.0); the object's FiringTracker is reset hard (RW 0x8984AF reads Object + 0x248 and calls RW 0x8984B7 -> 0x8E302A(1)); the mode's
+//     InitiateSound (+ 0x0C) is answered by the special power interface's slot 0x40 (RW 0xC650F0[16] = RW 0x991626: the module data's + 0x0C), which the unit
+//     voice plays for MSG_DO_SPECIAL_POWER (RW 0x8DF846) — the initiate itself posts no sound of its own;
 //   * update (RW 0x8983B5): the PERMANENT weapon lock is released (RW 0x68DF11(2)), every WeaponSetFlags bit off (RW 0x691106), the modifier removed (RW
 //     0x68F259), not active, the countdown unpaused (slot 0x24(0)); sleeps forever.
+// Port 256 (fork issue 604): the class's own map rows that carried no citation, classified by reading them (RW_FUNCTION_MAP depth 0):
+//   0x898276 / 0x898290  the static type descriptor accessor (returns RW 0xC0B4D0) and its one-shot initializer (the pool object RW 0x5487EC); slots + 0x08 and
+//                       + 0x10 of the primary vtable RW 0xC65188, no game code calls them -- the port has no RTTI descriptor, nothing to port;
+//   0x89833B            the scalar deleting destructor (the destructor RW 0x89822B, then operator delete RW 0x42F6A0 for argument bit 0) -- the port's
+//                       implicit destructor;
+//   0x8E38D8            a thunk chain RW 0x8B88B0 -> RW 0x4D0EAF -> the empty stub RW 0x63F3BF (slot + 0x04 of RW 0xC65188: nothing);
+//   0x9E7051            the getter of + 0x38 ("active"): mov al, [ecx+0x18] on the + 0x20 subobject -- the port's isActive() / active();
+//   0x898357            the xfer override: version (1, 1) RW 0x404F15, the base RW 0x9912DB, then Xfer slot 0x90 on + 0x38 -- the port's xfer().
 class WeaponModeSpecialPowerUpdateModuleData : public ModuleData
 {
 public:
@@ -344,7 +358,7 @@ public:
 	bool drivesSpecialPower(const SpecialPowerTemplate *t) const override { return t && t == m_data->m_specialPowerTemplate; } // RW 0x89827C
 	void initiateIntentToDoSpecialPower(const SpecialPowerTemplate *, Object *, const Coord3D *, unsigned, int) override { initiate(); } // RW 0x89841E
 	bool isActive() const override { return m_active; }
-	bool allowsSpecialPowerUse(const Coord3D *) const override { return true; } // slot 0x20 of RW 0xC65158 is RW 0x9B501B: mov al, 1 (merge q2: AIPOW-1's slot on FACT-C's interface)
+	bool allowsSpecialPowerUse(const Coord3D *) const override { return true; } // slot 0x20 of RW 0xC65158 is RW 0x9B501B: mov al, 1 (merge q2: AIPOW-1's slot on FACT-C's interface; the place is not read, PORT-260)
 	UpdateSleepTime update() override; // RW 0x8983B5
 	void crc(StateHasher &h) const override;
 	bool active() const { return m_active; }
@@ -363,6 +377,9 @@ public:
 	void doSpecialPowerAtObject(Object *target, unsigned options) override;            // RW 0x991231
 	void doSpecialPowerAtLocation(const Coord3D &loc, unsigned options) override;      // RW 0x991269
 	void pauseCountdown(bool pause) override;                                          // RW 0x99116C
+	// slot 0x40 of the special power interface (RW 0xC650F0[16] = RW 0x991626, the module data's + 0x0C): the mode's InitiateSound, which the unit voice
+	// plays for MSG_DO_SPECIAL_POWER* (RW 0x8DF846 asks this slot through RW 0x691526). The initiate (RW 0x89841E) posts no sound of its own
+	const std::string &getInitiateSound() const override { return m_data->m_initiateSound; }
 
 private:
 	bool readyImpl(bool insert) const;
@@ -379,11 +396,14 @@ private:
 
 // DualWeaponBehavior (create RW 0x64AD23, constructor RW 0x85DEC9: wakes next frame; vtables RW 0xC57FD4, update RW 0xC57FC8 (+ 0x10); data RW 0x85DE99,
 // field table RW 0xC58088: SwitchWeaponOnCloseRangeDistance + 0x08 (real), UseCloseRangeWhileMounted + 0x0C, MinimumSwitchTime + 0x10 (RW 0x73A429, frames),
-// UseHordeRangeWeapon + 0x14, UseRealVictimRange + 0x15 (bools)). Module fields: + 0x20 a "close range" request (no writer found: 0), + 0x24 the last
-// switch frame. update (RW 0x85DF88): no AI or dead: sleep forever; the weapon set flag RAMPAGE (8): 5 frames; contained by a non-HORDE: 5; UseHordeRange
+// UseHordeRangeWeapon + 0x14, UseRealVictimRange + 0x15 (bools)). Module fields: + 0x20 a "close range" request (written by xfer only: RW 0x85DF69 saves it,
+// RW 0x85DF85 reads it back; no logic writer in RotWK 2.01, S-1228), + 0x24 the last switch frame. update (RW 0x85DF88): no AI (Object + 0x260) or dead
+// (Object + 0x458 bit 0): sleep forever; the weapon set flag RAMPAGE (8): 5 frames; contained by a template whose KindOf mask (+ 0x114) lacks bit 13
+// (0x2000 = HORDE): 5; UseHordeRange
 // Weapon in a HORDE: the current CLOSE_RANGE state is kept (set again when set, cleared when clear); USING_SPECIAL_ABILITY (model condition 207): 5; the
 // request: close; else the victim within SwitchWeaponOnCloseRangeDistance: with UseRealVictimRange the AI's goal object when its squared 3D distance (SSE,
-// z, y, x) is within the distance squared, else RW 0x701443(object, distance, 0x62) (INFERENCE, S-1228: the closest visible alive enemy); a victim whose
+// z, y, x) is within the distance squared, else RW 0x85E0C2 -> RW 0x701443(object, distance, 0x62) — CAN_ATTACK | UNFOGGED | AUTO_ACQUIRE (the AI's target
+// search: the closest unfogged enemy this object can attack, skipping a nearer NOT_AUTOACQUIRABLE one); a victim whose
 // height difference (x87 fabs) is above 0.5 * the distance is none; UseCloseRangeWhileMounted and MOUNTED (214): close; then MinimumSwitchTime -
 // now + the last switch above 0: sleep that; the last switch := now; a live victim: close, else far. Close: CLOSE_RANGE (weapon set flag 7) on and the
 // model condition WEAPONSTATE_CLOSE_RANGE (160) on; far: both off (RW 0x691059 / 0x691106, Object + 0x120 bit 0, RW 0x68B53C); sleep 5.
@@ -447,6 +467,7 @@ private:
 	bool m_ended = false;                    // + 0x2C
 };
 
+// RW 0x008D0E82 (ctor: m_affects initialized to RULE_ALL via RW 0x0076406F / 0x00763DAA; RW 0x008D0DCB buildFieldParse)
 class DominateEnemySpecialPowerModuleData : public SpecialAbilityUpdateModuleData
 {
 public:
@@ -455,22 +476,24 @@ public:
 	std::string m_dominatedFX;                             // + 0xD8
 	bool m_permanentlyConvert = false;                     // + 0xDC
 	std::shared_ptr<const ObjectFilter> m_affects;         // + 0xE0
-	static void buildFieldParse(MultiIniFieldParse &p);
+	static void buildFieldParse(MultiIniFieldParse &p);    // RW 0x008D0DCB
 };
 
+// RW 0x008D0DE6 (ctor), RW 0x008E38D8 (loadPostProcess -> no-op RW 0x0063F3BF)
+// Local 87: RW 0x008D0F50 (scalar deleting destructor).
 class DominateEnemySpecialPower : public SpecialAbilityUpdate
 {
 public:
-	OBFME_MODULE_XFER(DominateEnemySpecialPower) // lane SAVE-4b
-	DominateEnemySpecialPower(Thing *thing, const DominateEnemySpecialPowerModuleData *data);
+	OBFME_MODULE_XFER(DominateEnemySpecialPower) // RW 0x008C6E67
+	DominateEnemySpecialPower(Thing *thing, const DominateEnemySpecialPowerModuleData *data); // RW 0x008D0DE6
 	unsigned dominated() const { return m_dominated; }
 	void crc(StateHasher &h) const override;
 
 protected:
-	void triggerAbilityEffect() override; // RW 0x8D103D
+	void triggerAbilityEffect() override; // RW 0x008D103D
 
 private:
-	void dominate(Object *victim, bool direct); // RW 0x8D0F6C
+	void dominate(Object *victim, bool direct); // RW 0x008D0F6C
 	const DominateEnemySpecialPowerModuleData *m_de;
 	unsigned m_dominated = 0;
 };
@@ -487,6 +510,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// Local 87: RW 0x008D21A3 (getModuleName), RW 0x008D21C9 (getModuleNameKey), RW 0x008D220E (dtor).
 class ActivateModuleSpecialPower : public SpecialAbilityUpdate
 {
 public:
@@ -518,6 +542,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x00893E7D (getModuleName), RW 0x00893E83 (getModuleNameKey), RW 0x008940E4 (scalar deleting dtor -> 0x00893E4C).
 class ArrowStormUpdate : public SpecialAbilityUpdate
 {
 public:
@@ -531,6 +556,12 @@ protected:
 	void startPreparation() override;      // RW 0x894396
 	bool continuePreparation() override;   // RW 0x893CBC
 	void triggerAbilityEffect() override;  // RW 0x894100
+	// RW 0x893D61 (slot 8 of the special power update interface RW 0xC63E4C; the base's RW 0x851B6E is the call at RW 0x893E2A). Read linearly: no
+	// data / template / owner: false (RW 0x893D6A .. 0x893D99); no location: the base alone (RW 0x893D7B .. 0x893D8A); no weapon template
+	// (RW 0x6CC5DF of data + 0xD0): false; a location inside the template's minimum range (RW 0x6CA03E squared against RW 0x6CA525's edge distance):
+	// false; a non-IMMOBILE caster (+ 0x108 bit 2): the base's; an IMMOBILE one: its attack range with no target (RW 0x6CA701 with six 1.0
+	// WeaponBonuses) against the same distance: farther is false, within it the base's answer — see HeroAbilityModules.cpp
+	bool allowsSpecialPowerUse(const Coord3D *loc = nullptr) const override; // RW 0x893D61
 
 private:
 	void gatherTargets();                  // RW 0x894151
@@ -543,32 +574,36 @@ private:
 	bool m_done = false;                   // + 0x98
 };
 
+// RW 0x008D1192 (ctor: m_cursePercentage = 1.0f from RW 0x00BD1908; RW 0x008D11C2 buildFieldParse)
 class CurseSpecialPowerModuleData : public SpecialAbilityUpdateModuleData
 {
 public:
-	std::string m_triggerFX;       // + 0xD0
-	std::string m_cursedFX;        // + 0xD4
-	float m_cursePercentage = 0.0f; // + 0xD8
-	static void buildFieldParse(MultiIniFieldParse &p);
+	std::string m_triggerFX;        // + 0xD0
+	std::string m_cursedFX;         // + 0xD4
+	float m_cursePercentage = 1.0f; // + 0xD8 (RW 0x008D1192 -> RW 0x00BD1908)
+	static void buildFieldParse(MultiIniFieldParse &p); // RW 0x008D11C2
 };
 
+// RW 0x008D11DD (ctor), RW 0x008E38D8 (loadPostProcess -> no-op RW 0x0063F3BF)
+// Local 87: RW 0x008D128E (scalar deleting destructor).
 class CurseSpecialPower : public SpecialAbilityUpdate
 {
 public:
-	OBFME_MODULE_XFER(CurseSpecialPower) // lane SAVE-4b
-	CurseSpecialPower(Thing *thing, const CurseSpecialPowerModuleData *data);
+	OBFME_MODULE_XFER(CurseSpecialPower) // RW 0x008C6E67
+	CurseSpecialPower(Thing *thing, const CurseSpecialPowerModuleData *data); // RW 0x008D11DD
 	unsigned cursed() const { return m_cursed; }
 	void crc(StateHasher &h) const override;
 
 protected:
-	void triggerAbilityEffect() override; // RW 0x8D134C
+	void triggerAbilityEffect() override; // RW 0x008D134C
 
 private:
-	void curse(Object &victim);           // RW 0x8D12E3
+	void curse(Object &victim);           // RW 0x008D12E3
 	const CurseSpecialPowerModuleData *m_cs;
 	unsigned m_cursed = 0;
 };
 
+// Local 87: RW 0x008CB0E0 (getModuleName), RW 0x008CB106 (getModuleNameKey), RW 0x008CB14B (dtor).
 class FellBeastSwoopPower : public SpecialAbilityUpdate
 {
 public:
@@ -603,6 +638,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008B0546 (getModuleName), RW 0x008B054C (getModuleNameKey), RW 0x008B0671 (scalar deleting dtor -> 0x008B050A).
 class RousingSpeechUpdate : public SpecialAbilityUpdate
 {
 public:
@@ -638,6 +674,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW vtable 0x00C64E8C; name/key RW 0x0089640F / 0x0089643F; s1 no-op RW 0x008E38D8
 class TeleportSpecialAbilityUpdate : public SpecialAbilityUpdate
 {
 public:
@@ -659,16 +696,18 @@ private:
 	unsigned m_teleports = 0;
 };
 
+// RW 0x00654884 (create), RW 0x0065197C (ctor)
+// Local 87: RW 0x006548BC (dtor), RW 0x008C6583 (base dtor thunk).
 class SpecialPowerTimerRefreshSpecialPower : public SpecialPowerModule
 {
 public:
-	OBFME_MODULE_XFER(SpecialPowerTimerRefreshSpecialPower) // lane SAVE-4b
-	SpecialPowerTimerRefreshSpecialPower(Thing *thing, const SpecialPowerModuleData *data) : SpecialPowerModule(thing, data) {}
+	OBFME_MODULE_XFER(SpecialPowerTimerRefreshSpecialPower) // RW 0x008C7B43 -> RW 0x0089679D
+	SpecialPowerTimerRefreshSpecialPower(Thing *thing, const SpecialPowerModuleData *data) : SpecialPowerModule(thing, data) {} // RW 0x0065197C
 	unsigned refreshed() const { return m_refreshed; }
 	void crc(StateHasher &h) const override;
 
 protected:
-	void applyToVictim(Object &victim, unsigned until, unsigned antiMask) override; // RW 0x8C7B26
+	void applyToVictim(Object &victim, unsigned until, unsigned antiMask) override; // RW 0x008C7B26
 
 private:
 	unsigned m_refreshed = 0;

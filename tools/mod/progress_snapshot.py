@@ -5,7 +5,8 @@ Columns:
   date             the day of the snapshot (YYYY-MM-DD)
   rev              the commit the docs were read at
   fields_total     Ennorath INI fields in the last field audit (tools/mod/field_audit.py)
-  fields_open      fields with work left: parsed-unused, not-read, stub-block, missing-module, parsed-only-module, no-table-row
+  fields_open      fields with work left: parsed-unused, not-read, stub-block, missing-module, parsed-only-module, no-table-row, less the
+                   fields proven unread in RotWK (from 2026-11-17: fields_proven_unread)
   modules_missing  docs/ennorath/MODULE_GAPS.md rows with state `missing`
   problems_total   docs/ennorath/PROBLEMS.md entries (### P-N)
   problems_done    entries whose status line is checked ([x])
@@ -15,6 +16,15 @@ Columns:
   stops_new        stop ids open now that were not open at the previous row's rev (2026-11-17: the stop curve, per landing)
   stops_closed     stop ids open at the previous row's rev that are closed or gone now
   buttons_total    distinct (object, button) pairs the matrix pressed: the scale of buttons_red (the home page's share)
+  fields_proven_unread  open-status fields a stop proves RotWK never reads (owner 2026-11-17): done for the port, left out of fields_open
+                   (the rule: proven_unread below); empty in rows before 2026-11-17 and in rows that carry the field columns
+  scripts_total    scripts of the sides' script libraries of the mod (docs/ennorath/SCRIPT_MAP.md, tools/mod/script_map.py; from 2026-11-19)
+  scripts_open     of those, scripts with a condition or action type the port's ScriptEngine has no case for (the home page's share)
+  funcs_total      distinct RotWK functions of the module (class) map, docs/ennorath/RW_FUNCTION_MAP.tsv (tools/mod/rw_function_map.py:
+                   every module the mod's INI uses and what its functions call; from 2026-11-19, owner: the bar must count the class map)
+  funcs_open       of those, functions with no `ported` row (none or partial): the home page's share
+  mods_total       RotWK's reads of the mod's attribute modifiers (docs/ennorath/MODIFIER_READERS.tsv, tools/mod/modifier_map.py; from 2026-11-19)
+  mods_open        of those, reads the port does not have (status not `ported` / `ported-via-call`): the home page's share
   gaps_specific    distinct RotWK functions the failing buttons' main classes lack (docs/ennorath/MATRIX_GAPS.tsv, `main class` rows,
                    `specific none`): the work the matrix still points at. Both empty in rows before 2026-11-16 and when a file is missing
 
@@ -41,8 +51,11 @@ import stops_count  # noqa: E402
 
 OUT = REPO / "docs" / "ennorath" / "PROGRESS.tsv"
 COLUMNS = ["date", "rev", "fields_total", "fields_open", "modules_missing", "problems_total", "problems_done", "stops_open", "audit",
-           "buttons_red", "gaps_specific", "stops_new", "stops_closed", "buttons_total"]
-GREEN = {"PASS", "STANCE", "DISABLED", "INVENTORY"}
+           "buttons_red", "gaps_specific", "stops_new", "stops_closed", "buttons_total", "fields_proven_unread", "scripts_total", "scripts_open",
+           "funcs_total", "funcs_open", "mods_total", "mods_open"]
+GREEN = {"PASS", "STANCE", "DISABLED", "INVENTORY", "TEMPORARY", "MEMBER", "MOD-DATA", "NO-TARGET", "BY-DESIGN", "ORDER", "NO-AURA"}  # by design, or fine when swept alone (matrix review 2026-11-17)
+# not red, but not judged either (owner 2026-11-18): the faction table counts them in a column of their own, not with the idle ones (tools/matrix_run.py)
+UNVERIFIED = {"MOD-DATA", "NO-TARGET", "ORDER", "NO-AURA"}
 OPEN_STATUSES = {"parsed-unused", "not-read", "stub-block", "missing-module", "parsed-only-module", "no-table-row"}
 
 
@@ -67,12 +80,42 @@ def problems(text: str) -> tuple[int, int]:
     return total, done
 
 
-def audit_counts(tsv: Path) -> tuple[int, int]:
+# A field RotWK itself never reads is done for the port (owner 2026-11-17: "засчитывай поля с доказательством как закрытые"): its audit row
+# names a stop (`stop` column) whose row in docs/STOPS.md is a no-reader verdict for that field, i.e. the verdict is the stop's title
+# ("Locomotor unread fields", "... without a reachable reader") and the stop names the field, or the verdict sentence stands within 300
+# characters of the field's name ("`DarkeningFactor` (+ 0x1C) has NO READER in RotWK 2.01"). A stop that only says "not ported" counts
+# nothing; neither does a verdict about another field of the same stop.
+NO_READER = re.compile(r"reads? none|read by nobody|reads? nothing|no (reachable |known |live )?reader|nothing to port|zero (callers|reads|readers)"
+                       r"|never read|not read by|without a (reachable )?reader|unread in RotWK|no instruction reads|no read of|has no reader"
+                       r"|no consumer|are dead|dead branch", re.I)
+NO_READER_TITLE = re.compile(NO_READER.pattern + r"|\bunread\b|rows without a reader", re.I)
+STOP_TEXT = re.compile(r"^\| (S-\d+) \| \w+ \|([^|]*)\|(.*)$", re.M)
+
+
+def proven_unread(field: str, stop_ids: list[str], stops: dict[str, tuple[str, str]]) -> bool:
+    for sid in stop_ids:
+        title, body = stops.get(sid, ("", ""))
+        text = title + " | " + body
+        names = [m.start() for m in re.finditer(rf"\b{re.escape(field)}\b", text)]
+        if not names:
+            continue
+        if NO_READER_TITLE.search(title):
+            return True
+        if any(abs(v.start() - n) <= 300 for v in NO_READER.finditer(text) for n in names):
+            return True
+    return False
+
+
+def audit_counts(tsv: Path, stops_text: str = "") -> tuple[int, int, int]:
+    """(fields, open fields, of them proven unread in RotWK); the open count already leaves the proven ones out."""
     with tsv.open(encoding="utf-8", newline="") as f:
-        rows = list(csv.DictReader(f, delimiter="\t"))
+        rows = list(csv.DictReader(f, delimiter="\t", quoting=csv.QUOTE_NONE))
     if not rows or "status" not in rows[0]:
         raise SystemExit(f"{tsv}: not a field-audit.tsv (no status column)")
-    return len(rows), sum(1 for r in rows if r["status"] in OPEN_STATUSES)
+    stops = {m.group(1): (m.group(2), m.group(3)) for m in STOP_TEXT.finditer(stops_text)}
+    open_rows = [r for r in rows if r["status"] in OPEN_STATUSES]
+    proven = sum(1 for r in open_rows if proven_unread(r["field"], re.findall(r"S-\d+\b", r.get("stop") or ""), stops))
+    return len(rows), len(open_rows) - proven, proven
 
 
 def matrix_counts(rev: str | None) -> tuple[str, str]:
@@ -123,6 +166,42 @@ def save(rows: list[dict[str, str]]) -> None:
             f.write("\t".join(r[c] for c in COLUMNS) + "\n")
 
 
+FACTIONS_OUT = REPO / "docs" / "ennorath" / "MATRIX_FACTIONS.tsv"
+
+
+def write_matrix_factions() -> None:
+    """The matrix per faction for the dashboard's faction table (2026-11-17; MATRIX.tsv is ~1 MB): pressed object/button pairs that work
+    (PASS), that are off by design in the scene (STANCE, DISABLED, INVENTORY), that fail, and the three most common failure kinds."""
+    path = REPO / "docs" / "ennorath" / "MATRIX.tsv"
+    if not path.exists():
+        return
+    lines = [l for l in path.read_text(encoding="utf-8").splitlines() if l and not l.startswith("#")]
+    per: dict[str, dict] = {}
+    for r in csv.DictReader(lines, delimiter="\t"):
+        f = per.setdefault(r["faction"], {"pass": set(), "idle": set(), "red": {}, "unverified": set()})
+        key = (r["object"], r["button"])
+        if r["result"] == "PASS":
+            f["pass"].add(key)
+        elif r["result"] in UNVERIFIED:
+            f["unverified"].add(key)
+        elif r["result"] in GREEN:
+            f["idle"].add(key)
+        else:
+            f["red"].setdefault(key, r["result"])
+    with FACTIONS_OUT.open("w", encoding="utf-8", newline="\n") as out:
+        # the unverified column comes last: a reader of the first five columns (the dashboard before 2026-11-18) still reads them
+        out.write("faction\tpass\tidle\tred\tred_top\tunverified\n")
+        for name, f in sorted(per.items()):
+            unverified = f["unverified"] - f["pass"]
+            idle = f["idle"] - f["pass"] - unverified
+            red = {k: v for k, v in f["red"].items() if k not in f["pass"] and k not in idle and k not in unverified}
+            kinds: dict[str, int] = {}
+            for v in red.values():
+                kinds[v] = kinds.get(v, 0) + 1
+            top = ", ".join(f"{k} {n}" for k, n in sorted(kinds.items(), key=lambda x: -x[1])[:3])
+            out.write(f"{name}\t{len(f['pass'])}\t{len(idle)}\t{len(red)}\t{top}\t{len(unverified)}\n")
+
+
 def matrix_total(rev: str | None) -> str:
     try:
         matrix = read("docs/ennorath/MATRIX.tsv", rev)
@@ -130,6 +209,40 @@ def matrix_total(rev: str | None) -> str:
         return ""
     lines = [l for l in matrix.splitlines() if l and not l.startswith("#")]
     return str(len({(r["object"], r["button"]) for r in csv.DictReader(lines, delimiter="\t")}))
+
+
+def script_counts(rev: str | None) -> tuple[str, str]:
+    """scripts_total / scripts_open from SCRIPT_MAP.md's "Library scripts: N; with ... no case for: M." line; empty when the file is missing."""
+    try:
+        text = read("docs/ennorath/SCRIPT_MAP.md", rev)
+    except (OSError, subprocess.CalledProcessError):
+        return "", ""
+    m = re.search(r"Library scripts: (\d+); with a condition or action the port has no case for: (\d+)\.", text)
+    return (m.group(1), m.group(2)) if m else ("", "")
+
+
+def func_counts(rev: str | None) -> tuple[str, str]:
+    """funcs_total / funcs_open from RW_FUNCTION_MAP.tsv: a function counts as ported when any module row has it `ported`; empty when missing."""
+    try:
+        text = read("docs/ennorath/RW_FUNCTION_MAP.tsv", rev)
+    except (OSError, subprocess.CalledProcessError):
+        return "", ""
+    status: dict[str, bool] = {}
+    for r in csv.DictReader(text.splitlines(), delimiter="\t"):
+        status[r["function"]] = status.get(r["function"], False) or r["status"] == "ported"
+    return (str(len(status)), str(sum(1 for v in status.values() if not v))) if status else ("", "")
+
+
+def mod_counts(rev: str | None) -> tuple[str, str]:
+    """mods_total / mods_open from MODIFIER_READERS.tsv; empty when missing."""
+    try:
+        text = read("docs/ennorath/MODIFIER_READERS.tsv", rev)
+    except (OSError, subprocess.CalledProcessError):
+        return "", ""
+    rows = list(csv.DictReader(text.splitlines(), delimiter="\t"))
+    if not rows:
+        return "", ""
+    return str(len(rows)), str(sum(1 for r in rows if r.get("status") not in ("ported", "ported-via-call")))
 
 
 def load() -> list[dict[str, str]]:
@@ -162,7 +275,7 @@ def main() -> int:
     missing = sum(1 for l in read("docs/ennorath/MODULE_GAPS.md", a.rev).splitlines() if "| missing |" in l)
     stops = stops_count.open_count(read("docs/STOPS.md", a.rev))
     if a.audit:
-        ftotal, fopen = audit_counts(a.audit)
+        ftotal, fopen, fproven = audit_counts(a.audit, read("docs/STOPS.md", a.rev))
         audit = a.audit_name or a.audit.parent.name
     else:
         # the day's own row counts too: a landing after the day's audit must not carry yesterday's numbers over it (2026-11-16)
@@ -170,12 +283,16 @@ def main() -> int:
         if not before:
             raise SystemExit("no earlier row to carry the field columns from: give --audit")
         last = before[-1]
-        ftotal, fopen = int(last["fields_total"]), int(last["fields_open"])
+        ftotal, fopen, fproven = int(last["fields_total"]), int(last["fields_open"]), last.get("fields_proven_unread") or ""
         audit = last["audit"] if last["date"] == a.date else "-"
     row = {"date": a.date, "rev": rev[:8], "fields_total": str(ftotal), "fields_open": str(fopen), "modules_missing": str(missing),
-           "problems_total": str(total), "problems_done": str(done), "stops_open": str(stops), "audit": audit}
+           "problems_total": str(total), "problems_done": str(done), "stops_open": str(stops), "audit": audit,
+           "fields_proven_unread": str(fproven)}
     row["buttons_red"], row["gaps_specific"] = matrix_counts(a.rev)
     row["buttons_total"] = matrix_total(a.rev)
+    row["scripts_total"], row["scripts_open"] = script_counts(a.rev)
+    row["funcs_total"], row["funcs_open"] = func_counts(a.rev)
+    row["mods_total"], row["mods_open"] = mod_counts(a.rev)
     earlier = [r for r in rows if r["date"] < a.date]
     row["stops_new"], row["stops_closed"] = stop_delta(earlier[-1]["rev"] if earlier else None, a.rev)
     if not a.write:
@@ -183,6 +300,8 @@ def main() -> int:
         return 0
     rows = sorted([r for r in rows if r["date"] != a.date] + [row], key=lambda r: r["date"])
     save(rows)
+    if not a.rev:
+        write_matrix_factions()
     print(f"{OUT.relative_to(REPO)}: {a.date} written ({len(rows)} rows)")
     return 0
 

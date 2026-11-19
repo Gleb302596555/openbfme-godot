@@ -4,7 +4,9 @@
 Run from the station-0 tree (workspace/wt/claude-station-0) after the batch was merged, built and tested on Colab and
 pushed to origin/agent/claude/station-0, and after the landing's hand-written docs (TOP20, PROBLEMS) are committed:
 
-    python tools/land.py [--no-build] [--no-push] [--audit <field-audit.tsv> --audit-name vN]
+    python tools/land.py [--no-build] [--no-push] [--audit <field-audit.tsv> --audit-name vN] [--batch <name>]
+
+--batch takes a green batch the batch bot pushed (tools/colab/batch_bot.py, origin/batch/<name>) in place of a hand-made one.
 
 1. fast-forward this tree to origin/agent/claude/station-0 (a local commit not on origin stays: it is pushed in 5);
 2. fold the stop / night-watch fragments into the tables (tools/fragments.py collect) and sync README's counts;
@@ -44,6 +46,7 @@ def main() -> int:
     ap.add_argument("--no-push", action="store_true", help="stop after the local commit (a dry landing)")
     ap.add_argument("--audit")
     ap.add_argument("--audit-name")
+    ap.add_argument("--batch", help="a green batch of tools/colab/batch_bot.py (batch/<name>): station-0 fast-forwards to it first")
     a = ap.parse_args()
     if MAIN is None or not (MAIN / ".git").exists():
         raise SystemExit("land: run from workspace/wt/claude-station-0 of the main checkout")
@@ -56,6 +59,10 @@ def main() -> int:
     behind = run("git", "rev-list", "--count", f"HEAD..origin/{BRANCH}").strip()
     if behind != "0":
         run("git", "merge", "--ff-only", f"origin/{BRANCH}")
+    if a.batch:  # the batch bot's branch starts at origin/main: station-0 must be main or behind it to fast-forward
+        name = a.batch if a.batch.startswith("batch/") else f"batch/{a.batch}"
+        run("git", "fetch", "-q", "origin", name)
+        run("git", "merge", "--ff-only", f"origin/{name}")
     if run("git", "rev-list", "--count", "HEAD..origin/main").strip() != "0":
         raise SystemExit("land: origin/main has commits this tree lacks: merge origin/main on Colab and test first")
 
@@ -74,7 +81,7 @@ def main() -> int:
     changed = [l[3:] for l in run("git", "status", "--porcelain").splitlines() if l.strip()]
     if changed:
         paths = ["README.md", "docs/STOPS.md", "docs/stops.d", "docs/ennorath/NIGHT_WATCH.md", "docs/ennorath/night_watch.d",
-                 "docs/ennorath/PROGRESS.tsv", "engine/tests/test_module_coverage.cpp"]
+                 "docs/ennorath/PROGRESS.tsv", "docs/ennorath/MATRIX_FACTIONS.tsv", "engine/tests/test_module_coverage.cpp"]  # progress_snapshot.py writes the faction table too
         # a fragment directory exists only while it holds files (git keeps no empty directory); a deleted fragment is tracked
         tracked = set(run("git", "ls-files", "--", *paths).splitlines())
         run("git", "add", "-A", "--", *[p for p in paths if (TREE / p).exists() or any(t.startswith(p) for t in tracked)])

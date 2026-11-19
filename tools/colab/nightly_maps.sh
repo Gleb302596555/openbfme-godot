@@ -26,6 +26,19 @@ INV_FULL=$DRIVE/openbfme-audit/rw_function_blocks_full.json   # the whole-image 
 AUDIT=$DRIVE/openbfme-audit/field-audit-auto                  # this run's field audit (the numbered vN stay hand releases)
 RUNS=$DRIVE/openbfme-runs/maps
 mkdir -p "$RUNS"
+# Self-update (owner 2026-11-17): between iterations the loop compares its installed copy with origin/main's and restarts on the new one
+# (after `bash -n`), so a landed change to the loop needs no hand swap. Only an installed copy outside a git tree updates itself (a run from
+# a tree is that tree's version); SELF_UPDATE=0 keeps the running copy (a branch version under test).
+self_update() {
+  [ "${SELF_UPDATE:-1}" = 1 ] || return 0
+  git -C "$(dirname "$0")" rev-parse --git-dir >/dev/null 2>&1 && return 0
+  local new="$0.new"
+  { git -C "$REPO" show "origin/main:tools/colab/$1" > "$new" 2>/dev/null && [ -s "$new" ]; } || { rm -f "$new"; return 0; }
+  if cmp -s "$new" "$0"; then rm -f "$new"; return 0; fi
+  bash -n "$new" || { echo "self-update: origin/main's $1 does not parse, keeping the running copy"; rm -f "$new"; return 0; }
+  echo "== $(date -u '+%F %T') UTC self-update: restarting on origin/main's $1"
+  mv -f "$new" "$0" && exec bash "$0"
+}
 LOG=$RUNS/nightly_maps.log   # every log on the Drive: /content dies with the runtime (owner 2026-11-16)
 
 # The RotWK -> BFME2 pairing (tools/re/README.md, Port 240: no Ghidra): RotWK entries from the angr inventory, BFME2's from the decomp's own
@@ -74,6 +87,10 @@ field-audit/  the mod field audit (tools/mod/field_audit.py on main {rev}; the m
   manual-check.tsv     the hand-checked verdicts every run applies with --manual
   {totals}
 
+script-map/SCRIPT_MAP.tsv  every script of the sides' script libraries (Libraries\<name>\<name>.map) and .scb files of the mod's mount:
+                       conditions, actions with parameters, the condition / action types the port has no case for (tools/mod/script_map.py;
+                       the repository has its names-only half: docs/ennorath/SCRIPT_GRANTS.tsv, SCRIPT_MAP.md)
+
 rotwk-triage/  what RotWK 2.01 itself does with 741 of those fields (cloud-agent triage, all 25 batches), reviewed; unchanged since 2026-11-10.
 """
 buf = io.BytesIO()
@@ -83,6 +100,8 @@ with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         if (audit / f).exists():
             z.write(audit / f, f"field-audit/{f}")
     z.write(manual, "field-audit/manual-check.tsv")
+    if (audit / "script-map" / "SCRIPT_MAP.tsv").exists():
+        z.write(audit / "script-map" / "SCRIPT_MAP.tsv", "script-map/SCRIPT_MAP.tsv")
     for n in (old.namelist() if old else []):
         if n.startswith("rotwk-triage/"):
             z.writestr(n, old.read(n))
@@ -96,6 +115,8 @@ print(f"audit zip: replaced ({len(buf.getvalue())} bytes, main {rev})")
 PY
 }
 
+st() { mkdir -p /content/status && echo "$*" > /content/status/maps.txt; }   # the dashboard's "what it does" line (watchdog.py)
+
 run() {
   local day; day=$(date -u +%F)
   echo "== $day $(date -u +%T) start" >> "$LOG"
@@ -103,19 +124,39 @@ run() {
   cd "$T" || return 1
   git fetch -q origin && git checkout -q -f --detach origin/main || return 1
   local rev; rev=$(git rev-parse --short=8 HEAD)
+  st "карты на main $rev: сборка"
   bash tools/colab/build_tests.sh > "$RUNS/nightly_build.log" 2>&1 || { echo "build failed at $rev" >> "$LOG"; return 1; }
+  mkdir -p "$AUDIT"
+  # the script map (owner 2026-11-19: mechanics the sides' script libraries give, like the Manwe science): before the matrix (matrix_run.py collect
+  # notes the script on a row naming what a script gives); its names-only half goes into the
+  # repository with the maps, the full transcription into the audit folder and its zip
+  st "карты на main $rev: карта скриптов"
+  python3 tools/mod/script_map.py "$ROTWK_INSTALL" "$OPENBFME_ENNORATH_INSTALL" --out docs/ennorath --full "$AUDIT/script-map"       > "$RUNS/nightly_scripts.log" 2>&1 || echo "script map failed at $rev (the run goes on)" >> "$LOG"
+  st "карты на main $rev: матрица кнопок (все фракции)"
   python3 tools/matrix_run.py all --jobs 5 > "$RUNS/nightly_matrix.log" 2>&1 || { echo "matrix failed at $rev" >> "$LOG"; return 1; }
+  # the matrix review (owner 2026-11-17): layer 1 ran inside `all` (recheck: every red object swept again alone, ORDER when fine alone);
+  # layers 2 and 3 here: the lint against the mod's INI, and every button whose verdict moved since the main the previous run measured
+  python3 tools/mod/matrix_review.py --ini "$INI" --before "$(cat "$RUNS/last_rev" 2>/dev/null)" > "$RUNS/nightly_review.log" 2>&1       || echo "matrix review failed at $rev (the run goes on)" >> "$LOG"
   # the field audit on this main (2026-11-17): the engine's module coverage table, then field_audit.py with the newest hand verdicts
   mkdir -p "$AUDIT"
+  st "карты на main $rev: аудит полей"
   OPENBFME_MODULE_COVERAGE_OUT="$AUDIT/module-coverage.tsv" engine/build/openbfme_tests "-tc=module coverage: every registry class*" \
       > "$RUNS/nightly_audit.log" 2>&1
   local manual; manual=$(ls -d "$DRIVE"/openbfme-audit/field-audit-v* 2>/dev/null | sort -V | tail -1)/manual-check.tsv
   python3 tools/mod/field_audit.py --base "$ROTWK_INSTALL" --overlay "$OPENBFME_ENNORATH_INSTALL" --coverage "$AUDIT/module-coverage.tsv" \
       --manual "$manual" --out "$AUDIT" >> "$RUNS/nightly_audit.log" 2>&1 || { echo "field audit failed at $rev" >> "$LOG"; return 1; }
+  # field-audit-auto is the one place every reader takes the audit from (owner 2026-11-18: "чтобы ночной сам везде обновлял"): the hand
+  # verdicts this run applied sit next to it, and README.txt says which main and which vN they are; the numbered vN stay hand releases
+  # (Claude adds new verdicts there), so no prompt or document names a version or a date that goes stale
+  cp -f "$manual" "$AUDIT/manual-check.tsv"
+  printf 'field-audit-auto: main %s, %s UTC (tools/colab/nightly_maps.sh, sandbox %s); hand verdicts from %s
+%s
+' "$rev" "$(date -u '+%F %T')" "$SB"       "$(basename "$(dirname "$manual")")" "$(grep -m1 'fields of the mod' "$AUDIT/field-audit.md" 2>/dev/null)" > "$AUDIT/README.txt"
   audit_zip "$rev" "$manual" || echo "audit zip failed at $rev" >> "$LOG"   # never stops the run
   [ -d /content/py219/angr ] || python3 -m pip install -q --target /content/py219 angr==9.2.213 bitstring==4.4.0 pycparser==3.0 > /dev/null 2>&1
   export PYTHONPATH=/content/py219
   cp -f "$INV" workspace/rebuild_inventory.json 2>/dev/null
+  st "карты на main $rev: карта функций RotWK"
   decomp_map   # fills the map's decomp column (Port 240); a failure leaves the column empty, it never stops the night
   python3 tools/mod/rw_function_map.py --game "$RW_GAME_DAT" --ini "$INI" --inventory workspace/rebuild_inventory.json \
       --decomp "$XMAP/rw_map.csv" --out docs/ennorath/RW_FUNCTION_MAP > "$RUNS/nightly_map.log" 2>&1 || { echo "map failed at $rev" >> "$LOG"; return 1; }
@@ -128,14 +169,30 @@ run() {
   [ -f "$XMAP/rw_map.csv" ] && xm=(--xmap "$XMAP/rw_map.csv")
   python3 tools/mod/field_gaps.py --audit "$AUDIT/field-audit.tsv" --inventory "$finv" --game "$RW_GAME_DAT" "${xm[@]}" \
       > "$RUNS/nightly_fgaps.log" 2>&1 || { echo "field_gaps failed at $rev" >> "$LOG"; return 1; }
+  # the attribute modifier map (owner 2026-11-19) on this run's MATRIX_GAPS: docs/ennorath/MODIFIER_*; the per-list table is the mod's data: Drive only
+  if [ -f "$INV_FULL" ]; then
+    local mm="$RUNS/modifier-map"; mkdir -p "$mm"
+    if python3 tools/mod/modifier_map.py --base "$ROTWK_INSTALL" --overlay "$OPENBFME_ENNORATH_INSTALL" --game "$RW_GAME_DAT" --inventory "$INV_FULL"         --out "$mm" > "$RUNS/nightly_modmap.log" 2>&1; then
+      cp -f "$mm/modifier-map.md" docs/ennorath/MODIFIER_MAP.md
+      cp -f "$mm/modifier-readers.tsv" docs/ennorath/MODIFIER_READERS.tsv
+      cp -f "$mm/modifier-port-reads.tsv" docs/ennorath/MODIFIER_PORT_READS.tsv
+      cp -f "$mm/modifier-unresolved.tsv" docs/ennorath/MODIFIER_UNRESOLVED.tsv
+      cp -f "$mm/modifier-matrix.tsv" docs/ennorath/MODIFIER_MATRIX.tsv
+    else
+      echo "modifier map failed at $rev (the run goes on)" >> "$LOG"
+    fi
+  fi
   rm -f workspace/rebuild_inventory.json
+  # task drafts from the red buttons, grouped by module class, after MATRIX_GAPS (owner 2026-11-17): Drive openbfme-runs/maps/drafts, never the repository
+  python3 tools/mod/matrix_drafts.py --ini "$INI" --out "$RUNS/drafts" > "$RUNS/nightly_drafts.log" 2>&1           || echo "matrix drafts failed at $rev (the run goes on)" >> "$LOG"
   # the day's progress row from this run (owner 2026-11-17: the dashboard's /stats and the home page bar read it without Claude):
   # this run's audit, matrix and gaps, and the stop curve against the previous row
   python3 tools/mod/progress_snapshot.py --audit "$AUDIT/field-audit.tsv" --audit-name auto --write >> "$LOG" 2>&1 || echo "progress row failed at $rev" >> "$LOG"
   local stops; stops=$(tail -1 docs/ennorath/PROGRESS.tsv | awk -F'\t' '{print "open " $8 ", new " $12 ", closed " $13}')
+  st "карты на main $rev: коммит auto/maps"
   git checkout -q -B auto/maps
   git add docs/ennorath/MATRIX.tsv docs/ennorath/README.md docs/ennorath/RW_FUNCTION_MAP.tsv docs/ennorath/RW_FUNCTION_MAP.md \
-      docs/ennorath/MATRIX_GAPS.tsv docs/ennorath/MATRIX_GAPS.md docs/ennorath/FIELD_GAPS.tsv docs/ennorath/PROGRESS.tsv
+      docs/ennorath/MATRIX_GAPS.tsv docs/ennorath/MATRIX_GAPS.md docs/ennorath/FIELD_GAPS.tsv docs/ennorath/PROGRESS.tsv docs/ennorath/MATRIX_FACTIONS.tsv docs/ennorath/MATRIX_REVIEW.md       docs/ennorath/SCRIPT_GRANTS.tsv docs/ennorath/SCRIPT_MAP.md docs/ennorath/GRANTS_INI.tsv \n      docs/ennorath/MODIFIER_MAP.md docs/ennorath/MODIFIER_READERS.tsv docs/ennorath/MODIFIER_PORT_READS.tsv docs/ennorath/MODIFIER_UNRESOLVED.tsv docs/ennorath/MODIFIER_MATRIX.tsv
   local red; red=$(python3 -c "import sys; sys.path.insert(0,'tools/mod'); import progress_snapshot as p; print(*p.matrix_counts(None))")
   if git diff --cached --quiet; then
     echo "$day: nothing changed at $rev" >> "$LOG"
@@ -147,7 +204,7 @@ run() {
     git push -q -f origin auto/maps 2>/dev/null && rm -f "$RUNS/$day.patch" || echo "push failed at $rev: the commit is $RUNS/$day.patch" >> "$LOG"
     # owner 2026-11-17: the agents read the maps from main, so the commit (only the generated tables and the progress row, checked by the
     # gate) fast-forwards main when main has not moved during the run; otherwise it waits in auto/maps for the next landing
-    if [ -z "$(git diff --name-only HEAD~1 HEAD | grep -vxE 'docs/ennorath/(MATRIX\.tsv|README\.md|RW_FUNCTION_MAP\.(tsv|md)|MATRIX_GAPS\.(tsv|md)|FIELD_GAPS\.tsv|PROGRESS\.tsv)')" ]; then
+    if [ -z "$(git diff --name-only HEAD~1 HEAD | grep -vxE 'docs/ennorath/(MATRIX\.tsv|README\.md|RW_FUNCTION_MAP\.(tsv|md)|MATRIX_GAPS\.(tsv|md)|FIELD_GAPS\.tsv|PROGRESS\.tsv|MATRIX_FACTIONS\.tsv|MATRIX_REVIEW\.md)')" ]; then
       git push -q origin HEAD:main 2>/dev/null && echo "$day: maps fast-forwarded main" >> "$LOG" || echo "$day: main moved during the run, maps wait in auto/maps" >> "$LOG"
     fi
   fi
@@ -155,10 +212,13 @@ run() {
     echo "stops since the previous progress row: $stops"; echo
     echo '## Function map'; tail -3 "$RUNS/nightly_map.log"; echo; echo '## MATRIX_GAPS'; tail -2 "$RUNS/nightly_gaps.log"
     echo; echo '## FIELD_GAPS'; tail -2 "$RUNS/nightly_fgaps.log"; echo; echo '## Matrix'; tail -5 "$RUNS/nightly_matrix.log"
-    echo; echo '## Field audit (changes against the previous run)'; head -40 "$AUDIT/field-audit-diff.md" 2>/dev/null; } > "$RUNS/$day.md"
+    echo; echo '## Field audit (changes against the previous run)'; head -40 "$AUDIT/field-audit-diff.md" 2>/dev/null
+    echo; echo '## Task drafts (Drive openbfme-runs/maps/drafts/index.md)'; tail -1 "$RUNS/nightly_drafts.log"
+    echo; sed -n '/^## Lint/,$p' docs/ennorath/MATRIX_REVIEW.md 2>/dev/null | head -60; } > "$RUNS/$day.md"
   cp -f "$RUNS/$day.md" "$RUNS/latest.md"
   echo "$rev" > "$RUNS/last_rev"
   echo "== $day $(date -u +%T) done ($red)" >> "$LOG"
+  st "жду следующего переноса в main (последний прогон: main $rev, красных кнопок / пробелов $red)"
 }
 
 if [ "${1:-}" = "--now" ]; then
@@ -169,12 +229,16 @@ fi
 # 15 minutes; otherwise once a day at 01:00 UTC when main moved at all (tool and doc commits alone do not take the sandbox for an hour)
 while true; do
   git -C "$REPO" fetch -q origin 2>/dev/null
+  self_update nightly_maps.sh
   head=$(git -C "$REPO" rev-parse --short=8 origin/main 2>/dev/null)
   last=$(cat "$RUNS/last_rev" 2>/dev/null)
   age=$(( $(date +%s) - $(git -C "$REPO" log -1 --format=%ct origin/main 2>/dev/null || echo 0) ))
   landed=0
   if [ -n "$last" ] && git -C "$REPO" cat-file -e "$last^{commit}" 2>/dev/null; then
-    git -C "$REPO" log --format=%s "$last..origin/main" | grep -qE '^(Landing|Merge upstream)' && landed=1
+    # the 15 still minutes count from the newest landing, not from main's tip (2026-11-19: Claude's doc and tool commits every 10-20 minutes
+    # after the 08:50 landing kept the run from starting for 1.5 hours)
+    land_ct=$(git -C "$REPO" log -1 --format=%ct -E --grep='^(Landing|Merge upstream)' "$last..origin/main" 2>/dev/null)
+    [ -n "$land_ct" ] && landed=1 && age=$(( $(date +%s) - land_ct ))
   else
     landed=1   # no previous run known: run once
   fi

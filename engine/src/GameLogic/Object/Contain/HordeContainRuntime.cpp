@@ -9,6 +9,7 @@
 #include "GameLogic/Module/HordeAIUpdate.h"
 #include "GameLogic/SimMath.h"
 
+#include "Common/Audio/AudioRequests.h"
 #include "Common/GameCommon.h"
 #include "Common/StateHash.h"
 #include "Common/Thing/ModuleFactory.h"
@@ -137,6 +138,12 @@ UpdateSleepTime HordeContain::update()
 	recordFlankHistory();    // HORDE-2: RW 0x872F05, the first thing the update does
 	mirrorMovingCondition(); // TransportContain::update (RW 0x86B86D)
 	bannerCheck(false);      // HORDE-2: RW 0x8730A5 (after the melee tick and the parked-goal update; inference: before them here)
+	// PORT-265: RW 0x8730AA .. 0x8730C2 — every 5th logic frame (the divisor at RW 0xD9F608) the update calls the class's own slot +0x7C
+	// (RW 0x86DF44); when that split the horde the update ends there (RW 0x8730C7 -> 0x873172, UPDATE_SLEEP_NONE)
+	if (horde->logic().getFrame() % 5 == 0 && splitHordeIfDue())
+	{
+		return UPDATE_SLEEP_NONE;
+	}
 	if (m_meleeEngaged || (ai && ai->isMoving()))
 	{
 		// lane MODULES-3: RW 0x872FED .. 0x873002 -> 0x873155: a moving or melee-engaged horde drops its back-up records and scarer (and is dirty)
@@ -796,6 +803,65 @@ void HordeContain::splitHorde()
 	logic.destroyObject(self);
 }
 
+// PORT-265 (fork issue 613): the split branch of RW 0x86DF44, the class's own module slot +0x7C, called by the update every 5th logic frame
+// (RW 0x8730AA .. 0x8730C2, the divisor at RW 0xD9F608; a true answer ends the update at RW 0x873172 with UPDATE_SLEEP_NONE). RotWK's function has two
+// branches; the first one (RW 0x86DF51 .. 0x86DFAB: a horde that is not dead, holds no member and has H + 0x174 clear reports
+// EvaEventLastMemberDeath, data + 0x250, and is destroyed) is the port's existing "a horde whose last member is gone is destroyed" path in
+// removeFromContain (RW 0x69031F), which now reports that EVA as well: one reaction, one path, no second destroy. This one is the split.
+bool HordeContain::splitHordeIfDue()
+{
+	Object *horde = getObject();
+	// RW 0x86DFBF -> interface slot +0x1FC (RW 0x86C9CD: the SplitHorde rows, data + 0x1A4 versus + 0x1A8, are not empty). This is NOT canSplit():
+	// that one is the special power's slot +0x1F4 (RW 0x86CA3D, the mixed-template test RW 0x86C9FF), while here the member templates are tested below.
+	if (m_data->horde.m_splitHorde.empty())
+	{
+		return false;
+	}
+	// RW 0x86DFCD .. 0x86DFD9: the rank of the horde's experience tracker (Object + 0x26C -> + 0x24) must be at most 1
+	const ExperienceTracker *tracker = horde->getExperienceTracker();
+	if (tracker && tracker->getRank() > 1)
+	{
+		return false;
+	}
+	const unsigned count = (unsigned)m_members.size(); // RW 0x86DFDF .. 0x86E00E: the size of the contain list
+	if (m_data->horde.m_splitHordeNumber > 0)          // RW 0x86E013: SplitHordeNumber (data + 0x258)
+	{
+		if (count > (unsigned)m_data->horde.m_splitHordeNumber) // RW 0x86E01C: more members than SplitHordeNumber: no split this time
+		{
+			return false;
+		}
+	}
+	else
+	{
+		if (count == 0) // RW 0x86E03A
+		{
+			return false;
+		}
+		// RW 0x86E044 .. 0x86E06D: with SplitHordeNumber 0 every member but the BANNER carriers (template + 0x11C bit 0x10) must be the same template
+		// (a member of another template sends the check home at RW 0x86E06D)
+		static const int kBanner = CombatNames::kindOf("BANNER");
+		const ThingTemplate *first = nullptr;
+		for (Object *member : m_members)
+		{
+			const ThingTemplate *tt = member ? member->getTemplate() : nullptr;
+			if (!tt || member->isKindOf((unsigned)kBanner))
+			{
+				continue;
+			}
+			if (!first)
+			{
+				first = tt;
+			}
+			else if (!ObjectFilterMatch::isEquivalentTo(first, tt)) // RW 0x86E066 -> RW 0x73D5C2
+			{
+				return false;
+			}
+		}
+	}
+	splitHorde(); // RW 0x86E090: interface slot +0x1F8
+	return true;  // RW 0x86E09A
+}
+
 const char *HordeContain::splitStopLine()
 {
 	return "[S-6004] HordeContain::splitHorde (RW 0x8791C5): NOT ported: the attribute modifiers' removal of RW 0x86C962 (slot 0x1E8), a defected horde's hand-over RW 0x6930C9, the weapon set flag 0x18 of the first member; INFERENCE: the held member destroyed is the banner carrier";
@@ -1135,6 +1201,12 @@ void HordeContain::removeMember(Object *obj, bool keepSlot, bool templateIsSpeci
 	// lane GARRISON-1: members on their way into or out of a garrison (released through slot 0xA8, RW 0x86EBF4) still belong to the horde
 	if (m_members.empty() && m_garrisonEntering.empty() && m_payloadCreated && !m_deleting && !horde->isDestroyed())
 	{
+		// PORT-265: RW 0x86DF99 (the death branch of the periodic check RW 0x86DF44): the horde's own EvaEventLastMemberDeath (data + 0x250,
+		// "None" = -1) announces the last member's death at the horde's position, right before RotWK destroys the object (RW 0x86DFAB)
+		if (m_data->horde.m_evaEventLastMemberDeath >= 0)
+		{
+			AudioApi::reportEva(m_data->horde.m_evaEventLastMemberDeath, horde->getPosition());
+		}
 		horde->logic().destroyObject(horde);
 	}
 }
@@ -1277,7 +1349,7 @@ void HordeContain::teleportMembersTransform(const float basis[9])
 // they walk to their slots in the member pass (RW 0x87468B), and an explicit teleport moves them (contain slot 0x1B8 RW 0x86D881, teleportMembers). The port
 // had ZH OpenContain's "the contents follow the container" here: every member was put on its slot whenever the horde's transform changed outside its
 // locomotor, e.g. AIMoveToState's final-angle snap (RW 0x748E46 -> 0x70C31E), so members jumped up to 40 units at the end of a move.
-// NOT PORTED: the + 0x4AC / + 0x4B0 mark (its readers are not decoded).
+// NOT PORTED: maintain the transient + 0x4AC ground override / + 0x4B0 frame stamp. The + 0x4AC readers include Object layer and Pathfinder portal checks (S-4840 / S-4851); its HordeContain writer clears it 13 frames later (RW 0x68C05A). The + 0x4B0 reader/use remains unresolved; this is separate from the old, incorrect follow-container transform behavior.
 void HordeContain::containReactToTransformChange()
 {
 }
@@ -1491,4 +1563,49 @@ void HordeContain::xfer(Xfer &x)
 	x.xferInt(&m_wallIdlePasses);
 	SnapshotXfer::checkRange(m_wallIdlePasses, 0, 4, "a horde's wall scaling idle passes"); // checkWallScalingDone: the fifth idle pass ends the scaling and resets it
 	x.xferReal(&m_scalingReach);
+}
+
+// lane PORT-199 (issue #466): RW 0x86ECAB is HordeContainInterface vslot 0xAC (table RW 0xC5B1F8). Its body walks the
+// contain's member list (the iterators of RW 0x865598, `lea ecx, [edi - 0x11c]` — the interface at module + 0x11C) and
+// asks every member Object::affectedByUpgrade (RW 0x694914, `mov ecx, [esi + 8]`), then walks the id map at interface
+// + 0x54 (the members on their way into a garrison, `findObjectByID` RW 0x449681 first) the same way; the first member
+// that answers true answers for the horde (RW 0x86ED21), no answer at all is false (RW 0x86ED18).
+bool HordeContain::affectedByUpgrade(const UpgradeTemplate *upgrade) const
+{
+	if (!upgrade) return false;
+	for (const Object *member : m_members)
+	{
+		if (member && member->affectedByUpgrade(upgrade)) return true; // RW 0x86ECCF .. 0x86ECDC
+	}
+	GameLogic &logic = getObject()->logic();
+	for (const ObjectID id : m_garrisonEntering) // RW 0x86ECE4: interface + 0x54
+	{
+		const Object *member = logic.findObjectByID(id);
+		if (member && member->affectedByUpgrade(upgrade)) return true; // RW 0x86ECEE .. 0x86ED08
+	}
+	return false;
+}
+
+// lane PORT-199 (issue #466): RW 0x871A90 is HordeContainInterface vslot 0xB8. The horde's own object takes the whole
+// mask first (`mov ecx, [edi - 0x114]; call RW 0x69388B`, RW 0x871AE5), then every member of the list above: with the
+// flag (RW 0x871AEC `cmp byte ptr [ebp + 0xc], 0`) every member, without it only a member that is affectedByUpgrade
+// (RW 0x871AFA). Every member that takes it flashes (`call RW 0x70E013`, the drawable, then `push 0xf; push 4; push 4;
+// lea ecx, [ebp - 0x24]; call RW 0x675749`, RW 0x871B0D .. 0x871B1E) with the three floats of RW 0xBE53BC.
+void HordeContain::giveUpgrade(const UpgradeTemplate *upgrade, bool allMembers)
+{
+	Object *self = getObject();
+	if (!self || !upgrade) return;
+	self->giveUpgrade(upgrade); // RW 0x871AE5 -> RW 0x69388B on the horde object
+	const RGBColor flash{ 0.99f, 0.99f, 0.99f }; // RW 0xBE53BC, the same float in all three components (RW 0x871AC1 .. 0x871AE0)
+	for (Object *member : m_members)
+	{
+		if (!member) continue;
+		if (!allMembers && !member->affectedByUpgrade(upgrade)) continue; // RW 0x871AF5
+		member->giveUpgrade(upgrade);                                              // RW 0x871B08 -> RW 0x69388B
+		// RW 0x871B0F -> RW 0x70E013 asks the member's drawable; the port reaches it through the logic's client hooks.
+		if (ObjectClientHooks *client = self->logic().clientHooks())
+		{
+			client->flashAsSelected(*member, &flash);                              // RW 0x871B23 -> RW 0x675749
+		}
+	}
 }

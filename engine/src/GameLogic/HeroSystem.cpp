@@ -195,7 +195,6 @@ Object *HeroSystem::produce(GameLogic &logic, Player &player, std::uint32_t prod
 		return nullptr;
 	}
 	const HeroRecord r = *found; // RW 0x78147B: a copy (the list entry is erased at the end)
-	const size_t index = (size_t)(found - list.records().data());
 	const ThingTemplate *tt = logic.things().findTemplate(r.templateName);
 	if (!tt)
 	{
@@ -259,7 +258,13 @@ Object *HeroSystem::produce(GameLogic &logic, Player &player, std::uint32_t prod
 	{
 		obj->addAttributeModifier("SpellBookAnduril", -1);
 	}
-	list.erase(index); // RW 0x7813FF: the first record with the production id
+	// RW 0x7813FF: the first record with the production id, looked up NOW: the object's creation above runs its modules and upgrade checks
+	// (ObjectCreationUpgrade::postUpgradeCheck, BuildableHeroListUpgrade's removal -> PlayerHeroList::removePurchase), which can change the
+	// list, so the index taken before it may name another record or none (factb heroes crashed freeing a record's string, 2026-11-19)
+	if (const HeroRecord *still = list.findByProductionID(productionID))
+	{
+		list.erase((size_t)(still - list.records().data()));
+	}
 	return obj;
 }
 

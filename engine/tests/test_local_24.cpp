@@ -138,6 +138,7 @@ void dealDamage(Object *victim, float amount, bool kill = false)
 
 TEST_CASE("LOCAL-24 DetachableRiderBody + DetachableRiderUpdate: lethal hit clamps damage to HealthPercentageWhenRiderDies, plays DeathEntry AnimState while paralyzed, and on wake hides RiderSubObjects, spawns RiderOCL, locks RiderlessWeaponSlot, sets RIDERLESS, and triggers RunOffMapBehavior (RW 0x8C5EF3, RW 0x8B2A46, RW 0x8B2D59)")
 {
+	SubObjectHookRecorder hooks; // before the rig: the world destroys its objects in ~RiderTestRig and they call the hooks (ASan stack-use-after-scope, Object.cpp ~Object)
 	RiderTestRig rig(
 		"Object TestMountedKnight\n"
 		"  KindOf = SELECTABLE CAVALRY CAN_ATTACK\n"
@@ -167,7 +168,6 @@ TEST_CASE("LOCAL-24 DetachableRiderBody + DetachableRiderUpdate: lethal hit clam
 		"  End\n"
 		"End\n");
 
-	SubObjectHookRecorder hooks;
 	rig.w.logic->setClientHooks(&hooks);
 
 	Object *knight = rig.w.unit("TestMountedKnight", 'A', 100.0f, 100.0f);

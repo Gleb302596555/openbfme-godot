@@ -31,7 +31,7 @@ struct VisionSettings
 	bool showRandomPlayerTemplate = true, showRandomStartPos = true, showRandomColor = true;
 	// S-5261: GameData TaintOn (+ 0xC6A, no constructor write: off) and TaintAlpha (+ 0xC04, constructor 0x80, RW 0x6432F8), optional fields; the
 	// terrain's taint mask (W3DTaintMask.h). TaintColor (+ 0xBEC, constructor white, RW 0x6432EB) / ElvenWoodColor (+ 0xBF8, no constructor write):
-	// parseRGBColor 0 .. 1, read by the radar's taint (Radar::taintTexels, RW 0x44E5F3) and the fixed-function texel (not ported)
+	// parseRGBColor 0 .. 1, read by the radar's taint (Radar::taintTexels, RW 0x44E5F3) and the Default_L / fixed-function terrain taint texel (W3DTaintMask::lowTexel, RW 0x473659 .. 0x473831)
 	bool taintOn = false;
 	unsigned taintAlpha = 0x80;
 	float taintColor[3] = { 1.0f, 1.0f, 1.0f };

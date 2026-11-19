@@ -46,7 +46,8 @@ enum WeaponChoiceCriteria
 	PREFER_TEMPLATE_DEFAULT = 5
 };
 
-// PORT-218: AbleToAttackType / CanAttackResult live in GameLogic/ObjectTypes.h (RW 0x6C91C9 / 0x6C88E2 .. 0x6C88F5), so Object.h can name the answer.
+// PORT-218: AbleToAttackType / CanAttackResult live in GameLogic/ObjectTypes.h (RW 0x6C91C9 / 0x6C88E2 .. 0x6C88F5), so Object.h
+// can name the answer; RotWK's bits are 0 (new target), 1 (forced), 8 (continued), 9 (continued forced), 4 (tunnel network guard).
 
 // ZH WeaponLockType
 enum WeaponLockType
@@ -127,23 +128,29 @@ public:
 	static const char *choiceStopLine(); // S-1582
 	// ZH WeaponSet::getVictimAntiMask: the WEAPON_ANTI_* class of a target (ground infantry / vehicle, structure, airborne, ...)
 	static unsigned victimAntiMask(const Object &victim);
-	// PORT-218: the old bool stand-in, now only a view on the RW answer: getAbleToAttackSpecificObject(forced ? ATTACK_CONTINUED_TARGET_FORCED :
-	// ATTACK_NEW_TARGET, ...) answering POSSIBLE or POSSIBLE_AFTER_MOVING. RotWK's order path is the only place with a shroud gate and it keeps it at
-	// the caller (VIS-1, RW 0x82C167), so the stand-in's "NoShroud" twin is gone.
+	// ZH Object::getAbleToAttackSpecificObject, the part that does not depend on the AI: the victim can be shot at by SOME weapon of this set
 	bool canAttackObject(const Object &victim, CommandSourceType source, bool forced) const;
 	// PORT-218: kept as the name the attack machine's callers used (there is no shroud gate either way: RW 0x6C9147 has none); it is the same call
 	bool canAttackObjectNoShroud(const Object &victim, CommandSourceType source, bool forced) const { return canAttackObject(victim, source, forced); }
-	// PORT-218: RotWK WeaponSet::getAbleToAttackSpecificObject RW 0x6C9147 (see docs/re/rotwk/RW_0x68D6A6.md for every branch
-	// and its address). `source` is the object whose set this is. Answer: CanAttackResult.
+	// PORT-218: RotWK WeaponSet::getAbleToAttackSpecificObject RW 0x6C9147 (see docs/re/rotwk/RW_0x68D6A6.md for every branch and its address).
+	// `source` is the object whose set this is. Answer: CanAttackResult.
 	CanAttackResult getAbleToAttackSpecificObject(AbleToAttackType type, const Object &source, const Object &victim, CommandSourceType commandSource) const;
-	// PORT-218: RotWK WeaponSet::getAbleToUseWeaponAgainstTarget RW 0x6C8652, the tail RW 0x6C9147 always reaches: the anti mask and range
-	// loop over the six slots, the aim delta, the garrison / firing owner branch, the canDamage / OnlyAgainst loop, a passenger's own
-	// answer, a spawner's slaves. `position` is the victim's position (or an empty ground target).
+	// PORT-218: RotWK WeaponSet::getAbleToUseWeaponAgainstTarget RW 0x6C8652, the tail RW 0x6C9147 always reaches: the set anti mask and the range
+	// loop over the six slots, the aim delta, the garrison / firing owner branch, the canDamage / OnlyAgainst loop, a passenger's own answer,
+	// a spawner's slaves. `position` is the victim's position (or an empty ground target).
 	CanAttackResult getAbleToUseWeaponAgainstTarget(AbleToAttackType type, const Object &source, const Object *victim, const Coord3D &position,
 	                                                CommandSourceType commandSource) const;
 	// PORT-218: the slot loop of RW 0x6C891B .. 0x6C8993 alone: true when a weapon that canDamage the victim has an empty OnlyAgainst or one
 	// naming a KindOf of the victim (called back by a passenger's own query, so it must not recurse into the containers again)
 	bool someWeaponCanDamage(const Object &source, const Object &victim) const;
+	// PORT-218: RW 0x6CC653 / RW 0x6CC622 for the weapon in `slot` (the anti / range loop of RW 0x6C8652 walks the slots, not the current one)
+	bool isWithinAttackRangeWithWeapon(const Weapon &weapon, const Object &victim) const;
+	bool isWithinAttackRangeWithWeapon(const Weapon &weapon, const Coord3D &pos) const;
+	// PORT-218: RW 0x6C80A9 isAnyWithinTargetPitch: true when no weapon of the set is pitch-limited; otherwise one weapon must pass RW 0x6CA9BF
+	bool isAnyWithinTargetPitch(const Object &source, const Object &victim) const;
+	// PORT-208 (issue #490): main's entry point, RW 0x68B5FA Object::getAbleToUseWeaponAgainstTarget: its body forwards to the PORT-218 port of
+	// RW 0x6C8652 above, so both forms share one implementation (the copy this lane replaced had the per-slot anti test and the old 8 / 1 bits).
+	CanAttackResult getAbleToUseWeaponAgainstTarget(int attackType, const Object *victim, const Coord3D *pos, CommandSourceType source) const;
 
 	// ---- range ---------------------------------------------------------------------------------------------------------------------
 	// RW 0x6CC653: Weapon::isWithinAttackRange(source, victim, extra, checkMinRange) for the current weapon; the AI passes extra 0 and checkMin true
@@ -151,6 +158,9 @@ public:
 	bool isWithinAttackRange(const Coord3D &pos) const;
 	// lane GARRISON-2: RW 0x6CC653 for the weapon in `slot` (TurretAI::isAnyWeaponInRangeOf, RW 0x8DC626)
 	bool isSlotWithinAttackRange(int slot, const Object &victim, float extra = 0.0f, bool checkMin = true) const;
+	// PORT-208: RW 0x6CC622 (Weapon::isWithinAttackRange(source, pos)) and RW 0x6CBFF1 (Weapon::isSourceWithGoalPositionWithinAttackRange) for `slot`
+	bool isSlotWithinAttackRange(int slot, const Coord3D &pos) const;
+	bool isSlotSourceWithGoalWithinAttackRange(int slot, const Coord3D &goalPos, const Object *victim, const Coord3D &targetPos) const;
 	// isWithinAttackRange with the current weapon's bonus computed by the caller (currentWeaponBonus): the bonus is the attacker's alone, so a loop over many
 	// victims computes it once (performance, the same answers and the same melee reach left in the range host). False without a current weapon
 	bool currentWeaponBonus(WeaponBonus &out) const;
@@ -174,6 +184,9 @@ public:
 	// RW 0x6CA935(source) on `weapon` (one of this object's): its attack range with no target for another source object, the bonus and the
 	// range host taken from that source as RW 0x6ED8AB's call does (ObjectWeapons.cpp); 0 for a weapon without a template
 	float attackRangeNoTargetFor(const Weapon &weapon, const Object &source) const;
+	// lane PORT-260: RW 0x6CA701 on the owner as the source (WeaponGetAttackRangeNoTarget: the scale applied twice) with `bonus` — the caller's, RW's
+	// six 1.0s at RW 0x893DEB — or the owner's computed bonus when `bonus` is null (RW 0x6CA7AC)
+	float attackRangeNoTarget(const WeaponTemplate &t, const WeaponBonus &bonus) const;
 	// RW 0x6CA83B
 	bool isTooClose(const Object &victim) const;
 	// the weapon's AcceptableAimDelta (radians) of the current weapon
@@ -283,11 +296,6 @@ private:
 	WeaponRangeHost &rangeHost();
 	static void fireTempWeapon(const WeaponTemplate *t, Object *source, const WeaponShotTarget &target); // lane DECOMP-1
 	RangeSubject subjectOf(const Object &obj) const;
-	// PORT-218: RW 0x6CC653 / RW 0x6CC622 for the weapon in `slot` (the anti / range loop of RW 0x6C8652 walks the slots, not the current one)
-	bool isWithinAttackRangeWithWeapon(const Weapon &weapon, const Object &victim) const;
-	bool isWithinAttackRangeWithWeapon(const Weapon &weapon, const Coord3D &pos) const;
-	// PORT-218: RW 0x6C80A9 isAnyWithinTargetPitch: no pitch-limited weapon of the set: true; otherwise one weapon that passes RW 0x6CA9BF
-	bool isAnyWithinTargetPitch(const Object &source, const Object &victim) const;
 
 	Object *m_owner;
 	WeaponSetFlags m_flags{};

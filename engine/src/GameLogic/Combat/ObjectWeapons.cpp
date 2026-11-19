@@ -14,12 +14,14 @@
 #include "GameLogic/SnapshotXfer.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "GameLogic/AI/AIWorld.h"
+#include "GameLogic/AttributeModifiers.h"
 #include "GameLogic/AI/TurretAI.h"
 #include "GameLogic/Combat/CombatNames.h"
 #include "GameLogic/Combat/CombatQueries.h"
 #include "GameLogic/Combat/CombatState.h"
 #include "GameLogic/Combat/WeaponDelivery.h"
 #include "GameLogic/GameLogic.h"
+#include "GameLogic/Locomotor.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/BehaviorModule.h"
 #include "GameLogic/Module/InvisibilityModules.h"
@@ -133,7 +135,14 @@ public:
 	// PORT-114 (issue #298): GameData's global WeaponBonus set (RW 0x6CA7CF: `mov ecx,[eax+0xAD0]` with eax = [0xDE4364], tested before the add at
 	// RW 0x6CA4B5); null when no GameData block of the load set named WeaponBonus, which is RW's own null test
 	const WeaponBonusSet *globalWeaponBonusSet() override { return m_w.owner().logic().settings().globalWeaponBonusSet.get(); }
-	float rateOfFireAttributeProduct() override { return 1.0f; }              // the attribute modifiers (S-320)
+	// RW 0x6CEF6D (Weapon::privateFireWeapon) -> RW 0x6CF042: source->getAttributeModifierProduct(0x15, &factor, nullptr, true) (RW 0x68C82D).
+	// Pure const read on the owner's pool (safe on the PERF-WS logic job pool).
+	float rateOfFireAttributeProduct() override
+	{
+		float rof = 1.0f;
+		m_w.owner().attributeModifierProduct(ATTRIBUTE_RATE_OF_FIRE, nullptr, true, rof);
+		return rof;
+	}
 	// lane PERF-WS: the two reads below run on the logic job pool (computeWeaponStatusConditions through Weapon::getStatus): keep them reads when
 	// S-320 is ported
 	// ProjectileFilterInContainer (Weapon template + 0x120), RW 0x6CD298: the owner (RW 0x449681 of [weapon + 8]) whose template's filter is set
@@ -253,7 +262,9 @@ class ObjectWeapons::RangeHost : public WeaponRangeHost
 public:
 	explicit RangeHost(ObjectWeapons &w) : m_w(w) {}
 	ObjectWeapons &m_w;
-	bool rangeAttributeSum(float &) override { return false; }
+	// RW 0x6CA61F (WeaponRangeScale) -> RW 0x6CA641: source->getAttributeModifierSum(7, &sum, nullptr) (RW 0x68C818).
+	// Pure const read on the owner's pool (safe on the PERF-WS logic job pool).
+	bool rangeAttributeSum(float &sum) override { return m_w.owner().attributeModifierSum(ATTRIBUTE_RANGE, nullptr, sum); }
 	// lane GARRISON-1: GameData GarrisonedRangeMultiplier (RW + 0x1224; RW 0x6CA61F applies it when >= 0 and the source is INSIDE_GARRISON)
 	float garrisonRangeScale() override { return m_w.owner().logic().settings().garrisonedRangeMultiplier; }
 	// lane GARRISON-1: RW 0x6FF412(source, 3): with an AI, the bounding radius plus the vision range (RW 0x68E43B: Object + 0x1B0, the template's VisionRange; its
@@ -1292,8 +1303,9 @@ bool ObjectWeapons::chooseBestWeaponForTarget(const Object *victimIn, WeaponChoi
 	return false;
 }
 
-// PORT-218: the bool view of RW 0x6C9147 (see getAbleToAttackSpecificObject below). The order translator keeps its own shroud gate
-// (VIS-1, RW 0x82C167 at its caller), because RW 0x6C9147 itself has no shroud test.
+// PORT-218: the bool view of RW 0x6C9147 (see getAbleToAttackSpecificObject below), kept as the name main's callers use. It runs the same
+// one path: no second copy of the branches, and no extra shroud gate here — the order translator keeps its own (VIS-1, RW 0x82C167 at its
+// caller) because RW 0x6C9147 has no shroud test, and `canAttackObjectNoShroud` is this function under its old name.
 bool ObjectWeapons::canAttackObject(const Object &victim, CommandSourceType source, bool forced) const
 {
 	const CanAttackResult r = getAbleToAttackSpecificObject(forced ? ATTACK_CONTINUED_TARGET_FORCED : ATTACK_NEW_TARGET, *m_owner, victim, source);
@@ -1311,11 +1323,12 @@ CanAttackResult ObjectWeapons::getAbleToAttackSpecificObject(AbleToAttackType ty
 	const CombatNames::Kind &k = CombatNames::kinds();
 	// RW 0x68D6BC .. 0x68D717 are the Object half (Object.cpp): a CAN_ATTACK object that cannot path through gates needs a quick path to a
 	// STRUCTURE victim, and a WALL_UPGRADE victim's wall module must agree. This function is the WeaponSet half only.
-	// RW 0x6C9168 .. 0x6C919E: not in the world (effectively dead, RW 0x6C9168 / 0x6C9175 at Object + 0x458 bit 0; DESTROYED, RW 0x6C9182 /
-	// 0x6C918F at + 0x94 bit 0), NOT_IN_WORLD (0x33, RW 0x6C91A4), the source itself
+	// RW 0x6C9168 .. 0x6C91A4: effectively dead (Object + 0x458 bit 0, RW 0x6C9168 / 0x6C9175), DESTROYED (+ 0x94 bit 0, RW 0x6C9182 / 0x6C918F),
+	// the source itself (RW 0x6C919C), and NOT_IN_WORLD (0x33) — RW 0x6C91A4 loads `ecx = edi`, the VICTIM (arg + 0x10) only: the source may
+	// carry NOT_IN_WORLD, which is exactly what a garrison's passenger does (ContainModuleInterface keeps it out of the world), and a passenger
+	// is still asked whether it can shoot (RW 0x6C8995 .. 0x6C89FA walks the contained items through this same path).
 	if (source.isEffectivelyDead() || victim.isEffectivelyDead() || source.testStatus((unsigned)st.destroyed) ||
-	    victim.testStatus((unsigned)st.destroyed) || source.testStatus((unsigned)st.notInWorld) || victim.testStatus((unsigned)st.notInWorld) ||
-	    &source == &victim)
+	    victim.testStatus((unsigned)st.destroyed) || victim.testStatus((unsigned)st.notInWorld) || &source == &victim)
 	{
 		return ATTACKRESULT_NOT_POSSIBLE;
 	}
@@ -1324,7 +1337,7 @@ CanAttackResult ObjectWeapons::getAbleToAttackSpecificObject(AbleToAttackType ty
 	const bool forcedSameOwner = forced && source.getControllingPlayer() == victim.getControllingPlayer();
 	// RW 0x6C91D7 .. 0x6C91F1: an attack immunity byte (Object + 0x459, RW 0x6C91EB) refuses; the source's CONTESTING_BUILDING (0x25,
 	// RW 0x6C91D7) tolerates one bit (RW 0x6C91E7 `not eax` = all but bit 0, which is the port's `m_masked`, RW + 0x459 bit 1).
-	// INFERENCE: the port has no attack immunity field (no 2.01 / Ennorath INI writes one); only a masked victim is refused here (S-7450).
+	// INFERENCE: the port has no attack immunity field (no 2.01 / Ennorath INI writes one); only a masked victim is refused here (S-7429).
 	if (victim.isMasked())
 	{
 		return ATTACKRESULT_NOT_POSSIBLE;
@@ -1381,7 +1394,7 @@ CanAttackResult ObjectWeapons::getAbleToAttackSpecificObject(AbleToAttackType ty
 		if (cur)
 		{
 			const WeaponTemplate *wt = cur->getTemplate();
-			// INFERENCE (S-7450): the template's + 0x119 bit 0x10 (a KindOf word 4 bit 0x10 with no confirmed name) is not read; the weapon test
+			// INFERENCE (S-7429): the template's + 0x119 bit 0x10 (a KindOf word 4 bit 0x10 with no confirmed name) is not read; the weapon test
 			// is the port's BombardType (RW 0x6CB6EA(weapon, 6) reaches the template's + 0x170).
 			if (wt && wt->m_bombardType)
 			{
@@ -1406,7 +1419,7 @@ CanAttackResult ObjectWeapons::getAbleToAttackSpecificObject(AbleToAttackType ty
 	{
 		if (rel != ENEMIES && !forced && !reject && commandSource == CMD_FROM_PLAYER && (victim.scriptStatus() & 0x10u) == 0)
 		{
-			return ATTACKRESULT_NOT_POSSIBLE; // RW 0x6C93BF
+				return ATTACKRESULT_NOT_POSSIBLE; // RW 0x6C93BF
 		}
 	}
 	// RW 0x6C93CC .. 0x6C9420: a victim inside a container (Object + 0x27C, its contain + 0x258) with status UNATTACKABLE is reached only from
@@ -1426,7 +1439,7 @@ CanAttackResult ObjectWeapons::getAbleToAttackSpecificObject(AbleToAttackType ty
 	{
 		if (victimContainer)
 		{
-			// RW 0x6C944F asks the victim's contain for its apparent controlling player (slot 0x4C). INFERENCE (S-7450): no ported contain overrides
+			// RW 0x6C944F asks the victim's contain for its apparent controlling player (slot 0x4C). INFERENCE (S-7429): no ported contain overrides
 			// that slot, so it is the container's own controlling player (RW 0x68B678 on the container).
 			if (const Player *apparent = victimContainer->getControllingPlayer())
 			{
@@ -1466,7 +1479,7 @@ CanAttackResult ObjectWeapons::getAbleToUseWeaponAgainstTarget(AbleToAttackType 
 		}
 		if (contain)
 		{
-			// INFERENCE (S-7450): the contain's slot 0xDC (getFiringOwner) is not ported, so no owner is known and the branch stops here.
+			// INFERENCE (S-7429): the contain's slot 0xDC (getFiringOwner) is not ported, so no owner is known and the branch stops here.
 			const Object *firingOwner = nullptr;
 			if (!firingOwner)
 			{
@@ -1505,9 +1518,20 @@ CanAttackResult ObjectWeapons::getAbleToUseWeaponAgainstTarget(AbleToAttackType 
 		}
 		else if (contain && contain->isGarrisonable())
 		{
-			// RW 0x6C8764 .. 0x6C87C3: the contain's slot 0x130 (the best garrison position) unless the source is SPAWNS_ARE_THE_WEAPONS;
-			// INFERENCE (S-7450): that slot is not ported, so the plain range test runs as in the else branch
-			inRange = victim ? isWithinAttackRangeWithWeapon(*weapon, *victim) : false;
+			// RW 0x6C875D .. 0x6C87C3: a rider of a garrisonable contain measures from the contain's best garrison position for the target
+			// (contain slot 0x130 = calcBestGarrisonPosition, the same answer the port's BehaviorModuleInterface has) through RW 0x6CBFF1
+			// (Weapon::isSourceWithGoalPositionWithinAttackRange); a HORDE (template + 0x115 bit 0x20, RW 0x6C8790) skips the slot and a
+			// contain that answers false falls through to the plain range tests of RW 0x6C87C5 / 0x6C87D7 (a position target uses RW 0x6CC622).
+			Coord3D targetPos = position;
+			Coord3D goalPos{ 0.0f, 0.0f, 0.0f };
+			if (!source.isKindOf((unsigned)k.horde) && contain->calcBestGarrisonPosition(&goalPos, &targetPos))
+			{
+				inRange = isSlotSourceWithGoalWithinAttackRange(slot, goalPos, victim, targetPos); // RW 0x6C87BE
+			}
+			else
+			{
+				inRange = victim ? isWithinAttackRangeWithWeapon(*weapon, *victim) : isWithinAttackRangeWithWeapon(*weapon, position);
+			}
 		}
 		else
 		{
@@ -1530,7 +1554,7 @@ CanAttackResult ObjectWeapons::getAbleToUseWeaponAgainstTarget(AbleToAttackType 
 	}
 	// RW 0x6C8880 .. 0x6C88DC: a source that cannot walk into reach — IMMOBILE (word 0 bit 2), or IMMUNE_TO_CAPTURE (kind 81, word 2 bit 0x10), or carried by a
 	// container that is not SPAWNS_ARE_THE_WEAPONS (RW 0x6C889F), or with a locomotor that answers 0 to its own move test (RW 0x6C88BC) — that has a
-	// weapon but none in reach: INVALID_SHOT, except for the tunnel network guard (type 4, RW 0x6C88D8). INFERENCE (S-7450): the locomotor's test
+	// weapon but none in reach: INVALID_SHOT, except for the tunnel network guard (type 4, RW 0x6C88D8). INFERENCE (S-7429): the locomotor's test
 	// RW 0x5E40AD is its per-frame speed (ObjectWeapons::curLocomotorSpeed, the port's only "this locomotor can move the object" answer).
 	const bool containerIsSpawns = containedBy && containedBy->isKindOf((unsigned)k.spawnsAreTheWeapons);
 	const bool cannotWalk = immobile || source.isKindOf((unsigned)k.immuneToCapture) || (containedBy && !containerIsSpawns) ||
@@ -1629,7 +1653,7 @@ bool ObjectWeapons::someWeaponCanDamage(const Object &source, const Object &vict
 }
 
 // PORT-218: RW 0x6CC653 Weapon::isWithinAttackRange(victim) for the weapon in `slot` (the range loop of RW 0x6C8652 walks the six slots; the port's
-// isWithinAttackRange uses the current one). INFERENCE (S-7450): the garrison branch (RW 0x6CBFF1 from the contain's slot 0x130) is not ported, so
+// isWithinAttackRange uses the current one). INFERENCE (S-7429): the garrison branch (RW 0x6CBFF1 from the contain's slot 0x130) is not ported, so
 // the plain range test runs.
 bool ObjectWeapons::isWithinAttackRangeWithWeapon(const Weapon &weapon, const Object &victim) const
 {
@@ -1666,7 +1690,7 @@ bool ObjectWeapons::isWithinAttackRangeWithWeapon(const Weapon &weapon, const Co
 }
 
 // PORT-218: RW 0x6C80A9 (WeaponSet::isAnyWithinTargetPitch, called by RW 0x6C8908): false only when the set has a pitch-limited weapon (weapon
-// state + 0x4C) and NO weapon passes RW 0x6CA9BF. INFERENCE (S-7450): calcPitches (RW 0xAD2620) is not ported, so a pitch-limited weapon is
+// state + 0x4C) and NO weapon passes RW 0x6CA9BF. INFERENCE (S-7429): calcPitches (RW 0xAD2620) is not ported, so a pitch-limited weapon is
 // asked with WeaponIsWithinTargetPitch's own scope rules and zeros for the pitches, as the port's weapon choice already does.
 bool ObjectWeapons::isAnyWithinTargetPitch(const Object &source, const Object &victim) const
 {
@@ -1688,6 +1712,23 @@ bool ObjectWeapons::isAnyWithinTargetPitch(const Object &source, const Object &v
 		}
 	}
 	return !limited;
+}
+
+// PORT-208 (issue #490): main's entry point, RW 0x68B5FA Object::getAbleToUseWeaponAgainstTarget. It is the same RW 0x6C8652 call the
+// PORT-218 port above makes branch for branch, so it forwards there instead of keeping a second copy of the body (the copy this merge
+// replaced had the pre-PORT-218 per-slot anti test and the old 8 / 1 attack-type bits). No source object is passed: RW 0x6C8652 takes
+// the attacker from the WeaponSet's owner, which is `m_owner` here. A null victim + null pos keeps main's NOT_POSSIBLE answer.
+CanAttackResult ObjectWeapons::getAbleToUseWeaponAgainstTarget(int attackType, const Object *victim, const Coord3D *pos, CommandSourceType source) const
+{
+	if (victim)
+	{
+		pos = victim->getPosition();
+	}
+	if (!pos)
+	{
+		return ATTACKRESULT_NOT_POSSIBLE; // RW 0x68B613
+	}
+	return getAbleToUseWeaponAgainstTarget((AbleToAttackType)attackType, *m_owner, victim, *pos, source);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------
@@ -1821,7 +1862,12 @@ bool ObjectWeapons::isWithinAttackRangeWithBonus(const Object &victim, const Wea
 
 bool ObjectWeapons::isWithinAttackRange(const Coord3D &pos) const
 {
-	const Weapon *w = weaponInSlot(m_curSlot);
+	return isSlotWithinAttackRange(m_curSlot, pos);
+}
+
+bool ObjectWeapons::isSlotWithinAttackRange(int slot, const Coord3D &pos) const
+{
+	const Weapon *w = weaponInSlot(slot);
 	if (!w || !w->getTemplate())
 	{
 		return false;
@@ -1831,6 +1877,28 @@ bool ObjectWeapons::isWithinAttackRange(const Coord3D &pos) const
 	w->computeBonus(*self->m_host, 0, bonus);
 	const RangeSubject src = subjectOf(*m_owner);
 	return WeaponIsWithinAttackRange(*w->getTemplate(), bonus, *self->m_rangeHost, src, src.position, nullptr, pos, 0.0f, true);
+}
+
+bool ObjectWeapons::isSlotSourceWithGoalWithinAttackRange(int slot, const Coord3D &goalPos, const Object *victim, const Coord3D &targetPos) const
+{
+	const Weapon *w = weaponInSlot(slot);
+	if (!w || !w->getTemplate())
+	{
+		return false;
+	}
+	const WeaponTemplate &t = *w->getTemplate();
+	ObjectWeapons *self = const_cast<ObjectWeapons *>(this);
+	WeaponBonus bonus;
+	w->computeBonus(*self->m_host, 0, bonus);
+	const RangeSubject src = subjectOf(*m_owner);
+	if (victim)
+	{
+		const RangeSubject vic = subjectOf(*victim);
+		const float dz = SimMath::subf32(vic.position.z, src.position.z);
+		self->m_rangeHost->m_meleeReach = WeaponGetAttackRange(t, bonus, *self->m_rangeHost, src, dz);
+		return WeaponIsSourceWithGoalPositionWithinAttackRange(t, bonus, *self->m_rangeHost, src, goalPos, &vic, targetPos);
+	}
+	return WeaponIsSourceWithGoalPositionWithinAttackRange(t, bonus, *self->m_rangeHost, src, goalPos, nullptr, targetPos);
 }
 
 bool ObjectWeapons::isWithinAttackRangeFrom(const Coord3D &sourcePos, const Object *victim, const Coord3D &victimPos, float extra, bool checkMin) const
@@ -1936,6 +2004,15 @@ float ObjectWeapons::currentAttackRangeNoTarget() const
 	w->computeBonus(*self->m_host, 0, bonus);
 	const RangeSubject src = subjectOf(*m_owner);
 	return WeaponGetAttackRangeNoTarget(*w->getTemplate(), bonus, *self->m_rangeHost, src);
+}
+
+// lane PORT-260 (ArrowStormUpdate's RW 0x893E01): RW 0x6CA701(template, bonus, the owner's position, the target position) — the attack range with no
+// target, i.e. RW 0x6CA69A's getAttackRange with dz = 0 - z and RW 0x6CA61F's scale applied a second time — with the CALLER's bonus (RW 0x893DEB's six 1.0
+// fields, not the weapon's computed one)
+float ObjectWeapons::attackRangeNoTarget(const WeaponTemplate &t, const WeaponBonus &bonus) const
+{
+	ObjectWeapons *self = const_cast<ObjectWeapons *>(this);
+	return WeaponGetAttackRangeNoTarget(t, bonus, *self->m_rangeHost, subjectOf(*m_owner));
 }
 
 float ObjectWeapons::attackRangeNoTargetFor(const Weapon &weapon, const Object &source) const

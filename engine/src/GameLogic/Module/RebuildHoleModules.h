@@ -92,6 +92,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// scalar deleting dtor RW 0x00889A8E
 class RebuildHoleExposeDie : public BehaviorModule, public DieModuleInterface
 {
 public:
@@ -126,11 +127,11 @@ public:
 	DieModuleInterface *getDie() override { return this; }
 	UpdateSleepTime update() override;                           // RW 0x8868C2
 	void onDie(const DieModuleInterface::Event &event) override; // RW 0x886878
-	void onDelete() override;                                    // RW 0x8867BB (the destructor)
+	void onDelete() override;                                    // RW 0x8867BB (scalar deleting dtor RW 0x008868A6)
 	void crc(StateHasher &hasher) const override;
 	const RebuildHoleBehaviorModuleData *data() const { return m_data; }
 
-	// RW 0x886448: the object's RebuildHoleBehavior (the interface at its + 0x24), or null
+	// RW 0x886448 (getRebuildHoleInterface RW 0x0088659F): the object's RebuildHoleBehavior (the interface at its + 0x24), or null
 	static RebuildHoleBehavior *of(const Object &obj);
 
 	// ---- the rebuild interface (RW vtable 0xC60270) ----

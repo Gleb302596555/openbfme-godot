@@ -344,6 +344,16 @@ public:
 	// object for every player except its controlling owner (RW 0x625759). Both editions match.
 	void maskObject(bool on);
 	bool isMasked() const { return m_masked; }
+	// lane THREATLEVEL-1: the map scripts' cached enemy threat around the object (RW + 0x464, a float) and its deadline frame (RW + 0x468); the
+	// constructor (RW 0x69990F) clears both. Retail RotWK's Object::xfer (RW 0x697F28) does not write them; the OpenBFME snapshot does (version 3, as
+	// BFME2 1.06's xfer does: the state hash covers them). GameLogic/ScriptEngine/ScriptThreat.cpp reads and refreshes them (RW 0x697B41 / 0x69609F)
+	float scriptThreatCache() const { return m_scriptThreat; }
+	UnsignedInt scriptThreatDeadline() const { return m_scriptThreatDeadline; }
+	void setScriptThreatCache(float value, UnsignedInt deadline)
+	{
+		m_scriptThreat = value;
+		m_scriptThreatDeadline = deadline;
+	}
 
 	// lane SCRIPT-2: the trigger areas the object is in (RW 0x69264D, from reactToTransformChange when the position changed). Entries at + 0x3DC
 	// (trigger, + 4 entered, + 5 exited, + 6 inside; the count + 0x45A, at most 7: "***WARNING: Too many nested triggers"), the last change frame
@@ -664,6 +674,8 @@ private:
 	bool m_scriptSelectable = false; ///< RW +0x454: ctor initializes from SELECTABLE; hash only deviations from the template-derived default
 	bool m_scriptSelectableExplicit = false; ///< RW 0x4B2D5E / 0x4B583C: draw-module override (-1 unset vs explicit 0/1) for WALK_ON_TOP_OF_WALL
 	bool m_masked = false;           ///< RW + 0x459 bit 1 (maskObject; hashed when set)
+	float m_scriptThreat = 0.0f;              ///< lane THREATLEVEL-1: RW + 0x464 (hashed and saved once a refresh armed the deadline)
+	UnsignedInt m_scriptThreatDeadline = 0;   ///< lane THREATLEVEL-1: RW + 0x468
 	TriggerEntry m_triggers[MAX_TRIGGERS_IN];  ///< lane SCRIPT-2: RW + 0x3DC
 	int m_triggerCount = 0;                      ///< RW + 0x45A
 	bool m_singleUseCommandUsed = false;         ///< PORT-220: RW + 0x45B (hashed when set, xfer v6)

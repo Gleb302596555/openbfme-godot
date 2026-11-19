@@ -19,6 +19,7 @@
 #include "GameLogic/ObjectTypes.h"
 
 #include <cstdint>
+#include <functional>
 #include <list>
 #include <string>
 #include <vector>
@@ -36,6 +37,8 @@ class SpecialPowerModuleInterface;
 class UpdateModuleInterface;
 class UpdateModule;
 class HordeContainInterface;
+class UpgradeTemplate;
+class Weapon;
 class ExitInterface;                 // GameLogic/Module/ExitInterface.h (lane PROD-1)
 class ProductionUpdateInterface;     // GameLogic/Module/ProductionUpdate.h (lane PROD-1)
 class FoundationAIUpdate;            // GameLogic/Module/ConstructionModules.h (lane BUILD-1)
@@ -163,6 +166,9 @@ public:
 	virtual void containReactToTransformChange() {}
 	// RW 0x867AA1, contain slot 0x14C: suppress entry sounds during initial payload creation.
 	virtual void enableLoadSounds(bool enabled) { (void)enabled; }
+	// contain slot 0xEC (called by SpecialAbilityUpdate::startPreparation RW 0x00853C3C): OpenContain RW 0x009F3A3C (no-op `ret 4`);
+	// TransportContain and subclasses RW 0x0086A43E (sets WEAPONSTATE_ONE / TWO / THREE from the target/rider's KindOf)
+	virtual void setWeaponStateOfRider(const Object &rider) { (void)rider; }
 	// contain slot 0x64 onSelling: the contain hears of its container's sale (BuildAssistant::sellObject RW 0x796806: `mov ecx, [object + 0x258]`, `mov eax,
 	// [ecx]`, `call [eax + 0x64]`, no argument — the only `call [reg + 0x64]` of 2.01 whose receiver is the contain interface). Every contain table answers the
 	// same body, RW 0x86561F: the kill-on-death byte (module + 0xE1) is cleared, then vslot 0x80 orderAllPassengersToExit(CMD_FROM_AI). Only TunnelContain overrides it
@@ -216,7 +222,17 @@ public:
 	// slot 0xB4 isPassengerAllowedToFire (OpenContain RW 0x865A7E; GarrisonContain, HordeGarrisonContain and TunnelContain RW 0x8BD372: true; HordeContain
 	// RW 0x86C713: its container's answer)
 	virtual bool isPassengerAllowedToFire() const { return false; }
-
+	// slot 0x130 calcBestGarrisonPosition(sourcePos, targetPos) (OpenContain RW 0x8655C2: zeroes *sourcePos and answers false; GarrisonContain /
+	// HordeGarrisonContain RW 0x87B7E3: loads the points if needed and answers the free point of the current damage state nearest *targetPos)
+	virtual bool calcBestGarrisonPosition(Coord3D *sourcePos, const Coord3D *targetPos)
+	{
+		if (sourcePos)
+		{
+			*sourcePos = Coord3D{ 0.0f, 0.0f, 0.0f };
+		}
+		(void)targetPos;
+		return false;
+	}
 	// slot 0xC0 (OpenContain RW 0x865B33, the same in every contain table read): a rider's shot at `victim` is blocked by its container (PassengersTestCollisionHeight)
 	virtual bool isPassengerShotBlocked(const Object *rider, const Object *victim) const { (void)rider; (void)victim; return false; }
 	// slots 0x158 / 0x15C / 0x160: the entry position, the entry offset and the exit offset in the world (HordeGarrisonContain RW 0x87D1A7 / 0x87D1E0 / 0x87D219:
@@ -226,6 +242,21 @@ public:
 	virtual bool getExitOffset(Coord3D &out) const { (void)out; return false; }
 	// slot 0x80 orderAllPassengersToExit (HordeGarrisonContain RW 0x87CE8F -> 0x991027); `source` is a CommandSourceType
 	virtual void orderAllPassengersToExit(int source) { (void)source; }
+	// slot 0x8C orderAllPassengersToIdle; `source` is a CommandSourceType
+	virtual void orderAllPassengersToIdle(int source) { (void)source; }
+	// slot 0x174 onContainerUpgrade (Object::giveUpgrade RW 0x006938B3; HordeTransportContain / HordeSiegeEngineContain RW 0x0087A988)
+	virtual void onContainerUpgrade(const std::vector<const UpgradeTemplate *> &granted) { (void)granted; }
+	// slot 0x4C getApparentControllingPlayer (GarrisonContain RW 0x0087B392)
+	virtual Player *getApparentControllingPlayer(const Player *observingPlayer) const { (void)observingPlayer; return nullptr; }
+	// slots 0x138 / 0x134 attemptBestFirePointPosition (GarrisonContain RW 0x0087BAEC / RW 0x0087BB6A)
+	virtual bool attemptBestFirePointPosition(Object *source, Weapon *weapon, Object *victim) { (void)source; (void)weapon; (void)victim; return false; }
+	virtual bool attemptBestFirePointPosition(Object *source, Weapon *weapon, const Coord3D *targetPos) { (void)source; (void)weapon; (void)targetPos; return false; }
+	// ExitInterface slot 0x1C getNaturalRallyPoint (HordeGarrisonContain RW 0x0087CF57)
+	virtual bool getNaturalRallyPoint(Coord3D &out) const { (void)out; return false; }
+	// slot 0x110 iterateContained (flags: bit 0 = riders, bit 2 = crew, bit 3 = reverse; SiegeEngineContain RW 0x0087F10E, HordeSiegeEngineContain RW 0x0088014B, TunnelContain RW 0x00880F78)
+	virtual void iterateContained(const std::function<void(Object *)> &fn, unsigned flags = 1) { (void)fn; (void)flags; }
+	// slot 0x140 hasMinePassenger (SiegeEngineContain RW 0x0087F2F5, HordeSiegeEngineContain RW 0x008F4D47)
+	virtual bool hasMinePassenger() const { return false; }
 	// slot 0x44 onObjectWantsToEnterOrExit (ZH OpenContain::onObjectWantsToEnterOrExit; AIEnterState RW 0x751699 / 0x752B67, AIExitState RW 0x74352D): 0 enter,
 	// 1 exit, 2 neither
 	virtual void onObjectWantsToEnterOrExit(Object *obj, int wants) { (void)obj; (void)wants; }

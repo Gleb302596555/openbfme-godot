@@ -235,6 +235,7 @@ public:
 	virtual void stopSpecialPower() = 0;
 };
 
+// Local 87: RW 0x008C9BC5 (getModuleName), RW 0x008C9C0B (getModuleNameKey), RW 0x008C9CEA (dtor), RW 0x008C9FC8 (xfer).
 class SiegeDeploySpecialPower : public SpecialPowerUpdateBase, public SpecialPowerStopInterface
 {
 public:
@@ -336,6 +337,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);        // RW 0x8CABDB
 };
 
+// Local 87: RW 0x008CAC24 (getModuleName), RW 0x008CAC65 (getModuleNameKey), RW 0x008CACAA (dtor), RW 0x008C6583 (base dtor thunk).
 class StopSpecialPower : public SpecialPowerModule
 {
 public:

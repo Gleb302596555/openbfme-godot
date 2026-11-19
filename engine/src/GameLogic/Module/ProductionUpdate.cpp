@@ -43,6 +43,7 @@
 #include "GameLogic/ScriptEngine/ScriptEngine.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cstddef>
 #include <stdexcept>
 
@@ -100,6 +101,24 @@ void parseProductionModifier(INI *ini, void *, void *store, const void *)
 	ini->initFromINI(&list->back(), kProductionModifierFieldParse);
 }
 
+// PORT-280: RW 0x73B217 -> RW 0x73AA94 (INI::parseAudioEventRTS): "NoSound" (any case, _stricmp at RW 0x73AAA9) clears data + 0x48 (RW 0x73AAB8) so
+// RW 0x8A1C7C .. 0x8A1C96 skips the loop; any other token stores the event name (mirrors SpecialAbilityUpdate ActiveLoopSound).
+void parseSpeedBonusAudioLoop(INI *ini, void *instance, void *store, const void *userData)
+{
+	INI::parseAsciiString(ini, instance, store, userData);
+	std::string &out = *static_cast<std::string *>(store);
+	if (AsciiStringUtil::compareNoCase(out, "NoSound") == 0)
+	{
+		out.clear();
+	}
+}
+
+std::uint32_t nextSpeedBonusAudioKey()
+{
+	static std::atomic<std::uint32_t> next{ 1 };
+	return next.fetch_add(1, std::memory_order_relaxed);
+}
+
 #define PU_OFF(member) (int)offsetof(ProductionUpdateModuleData, member)
 // RW 0xC68128, in the binary's order
 const FieldParse kProductionUpdateFieldParse[] = {
@@ -118,7 +137,7 @@ const FieldParse kProductionUpdateFieldParse[] = {
 	{ "VeteranUnitsFromVeteranFactory", INI::parseBool, nullptr, PU_OFF(m_veteranUnitsFromVeteranFactory) },
 	{ "SetBonusModelConditionOnSpeedBonus", INI::parseBool, nullptr, PU_OFF(m_setBonusModelConditionOnSpeedBonus) },
 	{ "BonusForType", INI::parseAsciiString, nullptr, PU_OFF(m_bonusForType) },
-	{ "SpeedBonusAudioLoop", INI::parseAsciiString, nullptr, PU_OFF(m_speedBonusAudioLoop) }, // RW 0x73B217 resolves an audio event (S-203)
+	{ "SpeedBonusAudioLoop", parseSpeedBonusAudioLoop, nullptr, PU_OFF(m_speedBonusAudioLoop) }, // PORT-280: RW 0x73B217 -> RW 0x73AA94
 	{ "SecondaryQueue", INI::parseBool, nullptr, PU_OFF(m_secondaryQueue) },
 	{ nullptr, nullptr, nullptr, 0 }
 };
@@ -187,6 +206,7 @@ void ProductionUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 	p.add(kProductionUpdateFieldParse);
 }
 
+// Snapshot name RW 0x008A18DA, getModuleNameKey RW 0x008A192A
 void ProductionUpdate::registerClass(ModuleFactory &modules)
 {
 	modules.bindTypedData<ProductionUpdateModuleData>("ProductionUpdate", MODULETYPE_BEHAVIOR);
@@ -201,10 +221,41 @@ void ProductionUpdate::registerClass(ModuleFactory &modules)
 }
 
 // RW 0x8A17D8
+// RW 0x8A17D8 (module + 0x12C initialised to 1 at RW 0x8A189F)
 ProductionUpdate::ProductionUpdate(Thing *thing, const ProductionUpdateModuleData *data)
 	: UpdateModule(thing, data)
 	, m_data(data)
+	, m_speedBonusAudioKey(nextSpeedBonusAudioKey())
 {
+}
+
+// RW 0x8A198B (scalar deleting dtor RW 0x8A1B36): RW 0x8A19FF .. 0x8A1A07 calls TheAudio->removeAudioEvent(m_speedBonusAudioHandle) (vslot 0x6C)
+ProductionUpdate::~ProductionUpdate()
+{
+	stopSpeedBonusAudioLoop();
+}
+
+// PORT-280: RW 0x8A1CDC .. 0x8A1D33: when TheAudio->isCurrentlyPlaying(+0x12C) (vslot 0xD0, RW 0x8A1CE3) is false, constructs an AudioEventRTS from
+// SpeedBonusAudioLoop (data + 0x48), sets this object's id (RW 0x8A1CFB -> RW 0x6DB5B3) and controlling player index (RW 0x8A1D0D -> RW 0x66ECE1), and
+// adds it through vslot 0x64 (RW 0x8A1D1F), storing the handle at module + 0x12C (RW 0x8A1D29).
+void ProductionUpdate::startSpeedBonusAudioLoop(int owningPlayerIndex)
+{
+	if (m_data->m_speedBonusAudioLoop.empty())
+	{
+		return;
+	}
+	AudioApi::resumeHeldSound(AudioApi::HELD_PRODUCTION_SPEED_BONUS_LOOP, m_data->m_speedBonusAudioLoop, m_speedBonusAudioKey, getObject()->getID(), owningPlayerIndex);
+	m_speedBonusAudioHeld = true;
+}
+
+// PORT-280: RW 0x8A1D35 .. 0x8A1D4F (and dtor RW 0x8A19FF): TheAudio->removeAudioEvent(+0x12C) (vslot 0x6C), then +0x12C = 1 (removal of 1 is a no-op, RW 0x45CEE9).
+void ProductionUpdate::stopSpeedBonusAudioLoop()
+{
+	if (m_speedBonusAudioHeld)
+	{
+		AudioApi::stopHeldSound(AudioApi::HELD_PRODUCTION_SPEED_BONUS_LOOP, m_speedBonusAudioKey);
+		m_speedBonusAudioHeld = false;
+	}
 }
 
 void ProductionUpdate::setBit(Flags &f, int bit, bool on)
@@ -232,6 +283,7 @@ int ProductionUpdate::canQueueCreateUnit() const
 	return (int)m_queue.size() < m_data->m_maxQueueEntries ? CANMAKE_OK : CANMAKE_QUEUE_FULL;
 }
 
+// RW 0x8A1904
 const ProductionEntry *ProductionUpdate::nextProduction(const ProductionEntry *e) const
 {
 	for (size_t i = 0; i < m_queue.size(); ++i)
@@ -761,6 +813,64 @@ void ProductionUpdate::cancelUnitCreateByType(const ThingTemplate *type, bool al
 }
 
 // RW 0x8A056C
+// slot 9, RW 0x008A03C1
+bool ProductionUpdate::isUnitInQueue(ProductionID id) const
+{
+	for (const auto &e : m_queue)
+	{
+		// RW 0x00729661: PRODUCTION_UNIT (1) or PRODUCTION_BUILD_INDEX (3)
+		if ((e->type == PRODUCTION_UNIT || e->type == PRODUCTION_BUILD_INDEX) && e->productionID == id)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+// slot 19, RW 0x008A0625
+int ProductionUpdate::countValue30InQueue(int value30) const
+{
+	int count = 0;
+	for (const auto &e : m_queue)
+	{
+		if (e->value30 == value30)
+		{
+			++count;
+		}
+	}
+	return count;
+}
+
+// slot 13, RW 0x008A30A0
+void ProductionUpdate::cancelUnitCreateByTemplate(const ThingTemplate *unitType, bool immediate)
+{
+	if (!unitType)
+	{
+		return;
+	}
+	if (!immediate)
+	{
+		m_pendingCancelTemplates.push_back(unitType->getName());
+		return;
+	}
+	// RW 0x008A30BF .. 0x008A310B: cancel every unfinished (< 100.0f, RW 0xBD88D8) unit or hero entry
+	// whose template is equivalent (RW 0x73D5C2)
+	std::vector<ProductionID> toCancel;
+	for (const auto &e : m_queue)
+	{
+		if (e->percentComplete < 100.0f &&
+			(e->type == PRODUCTION_UNIT || e->type == PRODUCTION_BUILD_INDEX) &&
+			BuildAssistant::isEquivalentTo(unitType, e->objectToProduce))
+		{
+			toCancel.push_back(e->productionID);
+		}
+	}
+	for (ProductionID id : toCancel)
+	{
+		cancelUnitCreate(id);
+	}
+}
+
 int ProductionUpdate::countUnitTypeInQueue(const ThingTemplate *type) const
 {
 	int n = 0;
@@ -972,11 +1082,48 @@ UpdateSleepTime ProductionUpdate::update()
 	GameLogic &logic = us->logic();
 	const UnsignedInt now = logic.getFrame();
 	const DoorBits &bits = doorBits();
-	// (the pending template name set RW +0x130 (RW 0x8A1B52) is filled by a slot whose caller is not located)
+	// RW 0x008A1B52: drain deferred template cancellations queued by slot 13 (RW 0x008A30A0)
+	if (!m_pendingCancelTemplates.empty())
+	{
+		std::vector<std::string> pending = std::move(m_pendingCancelTemplates);
+		m_pendingCancelTemplates.clear();
+		for (const std::string &name : pending)
+		{
+			if (const ThingTemplate *tt = logic.things().findTemplate(name))
+			{
+				cancelUnitCreateByTemplate(tt, true);
+			}
+		}
+	}
 	pauseHeroEntries(); // RW 0x8A0669 (lane HERO-1)
 	ProductionEntry *entry = currentEntry();
 	Player *player = us->getControllingPlayer();
-	// RW 0x8A1C25 .. 0x8A1D4F: the speed bonus model condition and audio loop belong to the player bonus map and the audio lane (S-203)
+	if (player) // PORT-280: RW 0x8A1C20 .. 0x8A1D4F
+	{
+		if (m_data->m_setBonusModelConditionOnSpeedBonus) // RW 0x8A1C30: data + 0x41
+		{
+			// RW 0x8A1C43 .. 0x8A1C77: Player::getProductionTimeChange(BonusForType) (RW 0x6AF484) < 0.0f sets UPGRADE_ECONOMY_BONUS (bit 332, word 10
+			// mask 0x1000) directly on the producer, else clears it
+			static const int kUpgradeEconomyBonus = mcBit("UPGRADE_ECONOMY_BONUS");
+			const float bonus = player->getProductionTimeChange(m_data->m_bonusForType);
+			us->setModelConditionState(kUpgradeEconomyBonus, bonus < 0.0f);
+		}
+		if (!m_data->m_speedBonusAudioLoop.empty()) // RW 0x8A1C7C .. 0x8A1C96: data + 0x48 non-null and event name non-empty
+		{
+			// RW 0x8A1C9B .. 0x8A1CDA: bonus < 0.0f, !isEffectivelyDead() (Object + 0x458 bit 0, RW 0x8A1CC6) and !testStatus(UNDER_CONSTRUCTION)
+			// (status bit 2, RW 0x8A1CD3 -> RW 0x44DDEC) keep SpeedBonusAudioLoop sounding; any failing gate removes handle + 0x12C (RW 0x8A1D35)
+			static const unsigned kUnderConstruction = statusBit("UNDER_CONSTRUCTION");
+			const float bonus = player->getProductionTimeChange(m_data->m_bonusForType);
+			if (bonus < 0.0f && !us->isEffectivelyDead() && !us->testStatus(kUnderConstruction))
+			{
+				startSpeedBonusAudioLoop(player->getPlayerIndex());
+			}
+			else
+			{
+				stopSpeedBonusAudioLoop();
+			}
+		}
+	}
 	if (m_data->m_numDoorAnimations > 0)
 	{
 		updateDoors();
@@ -1492,12 +1639,25 @@ void ProductionUpdate::crc(StateHasher &h) const
 	h.addBool(m_cancellingAll);
 	h.addBool(m_factoryDisabled);
 	h.addU32(m_heroCountdown); // lane HERO-1
+	if (!m_pendingCancelTemplates.empty()) // LOCAL-91: hashed only while a cancellation waits, so the hashes of a game without one stay as they were
+	{
+		h.addU32((std::uint32_t)m_pendingCancelTemplates.size());
+		for (const std::string &name : m_pendingCancelTemplates)
+		{
+			h.addString(name);
+		}
+	}
 }
 
 // ---- lane SAVE-4b: the snapshot (OpenBFME native, S-4190: the queue's entries with their templates by name, then the crc's fields) ---------------------
+// RW 0x8A3111 (ProductionUpdate::xfer; OpenBFME native layout)
 void ProductionUpdate::xfer(Xfer &x)
 {
-	SnapshotXfer::version(x, 1, 1);
+	// PORT-280: version 2 adds whether SpeedBonusAudioLoop's handle is held (RW 0x8A35A6 .. 0x8A35BA, retail v>=3 transfers module + 0x12C through TheAudio);
+	// untouched modules save version 1 so existing streams stay unchanged. LOCAL-91: version 3 adds the pending template cancellations (RW + 0x130),
+	// written only while one waits (a module without one keeps version 1 / 2)
+	XferVersion version{ 1, (std::uint8_t)(x.isLoading() || !m_pendingCancelTemplates.empty() ? 3 : m_speedBonusAudioHeld ? 2 : 1) };
+	x.xferVersion(version);
 	xferUpdateModule(x);
 	GameLogic &logic = getObject()->logic();
 	// the queue: each entry's fewest bytes are its fixed fields with the three names empty (49); a load builds the queue aside, then replaces it
@@ -1552,4 +1712,42 @@ void ProductionUpdate::xfer(Xfer &x)
 	x.xferBool(&m_cancellingAll);
 	x.xferBool(&m_factoryDisabled);
 	x.xferUnsignedInt(&m_heroCountdown);
+	if (version.current >= 2)
+	{
+		bool held = m_speedBonusAudioHeld;
+		x.xferBool(&held);
+		if (x.isLoading())
+		{
+			if (held)
+			{
+				const Player *owner = getObject()->getControllingPlayer();
+				startSpeedBonusAudioLoop(owner ? owner->getPlayerIndex() : -1);
+			}
+			else
+			{
+				stopSpeedBonusAudioLoop();
+			}
+		}
+	}
+	else if (x.isLoading())
+	{
+		stopSpeedBonusAudioLoop();
+	}
+	if (version.current >= 3)
+	{
+		std::uint32_t pendingCount = x.isLoading() ? 0 : (std::uint32_t)m_pendingCancelTemplates.size();
+		x.xferCount(&pendingCount, 2, sizeof(std::string));
+		if (x.isLoading())
+		{
+			m_pendingCancelTemplates.resize(pendingCount);
+		}
+		for (std::uint32_t i = 0; i < pendingCount; ++i)
+		{
+			x.xferAsciiString(&m_pendingCancelTemplates[i]);
+		}
+	}
+	else if (x.isLoading())
+	{
+		m_pendingCancelTemplates.clear();
+	}
 }

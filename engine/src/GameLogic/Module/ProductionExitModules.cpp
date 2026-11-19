@@ -92,6 +92,23 @@ SimpleProductionExitUpdate::SimpleProductionExitUpdate(Thing *thing, const Defau
 	friend_setNextCallFrame((UnsignedInt)UPDATE_SLEEP_FOREVER); // the constructor ends with setWakeFrame(FOREVER)
 }
 
+// RW 0x008A9CBC: primary vtable slot 13 (shared by DefaultProductionExitUpdate and SupplyCenterProductionExitUpdate);
+// transforms UnitCreatePoint by the producer's matrix in RW's exact float association order
+bool SimpleProductionExitUpdate::getUnitCreatePoint(Coord3D *out) const
+{
+	const Object *o = getObject();
+	if (!o || !out)
+	{
+		return false;
+	}
+	const float x = m_data->m_unitCreatePoint.x, y = m_data->m_unitCreatePoint.y, z = m_data->m_unitCreatePoint.z;
+	const Mat m(*o);
+	out->x = chain4(mul(m.m02, z), mul(m.m01, y), mul(m.m00, x), m.m03);
+	out->y = chain4(mul(m.m10, x), mul(m.m12, z), mul(m.m11, y), m.m13);
+	out->z = chain4(mul(m.m21, y), mul(m.m20, x), mul(m.m22, z), m.m23);
+	return true;
+}
+
 // RW 0x88B2F0 (the function the queue exit shares): the same arithmetic over this module's data
 bool SimpleProductionExitUpdate::getNaturalRallyPoint(Coord3D *out, bool offset) const
 {
@@ -116,6 +133,7 @@ void DefaultProductionExitUpdate::registerClass(ModuleFactory &modules)
 	registerExit<DefaultProductionExitUpdate, DefaultProductionExitUpdateModuleData>(modules, "DefaultProductionExitUpdate");
 }
 
+// GetSnapshotName RW 0x008A9BBB, getModuleNameKey RW 0x008A9BE3
 void SupplyCenterProductionExitUpdate::registerClass(ModuleFactory &modules)
 {
 	registerExit<SupplyCenterProductionExitUpdate, DefaultProductionExitUpdateModuleData>(modules, "SupplyCenterProductionExitUpdate");
@@ -224,6 +242,7 @@ SpawnPointProductionExitUpdate::SpawnPointProductionExitUpdate(Thing *thing, con
 	friend_setNextCallFrame((UnsignedInt)UPDATE_SLEEP_FOREVER);
 }
 
+// GetSnapshotName RW 0x008A7208, getModuleNameKey RW 0x008A724F
 void SpawnPointProductionExitUpdate::registerClass(ModuleFactory &modules)
 {
 	registerExit<SpawnPointProductionExitUpdate, SpawnPointProductionExitUpdateModuleData>(modules, "SpawnPointProductionExitUpdate");
@@ -368,6 +387,7 @@ void SupplyCenterProductionExitUpdate::xfer(Xfer &x)
 }
 
 // every spawn point slot (the count says how many are in use); the report flag is the report's
+// RW 0x008A720E (OpenBFME native snapshot also saves bone coords/angles/count)
 void SpawnPointProductionExitUpdate::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

@@ -951,8 +951,8 @@ TEST_CASE("save4c review r2: a path's optimised link to its own node or to an ea
 }
 
 TEST_CASE("save4c coverage (review r2): units attacking, moving, guarding, hunting and entering a garrison are saved mid-order and loaded into an identical "
-		  "game whose AI modules first held their state of 300 frames earlier (the latest frame of 1500 .. 3000 where the actors exist): each unit's state, sub machine, goal and path, and its module's hash are the "
-		  "saved ones, and both games go on equal")
+		  "game whose AI modules first held their state of 300 frames earlier (the latest frame of 600 .. 3000 where the actors exist and an idle guard outside an AI tactic team is available): "
+		  "each unit's state, sub machine, goal and path, and its module's hash are the saved ones, and both games go on equal")
 {
 	OPENBFME_REQUIRE_START(s);
 	// lane BANNER-1 (the banner carriers refill the AIs' hordes as RotWK does): in seed 4127's game FactionMen (the attacker's and the garrison's player) has
@@ -1013,6 +1013,25 @@ TEST_CASE("save4c coverage (review r2): units attacking, moving, guarding, hunti
 	auto hasPrey = [](Object *o) {
 		return AI::findClosestEnemy(*o, 9999.9f, AI::CAN_ATTACK | AI::ATTACK_BUILDINGS | AI::AUTO_ACQUIRE, o->getAIUpdateInterface()->attackInfo(), nullptr, 0) != nullptr;
 	};
+	// A tactic-team member can be given a fresh AI order on the frame we issue the test order; select guard and hunt actors outside those teams where possible.
+	auto inAITeam = [](GameLogic &logic, const Object *o) {
+		const AISkirmishPlayer *p = logic.skirmishAI().findAI(o->getControllingPlayer()->getPlayerIndex());
+		if (!p)
+		{
+			return false;
+		}
+		for (const AITactic &tac : p->brain.tactics)
+		{
+			for (const AITacticTeam &team : tac.teams)
+			{
+				if (std::find(team.members.begin(), team.members.end(), o->getID()) != team.members.end())
+				{
+					return true;
+				}
+			}
+		}
+		return false;
+	};
 	UnsignedInt scene = 0;
 	{
 		Game c;
@@ -1047,14 +1066,21 @@ TEST_CASE("save4c coverage (review r2): units attacking, moving, guarding, hunti
 			{
 				hunterFound = hunterFound || any(p, [&](Object *o) { return armed(o) && takes(o, 0x12) && GarrisonRules::isMobile(*o) && hasPrey(o); });
 			}
-			if (any(ids[0], [&](Object *o) { return armed(o) && takes(o, 0xB); }) && any(ids[2], [&](Object *o) { return takes(o, 0); }) && hunterFound &&
-				menUnits >= 2)
+			// Keep scene discovery in sync with actor selection below: guardHere must start from an idle unit outside an AI tactic team, or the AI may replace it on the next frame.
+			bool guardReady = false;
+			for (int p : ids)
+			{
+				guardReady = guardReady || any(p, [&](Object *o) {
+					return takes(o, 0) && o->getAIUpdateInterface()->currentStateId() == AI_IDLE && !inAITeam(lc, o);
+				});
+			}
+			if (any(ids[0], [&](Object *o) { return armed(o) && takes(o, 0xB); }) && guardReady && hunterFound && menUnits >= 2)
 			{
 				scene = t;
 			}
 		}
 	}
-	REQUIRE_MESSAGE(scene != 0, "no frame of 600 .. 3000 (every 100) has the actors among the objects alive 300 frames before"); // tolerance: 0 is "none found"; the frame itself is the AI's play
+	REQUIRE_MESSAGE(scene != 0, "no frame of 600 .. 3000 (every 100) has the actors among the objects alive 300 frames before and an idle guard outside an AI tactic team"); // tolerance: 0 is "none found"; the frame itself is the AI's play
 	MESSAGE("save4c units attacking: the scene is at frame " << scene << " (its modules' earlier state from frame " << scene - 300 << ")");
 	// lane AIDATA-1: the hunter must also keep its hunt through the frame the test steps: a unit the skirmish AI is walking somewhere gets its next order from
 	// the AI in that frame (the frame-2400 scene's only candidate of the fourth player, an Isengard pike horde, was back in AI_MOVE_TO). A scratch game of its
@@ -1133,29 +1159,9 @@ TEST_CASE("save4c coverage (review r2): units attacking, moving, guarding, hunti
 	// structure of the mover's player
 	const std::vector<int> playerIds = la.skirmishAI().infoPlayers(); // the four skirmish players (the map's neutral critters are not actors)
 	REQUIRE(playerIds.size() == 4u);
-	// the hunter is preferably no member of its AI's tactic teams: a member takes that AI's team orders (AITacticalAI's team move: RW 0x8F18AA passes
-	// the player's source), which may replace the hunt in the frame the test steps (measured: with the formations centred on their hordes, RW 0x86C4EA,
-	// and the destination adjustment spiralling around its cell, RW 0x6FA2A4, the fourth player's first crossbow horde was a member and walked on in
-	// AI_MOVE_TO). Only a preference: a player may have every armed unit in a team (the first player has, at the scene's frame), and the other roles
-	// keep the first fit
-	auto inAITeam = [&](const Object *o) {
-		const AISkirmishPlayer *p = la.skirmishAI().findAI(o->getControllingPlayer()->getPlayerIndex());
-		if (!p)
-		{
-			return false;
-		}
-		for (const AITactic &tac : p->brain.tactics)
-		{
-			for (const AITacticTeam &team : tac.teams)
-			{
-				if (std::find(team.members.begin(), team.members.end(), o->getID()) != team.members.end())
-				{
-					return true;
-				}
-			}
-		}
-		return false;
-	};
+	// AI tactic-team orders can replace a scripted order on the frame the test steps (AITacticalAI's team move: RW 0x8F18AA passes the player's source).
+	// The hunter in particular was replaced by its formation's move (centred on its horde, RW 0x86C4EA; destination adjustment RW 0x6FA2A4).
+
 	auto firstOf = [&](int player, const std::function<bool(Object *)> &ok) -> Object * {
 		for (Object *o : byPlayer[player])
 		{
@@ -1190,22 +1196,26 @@ TEST_CASE("save4c coverage (review r2): units attacking, moving, guarding, hunti
 		return ai->world().pathfinder().clientSafeQuickDoesPathExist(ai->locomotorInfo(), &from, &to);
 	};
 	Object *mover = firstOf(playerIds[1], [&](Object *o) { return takes(o, 0) && reachableMover(o); });
-	// the guard is an idle unit: after the merge of upstream 1d505ac3 the first fit at frame 3000 was an ElvenLorienArcherHorde busy in its own state 50, which
-	// carried on with it (AI_MOVE_TO) after guardHere; before it, the first fit was an idle ElvenPorter. An idle unit keeps the guard order the test saves
-	Object *guard = firstOf(playerIds[2], [&](Object *o) { return takes(o, 0) && o->getAIUpdateInterface()->currentStateId() == AI_IDLE; });
+	// Guard an idle unit outside an AI tactic team: a team member may get its formation's AI order on the next frame instead of holding the guard state.
+	Object *guard = firstOf(playerIds[2], [&](Object *o) {
+		return takes(o, 0) && o->getAIUpdateInterface()->currentStateId() == AI_IDLE && !inAITeam(la, o);
+	});
 	if (!guard)
 	{
-		// batch 3 (2026-11-15, owner approved): with its four simulation changes together (#487, #496, #500, #501; each alone keeps an idle unit here) the third
-		// player has no idle unit at frame 3000; as for the mover below, the role goes to the first idle unit of any player that is not an actor yet
+		// Keep the prior cross-player fallback, but reserve a unit not already used by the attacker or mover and outside an AI tactic team.
 		for (int p : playerIds)
 		{
-			Object *c = firstOf(p, [&](Object *o) { return takes(o, 0) && o != attacker && o != mover && o->getAIUpdateInterface()->currentStateId() == AI_IDLE; });
+			Object *c = firstOf(p, [&](Object *o) {
+				return takes(o, 0) && o != attacker && o != mover && o->getAIUpdateInterface()->currentStateId() == AI_IDLE && !inAITeam(la, o);
+			});
 			guard = guard ? guard : c;
 		}
 	}
 	auto huntable = [&](Object *o) { return armed(o) && takes(o, 0x12) && GarrisonRules::isMobile(*o) && hasPrey(o) && keepsHunt.count(o->getID()) == 1; }; // RW 0x66450F's test
-	Object *hunter = firstOf(playerIds[3], [&](Object *o) { return huntable(o) && !inAITeam(o); });
-	hunter = hunter ? hunter : firstOf(playerIds[3], huntable);
+	Object *hunter = firstOf(playerIds[3], [&](Object *o) {
+		return o != attacker && o != mover && o != guard && huntable(o) && !inAITeam(la, o);
+	});
+	hunter = hunter ? hunter : firstOf(playerIds[3], [&](Object *o) { return o != attacker && o != mover && o != guard && huntable(o); });
 	for (int p : playerIds)
 	{
 		Object *c = firstOf(p, [&](Object *o) { return huntable(o) && o != attacker && o != mover && o != guard; });

@@ -62,6 +62,7 @@ void W3DDrawModules::registerTypedDrawModuleData(ModuleFactory &modules)
 {
 	modules.bindTypedData<W3DScriptedModelDrawModuleData>("W3DScriptedModelDraw", MODULETYPE_DRAW);
 	modules.bindTypedData<W3DHordeModelDrawModuleData>("W3DHordeModelDraw", MODULETYPE_DRAW);
+	// TARGET W3DDefaultDraw: RW 0x004B1AF4 getModuleNameKey, RW 0x004B1B39 GetSnapshotName, RW 0x004B1B3F xfer.
 	modules.bindTypedData<W3DDefaultDrawModuleData>("W3DDefaultDraw", MODULETYPE_DRAW);
 	modules.bindTypedData<W3DTreeDrawModuleData>("W3DTreeDraw", MODULETYPE_DRAW);
 	modules.bindTypedData<W3DPropDrawModuleData>("W3DPropDraw", MODULETYPE_DRAW);
