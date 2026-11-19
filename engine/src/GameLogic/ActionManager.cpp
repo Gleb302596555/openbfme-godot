@@ -32,9 +32,13 @@
 
 namespace
 {
+// PORT-274 (issue #641): the FIRE_WEAPON half below is ported (the button's NeededUpgrade, RW 0x75CC5A, and the frame it waits for), so this stop now
+// covers only the upgrade buttons' production-queue test that lane MODCOMPAT-AI left out; Object + 0x478 is Object::m_fireWeaponDeadline (set by
+// Object::setFireWeaponDeadline 10 s ahead, RW 0x68C91B), not an unidentified field
 const char *const kStopUpgrade =
-	"[S-1871] ActionManager::canDoSpecialPowerAtLocation (RW 0x75CF21): a FIRE_WEAPON button (RW 0x75CC3E: Object + 0x478, unidentified) is not ported: "
-	"it answers no (lane MODCOMPAT-AI ported the upgrade buttons: the production queue test RW 0x68C327 and RW 0x694914 / 0x691421)";
+	"[S-1871] ActionManager::canDoSpecialPowerAtLocation (RW 0x75CF21): the upgrade buttons' production-queue test (RW 0x68C327) is not ported: "
+	"such a button answers yes where the object's queue holds no entry for it (the FIRE_WEAPON half is ported: RW 0x75CC5A's NeededUpgrade and "
+	"RW 0x75CC69's Object + 0x478 deadline, Object::m_fireWeaponDeadline)";
 const char *const kStopLayer =
 	"[S-1872] ActionManager RW 0x82C366 (an AI moving along its path, AIUpdate + 0x1FC in {1, 4} with a path whose node + 0x20 is set, on a pathfinder cell "
 	"whose bits 4 .. 9 exceed 0x10 refuses every power) is ported (lane WALL-2: walls, portals); the path's waypoint test (RW 0x765522) is not cached at + 0x24";

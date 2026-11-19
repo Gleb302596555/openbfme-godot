@@ -664,6 +664,59 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 					}
 					continue;
 				}
+				// PORT-274 (issue #641): the *unmet* model gate, by name. A button with an EnableOnModelCondition mask is restricted while none of
+				// its bits is set, and one whose DisableOnModelCondition mask meets the object's bits is restricted while it does: those are the two
+				// halves of RW 0x942490 (docs/re says the enable is an ANY intersection and the disable wins). The sweep must name the condition it
+				// could not set instead of pressing a restricted button and calling the refusal "sent nothing": that verdict is what MATRIX.tsv
+				// filed as NO-SEND for the mumakil's USER_9 (an AttributeModifier aura grants it, no button sets it) and for Erkenbrand's MOUNTED.
+				auto modelGate = [&](const CommandButton &button, const Object &object) -> std::string {
+					std::string enable;
+					const Object::ModelConditionBits &bitWords = object.getModelConditionBits();
+					bool anyEnable = false;
+					for (size_t w = 0; w < button.m_enableOnModelCondition.size(); ++w)
+					{
+						const std::uint32_t mask = button.m_enableOnModelCondition[w];
+						if (!mask)
+						{
+							continue;
+						}
+						anyEnable = true;
+						if (bitWords[w] & mask)
+						{
+							return std::string(); // one enable bit is set: the gate is met (an ANY intersection, RW 0x942490)
+						}
+						for (int bit = 0; bit < 32; ++bit)
+						{
+							if (mask & (1u << bit))
+							{
+								const char *name = ModelCondition::nameOf((int)(w * 32 + bit));
+								enable += (enable.empty() ? "" : " ");
+								enable += name ? name : "?";
+							}
+						}
+					}
+					if (anyEnable)
+					{
+						return "needs model " + enable;
+					}
+					std::string disable;
+					for (size_t w = 0; w < button.m_disableOnModelCondition.size(); ++w)
+					{
+						const std::uint32_t hit = bitWords[w] & button.m_disableOnModelCondition[w];
+						for (int bit = 0; bit < 32; ++bit)
+						{
+							if (hit & (1u << bit))
+							{
+								const char *name = ModelCondition::nameOf((int)(w * 32 + bit));
+								disable += (disable.empty() ? "" : " ");
+								disable += name ? name : "?";
+							}
+						}
+					}
+					// a DisableOnModelCondition gate is unmet only while the object carries the bit
+					return disable.empty() ? std::string() : ("disabled by model " + disable);
+				};
+				const std::string modelWhy = modelGate(*cb, *u);
 				// lane DEVPORT-3C: a button with an EnableOnModelCondition mask (ROTWK-C's port of RW 0x942733's model condition gate: Lurtz's Carnage needs
 				// WEAPONSET_TOGGLE_1, the Goblin King's stinger MOUNTED or HERO) is restricted until the player's weapon toggle / mount below; it is checked after them
 				bool modelGated = false;
@@ -927,9 +980,19 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 				}
 				if (b.state != ButtonState::Enabled && b.state != ButtonState::Active && !modelGated)
 				{
-					res.fail(item, !fixtureDetail.empty() ? fixtureDetail
-						: fixtureApplied && greyRow ? greyfix::bugDetail(*greyRow) + str(" (button state %d)", (int)b.state) + conflicts // the state tells restricted from not ready
-						: str("state %d at level %d (not enabled)", (int)b.state, u->getExperienceTracker() ? u->getExperienceTracker()->getRank() : 0));
+					// PORT-274: a button whose own model gate is unmet (an enable mask with none of its bits set, or a disable mask the
+					// object meets) is grey in retail too (RW 0x942490): name the condition, do not press it, and do not call the refusal
+					// "sent nothing"
+					if (!modelWhy.empty())
+					{
+						res.fail(item, "DISABLED: " + modelWhy);
+					}
+					else
+					{
+						res.fail(item, !fixtureDetail.empty() ? fixtureDetail
+							: fixtureApplied && greyRow ? greyfix::bugDetail(*greyRow) + str(" (button state %d)", (int)b.state) + conflicts // the state tells restricted from not ready
+							: str("state %d at level %d (not enabled)", (int)b.state, u->getExperienceTracker() ? u->getExperienceTracker()->getRank() : 0));
+					}
 					continue;
 				}
 				const auto unportedBefore = g.hud->controlBar().unportedPresses();
@@ -1434,9 +1497,21 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 				}
 				if (b.state != ButtonState::Enabled && b.state != ButtonState::Active)
 				{
-					res.fail(item, !fixtureDetail.empty() ? fixtureDetail
-						: fixtureApplied && greyRow ? greyfix::bugDetail(*greyRow)
-						: str("state %d at level 10%s (not enabled)", (int)b.state, modelGated ? " after the weapon toggle / mount" : ""));
+					// PORT-274: the power branch's same verdict: an unmet model gate is named, never reported as a missing press
+					const std::string powerWhy = modelGate(*cb, *u);
+					if (!fixtureDetail.empty())
+					{
+						res.fail(item, fixtureDetail);
+					}
+					else if (!powerWhy.empty())
+					{
+						res.fail(item, "DISABLED: " + powerWhy);
+					}
+					else
+					{
+						res.fail(item, fixtureApplied && greyRow ? greyfix::bugDetail(*greyRow)
+							: str("state %d at level 10%s (not enabled)", (int)b.state, modelGated ? " after the weapon toggle / mount" : ""));
+					}
 					continue;
 				}
 				struct TempTarget

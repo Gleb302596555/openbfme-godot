@@ -546,6 +546,7 @@ include(cmake/Port263.cmake)    # PORT-263: EmotionTrackerUpdate (terror, fear, 
 include(cmake/Port269.cmake)    # PORT-269: the dropped One Ring's radar marker (issue #636 / P-154; OPENBFME_PORT269_TESTS)
 include(cmake/Port226.cmake)    # PORT-226: the idle state's stance countdown (fork issue #549; OPENBFME_PORT226_TESTS)
 include(cmake/Port271.cmake)    # PORT-271: several units and heroes selected — the panel, portrait and voice are the senior hero's (issue #638, P-151; OPENBFME_PORT271_TESTS)
+include(cmake/Port274.cmake)    # PORT-274: FIRE_WEAPON buttons with an object target press -> click -> MSG_DO_WEAPON_AT_OBJECT (issue #641; OPENBFME_PORT274_TESTS)
 add_library(openbfme_core STATIC
     ${OPENBFME_PLAY2_SOURCES}
     ${OPENBFME_APT_SOURCES}
@@ -1321,6 +1322,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT269_TESTS}
     ${OPENBFME_PORT226_TESTS}
     ${OPENBFME_PORT271_TESTS}
+    ${OPENBFME_PORT274_TESTS}
     tests/test_main.cpp
     tests/test_big_archive.cpp
     tests/test_parser_fuzz_regressions.cpp
