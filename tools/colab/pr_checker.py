@@ -27,7 +27,7 @@ and its retail tests run in the owner's batch after the code was read (batch_bot
 says lives in this repository is the owner's.
 
 Order and skips (owner 2026-11-17: the checker ran hours behind, re-checking what Claude had already taken):
- - the most recently updated PRs first;
+ - reworked PRs (checked before) and never-checked ones in turn, each queue oldest head commit first (queue_order, 2026-11-19);
  - a PR whose head is already in a batch Claude is testing or landing (origin batch/*, land/*, agent/claude/station-0) is skipped;
  - a PR returned to its agent (a comment with <!-- returned --> or "не принят", newer than the PR's last commit) is skipped until a new
    commit arrives;
@@ -591,6 +591,27 @@ def sync_from_comments(p: dict, state: dict) -> None:
     save_state(state)
 
 
+def head_time(n: int | str) -> int:
+    """The committer time of the PR's head (refs/prcheck/N, fetched each cycle): when its agent last pushed. Not updatedAt, which every
+    comment moves, the checker's own report too."""
+    out = sh(["git", "log", "-1", "--format=%ct", f"refs/prcheck/{n}"], cwd=REPO).stdout.strip()
+    return int(out) if out.isdigit() else 0
+
+
+def queue_order(todo: list[dict], checked: dict, when, last_reworked: bool) -> list[dict]:
+    """Two queues, each oldest head first, taken in turn (owner 2026-11-19: in a day only reworked PRs were checked; PRs 653..671, never
+    checked, waited behind them since 2026-11-17, because reworked went first and the rest by updatedAt, which the checker's own comments
+    move). Reworked = checked before at another head (its agent waits for the answer, PR 523); new = never checked. The queue that did not
+    give the last check gives the next one."""
+    rework = sorted([p for p in todo if str(p["number"]) in checked], key=when)
+    new = sorted([p for p in todo if str(p["number"]) not in checked], key=when)
+    first, second = (new, rework) if last_reworked else (rework, new)
+    out = []
+    for i in range(max(len(first), len(second))):
+        out += first[i:i + 1] + second[i:i + 1]
+    return out
+
+
 def cycle(args) -> int:
     state = load_state()
     sh(["git", "fetch", "-q", "origin"], cwd=REPO).check_returncode()
@@ -650,12 +671,10 @@ def cycle(args) -> int:
     for p in [p for p in todo if held_elsewhere(p, held)]:
         print(f"#{p['number']}: checked on sandbox {held_elsewhere(p, held)} now", flush=True)
     todo = [p for p in todo if not held_elsewhere(p, held)]
-    # a reworked PR (checked before, new head) first: its agent waits for the answer (PR 523 waited four hours behind new PRs); then the
-    # freshest first
-    todo = sorted(todo, key=lambda p: p.get("updatedAt") or "", reverse=True)
-    todo = sorted(todo, key=lambda p: str(p["number"]) not in state["checked"])
+    todo = queue_order(todo, state["checked"], lambda p: head_time(p["number"]), state.get("last_reworked", False))
     # one PR per cycle, then the list again: a PR reworked while another is being checked waits for that one check only, not the whole queue
     for p in todo[:1]:
+        state["last_reworked"] = str(p["number"]) in state["checked"]
         if not claim_check(p):
             print(f"#{p['number']}: the other sandbox claimed it first", flush=True)
             continue

@@ -65,3 +65,15 @@ def test_a_pr_claimed_on_the_other_sandbox_is_left_and_this_sandboxs_claim_holds
     assert not pc.held_elsewhere(p, pc.check_claims(now=__import__("time").time() + pc.CLAIM_S + 1))
     pc.release_check(p)   # not ours: stays
     assert (claims / "7.json").exists()
+
+
+def test_reworked_and_never_checked_prs_take_turns_oldest_head_first():
+    # 2026-11-19: PRs 653..671 waited a day behind reworked ones
+    prs = [{"number": n} for n in (523, 653, 662, 680, 711)]
+    checked = {"523": A, "680": B}
+    when = {523: 50, 653: 10, 662: 20, 680: 40, 711: 5}
+    order = [p["number"] for p in pc.queue_order(prs, checked, lambda p: when[p["number"]], False)]
+    assert order == [680, 711, 523, 653, 662]
+    order = [p["number"] for p in pc.queue_order(prs, checked, lambda p: when[p["number"]], True)]
+    assert order == [711, 680, 653, 523, 662]
+    assert pc.queue_order([], checked, lambda p: 0, False) == []
