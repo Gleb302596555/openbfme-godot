@@ -544,6 +544,7 @@ include(cmake/Port254.cmake)    # PORT-254: auras and passive buffs — Attribut
 include(cmake/Port267.cmake)    # PORT-267: the floor record's fade on death, W3DFloorDraw FloorFadeRateOnObjectDeath (fork issue 626; OPENBFME_PORT267_TESTS)
 include(cmake/Port263.cmake)    # PORT-263: EmotionTrackerUpdate (terror, fear, cheering, idle emotions) and BoredUpdate (issue #611; OPENBFME_PORT263_TESTS)
 include(cmake/Port269.cmake)    # PORT-269: the dropped One Ring's radar marker (issue #636 / P-154; OPENBFME_PORT269_TESTS)
+include(cmake/Port298.cmake)    # PORT-298: RespawnUpdate — the unread DeathAnimationTime, the cited xfer / name-key / name (issue #690; OPENBFME_PORT298_TESTS)
 include(cmake/Port226.cmake)    # PORT-226: the idle state's stance countdown (fork issue #549; OPENBFME_PORT226_TESTS)
 include(cmake/Port271.cmake)    # PORT-271: several units and heroes selected — the panel, portrait and voice are the senior hero's (issue #638, P-151; OPENBFME_PORT271_TESTS)
 add_library(openbfme_core STATIC
@@ -1319,6 +1320,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT268_TESTS}
     ${OPENBFME_PORT263_TESTS}
     ${OPENBFME_PORT269_TESTS}
+    ${OPENBFME_PORT298_TESTS}
     ${OPENBFME_PORT226_TESTS}
     ${OPENBFME_PORT271_TESTS}
     tests/test_main.cpp
