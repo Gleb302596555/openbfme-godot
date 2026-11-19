@@ -50,6 +50,7 @@ class QueueProductionExitUpdate : public UpdateModule, public ExitInterface
 {
 public:
 	OBFME_MODULE_XFER(QueueProductionExitUpdate) // lane SAVE-4b
+	// RW 0x008A3948 (scalar deleting dtor RW 0x008A39B2)
 	QueueProductionExitUpdate(Thing *thing, const QueueProductionExitUpdateModuleData *data);
 
 	static void registerClass(class ModuleFactory &modules);
@@ -64,9 +65,9 @@ public:
 	void exitObjectByBudding(Object *newObj, Object *buddingHost) override;
 	void unreserveDoorForExit(ExitDoorType) override {}
 	void exitObjectInAHurry(Object *) override {}
-	bool useSpawnRallyPoint() const override { return m_data->m_canRallyToSlaughter; }
+	bool useSpawnRallyPoint() const override { return m_data->m_canRallyToSlaughter; } // RW 0x008A3941
 	void setRallyPoint(const Coord3D *pos) override;
-	const Coord3D *getRallyPoint() const override { return m_rallyPointExists ? &m_rallyPoint : nullptr; }
+	const Coord3D *getRallyPoint() const override { return m_rallyPointExists ? &m_rallyPoint : nullptr; } // RW 0x008A389C
 	bool getNaturalRallyPoint(Coord3D *out, bool offset) const override;
 	bool getExitPosition(Coord3D *out, float *angle) const override;
 	void releaseLastExit() override;

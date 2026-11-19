@@ -453,6 +453,7 @@ void InGameHud::updateHud6(ObjectID context, const std::string &faction, double 
 	{
 		have = hoveredAptButton(p, hovered);
 	}
+	const ControlBarButton *commandWindow = have ? &hovered : nullptr; // ordinary windows only, not the separate stance-item or unit help
 	// lane CAMPUI-1: a stance item of the toggle's radial: its help (RW 0x96F33E) is the toggle's TextLabel / DescriptLabel at the item stance's index in the
 	// toggle's Stances (RW 0x96F2DA), made as a command button help with no cost (RW 0x975070 with empty cost / command point texts); provider kind 5, keyed
 	// by the stance. INFERENCE: its delay is the arc's (the item provider's vslot 2 was not read)
@@ -512,7 +513,7 @@ void InGameHud::updateHud6(ObjectID context, const std::string &faction, double 
 			}
 			CommandButtonHelp::Text t = CommandButtonHelp::compose(hovered, text, logic, player, local, selection, faction, &selected);
 			return std::make_shared<CommandButtonHelp>(t, text, imageSizeOf, (void *)images);
-		});
+		}, commandWindow);
 	}
 	FontMetricsSource &metrics = m_hud6Metrics ? *m_hud6Metrics : m_hud6DefaultMetrics;
 	AptStageMapping m;

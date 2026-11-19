@@ -243,6 +243,7 @@ private:
 	unsigned m_applied = 0;          // lane HERO-1: RW 0x89763B calls (a test counter, hashed)
 };
 
+// Local 87: RW 0x008CC2C7 (getModuleName), RW 0x008CC31A (getModuleNameKey), RW 0x008CC35F (dtor), RW 0x008C6583 (base dtor thunk).
 class PlayerHealSpecialPower : public SpecialPowerModule
 {
 public:
@@ -267,7 +268,7 @@ private:
 	int m_lastHealed = 0;
 };
 
-// OCLSpecialPower (data constructor RW 0x8C752F, table RW 0xC73A40 after the base; module constructor RW 0x8C72E9, interface RW 0xC73890):
+// OCLSpecialPower (data constructor RW 0x8C752F, destructor RW 0x008C7A33 / 0x008C7A17, table RW 0xC73A40 after the base; module constructor RW 0x8C72E9, destructor RW 0x008C7319 / 0x008C7377, name RW 0x008C7313 / 0x008C7332, interface RW 0xC73890):
 // + 0x7C UpgradeOCL (science, OCL) pairs, + 0x88 OCL, + 0x8C CreateLocation (index into RW 0xDB32D8, default 0 CREATE_AT_EDGE_NEAR_SOURCE),
 // + 0x90 UpgradeName, + 0x9C NearestSecondaryObjectFilter. doSpecialPowerAtLocation (RW 0x8C75D8): the base part (RW 0x89816C), the OCL is the
 // first UpgradeOCL whose science the player owns, else OCL (RW 0x8C7393); CREATE_AT_LOCATION (case 3, RW 0x8C776B) creates it with the module's
@@ -329,6 +330,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p); // RW 0x8CCBD0, table RW 0xC75398
 };
 
+// Local 87: RW 0x008CCC15 (getModuleName), RW 0x008CCC34 (getModuleNameKey), RW 0x008CCC79 (dtor), RW 0x008C6583 (base dtor thunk).
 class CombineHordeSpecialPower : public SpecialPowerModule
 {
 public:
@@ -349,6 +351,7 @@ private:
 };
 
 // RW 0x8CB3D1 (DONOR BFME2 0x004C7063)
+// Local 87: RW 0x008CB3FB (getModuleName), RW 0x008CB4AC (getModuleNameKey), RW 0x006548BC (dtor), RW 0x008C6583 (base dtor thunk).
 class ManTheWallsSpecialPower : public SpecialPowerModule
 {
 public:

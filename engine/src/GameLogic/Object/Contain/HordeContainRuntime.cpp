@@ -1349,7 +1349,7 @@ void HordeContain::teleportMembersTransform(const float basis[9])
 // they walk to their slots in the member pass (RW 0x87468B), and an explicit teleport moves them (contain slot 0x1B8 RW 0x86D881, teleportMembers). The port
 // had ZH OpenContain's "the contents follow the container" here: every member was put on its slot whenever the horde's transform changed outside its
 // locomotor, e.g. AIMoveToState's final-angle snap (RW 0x748E46 -> 0x70C31E), so members jumped up to 40 units at the end of a move.
-// NOT PORTED: the + 0x4AC / + 0x4B0 mark (its readers are not decoded).
+// NOT PORTED: maintain the transient + 0x4AC ground override / + 0x4B0 frame stamp. The + 0x4AC readers include Object layer and Pathfinder portal checks (S-4840 / S-4851); its HordeContain writer clears it 13 frames later (RW 0x68C05A). The + 0x4B0 reader/use remains unresolved; this is separate from the old, incorrect follow-container transform behavior.
 void HordeContain::containReactToTransformChange()
 {
 }

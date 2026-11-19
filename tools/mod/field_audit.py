@@ -152,13 +152,14 @@ class ModField:
 
 
 def mod_fields(vfs, block_types: set[str], diag: dict | None = None, grammar: "Grammar | None" = None,
-               line_rows: dict[str, set[str]] | None = None) -> dict[tuple[str, str, str], ModField]:
+               line_rows: dict[str, set[str]] | None = None, sink=None) -> dict[tuple[str, str, str], ModField]:
     """(block type, owner, field) -> what the mod writes. The owner is the module class (with /<nested key> inside a nested block), /<key> for a
     block nested in the definition, or "" for the definition's own fields. Where RotWK's grammar knows the open block (a module class, Object and
     the sub-tables of both), a line without '=' is what the table says: a field (`ParticleSysBone Bone Fx`), a sub-block or a script (BeginScript up
     to EndScript, one field); elsewhere a line without '=' opens a nested block when an End closes it (headers(); line_rows: the names the port's
     tables of a block type parse as one line, never a block). diag gets the definitions whose blocks did not close and the module classes'
-    definitions."""
+    definitions. sink(block type, owner, field, definition, value), when given, gets every field line (modifier_map.py: which definition names
+    which ModifierList, with the module class from this grammar)."""
     out: dict[tuple[str, str, str], ModField] = defaultdict(ModField)
     diag = diag if diag is not None else {}
     diag.setdefault("unclosed", [])
@@ -191,6 +192,8 @@ def mod_fields(vfs, block_types: set[str], diag: dict | None = None, grammar: "G
                 f.count += 1
                 f.defs.add(defname)
                 f.values[value.strip()[:60]] += 1
+                if sink is not None:
+                    sink(typ, owner, key, defname, value)
                 f.src = f.src or s
 
             i += 1

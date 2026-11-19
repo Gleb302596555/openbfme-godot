@@ -392,6 +392,19 @@ std::unique_ptr<AIStateMachine> AIAttackState::createAttackMachine()
 {
 	AIUpdateInterface &a = ai();
 	std::unique_ptr<AIStateMachine> m;
+	// lane PORT136-AIRPATH (issue #338): the machine asks the AI for its own attack machine first — the giant bird's
+	// precedence of RW 0x74CFCA..0x74D019. RW 0x769C31 (the bird's state machine, vslot 9) makes the swoop-then-idle
+	// machine RW 0x769335 and hands it to the attack state, so a bird attacks by swooping: the ground approach/aim/fire
+	// machine it would otherwise get never gets a path (its move is the walk machine's, RW 0x6668CA -> the pathfinder's
+	// ground search 0x6FC18E only), which is the eagle that never fires. The port keeps that factory on the AI
+	// (AIUpdateInterface::makeAttackThenIdleMachine, the same RW 0x769335 body the bird's attack move uses at
+	// GiantBirdAIUpdate.cpp:1307); every other AI answers null and the machines below stand.
+	m = a.makeAttackThenIdleMachine(10);
+	if (m)
+	{
+		m_machineMade = MADE_SWOOP;
+		return m;
+	}
 	// RW 0x74CFCA..0x74D019: giant-bird AI and CONTESTING_BUILDING
 	// take precedence; a HORDE position attack then selects kind 7, regardless
 	// of whether its current weapon itself is melee.
@@ -540,6 +553,21 @@ StateReturnType AIAttackState::updateAttackMachine()
 	{
 		KeptSubMachines<AIStateMachine>::Run run(m_keptMachines); // the shot can end this state inside the update (onExit below)
 		r = m_attackMachine->updateStateMachine(); // RW 0x7515CF: machine vslot + 0x10
+	}
+	// lane PORT136-AIRPATH (issue #338): the bird's swoop machine rests in its idle state (RW 0x769EA0, state 0 of RW 0x769335) between swoops — its
+	// idle is STATE_CONTINUE, so the flattening below would hold this attack state for ever and the eagle that missed a swoop would hover. The bird's own
+	// attack move polls the same machine the same way (GiantBirdAIUpdate.cpp, GiantBirdAttackMoveToState::update: idle -> goal object, setState(10), the
+	// swoop state of RW 0x769335); here the living victim restarts the swoop.
+	if (m_machineMade == MADE_SWOOP && m_attackMachine)
+	{
+		const AIState *inner = m_attackMachine->currentState();
+		Object *victim = machine().goalObject();
+		if (inner && inner->isIdle() && victim && !rwVictimGone(victim))
+		{
+			m_attackMachine->setGoalObject(victim->getID());
+			m_attackMachine->setState(10); // RW 0x769335's swoop state (the id makeAttackThenIdleMachine was given)
+			return STATE_CONTINUE;
+		}
 	}
 	return IS_STATE_SLEEP(r) ? STATE_CONTINUE : r;
 }

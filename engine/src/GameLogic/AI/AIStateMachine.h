@@ -69,7 +69,10 @@ enum AIStateType
 	AI_WAIT = 8,
 	AI_MOVE_OUT_OF_THE_WAY = 26,
 	AI_MOVE_AND_TIGHTEN = 27,
+	AI_MOVE_AND_DELETE = 30,             // RW 0x753755: AIMoveAndDeleteState (AICMD 0x38, RW 0x0066B7A2)
+	AI_WANDER_IN_PLACE = 41,             // RW 0x753755: AIWanderInPlaceState (AICMD 0x2C, RW 0x0066488A)
 	AI_BUSY = 42,
+	AI_MOVE_TO_POSITION_AND_DIE = 55,    // RW 0x753755: AIMoveToPositionAndDieState (AICMD 0x41, RW 0x0066B817)
 	AI_FOLLOW_PATH_AS_TEAM = 54,        // lane BACKLOG-8 r2: RotWK's state 54 (RW 0x753B27: AIFollowPathAsTeamState, isAttack = false)
 	AI_FOLLOW_PATH_AS_TEAM_ATTACK = 61, // lane PORT-13: RotWK's state 61 (RW 0x753B4E: AIFollowPathAsTeamState, isAttack = true)
 	AI_ABILITY_APPROACH = 0x3F, // RW 0x753823 -> 0x741A7B
@@ -321,6 +324,35 @@ private:
 	bool backOff(Coord3D &goal); // RW 0x745C6C
 	unsigned m_waitUntil = 0; // RW state + 0x4C
 	bool m_waiting = false;   // RW state + 0x50
+};
+
+// Local 84: AIMoveAndDeleteState (state 30 = 0x1E, AICMD 0x38 RW 0x0066B7A2; DONOR BFME2 0x0034A02D AIMoveAndDeleteStateUpdate.cpp).
+class AIMoveAndDeleteState : public AIMoveToMachineState
+{
+public:
+	explicit AIMoveAndDeleteState(AIStateMachine &m) : AIMoveToMachineState(m, "AIMoveAndDeleteState") {}
+	StateReturnType update() override;
+};
+
+// Local 84: AIMoveToPositionAndDieState (state 55 = 0x37, AICMD 0x41 RW 0x0066B817; DONOR BFME2 0x003513C9 AIStatesBfmeOnExit.cpp).
+class AIMoveToPositionAndDieState : public AIMoveToMachineState
+{
+public:
+	explicit AIMoveToPositionAndDieState(AIStateMachine &m) : AIMoveToMachineState(m, "AIMoveToPositionAndDieState") {}
+	StateReturnType update() override;
+};
+
+// Local 84: AIWanderInPlaceState (state 41 = 0x29, AICMD 0x2C RW 0x0066488A; DONOR BFME2 0x0034F2F7 AIWanderInPlaceStateUpdate.cpp).
+class AIWanderInPlaceState : public AIMoveToMachineState
+{
+public:
+	explicit AIWanderInPlaceState(AIStateMachine &m) : AIMoveToMachineState(m, "AIWanderInPlaceState") {}
+	StateReturnType onEnter() override;
+	StateReturnType update() override;
+	void crc(class StateHasher &hasher) const override;
+	void xfer(class Xfer &x) override;
+private:
+	Coord3D m_origin{ 0.0f, 0.0f, 0.0f };
 };
 
 // AIFollowPathState (ZH AIStates.cpp:3253-3420): walks the machine's goal path node by node; the exit-production variant (id 7) does not

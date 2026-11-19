@@ -12,6 +12,8 @@
 //     (+0x14), DecalSize (real +0x18), FadeTime (real +0x1C), UnpackDelayTime (real +0x20), BuildTime (real +0x24), ScanDistance (real +0x28), MaxCastleRadius (real +0x2C),
 //     CrewPrepareTime (duration +0x38), InstantUnpack (bool +0x3C), KeepDeathKillsEverything (+0x3D), CrewReleaseFX / CrewPrepareFX (FXList +0x48 / +0x44), CrewPrepareInterval
 //     (duration +0x40), DisableStructureRotation (+0x74), EvaEnemyCastleSightedEvent (+0x4C), Summoned (+0x3E), TransferFoundationHealthToCastleUponUnpack (+0x75).
+//     The three crew fields are real RotWK readers, not unused parse rows: CrewPrepareInterval and CrewPrepareFX are read by update RW 0x79B33D..0x79B362;
+//     CrewReleaseFX is read by releaseCrew RW 0x79A337..0x79A352. Their end-to-end path remains S-951 because update's member eligibility reads shared damage-record amount at record +0x20 (RW 0x79B195..0x79B1A8).
 //     CastleMemberBehaviorModuleData (RW 0xC30A68): CampDestroyedOwnerEvaEvent / AllyEvaEvent / AttackerEvaEvent (+8 / +0xC / +0x10), BeingBuiltSound (+0x14), StoreUpgradePrice
 //     (bool +0x18), CountsForEvaCastleBreached (bool +0x19).
 //   * onBuildComplete of the create interface (RW 0x798238): when InstantUnpack is set, m_needInstantBuild = 1 (module + 0x3C); the object gets the model condition
@@ -25,16 +27,16 @@
 //       - the template is looked up by the entry's name; one with KindOf OPTIMIZED_PROP is skipped (RW 0x798850); WALK_ON_TOP_OF_WALL sets module + 0x44;
 //       - the team is the castle's when the template passes FilterValidOwnedEntries (RW 0x763543, no players), else the neutral player's default team (RW 0x798885);
 //       - the position is the castle's transform applied to the entry's position (rotation by the castle's orientation, translation), the angle is the entry's plus the
-//         castle's, normalised (RW 0x798899 ff); a template that is not a COMMANDCENTER must pass the placement legality with options CLEAR_PATH | NO_OBJECT_OVERLAP (RW 0x797A96
-//         with 5), else the entry is skipped;
+//         castle's, normalised (RW 0x798899 ff); a template that is not a COMMANDCENTER must pass the placement legality with options 5 (RW 0x797A96
+//         adds 0x100: TERRAIN_RESTRICTIONS | NO_OBJECT_OVERLAP | CASTLE_MEMBERS, lane BUILDCLEAR-1; the port leaves the terrain bit out, S-303), else the entry
+//         is skipped;
 //       - the object is made by the creation interface at module + 0x20 (RW 0x859198) and recorded in the castle's owned list; the CastleMemberBehavior of every owned object
 //         learns its castle (RW 0x79BFC9: module + 0x14 / + 0x18);
 //     then the castle centre gets the status UNSELECTABLE (RW 0x79C07E), its drawable is hidden, the model flags / pathfinder footprint are updated, and the state is 4.
 // lane BACKLOG2: the creation interface RW 0x859198 (the castle's + 0x20 vtable RW 0xC30DE8 slot 4) clears the site (RW 0x858C41) and pushes the units out (RW 0x858CFC)
 // around each member and each pre-built structure (GameLogic/ConstructionSite.h).
-// INFERENCE (stop S-303): the creation interface's construct (slot 7, RW 0x858701 with the castle as the plot) beyond placing the object (position, angle, team, the structure notifications of the starting base),
-// the faction decal, the damage evacuation of the member (EvacuateDamage is its own module) and WallUpgradeUpdate are not ported (CastleUpgrade is FACT-B's). The castle after its unpack is lane
-// CASTLE-1's (below; stops S-950 .. S-952).
+// S-303: the creation interface's construct (slot 7, RW 0x858701 with the castle as the plot) is ported through Construction::constructOnPlot in createOwnedObject; the faction decal,
+// the damage evacuation of the member (EvacuateDamage is its own module) and WallUpgradeUpdate are not ported (CastleUpgrade is FACT-B's). The castle after its unpack is lane CASTLE-1's (below; stops S-950 .. S-952).
 //
 // Lane CASTLE-1 (TARGET FACTS, RotWK game.dat, S-001 caveat; static disassembly; the module's fields are offsets of the CastleBehavior module, `this` of RW 0x79CF2A is module + 0x10):
 //   * the data constructor RW 0x79C543: DecalSize 1.0, FadeTime 2.0, UnpackDelayTime 2.0, BuildTime 5.0, ScanDistance 100.0, MaxCastleRadius 0, CrewPrepareTime 18 frames, CrewPrepareInterval
@@ -72,8 +74,7 @@
 //   * unpack RW 0x79BE6A (both forms): the castle's footprint leaves the pathfinder, + 0x9C / + 0x44 reset, the layout (or the explicit object of + 0x98) is made, every member
 //     learns the keep (member + 0x14 = the keep's id, RW 0x7990D9: BUILD-1's "occupant" reading of that field is wrong, S-952), + 0x48 = the frame, the castle gets UNPACKING
 //     instead of PACKING and UNSELECTABLE, the walk-on-wall members' footprints are added (RW 0x799E3F), and the keep takes the castle's price (truncated) and script name
-//     (ScriptEngine RW 0x759467) while the castle is renamed "No Name". With TheTerrainLogic (RW 0xDE4690) set, RW 0x683955 (lane TAINTAREA-1: the TAINT
-//     objects within MaxCastleRadius and their taint are cleared, TerrainTaintClear::clearForCastle).
+//     (ScriptEngine RW 0x759467) while the castle is renamed "No Name". With TheTerrainLogic (RW 0xDE4690) set, RW 0x683955 clears TAINT objects within MaxCastleRadius and their terrain effect (TAINTAREA-1, TerrainTaintClear::clearForCastle; S-5261).
 // Lane CASTLEAREA-1 (TARGET FACTS, RotWK game.dat; BFME2 decomp CastleBehaviorRegisterOwnedObject_Unresolved.cpp:622 / CastleBehaviorRegisterOwnedObject.cpp:725,
 // Rva00396E4ARemove.cpp:186 / :206, SidesListCastleBuildLists.cpp):
 //   * the castle's areas RW 0x79B881, after the layout of the template form of the unpack (RW 0x79BE6A, after RW 0x79B903) and in the module's xfer on a load

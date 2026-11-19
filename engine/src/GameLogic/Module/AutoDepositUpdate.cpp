@@ -156,6 +156,7 @@ void AutoDepositUpdate::crc(StateHasher &h) const
 }
 
 // ---- lane SAVE-4b: the snapshot (OpenBFME native, S-4190) ---------------------------------------------------------------------------------------------------
+// RW 0x008A438F
 void AutoDepositUpdate::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

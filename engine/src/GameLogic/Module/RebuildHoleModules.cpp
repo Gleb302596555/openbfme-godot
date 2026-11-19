@@ -135,8 +135,8 @@ void RebuildHoleBehaviorModuleData::buildFieldParse(MultiIniFieldParse &p)
 
 void RebuildHoleModules::registerModules(ModuleFactory &modules)
 {
-	bind<RebuildHoleExposeDie, RebuildHoleExposeDieModuleData>(modules, "RebuildHoleExposeDie"); // registration RW 0x658A4F
-	bind<RebuildHoleBehavior, RebuildHoleBehaviorModuleData>(modules, "RebuildHoleBehavior");    // registration RW 0x658695
+	bind<RebuildHoleExposeDie, RebuildHoleExposeDieModuleData>(modules, "RebuildHoleExposeDie"); // registration RW 0x658A4F (getModuleNameKey RW 0x00889A43, GetSnapshotName RW 0x00889A88)
+	bind<RebuildHoleBehavior, RebuildHoleBehaviorModuleData>(modules, "RebuildHoleBehavior");    // registration RW 0x658695 (getModuleNameKey RW 0x00886554, GetSnapshotName RW 0x00886599)
 }
 
 // ---- RebuildHoleExposeDie --------------------------------------------------------------------------------------------------------------------------------

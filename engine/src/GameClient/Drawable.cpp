@@ -27,6 +27,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <algorithm>
 #include <variant>
 
 DrawEntry::DrawEntry() = default;
@@ -593,6 +594,92 @@ bool Drawable::advanceIsLocal() const
 // every model draw, including a static prop whose only state is the constructor's empty idle, and writes the draw's own opacity /
 // hidden state. The position is the drawable's synced drawn position (RW 0x676711); the port advances before syncTransforms, so it
 // is the pose the previous render frame synced (client presentation only, no simulation state).
+namespace
+{
+// the template's ShadowSizeX / ShadowSizeY / ShadowOffsetX / ShadowOffsetY (RW ThingTemplate +0x4F8 .. +0x504), the size of a terrain decal
+float terrainDecalField(const ThingTemplate *tt, const char *name)
+{
+	const FieldValue *v = tt ? tt->findField(name) : nullptr;
+	if (const float *f = v ? std::get_if<float>(v) : nullptr)
+	{
+		return *f;
+	}
+	if (const long long *i = v ? std::get_if<long long>(v) : nullptr)
+	{
+		return (float)*i;
+	}
+	return 0.0f;
+}
+} // namespace
+
+void Drawable::setTerrainDecal(int type)
+{
+	if (m_terrainDecalType == type) // RW 0x672BA0
+	{
+		return;
+	}
+	m_terrainDecalType = type;
+	// RW 0x672BA6: the first module of the draw module list (+0x14C) only; a module that is not a model draw has the empty base slot
+	if (!m_entries.empty() && m_entries.front().draw)
+	{
+		const ThingTemplate *tt = getTemplate();
+		m_entries.front().draw->setTerrainDecal(type, terrainDecalField(tt, "ShadowSizeX"), terrainDecalField(tt, "ShadowSizeY"),
+			terrainDecalField(tt, "ShadowOffsetX"), terrainDecalField(tt, "ShadowOffsetY"));
+	}
+}
+
+void Drawable::setTerrainDecalTexture(const std::string &texture)
+{
+	m_terrainDecalType = texture.empty() ? 7 : 6; // RW 0x672BC2 .. 0x672BD0
+	if (!m_entries.empty() && m_entries.front().draw)
+	{
+		const ThingTemplate *tt = getTemplate();
+		m_entries.front().draw->setTerrainDecalTexture(texture, terrainDecalField(tt, "ShadowSizeX"), terrainDecalField(tt, "ShadowSizeY"),
+			terrainDecalField(tt, "ShadowOffsetX"), terrainDecalField(tt, "ShadowOffsetY"));
+	}
+}
+
+void Drawable::setTerrainDecalFadeTarget(float target, float rate, unsigned logicFrame)
+{
+	m_decalFadeTarget = target;   // RW 0x670947
+	m_decalFadeRate = rate;       // RW 0x670955
+	m_decalFadeFrame = logicFrame; // RW 0x67095D .. 0x670968: TheGameLogic's frame
+}
+
+void Drawable::advanceTerrainDecal(unsigned logicFrame)
+{
+	if (m_terrainDecalType == 7) // RW 0x675C25 -> 0x675D1E
+	{
+		m_decalOpacity = 0.0f;
+		return;
+	}
+	if (m_entries.empty() || !m_entries.front().draw) // RW 0x675C38
+	{
+		return;
+	}
+	W3DScriptedModelDraw &module = *m_entries.front().draw;
+	if (m_decalFadeRate != 0.0f) // RW 0x675C40 .. 0x675C4F
+	{
+		// RW 0x675C51 .. 0x675CA9: the frames since the last step (at least 1), the module gets the opacity before the step
+		const int elapsed = std::max((int)(logicFrame - m_decalFadeFrame), 1);
+		m_decalFadeFrame = logicFrame;
+		module.setTerrainDecalOpacity(m_decalOpacity);
+		m_decalOpacity += (float)elapsed * m_decalFadeRate;
+	}
+	if (m_decalFadeRate < 0.0f && m_decalOpacity <= 0.0f) // RW 0x675CAF .. 0x675CD3: faded out, the decal goes
+	{
+		m_decalFadeRate = 0.0f;
+		m_decalOpacity = 0.0f;
+		setTerrainDecal(7);
+	}
+	else if (m_decalFadeRate > 0.0f && m_decalOpacity >= 1.0f) // RW 0x675CDD .. 0x675D19: faded in
+	{
+		m_decalOpacity = 1.0f;
+		m_decalFadeRate = 0.0f;
+		module.setTerrainDecalOpacity(1.0f);
+	}
+}
+
 void Drawable::advanceCameraFade()
 {
 	if (!m_services.cameraPosition)
@@ -633,6 +720,7 @@ void Drawable::advanceAnimationLocal(double elapsedMs)
 			e.lightDraw->stepFlicker((float)(elapsedMs * 0.001));
 		}
 	}
+	flushPendingCapturePresentation();
 }
 
 void Drawable::advanceAnimation(double elapsedMs)
@@ -654,6 +742,7 @@ void Drawable::advanceAnimation(double elapsedMs)
 			e.lightDraw->stepFlicker((float)(elapsedMs * 0.001));
 		}
 	}
+	flushPendingCapturePresentation();
 }
 
 // lane COMBAT-4 (FB-0002), RW 0x4CBFFB (W3DTruckDraw's draw update, run once per client frame: 6 per logic frame, RW 0xDE4324 + 0x38): with a front tire bone
@@ -2557,4 +2646,65 @@ Coord3D Drawable::getPresentationPosition() const
 		return m_presentationPosition;
 	}
 	return *getPosition();
+}
+
+bool Drawable::hasPendingAnimationTransition() const
+{
+	for (const DrawEntry &e : m_entries)
+	{
+		if (e.draw && e.draw->pendingStatePending())
+		{
+			const AnimationStateInfo *st = e.draw->currentAnimationState();
+			// Trans_CancelReraise in captureflag.ini has its own LuaEvent = OnStateEnter (raises the previous owner's flag).
+			if (st && st->stateName == "Trans_CancelReraise")
+			{
+				continue;
+			}
+			return true;
+		}
+	}
+	return false;
+}
+
+void Drawable::applyCapturePresentationNow(const std::vector<DeferredSubObject> &subObjects, bool hasIndicator, std::uint32_t indicator, bool hasHouse, std::uint32_t house)
+{
+	for (const DeferredSubObject &s : subObjects)
+	{
+		showSubObject(s.name, s.visible, s.permanent);
+	}
+	if (hasIndicator)
+	{
+		setIndicatorColor(indicator);
+	}
+	if (hasHouse)
+	{
+		setHouseColor(house);
+	}
+}
+
+void Drawable::applyOrDeferCapturePresentation(std::vector<DeferredSubObject> subObjects, bool hasIndicator, std::uint32_t indicator, bool hasHouse, std::uint32_t house)
+{
+	if (!hasPendingAnimationTransition())
+	{
+		m_pendingCapturePresentation = PendingCapturePresentation{};
+		applyCapturePresentationNow(subObjects, hasIndicator, indicator, hasHouse, house);
+		return;
+	}
+	m_pendingCapturePresentation.active = true;
+	m_pendingCapturePresentation.subObjects = std::move(subObjects);
+	m_pendingCapturePresentation.hasIndicatorColor = hasIndicator;
+	m_pendingCapturePresentation.indicatorColor = indicator;
+	m_pendingCapturePresentation.hasHouseColor = hasHouse;
+	m_pendingCapturePresentation.houseColor = house;
+}
+
+void Drawable::flushPendingCapturePresentation()
+{
+	if (!m_pendingCapturePresentation.active || hasPendingAnimationTransition())
+	{
+		return;
+	}
+	PendingCapturePresentation pending = std::move(m_pendingCapturePresentation);
+	m_pendingCapturePresentation = PendingCapturePresentation{};
+	applyCapturePresentationNow(pending.subObjects, pending.hasIndicatorColor, pending.indicatorColor, pending.hasHouseColor, pending.houseColor);
 }

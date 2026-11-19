@@ -88,13 +88,14 @@ inline std::vector<float> expectedHits(const WeaponTemplate &w, const Object &vi
 	// forged-blade swords, the fire arrows' warhead) is not one of its hits
 	auto off = [&](const WeaponNugget &n) {
 		bool o = false;
+		auto hasUpg = [&](const std::string &u) { return (attacker && attacker->hasUpgrade(u)) || (attackerPlayer && attackerPlayer->hasUpgradeComplete(u)); };
 		for (const std::string &u : n.m_requiredUpgradeNames)
 		{
-			o = o || (attacker && !attacker->hasUpgrade(u));
+			o = o || (attacker && !hasUpg(u));
 		}
 		for (const std::string &u : n.m_forbiddenUpgradeNames)
 		{
-			o = o || (attacker && attacker->hasUpgrade(u));
+			o = o || (attacker && hasUpg(u));
 		}
 		return o;
 	};
@@ -251,7 +252,7 @@ struct HitTracker
 				}
 			}
 			const ActiveBody *body = dynamic_cast<const ActiveBody *>(o->getBodyModule());
-			if (!body || casters.count(o->getID()))
+			if (!body || casters.count(o->getID()) || o->isKindOfName("HORDE")) // a horde container's 20-HP ImmortalBody clips every hit to 19 and masks the first real member hit
 			{
 				continue;
 			}
@@ -454,6 +455,7 @@ struct EffectProbe
 	unsigned weaponModeActive = 0;
 	float bounty = 0.0f; ///< lane FACT-C: the caster's player's bounty percent
 	float casterDamageMult = 1.0f;
+	float casterDamageAdd = 0.0f;
 	unsigned long long metaImpactHits = 0;
 	std::uint32_t playerMoney = 0;
 	size_t luaEvents = 0;
@@ -790,6 +792,7 @@ struct EffectProbe
 			{
 				const WeaponTemplate *w = TheWeaponStore ? TheWeaponStore->findWeaponTemplate(ad->m_weaponTemplate) : nullptr;
 				Expect de{ DAMAGE, cls + " WeaponTemplate " + ad->m_weaponTemplate, "", w };
+				de.hordeMembers = (size_t)std::max(1, ad->m_shotsPerBurst); // ArrowStormUpdate::triggerAbilityEffect (RW 0x00894100) fires ShotsPerBurst shots in one frame
 				if (w)
 				{
 					de.weapons.push_back(w);
@@ -1132,6 +1135,16 @@ struct EffectProbe
 			{
 				p.casterDamageMult = std::max(p.casterDamageMult, dmgMult);
 			}
+			float spellMult = 1.0f;
+			if (h->attributeModifierProduct(ATTRIBUTE_SPELL_DAMAGE, nullptr, true, spellMult)) // FillDamageInfo (RW 0x0090E28C): MAGIC uses SPELL_DAMAGE with innate=true
+			{
+				p.casterDamageMult = std::max(p.casterDamageMult, spellMult);
+			}
+			float dmgAdd = 0.0f;
+			if (h->attributeModifierSum(ATTRIBUTE_DAMAGE_ADD, nullptr, dmgAdd) && dmgAdd > 0.0f)
+			{
+				p.casterDamageAdd = std::max(p.casterDamageAdd, dmgAdd);
+			}
 		}
 		// the classes per holder: a horde's members carry the same modules, one expectation each class is enough
 		std::set<std::string> done;
@@ -1253,12 +1266,13 @@ struct EffectProbe
 						break; // reported below: the caster fought before the cast
 					}
 					const float dmgBonus = std::max(1.0f, std::max(casterDamageMult, after.casterDamageMult));
+					const float dmgAdd = std::max(casterDamageAdd, after.casterDamageAdd);
 					const float upperMult = (e.hordeMembers > 1 ? 2.5f * (float)e.hordeMembers : 2.5f) * dmgBonus;
 					for (const HitTracker::Hit &x : hits->hits)
 					{
 						auto it = hitNominal.find(x.victim);
 						const float nominal = it == hitNominal.end() ? 0.0f : it->second, sum = it == hitNominal.end() ? 0.0f : hitSum.at(x.victim);
-						if (x.frame == first && nominal > 0.0f && x.amount >= nominal * 0.9f && x.amount <= sum * upperMult)
+						if (x.frame == first && nominal > 0.0f && x.amount >= nominal * 0.9f && x.amount <= (sum + dmgAdd) * upperMult)
 						{
 							got = str("its first hit after the cast (frame %u) %.0f, the weapon's %.0f (all nuggets %.0f) against the victim's armour; no hit before the cast",
 									  first - frame, (double)x.amount, (double)nominal, (double)sum);
@@ -1913,8 +1927,17 @@ struct EffectProbe
 					{
 						continue;
 					}
+					const Object *attacker = nullptr;
+					for (ObjectID hid : holders)
+					{
+						if (const Object *ho = logic.findObjectByID(hid))
+						{
+							attacker = ho;
+							break;
+						}
+					}
 					std::string text;
-					const std::vector<float> h = expectedHits(*wt, *o, player, text);
+					const std::vector<float> h = expectedHits(*wt, *o, player, text, attacker);
 					if (h.empty())
 					{
 						continue;

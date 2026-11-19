@@ -34,6 +34,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -78,8 +79,9 @@ public:
 	// RW 0x807867: the end-game timer is an early gate; the late vslot 0x17C mode gate is not wired. The separate RW 0xDEA328 TheDisconnectMenu guard is wired by screen lifetime.
 	void setEndGameTimer(int endGameTimer) { m_endGameTimer = endGameTimer; }
 	void setDisconnectMenuPresent(bool present) { m_disconnectMenuPresent = present; } // RW 0xDEA328: TheDisconnectMenu
-	// RW 0x807848 for the provider under the pointer; `compose` makes the help when it is time to show it
-	void showHelp(const Provider &p, std::uint32_t nowMs, int tooltipDelayMs, const std::function<std::shared_ptr<CommandButtonHelp>()> &compose);
+	// RW 0x807848: offer the provider under the pointer. A command window also supplies the slot that compose will read this frame.
+	void showHelp(const Provider &p, std::uint32_t nowMs, int tooltipDelayMs, const std::function<std::shared_ptr<CommandButtonHelp>()> &compose,
+	              const ControlBarButton *commandWindow = nullptr);
 	// lane OWNERFIX-1 / PORT-189: RW 0x8076CD (thunk RW 0x8079BB; called by DISABLE_INPUT RW 0x7BC5D9 and
 	// ParasiticInGameCommandButton::Impl left/right click RW 0x9D282D / 0x9D28A3 -> RW 0x8079BB; the control bar's
 	// byte + 0x21C, its provider + 0x2AC released through RW 0xA0CB16, then the help box's hideSoon RW 0x6D473D):
@@ -101,6 +103,13 @@ private:
 	int m_countdown = 0;  ///< + 0x14
 	int m_width = -1;     ///< + 0x18
 	std::shared_ptr<CommandButtonHelp> m_help; ///< + 0x1C
+	// The measured content can outlive the hover provider (hide-soon state 4). Never retain a pointer into the bar's per-frame slot list.
+	struct DisplayedCommand
+	{
+		Provider owner;
+		std::string textLabel, descriptLabel;
+	};
+	std::optional<DisplayedCommand> m_displayedCommand;
 	// the provider
 	Provider m_provider;
 	bool m_haveProvider = false, m_marked = false, m_shownForProvider = false;

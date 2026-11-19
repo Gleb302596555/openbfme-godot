@@ -202,3 +202,15 @@ def test_a_stop_row_one_side_edited_keeps_only_the_edit_after_the_union_merge():
     assert bb.dedupe_rows(merged, base) == "| S-704 | code | a |\n| S-705 | code | narrowed |\n| S-706 | code | new |\n"
     both = "| S-705 | code | ours |\n| S-705 | code | theirs |\n"   # both sides edited the row: a real conflict
     assert bb.dedupe_rows(both, base) is None
+
+
+def test_a_local_station_pr_is_left_to_claudes_direct_landing():
+    p = {"isDraft": False, "headRefName": "agent/local/sb4-st2", "headRefOid": "x", "number": 1}
+    assert bb.verdict(p).startswith("Local")
+
+
+def test_the_batch_loop_checks_a_pr_after_thirty_minutes_without_green_prs_or_batches():
+    now = 10_000.0
+    assert not bb.helper_due({"finished": now - 600, "loop_started": 0}, now)
+    assert not bb.helper_due({"ready_at": now - 1700}, now)
+    assert bb.helper_due({"finished": now - 4000, "ready_at": now - 1900}, now)

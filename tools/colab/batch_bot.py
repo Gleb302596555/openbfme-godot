@@ -152,6 +152,8 @@ def verdict(p: dict) -> str:
         return "draft"
     if p["headRefName"].startswith(("claude/", "agent/claude/", "up/", "batch/")):
         return "Claude's own / not an agent PR"
+    if p["headRefName"].startswith("agent/local/"):   # owner 2026-11-19: a local station's PR carries much at once; Claude lands it into main directly
+        return "Local: Claude переносит в main напрямую, без партии"
     head = p["headRefOid"]
     extra = json.loads(gh("pr", "view", str(p["number"]), "--json", "comments,commits"))
     last_commit = max((c.get("committedDate") or "" for c in extra.get("commits") or []), default="")
@@ -273,6 +275,8 @@ def ensure_tree() -> None:
     if not (WT / ".git").exists():
         sh(["git", "worktree", "prune"], cwd=REPO)
         sh(["git", "worktree", "add", "--detach", str(WT), BASE], cwd=REPO, check=True)
+    # docs/STOPS.md merges by stop id (tools/stops_merge.py, .gitattributes merge=stops; owner 2026-11-19): a conflict left after it is real
+    sh(["git", "config", "merge.stops.driver", "python3 tools/stops_merge.py %O %A %B"], cwd=REPO)
 
 
 def pr_files(n: int) -> list[str]:
@@ -359,6 +363,9 @@ def resolve(n: int, pending: list[tuple[int, str]]) -> list[str]:
         elif m:  # add/add of the same stop id: the earlier PR keeps it, this PR's fragment is renumbered after the merge commit
             pending.append((int(m.group(1)), sh(["git", "show", f":3:{f}"]).stdout))
             git("checkout", "-q", "--ours", "--", f)
+        elif f == "docs/STOPS.md":  # tools/stops_merge.py (the merge driver) already merged it by stop id: what is left is a real conflict
+            left.append(f)
+            continue
         elif f in UNION or (f.startswith("engine/cmake/") and f.endswith(".cmake")):
             parts = [sh(["git", "show", f":{k}:{f}"]).stdout for k in (2, 1, 3)]
             tmp = [WT.parent / f".batch-merge{k}" for k in range(3)]
@@ -694,7 +701,15 @@ def report(name: str, out_dir: Path, rows: dict) -> Path:
 
 # ---------------------------------------------------------------- loop
 
-LOOP_STATE = Path(os.environ.get("BATCH_LOOP_STATE", "/content/sandbox/batch-loop.json"))
+# The loop's state lives on the Drive beside the runs (owner 2026-11-19: sandbox 1 runs batch rounds when it has nothing to check, so both
+# sandboxes must see the same unlanded green batch, the same red one and the same idle time); the old per-sandbox file seeds it once.
+LOOP_STATE = Path(os.environ.get("BATCH_LOOP_STATE", str(RUNS / "loop.json")))
+OLD_LOOP_STATE = Path("/content/sandbox/batch-loop.json")
+# Owner 2026-11-19: "если на 2 песочнице нету готовых пр на сборку 30 мин то включался проверяльщик как на 1 песочнице" — after HELP_AFTER_S
+# with no green PR and no batch, a loop round runs one PR checker cycle (pr_checker.py --once --no-helper); claims on the Drive keep the
+# two checkers off the same PR (pr_checker.py claim_check), the batch claims keep the two batchers off the same PRs (claimed above).
+HELP_AFTER_S = 30 * 60
+INSTALL = Path("/content/sandbox")
 
 
 def say(msg: str) -> None:
@@ -749,6 +764,40 @@ def stack_base(last: str | None, pending: bool, waited_s: float) -> tuple[str | 
     return f"origin/batch/{last}", 0.0
 
 
+def helper_due(st: dict, now: float) -> bool:
+    """No green PR and no batch for HELP_AFTER_S: time to check a PR instead (the round marks ready_at whenever it sees a green PR)."""
+    return now - max(st.get("finished", 0), st.get("ready_at", 0)) >= HELP_AFTER_S   # shared state: a restart does not reset the wait
+
+
+def install(name: str) -> Path:
+    """The other bot's script, as origin/main has it, beside this one (the watchdog installs the same way)."""
+    new = sh(["git", "show", f"origin/main:tools/colab/{name}"], cwd=REPO).stdout
+    path = INSTALL / name
+    if new and (not path.exists() or path.read_text(encoding="utf-8", errors="replace") != new):
+        tmp = path.with_name(name + ".new")
+        tmp.write_text(new, encoding="utf-8")
+        os.replace(tmp, path)
+    return path
+
+
+def help_check() -> int:
+    """One PR checker cycle on this sandbox (it checks at most one PR, then returns)."""
+    env = dict(os.environ, PRCHECK_STATE=str(INSTALL / "prcheck-state.json"))
+    with open("/content/prcheck.log", "ab") as log:
+        return subprocess.run([sys.executable, str(install("pr_checker.py")), "--once", "--no-helper"], cwd=str(INSTALL), env=env,
+                              stdout=log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL).returncode
+
+
+def load_loop_state() -> dict:
+    for f in (LOOP_STATE, OLD_LOOP_STATE):
+        try:
+            if f.exists():
+                return json.loads(f.read_text())
+        except (OSError, ValueError):
+            continue
+    return {}
+
+
 def loop_round(a, st: dict) -> str:
     """One round; returns the line for the log."""
     sh(["git", "fetch", "-q", "--prune", "origin"], cwd=REPO)
@@ -764,6 +813,8 @@ def loop_round(a, st: dict) -> str:
     if st.get("red") and since < a.idle_hours * 3600:
         return f"the last batch ({st.get('name')}) did not come out green: next try in {int((a.idle_hours * 3600 - since) / 60)} min"
     take, _ = candidates(None, a.max)
+    if take:
+        st["ready_at"] = time.time()
     if not solo_mover(take) and not should_start(len(take), since, a.min, a.idle_hours):   # a PR that moves pins goes at once
         return f"{len(take)} green PR(s): a batch starts at {a.min}, or at 1 after {a.idle_hours:g} h since the last batch"
     used = {q.name.split(".")[0] for q in RUNS.glob("2*")} if RUNS.exists() else set()
@@ -809,18 +860,21 @@ def self_update() -> None:
 
 def cmd_loop(a) -> int:
     while True:
-        try:
-            st = json.loads(LOOP_STATE.read_text()) if LOOP_STATE.exists() else {}
-        except ValueError:
-            st = {}
+        st = load_loop_state()
         try:
             line = loop_round(a, st)
         except Exception as e:  # a GitHub or Drive hiccup: the next round tries again
             line = f"round failed: {e}"[:300]
+        RUNS.mkdir(parents=True, exist_ok=True)
         LOOP_STATE.write_text(json.dumps({k: v for k, v in st.items() if k != "sleep"}))
         say(line)
         if a.once:
             return 0
+        if not a.no_helper and not run_going() and helper_due(st, time.time()):
+            say(f"{HELP_AFTER_S // 60} мин без зелёных PR и партий: один цикл проверщика PR (pr_checker.py --once)")
+            rc = help_check()
+            say(f"цикл проверщика закончен (код {rc}); дальше партии")
+            continue
         time.sleep(max(30.0, min(float(a.every), float(st.pop("sleep", a.every)))))
         sh(["git", "fetch", "-q", "origin"], cwd=REPO)
         self_update()
@@ -1001,6 +1055,7 @@ def main() -> int:
     lp.add_argument("--idle-hours", type=float, default=2.0, help="after this long since the last batch, one green PR is enough")
     lp.add_argument("--every", type=int, default=900)
     lp.add_argument("--once", action="store_true")
+    lp.add_argument("--no-helper", action="store_true", help="never run a PR checker cycle (the round pr_checker.py runs itself)")
     for c in ("plan", "run"):
         s = sub.add_parser(c)
         s.add_argument("--prs", type=lambda v: [int(x) for x in v.split(",") if x], default=None)

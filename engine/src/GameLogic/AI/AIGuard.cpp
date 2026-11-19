@@ -951,9 +951,19 @@ StateReturnType AIGuardState::onEnter()
 		// team, vslot 120)); the machine keeps the id and looks the team up when it needs the position (the same team while it exists)
 		m_guardMachine->setTeamToGuard(a.guardTeam());
 	}
+	else if (a.guardTargetType() == GUARDTARGET_OBJECT)
+	{
+		// Local 84: privateGuardObject (RW 0x00664B19) stores target object id at AI + 0x64 (RW 0x0066F121).
+		Object *target = obj.logic().findObjectByID(a.guardObject());
+		if (!target)
+		{
+			return STATE_FAILURE;
+		}
+		m_guardMachine->setPositionToGuard(*target->getPosition(), obj.getOrientation());
+	}
 	else if (a.guardTargetType() != GUARDTARGET_LOCATION)
 	{
-		return STATE_FAILURE; // S-3802: the object guard is not ported
+		return STATE_FAILURE;
 	}
 	else
 	{

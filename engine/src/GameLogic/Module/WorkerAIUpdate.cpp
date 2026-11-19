@@ -8,6 +8,7 @@
 #include "Common/ResourceGatheringManager.h"
 #include "Common/StateHash.h"
 #include "Common/Team.h"
+#include "Common/Thing/KindOfTokens.h"
 #include "Common/Thing/ModuleFactory.h"
 #include "Common/Thing/RawModuleData.h"
 #include "Common/Xfer.h"

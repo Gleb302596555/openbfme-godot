@@ -45,6 +45,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p); // RW 0xC64DB0 then RW 0xC74534
 };
 
+// Local 87: RW 0x008C949C (getModuleName), RW 0x008C9457 (getModuleNameKey), RW 0x008C94BB (dtor), RW 0x008C6583 (base dtor thunk).
 class GrabPassengerSpecialPower : public SpecialPowerModule
 {
 public:

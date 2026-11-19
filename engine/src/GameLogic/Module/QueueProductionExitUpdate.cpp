@@ -87,6 +87,7 @@ void QueueProductionExitUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 	p.add(kQueueProductionExitFieldParse);
 }
 
+// getModuleNameKey RW 0x008A3851, GetSnapshotName RW 0x008A3896
 void QueueProductionExitUpdate::registerClass(ModuleFactory &modules)
 {
 	modules.bindTypedData<QueueProductionExitUpdateModuleData>("QueueProductionExitUpdate", MODULETYPE_BEHAVIOR);
@@ -410,6 +411,7 @@ void QueueProductionExitUpdate::crc(StateHasher &h) const
 }
 
 // ---- lane SAVE-4b: the snapshot (OpenBFME native, S-4190) ---------------------------------------------------------------------------------------------------
+// RW 0x008A38D6
 void QueueProductionExitUpdate::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

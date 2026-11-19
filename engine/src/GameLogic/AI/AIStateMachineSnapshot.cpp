@@ -157,3 +157,13 @@ void AIFollowPathState::xfer(Xfer &x)
 	AIXfer::coord(x, m_goalPosition);
 	xferMove(x, ai().mover(), m_move);
 }
+
+void AIWanderInPlaceState::xfer(Xfer &x)
+{
+	XferVersion v{ 1, 1 };
+	x.xferVersion(v);
+	AIMoveToMachineState::xfer(x);
+	x.xferReal(&m_origin.x);
+	x.xferReal(&m_origin.y);
+	x.xferReal(&m_origin.z);
+}
