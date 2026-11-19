@@ -2056,8 +2056,8 @@ std::vector<std::string> ControlBar::acceptanceStops()
 		"StancesBehavior (RW 0x942A77) and shows the current stance's image and labels (StanceToButtonSlot); on the Palantir its press opens / closes the radial of "
 		"its Stances (InGameToggleStanceCommandButton RW 0x92FF5C / 0x96FAC6, the sub-menu RW 0x9D3380 .. 0x9D3550) and an item sends its stance (RW 0x96F85A -> "
 		"0x96F53C); a TOGGLE_STANCE press that reaches processCommandUI sends nothing and is counted (unportedPresses \"TOGGLE_STANCE (no sub-menu)\"); the items' "
-		"hotkey registration is ported (RW 0x96F890, BFME2 0x00967DA6; RW 0x96FCCB, BFME2 0x0096820D; S-280); not ported: "
-		"the press's context object checks (RW 0x449681 / 0x6A8803); the tactical sub-menu owner notifications are no-ops "
+		"hotkey registration is ported (RW 0x96F890, BFME2 0x00967DA6; RW 0x96FCCB, BFME2 0x0096820D; S-280); PORT-239 ports "
+		"the press's live context object checks (RW 0x449681 / 0x6A8803), pending full regression execution; the tactical sub-menu owner notifications are no-ops "
 		"(RW 0x93023D -> 0x9D353B, vtable 0xC8C46C slots +4 / +8 -> RW 0x63F3BF ret)",
 	};
 }

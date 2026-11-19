@@ -64,6 +64,7 @@ public:
 		m_spellPress = nullptr;
 		m_spellStoreOpen = nullptr;
 		m_stancePress = nullptr;
+		m_toggleStancePress = nullptr;
 		m_subMenuChangeHandler = nullptr;
 		m_helpBoxHandler = nullptr;
 		setHeroSelectHandler(nullptr);
@@ -167,6 +168,8 @@ public:
 	// TOGGLE_STANCE (0x39) button when the slot has both; its press (RW 0x96FAC6) adds an item per stance of the button's Stances list (at most 3, RW 0x96F62F)
 	// and opens the sub-menu, or requests its close when open; an item's press (RW 0x96F85A -> 0x96F53C) sends MSG_CHANGE_STANCE with the item's stance,
 	// requests the close and plays the toggle flash's Go() (RW 0x9D2DA3). The content's destructor hides an open sub-menu (RW 0x96FCCB).
+	// The live HUD defers this request until the simulation is held, like ordinary presses.
+	void setToggleStanceHandler(std::function<void(int position)> press) { m_toggleStancePress = std::move(press); }
 	void setStanceHandler(std::function<void(int stance)> send) { m_stancePress = std::move(send); }
 	void setSubMenuChangeHandler(std::function<void()> handler) { m_subMenuChangeHandler = std::move(handler); }
 	const InGameCommandButtonSubMenu *subMenu(int position) const
@@ -181,7 +184,7 @@ public:
 	{
 		return position >= 0 && position < kArcPositions && !m_bfme1 && m_subMenu[position] && !m_toggleFlashPath[position].empty();
 	}
-	void pressToggleStance(int position);                       // RW 0x96FAC6
+	void pressToggleStance(int position, const HudContext &context);                       // RW 0x96FAC6
 	void pressStanceItem(int position, int item);               // RW 0x96F85A -> 0x96F53C
 	void setStanceFromHotkey(int position, int stance);         // RW 0x96F880 -> 0x96F53C
 	void onStanceChanged(int stance);                           // RW 0x96F53C: closes open radial and flashes
@@ -384,6 +387,7 @@ private:
 	std::string m_toggleFlashPath[kArcPositions];
 	std::set<std::string> m_subMenuRegistered, m_itemRegistered;
 	std::function<void(int)> m_stancePress;
+	std::function<void(int)> m_toggleStancePress;
 	std::function<void()> m_subMenuChangeHandler;
 	unsigned m_flashGoes = 0;
 	std::vector<std::string> m_stanceErrors;

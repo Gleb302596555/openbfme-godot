@@ -406,3 +406,238 @@ TEST_CASE("PORT-239 CommandMap loading: shared macros survive the temporary lege
 	CHECK(files.env.macros.find("PORT239_ROOT") != nullptr);
 	CHECK(files.env.blocks.find("LoadSubsystem") == nullptr);
 }
+
+#include "AptPlayerTestUtil.h"
+#include "GameClient/ControlBar.h"
+#include "GameClient/GUI/AptScreens/AptPalantir.h"
+#include "GameClient/GUI/Shell/Shell.h"
+#include "GameClient/GUI/ShellEnvironment.h"
+#include "GameClient/GUI/ShellServices.h"
+#include "GameClient/GUI/WindowManager.h"
+
+namespace
+{
+// Only supplies presentation input. Does not pretend to model CommandBar
+// availability or retail APT scripts; the production callback is under test.
+struct Port239Palantir
+{
+	apttest::MemorySource movies;
+	RecordingShellServices services;
+	ShellEnvironment environment;
+	AptScreenFactoryTable factories;
+	std::unique_ptr<WindowManager> windows;
+	std::unique_ptr<Shell> shell;
+
+	Port239Palantir()
+	{
+		using namespace apttest;
+		TestMovie level0;
+		level0.setRootFrames({ {} });
+		movies.add("AptLevel0", level0);
+		TestMovie movie;
+		movie.addCharacter(0);
+		const auto contentAction = program(movie, [](Asm &a) {
+			a.defineFunction("SetState", { "state" }, [](Asm &) {});
+			a.defineFunction("SetAutoAbilityOverlayState", { "state" }, [](Asm &) {});
+		});
+		const auto content = movie.addCharacter(movie.addSprite({ { movie.addActionItem(contentAction) } }));
+		movie.addExport("SyntheticButton", content);
+		const auto frameAction = program(movie, [](Asm &a) {
+			a.defineFunction("CreateContent", { "type", "name" }, [](Asm &f) {
+				f.pushByte(4).pushString("content").pushString("SyntheticButton").pushByte(3).getStringVar("this")
+					.pushString("attachMovie").op(APT_OP_EA_CALLMETHODPOP);
+				f.getStringVar("extern").pushString("_level1.Frame_ContentName").setStringMember("SyntheticButton");
+			});
+			a.defineFunction("DeleteContent", {}, [](Asm &) {});
+		});
+		const auto frame = movie.addCharacter(movie.addSprite({ { movie.addActionItem(frameAction) } }));
+		const auto rootAction = program(movie, [](Asm &a) {
+			for (const char *name : { "SetPalantirFrameState", "SetPlayerButtonsState", "EnablePlayerMagicButton", "SetPlayerFaction",
+				"ShowCommandInterface", "HideCommandInterface", "HideRankInterface" })
+				a.defineFunction(name, {}, [](Asm &) {});
+			a.getURL("FSCommand:AptPalantir::OnInitialized", "");
+			a.getURL("FSCommand:PalantirCommandUI::OnButtonFrameLoaded", "index=0&name=Frame");
+		});
+		const auto menuAction = program(movie, [](Asm &a) {
+			a.defineFunction("Show", { "count" }, [](Asm &) {});
+			a.defineFunction("Hide", {}, [](Asm &) {});
+			a.defineFunction("FadeOut", {}, [](Asm &) {});
+		});
+		const auto menu = movie.addCharacter(movie.addSprite({ { movie.addActionItem(menuAction) } }));
+		movie.setRootFrames({ { movie.addPlaceItem(placeChar(frame, 1, "Frame")), movie.addPlaceItem(placeChar(menu, 2, "SubMenu")),
+			movie.addActionItem(rootAction) } });
+		movies.add("Palantir", movie);
+		factories.registerFactory("Palantir.apt", [](AptScreenContext &c) { return std::make_unique<AptPalantir>(c.windows, c.shell); });
+		windows = std::make_unique<WindowManager>(movies, services);
+		shell = std::make_unique<Shell>(*windows, factories, services, environment);
+		windows->init();
+		shell->push("Palantir.apt", true);
+		for (int i = 0; i < 3; ++i) { windows->update(33); shell->update(); }
+	}
+	AptPalantir *palantir() { return dynamic_cast<AptPalantir *>(shell->top()); }
+};
+} // namespace
+
+TEST_CASE("PORT-239 ordinary Palantir left press: disabled clip states sound once and do not dispatch")
+{
+	// Existing-main verdict, not a failing-before-fix claim. RW entry 0x9D285E
+	// compares states 1/3/5 and calls the disabled cue once, otherwise jumps to
+	// RW 0x9D2814's notification. Active/_up and nonpressable/_static are not
+	// rejected by this native gate; the movie decides whether to send a press.
+	synthetichud::Rig world;
+	InGameUI ui;
+	MessageStream stream;
+	HudContext context{ *world.logic, nullptr, world.view, ui, stream, nullptr, {} };
+	ControlBar bar(context);
+	Port239Palantir movie;
+	AptPalantir *palantir = movie.palantir();
+	REQUIRE(palantir);
+	REQUIRE(palantir->initialized());
+	REQUIRE(palantir->level() == 1);
+	CommandButton command;
+	command.m_name = "SyntheticOrdinaryPress";
+	ControlBarButton shown;
+	shown.slot = 7;
+	shown.position = 0;
+	shown.button = &command;
+	shown.image = "SyntheticImage";
+	// Non-const bar owns this vector. Like test_hudpassive1's movie fixture,
+	// inject presentation input without adding a production test-only setter.
+	auto &buttons = const_cast<std::vector<ControlBarButton> &>(bar.palantirButtons());
+	int dispatches = 0;
+	palantir->setButtonHandler([&](int slot, bool arc) { CHECK(slot == 7); CHECK(arc); ++dispatches; });
+	movie.windows->setPressButton(0);
+	for (ButtonState state : { ButtonState::Restricted, ButtonState::CantAfford, ButtonState::Purchased, ButtonState::NotReady,
+		ButtonState::Enabled, ButtonState::Active })
+	{
+		CAPTURE(static_cast<int>(state));
+		shown.state = state;
+		buttons = { shown };
+		palantir->sync(bar);
+		movie.services.sounds.clear();
+		dispatches = 0;
+		REQUIRE(movie.windows->invokeCallback("_level1.Frame.content_OnPress", ""));
+		const bool disabled = state == ButtonState::Restricted || state == ButtonState::CantAfford ||
+			state == ButtonState::Purchased || state == ButtonState::NotReady;
+		CHECK(dispatches == (disabled ? 0 : 1));
+		if (disabled)
+		{
+			REQUIRE(movie.services.sounds.size() == 1);
+			CHECK(movie.services.sounds[0] == "Gui_PalantirCommandButtonDisabledClick");
+		}
+		else CHECK(movie.services.sounds.empty());
+	}
+	command.m_options = COMMAND_OPTION_NONPRESSABLE;
+	shown.state = ButtonState::Enabled;
+	buttons = { shown };
+	palantir->sync(bar);
+	movie.services.sounds.clear();
+	dispatches = 0;
+	REQUIRE(movie.windows->invokeCallback("_level1.Frame.content_OnPress", ""));
+	CHECK(dispatches == 1); // clip state 4 is not 1/3/5
+	CHECK(movie.services.sounds.empty());
+	// A released/unloaded frame cannot keep dispatching its previous slot.
+	REQUIRE(movie.windows->invokeCallback("PalantirCommandUI::OnButtonFrameUnloaded", "index=0"));
+	dispatches = 0;
+	movie.windows->invokeCallback("_level1.Frame.content_OnPress", "");
+	CHECK(dispatches == 0);
+	CHECK(movie.services.sounds.empty());
+}
+
+
+TEST_CASE("PORT-239 stance toggle: live context relationship not disabled clip state decides the press")
+{
+	// RW entry 0x96FAC6: 0x96FAF9 bypasses absent object; otherwise 0x6A8803
+	// requires local and either inactive (0x6AAC52) or team relationship ALLIES
+	// (0x6ADBEB). This controller never calls the ordinary disabled-clip gate.
+	synthetichud::Rig world;
+	Object *object = world.place("TestFighter", 100, 100, "Bob");
+	REQUIRE(object);
+	Player *local = world.players.getLocalPlayer();
+	REQUIRE(local);
+	InGameUI ui;
+	MessageStream stream;
+	HudContext context{ *world.logic, nullptr, world.view, ui, stream, nullptr, {} };
+	ControlBar bar(context);
+	Port239Palantir movie;
+	AptPalantir *palantir = movie.palantir();
+	REQUIRE(palantir);
+	REQUIRE(palantir->initialized());
+	REQUIRE(movie.windows->invokeCallback("PalantirCommandUI::OnSubMenuLoaded", "index=0&name=SubMenu"));
+	REQUIRE(movie.windows->invokeCallback("PalantirCommandUI::OnToggleFlashLoaded", "index=0&name=Flash"));
+	CommandButton toggle;
+	toggle.m_name = "SyntheticToggleStance";
+	toggle.m_command = GUI_COMMAND_TOGGLE_STANCE;
+	toggle.m_stances = { 3, 1, 2, 1 };
+	ControlBarButton shown;
+	shown.slot = 7;
+	shown.position = 0;
+	shown.button = &toggle;
+	shown.image = "SyntheticStance";
+	auto &buttons = const_cast<std::vector<ControlBarButton> &>(bar.palantirButtons());
+	int requests = 0, ordinaryPresses = 0;
+	palantir->setButtonHandler([&](int, bool) { ++ordinaryPresses; });
+	// Same entry and live-context callback as InGameHud, without a worker thread.
+	palantir->setToggleStanceHandler([&](int position) {
+		++requests;
+		palantir->pressToggleStance(position, context);
+	});
+	movie.windows->setPressButton(0);
+	for (Relationship relationship : { ENEMIES, NEUTRAL, ALLIES })
+	{
+		for (bool defeated : { false, true })
+		{
+			for (bool missingObject : { false, true })
+			{
+				CAPTURE(static_cast<int>(relationship));
+				CAPTURE(defeated);
+				CAPTURE(missingObject);
+				local->setTeamRelationship(object->getTeam(), relationship);
+				local->setDefeated(defeated);
+				AptPalantir::LocalState state;
+				state.context = true;
+				state.contextObject = missingObject ? INVALID_ID : object->getID();
+				palantir->setLocalState(state);
+				for (ButtonState clipState : { ButtonState::Enabled, ButtonState::Restricted, ButtonState::NotReady })
+				{
+					CAPTURE(static_cast<int>(clipState));
+					shown.state = clipState;
+					buttons = { shown };
+					palantir->sync(bar);
+					REQUIRE(palantir->isToggleStanceContent(0));
+					const auto *menu = palantir->subMenu(0);
+					REQUIRE(menu);
+					palantir->hideStanceMenu(0);
+					movie.services.sounds.clear();
+					requests = 0;
+					REQUIRE(movie.windows->invokeCallback("_level1.Frame.content_OnPress", ""));
+					CHECK(requests == 1);
+					CHECK(ordinaryPresses == 0);
+					const bool allowed = missingObject || defeated || relationship == ALLIES;
+					CHECK(menu->isOpen() == allowed);
+					CHECK(menu->itemCount() == (allowed ? 3 : 0));
+					CHECK(movie.services.sounds.empty());
+					if (allowed)
+					{
+						// Permission is re-read on the close press, not latched at open.
+						if (!missingObject)
+						{
+							local->setDefeated(false);
+							local->setTeamRelationship(object->getTeam(), ENEMIES);
+							movie.windows->invokeCallback("_level1.Frame.content_OnPress", "");
+							CHECK_FALSE(menu->closeRequested());
+							local->setDefeated(defeated);
+							local->setTeamRelationship(object->getTeam(), relationship);
+						}
+						movie.windows->invokeCallback("_level1.Frame.content_OnPress", "");
+						CHECK(menu->closeRequested());
+						CHECK(menu->itemCount() == 3);
+					}
+					CHECK(stream.propagate().empty()); // opening/closing issues no stance order
+					palantir->hideStanceMenu(0);
+				}
+			}
+		}
+	}
+	CHECK(palantir->stanceErrors().empty());
+}

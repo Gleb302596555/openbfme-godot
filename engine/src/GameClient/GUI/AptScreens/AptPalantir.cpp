@@ -3,6 +3,8 @@
 
 #include "GameClient/GUI/AptScreens/AptPalantir.h"
 #include "GameClient/LocalizedText.h"
+#include "Common/Player.h"
+#include "GameLogic/Object/Object.h"
 
 #include <cstdio>
 #include "GameClient/GUI/AptScreens/AptSimpleScreens.h"
@@ -473,7 +475,15 @@ void AptPalantir::syncFrames(const std::vector<ControlBarButton> &buttons, bool 
 					const int button = windows().pressButton();
 					if (button == 0 && inArc && isToggleStanceContent(position))
 					{
-						pressToggleStance(position); // lane CAMPUI-1: InGameToggleStanceCommandButton's press (RW 0x96FAC6) replaces processCommandUI's (RW 0x9D2814)
+						// RW 0x96FAC6 replaces the ordinary RW 0x9D285E clip gate.
+						if (m_toggleStancePress)
+						{
+							m_toggleStancePress(position);
+						}
+						else
+						{
+							stanceError("stance toggle press has no live context handler");
+						}
 					}
 					else if (button == 0 && m_press)
 					{
@@ -1121,22 +1131,29 @@ const char *AptPalantir::setStanceButtonName(int stance)
 	}
 }
 
-// RW 0x96FAC6: InGameToggleStanceCommandButton's press. TARGET FACTS: no sub-menu, nothing; the context object's checks (RW 0x449681, DAT 0xDE4928,
-// RW 0x6A8803); a closed sub-menu gets one item per entry of the button's Stances (+ 0x234 .. + 0x238) while it has at most 2, then opens (Show(n)); an open one
-// is asked to close. INFERENCE: the context checks are not ported beyond the gate every press here has (ControlBar::pressButton refuses a restricted / not
-// ready button; S-4531: the clip state gate RW 0x9D285E is not ported)
-void AptPalantir::pressToggleStance(int position)
+// Factory RW 0x92FF5C -> ctor 0x97004A -> vtable 0xC84268 slot +8
+// -> thunk 0x96FB7B -> Impl entry 0x96FAC6. After resolving the context object via RW 0x449681,
+// 0x96FAF9 bypasses eligibility when absent. Otherwise RW 0x6A8803 requires
+// a local player and, only while active (RW 0x6AAC52), ALLIES to the object's
+// team (RW 0x6ADBEB). No disabled-clip test belongs to this controller.
+void AptPalantir::pressToggleStance(int position, const HudContext &context)
 {
+	if (position < 0 || position >= kArcPositions) return;
 	InGameCommandButtonSubMenu *menu = m_subMenu[position].get();
 	const Slot &s = m_arc[position];
 	if (!menu || !s.button)
 	{
 		return;
 	}
-	if (s.state == ButtonState::Restricted || s.state == ButtonState::NotReady)
+	if (Object *object = context.logic.findObjectByID(m_local.contextObject))
 	{
-		return;
+		const Player *local = context.localPlayer();
+		if (!local || (ControlBar::localPlayerActive(local) && local->getRelationship(object->getTeam()) != ALLIES))
+		{
+			return;
+		}
 	}
+
 	if (!menu->isOpen())
 	{
 		for (int stance : s.button->m_stances)

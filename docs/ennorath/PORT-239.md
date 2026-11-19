@@ -7,7 +7,7 @@ This is an **interim investigation**, not a completed port or acceptance report.
 Input changes implemented so far: PLANNING CommandMap applicability and shared
 RotWK installation loading through the subsystem legend, then the root override.
 No new simulation state. No stop is closed yet; S-3803 is narrowed by the
-owner-notification verdict below. Eleven asset-free PORT-239 tests are registered
+owner-notification verdict below. Thirteen asset-free PORT-239 tests are registered
 in the full target. They passed syntax validation only; the full target is still
 building. No passing execution or failing-before-fix result is claimed.
 
@@ -294,3 +294,37 @@ Fetched main 3d017a41 also contains PORT-208's force-attack changes (3ba92d40).
 They have not been integrated into this branch yet: do so before acceptance,
 without editing that task's functions. The active single-thread full build is
 still running (last observation 822/1683); it is not a verified final build.
+
+## Stance context implementation checkpoint (after rebase)
+
+Rebased onto origin/main 3d017a41, including PORT-208 without changing its
+CommandXlat functions. Full build must be rerun incrementally after the active
+pre-rebase invocation exits; it cannot certify final HEAD by itself.
+
+S-3803 factory/ownership proof: RW entry 0x92FF5C checks command 0x39 and
+submenu/flash slots (+4/+8), calls ctor 0x97004A at 0x92FFE8. The ctor installs
+vtable 0xC84268 at 0x97006F; slot +8 is 0x96FB7B, which tail-calls Impl press
+entry 0x96FAC6 through +0xC. Impl ctor 0x96FDFD stores the window at +8,
+owner at +0xC and button at +0x14. Window context getter entry 0x9D29CE reads
+its payload's +0x10; 0x96FAE8..0x96FB0F resolves and checks that object.
+DONOR BFME2 Tactical/InGameToggleStanceCommandButton.cpp and its Ctor/HotKeys
+companions were consulted; the target ownership and eligibility chain above
+is read independently from RW, not inferred from donor member offsets.
+
+The existing press now uses this eligibility predicate instead of rejecting
+Restricted/NotReady clip states. It is dispatched through the HUD's existing
+whenHeld mechanism so live player/team reads do not race a logic worker;
+releaseHandlers clears the new request callback with the other HUD callbacks.
+No new simulation state, message handler or alternate stance binding is added.
+The missing-handler case is an explicit stance error, not a silent fallback.
+
+Added asset-free tests through the real content_OnPress callback:
+- ordinary states 1/3/5 reject with exactly one disabled cue; enabled/active and
+  native state 4 dispatch exactly once with no native cue; unloaded frame is inert;
+- toggle uses live team relationship and defeated status, absent-object bypass,
+  ignores ordinary disabled clip state, rechecks eligibility before requesting
+  close, adds at most three items, and emits no stance order merely for opening.
+True-null local and observer-player scenarios are not yet covered by this fixture;
+defeated-player coverage exercises the same inactive branch.
+All 13 PORT-239 cases plus AptPalantir.cpp/InGameHud.cpp syntax-check only.
+No execution or fail-without-fix result is claimed. S-4531 is not yet closed.
