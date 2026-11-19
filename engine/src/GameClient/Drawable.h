@@ -500,6 +500,16 @@ public:
 	// port's renderer reads shadowsEnabled() for each module's instance)
 	void setShadowsEnabled(bool on) { m_shadowsEnabled = on; }
 	bool shadowsEnabled() const { return m_shadowsEnabled; }
+
+	// Local 89 (#715): the terrain decal (TerrainDecalType 0..6, 7 = TERRAIN_DECAL_NONE; docs/ennorath/W3DSMD_FUNCTIONS.md). RotWK's callers: HordeContain
+	// RW 0x870D4E (EXHorde / EXHorde_UP on a horde's members; Port 292, #684), the crate RW 0x8889B3 (type 5), this class RW 0x675CD3 (type 7 at fade-out)
+	void setTerrainDecal(int type);                          ///< RW 0x672B96: a new type is stored (+0xA8) and handed to the first draw module (slot 20)
+	void setTerrainDecalTexture(const std::string &texture); ///< RW 0x672BBB: type 6 for a non-empty name, else 7; the first module's slot 19
+	void setTerrainDecalFadeTarget(float target, float rate, unsigned logicFrame); ///< RW 0x67093E: +0xD8 = target, +0xDC = rate per frame, +0x380 = now
+	void setTerrainDecalOpacity(float opacity) { m_decalOpacity = opacity; }      ///< RW 0x670972: +0xE0
+	void advanceTerrainDecal(unsigned logicFrame);           ///< RW 0x675C25 .. 0x675D1E, every client frame (Drawable::updateDrawable)
+	int terrainDecalType() const { return m_terrainDecalType; }
+	float terrainDecalOpacity() const { return m_decalOpacity; }
 	UnsignedInt shadowStartFrame() const { return m_shadowStartFrame; }
 	void setShadowStartFrame(UnsignedInt frame) const { m_shadowStartFrame = frame; }
 	UnsignedInt shadowFadeOutStartFrame() const { return m_shadowFadeOutStartFrame; }
@@ -652,6 +662,11 @@ private:
 	bool m_evaCastleMemberSighted = false; // RW Drawable +0x114 bit 0x40
 	bool m_shroudRevealed = false; // transitioned from fullyObscured == true to false
 	bool m_shadowsEnabled = true;   // RW Drawable +0x114 bit 2 (TOP20 #24)
+	int m_terrainDecalType = 7;     // RW Drawable +0xA8 (TERRAIN_DECAL_NONE)
+	float m_decalFadeTarget = 0.0f; // RW Drawable +0xD8
+	float m_decalFadeRate = 0.0f;   // RW Drawable +0xDC
+	float m_decalOpacity = 0.0f;    // RW Drawable +0xE0
+	unsigned m_decalFadeFrame = 0;  // RW Drawable +0x380
 	mutable UnsignedInt m_shadowStartFrame = 0; ///< RW 0x7323CE (+0x38: startFrame = currentFrame + 0)
 	mutable UnsignedInt m_shadowFadeOutStartFrame = ~0u; ///< RW 0x508B2D (+0x4C: fadeOutStartFrame = currentFrame)
 	mutable bool m_shadowStateInitialized = false; ///< RW 0x4C4EE0..0x4C4FBC

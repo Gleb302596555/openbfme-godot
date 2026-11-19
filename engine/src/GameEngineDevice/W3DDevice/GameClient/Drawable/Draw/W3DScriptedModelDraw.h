@@ -49,6 +49,19 @@
 //   S-097  the pose that supplies the pristine bone positions (see W3DModelDrawBones.h).
 //   S-098  how hidden sub objects carry over when the render object is recreated (RetainSubObjects), and the sub object name match.
 
+// Local 89 (#715, docs/ennorath/W3DSMD_FUNCTIONS.md): RotWK's own functions of this class and of W3DHordeModelDraw that the port does elsewhere
+// (vtables RW 0xBDFFE8 / RW 0xBDC810 and the ObjectDrawInterface RW 0xBE3B78 at draw + 0xC):
+//   RW 0x4C7D11 / RW 0x478A50 the scalar deleting destructors (~W3DScriptedModelDraw); RW 0x4C0911 / RW 0x478423 the class names and
+//   RW 0x4C08CC / RW 0x4783DE getModuleNameKey (the module registry, W3DModelDraw.cpp); RW 0x4C091D / RW 0x47A043 onDrawableBoundToObject (the
+//   first model and animation state: this constructor and the first setModelConditionFlags); RW 0x4B7378 preloadAssets (the device loads on first
+//   use); RW 0x4B26F9 setShadowsEnabled (Drawable::setShadowsEnabled, read per module by the renderer) and RW 0x4B26E4 releaseShadows
+//   (ObjectShadow); RW 0x4B30C0 isVisible, RW 0x98255B getRenderObject and RW 0x4B7748 reactToTransformChange (the device's instance and its
+//   per-frame transform); RW 0x4B2DA8 / RW 0x4B2E3F / RW 0x4B7664 clientOnly_getRenderObjInfo / BoundBox / BoneTransform and RW 0x4B4B23 the
+//   current bone positions (W3DModelDrawBones.h); RW 0x4C0B38 / RW 0x4C0B88 / RW 0x4C0BC0 / RW 0x4C0E53 track i's animation name, handle, frame
+//   and the frame window (W3DDrawTrack, AnimationSoundClientBehavior); RW 0x4BF4D9 / RW 0x4BF501 select the named transition / animation state
+//   at once (select); RW 0x4BA427 / RW 0x4BA4FF / RW 0x4BA5BB / RW 0x4BA693 / RW 0x4B7A59 / RW 0x4B7B07 / RW 0x4BB76A / RW 0x4BB7EB the wall and
+//   ramp mesh queries (GameClient/DrawableWallMeshes.h).
+
 #pragma once
 
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DDrawServices.h"
@@ -195,6 +208,25 @@ public:
 	bool setModelState(const ModelConditionInfo *state, bool force = false);
 	// RW 0x8B911E -> draw module vslot 0x84: SubObjectsUpgrade's UpgradeTexture list replaces the module's upgrade textures (empty: none)
 	void setUpgradeTextureSwaps(const std::vector<std::pair<std::string, std::string>> &swaps);
+
+	// Local 89 (#715): the terrain decal, draw module vtable RW 0xBDFFE8 slots 19-22 (docs/ennorath/W3DSMD_FUNCTIONS.md). RotWK makes a decal shadow
+	// of the shadow manager (RW 0xDD1D14 vslot 0xC, type 0x20 SHADOW_ALPHA_DECAL) sized by the template's ShadowSizeX / ShadowSizeY / ShadowOffsetX /
+	// ShadowOffsetY (+0x4F8 .. +0x504); the port keeps its description here and ObjectShadow draws it with the other decal shadows. Callers:
+	// Drawable::setTerrainDecal (RW 0x672B96 / 0x672BBB) and its fade (RW 0x675C25).
+	struct TerrainDecal
+	{
+		std::string texture;            ///< as the table or the caller names it (no extension)
+		float sizeX = 0.0f, sizeY = 0.0f, offsetX = 0.0f, offsetY = 0.0f;
+		int opacity = 255;              ///< the RadiusDecal opacity, int(opacity * 255) (RW 0x73228B); a new decal is opaque
+	};
+	static const char *terrainDecalTexture(int type); ///< RW 0xD99F40: the texture of a TerrainDecalType below 7 (6: the caller's texture), else null
+	// RW 0x4B94BC (slot 20): the old decal goes; a type below 7 makes the decal of the table's texture, 7 (TERRAIN_DECAL_NONE) or more only removes
+	void setTerrainDecal(int type, float sizeX, float sizeY, float offsetX, float offsetY);
+	// RW 0x4B95AD (slot 19): the old decal goes; a non-empty texture name makes a decal of it
+	void setTerrainDecalTexture(const std::string &texture, float sizeX, float sizeY, float offsetX, float offsetY);
+	void setTerrainDecalSize(float x, float y);   ///< RW 0x4B2A1B (slot 21): with a decal, its size
+	void setTerrainDecalOpacity(float opacity);   ///< RW 0x4B2A3B (slot 22): with a decal, int(opacity * 255.0) truncated (RW 0x4B2A48 / 0x4B2A50)
+	const TerrainDecal *terrainDecal() const { return m_hasTerrainDecal ? &m_terrainDecal : nullptr; }
 	// lane COMBAT-4: the module data's DependencySharedModelFlags (+ 0xBC, RW table row 0xBE1420): the flags the module's dependents share (RW 0x4BF2D8)
 	const ModelConditionFlags &dependencySharedModelFlags() const { return m_data.m_dependencySharedModelFlags; }
 
@@ -447,6 +479,8 @@ private:
 	Options m_options;
 
 	ModelConditionFlags m_pendingFlags;     // RW +0x17C
+	TerrainDecal m_terrainDecal;            // RW +0x5C (the decal shadow)
+	bool m_hasTerrainDecal = false;
 	const ModelConditionInfo *m_curModelInfo = nullptr; // RW +0x14
 	std::vector<std::pair<std::string, std::string>> m_randomTextureSwaps; // RW 0x4C238A's pairs, picked once (initializeState)
 	std::vector<std::pair<std::string, std::string>> m_upgradeTextureSwaps; // RW 0x8B911E's list (setUpgradeTextureSwaps)

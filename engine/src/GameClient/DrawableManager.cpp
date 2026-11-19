@@ -590,6 +590,7 @@ void DrawableManager::advance(double elapsedMs)
 				d->advanceAnimation(elapsedMs);
 			}
 			d->updateFade(elapsedMs); // lane PROJ-2: RW 0x675AB7 (DrawableFade.cpp)
+			d->advanceTerrainDecal(m_logic.getFrame()); // Local 89 (#715): RW 0x675C25 .. 0x675D1E, the terrain decal's fade
 		}
 	}
 
