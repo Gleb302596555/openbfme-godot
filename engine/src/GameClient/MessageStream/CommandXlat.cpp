@@ -946,10 +946,14 @@ void CommandTranslator::selectAllUnits()
 	// ZH InGameUI::selectAllUnitsByType with the disqualifying kinds DOZER, HARVESTER, IGNORES_SELECT_ALL (CommandXlat.cpp:2888): every mobile
 	// object of the local player that is not contained, structure or dead. ZH selects across the whole map; the radius / screen rule of
 	// RotWK is not read (stop S-286).
+	// PORT-271 (issue #638, P-151): RotWK's select all (RW 0x69C860) walks TheGameClient's drawables, which are newest-first, and selects each
+	// through selectDrawable (RW 0x6A4109), a push_front: the selection ends oldest-first (ascending ObjectID). The object list here runs
+	// oldest-first, so the walk takes it from the end, and the panel's hero (the smallest id of the senior rank, RW 0x94475A) is also the
+	// first of the selection, the one the voice picker answers for (RW 0x8DEDBB)
 	m_ctx.ui.deselectAll();
 	ClientMessage &group = m_ctx.stream.append(MSG_CREATE_SELECTED_GROUP);
 	group.appendBoolean(true);
-	for (Object *o = m_ctx.logic.getFirstObject(); o; o = o->getNextObject())
+	for (Object *o = m_ctx.logic.getLastObject(); o; o = o->getPrevObject())
 	{
 		if (!HudObjects::isLocallyControlled(m_ctx, *o) || o->getContainedBy() || HudObjects::isEffectivelyDead(*o) || !o->getAIUpdateInterface() || !HudObjects::isSelectable(*o))
 		{

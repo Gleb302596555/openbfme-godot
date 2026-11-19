@@ -329,6 +329,7 @@ runner is claimed. All paths below are relative to the repository root.
 | `godot/tests/edainfactions1_test.gd` | Manual only; no generic pytest runner | Needs the Edain 4.8.5.3 install (OPENBFME_EDAIN_INSTALL, OPENBFME_EDAIN_ASSETS_INSTALL); without them it only parses. Runs the Dwarven clan choices and the Dwarven AI in real skirmishes. |
 | `godot/tests/ennorath_run_pose_test.gd` | Manual only; no generic pytest runner | manual: needs the Ennorath install (`OPENBFME_ENNORATH_INSTALL`) and retail assets (P-30) |
 | `godot/tests/p88_hidden_mesh_test.gd` | Manual only; no generic pytest runner | manual: needs the Ennorath install (`OPENBFME_ENNORATH_INSTALL`) and retail assets (P-88) |
+| `godot/tests/p99_instance_param_test.gd` | Manual only; no generic pytest runner | manual: needs retail assets for the W3D instancer's draw-node count (P-99) |
 
 | `godot/tests/harlindon_creep_combat_test.gd` | Manual only; no generic pytest runner | Private retail assets and a live skirmish. |
 

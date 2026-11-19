@@ -133,6 +133,8 @@ public:
 		static const std::string empty;
 		return empty;
 	}
+	// slot 0x4C (RW 0x00896751): SpecialAbilityUpdate::finishAbility (RW 0x0085314C) clears m_updateDisabled (+0x28)
+	virtual void clearUpdateDisabled() {}
 };
 
 // SpecialPowerModule (RW module vtable 0xC65058, interface 0xC64FF0; constructor RW 0x8973EE). Module fields: + 0x14 the recharge length,
@@ -174,6 +176,9 @@ public:
 		static const std::string empty;
 		return m_spData ? m_spData->m_initiateSound : empty;
 	}
+	void clearUpdateDisabled() override { m_updateDisabled = false; } // slot 0x4C (RW 0x00896751)
+	void setUpdateDisabled(bool disabled) { m_updateDisabled = disabled; }
+	bool isUpdateDisabled() const { return m_updateDisabled; }
 
 	// lane HERO-1: the module's vslot 0x38 (RW 0x897D25 -> 0x897987(null)): the trigger a SpecialAbilityUpdate runs when its preparation starts (the
 	// recharge, the light points and the trigger effects at the object; the subclass effect is not part of it)

@@ -184,6 +184,9 @@ public:
 	// RW 0x6CA935(source) on `weapon` (one of this object's): its attack range with no target for another source object, the bonus and the
 	// range host taken from that source as RW 0x6ED8AB's call does (ObjectWeapons.cpp); 0 for a weapon without a template
 	float attackRangeNoTargetFor(const Weapon &weapon, const Object &source) const;
+	// lane PORT-260: RW 0x6CA701 on the owner as the source (WeaponGetAttackRangeNoTarget: the scale applied twice) with `bonus` — the caller's, RW's
+	// six 1.0s at RW 0x893DEB — or the owner's computed bonus when `bonus` is null (RW 0x6CA7AC)
+	float attackRangeNoTarget(const WeaponTemplate &t, const WeaponBonus &bonus) const;
 	// RW 0x6CA83B
 	bool isTooClose(const Object &victim) const;
 	// the weapon's AcceptableAimDelta (radians) of the current weapon

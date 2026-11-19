@@ -783,8 +783,9 @@ TEST_CASE("shroud objects: a geometry row that does not parse is an error naming
 	Fx f;
 	const std::string err = f.w.load("Object Bogus\n  KindOf = INFANTRY\n  ShroudClearingRange = 50\n  Geometry = BOGUS\nEnd\n");
 	REQUIRE_MESSAGE(err.empty(), err);
-	f.place("Bogus", "Alice", 300.0f, 300.0f);
-	CHECK_THROWS_WITH_AS(f.shroud.update(), doctest::Contains("shroud: template Bogus"), std::logic_error);
+	// The geometry row is resolved when the object is made (ObjectGeometry.cpp, the fork's object creation) rather than at the shroud's
+	// first update: the error still names the template and the object never gets a default coverage.
+	CHECK_THROWS_WITH_AS(f.place("Bogus", "Alice", 300.0f, 300.0f), doctest::Contains("Bogus: Geometry 'BOGUS'"), std::logic_error);
 }
 
 // TOP20 S-560: the channels as RW 0x68EC3B / 0xB4EF50 / 0xB51030 build them (cell size 40; the circles are kCircle1 / kCircle2 above)

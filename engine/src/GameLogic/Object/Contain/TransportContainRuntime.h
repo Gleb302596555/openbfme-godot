@@ -85,6 +85,9 @@ public:
 	// RW 0x69029B: the object's TransportSlotCount (template + 0x601)
 	static int transportSlotCount(const Object &obj);
 
+	// RW 0x86A43E (contain slot 0xEC): the container's WEAPONSTATE_ONE / TWO / THREE of the rider's KindOf
+	void setWeaponStateOfRider(const Object &rider) override;
+
 	const TransportContainModuleData &transportData() const { return *m_transport; }
 	int extraSlotsInUse() const { return m_extraSlotsInUse; }
 	UnsignedInt frameExitNotBusy() const { return m_frameExitNotBusy; }
@@ -109,8 +112,7 @@ protected:
 	void onRiderPlaced(Object *rider, bool hidden) override;    // RW 0x86B77B
 	// the creator RW 0x86A104: one object of `t` for the container's team, its create modules' onBuildComplete, added through `contain` when valid
 	Object *createPayloadObject(const ThingTemplate &t, ContainModuleInterface &contain, bool checkCapacity);
-	// RW 0x86A43E (contain slot 0xEC): the container's WEAPONSTATE_ONE / TWO / THREE of the rider's KindOf; RW 0x86A4E4 (slot 0xF0) clears them
-	void setWeaponStateOfRider(const Object &rider);
+	// RW 0x86A4E4 (contain slot 0xF0) clears WEAPONSTATE_ONE / TWO / THREE
 	void clearWeaponStates();
 	// RW 0x86A731 (main slot 0x78): the container's PASSENGER_TYPE_ONE / TWO weapon set flags from its riders' KindOf
 	void letRidersUpgradeWeaponSet();

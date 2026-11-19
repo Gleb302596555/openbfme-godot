@@ -326,6 +326,9 @@ StateReturnType AIStateMachine::internalSetState(unsigned id)
 	}
 	if (m_currentState)
 	{
+		// RW 0x751F0E keeps the state it leaves (DW_ENTERING) for a frame, so a state whose failure is the state it already is runs its exit and its entry
+		// again (RW 0x751F55 commits the new state past its onEnter). The port does the same unconditionally: the idle state's countdown failure into idle 0
+		// (Port 226, RW 0x7553AB / 0x7537E0) enters the idle state again, so its onEnter runs (RW 0x7489B6's mood check reset and sleep offset)
 		AIState *old = m_currentState;
 		old->onExit(EXIT_NORMAL);
 	}
@@ -568,6 +571,8 @@ StateReturnType AIIdleState::onEnter()
 	ai().resetNextMoodCheckTime();
 	// ZH: the idle countdown is randomised so the idle checks of many units do not spike on the same frame (S-221: the RW draw is not read)
 	m_initialSleepOffset = (unsigned short)ai().getObject()->logic().random().getValue(0, (int)kIdleCountdownDelay, "AIStates.cpp", 0x520);
+	// RW 0x7489B6: the stance countdown (+ 0x22) is 5 again on every entry (DONOR BFME2 0x00346FD0 AIIdleStateOnEnter.cpp: `m_22 = 5`)
+	m_stancesCountdown = 5;
 	return STATE_CONTINUE; // never sleep at the start: the cell check runs the first time through
 }
 
@@ -609,24 +614,35 @@ void AIIdleState::doInitIdleState()
 	a.setCurrentVictim(nullptr);
 }
 
-// stop S-5148 (review of #73): RotWK's idle update (RW 0x7553AB) fails the state every fifth update (the countdown + 0x22, 5 again at onEnter RW 0x7489B6)
-// for an owner that is not status 0x3A, has no temporary state machine (AI + 0x34) and has a StancesBehavior (RW 0x861E6E / 0x68BDA5) while its machine
-// defines state 0x4E (RW 0x8DBA9A); the idle state's failure goes to 0x4E (RW 0x7537E0 .. 0x7537EE: defineState(0, idle, 0, 0x4E)), AIGoingIdleState, whose
-// onEnter tells the StancesBehavior onMoveEnd (RW 0x743864): a stanced unit idle after an attack guards again where it stands (RW 0x662A21). The port's idle
-// state never fails and its failure goes to idle (AIUpdate.cpp), so such a unit stays idle (its plain mood scan, no guard); a FACE_OBJECT state (59) is not
-// ended by it either
-const char *idleStanceStopLine()
-{
-	return "[S-5148] idle stances: RotWK's idle state (RW 0x7553AB) fails every fifth update for a unit with a StancesBehavior and its failure goes to "
-	       "AIGoingIdleState 0x4E (RW 0x7537E0), which guards the unit again where it stands (RW 0x743864 -> 0x86228E); not ported: the unit stays idle";
-}
+// Port 226 (issue #549, stop S-5148 closed): RW 0x7553AB's stance countdown is ported in AIIdleState::update, so the port needs no stop line here.
+// What is still not read from that update is listed in CombatState::stops() under S-326 (the weapon's frame-window test RW 0x6CA2C3, the hunt status
+// 0x49, the HORDE_MEMBER melee wait, the repulsors and the crate of RW 0x66810B).
 
 StateReturnType AIIdleState::update()
 {
 	doInitIdleState();
-	if (machine().findState(AI_GOING_IDLE) && StancesBehavior::of(*ai().getObject()))
+	// RW 0x7553AB .. 0x755432 (BFME2's AIIdleState::update 0x0035389E, DONOR, same shape): the stance countdown. Unless the owner is status 0x3A
+	// (RW 0x7553E3 write 0x3A, RW 0x44DDEC) or its AI's + 0x34 is set (RW 0x7553F0/RW 0x7553F6), the countdown (+ 0x22) drops by one and, at 0, is 5
+	// again and fails the state when the owner has a
+	// StancesBehavior (RW 0x861E6E / 0x68BDA5) and the machine defines state 0x4E (RW 0x8DBA9A). The idle state's own failure id is 0x4E
+	// (RW 0x7537C7 / 0x7537E0 .. 0x7537EE), AIGoingIdleState, whose onEnter tells the StancesBehavior onMoveEnd (RW 0x743864 -> RW 0x86228E): a Battle / HoldGround /
+	// Porcupine unit that is idle again after a fight guards where it stands again (RW 0x662A21), and a FACE_OBJECT state (59, whose update runs this
+	// one) ends at its fifth update.
+	static const int kStatusInsideGarrison = ObjectTemplateInfoBuilder::objectStatusIndex("INSIDE_GARRISON"); // 0x3A (RW 0x44DDEC)
+	Object *ownerObject = ai().getObject();
+	// RW 0x7553F0 .. 0x7553F9: the AI's + 0x34 (the machine kept while a temporary one runs, RW 0x6630A9) also holds the countdown: a unit in a temporary
+	// state (59 FACE_OBJECT, the TAUNT / POINT emotion) does not fail its idle state every fifth update
+	const bool temporaryMachine = ai().hasTemporaryStateMachine();
+	if (ownerObject && !temporaryMachine && !(kStatusInsideGarrison >= 0 && ownerObject->testStatus((unsigned)kStatusInsideGarrison)))
 	{
-		ai().getObject()->logic().noteStop(idleStanceStopLine()); // S-5148
+		if (--m_stancesCountdown == 0)
+		{
+			m_stancesCountdown = 5;
+			if (machine().findState(AI_GOING_IDLE) && StancesBehavior::of(*ownerObject) != nullptr)
+			{
+				return STATE_FAILURE;
+			}
+		}
 	}
 	AIUpdateInterface &self = ai();
 	if (self.attackMoveActive())
@@ -640,8 +656,8 @@ StateReturnType AIIdleState::update()
 	// onEnter offset, which is used once; unless the object is disabled EMP / PARALYZED / TEMPORARILY_BUSY (+ 0x1C8 & 0x14 / 0x100) or the mood matrix's idle
 	// action has IgnoreAll (RW 0x664E18(0) & 0x10), the mood scan getNextMoodTarget(1, 1) (RW 0x66844A) runs; a target is attacked (RW 0x66C536, AI command
 	// source 2); none: the sleep is shortened to the next mood check (AI + 0x21C) when that comes sooner, and then the offset is kept for the next time.
-	// Not ported here: the weapon's frame-window test (RW 0x6CA2C3), the stances countdown (+ 0x22) with state 0x4E (S-5148), the hunt status 0x49, the HORDE_MEMBER
-	// melee wait, the repulsors (KindOf + 0x10D bit 5) and the crate (RW 0x66810B: none in RotWK) (S-326)
+	// Not ported here (S-326): the weapon's frame-window test (RW 0x6CA2C3), the hunt status 0x49, the HORDE_MEMBER melee wait, the repulsors
+	// (KindOf + 0x10D bit 5) and the crate (RW 0x66810B: none in RotWK). The stance countdown (+ 0x22) with state 0x4E runs above.
 	const unsigned short oldSleepOffset = m_initialSleepOffset;
 	unsigned timeToSleep = kIdleCountdownDelay + oldSleepOffset;
 	m_initialSleepOffset = 0;
@@ -1056,6 +1072,7 @@ void AIStateMachine::crc(StateHasher &h) const
 void AIIdleState::crc(StateHasher &h) const
 {
 	h.addU32(m_initialSleepOffset);
+	h.addU32(m_stancesCountdown); // Port 226: retail's + 0x22 takes part in the play (the fifth update of a stanced unit)
 	h.addBool(m_inited);
 }
 

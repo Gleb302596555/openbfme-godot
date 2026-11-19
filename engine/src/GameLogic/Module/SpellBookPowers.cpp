@@ -11,6 +11,7 @@
 #include "GameLogic/Module/SpellBookPowers.h"
 #include "GameLogic/Map/FireLogicSystem.h"
 #include "GameLogic/Module/SpellEffectModules.h"
+#include "GameLogic/Module/EmotionModules.h" // PORT-260: CloudBreak's fire put-out request (RW 0x68F383)
 
 #include "Common/Player.h"
 #include "Common/Thing/ModuleFactory.h"
@@ -338,20 +339,32 @@ void CloudBreakSpecialPower::doSpecialPowerAtLocation(const Coord3D &loc, unsign
 	}
 	baseDo(&loc, nullptr, options);
 	emitCentreFX(m_data->m_fx, nullptr); // RW 0x8C8B01
+	putOutFires();                        // RW 0x8C8A3B
 	makeSunbeams();                       // RW 0x8C8B57
-	// RW 0x8C8A3B: every object the filter allows for the caster's player has its outermost container's fire put out (RW 0x68F383): S-921
-	Object *obj = getObject();
-	if (m_data->m_attributeModifierAffects)
-	{
-		for (Object *o = obj->logic().getFirstObject(); o; o = o->getNextObject())
-		{
-			if (ObjectFilterMatch::allows(obj->logic(), *m_data->m_attributeModifierAffects, *o, obj->getControllingPlayer()))
-			{
-				++m_unported;
-			}
-		}
-	}
 	zeroBurnDecay();
+}
+
+// RW 0x8C8A3B: every object of the object list (RW 0x97338F first, + 0x8C next) the data's AttributeModifierAffects (+ 0x24, the base's field, RW
+// 0x7640C1 with the object's template and the caster's controlling player, RW 0x68B678) allows gets, through its OUTERMOST container (+ 0x27C chain to the
+// top, RW 0x68F383's first loop 0x68F389 / 0x68F381), the request "put the fire out" at its EmotionTrackerUpdate: RW 0x68F393 reads Object + 0x254 (the
+// tracker the object caches at construction, RW 0x69A529) and RW 0x68F397 jumps to RW 0x8B4E75 with type 5 (UNCONTROLLABLE_FEAR per the port's table,
+// RW 0x8C8A70 `push 5`), the null source and 1 (RW 0x8C8A6D `push 1`, the delay: one frame). S-921's "CloudBreak's fire put-out" (RW 0x68F383) runs now
+void CloudBreakSpecialPower::putOutFires()
+{
+	// The walk runs unconditionally (RW 0x8C8A50 jumps to RW 0x8C8A58 when the filter slot is empty, then 0x8C8A61 -> RW 0x7640C1 with a null filter:
+	// ObjectFilterMatch::isValid is false, so RW 0x7640C1's "unset filter" answer is what the filter-less cast gets)
+	GameLogic &logic = getObject()->logic();
+	const Player *player = getObject()->getControllingPlayer(); // RW 0x8C8A58 -> RW 0x68B678
+	for (Object *o = logic.getFirstObject(); o; o = o->getNextObject()) // RW 0x8C8A4E / RW 0x8C8A79
+	{
+		if (m_data->m_attributeModifierAffects &&
+			!ObjectFilterMatch::allows(logic, *m_data->m_attributeModifierAffects, *o, player)) // RW 0x8C8A61 -> RW 0x7640C1
+		{
+			continue;
+		}
+		EmotionTrackerUpdate::requestEmotion(*o, EMOTION_UNCONTROLLABLE_FEAR, nullptr, 1); // RW 0x8C8A72 -> RW 0x68F383 -> RW 0x8B4E75
+		++m_firesPutOut;
+	}
 }
 
 // RW 0x8C8B57 .. 0x8C8C46 (SSE): spacing > 0: y = (float)(int)(spacing + lo.y) while y < hi.y - spacing; x = (float)(int)(spacing + lo.x) while x < hi.x - spacing:

@@ -955,7 +955,8 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 	// pin: batch 2026-11-17a, Port 237 (#596: death / create modules, ObjectCreationList, OCLUpdate), measured once on the batch tree (Linux GCC on
 	// Colab); merge-point bisect: 6e3b8a16 (before #596) keeps the old values, 2ce6a623 (with it) moves them: seed 7 stays open at 9000 (was Mordor's
 	// defeat at 3367), seed 2 a new table from the first window on, seed 1234 open at 9000 as before
-	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, -1, -1 }, Game{ "FactionMen", "FactionMordor", 7u, -1, -1 }, Game{ "FactionMordor", "FactionMen", 1234u, -1, -1 } })
+	// pin: PR #619 (Port 226, #549) merged onto main 026fbc2f, measured once on the merged tree (Linux GCC on Colab): every fifth idle update of a unit with a StancesBehavior returns FAILURE (RW 0x7553AB -> RW 0x7537C7 / 0x7537E0), the unit goes to AIGoingIdleState -> onMoveEnd -> guardHere (RW 0x743864 -> 0x86228E -> RW 0x662A21): a guard machine main did not run: seed 2 ends with Mordor's defeat (start position 0) at 8197 (was open at 9000), seeds 7 and 1234 stay open at 9000
+	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, 0, 8197 }, Game{ "FactionMen", "FactionMordor", 7u, -1, -1 }, Game{ "FactionMordor", "FactionMen", 1234u, -1, -1 } })
 	{
 		INFO(g.a << " vs " << g.b << " seed " << g.seed);
 		VersusRun run;
@@ -1010,16 +1011,16 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 			// pin: the fork's merge of upstream 1d505ac3 (2026-11-13, measured once on the merged tree, Windows MSVC): a new table from the first window on; the three games stay open at 9000
 			// pin: the landing of 2026-11-17 (see above; main dbea96b5 already gave this table): a new table from the first window on; open at 9000
 			// pin: batch 2026-11-17a, Port 237 (#596; see above): a new table from the first window on; open at 9000
+			// pin: PR #619 (Port 226, #549) merged onto main 026fbc2f, measured once on the merged tree (Linux GCC on Colab): every fifth idle update of a unit with a StancesBehavior returns FAILURE (RW 0x7553AB -> RW 0x7537C7 / 0x7537E0), the unit goes to AIGoingIdleState -> onMoveEnd -> guardHere (RW 0x743864 -> 0x86228E -> RW 0x662A21): a guard machine main did not run: a new table from the first window on, ending at 8000 (the game ends at 8197)
 			CHECK(run.progress ==
-			"frame 1000: [0 attacks 1 built 70u/8s destroyed 24u/1s] [1 attacks 3 built 81u/7s destroyed 8u/1s]\n"
-			"frame 2000: [0 attacks 3 built 226u/10s destroyed 177u/1s] [1 attacks 4 built 242u/10s destroyed 123u/2s]\n"
-			"frame 3000: [0 attacks 5 built 388u/12s destroyed 335u/2s] [1 attacks 7 built 430u/11s destroyed 311u/2s]\n"
-			"frame 4000: [0 attacks 9 built 590u/14s destroyed 458u/2s] [1 attacks 10 built 571u/15s destroyed 457u/4s]\n"
-			"frame 5000: [0 attacks 11 built 813u/16s destroyed 591u/3s] [1 attacks 11 built 684u/17s destroyed 744u/5s]\n"
-			"frame 6000: [0 attacks 13 built 1028u/19s destroyed 742u/6s] [1 attacks 14 built 812u/19s destroyed 962u/6s]\n"
-			"frame 7000: [0 attacks 17 built 1227u/22s destroyed 815u/7s] [1 attacks 15 built 908u/22s destroyed 1218u/7s]\n"
-			"frame 8000: [0 attacks 19 built 1454u/24s destroyed 976u/7s] [1 attacks 16 built 1062u/23s destroyed 1398u/9s]\n"
-			"frame 9000: [0 attacks 21 built 1622u/24s destroyed 1134u/7s] [1 attacks 17 built 1221u/25s destroyed 1578u/9s]\n");
+			"frame 1000: [0 attacks 0 built 70u/7s destroyed 22u/1s] [1 attacks 2 built 89u/8s destroyed 18u/1s]\n"
+			"frame 2000: [0 attacks 3 built 238u/10s destroyed 116u/2s] [1 attacks 4 built 216u/11s destroyed 141u/2s]\n"
+			"frame 3000: [0 attacks 4 built 358u/12s destroyed 230u/3s] [1 attacks 6 built 331u/12s destroyed 267u/4s]\n"
+			"frame 4000: [0 attacks 8 built 554u/15s destroyed 306u/5s] [1 attacks 6 built 403u/15s destroyed 419u/6s]\n"
+			"frame 5000: [0 attacks 12 built 784u/19s destroyed 367u/5s] [1 attacks 7 built 468u/18s destroyed 707u/9s]\n"
+			"frame 6000: [0 attacks 14 built 857u/23s destroyed 421u/6s] [1 attacks 9 built 505u/22s destroyed 777u/12s]\n"
+			"frame 7000: [0 attacks 16 built 963u/28s destroyed 512u/8s] [1 attacks 11 built 588u/24s destroyed 902u/13s]\n"
+			"frame 8000: [0 attacks 17 built 969u/33s destroyed 570u/8s] [1 attacks 12 built 652u/24s destroyed 984u/16s]\n");
 		}
 	}
 }

@@ -178,10 +178,10 @@ size_t HudInput::update()
 			gone.push_back(id);
 			continue;
 		}
-		// An occupied plot hidden by Construction::constructOnPlot leaves the client selection, closing its command menu.
-		static const int unselectable = ObjectTemplateInfoBuilder::objectStatusIndex("UNSELECTABLE");
+		// An occupied plot hidden by Construction::constructOnPlot leaves the client selection, closing its command menu. A masked object (a rebuild
+		// hole, Local 58) leaves through isMasked; UNSELECTABLE alone does not (the comment above: RW deselects nothing for an unpacked castle)
 		if (!o || o->isDestroyed() || (sold >= 0 && o->testStatus((unsigned)sold)) ||
-			o->isMasked() || !o->isScriptSelectable() || (unselectable >= 0 && o->testStatus((unsigned)unselectable)) ||
+			o->isMasked() || !o->isScriptSelectable() ||
 			(o->isDrawableHidden() &&
 				(o->isKindOfName("BASE_FOUNDATION") || o->isKindOfName("BASE_DEFENSE_FOUNDATION") || o->isKindOfName("EXPANSION_PAD"))))
 		{

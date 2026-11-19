@@ -336,6 +336,8 @@ bool AICommands::formationMove(GameLogic &logic, const GameMessage &m)
 		// RW 0x77BBC1 .. 0x77BBED: MSG_DO_MOVETO_FORMATION submits MoveToFormationGroupOrder (RW 0x757419)
 		AIGroup group(logic, ids);
 		group.planningMoveToFormation(type->integer, dest->location, angle->real, attack->boolean, logic.players().getNthPlayer(m.getPlayerIndex())->orderMode(), computedPositions);
+		// RW 0x77BBED: this branch too jumps to RW 0x77AAEB after its order, the selection's speed matching RW 0x77005F(0)
+		group.cohereMoveSpeed(false);
 		++m_stats.formationMoves;
 		return true;
 	}

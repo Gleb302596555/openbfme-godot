@@ -11,13 +11,18 @@ namespace
 const char kDefinitions[] =
  "Object TerrainWallHub\n KindOf = STRUCTURE IMMOBILE WALL_HUB\n BuildCost = 20\n Geometry = BOX\n GeometryMajorRadius = 4\n GeometryMinorRadius = 10\n GeometryHeight = 20\n Behavior = WallHubBehavior Hub\n SegmentTemplateName = TerrainWallTile\n DefaultSegmentTemplateName = TerrainWallTile\n HubCapTemplateName = TerrainWallHub\n CliffCapTemplateName = TerrainWallEnd\n BuilderRadius = 10\n End\nEnd\n"
  "Object TerrainWallTile\n KindOf = STRUCTURE IMMOBILE WALL_SEGMENT\n BuildCost = 10\n Geometry = BOX\n GeometryMajorRadius = 4\n GeometryMinorRadius = 10\n GeometryHeight = 20\nEnd\n"
- "ChildObject TerrainWallEnd TerrainWallTile\n BuildCost = 7\nEnd\n";
+ "ChildObject TerrainWallEnd TerrainWallTile\n BuildCost = 7\nEnd\n"
+ "Object TerrainWallCentre\n KindOf = STRUCTURE IMMOBILE COMMANDCENTER\n Geometry = BOX\n GeometryMajorRadius = 20\n GeometryMinorRadius = 20\n GeometryHeight = 10\nEnd\n";
 
 Object *prepare(CombatWorld &w)
 {
 	w.logic->settings().buildRulesLoaded = true;
 	w.logic->settings().allowedHeightVariationForBuilding = 10;
 	w.logic->settings().maxLineBuildObjects = 50;
+	// P-106 (Port 170): the hub cap is a WALL_HUB template, legal only inside its WallHubBehavior range (+ 0x30, unset default 54321.0) of one of the
+	// owner's command centres (RW 0x796C66 .. 0x796D24, collector RW 0x6B00F3 -> 0x6B00CE); without one the cliff cap's hub is refused with code 9.
+	// The base stands away from the tested line, as test_build_core's WallFx does.
+	w.unit("TerrainWallCentre", 'A', 300, 200);
 	Object *hub = w.unit("TerrainWallHub", 'A', 300, 500);
 	hub->getControllingPlayer()->getMoney()->deposit(1000, false);
 	for (int y = 0; y < 100; ++y)

@@ -55,6 +55,8 @@ const char *FlingPassengerSpecialAbilityUpdate::stopLine() {
     return "[S-6001] FlingPassengerSpecialAbilityUpdate: contain slots 0x114 / 0x13C are not verified outside OpenContain (RW 0x89876A; BFME2 0x894FDC)";
 }
 void FlingPassengerSpecialAbilityUpdate::crc(StateHasher &h) const { SpecialAbilityUpdate::crc(h); }
+// RW 0x008C6E67 (slot 3): version 1, delegates to SpecialAbilityUpdate::xfer (RW 0x00852782).
+// Deleting dtor RW 0x0089873E -> 0x008986A9 chains to ~SpecialAbilityUpdate (RW 0x00854D9A).
 void FlingPassengerSpecialAbilityUpdate::xfer(Xfer &x) { SnapshotXfer::version(x, 1, 1); SpecialAbilityUpdate::xfer(x); }
 void FlingPassengerSpecialAbilityUpdate::registerClass(ModuleFactory &factory) {
     factory.bindTypedData<FlingPassengerSpecialAbilityUpdateModuleData>("FlingPassengerSpecialAbilityUpdate", MODULETYPE_BEHAVIOR);

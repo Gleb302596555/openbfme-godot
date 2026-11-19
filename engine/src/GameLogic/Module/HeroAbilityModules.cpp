@@ -39,6 +39,7 @@
 #include "GameLogic/Object/ExperienceTracker.h"
 #include "GameLogic/SimMath.h"
 #include "GameLogic/Weapon.h"
+#include "GameLogic/WeaponState.h" // lane PORT-260: RW 0x6CA03E / 0x6CA525 / 0x6CA701 of the volley's location test
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/GameMessage.h"
 #include "GameLogic/GameLogicDispatch.h"
@@ -1872,6 +1873,63 @@ bool ArrowStormUpdate::shootOne()
 	return m_shots >= m_as->m_maxShots;
 }
 
+// RW 0x893D61: may the volley be aimed at `loc` now — the special power update interface's slot 8 (RW 0xC63E4C + 0x20), asked by the module's location
+// requirements RW 0x897E01 (RW 0x897E7D pushes the location it was given). Read linearly from its start:
+//   RW 0x893D6A .. 0x893D76: the module's data (+ 0x4) null: false. RW 0x893D7B .. 0x893D8A: no location: the base's answer alone (RW 0x851B6E).
+//   RW 0x893D90 .. 0x893D99: the owner (+ 0x8) null: false.
+//   RW 0x893D9E .. 0x893DB6: TheWeaponStore (RW 0xDE4A1C, its call RW 0x6CC5DF is findWeaponTemplate with the name at data + 0xD0): null: false.
+//   RW 0x893DB9 .. 0x893DD5: the template's getMinimumAttackRange (RW 0x6CA03E: MinimumAttackRange - 2.5, never below 0 — the template + 0x18), squared
+//                             (`fmul`), which `fcompi` at RW 0x893DD5 compares against the squared 2D edge distance from the owner to the location (RW
+//                             0x893DCA -> RW 0x6CA525). RW 0x893DD9 `jbe` passes on, so minimum^2 > distance is the refusal (RW 0x893DDB `xor al, al`).
+//   RW 0x893DDF .. 0x893DE9: the OWNER's template KindOf bit 2 (template + 0x108; RW 0xDA0E68 names IMMOBILE at index 2, from TheKindOfNames): clear ->
+//                             the base's answer (RW 0x893E25 -> RW 0x893E2A, RW 0x851B6E with the location).
+//   RW 0x893DEB .. 0x893E20: set (an immobile caster): six floats 0x3F800000 as the WeaponBonus (RW 0x893DEB .. 0x893DF6) with RW 0x6CA701 at RW 0x893E01
+//                             — the attack range with no target (getAttackRange with dz = 0 - the location's z, then getAttackRange's scale a second
+//                             time, `fmul`) — is squared and compared against the same distance; farther than the range is `ja` at RW 0x893E20 to the
+//                             refusal. Within it: the base's answer at RW 0x893E2A (the `edi` of RW 0x893E22 is the module, RW 0x893D68).
+bool ArrowStormUpdate::allowsSpecialPowerUse(const Coord3D *loc) const
+{
+	if (!m_as || !getObject()) // RW 0x893D6A (the data), RW 0x893D90 (the owner)
+	{
+		return false;
+	}
+	if (!loc)
+	{
+		return SpecialAbilityUpdate::allowsSpecialPowerUse(nullptr); // RW 0x893D85
+	}
+	const WeaponTemplate *wt = TheWeaponStore ? TheWeaponStore->findWeaponTemplate(m_as->m_weaponTemplate) : nullptr; // RW 0x893DA4
+	if (!wt) // RW 0x893DB6
+	{
+		return false;
+	}
+	const Object *obj = getObject();
+	const float dist2 = CircleDistanceSquaredToPoint(*obj->getPosition(), CombatQueries::boundingCircleRadius(*obj), *loc); // RW 0x893DCA -> 0x6CA525
+	const float minimum = WeaponTemplateMinimumRange(*wt); // RW 0x893DB9 -> 0x6CA03E
+	if (SimMath::mulf32(minimum, minimum) > dist2) // RW 0x893DD2 `fmul` / 0x893DD5 `fcompi` / 0x893DD9 `jbe`
+	{
+		return false; // RW 0x893DDB
+	}
+	const int immobile = ObjectTemplateInfoBuilder::kindOfIndex("IMMOBILE"); // RW 0x893DE2: template + 0x108 bit 2 (RW 0xDA0E68 index 2)
+	if (immobile < 0 || !obj->isKindOf((unsigned)immobile))
+	{
+		return SpecialAbilityUpdate::allowsSpecialPowerUse(loc); // RW 0x893E2A
+	}
+	ObjectWeapons *weapons = obj->getWeapons();
+	if (!weapons)
+	{
+		return SpecialAbilityUpdate::allowsSpecialPowerUse(loc); // the store call's result read at RW 0x893DF8 (no host in the port: the base's answer)
+	}
+	const WeaponBonus sixOnes; // RW 0x893DEB .. 0x893DF6: six floats 0x3F800000, not the weapon's computed bonus
+	const float range = weapons->attackRangeNoTarget(*wt, sixOnes); // RW 0x893E01 -> 0x6CA701
+	// RW 0x893E14 `fld` / 0x893E17 `fmul` (range^2) / 0x893E1A `fxch` / 0x893E1C `fcompi st(1)` (distance^2 against range^2) / 0x893E20 `ja` to the
+	// refusal: a location FARTHER than the range is refused; within it the base's answer (RW 0x893E2A) follows
+	if (SimMath::mulf32(range, range) < dist2)
+	{
+		return false; // RW 0x893DDB
+	}
+	return SpecialAbilityUpdate::allowsSpecialPowerUse(loc);
+}
+
 // RW 0x894100
 void ArrowStormUpdate::triggerAbilityEffect()
 {
@@ -2656,6 +2714,9 @@ void RousingSpeechUpdate::xfer(Xfer &x)
 	x.xferUnsignedInt(&m_inspired);
 }
 
+// RW 0x0089659F (slot 3): version 1, delegates to SpecialAbilityUpdate::xfer (RW 0x00852782).
+// Inherited base tail-calls: RW 0x00896435 (finishAbility -> 0x008530BA), RW 0x0089643A (update -> 0x00854DF7),
+// RW 0x008B0BAC (continuePreparation -> 0x00852A3E), RW 0x00896484 (dtor -> 0x00896415 -> ~SpecialAbilityUpdate 0x00854D9A).
 void TeleportSpecialAbilityUpdate::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

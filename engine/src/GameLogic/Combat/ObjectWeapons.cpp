@@ -1784,6 +1784,15 @@ float ObjectWeapons::currentAttackRangeNoTarget() const
 	return WeaponGetAttackRangeNoTarget(*w->getTemplate(), bonus, *self->m_rangeHost, src);
 }
 
+// lane PORT-260 (ArrowStormUpdate's RW 0x893E01): RW 0x6CA701(template, bonus, the owner's position, the target position) — the attack range with no
+// target, i.e. RW 0x6CA69A's getAttackRange with dz = 0 - z and RW 0x6CA61F's scale applied a second time — with the CALLER's bonus (RW 0x893DEB's six 1.0
+// fields, not the weapon's computed one)
+float ObjectWeapons::attackRangeNoTarget(const WeaponTemplate &t, const WeaponBonus &bonus) const
+{
+	ObjectWeapons *self = const_cast<ObjectWeapons *>(this);
+	return WeaponGetAttackRangeNoTarget(t, bonus, *self->m_rangeHost, subjectOf(*m_owner));
+}
+
 float ObjectWeapons::attackRangeNoTargetFor(const Weapon &weapon, const Object &source) const
 {
 	if (!weapon.getTemplate())

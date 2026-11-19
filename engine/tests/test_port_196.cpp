@@ -278,14 +278,16 @@ TEST_CASE("PORT-196 ARMY_BREAKER: the first record that passes is the one taken,
 	f.advanceTo(10);
 	const float range = f.breaker()->decision()->range;
 	f.record(120.0f, 140.0f, range, 1000.0f);                        // refused by RW 0x9E9347
-	AIAttackedAt &second = f.record(220.0f, 240.0f, range * 4.0f, 0.0f); // the one the decision takes
+	f.record(220.0f, 240.0f, range * 4.0f, 0.0f); // the one the decision takes
+	// by index, not a reference: the next record() grows the vector and would leave a reference dangling (red on macOS libc++, CI 2026-11-18)
+	const size_t second = f.ai->brain.attackedAt.size() - 1;
 	f.record(320.0f, 340.0f, range * 4.0f, 0.0f);                    // never reached: the walk stops at the first record that passes
 	// the pathfinder extent RW 0x82D56A shrunk by the power's RadiusCursorRadius: 10 .. 990 both ways
 	CHECK(u->decideNow());
 	CHECK(f.logic->skirmishAI().armyBreakerTimers().size() == 1);
 	CHECK(u->decision()->location.x == 220.0f); // RW 0x9E9316 .. 0x9E932F copied the record's + 0x04 .. + 0x0C
 	CHECK(u->decision()->location.y == 240.0f);
-	CHECK(second.position.x == 220.0f);
+	CHECK(f.ai->brain.attackedAt[second].position.x == 220.0f);
 	// the record's position is the point RW 0xA0229F was handed (its random walk is off: SpecialPowerAIType alone does not set RandomizeTargetLocation)
 	CHECK(u->proposedLocationForTest().x == 220.0f);
 	CHECK(u->proposedLocationForTest().y == 240.0f);

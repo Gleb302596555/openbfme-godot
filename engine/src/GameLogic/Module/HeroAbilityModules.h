@@ -356,7 +356,7 @@ public:
 	bool drivesSpecialPower(const SpecialPowerTemplate *t) const override { return t && t == m_data->m_specialPowerTemplate; } // RW 0x89827C
 	void initiateIntentToDoSpecialPower(const SpecialPowerTemplate *, Object *, const Coord3D *, unsigned, int) override { initiate(); } // RW 0x89841E
 	bool isActive() const override { return m_active; }
-	bool allowsSpecialPowerUse(const Coord3D *) const override { return true; } // slot 0x20 of RW 0xC65158 is RW 0x9B501B: mov al, 1 (merge q2: AIPOW-1's slot on FACT-C's interface)
+	bool allowsSpecialPowerUse(const Coord3D *) const override { return true; } // slot 0x20 of RW 0xC65158 is RW 0x9B501B: mov al, 1 (merge q2: AIPOW-1's slot on FACT-C's interface; the place is not read, PORT-260)
 	UpdateSleepTime update() override; // RW 0x8983B5
 	void crc(StateHasher &h) const override;
 	bool active() const { return m_active; }
@@ -545,6 +545,12 @@ protected:
 	void startPreparation() override;      // RW 0x894396
 	bool continuePreparation() override;   // RW 0x893CBC
 	void triggerAbilityEffect() override;  // RW 0x894100
+	// RW 0x893D61 (slot 8 of the special power update interface RW 0xC63E4C; the base's RW 0x851B6E is the call at RW 0x893E2A). Read linearly: no
+	// data / template / owner: false (RW 0x893D6A .. 0x893D99); no location: the base alone (RW 0x893D7B .. 0x893D8A); no weapon template
+	// (RW 0x6CC5DF of data + 0xD0): false; a location inside the template's minimum range (RW 0x6CA03E squared against RW 0x6CA525's edge distance):
+	// false; a non-IMMOBILE caster (+ 0x108 bit 2): the base's; an IMMOBILE one: its attack range with no target (RW 0x6CA701 with six 1.0
+	// WeaponBonuses) against the same distance: farther is false, within it the base's answer — see HeroAbilityModules.cpp
+	bool allowsSpecialPowerUse(const Coord3D *loc = nullptr) const override; // RW 0x893D61
 
 private:
 	void gatherTargets();                  // RW 0x894151
@@ -654,6 +660,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW vtable 0x00C64E8C; name/key RW 0x0089640F / 0x0089643F; s1 no-op RW 0x008E38D8
 class TeleportSpecialAbilityUpdate : public SpecialAbilityUpdate
 {
 public:

@@ -171,11 +171,14 @@ public:
 	CloudBreakSpecialPower(Thing *thing, const CloudBreakSpecialPowerModuleData *data) : WeatherFamilySpecialPower(thing, data), m_data(data) {}
 	void doSpecialPowerAtLocation(const Coord3D &loc, unsigned options) override; // RW 0x8C8CE4
 	unsigned long long sunbeamsMade() const { return m_sunbeams; }
+	unsigned long long firesPutOut() const { return m_firesPutOut; }
 
 private:
 	void makeSunbeams(); // RW 0x8C8B57 .. 0x8C8C46
+	void putOutFires();  // RW 0x8C8A3B: the filter's objects' top containers get the put-out request (RW 0x68F383 -> RW 0x8B4E75, type 5, delay 1)
 	const CloudBreakSpecialPowerModuleData *m_data;
 	unsigned long long m_sunbeams = 0;
+	unsigned long long m_firesPutOut = 0; // a counter: the request is the tracker's state (hashed there), not this module's
 };
 class TaintSpecialPower : public WeatherFamilySpecialPower
 {
