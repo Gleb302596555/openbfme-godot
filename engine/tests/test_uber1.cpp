@@ -211,6 +211,10 @@ void storeUberHashes(const char *name, const std::vector<std::uint32_t> &hashes)
 // match the MSVC pins). The per-PR checks (each PR alone on main 157b917f) name the movers: Local 59 (#500, WeaponFireSpecialAbilityUpdate makes and
 // loads its weapon in the constructor and crc() hashes it, RW 0x895DE1: from frame 0), Local 61 (#501, stunned units skip the AI update, RW 0x669652),
 // Port 464 (#487, a summoned helper's AI steering) and Port 201 (#496, the captured building's production cancel and upgrade reset)
+// pin: the PC batch of 2026-11-19 (batch 19f, Ports 300, 294, 270, 275, 459, 282, 272, 241, 277, 280, 136) re-measured it once on the merged
+// tree (REGEN=1, Windows MSVC), bisected over the merge points: green after batch 19f, red from Port 294 (#723) on: ObjectCreationUpgrade's
+// own wouldUpgrade / postUpgradeCheck (RW 0x8B82AB / 0x8B8329), asked on every upgrade event (RW 0x6936FE), replace the mux base's answers;
+// PORT-459 (#653) after it was not split off
 TEST_CASE("uber1: the Uber battle hashes as its pin vector in every frame with 1, 4 and 16 logic threads and in a repeated run; the hash's own jobs run on "
 		  "workers; Faithful hashes differently and serially")
 {

@@ -40,8 +40,8 @@ const char *const kStopSiege =
 	"[S-1105] SiegeEngineContain / HordeSiegeEngineContain (lane GARRISON-2): ported from RW 0x87ECC7 / 0x87FD0F (the crew: CrewFilter, CrewMax, the owner's "
 	"objects), 0x87F341 / 0x87EFF8 (the crew list, CONTAINED, LOCOMOTORSET_CONTAINED, SIEGE_CONTAIN), 0x87ED55 (ObjectStatusOfCrew), 0x87F5B4 (the crew on its bones), "
 	"0x87ED45 (the crew's speed: count x SpeedPercentPerCrew), 0x87EE53 / 0x87FFC7 (InitialCrew), 0x87EE17 (the crew destroyed with the engine) and 0x87F7B4 / "
-	"0x8807CA (a crew member steps 50 away; lane SIEGE-1: a rider of a deployed engine onto the wall, RW 0x87F87C / 0x880868). Not ported: DynamicPortalBehaviour "
-	"(lane WALL-2, S-4940), TransferSelection (client), the crew's team change on capture";
+	"0x8807CA (a crew member steps 50 away; lane SIEGE-1: a rider of a deployed engine onto the wall, RW 0x87F87C / 0x880868). Not ported: TransferSelection "
+	"(client) and the crew's team change on capture (shared Object::setCapturedTeam RW 0x6996DC / S-1225; see S-1105)";
 const char *const kStopSiegeExit =
 	"[S-4943] siege exit onto the wall (lane SIEGE-1): RotWK puts a deployed ladder's / tower's rider on layer 0x11; the port's walls have a layer per height (S-4840), "
 	"so the rider takes the wall layer under it (0x11 where it stands on no wall); the next path frame (AI + 0x178), the destination adjustment and the goal "

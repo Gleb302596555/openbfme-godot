@@ -709,9 +709,8 @@ Object *CastleBehavior::createOwnedObject(const CastleTemplateEntry &entry, Play
 	{
 		return nullptr;
 	}
-	// lane BACKLOG2: RW 0x79899A: the castle's creation interface (its + 0x20 vtable RW 0xC30DE8 slot 4 = RW 0x859198) with (the castle, the template, the position,
-	// the angle, the player of the team chosen above, instant): the site is cleared first (RW 0x858C41), the object made (slot 7, RW 0x858701: below, the port's
-	// placement, S-303), then the units in the way are pushed out (RW 0x858CFC)
+	// RW 0x79899A -> creation interface slot 7 RW 0x858701: clear the site, create and place the member, then push out units in the way (RW 0x858C41 / 0x858CFC).
+	// S-303: keep the castle as producer without routing through the generic plot-construction callbacks; retail's CastleBehavior path completes the member itself.
 	Player *creator = mine ? &owner : logic.players().getNeutralPlayer();
 	ConstructionSite::clearSiteForFoundation(logic, *tt, pos, angle);
 	Object *obj = logic.newObject(tt, team, ObjectStatusMaskType{});
@@ -719,6 +718,7 @@ Object *CastleBehavior::createOwnedObject(const CastleTemplateEntry &entry, Play
 	{
 		return nullptr;
 	}
+	obj->setProducer(castle); // RW 0x8587E7: retain the producing castle link
 	obj->setOrientation(angle);
 	obj->setPosition(&pos);
 	obj->friend_onBuildComplete();
@@ -728,8 +728,6 @@ Object *CastleBehavior::createOwnedObject(const CastleTemplateEntry &entry, Play
 	}
 	if (mine && obj->isKindOfName("STRUCTURE"))
 	{
-		// lane PLAY-4: RW 0x7987EE makes no Player::onStructureCreated call (RW 0x6AAF3B is not among its calls): since that call sets GettingBuiltBehavior's
-		// + 0x36 and spawns the worker of a plot or castle builder, the castle's complete members do not get it here (they spawned workers that faded at once)
 		Construction::onStructureConstructionComplete(owner, castle, *obj, false);
 	}
 	if (creator)

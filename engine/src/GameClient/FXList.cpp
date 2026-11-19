@@ -897,7 +897,12 @@ void ParticleSystemFXNugget::spawn(FXServices &s, const Coord3D &pos, const Matr
 		}
 		if (m_onlyIfOnLand || m_onlyIfOnWater)
 		{
-			const bool water = s.isWater(p.x, p.y);
+			// RW 0x005E1270 (ParticleSystemFXNugget::reallyDoFX): 0x5E198A (OnlyIfOnLand) / 0x5E1A18 (OnlyIfOnWater)
+			bool water = s.isWater(p.x, p.y);
+			if (water && primary && primary->layer() != 1) // RW 0x5E19E1 / 0x5E1A6F: Object::getLayer (RW 0x68BBE0) != LAYER_GROUND (1)
+			{
+				water = false;
+			}
 			if (m_onlyIfOnLand ? water : !water)
 			{
 				sys->destroy();

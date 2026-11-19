@@ -486,6 +486,14 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 				xp->gainExpForLevel(levelsToGain, false);
 			}
 			g.step(5);
+			// MATRIX_TODO 16 (2026-11-19): the object's own CommandSetUpgrade modules switch it back when their upgrade arrives at birth or with
+			// the level (the Necromancer's MainPage, Upgrade_MordorNecromantMainPage, put MordorNekromantRebornCommandSet over the worn powers page,
+			// so every later round saw round 0's buttons again and the second page was never pressed): the round's set is worn once more now
+			if (!wearSet.empty() && u->getCommandSetName() != wearSet)
+			{
+				u->setCommandSetOverride(wearSet);
+				g.step(1);
+			}
 			return true;
 		};
 		// 2026-11-17 (matrix review): a temporary object (DeletionUpdate / LifetimeUpdate, or a slave made without its master) leaves by

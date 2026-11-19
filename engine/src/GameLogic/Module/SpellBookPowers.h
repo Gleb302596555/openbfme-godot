@@ -32,9 +32,12 @@
 //         pairs + 0x7C, ElvenWoodRadius + 0x90, ElvenWoodFX + 0x94, ElvenWoodOCL + 0x98): AtLocation RW 0x8C7FA2: not disabled and an
 //         ElvenGroveObject name: the base, then RW 0x8C7DBA: the same steps as Taint with kind 2, the grove object (RW 0x8C7C22) gets status 0x54, and
 //         the paint is 0xFF over ElvenWoodRadius (RW 0x8C7E89 .. 0x8C7ECD).
-//   * ProductionSpeedBonus (RW 0x8C70FC; table RW 0xC73620: NumberOfFrames + 0x7C, SpeedMulitplier + 0x80, Type + 0x84 a name list): doSpecialPower
-//     RW 0x8C7171: for each Type name, the player's production bonus (RW 0x6AF3C8: name -> NumberOfFrames and (mult - 1.0) / (mult * -1.0), x87
-//     doubles RW 0xBD2C98 / 0xBDFC10); then, not disabled, the base AtLocation at the object's position. The production side is not ported (S-921).
+//   * ProductionSpeedBonus (RW 0x8C70FC ctor, RW 0x8C7126 getModuleNameKey, RW 0x8C6606 inherited xfer; data RW 0x8C71ED ctor, RW 0x8C724F / RW 0x8C726B
+//     dtors, buildFieldParse RW 0x8C712C, table RW 0xC73620: NumberOfFrames + 0x7C, SpeedMulitplier + 0x80, Type + 0x84 a name list): doSpecialPower
+//     RW 0x8C7171: for each Type name, calls Player::setProductionSpeedBonus (RW 0x6AF3C8) with NumberOfFrames and (mult - 1.0) / (mult * -1.0) (x87 PC24,
+//     doubles RW 0xBD2C98 / 0xBDFC10); then, when not disabled (RW 0x8C71CD), calls the base doSpecialPowerAtLocation (RW 0x89816C) at the object's position
+//     (RW 0x8C71E2). Player::update (RW 0x6AF269) ticks the timers, calcTimeToBuild (RW 0x73C3EC -> RW 0x6AF484) and ProductionUpdate::update (RW 0x8A1C20 ..
+//     0x8A1D4F) consume them (PORT-280).
 //   * ScavengerSpecialPower (RW 0x8C87F2, 0x38 bytes; table RW 0xC73EFC: BountyPercent + 0x7C): doSpecialPower RW 0x8C88A0: Player bounty percent
 //     (RW 0x6AA847) = BountyPercent, the base doSpecialPower, + 0x34 (active) = 1. pauseCountdown (interface slot 0x24, RW 0x8C88CF): when active,
 //     the bounty becomes 0 (pause) or BountyPercent (resume), then the base pause.
@@ -208,21 +211,22 @@ private:
 };
 
 // ---- ProductionSpeedBonus ------------------------------------------------------------------------------------------------------------------
+// RW 0x8C71ED ctor, RW 0x8C724F / RW 0x8C726B deleting / real dtors, RW 0x8C712C buildFieldParse (table RW 0xC73620)
 class ProductionSpeedBonusModuleData : public SpecialPowerModuleData
 {
 public:
 	int m_numberOfFrames = 0;          // + 0x7C
 	float m_speedMultiplier = 0.0f;    // + 0x80 ("SpeedMulitplier", retail's spelling)
 	std::vector<std::string> m_types;  // + 0x84
-	static void buildFieldParse(MultiIniFieldParse &p); // RW 0xC73620
+	static void buildFieldParse(MultiIniFieldParse &p); // RW 0x8C712C, RW 0xC73620
 };
 class ProductionSpeedBonus : public SpecialPowerModule
 {
 public:
-	OBFME_MODULE_XFER(ProductionSpeedBonus) // lane SAVE-4b
-	ProductionSpeedBonus(Thing *thing, const ProductionSpeedBonusModuleData *data) : SpecialPowerModule(thing, data), m_data(data) {}
+	OBFME_MODULE_XFER(ProductionSpeedBonus) // lane SAVE-4b (RW 0x8C6606 inherited SpecialPowerModule::xfer)
+	ProductionSpeedBonus(Thing *thing, const ProductionSpeedBonusModuleData *data) : SpecialPowerModule(thing, data), m_data(data) {} // RW 0x8C70FC
 	void doSpecialPower(unsigned options) override; // RW 0x8C7171
-	// the bonus RW 0x6AF3C8 records per template name: (frames, time factor); kept here, the production side is not ported (S-921)
+	// inspection mirror of the last cast's Player::setProductionSpeedBonus (RW 0x6AF3C8) calls per template name: (frames, time factor); gameplay reads Player
 	const std::vector<std::pair<std::string, std::pair<int, float>>> &bonuses() const { return m_bonuses; }
 	void crc(StateHasher &h) const override;
 

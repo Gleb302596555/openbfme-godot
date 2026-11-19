@@ -53,6 +53,9 @@ struct ObjectMovementInfo;
 // lane PHYS-1 (AIUpdateAllies.cpp): AI_MOVE_OUT_OF_THE_WAY (26), the move-away path of RW 0x66DA5F followed to its end
 std::unique_ptr<class AIState> makeMoveOutOfTheWayState(class AIStateMachine &machine);
 
+// Base AIUpdateInterface no-op/compiler slots in RotWK 2.01: RW 0x0066ECF9 (construct -> nullptr, vslot 126),
+// RW 0x00A15F21 (AICMD 0x3F/0x40 -> return -1, vslots 36/37), and MI this-0x0C thunks RW 0x008A18ED / RW 0x008FF2DB
+// (port uses single inheritance without a separate AICommandInterface subobject).
 class AIUpdateInterface : public UpdateModule, public AIMoveHost
 {
 public:
@@ -253,6 +256,24 @@ public:
 	// lane SCRIPT-4: AI command 0x1E (RW 0x771790 aiGuardPosition, BFME2 decomp AICommandInterfaceAttackCommands.cpp tier A) -> aiDoCommand's gate, then
 	// privateGuardPosition (RW 0x6649C6, tier A; AI/AIGuardCommands.cpp): guard `pos` in `mode`; false when nothing changed
 	bool aiGuardPosition(const Coord3D &pos, int mode, CommandSourceType source);
+	// Local 84: RW 0x00664B19 privateGuardObject (AICMD 0x1F, AI vslot 64 / +0x100): guard `target` in `mode`
+	bool aiGuardObject(Object *target, int mode, CommandSourceType source);
+	// Local 84: RW 0x0066F121 getGuardObject (AI vslot 119, [ecx + 0x64])
+	ObjectID guardObject() const { return m_guardObject; }
+	// Local 84: RW 0x0066ECEB clearGuardTargetType (AI vslot 124, shifts +0x50 -> +0x54 and sets +0x50 = GUARDTARGET_NONE)
+	void clearGuardTargetType();
+	// Local 84: RW 0x00662CC6 doQuickExit (AI vslot 117): unlocks machine, saves goal, runs AI_FOLLOW_EXITPRODUCTION_PATH (7) as temp state for 10s, restores lock
+	void doQuickExit(const std::vector<Coord3D> &path);
+	// Local 84: RW 0x006672D8 privateTightenToPosition (AICMD 0x02, AI vslot 25, state 27 AI_MOVE_AND_TIGHTEN)
+	bool aiTightenToPosition(const Coord3D &pos, CommandSourceType source);
+	// Local 84: RW 0x0066B7A2 bfmePrivateCommand38 (AICMD 0x38, AI vslot 21, state 30 AI_MOVE_AND_DELETE)
+	bool aiMoveToAndDelete(const Coord3D &pos, CommandSourceType source);
+	// Local 84: RW 0x0066B817 bfmePrivateCommand41 (AICMD 0x41, AI vslot 22, state 55 AI_MOVE_TO_POSITION_AND_DIE)
+	bool aiMoveToPositionAndDie(const Coord3D &pos, CommandSourceType source);
+	// Local 84: RW 0x0066488A privateWanderInPlace (AICMD 0x2C, AI vslot 76, state 41 AI_WANDER_IN_PLACE)
+	bool aiWanderInPlace(CommandSourceType source);
+	// Local 84: RW 0x0066D6D5 joinTeam (AI vslot 103): sync newly-joined member with an existing teammate's state or move to it
+	void joinTeam();
 	// PORT-203: AI command 0x37 (RW 0x7C8154 aiGuardTunnelNetwork) -> aiDoCommand's gate, then privateGuardTunnelNetwork RW 0x664ABF (AI vslot 0xF8):
 	// enter state 0x18 (AI_TUNNEL_NETWORK_GUARD, AITunnelNetworkGuardState)
 	bool aiGuardTunnelNetwork(int mode, CommandSourceType source);
@@ -277,6 +298,7 @@ public:
 	// lane SCRIPT-3: AI commands 6 / 7 / 0x32 / 0x33 (RW 0x770FA8 / 0x771072 / 0x77100D / 0x7710D7): the waypoint path states from `waypointId`
 	// (AIWaypointPath.cpp); false when nothing changed
 	bool aiFollowWaypointPath(int waypointId, CommandSourceType source, bool asTeam, bool exact);
+	bool aiWander(int waypointId, CommandSourceType source);
 	// lane WARG-1: AI commands 0x10 / 0x11 (RW 0x754A3C / 0x754AAA -> RW 0x66C1C9): the attack-follow state 0x22 / 0x23 from the waypoint (AIWaypointPath.h)
 	bool aiAttackFollowWaypointPath(int waypointId, int maxShotsToFire, CommandSourceType source, bool asTeam);
 	// RW 0x664CD6: a HORDE_MEMBER (status 0x26) reads its horde's AI (RW 0x693A1A(0), the horde's AI + 0x260), up the chain
@@ -717,6 +739,8 @@ private:
 	CombatSettings m_combat;
 	int m_guardMode = 0;                              ///< RW AI + 0x4C (lane PLAY-4)
 	int m_guardTargetType = 0;                        ///< RW AI + 0x54
+	int m_guardTargetTypeNext = 4;                    ///< Local 84: RW AI + 0x50 (4 = GUARDTARGET_NONE)
+	ObjectID m_guardObject = INVALID_ID;              ///< Local 84: RW AI + 0x64 (privateGuardObject RW 0x00664B19)
 	Coord3D m_guardLocation{ 0.0f, 0.0f, 0.0f };      ///< RW AI + 0x58
 	float m_guardAngle = 0.0f;                        ///< RW AI + 0x1A0
 	std::uint32_t m_guardTeam = 0;                    ///< lane BFME2CAMP1: RW AI + 0x68, a TeamID (0 none)

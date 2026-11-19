@@ -1102,3 +1102,66 @@ void AIFollowPathState::crc(StateHasher &h) const
 		m_move->crc(h);
 	}
 }
+
+// ---- Local 84: AIMoveAndDeleteState (state 30, AICMD 0x38 RW 0x0066B7A2), AIMoveToPositionAndDieState (state 55, AICMD 0x41 RW 0x0066B817),
+//      AIWanderInPlaceState (state 41, AICMD 0x2C RW 0x0066488A) ----
+
+StateReturnType AIMoveAndDeleteState::update()
+{
+	Object *obj = ai().getObject();
+	if (!obj || obj->isEffectivelyDead())
+	{
+		return STATE_FAILURE;
+	}
+	const StateReturnType status = AIMoveToMachineState::update();
+	if (status != STATE_CONTINUE)
+	{
+		obj->logic().destroyObject(obj);
+	}
+	return status;
+}
+
+StateReturnType AIMoveToPositionAndDieState::update()
+{
+	Object *obj = ai().getObject();
+	if (!obj || obj->isEffectivelyDead())
+	{
+		return STATE_FAILURE;
+	}
+	const StateReturnType status = AIMoveToMachineState::update();
+	if (status != STATE_CONTINUE)
+	{
+		obj->kill(DAMAGE_UNRESISTABLE, DEATH_NORMAL);
+	}
+	return status;
+}
+
+StateReturnType AIWanderInPlaceState::onEnter()
+{
+	Object *obj = ai().getObject();
+	if (!obj || obj->isEffectivelyDead())
+	{
+		return STATE_FAILURE;
+	}
+	m_origin = *obj->getPosition();
+	machine().setGoalPosition(m_origin);
+	return AIMoveToMachineState::onEnter();
+}
+
+StateReturnType AIWanderInPlaceState::update()
+{
+	Object *obj = ai().getObject();
+	if (!obj || obj->isEffectivelyDead())
+	{
+		return STATE_FAILURE;
+	}
+	return AIMoveToMachineState::update();
+}
+
+void AIWanderInPlaceState::crc(StateHasher &h) const
+{
+	AIMoveToMachineState::crc(h);
+	h.addFloat(m_origin.x);
+	h.addFloat(m_origin.y);
+	h.addFloat(m_origin.z);
+}

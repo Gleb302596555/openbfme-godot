@@ -447,16 +447,22 @@ void ElvenWoodSpecialPower::doSpecialPowerAtLocation(const Coord3D &loc, unsigne
 	paintArea(loc, m_data->m_elvenWoodRadius, made, 0xFF); // RW 0x8C7E89 .. 0x8C7ECD
 }
 
-// ---- ProductionSpeedBonus ------------------------------------------------------------------------------------------------------------------
+// ---- ProductionSpeedBonus (RW 0x8C70FC / RW 0x8C7126 / RW 0x8C712C / RW 0x8C7171 / RW 0x8C71ED / RW 0x8C724F / RW 0x8C726B / RW 0x8C6606) --------------
 void ProductionSpeedBonus::doSpecialPower(unsigned options)
 {
-	// RW 0x8C7191 .. 0x8C71B7: fld mult; fsub 1.0 (double); fld mult; fmul -1.0 (double); fdivp; fstp single
+	Object *caster = getObject();
+	Player *player = caster->getControllingPlayer(); // RW 0x8C7180 -> RW 0x68B678
+	// RW 0x8C7191 .. 0x8C71B7: fld mult; fsub 1.0 (double RW 0xBD2C98); fld mult; fmul -1.0 (double RW 0xBDFC10); fdivp; fstp single -> RW 0x6AF3C8
 	const float mult = m_data->m_speedMultiplier;
 	const float factor = SimMath::fstpDword(SimMath::pc24DivW(SimMath::pc24SubW((double)mult, 1.0), SimMath::pc24MulW((double)mult, -1.0)));
 	for (const std::string &type : m_data->m_types)
 	{
+		if (player)
+		{
+			player->setProductionSpeedBonus(type, factor, m_data->m_numberOfFrames); // PORT-280: RW 0x8C71B7 -> RW 0x6AF3C8
+		}
 		bool found = false;
-		for (auto &b : m_bonuses) // RW 0x6AF3C8: the name's record is found or made
+		for (auto &b : m_bonuses) // inspection mirror for spellbook probes; production reads Player::getProductionTimeChange (RW 0x6AF484)
 		{
 			if (b.first == type)
 			{
@@ -469,11 +475,10 @@ void ProductionSpeedBonus::doSpecialPower(unsigned options)
 		{
 			m_bonuses.push_back({ type, { m_data->m_numberOfFrames, factor } });
 		}
-		++m_unported; // the player's production bonus is not read by production (S-921)
 	}
-	if (getObject()->getDisabledMask() == 0)
+	if (caster->getDisabledMask() == 0) // RW 0x8C71C7 .. 0x8C71D4 -> RW 0x9325B4
 	{
-		const Coord3D pos = *getObject()->getPosition();
+		const Coord3D pos = *caster->getPosition();
 		SpecialPowerModule::doSpecialPowerAtLocation(pos, options); // RW 0x8C71E2 (slot 0x30: the base RW 0x89816C)
 	}
 }
@@ -633,10 +638,11 @@ std::vector<std::string> SpellBookPowers::stopLines()
 		"Scavenger, UntamedAllegiance and Devastate run their logic do* paths, with the map-centre FX (TerrainLogic vslot 0x20 = RW 0x462637, the "
 		"active boundary taken as 0: only scripts change it) and CloudBreak's SunbeamObject grid (RW 0x8C8B57: every created sunbeam draws what its "
 		"constructor and sendObjectCreated draw, TWO logic random draws each for the retail CloudBreakSunbeam (LifetimeUpdate's lifetime and the seed), "
-		"2 * N per cast for N grid points); not ported (counted per cast): the fire grid burn rate (RW 0x687C4C), CloudBreak's fire put-out (RW 0x68F383) "
-		"and the sunbeams' Lua terror (their panic gameplay), the terrain's taint / elven wood tree areas (RW 0x67F6F0, 0x67D4CE; TheTaintManager's paint RW 0xAD4C10 runs, TaintManager.h), RW "
-		"0x69954A on the area object, the production speed bonus consumer (RW 0x6AF3C8 is stored only), the defect side effects (RW 0x699368 / 0x6938BD), "
-		"Devastate's FireWeapon (lane DECOMP-1) and its trees, FX and money (lane SPELL-3, S-930) run",
+		"2 * N per cast for N grid points); ProductionSpeedBonus writes Player's timed production-time bonuses (PORT-280: RW 0x8C7171 -> RW 0x6AF3C8, "
+		"Player::update RW 0x6AF269, calcTimeToBuild RW 0x73C3EC -> RW 0x6AF484, ProductionUpdate RW 0x8A1C20 .. 0x8A1D4F); not ported (counted per cast): "
+		"the fire grid burn rate (RW 0x687C4C), CloudBreak's fire put-out (RW 0x68F383) and the sunbeams' Lua terror (their panic gameplay), the terrain's "
+		"taint / elven wood tree areas (RW 0x67F6F0, 0x67D4CE; TheTaintManager's paint RW 0xAD4C10 runs, TaintManager.h), RW 0x69954A on the area object, "
+		"the defect side effects (RW 0x699368 / 0x6938BD), Devastate's FireWeapon (lane DECOMP-1) and its trees, FX and money (lane SPELL-3, S-930) run",
 	};
 	for (const std::string &s : GlobalWeatherSystem::stopLines())
 	{

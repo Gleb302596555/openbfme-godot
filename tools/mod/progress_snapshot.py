@@ -20,6 +20,9 @@ Columns:
                    (the rule: proven_unread below); empty in rows before 2026-11-17 and in rows that carry the field columns
   scripts_total    scripts of the sides' script libraries of the mod (docs/ennorath/SCRIPT_MAP.md, tools/mod/script_map.py; from 2026-11-19)
   scripts_open     of those, scripts with a condition or action type the port's ScriptEngine has no case for (the home page's share)
+  funcs_total      distinct RotWK functions of the module (class) map, docs/ennorath/RW_FUNCTION_MAP.tsv (tools/mod/rw_function_map.py:
+                   every module the mod's INI uses and what its functions call; from 2026-11-19, owner: the bar must count the class map)
+  funcs_open       of those, functions with no `ported` row (none or partial): the home page's share
   gaps_specific    distinct RotWK functions the failing buttons' main classes lack (docs/ennorath/MATRIX_GAPS.tsv, `main class` rows,
                    `specific none`): the work the matrix still points at. Both empty in rows before 2026-11-16 and when a file is missing
 
@@ -46,7 +49,8 @@ import stops_count  # noqa: E402
 
 OUT = REPO / "docs" / "ennorath" / "PROGRESS.tsv"
 COLUMNS = ["date", "rev", "fields_total", "fields_open", "modules_missing", "problems_total", "problems_done", "stops_open", "audit",
-           "buttons_red", "gaps_specific", "stops_new", "stops_closed", "buttons_total", "fields_proven_unread", "scripts_total", "scripts_open"]
+           "buttons_red", "gaps_specific", "stops_new", "stops_closed", "buttons_total", "fields_proven_unread", "scripts_total", "scripts_open",
+           "funcs_total", "funcs_open"]
 GREEN = {"PASS", "STANCE", "DISABLED", "INVENTORY", "TEMPORARY", "MEMBER", "MOD-DATA", "NO-TARGET", "BY-DESIGN", "ORDER", "NO-AURA"}  # by design, or fine when swept alone (matrix review 2026-11-17)
 # not red, but not judged either (owner 2026-11-18): the faction table counts them in a column of their own, not with the idle ones (tools/matrix_run.py)
 UNVERIFIED = {"MOD-DATA", "NO-TARGET", "ORDER", "NO-AURA"}
@@ -215,6 +219,18 @@ def script_counts(rev: str | None) -> tuple[str, str]:
     return (m.group(1), m.group(2)) if m else ("", "")
 
 
+def func_counts(rev: str | None) -> tuple[str, str]:
+    """funcs_total / funcs_open from RW_FUNCTION_MAP.tsv: a function counts as ported when any module row has it `ported`; empty when missing."""
+    try:
+        text = read("docs/ennorath/RW_FUNCTION_MAP.tsv", rev)
+    except (OSError, subprocess.CalledProcessError):
+        return "", ""
+    status: dict[str, bool] = {}
+    for r in csv.DictReader(text.splitlines(), delimiter="	"):
+        status[r["function"]] = status.get(r["function"], False) or r["status"] == "ported"
+    return (str(len(status)), str(sum(1 for v in status.values() if not v))) if status else ("", "")
+
+
 def load() -> list[dict[str, str]]:
     if not OUT.exists():
         return []
@@ -261,6 +277,7 @@ def main() -> int:
     row["buttons_red"], row["gaps_specific"] = matrix_counts(a.rev)
     row["buttons_total"] = matrix_total(a.rev)
     row["scripts_total"], row["scripts_open"] = script_counts(a.rev)
+    row["funcs_total"], row["funcs_open"] = func_counts(a.rev)
     earlier = [r for r in rows if r["date"] < a.date]
     row["stops_new"], row["stops_closed"] = stop_delta(earlier[-1]["rev"] if earlier else None, a.rev)
     if not a.write:

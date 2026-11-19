@@ -24,8 +24,8 @@
 //     wall layer 0x11); otherwise OpenContain's (HordeTransportContain's) exit.
 // Lane SIEGE-1: the deployed branch of the exit (a rider of a deployed ladder / tower onto the wall: RW 0x87F87C .. / 0x880868 ..) is ported (exitOntoWall,
 // GameLogic/Module/SiegeModules.h for SiegeDeploySpecialPower; S-4943 for its inference).
-// NOT PORTED (stop S-1105): DynamicPortalBehaviour (lane WALL-2, S-4940), the selection transfer (TransferSelection, client side), the crew's team change on capture
-// (contain slots 0x108 / 0x10C / 0x110).
+// NOT PORTED (stop S-1105): the selection transfer (TransferSelection, client side) and the crew's team change on capture (contain slots 0x108 / 0x10C / 0x110).
+// The capture path is shared Object::setCapturedTeam RW 0x6996DC (S-1225, Object.cpp); do not extend that separate open capture task here.
 
 #pragma once
 

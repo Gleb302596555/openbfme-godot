@@ -1594,7 +1594,7 @@ int CommandTranslator::evaluateCapture(Object *obj, const Coord3D *pos, Evaluate
 // GUI command and the force-move tests, before the enter and attack tests): a hint is the attack hint (0xB1, the AttackObj cursor); a command is
 // MSG_DO_SPECIAL_POWER_AT_OBJECT (0x412) with Command_SpecialAbilitySiegeDeploy's power { the template id, the target, the button's options, no source, the
 // target's position } (the unit voice of the button, RW 0x8DD5FF, is the client's audio: not played).
-// INFERENCE (S-4944): the TheInGameUI byte + 0x8B0 the branch requires clear is not identified (taken as clear); the selection is the port's selected object ids.
+// + 0x8B0 is the waypoint mode (RW 0x8200FA); this port's shared evaluateContextCommand handles that mode before the siege branch. INFERENCE (S-4944): retail's exact +0x8B0 test at RW 0x81E7A5 is not disassembled here; the selection is the port's selected object ids.
 bool CommandTranslator::canSiegeDeploy(const Object &target)
 {
 	if (!target.isKindOfName("WALK_ON_TOP_OF_WALL") || m_ctx.ui.selected().empty())

@@ -37,7 +37,7 @@
 // the body (DynamicPortalBehaviour*.cpp).
 // INFERENCE (stop S-4857, pathstops::kPortals): the waypoints live in the pathfinder (RW: in TheTerrainLogic's list with the map's waypoints; a map waypoint of
 // a portal type is not registered: none of the 2.01 maps' waypoints was checked for one), so the id counter restarts at each map; the ObjectFilter is the
-// module's callback; RW 0x68C053's object flag is never set (S-4851); the BFS's movement is the caller's locomotor set (RW: the AI's).
+// module's callback; RW 0x68C053's object flag is written by HordeContain's transform reaction (RW 0x871536 -> 0x68C02E), but that shared transient override is not modeled in the port (S-4851); the BFS's movement is the caller's locomotor set (RW: the AI's).
 
 #include "GameLogic/AI/AIPathfind.h"
 #include "GameLogic/AI/AIPathfindStops.h"

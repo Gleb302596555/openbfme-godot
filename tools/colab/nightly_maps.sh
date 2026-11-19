@@ -222,7 +222,10 @@ while true; do
   age=$(( $(date +%s) - $(git -C "$REPO" log -1 --format=%ct origin/main 2>/dev/null || echo 0) ))
   landed=0
   if [ -n "$last" ] && git -C "$REPO" cat-file -e "$last^{commit}" 2>/dev/null; then
-    git -C "$REPO" log --format=%s "$last..origin/main" | grep -qE '^(Landing|Merge upstream)' && landed=1
+    # the 15 still minutes count from the newest landing, not from main's tip (2026-11-19: Claude's doc and tool commits every 10-20 minutes
+    # after the 08:50 landing kept the run from starting for 1.5 hours)
+    land_ct=$(git -C "$REPO" log -1 --format=%ct -E --grep='^(Landing|Merge upstream)' "$last..origin/main" 2>/dev/null)
+    [ -n "$land_ct" ] && landed=1 && age=$(( $(date +%s) - land_ct ))
   else
     landed=1   # no previous run known: run once
   fi

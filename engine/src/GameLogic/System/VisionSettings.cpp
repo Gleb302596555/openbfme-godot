@@ -119,7 +119,7 @@ FieldParse kGameData[] = {
 	{ "StealthFriendlyOpacity", parseNoting<INI::parsePercentToReal>, SEEN_DATA(SEEN_STEALTH), VS_OFF(stealth) },
 	{ "TaintOn", INI::parseBool, nullptr, VS_OFF(taintOn) },              // S-5261 (the terrain's taint mask, W3DTaintMask.h)
 	{ "TaintAlpha", INI::parseUnsignedByte, nullptr, VS_OFF(taintAlpha) },
-	{ "TaintColor", INI::parseRGBColor, nullptr, VS_OFF(taintColor) },         // S-5261: the radar's taint (Radar::taintTexels)
+	{ "TaintColor", INI::parseRGBColor, nullptr, VS_OFF(taintColor) },         // S-5261 / LOCAL-67: the radar's taint (Radar::taintTexels) and W3DTaintMask::lowTexel (RW 0x473659 .. 0x473831)
 	{ "ElvenWoodColor", INI::parseRGBColor, nullptr, VS_OFF(elvenWoodColor) },
 	{ nullptr, skipField, nullptr, 0 }
 };

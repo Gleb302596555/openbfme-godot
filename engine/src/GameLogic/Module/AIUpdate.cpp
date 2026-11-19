@@ -646,6 +646,7 @@ AIUpdateInterface::AIUpdateInterface(Thing *thing, const ModuleData *data)
 	}
 }
 
+// RW 0x0066F0E1 (scalar deleting dtor, AI vslot 0; calls 0x0066EB5E)
 AIUpdateInterface::~AIUpdateInterface()
 {
 	m_destroying = true; // the object left the world already (its drawable is gone): the states' exits must not touch its model condition
@@ -672,6 +673,7 @@ AIUpdateInterface::~AIUpdateInterface()
 	}
 }
 
+// RW 0x006621F4 (AI vslot 150 / +0x258)
 std::unique_ptr<AIStateMachine> AIUpdateInterface::makeStateMachine()
 {
 	std::unique_ptr<AIStateMachine> m = std::make_unique<AIStateMachine>(*this, machineName());
@@ -689,6 +691,11 @@ std::unique_ptr<AIStateMachine> AIUpdateInterface::makeStateMachine()
 	m->defineState(AI_WAIT, std::make_unique<AIWaitState>(*m), AI_IDLE, AI_IDLE);
 	m->defineState(AI_BUSY, std::make_unique<AIBusyState>(*m), AI_IDLE, AI_IDLE);
 	m->defineState(AI_MOVE_OUT_OF_THE_WAY, makeMoveOutOfTheWayState(*m), AI_GOING_IDLE, AI_GOING_IDLE); // lane PHYS-1: state 26 (AIUpdateAllies.cpp); PLAY-4: -> 0x4E
+	// Local 84 (RW 0x753755): tighten (27), move-and-delete (30), wander-in-place (41), move-to-position-and-die (55)
+	m->defineState(AI_MOVE_AND_TIGHTEN, std::make_unique<AIMoveToMachineState>(*m, "AITightenToPositionState"), AI_IDLE, AI_IDLE);
+	m->defineState(AI_MOVE_AND_DELETE, std::make_unique<AIMoveAndDeleteState>(*m), AI_IDLE, AI_IDLE);
+	m->defineState(AI_WANDER_IN_PLACE, std::make_unique<AIWanderInPlaceState>(*m), AI_IDLE, AI_IDLE);
+	m->defineState(AI_MOVE_TO_POSITION_AND_DIE, std::make_unique<AIMoveToPositionAndDieState>(*m), AI_IDLE, AI_IDLE);
 	// COMBAT-1 (B1 AIStateMachineConstructor.cpp:563-567, 579): attack object 50, force attack object 51, dead 13; an attack ends in idle, which looks for the next target
 	m->defineState(AI_ATTACK_OBJECT, std::make_unique<AIAttackState>(*m, false, true, false), AI_IDLE, AI_IDLE);
 	m->defineState(AI_FORCE_ATTACK_OBJECT, std::make_unique<AIAttackState>(*m, false, true, true), AI_IDLE, AI_IDLE);
@@ -723,6 +730,7 @@ std::unique_ptr<AIStateMachine> AIUpdateInterface::makeStateMachine()
 	m->defineState(AI_FOLLOW_WAYPOINT_PATH_AS_INDIVIDUALS, std::make_unique<AIFollowWaypointPathState>(*m, false, false), AI_IDLE, AI_IDLE);
 	m->defineState(AI_FOLLOW_WAYPOINT_PATH_EXACT_AS_TEAM, std::make_unique<AIFollowWaypointPathState>(*m, true, true), AI_IDLE, AI_IDLE);
 	m->defineState(AI_FOLLOW_WAYPOINT_PATH_EXACT_AS_INDIVIDUALS, std::make_unique<AIFollowWaypointPathState>(*m, false, true), AI_IDLE, AI_IDLE);
+	m->defineState(AI_WANDER, std::make_unique<AIWanderState>(*m), AI_IDLE, AI_PANIC); // LOCAL-57: RW 0x753E06 (0x753E23)
 	// lane WARG-1 (RW 0x753755): the attack-follow states, 0x23 (RW 0x750AE7(machine, 1)) then 0x22 (asTeam 0), both ending in idle
 	m->defineState(AI_ATTACK_FOLLOW_WAYPOINT_PATH_AS_TEAM, std::make_unique<AIAttackFollowWaypointPathState>(*m, true), AI_IDLE, AI_IDLE);
 	m->defineState(AI_ATTACK_FOLLOW_WAYPOINT_PATH_AS_INDIVIDUALS, std::make_unique<AIAttackFollowWaypointPathState>(*m, false), AI_IDLE, AI_IDLE);
@@ -732,7 +740,7 @@ std::unique_ptr<AIStateMachine> AIUpdateInterface::makeStateMachine()
 	return m;
 }
 
-// B1 AIUpdate.cpp:2006
+// RW 0x006622A9 (AI vslot 5 / +0x14; B1 AIUpdate.cpp:2006)
 void AIUpdateInterface::onObjectCreated()
 {
 	if (!m_machine)
@@ -1022,6 +1030,7 @@ void AIUpdateInterface::processOrderQueue()
 	m_world->ordersManager().process(getObject()->getID());
 }
 
+// RW 0x00662552 (AI vslot 0x264); RW 0x00662592 (friend_notifyStateMachineChanged, AI vslot 153, tail-calls 0x00662552)
 void AIUpdateInterface::wakeUpNow()
 {
 	if (getWakeFrame() > (UnsignedInt)UPDATE_SLEEP_NONE && !m_isInUpdate)
@@ -1397,6 +1406,7 @@ bool AIUpdateInterface::aiAbilityApproachObject(Object *target, CommandSourceTyp
 	return true;
 }
 
+// RW 0x0066B636 (privateMoveToObject, AICMD 0x01, AI vslot 15 / +0x3C)
 void AIUpdateInterface::aiMoveToObject(Object *target, CommandSourceType source)
 {
 	if (!acceptCommand(source, 1))
@@ -1520,6 +1530,7 @@ void AIUpdateInterface::aiFollowPath(const std::vector<Coord3D> &path, Object *i
 	privateFollowPath(path, ignoreObject, source, exitProduction);
 }
 
+// RW 0x0066BAC1 (privateFollowPath, AICMD 0x09/0x0A, AI vslot 30 / +0x78)
 void AIUpdateInterface::privateFollowPath(const std::vector<Coord3D> &path, Object *ignoreObject, CommandSourceType source, bool exitProduction)
 {
 	m_world->noteStop(kStopCommands);
@@ -1621,6 +1632,7 @@ void AIUpdateInterface::aiFollowPathAppend(const Coord3D &pos, CommandSourceType
 	privateFollowPathAppend(pos, source);
 }
 
+// RW 0x0066E39A (privateFollowPathAppend, AICMD 0x35, AI vslot 33 / +0x84)
 void AIUpdateInterface::privateFollowPathAppend(const Coord3D &pos, CommandSourceType source)
 {
 	m_world->noteStop(kStopCommands);
@@ -1983,6 +1995,7 @@ void AIUpdateInterface::setLocomotorGoalNone()
 	m_mover->setGoalNone();
 }
 
+// RW 0x0066297C (AI vslot 135 / +0x21C)
 void AIUpdateInterface::setLocomotorGoalOrientation(float angle)
 {
 	m_mover->setGoalAngle(angle);
@@ -2574,6 +2587,16 @@ void AIUpdateInterface::crc(StateHasher &h) const
 	{
 		h.addI32(m_areaToGuard);
 	}
+	if (m_guardObject != INVALID_ID) // Local 84: hashed once privateGuardObject set AI + 0x64
+	{
+		h.addU32(0x64u);
+		h.addU32(m_guardObject);
+	}
+	if (m_guardTargetTypeNext != 4) // Local 84: hashed once AI + 0x50 changed from GUARDTARGET_NONE
+	{
+		h.addU32(0x50u);
+		h.addI32(m_guardTargetTypeNext);
+	}
 	if (m_guardTeam != 0) // lane BFME2CAMP1: hashed once a team guard set it (AI + 0x68)
 	{
 		h.addU32(0x68u);
@@ -2650,6 +2673,7 @@ void AIUpdateInterface::crc(StateHasher &h) const
 // ---------------------------------------------------------------------------------------------------------------------------------
 // the module classes
 // ---------------------------------------------------------------------------------------------------------------------------------
+// RW 0x0066ECB9 (getModuleName -> "AIUpdateInterface", AI vslot 2) and RW 0x0066EC74 (getModuleNameKey, AI vslot 4)
 void AIUpdateInterface::registerClasses(ModuleFactory &modules)
 {
 	// every AI module class of the registry (RW module-registry golden: isAiModuleData true). The classes with behaviour of their own that is not ported
@@ -2691,4 +2715,166 @@ void AIUpdateInterface::finishExitQuickPath(const Coord3D &destination)
 		m_machine->setGoalPosition(destination);
 		m_machine->clearGoalAngle();
 	}
+}
+
+// Local 84: RW 0x00662CC6 doQuickExit (AI vslot 117 / +0x1D4):
+// saves lock bit ([machine + 0x38]), unlocks, saves goal (RW 0x741675), sets goal path (RW 0x753266),
+// runs AI_FOLLOW_EXITPRODUCTION_PATH (7) as temporary state for 10 * LOGICFRAMES_PER_SECOND (RW 0x74168E), restores lock.
+void AIUpdateInterface::doQuickExit(const std::vector<Coord3D> &path)
+{
+	if (!m_machine)
+	{
+		return;
+	}
+	const bool wasLocked = m_machine->isLocked();
+	m_machine->unlock(); // RW 0x00662CD0
+	m_machine->saveGoalForTemporaryState(); // RW 0x00662CD7 -> 0x741675
+	m_machine->setGoalPath(path);           // RW 0x00662CE3 -> 0x753266
+	m_machine->setTemporaryStateRW(AI_FOLLOW_EXITPRODUCTION_PATH, (int)(10u * LOGICFRAMES_PER_SECOND)); // RW 0x00662CF6 -> 0x74168E
+	if (wasLocked)
+	{
+		m_machine->lock(); // RW 0x00662D02
+	}
+	wakeUpNow();
+}
+
+// Local 84: RW 0x006672D8 privateTightenToPosition (AICMD 0x02, AI vslot 25 / +0x64):
+// mobile check (RW 0x690E97), clears machine, clears goal object, clips goal position (RW 0x6654AD), enters AI_MOVE_AND_TIGHTEN (0x1B = 27).
+bool AIUpdateInterface::aiTightenToPosition(const Coord3D &pos, CommandSourceType source)
+{
+	if (!acceptCommand(source, 0x02))
+	{
+		return false; // RW 0x667174
+	}
+	Object *obj = getObject();
+	if (!obj || !GarrisonRules::isMobile(*obj))
+	{
+		return false; // RW 0x006672DE -> 0x690E97
+	}
+	m_machine->clear();
+	m_machine->setGoalObject(INVALID_ID);
+	Coord3D goal = pos;
+	goalPositionClipped(pos, source, goal); // RW 0x0066730A -> 0x6654AD
+	m_machine->setGoalPosition(goal);
+	setLastCommandSource(source);
+	m_machine->setState(AI_MOVE_AND_TIGHTEN); // RW 0x00667317: push 0x1B
+	wakeUpNow();
+	return true;
+}
+
+// Local 84: RW 0x0066B7A2 bfmePrivateCommand38 (AICMD 0x38, AI vslot 21 / +0x54):
+// mobile check (RW 0x690E97), clears machine, clips goal position (RW 0x6654AD), enters AI_MOVE_AND_DELETE (0x1E = 30).
+bool AIUpdateInterface::aiMoveToAndDelete(const Coord3D &pos, CommandSourceType source)
+{
+	if (!acceptCommand(source, 0x38))
+	{
+		return false; // RW 0x667174
+	}
+	Object *obj = getObject();
+	if (!obj || !GarrisonRules::isMobile(*obj))
+	{
+		return false; // RW 0x0066B7A8 -> 0x690E97
+	}
+	m_machine->clear();
+	Coord3D goal = pos;
+	goalPositionClipped(pos, source, goal); // RW 0x0066B7DC -> 0x6654AD
+	m_machine->setGoalPosition(goal);
+	setLastCommandSource(source);
+	m_machine->setState(AI_MOVE_AND_DELETE); // RW 0x0066B7F7: push 0x1E
+	wakeUpNow();
+	return true;
+}
+
+// Local 84: RW 0x0066B817 bfmePrivateCommand41 (AICMD 0x41, AI vslot 22 / +0x58):
+// mobile check (RW 0x690E97), clears machine, clips goal position (RW 0x6654AD), enters AI_MOVE_TO_POSITION_AND_DIE (0x37 = 55).
+bool AIUpdateInterface::aiMoveToPositionAndDie(const Coord3D &pos, CommandSourceType source)
+{
+	if (!acceptCommand(source, 0x41))
+	{
+		return false; // RW 0x667174
+	}
+	Object *obj = getObject();
+	if (!obj || !GarrisonRules::isMobile(*obj))
+	{
+		return false; // RW 0x0066B81D -> 0x690E97
+	}
+	m_machine->clear();
+	Coord3D goal = pos;
+	goalPositionClipped(pos, source, goal); // RW 0x0066B851 -> 0x6654AD
+	m_machine->setGoalPosition(goal);
+	setLastCommandSource(source);
+	m_machine->setState(AI_MOVE_TO_POSITION_AND_DIE); // RW 0x0066B86C: push 0x37
+	wakeUpNow();
+	return true;
+}
+
+// Local 84: RW 0x0066488A privateWanderInPlace (AICMD 0x2C, AI vslot 76 / +0x130):
+// mobile check (RW 0x690E97), clears machine, sets lastCommandSource, enters AI_WANDER_IN_PLACE (0x29 = 41).
+bool AIUpdateInterface::aiWanderInPlace(CommandSourceType source)
+{
+	if (!acceptCommand(source, 0x2C))
+	{
+		return false; // RW 0x667174
+	}
+	Object *obj = getObject();
+	if (!obj || !GarrisonRules::isMobile(*obj))
+	{
+		return false; // RW 0x00664890 -> 0x690E97
+	}
+	m_machine->clear();
+	setLastCommandSource(source);
+	m_machine->setState(AI_WANDER_IN_PLACE); // RW 0x006648AD: push 0x29
+	wakeUpNow();
+	return true;
+}
+
+// Local 84: RW 0x0066D6D5 joinTeam (AI vslot 103 / +0x19C):
+// walks the team's member list in retail's newest-first order (getLastMember / friend_teamPrev, RW 0x66362D / 0x6632C9)
+// for another member with an AI; resets locomotor goal (RW 0x662997) and clears machine; if that teammate is idle,
+// moves to its position (CMD_FROM_AI), else copies its goal object or goal position and enters its current state.
+void AIUpdateInterface::joinTeam()
+{
+	Object *self = getObject();
+	if (!self || !m_machine)
+	{
+		return;
+	}
+	Team *team = self->getTeam();
+	if (!team)
+	{
+		return;
+	}
+	Object *mate = nullptr;
+	for (Object *m = team->getLastMember(); m; m = m->friend_teamPrev())
+	{
+		if (m != self && !m->isEffectivelyDead() && m->getAIUpdateInterface())
+		{
+			mate = m;
+			break;
+		}
+	}
+	if (!mate)
+	{
+		return;
+	}
+	AIUpdateInterface *mateAI = mate->getAIUpdateInterface();
+	setLocomotorGoalNone(); // RW 0x0066D741
+	m_machine->clear();     // RW 0x0066D74C
+	if (mateAI->isIdle())   // RW 0x0066D763
+	{
+		aiMoveToPosition(*mate->getPosition(), CMD_FROM_AI); // RW 0x0066D776 -> 0x66C4CA
+		return;
+	}
+	const ObjectID goalObj = mateAI->stateMachine().goalObjectID();
+	if (goalObj != INVALID_ID)
+	{
+		m_machine->setGoalObject(goalObj); // RW 0x0066D799
+	}
+	else
+	{
+		m_machine->setGoalPosition(mateAI->stateMachine().goalPosition()); // RW 0x0066D7A8
+	}
+	setLastCommandSource(CMD_FROM_AI); // RW 0x0066D7B7
+	m_machine->setState(mateAI->currentStateId()); // RW 0x0066D7C1
+	wakeUpNow();
 }

@@ -59,13 +59,17 @@ enum HeldSoundSlot
 	HELD_ABILITY_LOOP = 3,
 	// PORT-103: FlammableUpdate data +0x18, handle +0x34; RW 0x88FE86 / 0x88FBDD.
 	HELD_FLAMMABLE_LOOP = 4,
-	HELD_SOUND_SLOTS = 5
+	// PORT-280: ProductionUpdate SpeedBonusAudioLoop (data + 0x48, handle module + 0x12C); RW 0x8A1C7C .. 0x8A1D4F adds / removes, RW 0x8A19FF removes in dtor,
+	// RW 0x8A35A6 xfers; holder = the module's own key (ProductionUpdate::speedBonusAudioKey).
+	HELD_PRODUCTION_SPEED_BONUS_LOOP = 5,
+	HELD_SOUND_SLOTS = 6
 };
 void postHeldSound(int slot, const std::string &eventName, std::uint32_t holderId, std::uint32_t objectId);
 // lane PORT-93: RW 0x854008 .. 0x85405B (the trigger of every special ability): when the data's ActiveLoopSound (data + 0x34) is set and the manager says the
 // kept handle (module + 0x38) is not playing (RW 0xDE42FC vslot 0xD0), the event is added for the object (RW 0x6DB5B3) through the manager's vslot 0x64 and its
 // handle kept at + 0x38 (RW 0x854054). Already playing: nothing is added, so one active ability sounds once. Mirrors postHeldSound's holder bookkeeping.
-void resumeHeldSound(int slot, const std::string &eventName, std::uint32_t holderId, std::uint32_t objectId);
+// PORT-280: `owningPlayerIndex` sets AudioEventRTS's player index (RW 0x66ECE1, as ProductionUpdate::update passes at RW 0x8A1D06 .. 0x8A1D0D; -1 leaves none).
+void resumeHeldSound(int slot, const std::string &eventName, std::uint32_t holderId, std::uint32_t objectId, int owningPlayerIndex = -1);
 void stopHeldSound(int slot, std::uint32_t holderId);
 // the sounds of a slot that are still kept (the report, the tests); the handle `holderId` keeps in `slot` (0: none)
 size_t heldSounds(int slot);

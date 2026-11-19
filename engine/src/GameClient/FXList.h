@@ -65,6 +65,7 @@ public:
 	virtual int relationshipToLocalPlayer() const = 0; ///< RW relationship enum: 0 enemy, 1 neutral, 2 allies
 	virtual bool hasKindOf(const char *kindOfName) const = 0; ///< BuffNugget template selection
 	virtual bool isHorde() const = 0;                  ///< KindOf HORDE (bit 109)
+	virtual int layer() const { return 1; }            ///< RW Object::getLayer (RW 0x68BBE0); 1 = LAYER_GROUND
 };
 
 enum FXShroudStatus

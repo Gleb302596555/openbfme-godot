@@ -129,8 +129,13 @@ public:
 	Object *construct(const ThingTemplate &what, const Coord3D &pos, float angle, Player &owner, bool isRebuild = false);
 	// MSG_RESUME_CONSTRUCTION: RW 0x8ACEA9 (vslot 0xB4): the ActionManager's test, then newTask(BUILD, structure); the command path first idles a dozer without a task
 	bool resumeConstruction(Object &structure);
-	// lane BUILD-2: RW 0x88BD8D (vslot 0xB0, MSG_DO_REPAIR, a worker spawned to repair): the ActionManager's test and a free sole benefactor, then newTask(REPAIR)
-	bool repair(Object &structure);
+	// lane BUILD-2: RW 0x88BD8D (vslot 0xB0, MSG_DO_REPAIR, a worker spawned to repair): the ActionManager's test and a free sole benefactor, then newTask(REPAIR).
+	// lane PORT-282: virtual - the worker's class overrides the slot with its own body (RW 0x8AD2D3, WorkerAIUpdate::repair)
+	virtual bool repair(Object &structure);
+	// RW 0x88CB8A (dozer interface slot 0x50): may a repair order for `structure` replace the REPAIR task this builder already has?
+	// FALSE while the ordered target is the structure this builder repairs (the running task keeps it), TRUE otherwise, except for two bridge
+	// towers (RW 0x85B874's bridge module on both sides, their ids equal): an order for the other tower of a bridge is refused
+	bool canAcceptNewRepair(const Object *structure) const;
 	bool repairing() const { return m_currentTask == DOZER_TASK_REPAIR; }
 	// the frames of work (sub task 3) this dozer put into its current / last task
 	UnsignedInt taskWorkFrames() const { return m_taskWorkFrames; }
