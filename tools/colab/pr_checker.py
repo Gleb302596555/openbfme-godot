@@ -210,31 +210,92 @@ def run_set(patterns: list[str]) -> dict[str, tuple[str, str]]:
         return {tc: (st, err) for tc, st, err in pool.map(run_test, patterns)}
 
 
-def main_baseline(state: dict, main_sha: str) -> dict:
-    """BASE on main itself, once per main commit."""
-    if not set(BASE) <= set(state["main"].get("results") or {}):  # BASE grew (2026-11-17: the batch's whole set): measure main again
-        state["main"] = {}
-    if not set(BASE) <= set(state["main"].get("sigs") or {}):   # measured before the signatures (2026-11-18): measure main again
-        state["main"] = {}
-    if state["main"].get("sha") == main_sha and "audit" in state["main"]:
-        return state["main"]["results"]
-    old = state["main"].get("sha")
-    if old and "audit" in state["main"]:  # main moved by docs / tools only (a landing's own commits): the engine is the same, keep its results
-        moved = sh(["git", "diff", "--name-only", f"{old}..{main_sha}"]).stdout.split()
-        if moved and not any(f.startswith(("engine/", "godot/")) or f == "tools/mod/field_audit.py" for f in moved):
-            state["main"]["sha"] = main_sha
-            save_state(state)
-            return state["main"]["results"]
+# Main's base results on demand (owner 2026-11-19): the checker used to build main and run the whole base set and the field audit after every
+# landing that touched the engine, on each sandbox: 35-80 of a check's 70-80 minutes. Now the PR goes first. A base test whose PR result
+# equals main's last known one (status and failure signature; a pinned test that passes is at its pin) is as on main; only a test that
+# differs (a PR red where main was green, green where it was red, another failure) needs this main's own result, and main is built and only
+# those tests run (the audit of main beside them). Results are kept per main commit here and on the Drive, so the other sandbox reuses them.
+MAIN_DRIVE = Path(os.environ.get("PRCHECK_MAIN_DRIVE", "/content/drive/MyDrive/openbfme-runs/prcheck/main"))
+
+
+def engine_moved(old: str, new: str) -> bool:
+    moved = sh(["git", "diff", "--name-only", f"{old}..{new}"]).stdout.split()
+    return not moved or any(f.startswith(("engine/", "godot/")) or f == "tools/mod/field_audit.py" for f in moved)
+
+
+def main_known(state: dict, main_sha: str) -> dict[str, list[str]]:
+    """{test: [status, signature]} measured on main_sha (by this sandbox or, through the Drive, the other one). A main that moved by docs /
+    tools only keeps the previous commit's results."""
+    cur = state.get("main") or {}
+    if "results" in cur and "tests" not in cur:  # the state of the whole-baseline checker: its results become the last known ones
+        state["main_last"] = {k: [v, (cur.get("sigs") or {}).get(k, v)] for k, v in cur["results"].items()}
+        if cur.get("audit"):
+            state["main_audit"] = [cur["audit"], cur.get("sha", "")]
+        cur = {"sha": cur.get("sha"), "tests": {k: list(v) for k, v in state["main_last"].items()}}
+    if cur.get("sha") != main_sha:
+        old = cur.get("sha")
+        keep = (cur.get("tests") or {}) if old and not engine_moved(old, main_sha) else {}
+        cur = {"sha": main_sha, "tests": dict(keep)}
+    try:
+        shared = json.loads((MAIN_DRIVE / f"{main_sha}.json").read_text())
+    except (OSError, ValueError):
+        shared = {}
+    for k, v in shared.items():
+        cur["tests"].setdefault(k, v)
+    state["main"] = cur
+    return cur["tests"]
+
+
+def remember_main(state: dict, main_sha: str, got: dict[str, list[str]]) -> None:
+    state["main"]["tests"].update(got)
+    state.setdefault("main_last", {}).update(got)
+    save_state(state)
+    try:  # shared with the other sandbox; merged with what it wrote meanwhile
+        MAIN_DRIVE.mkdir(parents=True, exist_ok=True)
+        path = MAIN_DRIVE / f"{main_sha}.json"
+        try:
+            have = json.loads(path.read_text())
+        except (OSError, ValueError):
+            have = {}
+        have.update(got)
+        tmp = path.with_suffix(f".{SANDBOX}.tmp")
+        tmp.write_text(json.dumps(have, indent=1))
+        os.replace(tmp, path)
+    except OSError:
+        pass
+
+
+def main_needed(pr_res: dict[str, list[str]], known: dict, last: dict) -> tuple[list[str], dict[str, list[str]]]:
+    """(the tests main must run, main's view of the rest): known on this main -> that; equal to main's last known result -> as on main;
+    otherwise main runs it."""
+    need, view = [], {}
+    for tc, (st, sig) in pr_res.items():
+        if tc in known:
+            view[tc] = list(known[tc])
+        elif tc in last and list(last[tc]) == [st, sig]:
+            view[tc] = [st, sig]
+        else:
+            need.append(tc)
+    return need, view
+
+
+def measure_main(state: dict, main_sha: str, tests: list[str]) -> None:
+    """Build main and run only `tests` on it, the field audit of main beside them."""
     sh(["git", "checkout", "-q", "-f", "--detach", main_sha]).check_returncode()
-    status("prcheck", f"main {main_sha[:8]}: сборка и эталонный набор ({len(BASE)} наборов), с ним сравниваются PR")
+    status("prcheck", f"main {main_sha[:8]}: сборка и {len(tests)} наборов, которые у PR не как на main")
     ok, err = build()
     if not ok:
         raise RuntimeError(f"main {main_sha[:8]} does not build:\n{err}")
-    res = run_set(BASE)
-    state["main"] = {"sha": main_sha, "results": {k: v[0] for k, v in res.items()}, "sigs": {k: SIGS.get(k, v[0]) for k, v in res.items()}}
-    state["main"]["audit"] = str(run_audit(HOME / "audit-main") or "")  # the field audit of this main: the PRs' audits compare with it
-    save_state(state)
-    return state["main"]["results"]
+    with cf.ThreadPoolExecutor(1) as side:
+        audit_job = side.submit(run_audit, HOME / "audit-main")
+        res = run_set(tests)
+        try:
+            audit = audit_job.result()
+        except Exception:
+            audit = None
+    if audit:
+        state["main_audit"] = [str(audit), main_sha]
+    remember_main(state, main_sha, {tc: [res[tc][0], SIGS.get(tc, res[tc][0])] for tc in tests})
 
 
 # The field audit (owner 2026-11-17: the checker sees the nightly maps' tools too): tools/mod/field_audit.py on the built tree, the engine's
@@ -308,7 +369,6 @@ def own_tests(diff: str, title: str) -> list[str]:
 
 def check_pr(pr: dict, state: dict, main_sha: str, open_prs: list[dict], comment: bool) -> str:
     n, sha = pr["number"], pr["headRefOid"]
-    base = main_baseline(state, main_sha)
     sh(["git", "fetch", "-q", "origin", f"+pull/{n}/head:refs/prcheck/{n}"]).check_returncode()
     sh(["git", "checkout", "-q", "-f", "--detach", main_sha]).check_returncode()
     status("prcheck", f"PR #{n} ({pr['title'][:60]}): вливаю в main {main_sha[:8]}")
@@ -388,6 +448,24 @@ def check_pr(pr: dict, state: dict, main_sha: str, open_prs: list[dict], comment
         except Exception:  # the audit never decides the verdict
             pr_audit = None
     t_tests = time.time() - t_tests
+    known = main_known(state, main_sha)
+    last = state.get("main_last") or {}
+    if base_needed:
+        pr_res = {tc: [res[tc][0], SIGS.get(tc, res[tc][0])] for tc in BASE}  # before a main run overwrites SIGS
+        need, view = main_needed(pr_res, known, last)
+        if need:
+            t_main = time.time()
+            measure_main(state, main_sha, need)
+            t_main = time.time() - t_main
+            view.update({tc: list(state["main"]["tests"][tc]) for tc in need})
+            lines.append(f"ℹ️ Main `{main_sha[:8]}` собран для {len(need)} наборов, где PR не как прежний main: "
+                         f"{', '.join(f'`{t}`' for t in need)} ({t_main / 60:.0f} мин).")
+        for tc, (st, sig) in pr_res.items():
+            SIGS[tc] = sig
+    else:
+        view = {tc: list(known.get(tc) or last.get(tc) or ["none", "none"]) for tc in BASE}
+    base = {tc: v[0] for tc, v in view.items()}
+    main_sigs = {tc: v[1] for tc, v in view.items()}
     if not base_needed:
         res.update({tc: (base.get(tc, "none"), "") for tc in BASE})
         lines.append("ℹ️ Базовый набор не гонялся: PR не меняет движок (код, cmake, тестовые данные, godot/) и файлы базовых тестов — результат как на main.")
@@ -425,7 +503,7 @@ def check_pr(pr: dict, state: dict, main_sha: str, open_prs: list[dict], comment
             lines.append(f"⚠️ `{tc}` сдвигает пин, причина в PR названа: владелец перемерит при вливании." + (f"\n```\n{e}\n```" if e else ""))
     # the batch's split (owner 2026-11-18): a PR that moves any base test (its signature differs from main's, red on main or not) goes into
     # a batch alone, the others together; batch_bot.py reads this mark. Without the base set run (no engine change) nothing moves.
-    lines.append(moves_mark(moved_tests(res, base, state["main"].get("sigs") or {}) if base_needed else []))
+    lines.append(moves_mark(moved_tests(res, base, main_sigs) if base_needed else []))
     if not worse:
         reds = [tc for tc in BASE if base.get(tc) == "fail"]
         lines.append("✅ Базовый набор как на main" + (f" (на main и так красные: {', '.join(f'`{t}`' for t in reds)})" if reds else "") + ".")
@@ -450,7 +528,7 @@ def check_pr(pr: dict, state: dict, main_sha: str, open_prs: list[dict], comment
             except Exception:
                 pass
         try:
-            lines += audit_section(state["main"].get("audit", ""), pr_audit, claim)
+            lines += audit_section((state.get("main_audit") or ["", ""])[0], pr_audit, claim)
         except (OSError, ValueError, KeyError) as exc:
             lines.append(f"ℹ️ Аудит полей не сверен: {exc}")
     try:
