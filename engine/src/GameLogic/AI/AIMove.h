@@ -164,10 +164,10 @@ public:
 	void destroyPath();
 	void setPath(Path *path);
 	AIGoalType goalType() const { return m_goalType; }
-	void setGoalOnPath();
+	void setGoalOnPath();                  // RW 0x006628F4: goal type 1 (on path), the goal position zeroed
 	void setGoalExplicit(const Coord3D &p);
 	void setGoalExplicitWithPath(const Coord3D &p);
-	void setGoalAngle(float angle);
+	void setGoalAngle(float angle);        // RW 0x0066297C: goal type 3 (an angle), the angle at AI + 0x200
 	float goalAngle() const { return m_goalAngle; } // lane EXIT-1: AI + 0x200 of an angle goal
 	void setGoalNone();
 	void setDesiredSpeed(float s) { m_desiredSpeed = s; }

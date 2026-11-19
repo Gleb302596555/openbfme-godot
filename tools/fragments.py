@@ -108,6 +108,20 @@ def check(issue: str = "") -> list[str]:
     return problems
 
 
+STOP_ROW = re.compile(r"^\| (S-\d+) ")
+
+
+def sort_rows(lines: list[str]) -> list[str]:
+    """The table's stop rows in id order as tools/sim/test_sim_audit.py checks it (the "S-<n>" strings sorted; 2026-11-18: the gate failed on
+    S-7330 .. above S-001). The rows are sorted among their own line positions; every other line stays where it is."""
+    at = [i for i, line in enumerate(lines) if STOP_ROW.match(line)]
+    rows = sorted((lines[i] for i in at), key=lambda line: STOP_ROW.match(line).group(1))
+    out = list(lines)
+    for i, row in zip(at, rows):
+        out[i] = row
+    return out
+
+
 def collect() -> int:
     problems = check()
     if problems:
@@ -124,7 +138,7 @@ def collect() -> int:
             sections.append(section)
     rows.sort()
     lines[last_row + 1:last_row + 1] = [r for _, r in rows]
-    out = "\n".join(lines)
+    out = "\n".join(sort_rows(lines))
     for s in sections:
         out = out.rstrip("\n") + "\n\n" + s + "\n"
     STOPS.write_bytes(out.encode("utf-8"))

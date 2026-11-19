@@ -79,4 +79,4 @@ The dash means no field found in this file, not proof that a reader or behavior 
 | `Command_ToggleFrodoWeapon` | — | — | — | not found in this file |
 | `Command_ToggleStance` | — | — | — | not found in this file |
 
-Next: resolve all command-set swaps and all button fields, SpecialPower module tags and upgrades through actual object inheritance, then compare each behavior and appearance to RW with a test or an explicit stop. Only `Command_OneRing` has a partial independent RW analysis in `PORT238_RW_ANALYSIS.md`; even that remains limited by S-7445 and pending test execution.
+Next: resolve all command-set swaps and all button fields, SpecialPower module tags and upgrades through actual object inheritance, then compare each behavior and appearance to RW with a test or an explicit stop. Only `Command_OneRing` has a partial independent RW analysis in `PORT238_RW_ANALYSIS.md`; even that remains limited by S-7634 and pending test execution.

@@ -332,6 +332,9 @@ public:
 	bool canSplit() const;
 	// lane MODGAP-2: slot 0x1F8 (RW 0x8791C5; BFME2 0x875F61): the members go to new hordes by the SplitHorde rows, this horde is destroyed (stop S-6004)
 	void splitHorde();
+	// PORT-265 (fork issue 613): RW 0x86DF44, the class's own slot +0x7C of the update. RW 0x86DFB5 .. 0x86E09A: the split of a horde that holds no
+	// more members than SplitHordeNumber (data + 0x258) and whose experience tracker rank is at most 1; true when the horde split (the update then ends).
+	bool splitHordeIfDue();
 	static const char *splitStopLine();
 	// contain slot 0x110 (RW 0x87055D): the first member of the contain list, else the first member on its way into a garrison, else null
 	Object *firstMember() const;

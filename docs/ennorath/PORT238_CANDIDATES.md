@@ -83,4 +83,4 @@ These are candidates for the shared ring-drop functionality; inclusion alone doe
 
 ## What remains
 
-Resolve the actual load graph, effective object inheritance and overrides, shared includes, create/die/transform links, explicit ring objects and all command sets / powers / upgrades / visual conditions. Trace each through parser, RW and port, with per-item ported/stale/proven-no-reader/left-with-stop verdicts. Shared StealthUpdate selection remains S-7445 and generic admission remains S-7321; neither is a blanket verdict for these candidates.
+Resolve the actual load graph, effective object inheritance and overrides, shared includes, create/die/transform links, explicit ring objects and all command sets / powers / upgrades / visual conditions. Trace each through parser, RW and port, with per-item ported/stale/proven-no-reader/left-with-stop verdicts. Shared StealthUpdate selection remains S-7634 and generic admission remains S-7321; neither is a blanket verdict for these candidates.

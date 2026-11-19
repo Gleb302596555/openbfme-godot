@@ -21,6 +21,13 @@
 //     canDoSpecialPowerAtObject (RW 0x82D925(obj, it, CMD_FROM_AI, power, 2, 1)) -> Object::doSpecialPowerAtObject (RW 0x68E67A(power, it, 2, 0)). BoredFilter
 //     not valid: canDoSpecialPower (RW 0x82D5DA(obj, power, CMD_FROM_AI, 2, 1)) -> Object::doSpecialPower (RW 0x68E5A3(power, 2, 0)). Returns 1.
 //   * xfer RW 0x8B0125 (shared): UpdateModule (RW 0x850C60), then (Xfer slot 0x10 false) version 1 and the countdown (+ 0x20, unsigned).
+//   * the class's own calls are all the shared module plumbing, each ported once for every module (no method of this class adds anything): RW 0x00464A09
+//     (`ModuleData`'s `operator delete`: the class's tables RW 0xC65C0C and RW 0xC65C38 both start with it and RW 0x899F81 / RW 0x89A129 are this
+//     class's both deleting destructors, `this` back to the module base then RW 0x42F6A0), RW 0x004B612F (the `ModuleData` registry's entry fixup,
+//     RW 0x435F30 from `[0xDC62B8]`, by name "BoredUpdate"), RW 0x00899E41 (the class name RW 0xC0B588 — ModuleFactory::bindTypedData), RW 0x00899E47
+//     (the typed data factory RW 0x5487EC, "BoredUpdate"), RW 0x00899F81 (the module's deleting destructor, RW 0xC65C04 + 0x0: RW 0x899E28 re-points the
+//     three tables and calls the UpdateModule destructor RW 0x64A492), RW 0x0089A129 (the data's deleting destructor, RW 0xC65C38 + 0x0: RW 0x89A145 is
+//     the data constructor, whose fields the table RW 0xC65CC0 parses).
 // WHAT IS INFERENCE (OpenBFME): the snapshot is OpenBFME native (S-4190): RW's field in RW's order.
 // NOT PORTED (stop S-7161, noted when reached): the targetless form (BoredFilter not valid: RW 0x82D5DA with source CMD_FROM_AI and checkReady 1, whose
 // ready / requirement half the port's canDoSpecialPower does not run; no 2.01 template leaves BoredFilter unset). The at-object test's unported types are
@@ -43,12 +50,15 @@ class StateHasher;
 class BoredUpdateModuleData : public ModuleData
 {
 public:
-	unsigned m_scanDelayTime = LOGICFRAMES_PER_SECOND;           ///< + 0x08 (frames)
-	float m_scanDistance = 300.0f;                               ///< + 0x0C
-	ObjectFilter m_boredFilter = ObjectFilter::none({}, {});     ///< + 0x10 (RW 0x763D11: not valid)
-	bool m_canScanWhileAttackingOrMoving = false;                ///< + 0x14
-	const SpecialPowerTemplate *m_specialPowerTemplate = nullptr; ///< + 0x18
-	std::string m_specialPowerTemplateName;                      ///< (the name RW 0x73B22F looked up)
+	// RW 0x899E8C sets every default below, so the members carry no initializer of their own (one path, not two): a value repeated here and
+	// there could drift apart
+	BoredUpdateModuleData();                            ///< RW 0x899E8C
+	unsigned m_scanDelayTime;                           ///< + 0x08 (frames), RW 0x899ED3: [0xD9F608]
+	float m_scanDistance;                               ///< + 0x0C, RW 0x899ED6: [0xBD9E90]
+	ObjectFilter m_boredFilter;                         ///< + 0x10, RW 0x899EF0 -> RW 0x763D11 (not valid)
+	bool m_canScanWhileAttackingOrMoving;               ///< + 0x14, RW 0x899EFD: 0
+	const SpecialPowerTemplate *m_specialPowerTemplate; ///< + 0x18, RW 0x899EFA: 0
+	std::string m_specialPowerTemplateName;             ///< (the name RW 0x73B22F looked up)
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 

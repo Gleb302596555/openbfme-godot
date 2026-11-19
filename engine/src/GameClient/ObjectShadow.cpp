@@ -542,6 +542,31 @@ void buildDrawableDecalShadows(const Drawable &drawable, std::vector<SelectionDe
 			out.push_back(std::move(sd));
 		}
 	}
+	// Local 89 (#715): the terrain decal of the first draw module (RW 0x4B94BC / 0x4B95AD: a SHADOW_ALPHA_DECAL decal shadow, white, its opacity the
+	// RadiusDecal one; drawn while shadows are on and the draw is not hidden, RW 0x4B9662 .. 0x4B958E, and not under the shroud, its +5 from the draw's
+	// +0x49). INFERENCE: the decal is world-aligned (no ShadowIsRotatingWithObject for it)
+	const DrawEntry &first = drawable.entries().front();
+	if (first.draw && !first.moduleHidden && !first.conditionHidden)
+	{
+		if (const W3DScriptedModelDraw::TerrainDecal *decal = first.draw->terrainDecal())
+		{
+			if (decal->sizeX != 0.0f || decal->sizeY != 0.0f)
+			{
+				SelectionDecal sd;
+				sd.object = drawable.getObjectID();
+				sd.drawable = (unsigned)drawable.getID();
+				sd.position = DecalShadowCentre(*drawable.getPosition(), decal->offsetX, decal->offsetY, 0.0f);
+				sd.drawZ = drawable.getPosition()->z;
+				sd.size = decal->sizeX;
+				sd.sizeY = decal->sizeY;
+				sd.texture = decal->texture.find('.') == std::string::npos ? decal->texture + ".tga" : decal->texture;
+				sd.style = 0x0020u; // SHADOW_ALPHA_DECAL (RW 0x4B950E)
+				const unsigned alpha = (unsigned)std::clamp(decal->opacity, 0, 255);
+				sd.color = (alpha << 24) | 0xFFFFFFu;
+				out.push_back(std::move(sd));
+			}
+		}
+	}
 }
 
 bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, bool useShadowDecals,

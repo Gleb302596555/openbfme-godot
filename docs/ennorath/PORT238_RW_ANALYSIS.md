@@ -98,7 +98,7 @@ it. Synthetic tests exist; the full-executable run is pending.
 The shared port lookup `StealthUpdate::of` returns only the first module by name,
 whereas RW 0x68FBD3 iterates the cached modules and applies upgrade masks. This
 affects multiple non-ring systems too; the remaining common-mechanism work is
-S-7445, not a ring-only workaround. Consequently multi-module readiness and
+S-7634, not a ring-only workaround. Consequently multi-module readiness and
 activation are not yet claimed equivalent.
 
 ## Other checked pieces

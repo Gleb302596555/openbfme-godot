@@ -25,20 +25,37 @@ FAMILIES = {
 VOLATILE = {'eax', 'ecx', 'edx'}
 
 
-def global_reads(data, base, blocks, globals_by_address, pointer_paths=(), virtual_getters=(), skipped=None):
+def global_reads(data, base, blocks, globals_by_address, pointer_paths=(), virtual_getters=(), skipped=None, *, static_bases=None,
+                 subobject_offsets=None, indexed_fields=None, initial_receivers=None, calls_out=None,
+                 call_targets=None, indexed_bases=None):
     """Return (function, global address, pointer path, offset, instruction).
 
     Propagate possible pointer values along direct CFG edges. Union at joins is
     a may-analysis, not a guarantee that a candidate is a reachable read.
     Calls kill volatile registers, partial or other writes kill aliases; stack
-    spills, indirect branches, indexed addresses and address-only LEAs are not
-    followed. Each load and access belongs to the same recovered function.
+    spills and indirect branches are not followed. Indexed reads are emitted
+    only for explicitly configured array offsets and scales; bounds are unknown.
+    LEA/ADD can propagate only explicitly configured subobject shifts, once per path;
+    address-taking itself is not a read. Each load and access belongs to the
+    same recovered function, unless initial_receivers explicitly supplies a
+    receiver from a separately checked call site. calls_out optionally records
+    direct calls and tail jumps carrying a tracked ECX receiver.
     """
     decoder = Cs(CS_ARCH_X86, CS_MODE_32)
     decoder.detail = True
     result = set()
     pointer_paths = set(pointer_paths)
     virtual_getters = set(virtual_getters)
+    static_bases = static_bases or {}
+    subobject_offsets = subobject_offsets or {}
+    indexed_fields = indexed_fields or {}
+    initial_receivers = initial_receivers or {}
+    call_targets = set(blocks) if call_targets is None else set(call_targets)
+    indexed_bases = indexed_bases or {}
+    absolute_fields = defaultdict(set)
+    for address, offsets in static_bases.items():
+        for offset in offsets:
+            absolute_fields[(address + offset) & 0xffffffff].add((address, offset))
     for function, spans in sorted(blocks.items()):
         decoded = {}
         try:
@@ -52,24 +69,45 @@ def global_reads(data, base, blocks, globals_by_address, pointer_paths=(), virtu
             if function not in decoded:
                 raise ValueError(f'function has no entry block at {function:#x}')
         except ValueError:
-            # strict by default; with a `skipped` list (the whole-image inventory, a few mis-split blocks) the function is left out and listed
             if skipped is None:
                 raise
             skipped.append(function)
             continue
-        states = {function: {}}
+        states = {function: {'ecx': set(initial_receivers[function])} if function in initial_receivers else {}}
         pending = deque([function])
         while pending:
             start = pending.popleft()
             tracked = {reg: set(values) for reg, values in states[start].items()}
             for ins in decoded[start]:
                 for op in ins.operands:
-                    if ins.mnemonic == 'lea' or op.type != X86_OP_MEM or not (op.access & CS_AC_READ) or op.mem.index != X86_REG_INVALID:
+                    if ins.mnemonic == 'lea' or op.type != X86_OP_MEM or not (op.access & CS_AC_READ):
                         continue
+                    if op.mem.index != X86_REG_INVALID:
+                        reg = FAMILIES.get(ins.reg_name(op.mem.base))
+                        for pointer, path in tracked.get(reg, ()):
+                            if not path and (op.mem.disp, op.mem.scale) in indexed_fields.get(pointer, ()):
+                                result.add((function, pointer, ('indexed', op.mem.scale), op.mem.disp, ins.address))
+                        continue
+                    if op.mem.base == X86_REG_INVALID:
+                        for pointer, offset in absolute_fields.get(op.mem.disp & 0xffffffff, ()):
+                            result.add((function, pointer, ('static',), offset, ins.address))
                     reg = FAMILIES.get(ins.reg_name(op.mem.base))
                     for pointer, path in tracked.get(reg, ()):
-                        if not path or path[-1] != 'vtable':
+                        if path and isinstance(path[-1], tuple) and path[-1][0] == 'indexed-base':
+                            _, array_base, scale = path[-1]
+                            offset = array_base + op.mem.disp
+                            if (offset, scale) in indexed_fields.get(pointer, ()):
+                                result.add((function, pointer, ('indexed', scale), offset, ins.address))
+                        elif path and isinstance(path[-1], tuple) and path[-1][0] == 'base':
+                            result.add((function, pointer, path[:-1], op.mem.disp + path[-1][1], ins.address))
+                        elif not path or path[-1] != 'vtable':
                             result.add((function, pointer, path, op.mem.disp, ins.address))
+                if (calls_out is not None and ins.mnemonic in ('call', 'jmp') and ins.operands
+                        and ins.operands[0].type == X86_OP_IMM):
+                    target = ins.operands[0].imm
+                    if target in call_targets and target != function:
+                        for pointer, path in tracked.get('ecx', ()):
+                            calls_out.add((function, ins.address, target, pointer, path))
                 copied = set()
                 virtual_returns = set()
                 if ins.mnemonic == 'call' and ins.operands and ins.operands[0].type == X86_OP_MEM:
@@ -94,8 +132,33 @@ def global_reads(data, base, blocks, globals_by_address, pointer_paths=(), virtu
                                     copied.add((pointer, nested))
                                 if src.mem.disp == 0 and any(p == pointer and pp == path for p, pp, _ in virtual_getters):
                                     copied.add((pointer, path + ('vtable',)))
+                        elif src.type == X86_OP_IMM and (src.imm & 0xffffffff) in static_bases:
+                            copied.add((src.imm & 0xffffffff, ('static',)))
                         elif src.type == X86_OP_REG and src.size == 4:
                             copied.update(tracked.get(FAMILIES.get(ins.reg_name(src.reg)), ()))
+                # A verified array base taken by LEA is not a read; following
+                # it to a configured member preserves the unknown dynamic index.
+                if ins.mnemonic == 'lea' and len(ins.operands) == 2:
+                    dst, src = ins.operands
+                    if (dst.type == X86_OP_REG and dst.size == 4 and src.type == X86_OP_MEM
+                            and src.mem.index != X86_REG_INVALID):
+                        reg = FAMILIES.get(ins.reg_name(src.mem.base))
+                        for pointer, path in tracked.get(reg, ()):
+                            if not path and (src.mem.disp, src.mem.scale) in indexed_bases.get(pointer, ()):
+                                copied.add((pointer, (('indexed-base', src.mem.disp, src.mem.scale),)))
+                # Only known singleton subobjects are propagated. Not chaining
+                # shifts keeps the may-analysis finite even on CFG loops.
+                if ins.mnemonic in ('lea', 'add') and len(ins.operands) == 2:
+                    dst, src = ins.operands
+                    reg, shift = None, None
+                    if dst.type == X86_OP_REG and dst.size == 4:
+                        if ins.mnemonic == 'lea' and src.type == X86_OP_MEM and src.mem.index == X86_REG_INVALID:
+                            reg, shift = FAMILIES.get(ins.reg_name(src.mem.base)), src.mem.disp
+                        elif ins.mnemonic == 'add' and src.type == X86_OP_IMM:
+                            reg, shift = FAMILIES.get(ins.reg_name(dst.reg)), src.imm
+                    for pointer, path in tracked.get(reg, ()):
+                        if not path and shift in subobject_offsets.get(pointer, ()):
+                            copied.add((pointer, (('base', shift),)))
                 _, writes = ins.regs_access()
                 for reg in writes:
                     tracked.pop(FAMILIES.get(ins.reg_name(reg)), None)
@@ -172,9 +235,9 @@ def field_table(data, base, address, end_address=None):
 
 
 def getter_offsets(data, base, blocks, getters):
-    """Read offsets reached from ECX at entry to named thiscall getters.
+    """Find read or address-taking offsets from ECX in named thiscall getters.
 
-    Deliberately inspect only each entry basic block: branch joins and indirect
+    Address-taking (LEA/ADD) is a hint, not proof a value is read. Deliberately inspect only each entry basic block: branch joins and indirect
     calls need type/flow information not present in the inventory. An offset
     is only a hint: named BFME2 matches can be wrong, especially tier B.
     """
@@ -194,9 +257,14 @@ def getter_offsets(data, base, blocks, getters):
         tracked = {'ecx'}
         for ins in instructions:
             for op in ins.operands:
-                if (ins.mnemonic != 'lea' and op.type == X86_OP_MEM and op.access & CS_AC_READ
+                if (op.type == X86_OP_MEM and (ins.mnemonic == 'lea' or op.access & CS_AC_READ)
                         and op.mem.index == X86_REG_INVALID and FAMILIES.get(ins.reg_name(op.mem.base)) in tracked):
                     result[address].add(op.mem.disp)
+            if ins.mnemonic == 'add' and len(ins.operands) == 2:
+                dst, src = ins.operands
+                if (dst.type == X86_OP_REG and dst.size == 4 and src.type == X86_OP_IMM
+                        and FAMILIES.get(ins.reg_name(dst.reg)) in tracked):
+                    result[address].add(src.imm)
             copied = False
             if ins.mnemonic == 'mov' and len(ins.operands) == 2:
                 dst, src = ins.operands
@@ -210,10 +278,6 @@ def getter_offsets(data, base, blocks, getters):
             if copied:
                 tracked.add(FAMILIES[ins.reg_name(ins.operands[0].reg)])
     return dict(result)
-
-
-# ---- whole-image route (2026-11-17): every field table of the image, every global's read offsets, the instance of each block by its offsets ----
-NAME_RE = None
 
 
 def image_sections(pe):

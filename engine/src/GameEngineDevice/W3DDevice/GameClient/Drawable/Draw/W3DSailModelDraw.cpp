@@ -1,5 +1,9 @@
 // OpenBFME. GPL-3.0. See W3DSailModelDraw.h and docs/ennorath/port63-sail-rw.md.
+// TARGET RW 0x004CA6F0 loadPostProcess, RW 0x004CFFBE getModuleNameKey, RW 0x004D0003 GetSnapshotName,
+// RW 0x004D0009 xfer, RW 0x004D00AC scalar deleting dtor.
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DSailModelDraw.h"
+#include "Common/Xfer.h"
+#include "GameLogic/SnapshotXfer.h"
 #include "Libraries/WWVegas/WWMath/matrix3d.h"
 
 #include <algorithm>
@@ -66,4 +70,12 @@ void W3DSailModelDraw::adjustAttachedTransform(Matrix3D &matrix)
 		matrix.Row[r][1] = -s * x + c * y;
 	}
 	m_hasLastAngle = true;
+}
+
+void W3DSailModelDraw::xfer(Xfer &x)
+{
+	// RW 0x004D0009 (DONOR BFME2 0x000D0816): W3DScriptedModelDraw::xfer, version(1, 1), xferReal(&m_lastAngle), xferBool(&m_hasLastAngle)
+	SnapshotXfer::version(x, 1, 1);
+	x.xferReal(&m_lastAngle);
+	x.xferBool(&m_hasLastAngle);
 }

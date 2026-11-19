@@ -41,3 +41,6 @@ engine/src/Libraries/Lua/** text eol=lf
 
 # lane UI-5: the launcher's fonts (tools/release/public_binaries.txt pins their bytes)
 *.ttf binary
+
+# docs/STOPS.md merges by stop id (tools/stops_merge.py; a clone needs: git config merge.stops.driver "python3 tools/stops_merge.py %O %A %B")
+docs/STOPS.md merge=stops

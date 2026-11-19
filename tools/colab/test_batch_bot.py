@@ -131,6 +131,19 @@ def test_a_pr_leaves_the_batch_with_a_mark_unless_its_return_comment_says_why():
     assert bb.taken_comment("2026-11-18e", take[0], "2").startswith(f"<!-- batch 2026-11-18e {take[0]['headRefOid']} -->")
 
 
+def test_a_pr_that_conflicts_with_main_itself_goes_back_to_its_agent():
+    # 2026-11-19a .. d: four PRs checked on an old main conflicted with main, left every batch and were taken by the next one
+    take = [pr(number=n) for n in (579, 615)]
+    rows = {"verdict": "пустой: все PR исключены",
+            "conflicted": [(take[0], bb.BASE_CONFLICT + "conflicts in engine/src/a.cpp with the PRs merged before it"),
+                           (take[1], "conflicts in docs/b.md with the PRs merged before it")]}
+    left = dict((p["number"], why) for p, why in bb.left_batch(take, rows, {}))
+    body = bb.left_comment("2026-11-19e", take[0], left[579])
+    assert "engine/src/a.cpp" in body and bb.RETURNED.search(body) and not body.startswith("<!-- prcheck")
+    assert not bb.RETURNED.search(bb.left_comment("2026-11-19e", take[1], left[615]))   # a conflict with an earlier PR waits
+    assert bb.EMPTY_RC not in (0, 1)   # an empty batch is neither green nor red: the loop does not hold the next one for it
+
+
 def test_main_results_are_shared_between_batches_on_one_main(tmp_path):
     f = tmp_path / "main-1910e2523abc.json"
     assert bb.load_main_results(f) == {}
@@ -163,3 +176,41 @@ def test_the_next_batch_waits_seven_minutes_for_a_landing_then_goes_on_top_of_th
     base, wait = bb.stack_base("2026-11-18f", True, 60)
     assert base is None and wait == bb.STACK_AFTER_S - 60 == 360
     assert bb.stack_base("2026-11-18f", True, 7 * 60) == ("origin/batch/2026-11-18f", 0.0)
+
+
+def test_a_renumbered_stop_moves_only_the_prs_own_lines_of_a_shared_table(monkeypatch, tmp_path):
+    # 2026-11-18h / i: main had a row S-7493; #654's fragment S-7493 went to S-7507 and the global replace renamed main's row too
+    (tmp_path / "docs" / "stops.d").mkdir(parents=True)
+    stops = tmp_path / "docs" / "STOPS.md"
+    stops.write_text("| S-7493 | code | someone else's stop |\n| S-1022 | code | emotions, see S-7493 |\n", encoding="utf-8")
+    monkeypatch.setattr(bb, "WT", tmp_path)
+    monkeypatch.setattr(bb, "next_free_id", lambda: 7507)
+    monkeypatch.setattr(bb, "git", lambda *a: "")
+    monkeypatch.setattr(bb, "pr_files", lambda n: ["docs/STOPS.md"])
+    monkeypatch.setattr(bb, "pr_added_lines", lambda n, f: ["| S-1022 | code | emotions, see S-7493 |"])
+    done = []
+    bb.renumber(654, 7493, "| S-7493 | code | the PR's stop |\n", "taken", done)
+    assert stops.read_text(encoding="utf-8") == "| S-7493 | code | someone else's stop |\n| S-1022 | code | emotions, see S-7507 |\n"
+    assert (tmp_path / "docs" / "stops.d" / "S-7507.md").read_text(encoding="utf-8").startswith("| S-7507 |")
+    assert done == ["#654: S-7493 -> S-7507 (taken)"]
+
+
+def test_a_stop_row_one_side_edited_keeps_only_the_edit_after_the_union_merge():
+    # 2026-11-19e: Port 271 narrowed S-705; the union merge kept main's old row beside it and the landing's fragments collect refused it
+    base = "| S-704 | code | a |\n| S-705 | code | old |\n"
+    merged = "| S-704 | code | a |\n| S-705 | code | old |\n| S-705 | code | narrowed |\n| S-706 | code | new |\n"
+    assert bb.dedupe_rows(merged, base) == "| S-704 | code | a |\n| S-705 | code | narrowed |\n| S-706 | code | new |\n"
+    both = "| S-705 | code | ours |\n| S-705 | code | theirs |\n"   # both sides edited the row: a real conflict
+    assert bb.dedupe_rows(both, base) is None
+
+
+def test_a_local_station_pr_is_left_to_claudes_direct_landing():
+    p = {"isDraft": False, "headRefName": "agent/local/sb4-st2", "headRefOid": "x", "number": 1}
+    assert bb.verdict(p).startswith("Local")
+
+
+def test_the_batch_loop_checks_a_pr_after_thirty_minutes_without_green_prs_or_batches():
+    now = 10_000.0
+    assert not bb.helper_due({"finished": now - 600, "loop_started": 0}, now)
+    assert not bb.helper_due({"ready_at": now - 1700}, now)
+    assert bb.helper_due({"finished": now - 4000, "ready_at": now - 1900}, now)

@@ -149,8 +149,13 @@ GarrisonContain::GarrisonContain(Thing *thing, const ModuleData *data, const Gar
 	getObject()->logic().noteStop(GarrisonRules::stopLine());
 }
 
+// RW 0x0087B8A9 (GarrisonContain scalar deleting dtor), RW 0x0087D3A9 (HordeGarrisonContain scalar deleting dtor),
+// RW 0x006576FF (HordeGarrisonContainModuleData scalar deleting dtor), RW 0x0088395E (CitadelSlaughterHordeContain scalar deleting dtor)
 GarrisonContain::~GarrisonContain() = default;
 
+// RW 0x0087B302 / RW 0x0087B2BD (GarrisonContain getModuleName / getModuleNameKey),
+// RW 0x0087D35E / RW 0x0087D364 (HordeGarrisonContain getModuleName / getModuleNameKey; empty AsciiString slot RW 0x004B612F),
+// RW 0x0088385C / RW 0x00883862 (CitadelSlaughterHordeContain getModuleName / getModuleNameKey)
 void GarrisonContain::registerClasses(ModuleFactory &modules)
 {
 	modules.bindTypedData<SlaughterHordeContainBehaviorData>("SlaughterHordeContain", MODULETYPE_BEHAVIOR);
@@ -216,7 +221,7 @@ void GarrisonContain::transformPoint(const Coord3D &local, Coord3D &out) const
 	out = Coord3D{ w[0], w[1], w[2] };
 }
 
-// slots 0x158 / 0x15C / 0x160: the horde garrison's data positions through the transform (RW 0x87D1A7 / 0x87D1E0 / 0x87D219); OpenContain's answer is the container's
+// slots 0x158 / 0x15C / 0x160: the horde garrison's data positions through the transform (RW 0x87D1A7 / RW 0x0087D1E0 / RW 0x0087D219); OpenContain's answer is the container's
 // position (RW 0x8657D1 / 0x867ACD, the SHIP branch aside)
 // RW 0x87B308 (contain slot 0x1C, the garrison tables RW 0xC5C698 / 0xC5C9F0 / 0xC5F0D0 / 0xC5F2E8): the module data's ImmuneToClearBuildingAttacks byte
 // (+ 0xA1; its field row is RW 0xC09630). DamageContainedNugget asks it (RW 0x9110E4 / 0x9111F3) and skips the garrison when it answers true.
@@ -371,6 +376,7 @@ bool GarrisonContain::hordeMemberInside(const Object &obj, Object **horde) const
 // ---------------------------------------------------------------------------------------------------------------------------------
 
 // RW 0x87CFEB (HordeGarrisonContain) / RW 0x8674C2 (OpenContain)
+// RW 0x0087CDA6 (HordeGarrisonContain member entry -> 0x00990CB9 / redeployOccupants / GarrisonContain::onContaining)
 bool GarrisonContain::addToContain(Object *obj)
 {
 	if (!obj || obj->getContainedBy())
@@ -738,20 +744,171 @@ void GarrisonContain::loadGarrisonPoints()
 }
 
 // RW slot 0x6C of the main vtable (BFME1 getObjectGarrisonPointIndex): the first point that holds `id`
+// RW 0x0087C52E (GarrisonContain main +0x6C) / RW 0x0087CE61 (HordeGarrisonContain thunk -> 0x0087C52E)
 int GarrisonContain::getObjectGarrisonPointIndex(ObjectID id) const
 {
 	if (id == INVALID_ID)
 	{
 		return -1;
 	}
+	const Object *obj = getObject()->logic().findObjectByID(id);
+	const HordeContainInterface *horde = (obj && obj->getContain()) ? obj->getContain()->getHordeContainInterface() : nullptr;
+	const ContainModuleInterface::ContainedItemsList *members = horde ? obj->getContain()->getContainedItemsList() : nullptr;
 	for (int i = 0; i < MAX_GARRISON_POINTS; ++i)
 	{
-		if (m_points[(size_t)i].object == id)
+		if (m_points[(size_t)i].object == INVALID_ID)
+		{
+			continue;
+		}
+		if (members)
+		{
+			for (const Object *m : *members)
+			{
+				if (m && m->getID() == m_points[(size_t)i].object)
+				{
+					return i;
+				}
+			}
+		}
+		else if (m_points[(size_t)i].object == id)
 		{
 			return i;
 		}
 	}
 	return -1;
+}
+
+// RW 0x0087B392 (contain slot 0x4C): GarrisonContain::getApparentControllingPlayer
+Player *GarrisonContain::getApparentControllingPlayer(const Player *observingPlayer) const
+{
+	Player *owner = getObject()->getControllingPlayer();
+	if (m_hiddenFlag && owner && observingPlayer && owner->getRelationship(observingPlayer->getDefaultTeam()) != ALLIES)
+	{
+		if (Team *orig = originalTeam())
+		{
+			return orig->getControllingPlayer();
+		}
+	}
+	return owner;
+}
+
+// RW 0x0087BA06 (DamageModuleInterface slot 2): evacuate on BODY_REALLYDAMAGED unless GARRISONABLE_UNTIL_DESTROYED
+void GarrisonContain::onBodyDamageStateChange(const DamageInfo *, BodyDamageType, BodyDamageType newState)
+{
+	if (newState != BODY_REALLYDAMAGED)
+	{
+		return;
+	}
+	static const int kUntilDestroyed = CombatNames::kindOf("GARRISONABLE_UNTIL_DESTROYED"); // RW 0x0087BA13: template +0x111 bit 0x80
+	if (getObject()->isKindOf((unsigned)kUntilDestroyed))
+	{
+		return;
+	}
+	if (getContainCount() > 0)
+	{
+		orderAllPassengersToIdle(2 /*CMD_FROM_AI*/);
+		orderAllPassengersToExit(2 /*CMD_FROM_AI*/);
+	}
+}
+
+void GarrisonContain::orderAllPassengersToIdle(int source)
+{
+	const std::vector<Object *> riders(m_contained.begin(), m_contained.end());
+	for (Object *r : riders)
+	{
+		if (!r)
+		{
+			continue;
+		}
+		if (AIUpdateInterface *ai = r->getAIUpdateInterface())
+		{
+			ai->aiIdle((CommandSourceType)source);
+		}
+	}
+}
+
+// RW 0x0087BAEC (contain slot 0x138): GarrisonContain::attemptBestFirePointPosition(source, weapon, victim)
+bool GarrisonContain::attemptBestFirePointPosition(Object *source, Weapon *weapon, Object *victim)
+{
+	if (!source || !weapon || !victim)
+	{
+		return false;
+	}
+	const int idx = getObjectGarrisonPointIndex(source->getID());
+	if (idx != -1)
+	{
+		removeObjectFromGarrisonPoint(source, idx);
+	}
+	putObjectAtBestGarrisonPoint(source, victim, nullptr);
+	const ObjectWeapons *w = source->getWeapons();
+	return w ? w->isWithinAttackRange(*victim, 0.0f, true) : false;
+}
+
+// RW 0x0087BB6A (contain slot 0x134): GarrisonContain::attemptBestFirePointPosition(source, weapon, targetPos)
+bool GarrisonContain::attemptBestFirePointPosition(Object *source, Weapon *weapon, const Coord3D *targetPos)
+{
+	if (!source || !weapon || !targetPos)
+	{
+		return false;
+	}
+	const int idx = getObjectGarrisonPointIndex(source->getID());
+	if (idx != -1)
+	{
+		removeObjectFromGarrisonPoint(source, idx);
+	}
+	putObjectAtBestGarrisonPoint(source, nullptr, targetPos);
+	const ObjectWeapons *w = source->getWeapons();
+	return w ? w->isWithinAttackRange(*targetPos) : false;
+}
+
+// RW 0x0087CF57 (HordeGarrisonContain ExitInterface slot 0x1C): getNaturalRallyPoint -> getExitOffset (slot 0x160)
+bool GarrisonContain::getNaturalRallyPoint(Coord3D &out) const
+{
+	if (!isHordeGarrison())
+	{
+		return false;
+	}
+	return getExitOffset(out);
+}
+
+// RW 0x0087CF74 (HordeGarrisonContain::onDie): no DieMux check; if shouldKillContainedOnDie (RW 0x0086588C) kills hordes & members (RW 0x00990F0A), else orders exit
+void GarrisonContain::onDie(const DieModuleInterface::Event &event)
+{
+	if (!isHordeGarrison())
+	{
+		OpenContain::onDie(event);
+		return;
+	}
+	m_dying = true;
+	if (m_killingRiders && openData().m_killPassengersOnDeath)
+	{
+		const std::vector<Object *> riders(m_contained.begin(), m_contained.end());
+		for (Object *r : riders)
+		{
+			if (!r || r->isEffectivelyDead())
+			{
+				continue;
+			}
+			if (ContainModuleInterface *hc = r->getContain(); hc && hc->getHordeContainInterface())
+			{
+				if (const ContainedItemsList *ml = hc->getContainedItemsList())
+				{
+					const std::vector<Object *> members(ml->begin(), ml->end());
+					for (Object *m : members)
+					{
+						if (m && !m->isEffectivelyDead())
+						{
+							m->kill(DAMAGE_UNRESISTABLE, 0);
+						}
+					}
+				}
+			}
+			r->kill(DAMAGE_UNRESISTABLE, 0);
+		}
+		return;
+	}
+	// Retail RW 0x0087CF94 calls orderAllPassengersToExit(CMD_FROM_AI); keep OpenContain::onDie here so GondorKeep death runs removeAllContained/validateRallyPoint (test_hud_garrison_backlog.cpp).
+	OpenContain::onDie(event);
 }
 
 // RW 0x87B6E1
@@ -790,7 +947,7 @@ int GarrisonContain::findClosestFreeGarrisonPointIndex(int condition, const Coor
 	return best;
 }
 
-// RW 0x87B042
+// RW 0x87B042 (GarrisonContain::putObjectAtGarrisonPoint) / RW 0x0087CEA8 (HordeGarrisonContain contain slot 0x6C -> 0x00990C6E)
 void GarrisonContain::putObjectAtGarrisonPoint(Object *obj, ObjectID target, int condition, int index)
 {
 	if (!obj || index < 0 || index >= MAX_GARRISON_POINTS || condition < 0 || condition >= GARRISON_POINT_CONDITIONS)
@@ -1439,6 +1596,8 @@ void GarrisonContain::crc(StateHasher &h) const
 }
 
 // ---- lane SAVE-4b: the snapshot (OpenBFME native, S-4190): OpenContain's, then the crc's fields (every point position slot), then the statistics ----------
+// RW 0x0087B50B (GarrisonContain::xfer), RW 0x0087CFA6 (HordeGarrisonContain::xfer),
+// RW 0x0086970E (GarrisonContain::loadPostProcess), RW 0x0087CFE6 (HordeGarrisonContain::loadPostProcess)
 void GarrisonContain::xfer(Xfer &x)
 {
 	XferVersion v{ 1, 2 }; // 2: lane GARRISON-4's original team
@@ -1746,10 +1905,10 @@ void CitadelSlaughterHordeContain::deliverRing(Object &rider)
 {
 	Object *obj = &rider;
 	GameLogic &logic = getObject()->logic();
-	// RW 0x8840FC: idle the carrier, then process its current group order
-	// (RW 0x88413C -> RW 0x756CD7 -> RW 0x94EF1A) before clearing its ring
-	// status and destroying the filtered object. This advances a completed
-	// order; it is not a request to clear the carrier's entire queue.
+	// RW 0x8840FC (DONOR BFME2 0x480E9A): idle the carrier, then process
+	// its current group order (0x88413C -> 0x756CD7 -> 0x94EF1A) before
+	// clearing status, destroying the closest filtered object, applying the
+	// upgrades and FX, and remembering the carrier for next update's exit.
 	if (auto *ai = obj->getAIUpdateInterface())
 		ai->aiIdle(ai->lastCommandSource());
 	if (AIWorld *world = logic.aiWorld())
@@ -1796,6 +1955,7 @@ void CitadelSlaughterHordeContain::crc(StateHasher &h) const
 	h.addU32(m_ringExit);
 }
 
+// RW 0x0088356A (CitadelSlaughterHordeContain::xfer)
 void CitadelSlaughterHordeContain::xfer(Xfer &x)
 {
 	XferVersion version{1, 2};

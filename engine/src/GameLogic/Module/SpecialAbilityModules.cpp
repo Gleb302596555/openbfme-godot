@@ -10,6 +10,7 @@
 #include "Common/Audio/AudioRequests.h"
 #include "GameLogic/Combat/CombatLineOfSight.h"
 #include "GameLogic/AI/AIWorld.h"
+#include "GameLogic/AttributeModifiers.h"
 #include "GameLogic/SnapshotXfer.h"
 #include "GameLogic/Module/GiantBirdAIUpdate.h"
 #include "GameLogic/Module/EmotionModules.h"
@@ -92,6 +93,7 @@ constexpr unsigned kStatusNoAutoAcquire = 0x17;   // NO_AUTO_ACQUIRE
 constexpr unsigned kStatusUsingAbility = 0x18;    // USING_ABILITY
 constexpr unsigned kStatusPackingUsing = 0x46;    // SPECIAL_ABILITY_PACKING_UNPACKING_OR_USING
 constexpr unsigned kStatusIgnoreAI = 0x4A;        // IGNORE_AI_COMMAND
+constexpr unsigned kStatusSummoningReplacement = 0x66; // SUMMONING_REPLACEMENT (Object + 0xA0 bit 6)
 constexpr int kMcMoving = 0x3D;
 constexpr int kMcPacking = 0x5E;
 constexpr int kMcPreparing = 0x5F;
@@ -505,6 +507,13 @@ SpecialAbilityUpdate::SpecialAbilityUpdate(Thing *thing, const SpecialAbilityUpd
 	friend_setNextCallFrame((UnsignedInt)UPDATE_SLEEP_FOREVER); // RW 0x851D42: RW 0x850C32(object, 0x3FFFFFFF)
 }
 
+// RW 0x0085536C (deleting dtor) -> RW 0x00854D9A (chained by subclass dtors 0x008958A1, 0x0089453F, 0x00896484, 0x0089873E):
+// calls SpecialAbilityUpdate::finishAbility(true, true) non-virtually (RW 0x00854DA9 -> 0x008530BA)
+SpecialAbilityUpdate::~SpecialAbilityUpdate()
+{
+	SpecialAbilityUpdate::finishAbility(true, true);
+}
+
 unsigned SpecialAbilityUpdate::now() const
 {
 	return getObject()->logic().getFrame();
@@ -778,6 +787,18 @@ void SpecialAbilityUpdate::restartPersistent() // RW 0x8524BC
 	{
 		--m_persistentLeft;
 	}
+	// RW 0x008524EA .. 0x00852512: SPECIAL_GRAB_PASSENGER (0x27) only reloads PersistentPrepTime when target is SHRUBBERY (+0x108 bit 6) or GRAB_AND_KILL (+0x114 bit 3); else 0
+	if (m_data->m_specialPowerTemplate && m_data->m_specialPowerTemplate->getFinalOverride()->m_type == 0x27)
+	{
+		static const int kShrubbery = ObjectTemplateInfoBuilder::kindOfIndex("SHRUBBERY");
+		static const int kGrabAndKill = ObjectTemplateInfoBuilder::kindOfIndex("GRAB_AND_KILL");
+		const Object *t = target();
+		if (!t || !((kShrubbery >= 0 && t->isKindOf((unsigned)kShrubbery)) || (kGrabAndKill >= 0 && t->isKindOf((unsigned)kGrabAndKill))))
+		{
+			m_prepFrames = 0;
+			return;
+		}
+	}
 	m_prepFrames = m_data->m_persistentPrepFrames;
 }
 
@@ -951,8 +972,8 @@ UpdateSleepTime SpecialAbilityUpdate::update()
 	{
 		m_targetPos = *t->getPosition();
 	}
-	// RW 0x854EAA: a command that did not come from the AI ends the ability (Object + 0xA0 bit 6 also keeps it: not identified, S-859)
-	if (ai->lastCommandSource() != CMD_FROM_AI)
+	// RW 0x00854F05 .. 0x00854F1E: a command that did not come from the AI ends the ability unless OBJECT_STATUS_SUMMONING_REPLACEMENT (status 0x66, Object + 0xA0 bit 6) is set
+	if (ai->lastCommandSource() != CMD_FROM_AI && !obj->testStatus(kStatusSummoningReplacement))
 	{
 		finishAbility(false, true);
 		return calcSleep();
@@ -1285,7 +1306,15 @@ void SpecialAbilityUpdate::startPreparation()
 	m_prepFrames = preparationFrames(); // RW 0x85241F
 	if (m_prepFrames != 0)
 	{
-		// RW 0x853C1B: the AI faces the target (vslot 0xEC: S-859); PREPARING on, UNPACKING / RAISING_FLAG off, the unpacking variation
+		// RW 0x00853C1A .. 0x00853C42: contain slot +0xEC (OpenContain RW 0x009F3A3C no-op; TransportContain RW 0x0086A43E sets WEAPONSTATE_ONE / TWO / THREE from target)
+		if (Object *t = target())
+		{
+			if (ContainModuleInterface *c = obj->getContain())
+			{
+				c->setWeaponStateOfRider(*t);
+			}
+		}
+		// PREPARING on, UNPACKING / RAISING_FLAG off, the unpacking variation
 		ModelConditionBitsHelper::clearAndSet(*obj, { kMcUnpacking, kMcRaisingFlag }, { kMcPreparing });
 		setUnpackingVariation();
 	}
@@ -1301,10 +1330,8 @@ void SpecialAbilityUpdate::startPreparation()
 		{
 			return;
 		}
-		// Donor BFME2 0x (SpecialAbilityUpdate.cpp:1347): a target the LOCAL player controls hears BuildingBeingStolen at once — the
-		// enemy is taking one of its buildings. The event is the name of predefined index 16 (table RW 0xBF2168, Common/Audio/EvaEvents.cpp)
-		// and it goes to TheEva by name (RW 0x5DD9EE). INFERENCE: the RW 2.01 instruction inside RW 0x853D31 .. 0x853ED0 was not read in
-		// this session's sandbox; the guard is the donor's isLocallyControlled.
+		// RW 0x00853E1B .. 0x00853E34 (DONOR BFME2 SpecialAbilityUpdate.cpp:1347): a target the LOCAL player controls hears BuildingBeingStolen
+		// (predefined EVA index 0x10 of RW 0xBF2168) through RW 0x5DD9EE.
 		const Player *local = obj->logic().players().getLocalPlayer();
 		if (t && local && t->getControllingPlayer() == local)
 		{
@@ -1761,9 +1788,8 @@ bool SpecialAbilityUpdate::captureTarget(SpecialPowerModule *spm)
 	}
 	Player *owner = obj->getControllingPlayer();
 	Team *team = owner ? owner->getDefaultTeam() : nullptr; // Player + 0x30C
-	// Donor BFME2 0x (SpecialAbilityUpdateTriggerAbilityEffect.cpp:784): before the team changes, a target the LOCAL player controls hears
-	// BuildingStolen (predefined index 17 of RW 0xBF2168) at its own position, through RW 0x5DD9EE. INFERENCE: the RW 2.01 instruction
-	// inside RW 0x8544F2 .. 0x854772 was not read in this session's sandbox; the guard is the donor's isLocallyControlled.
+	// RW 0x008545FA .. 0x00854618 (DONOR BFME2 SpecialAbilityUpdateTriggerAbilityEffect.cpp:784): before the team changes, a target the LOCAL player
+	// controls hears BuildingStolen (predefined EVA index 0x11 of RW 0xBF2168) at its own position, through RW 0x5DD9EE.
 	const Player *local = obj->logic().players().getLocalPlayer();
 	if (t && local && t->getControllingPlayer() == local)
 	{
@@ -1858,20 +1884,23 @@ bool SpecialAbilityUpdate::handlePackingProcessing()
 		const int type = m_data->m_specialPowerTemplate ? m_data->m_specialPowerTemplate->m_type : 0;
 		if (type == 0x1D)
 		{
-			// lane HERO-2, RW 0x851F39 .. 0x851FE7: the target no other object is capturing (+ 0x80) loses CANCEL_CAPTURE, records the capturer and plays
-			// START_CAPTURE (off first when the teams differ, so the animation restarts); the capturer gets CAPTURING
+			// lane HERO-2 / PORT-252, RW 0x00851F39 .. 0x00851FE7: missing target or target already captured by another object (+ 0x80) finishes
+			// via finishAfterPacking() (slot +0x4C, RW 0x00852027) and returns true; otherwise target loses CANCEL_CAPTURE, records the capturer
+			// and plays START_CAPTURE (off first when teams differ, so the animation restarts); the capturer gets CAPTURING
 			Object *t = target();
-			if (t && (t->getCapturerID() == INVALID_ID || t->getCapturerID() == obj->getID()))
+			if (!t || (t->getCapturerID() != INVALID_ID && t->getCapturerID() != obj->getID()))
 			{
-				setCondition(*t, kMcCancelCapture, false);
-				t->setCapturerID(obj->getID());
-				if (obj->getTeam() != t->getTeam())
-				{
-					setCondition(*t, kMcStartCapture, false);
-				}
-				setCondition(*t, kMcStartCapture, true);
-				setCondition(*obj, kMcCapturing, true);
+				finishAfterPacking();
+				return true;
 			}
+			setCondition(*t, kMcCancelCapture, false);
+			t->setCapturerID(obj->getID());
+			if (obj->getTeam() != t->getTeam())
+			{
+				setCondition(*t, kMcStartCapture, false);
+			}
+			setCondition(*t, kMcStartCapture, true);
+			setCondition(*obj, kMcCapturing, true);
 		}
 		return false;
 	}
@@ -1939,11 +1968,20 @@ void SpecialAbilityUpdate::startUnpacking()
 			m_customAnimFrame = m_data->m_customAnimTriggerFrames + now();
 		}
 	}
-	// RW 0x85383E .. 0x8538B6: SPECIAL_GRAB_CHUNK (0x28) and SPECIAL_SMITE_CANCELDISGUISE (0x84); UnpackSound (client)
+	// RW 0x85383E .. 0x8538DD: SPECIAL_GRAB_CHUNK (0x28) and SPECIAL_SMITE_CANCELDISGUISE (0x84); UnpackSound (client)
 	const int unpackType = m_data->m_specialPowerTemplate ? m_data->m_specialPowerTemplate->m_type : 0;
 	if (unpackType == 0x28)
 	{
-		++m_unported; // RW 0x85384C: the grab enum's model condition (S-860)
+		// RW 0x0085384C .. 0x00853882: SPECIAL_GRAB_CHUNK on a CHUNK_VENDOR target (template + 0x118 bit 4) sets model condition 176
+		// (Object + 0x120 |= 0x10000; cleared in grabFinish RW 0x008532B7)
+		static const int kChunkVendor = ObjectTemplateInfoBuilder::kindOfIndex("CHUNK_VENDOR");
+		if (Object *t = target())
+		{
+			if (kChunkVendor >= 0 && t->isKindOf((unsigned)kChunkVendor))
+			{
+				setCondition(*obj, 176, true);
+			}
+		}
 	}
 	else if (unpackType == 0x84 && obj->testModelCondition(300))
 	{
@@ -2057,7 +2095,7 @@ void SpecialAbilityUpdate::finishAbility(bool ownerDying, bool aborted)
 	endPreparation();
 	if (SpecialPowerModule *spm = mySpecialPowerModule())
 	{
-		(void)spm; // RW 0x853148: the power module's vslot 0x4C (the "update finished" notice, RW 0x896F8E: S-859)
+		spm->clearUpdateDisabled(); // RW 0x0085314C: interface vslot 0x4C (RW 0x00896751: clears m_updateDisabled +0x28)
 	}
 	const SpecialPowerTemplate *t = m_data->m_specialPowerTemplate;
 	const int type = t ? t->m_type : 0;
@@ -2088,7 +2126,10 @@ void SpecialAbilityUpdate::finishAbility(bool ownerDying, bool aborted)
 	const unsigned paralyze = aborted ? m_data->m_paralyzeWhenAborted : m_data->m_paralyzeWhenCompleted;
 	if (paralyze != 0)
 	{
-		++m_unported; // RW 0x852E2A(frames, 2): the AI's paralysis command 0x31 with a duration (S-859)
+		if (AIUpdateInterface *ai = obj->getAIUpdateInterface())
+		{
+			ai->aiBusyFor(paralyze, CMD_FROM_AI); // RW 0x0085338E -> 0x00852E2A(frames, CMD_FROM_AI)
+		}
 	}
 	(void)ownerDying; // RW 0x85251A: the special objects (S-860)
 	if (m_chargeSpeed)
@@ -2158,7 +2199,13 @@ public:
 	GameLogicRandom &logicRandom() override { return m_obj.logic().random(); }
 	std::uint32_t weaponBonusConditionMask() override { return m_obj.weaponBonusConditionMask(); }
 	const WeaponBonusSet *globalWeaponBonusSet() override { return m_obj.logic().settings().globalWeaponBonusSet.get(); }
-	float rateOfFireAttributeProduct() override { return 1.0f; }
+	// RW 0x6CEF6D (Weapon::privateFireWeapon) -> RW 0x6CF042: source->getAttributeModifierProduct(0x15, &factor, nullptr, true) (RW 0x68C82D).
+	float rateOfFireAttributeProduct() override
+	{
+		float rof = 1.0f;
+		m_obj.attributeModifierProduct(ATTRIBUTE_RATE_OF_FIRE, nullptr, true, rof);
+		return rof;
+	}
 	bool containedAmmo(const ObjectFilter &, unsigned &count) override
 	{
 		count = 0;
@@ -2469,6 +2516,11 @@ unsigned emotionPulse(Object &obj, const ModelConditionSpecialAbilityUpdateModul
 	const Player *owner = obj.getControllingPlayer();
 	PartitionFilterFn victims([&](Object &o) {
 		if (!owner || owner->getRelationship(o.getTeam()) != ENEMIES)
+		{
+			return false;
+		}
+		// RW 0x00C0F374 -> 0x00660E93 (PartitionFilterSameMapStatus): Object + 0x458 bit 3 (isOffMap) must match caster
+		if (o.isOffMap() != obj.isOffMap())
 		{
 			return false;
 		}
@@ -3251,9 +3303,11 @@ std::vector<std::string> SpecialAbilityModules::hero2StopLines()
 	return lines;
 }
 
-// ---- lane SAVE-4b: the snapshots (OpenBFME native, S-4190) ------------------------------------------------------------------------------------------------
-// Retail's SpecialAbilityUpdate::xfer is not identified by name in SAVES-RETAIL.md's inventory; the port's fields (RW + 0x24 .. + 0x84 as the header lists
-// them) follow in declaration order, then the counters the crc hashes.
+// ---- lane SAVE-4b / PORT-252: the snapshots (OpenBFME native, S-4190) -------------------------------------------------------------------------------------
+// Retail SpecialAbilityUpdate::xfer is RW 0x00852782 (versions 1..3: fields +0x74, +0x3C, +0x28, +0x40, +0x44, +0x5C, +0x24, +0x2C, +0x64 list, +0x68,
+// +0x7D, +0x30, +0x7E..+0x81, +0x70, +0x82..+0x83, +0x7C, +0x34/+0x38 sound handles, v2 +0x78/+0x50, v3 +0x60). The port transfers its fields in
+// declaration order, then the crc counters.
+// RW 0x00851E38 (SpecialAbilityUpdate::getModuleNameKey)
 void SpecialAbilityUpdate::xfer(Xfer &x)
 {
 	// lane PORT-93: version 2 adds whether the ActiveLoopSound's handle is held (RW 0x8528C8 / 0x8528DB transfer the two handles; here the audio side keeps
@@ -3337,6 +3391,8 @@ void ToggleMountedSpecialAbilityUpdate::xfer(Xfer &x)
 	x.xferObjectID(&m_replacement);
 }
 
+// RW 0x008C6E67 (slot 3): version 1, delegates to SpecialAbilityUpdate::xfer (RW 0x00852782).
+// RW 0x0089585C (getModuleNameKey); deleting dtor RW 0x008958A1 -> 0x0089583C chains to ~SpecialAbilityUpdate (RW 0x00854D9A).
 void HeroModeSpecialAbilityUpdate::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);
@@ -3350,6 +3406,8 @@ void LevelGrantSpecialPower::xfer(Xfer &x)
 	x.xferUnsignedInt(&m_granted);
 }
 
+// RW 0x008C6E67 (slot 3): version 1, delegates to SpecialAbilityUpdate::xfer (RW 0x00852782).
+// RW 0x00894422 (getModuleNameKey); deleting dtor RW 0x0089453F -> 0x00894402 chains to ~SpecialAbilityUpdate (RW 0x00854D9A).
 void ModelConditionSpecialAbilityUpdate::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);
@@ -3357,6 +3415,7 @@ void ModelConditionSpecialAbilityUpdate::xfer(Xfer &x)
 	x.xferUnsignedInt(&m_emotions);
 }
 
+// RW 0x008B1EE7 (slot 3): version 1, SpecialAbilityUpdate::xfer (RW 0x00852782), m_replaceAfterPacking (+0x8C).
 void SummonReplacementSpecialAbilityUpdate::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1); // lane SUMMON-1
@@ -3367,6 +3426,7 @@ void SummonReplacementSpecialAbilityUpdate::xfer(Xfer &x)
 	x.xferUnsignedInt(&m_emotions);
 }
 
+// RW 0x008B4301 (slot 3): UpdateModule::xfer (RW 0x00850C60), version 2, m_isDisguised (+0x90, kept on Object status here), m_opacity (+0x8C), SpecialAbilityUpdate::xfer (RW 0x00852782).
 void SpecialDisguiseUpdate::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

@@ -46,6 +46,7 @@
 #include "GameLogic/WeaponState.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 
 namespace ModelCondition
@@ -361,7 +362,7 @@ ButtonState ControlBar::evaluate(const CommandButton &b, Object &obj, bool &comm
 			// RW 0x942733, case 39 at 0x94387B: status CAN_STEALTH is
 			// required; an eligible StealthUpdate must also be ready. The
 			// shared StealthUpdate::of lookup is incomplete for multiple modules
-			// (S-7445); do not add a second, ring-only lookup here.
+			// (S-7634); do not add a second, ring-only lookup here.
 			static const int canStealth = ObjectTemplateInfoBuilder::objectStatusIndex("CAN_STEALTH");
 			if (!obj.testStatus((unsigned)canStealth)) return ButtonState::Restricted;
 			const StealthUpdate *stealth = StealthUpdate::of(obj);
@@ -1268,11 +1269,17 @@ void ControlBar::update()
 					continue;
 				}
 				Object *timerObj = obj;
-				if (multiSelectCommon)
-				{
-					// PORT-221: updateContextMultiSelect (RW 0x944911..0x944B87): evaluate across every non-IGNORED_IN_GUI selected object.
-					// Any Hidden or Restricted+HIDE_WHILE_DISABLED (RW 0x944A1F..0x944A65) hides the slot; availCount > 0 (Enabled / Active,
-					// RW 0x944AE7..0x944B73) enables the button; otherwise keep the disabled state (NotReady > CantAfford > Purchased > Restricted).
+		if (multiSelectCommon)
+		{
+			// PORT-221: updateContextMultiSelect (RW 0x944911..0x944B87): evaluate across every non-IGNORED_IN_GUI selected object.
+			// Any Hidden or Restricted+HIDE_WHILE_DISABLED (RW 0x944A1F..0x944A65) hides the slot; availCount > 0 (Enabled / Active,
+			// RW 0x944AE7..0x944B73) enables the button; otherwise keep the disabled state (NotReady > CantAfford > Purchased > Restricted).
+			// PORT-270: the single-object context block below (RW 0x943B12..0x943D6F) refreshes timer/cost/queue/border from
+			// obj = *evalObjects — the first selected object (RW 0x944998 reads the client selection list). The purchase of a shared
+			// upgrade is a production-queue entry of that object (RW 0x696FC8 marks TheControlBar dirty), so its progress must be
+			// taken from the same object the availability was evaluated against; otherwise a queued shared upgrade keeps the
+			// stale single-object timer (-1). Only the per-object context runs here — selection, queue, hero and panel refresh stay
+			// in the `!multiSelectCommon` block below (RW 0x943D6F..0x943DA4).
 					bool hidden = false;
 					int availCount = 0;
 					ButtonState enabledState = ButtonState::Enabled;
@@ -1450,10 +1457,19 @@ void ControlBar::update()
 				}
 				// Upgrade buttons share the production queue's progress with unit buttons. Availability
 				// remains Purchased while researching; it does not mean the research is complete.
+				// PORT-270 (issue #637): RW 0x944AA4..0x944ACB (inside updateContextMultiSelect RW 0x944911)
+				// takes the progress float RW 0x942733 wrote for the evaluated object, scales it and calls
+				// RW 0x729f0c(window, value, 0) — the same progress write the single-object path makes at
+				// RW 0x943A7B. The caller's `pu` is null for a multi-select context (above, RW has no single
+				// producer there either), so take the queue from timerObj — the first selected object the
+				// availability was evaluated against (RW 0x944998) — or a queued shared upgrade would keep
+				// the stale timer (-1) and the button would not show its bought/researching progress until
+				// the selection is rebuilt.
 				if (b->m_command == GUI_COMMAND_OBJECT_UPGRADE || b->m_command == GUI_COMMAND_PLAYER_UPGRADE || b->m_command == GUI_COMMAND_CASTLE_UPGRADE)
 				{
 					const UpgradeTemplate *upgrade = TheUpgradeCenter ? TheUpgradeCenter->findUpgrade(b->m_upgradeName) : nullptr;
-					for (const ProductionEntry *e = pu ? pu->firstProduction() : nullptr; e; e = pu->nextProduction(e))
+					const ProductionUpdateInterface *queuePu = pu ? pu : (multiSelectCommon && timerObj ? timerObj->getProductionUpdate() : nullptr);
+					for (const ProductionEntry *e = queuePu ? queuePu->firstProduction() : nullptr; e; e = queuePu->nextProduction(e))
 					{
 						if (upgrade && e->type == PRODUCTION_UPGRADE && e->upgradeToResearch == upgrade)
 						{
@@ -1804,6 +1820,14 @@ void ControlBar::populateUnderConstruction(Object &obj, bool mine)
 	place(cb, 0); // command window 0
 }
 
+// the bar key's timer field: a percent ready can be far outside int (a power not ready by status whose ready frame passed: RW 0x991434's unsigned
+// ready - now wraps, as in retail), so it is clamped before the cast (UBSan 2026-11-18: -4.29e11 to int is undefined)
+static std::string timerKey(float timer)
+{
+	const float t = std::isfinite(timer) ? std::clamp(timer * 100.0f, -1.0e9f, 1.0e9f) : 0.0f;
+	return std::to_string((long long)t);
+}
+
 void ControlBar::emitStateKey()
 {
 	// the version moves when the picture of the bar changes
@@ -1813,7 +1837,7 @@ void ControlBar::emitStateKey()
 	{
 		for (const ControlBarButton &b : *v)
 		{
-			key += std::string(v == &m_palantir ? "a" : (v == &m_side ? "s" : "o")) + std::to_string(b.position) + "|" + std::to_string(b.slot) + ":" + std::to_string((int)b.state) + ":" + std::to_string(b.queued) + ":" + std::to_string((int)(b.timer * 100.0f)) + ":" +
+			key += std::string(v == &m_palantir ? "a" : (v == &m_side ? "s" : "o")) + std::to_string(b.position) + "|" + std::to_string(b.slot) + ":" + std::to_string((int)b.state) + ":" + std::to_string(b.queued) + ":" + timerKey(b.timer) + ":" +
 				std::to_string(b.rider) + ":" + b.image + ":" + b.textLabel + ":" + b.descriptLabel + (b.autoAbility ? ":auto" : "");
 		}
 	}

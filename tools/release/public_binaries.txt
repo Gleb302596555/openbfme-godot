@@ -24,3 +24,7 @@ b20b7d9626dd956b2c5e558692ad328b1f19e3275e2782db4fa07670d83f35e0  launcher/fonts
 d971adf3712e2c866c5aa4c5657ceb21ba8adf88ecc08af2c766b9eb72f6b3aa  godot/assets/app_icon/openbfme-macos.ico  MACICON-1: transparent-background cutout of the project-owned ring icon, for macOS; PNG frames generated with Godot
 05d9cd1acc3b3ee50d1003c747ea916ed9d24b72ca2958af7c271e5f200f2364  engine/tests/data/wotr/lanwar_v6_saved.bin  OpenBFME strategic save block (LivingWorldLogic version 6) of the synthetic LAN war netGame(5), written by lane/wotr2 66ef6b753 (saved), the test fixture of the version-6 load (test_wotr8_net.cpp)
 317c2e6ac1bdfaca0ef6cb103bb0191bb7fb84c2a0b5de3d75418e7ebd1779b5  engine/tests/data/wotr/lanwar_v6_pending.bin  OpenBFME strategic save block (LivingWorldLogic version 6) of the synthetic LAN war netGame(5), written by lane/wotr2 66ef6b753 (pending), the test fixture of the version-6 load (test_wotr8_net.cpp)
+b088bf68acc8546c4d3c6bad9f2bb328af62a2d0b53bbe0ebf2b674b6d0dcd24  docs/ennorath/photo_1.jpg  the owner's in-game bug screenshot (docs/ennorath, Ennorath fork)
+44444938faf30a3da7bf00971bfca267836ccc3da6e9d4ce833a4cbc92e675d5  docs/ennorath/photo_2.jpg  the owner's in-game bug screenshot (docs/ennorath, Ennorath fork)
+1bb7ad51bfa3c1dc6164a6ebe88db07f14b447f7f34a32a1e59b7775a1a70695  docs/ennorath/photo_3.jpg  the owner's in-game bug screenshot (docs/ennorath, Ennorath fork)
+aefd49cc9fb48e6529221acc637c354ea5a855f97a79dac20b0a762cf87b66ef  docs/ennorath/photo_4.jpg  the owner's in-game bug screenshot (docs/ennorath, Ennorath fork)

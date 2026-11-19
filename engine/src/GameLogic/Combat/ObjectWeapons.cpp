@@ -14,6 +14,7 @@
 #include "GameLogic/SnapshotXfer.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "GameLogic/AI/AIWorld.h"
+#include "GameLogic/AttributeModifiers.h"
 #include "GameLogic/AI/TurretAI.h"
 #include "GameLogic/Combat/CombatNames.h"
 #include "GameLogic/Combat/CombatQueries.h"
@@ -133,7 +134,14 @@ public:
 	// PORT-114 (issue #298): GameData's global WeaponBonus set (RW 0x6CA7CF: `mov ecx,[eax+0xAD0]` with eax = [0xDE4364], tested before the add at
 	// RW 0x6CA4B5); null when no GameData block of the load set named WeaponBonus, which is RW's own null test
 	const WeaponBonusSet *globalWeaponBonusSet() override { return m_w.owner().logic().settings().globalWeaponBonusSet.get(); }
-	float rateOfFireAttributeProduct() override { return 1.0f; }              // the attribute modifiers (S-320)
+	// RW 0x6CEF6D (Weapon::privateFireWeapon) -> RW 0x6CF042: source->getAttributeModifierProduct(0x15, &factor, nullptr, true) (RW 0x68C82D).
+	// Pure const read on the owner's pool (safe on the PERF-WS logic job pool).
+	float rateOfFireAttributeProduct() override
+	{
+		float rof = 1.0f;
+		m_w.owner().attributeModifierProduct(ATTRIBUTE_RATE_OF_FIRE, nullptr, true, rof);
+		return rof;
+	}
 	// lane PERF-WS: the two reads below run on the logic job pool (computeWeaponStatusConditions through Weapon::getStatus): keep them reads when
 	// S-320 is ported
 	// ProjectileFilterInContainer (Weapon template + 0x120), RW 0x6CD298: the owner (RW 0x449681 of [weapon + 8]) whose template's filter is set
@@ -253,7 +261,9 @@ class ObjectWeapons::RangeHost : public WeaponRangeHost
 public:
 	explicit RangeHost(ObjectWeapons &w) : m_w(w) {}
 	ObjectWeapons &m_w;
-	bool rangeAttributeSum(float &) override { return false; }
+	// RW 0x6CA61F (WeaponRangeScale) -> RW 0x6CA641: source->getAttributeModifierSum(7, &sum, nullptr) (RW 0x68C818).
+	// Pure const read on the owner's pool (safe on the PERF-WS logic job pool).
+	bool rangeAttributeSum(float &sum) override { return m_w.owner().attributeModifierSum(ATTRIBUTE_RANGE, nullptr, sum); }
 	// lane GARRISON-1: GameData GarrisonedRangeMultiplier (RW + 0x1224; RW 0x6CA61F applies it when >= 0 and the source is INSIDE_GARRISON)
 	float garrisonRangeScale() override { return m_w.owner().logic().settings().garrisonedRangeMultiplier; }
 	// lane GARRISON-1: RW 0x6FF412(source, 3): with an AI, the bounding radius plus the vision range (RW 0x68E43B: Object + 0x1B0, the template's VisionRange; its
@@ -1782,6 +1792,15 @@ float ObjectWeapons::currentAttackRangeNoTarget() const
 	w->computeBonus(*self->m_host, 0, bonus);
 	const RangeSubject src = subjectOf(*m_owner);
 	return WeaponGetAttackRangeNoTarget(*w->getTemplate(), bonus, *self->m_rangeHost, src);
+}
+
+// lane PORT-260 (ArrowStormUpdate's RW 0x893E01): RW 0x6CA701(template, bonus, the owner's position, the target position) — the attack range with no
+// target, i.e. RW 0x6CA69A's getAttackRange with dz = 0 - z and RW 0x6CA61F's scale applied a second time — with the CALLER's bonus (RW 0x893DEB's six 1.0
+// fields, not the weapon's computed one)
+float ObjectWeapons::attackRangeNoTarget(const WeaponTemplate &t, const WeaponBonus &bonus) const
+{
+	ObjectWeapons *self = const_cast<ObjectWeapons *>(this);
+	return WeaponGetAttackRangeNoTarget(t, bonus, *self->m_rangeHost, subjectOf(*m_owner));
 }
 
 float ObjectWeapons::attackRangeNoTargetFor(const Weapon &weapon, const Object &source) const

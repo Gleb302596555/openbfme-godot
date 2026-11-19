@@ -41,6 +41,7 @@ FACTIONS = ["FactionArnor", "FactionMen", "FactionRohan", "FactionElves", "Facti
 MATRIX = REPO / "docs" / "ennorath" / "MATRIX.tsv"
 README = REPO / "docs" / "ennorath" / "README.md"
 TEST_CASE = "ENNORATH sweep units*"
+SPELL_CASE = "ENNORATH sweep spell book*"   # MATRIX_TODO 17: the faction's palantir powers
 DEFAULT_MAP = "map mp fall back 8p"
 # graph edges (field names, lower case) that name an object as a requirement, a price rule or a label: the object is not the faction's content
 NOT_CONTENT = {"requiredobject", "buildingrequired", "displaynameinvisibleforenemy", "useobjecttemplateforcostdiscount", "beaconname",
@@ -50,7 +51,11 @@ NOT_CONTENT = {"requiredobject", "buildingrequired", "displaynameinvisibleforene
 CATEGORIES = [
     ("CRASH", re.compile(r"^CRASH")),                                # the engine died at this press: the first thing to fix
     ("STANCE", re.compile(r"^S-289")),                              # the stance button opens the radial: a known stop, not a fault
+    ("NO-STANCE", re.compile(r"^STANCE: ")),                          # MATRIX_TODO 3: the stance radial pressed, a stance not taken (red)
+    ("NO-AURA", re.compile(r"^NO-AURA: ")),                            # MATRIX_TODO 5: an active aura that put its modifier on no target in range (unverified, see UNVERIFIED)
+    ("UNPORTED", re.compile(r"^UNPORTED: ")),                          # MATRIX_TODO 4: the click refused by an unported per-type object test (red: a port gap)
     ("NO-END", re.compile(r"never expires, though its Duration")),        # MATRIX_TODO 2: a modifier applied for good though its list has a Duration (RW 0x805A8E)
+    ("NO-VALUE", re.compile(r"NO-VALUE: ")),                           # MATRIX_TODO 1b: a list landed, but the value the engine reads did not move by it (red)
     ("UPGRADE-IDLE", re.compile(r"bought, but .* did not execute")),      # MATRIX_TODO 1: an upgrade bought whose triggered module did not run (UpgradeMux)
     ("NO-FIRE", re.compile(r"did not fire")),
     ("NO-RULE", re.compile(r"no effect of .* is asserted")),         # the test cannot judge it yet
@@ -76,7 +81,12 @@ CATEGORIES = [
 
 # Not red: the grey verdicts and the ones found to be the scene's or the mod's own (matrix review 2026-11-17). ORDER: red in the full run,
 # fine when the object is swept alone (tools/matrix_run.py recheck): leftovers of the earlier objects, not the port.
-NOT_RED = {"PASS", "STANCE", "DISABLED", "INVENTORY", "TEMPORARY", "MEMBER", "MOD-DATA", "NO-TARGET", "BY-DESIGN", "ORDER"}
+NOT_RED = {"PASS", "STANCE", "DISABLED", "INVENTORY", "TEMPORARY", "MEMBER", "MOD-DATA", "NO-TARGET", "BY-DESIGN", "ORDER", "NO-AURA"}
+# not red, but not shown green either (owner 2026-11-18: "не прячешь ли ты реальные проблемы"): the sweep could not judge them, and the owner's checks
+# in the original found real port gaps among them (MOD-DATA: 2 of 5 work in the original; NO-TARGET hid a working repair; ORDER may be a state leak)
+# NO-AURA (2026-11-18 recount, 37 rows): the aura check does not yet give the target its state (Eowyn disguised), the holder itself (AllowSelf) or
+# the filter's kind (structures, Nazgul): unverified until it does, not red
+UNVERIFIED = {"MOD-DATA", "NO-TARGET", "ORDER", "NO-AURA"}
 
 
 def category(verdict: str, detail: str) -> str:
@@ -170,6 +180,12 @@ def run_one(a, faction: str) -> tuple[str, int, float]:
         skip.write_text("\n".join(sorted(done | skips | {last})) + "\n", encoding="utf-8")
     if crashed:
         print(f"{faction}: {len(crashed)} crash(es): {', '.join(crashed)}", flush=True)
+    # MATRIX_TODO 17 (2026-11-19): the faction's spell book, once after the units, its rows (`spell <power>`) in the same report; a crash there
+    # costs only the book's rows (the units are written already)
+    with open(log_path, "ab") as log:
+        log.write(b"\n===== spell book =====\n")
+        log.flush()
+        subprocess.call([str(a.tests), f"-tc={SPELL_CASE}"], cwd=REPO, env=env, stdout=log, stderr=subprocess.STDOUT)
     return faction, rc, time.time() - t0
 
 
@@ -234,6 +250,65 @@ def cmd_recheck(a) -> None:
     print(f"recheck: {sum(len(b) for b in red.values())} red buttons, {len(rows)} fine alone (ORDER)", flush=True)
 
 
+def sweep_list(a, faction: str, objects: list[str], tag: str) -> dict[tuple[str, str], list[str]]:
+    """One sweep of exactly these objects (FACTB_LIST), in the full run's order; their rows' categories by (object, button)."""
+    d = a.out / "bisect"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / f"{tag}.list").write_text("".join(o + "\n" for o in objects), encoding="utf-8")
+    (d / "none.skip").write_text("", encoding="utf-8")
+    tsv = d / f"{tag}.tsv"
+    tsv.unlink(missing_ok=True)
+    env = dict(os.environ)
+    env.update(OPENBFME_SWEEP_OVERLAY=str(env_path("OPENBFME_ENNORATH_INSTALL", a.overlay)), OPENBFME_SWEEP_FACTION=faction,
+               OPENBFME_SWEEP_SEEDS=str(a.out / f"{faction}.seeds"), OPENBFME_SWEEP_REPORT=str(tsv), OPENBFME_SWEEP_MAP=a.map,
+               OPENBFME_SWEEP_SKIP=str(d / "none.skip"), OPENBFME_SWEEP_GREY=str(REPO / "docs" / "ennorath" / "MATRIX_GREY.tsv"),
+               FACTB_LIST=str(d / f"{tag}.list"))
+    with open(d / f"{tag}.log", "wb") as log:
+        subprocess.call([str(a.tests), f"-tc={TEST_CASE}"], cwd=REPO, env=env, stdout=log, stderr=subprocess.STDOUT)
+    out: dict[tuple[str, str], list[str]] = collections.defaultdict(list)
+    for line in tsv.read_text(encoding="utf-8", errors="replace").splitlines() if tsv.exists() else []:
+        parts = line.split("\t")
+        if len(parts) == 5:
+            out[(parts[1], parts[2])].append(category(parts[3], parts[4]))
+    return out
+
+
+def cmd_bisect(a) -> None:
+    """MATRIX_TODO 11 (owner 2026-11-18): an ORDER row (red in the full run, fine alone) is a scene leftover of an earlier object or an engine
+    state leak. The objects swept before it in the full run (<out>/<F>.tsv order) are halved until one earlier object alone turns it red:
+    `bisect --factions F --object O --button B`. The culprit and the pair's run are printed; whether the leak is the scene's (the culprit's own
+    objects left near the site) or the engine's is read from the pair's log."""
+    f = a.factions[0]
+    order: list[str] = []
+    for line in (a.out / f"{f}.tsv").read_text(encoding="utf-8", errors="replace").splitlines():
+        parts = line.split("\t")
+        if len(parts) == 5 and parts[1] and parts[1] != "(inventory)" and parts[1] not in order:
+            order.append(parts[1])
+    if a.object not in order:
+        raise SystemExit(f"bisect: {a.object} is not in {a.out / f'{f}.tsv'}")
+    before = order[:order.index(a.object)]
+    key = (a.object, a.button)
+
+    def red(objs: list[str], tag: str) -> bool:
+        cats = sweep_list(a, f, objs + [a.object], tag).get(key, [])
+        bad = bool(cats) and "PASS" not in cats and not all(c in NOT_RED for c in cats)
+        print(f"bisect: {len(objs)} earlier objects -> {'red' if bad else 'fine'} {cats}", flush=True)
+        return bad
+
+    if not red(before, "all"):
+        print("bisect: not red with every earlier object of the run either: the full run's red needs the later objects or is not reproducible")
+        return
+    cand, step = before, 0
+    while len(cand) > 1:
+        step += 1
+        half = cand[len(cand) // 2:]  # the nearer half first: a leftover is likelier from a recent object
+        cand = half if red(half, f"s{step}") else cand[:len(cand) // 2]
+    culprit = cand[0]
+    pair = red([culprit], "pair")
+    print(f"bisect: {f} {a.object} {a.button}: culprit {culprit} ({'confirmed alone' if pair else 'NOT red with it alone: needs more than one earlier object'})")
+    print(f"bisect: logs in {a.out / 'bisect'}")
+
+
 def cmd_run(a) -> None:
     (a.out / "recheck" / "order.tsv").unlink(missing_ok=True)  # a new run: the old recheck does not apply
     if not a.tests.exists():
@@ -254,7 +329,58 @@ if BY_DESIGN_FILE.exists():
             BY_DESIGN[(_f[0], _f[1])] = _f[2]
 
 
+# docs/ennorath/SCRIPT_GRANTS.tsv (tools/mod/script_map.py): what the sides' script libraries give a player. A non-PASS row that names one of
+# those things gets the script appended, so a "given by nothing" reading (owner 2026-11-19: the Manwe science is Multiplayer_Human's) is not
+# taken for a port gap without looking at the script and whether the port runs its action.
+SCRIPT_GRANTS = REPO / "docs" / "ennorath" / "SCRIPT_GRANTS.tsv"
+
+
+def script_grants() -> dict[str, list[str]]:
+    out: dict[str, list[str]] = collections.defaultdict(list)
+    if not SCRIPT_GRANTS.exists():
+        return out
+    for line in SCRIPT_GRANTS.read_text(encoding="utf-8", errors="replace").splitlines():
+        f = line.split("	")
+        if line.startswith(("#", "kind	")) or len(f) < 8:
+            continue
+        lib = f[3].rsplit("\\", 1)[-1].removesuffix(".map")
+        note = f"{lib}/{f[4]} {f[2]}" + ("" if f[7] == "yes" else " (the port has no case for it)")
+        if note not in out[f[1]]:
+            out[f[1]].append(note)
+    return out
+
+
+GRANTS_INI = REPO / "docs" / "ennorath" / "GRANTS_INI.tsv"
+
+
+def never_given() -> set[str]:
+    """Upgrades / sciences nothing in the game gives (GRANTS_INI.tsv rows "(given by nothing)": neither an INI field nor a script, MATRIX_TODO 13)."""
+    if not GRANTS_INI.exists():
+        return set()
+    out = set()
+    for line in GRANTS_INI.read_text(encoding="utf-8", errors="replace").splitlines():
+        f = line.split("\t")
+        if len(f) >= 3 and f[2] == "(given by nothing)":
+            out.add(f[1])
+    return out
+
+
+def aura_dead(detail: str, never: set[str]) -> str:
+    """A NO-AURA row whose aura the sweep switched on with upgrades nothing in the game gives: the aura never runs in the original either."""
+    m = re.search(r", after ([A-Za-z0-9_, ]+?) never arrived", detail)
+    ups = [u.strip() for u in m.group(1).split(",")] if m else []
+    dead = [u for u in ups if u in never]
+    return ", ".join(dead) if ups and len(dead) == len(ups) else ""
+
+
+def script_note(detail: str, grants: dict[str, list[str]]) -> str:
+    hits = [f"{n} <- {', '.join(v[:2])}" for n, v in grants.items() if re.search(rf"\b{re.escape(n)}\b", detail)]
+    return f" [script: {'; '.join(hits[:3])}]" if hits else ""
+
+
 def cmd_collect(a) -> None:
+    grants = script_grants()
+    never = never_given()
     order = {}
     if (a.out / "recheck" / "order.tsv").exists():
         for line in (a.out / "recheck" / "order.tsv").read_text(encoding="utf-8").splitlines():
@@ -277,6 +403,11 @@ def cmd_collect(a) -> None:
                 why = BY_DESIGN.get((obj, button))
                 if cat != "PASS" and why:  # the owner's word on the mod's own design (docs/ennorath/matrix_bydesign.tsv)
                     cat, detail = "BY-DESIGN", f"BY-DESIGN: {why} (was: {detail})"
+                dead = aura_dead(detail, never) if cat == "NO-AURA" else ""
+                if dead:  # MATRIX_TODO 12a: e.g. Eowyn's disguise aura, switched on by Upgrade_EowynConditionDisguised, which nothing gives
+                    cat, detail = "MOD-DATA", f"MOD-DATA: the aura waits for {dead}, which nothing in the mod's INI or scripts gives (GRANTS_INI.tsv) (was: {detail})"
+                if cat != "PASS":
+                    detail += script_note(detail, grants)
                 rows.append((fac, obj, button, cat, detail))
     if not rows:
         raise SystemExit(f"no <faction>.tsv in {a.out}: run `run` first")
@@ -307,10 +438,12 @@ def cmd_collect(a) -> None:
         total, ok = sum(cats.values()) - cats.get("STANCE", 0), cats.get("PASS", 0)
         # a greyed button is mostly a requirement the test does not meet (a forge the faction's objects do not have here): counted apart.
         # GREY-BUG (PORT-530) is a port bug, not an unmet requirement: it counts as red, and the per-faction line names it.
-        grey = sum(v for k, v in cats.items() if k in NOT_RED and k not in ("PASS", "STANCE"))  # by design / not tested: not red either
-        red = total - ok - grey
-        cells[fac] = (f"[{total} кнопок: ✓{ok} ✗{red} серых {grey}](MATRIX.tsv) ({stamp})", str(ok))
-        print(f"{fac}: {total} buttons, {ok} pass, {red} red, {grey} grey: " + ", ".join(f"{k} {v}" for k, v in cats.most_common() if k != "PASS"))
+        unverified = sum(v for k, v in cats.items() if k in UNVERIFIED)
+        grey = sum(v for k, v in cats.items() if k in NOT_RED and k not in ("PASS", "STANCE") and k not in UNVERIFIED)  # by design: not red either
+        red = total - ok - grey - unverified
+        cells[fac] = (f"[{total} кнопок: ✓{ok} ✗{red} не проверено {unverified} серых {grey}](MATRIX.tsv) ({stamp})", str(ok))
+        print(f"{fac}: {total} buttons, {ok} pass, {red} red, {unverified} unverified, {grey} grey: "
+              + ", ".join(f"{k} {v}" for k, v in cats.most_common() if k != "PASS"))
     update_readme(cells)
     print(f"wrote {MATRIX.relative_to(REPO)} ({len(rows)} lines) and the table of {README.relative_to(REPO)}")
 
@@ -382,7 +515,7 @@ def update_readme(cells: dict[str, tuple[str, str]]) -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("step", choices=["seeds", "run", "recheck", "collect", "all", "diff"])
+    ap.add_argument("step", choices=["seeds", "run", "recheck", "collect", "all", "diff", "bisect"])
     ap.add_argument("--against", dest="base_ref", default="origin/main", help="diff: the git ref whose MATRIX.tsv is the baseline")
     ap.add_argument("--limit", type=int, default=60, help="diff: unexplained rows printed")
     ap.add_argument("--factions", nargs="*", default=FACTIONS)
@@ -393,6 +526,8 @@ def main() -> None:
     ap.add_argument("--base", help="RotWK 2.01 install (default $ROTWK_INSTALL)")
     ap.add_argument("--overlay", help="the mod's install (default $OPENBFME_ENNORATH_INSTALL)")
     ap.add_argument("--bfme2", help="BFME2 1.06 install (default $BFME2_INSTALL)")
+    ap.add_argument("--object", help="bisect: the ORDER row's object")
+    ap.add_argument("--button", help="bisect: the ORDER row's button")
     a = ap.parse_args()
     if a.step == "diff":
         a.base = a.base_ref
@@ -401,6 +536,11 @@ def main() -> None:
     unknown = [f for f in a.factions if f not in FACTIONS]
     if unknown:
         raise SystemExit(f"unknown factions: {unknown}")
+    if a.step == "bisect":
+        if len(a.factions) != 1 or not a.object or not a.button:
+            raise SystemExit("bisect: one --factions F, --object O and --button B")
+        cmd_bisect(a)
+        return
     steps = ["seeds", "run", "recheck", "collect"] if a.step == "all" else [a.step]
     for s in steps:
         {"seeds": cmd_seeds, "run": cmd_run, "recheck": cmd_recheck, "collect": cmd_collect}[s](a)

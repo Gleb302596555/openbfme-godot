@@ -28,9 +28,9 @@ complete effective-object or ability/visual audit. References are relative to
 
 | Piece | Status and evidence | Remaining limits |
 | --- | --- | --- |
-| ONE_RING command, single eligible stealth module | Ported in this branch for availability and dispatch: RW `0x942733`, `0x940435`, `0x7761DD`; `PORT-238*` passed in isolated runner | Multi-module selection S-7445; full suite and in-game test pending; visuals S-1041 |
+| ONE_RING command, single eligible stealth module | Ported in this branch for availability and dispatch: RW `0x942733`, `0x940435`, `0x7761DD`; `PORT-238*` passed in isolated runner | Multi-module selection S-7634; full suite and in-game test pending; visuals S-1041 |
 | Dropped ring attachment | Existing port implements the scan and parent status (`AttachUpdate.cpp`); RW `0x89515C` selects and records parent, `0x8953BB` follows or kills the object after parent death. Isolated `PORT-124*`: 3 cases, 68 assertions passed | S-1361 covers horde member selection / anchor details and Eva name validation; PORT-124 uses a synthetic name-only filter, not the Ennorath macro; no Ennorath end-to-end claim |
-| Ring-wear penalty and Eye lifecycle | Existing port `OneRingPenaltyUpdate.cpp`; RW `0x89D647` schedules spawn/movement based on ring state and `0x89D41B` takes off the ring, clears CAN_STEALTH and kills the Eye | `modgap1 OneRingPenaltyUpdate*` passed in an isolated runner: 2 cases, 36 assertions. Lookup S-7445 and client effects S-1041 remain; not a full visual audit |
+| Ring-wear penalty and Eye lifecycle | Existing port `OneRingPenaltyUpdate.cpp`; RW `0x89D647` schedules spawn/movement based on ring state and `0x89D41B` takes off the ring, clears CAN_STEALTH and kills the Eye | `modgap1 OneRingPenaltyUpdate*` passed in an isolated runner: 2 cases, 36 assertions. Lookup S-7634 and client effects S-1041 remain; not a full visual audit |
 | `TimeFrozenFromPenalty` | Existing closed S-5604 / PORT-30 verdict: parsed data `+0x1C`, no RW reader found by that prior audit; donor's data view has the slot and constructor zero | We re-read RW `0x89D647`, `0x89D41B`, `0x89D4D2` and donor data/constructor, **not** a new complete whole-image proof. Isolated `PORT-30*`: 3 cases, 1014 assertions passed; tests alone do not prove no reader |
 | CreateObjectDie / OCL | PORT-237 (merged in main, commit `2a54572d`) closed S-980: `CreateObjectDie::onDie` in `ExtraDieModules.cpp` passes the dead object and killer to `ObjectCreationList::create`, as RW `0x888F04 -> 0x5F0126`; `PORT-237 CreateObjectDie...` covers that forwarding | This closes the shared object-pair context gap, not the full Frodo/OCL lifecycle or actual game route. PORT-237 and this branch have not been re-run on the post-merge full binary |
 | Two names in `GrantUpgradeCreate` | Ported bounded parser/create behavior: RW field table `0xC70158` calls `0x42EE5E` / `0x42E757` (one unquoted token), `0x8BD15E` checks the construction mask; the synthetic `PORT-238*` test exercises two tokens, default and explicit mask, and build completion. Literal definitions of both upgrades are OBJECT (`upgrade.ini:181,198`) | Test explicitly calls build completion; ChildObject load and actual creation/build lifecycle remain to be checked in context |
@@ -63,15 +63,15 @@ actual creation path.
   expected (34/35 assertions); that is fixture sensitivity, not a code-fix
   control. It does not test a button press while worn, upgrade/unpause,
   `LoseStealthOnTrigger`, visuals, actual data loading or child inheritance.
-* **Shared off-map follow-up — identified code gap, untested:** RW `0x89469D`
-  includes filter `0xC0F374`, slot `+4` = `0x660E93`, comparing caster and
-  target `Object +0x458` bit 3. Port `Object::isOffMap()` now represents that
-  bit, but `emotionPulse()` omits the comparison. It is shared by
-  `SummonReplacementSpecialAbilityUpdate`; it is not a Frodo-only change.
-  The earlier S-856 text saying the bit is never set is stale for current port.
-  This observation has no negative-control test yet, and effects on in-game
-  cases have not been measured; track the shared fix separately rather than
-  claiming parity. Issue #645 concerns a different shared modifier path.
+* **Shared off-map filter — stale on current main:** RW `0x89469D` includes
+  filter `0xC0F374`, slot `+4` = `0x660E93`, comparing caster and target
+  `Object +0x458` bit 3. This was missing on our previous base `3f0105c8`.
+  Port 252 / issue #600, commit `cc18ee79`, added the comparison to shared
+  `emotionPulse()` in `SpecialAbilityModules.cpp`, with an off-map regression
+  in `test_port_252.cpp`. It also serves `SummonReplacementSpecialAbilityUpdate`.
+  The newly merged code and regression have not yet been run on this branch;
+  no in-game effect has been measured. The earlier S-856 wording that the bit
+  is never set is stale for current port. Issue #645 is a different modifier path.
 * **Mithril — not fully read:** the parent declares an initially inactive
   `AttributeModifierAuraUpdate` gated by `Upgrade_Level_10`, range 1,
   `AllowSelf=Yes`, filter `NONE +RohanFrodo_mod` (`frodo.ini:2180–2187`).

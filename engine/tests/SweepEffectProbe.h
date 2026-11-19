@@ -31,7 +31,10 @@
 #include "GameLogic/Module/SpellBookPowers.h"
 #include "GameLogic/Module/StealthAbilityModules.h"
 #include "GameLogic/Module/WeaponChangeSpecialPower.h"
+#include "GameLogic/Module/StoreObjectsSpecialPower.h" // lane PORT-261: the stored list's size observed through the module, not the world (the objects stay in play)
+#include "GameLogic/BitFlags.h"
 #include "GameLogic/Object/AttributeModifierPool.h"
+#include "GameLogic/System/ShroudManager.h" // MATRIX_TODO 15: the vision range a VISION modifier must move
 #include "GameLogic/Object/ExperienceTracker.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/ObjectCreationList.h"
@@ -85,13 +88,14 @@ inline std::vector<float> expectedHits(const WeaponTemplate &w, const Object &vi
 	// forged-blade swords, the fire arrows' warhead) is not one of its hits
 	auto off = [&](const WeaponNugget &n) {
 		bool o = false;
+		auto hasUpg = [&](const std::string &u) { return (attacker && attacker->hasUpgrade(u)) || (attackerPlayer && attackerPlayer->hasUpgradeComplete(u)); };
 		for (const std::string &u : n.m_requiredUpgradeNames)
 		{
-			o = o || (attacker && !attacker->hasUpgrade(u));
+			o = o || (attacker && !hasUpg(u));
 		}
 		for (const std::string &u : n.m_forbiddenUpgradeNames)
 		{
-			o = o || (attacker && attacker->hasUpgrade(u));
+			o = o || (attacker && hasUpg(u));
 		}
 		return o;
 	};
@@ -248,7 +252,7 @@ struct HitTracker
 				}
 			}
 			const ActiveBody *body = dynamic_cast<const ActiveBody *>(o->getBodyModule());
-			if (!body || casters.count(o->getID()))
+			if (!body || casters.count(o->getID()) || o->isKindOfName("HORDE")) // a horde container's 20-HP ImmortalBody clips every hit to 19 and masks the first real member hit
 			{
 				continue;
 			}
@@ -316,6 +320,7 @@ struct EffectProbe
 		HARVEST,         ///< SPECIAL_HARVEST -> caster entered AI_HARVEST / harvest model condition
 		TIMER_REFRESH,   ///< SpecialPowerTimerRefreshSpecialPower -> allied non-holder readySum decreased
 		FIRE_LOGIC,      ///< FireLogicNugget -> extinguishes / feeds fires (unported S-191 / S-1997 -> NO-EFFECT)
+		STORE,           ///< lane PORT-261: StoreObjectsSpecialPower (RW 0x8D1EA7) -> the captured list grew
 	};
 
 	struct Expect
@@ -378,6 +383,7 @@ struct EffectProbe
 		float experience = 0.0f;
 		std::set<std::string> modifiers;
 		std::map<std::string, unsigned> expires; ///< MATRIX_TODO 2: each list's expiry frame (AttributeModifierPool::expireOf)
+		std::map<int, float> values; ///< MATRIX_TODO 1b: what the engine's readers get (DAMAGE_ADD sum RW 0x804F39; DAMAGE_MULT, SPEED product RW 0x804FFF)
 		unsigned long long readySum = 0;
 		ObjectStatusMaskType status{};
 		WeaponConditionFlags weaponFlags{};
@@ -385,10 +391,17 @@ struct EffectProbe
 		DisabledMaskType disabled = 0;
 		ObjectID containedBy = INVALID_ID;
 		bool terror = false;
+		unsigned storeCount = 0; ///< lane PORT-261: the StoreObjectsSpecialPower's captured list size (RW 0x8D1EA7)
 		std::array<bool, EMOTION_TYPE_COUNT> emotions{};
 		bool harvesting = false;
 		const ThingTemplate *tmpl = nullptr;
 		Coord3D pos{}; ///< lane FACT-C
+		// MATRIX_TODO 15 (2026-11-19): what the consumers make of the modifiers, not what the pool answers: the current weapon's attack range
+		// (RANGE through RW 0x6CA61F), the vision range (VISION through RW 0x68E43B), the body's maximum health (HEALTH / HEALTH_MULT on add,
+		// RW 0x805D3A / 0x805DB5); -1 when the object has none
+		float attackRange = -1.0f;
+		float vision = -1.0f;
+		float maxHealth = -1.0f;
 	};
 
 	UnsignedInt frame = 0;
@@ -442,6 +455,7 @@ struct EffectProbe
 	unsigned weaponModeActive = 0;
 	float bounty = 0.0f; ///< lane FACT-C: the caster's player's bounty percent
 	float casterDamageMult = 1.0f;
+	float casterDamageAdd = 0.0f;
 	unsigned long long metaImpactHits = 0;
 	std::uint32_t playerMoney = 0;
 	size_t luaEvents = 0;
@@ -778,6 +792,7 @@ struct EffectProbe
 			{
 				const WeaponTemplate *w = TheWeaponStore ? TheWeaponStore->findWeaponTemplate(ad->m_weaponTemplate) : nullptr;
 				Expect de{ DAMAGE, cls + " WeaponTemplate " + ad->m_weaponTemplate, "", w };
+				de.hordeMembers = (size_t)std::max(1, ad->m_shotsPerBurst); // ArrowStormUpdate::triggerAbilityEffect (RW 0x00894100) fires ShotsPerBurst shots in one frame
 				if (w)
 				{
 					de.weapons.push_back(w);
@@ -896,6 +911,11 @@ struct EffectProbe
 						}
 					}
 				}
+			}
+			else if (dynamic_cast<const StoreObjectsSpecialPower *>(m))
+			{
+				// lane PORT-261: RW 0x8D1EA7 -> the captured list (the objects stay in play, so the world gives no signal); the sweep's STORE rule reads the module's list
+				p.expects.push_back({ STORE, cls });
 			}
 			else if (cls == "SpecialAbilityUpdate")
 			{
@@ -1038,9 +1058,36 @@ struct EffectProbe
 					s.modifiers.insert(n);
 					s.expires[n] = pool->expireOf(n);
 				}
+				for (int type : { (int)ATTRIBUTE_DAMAGE_ADD, (int)ATTRIBUTE_DAMAGE_MULT, (int)ATTRIBUTE_SPEED, 7 /* RANGE, sum */, 16 /* VISION, sum */, (int)ATTRIBUTE_HEALTH_MULT })
+				{
+					const bool summed = type == ATTRIBUTE_DAMAGE_ADD || type == 7 || type == 16;
+					float v = summed ? 0.0f : 1.0f;
+					if (summed ? o->attributeModifierSum(type, nullptr, v) : o->attributeModifierProduct(type, nullptr, true, v))
+					{
+						s.values[type] = v;
+					}
+				}
+			}
+			if (o->getBodyModule())
+			{
+				s.maxHealth = o->getBodyModule()->getMaxHealth();
+			}
+			if (const ObjectWeapons *w = o->getWeapons())
+			{
+				s.attackRange = w->currentAttackRangeNoTarget();
+			}
+			if (logic.shroud())
+			{
+				s.vision = ShroudManager::objectVisionRange(*o, ShroudManager::templateVision(*static_cast<const ThingTemplate *>(o->getTemplate())->getFinalOverride()));
 			}
 			for (const std::unique_ptr<BehaviorModule> &m : o->modules())
 			{
+				// lane PORT-261: RW 0x8D1EA7 fills the module's captured list; the objects stay in the world (the teleport power releases them),
+				// so the capture is observable only through the module
+				if (const StoreObjectsSpecialPower *so = dynamic_cast<const StoreObjectsSpecialPower *>(m.get()))
+				{
+					s.storeCount = (unsigned)so->storedObjects().size();
+				}
 				if (SpecialPowerModuleInterface *sp = m->getSpecialPower())
 				{
 					s.readySum += sp->getReadyFrame();
@@ -1087,6 +1134,16 @@ struct EffectProbe
 			if (h->attributeModifierProduct(ATTRIBUTE_DAMAGE_MULT, nullptr, false, dmgMult))
 			{
 				p.casterDamageMult = std::max(p.casterDamageMult, dmgMult);
+			}
+			float spellMult = 1.0f;
+			if (h->attributeModifierProduct(ATTRIBUTE_SPELL_DAMAGE, nullptr, true, spellMult)) // FillDamageInfo (RW 0x0090E28C): MAGIC uses SPELL_DAMAGE with innate=true
+			{
+				p.casterDamageMult = std::max(p.casterDamageMult, spellMult);
+			}
+			float dmgAdd = 0.0f;
+			if (h->attributeModifierSum(ATTRIBUTE_DAMAGE_ADD, nullptr, dmgAdd) && dmgAdd > 0.0f)
+			{
+				p.casterDamageAdd = std::max(p.casterDamageAdd, dmgAdd);
 			}
 		}
 		// the classes per holder: a horde's members carry the same modules, one expectation each class is enough
@@ -1209,12 +1266,13 @@ struct EffectProbe
 						break; // reported below: the caster fought before the cast
 					}
 					const float dmgBonus = std::max(1.0f, std::max(casterDamageMult, after.casterDamageMult));
+					const float dmgAdd = std::max(casterDamageAdd, after.casterDamageAdd);
 					const float upperMult = (e.hordeMembers > 1 ? 2.5f * (float)e.hordeMembers : 2.5f) * dmgBonus;
 					for (const HitTracker::Hit &x : hits->hits)
 					{
 						auto it = hitNominal.find(x.victim);
 						const float nominal = it == hitNominal.end() ? 0.0f : it->second, sum = it == hitNominal.end() ? 0.0f : hitSum.at(x.victim);
-						if (x.frame == first && nominal > 0.0f && x.amount >= nominal * 0.9f && x.amount <= sum * upperMult)
+						if (x.frame == first && nominal > 0.0f && x.amount >= nominal * 0.9f && x.amount <= (sum + dmgAdd) * upperMult)
 						{
 							got = str("its first hit after the cast (frame %u) %.0f, the weapon's %.0f (all nuggets %.0f) against the victim's armour; no hit before the cast",
 									  first - frame, (double)x.amount, (double)nominal, (double)sum);
@@ -1249,7 +1307,7 @@ struct EffectProbe
 				break;
 			case MODIFIER:
 			{
-				std::string neverEnds;
+				std::string neverEnds, valueOff;
 				auto checkMod = [&](const std::string &modName) {
 					for (const auto &kv : after.seen)
 					{
@@ -1268,6 +1326,117 @@ struct EffectProbe
 								return true;
 							}
 							got = str("%s on object %u", modName.c_str(), (unsigned)kv.first);
+							// MATRIX_TODO 1b (owner 2026-11-18): the value the engine's readers get must move by what the lists say: every list new on
+							// this object since the cast, its unnamed DAMAGE_ADD (summed) / DAMAGE_MULT and SPEED (multiplied) modifiers, against
+							// Object::attributeModifierSum / Product (RW 0x804F39 / 0x804FFF) before and after
+							if (b)
+							{
+								for (int type : { ATTRIBUTE_DAMAGE_ADD, ATTRIBUTE_DAMAGE_MULT, ATTRIBUTE_SPEED })
+								{
+									const bool add = type == ATTRIBUTE_DAMAGE_ADD;
+									float want = add ? 0.0f : 1.0f;
+									bool named = false, any = false;
+									for (const std::string &n : kv.second.modifiers)
+									{
+										const ModifierListTemplate *nl2 = b->modifiers.count(n) || !TheAttributeModifierStore ? nullptr : TheAttributeModifierStore->find(n);
+										for (const ModifierListTemplate::Modifier &m : nl2 ? nl2->m_modifiers : std::vector<ModifierListTemplate::Modifier>{})
+										{
+											if (m.type != type)
+											{
+												continue;
+											}
+											named = named || !m.names.empty();
+											any = true;
+											want = add ? want + m.value : want * m.value;
+										}
+									}
+									if (!any || named)
+									{
+										continue; // nothing of this type, or a damage-type-named modifier (read per damage type): not judged here
+									}
+									const auto bv = b->values.find(type), av = kv.second.values.find(type);
+									const float before = bv != b->values.end() ? bv->second : (add ? 0.0f : 1.0f);
+									const float now = av != kv.second.values.end() ? av->second : (add ? 0.0f : 1.0f);
+									const float expect = add ? before + want : before * want;
+									if (std::fabs(now - expect) > 0.001f * std::max(1.0f, std::fabs(expect)))
+									{
+										valueOff += str("%s on object %u: %s %.3f -> %.3f, the new lists say %s%.3f (RW %s); ", modName.c_str(), (unsigned)kv.first,
+														TheAttributeModifierTypeNames[type], before, now, add ? "+" : "x", want, add ? "0x804F39" : "0x804FFF");
+									}
+								}
+								// MATRIX_TODO 15 (2026-11-19): the consumers. The pool's answer above can be right while nothing reads it (S-320: the port's weapon
+								// range and rate of fire readers answer neutral). The lists new on this object since the cast say what the object must become:
+								// RANGE (sum) scales the current weapon's attack range by (1 + sum) (RW 0x6CA61F), VISION (sum) the vision range (RW 0x68E43B),
+								// HEALTH adds to the maximum health scaled by the HEALTH_MULT product already there, HEALTH_MULT multiplies it (RW 0x805D3A / 0x805DB5)
+								{
+									float range = 0.0f, vision = 0.0f, health = 0.0f, healthMult = 1.0f;
+									bool anyRange = false, anyVision = false, anyHealth = false;
+									int healthLists = 0;
+									for (const std::string &n : kv.second.modifiers)
+									{
+										const ModifierListTemplate *nl2 = b->modifiers.count(n) || !TheAttributeModifierStore ? nullptr : TheAttributeModifierStore->find(n);
+										bool counted = false;
+										for (const ModifierListTemplate::Modifier &m : nl2 ? nl2->m_modifiers : std::vector<ModifierListTemplate::Modifier>{})
+										{
+											if (!m.names.empty())
+											{
+												continue;
+											}
+											if (m.type == 7)
+											{
+												range += m.value;
+												anyRange = true;
+											}
+											else if (m.type == 16)
+											{
+												vision += m.value;
+												anyVision = true;
+											}
+											else if (m.type == ATTRIBUTE_HEALTH || m.type == ATTRIBUTE_HEALTH_MULT)
+											{
+												health += m.type == ATTRIBUTE_HEALTH ? m.value : 0.0f;
+												healthMult *= m.type == ATTRIBUTE_HEALTH_MULT ? m.value : 1.0f;
+												anyHealth = true;
+												healthLists += counted ? 0 : 1;
+												counted = true;
+											}
+										}
+									}
+									auto off = [](float now, float expect) { return std::fabs(now - expect) > 0.01f * std::max(1.0f, std::fabs(expect)); };
+									auto sumBefore = [&](int type) {
+										const auto it = b->values.find(type);
+										return it != b->values.end() ? it->second : 0.0f;
+									};
+									if (anyRange && range != 0.0f && b->attackRange > 0.0f && kv.second.attackRange > 0.0f)
+									{
+										const float s0 = sumBefore(7), expect = b->attackRange * (1.0f + s0 + range) / (1.0f + s0);
+										if (off(kv.second.attackRange, expect))
+										{
+											valueOff += str("%s on object %u: the weapon's attack range %.1f -> %.1f, its RANGE %+.2f makes %.1f (RW 0x6CA61F); ", modName.c_str(),
+															(unsigned)kv.first, b->attackRange, kv.second.attackRange, range, expect);
+										}
+									}
+									if (anyVision && vision != 0.0f && b->vision > 0.0f && kv.second.vision > 0.0f)
+									{
+										const float s0 = sumBefore(16), expect = b->vision * (1.0f + s0 + vision) / (1.0f + s0);
+										if (off(kv.second.vision, expect))
+										{
+											valueOff += str("%s on object %u: the vision range %.1f -> %.1f, its VISION %+.2f makes %.1f (RW 0x68E43B); ", modName.c_str(), (unsigned)kv.first,
+															b->vision, kv.second.vision, vision, expect);
+										}
+									}
+									if (anyHealth && healthLists == 1 && b->maxHealth > 0.0f && kv.second.maxHealth > 0.0f)
+									{
+										const auto m0 = b->values.find((int)ATTRIBUTE_HEALTH_MULT);
+										const float expect = (b->maxHealth + (m0 != b->values.end() ? m0->second : 1.0f) * health) * healthMult;
+										if (off(kv.second.maxHealth, expect))
+										{
+											valueOff += str("%s on object %u: the maximum health %.1f -> %.1f, its HEALTH %+.1f / HEALTH_MULT x%.2f make %.1f (RW 0x805D3A / 0x805DB5); ",
+															modName.c_str(), (unsigned)kv.first, b->maxHealth, kv.second.maxHealth, health, healthMult, expect);
+										}
+									}
+								}
+							}
 							return true;
 						}
 					}
@@ -1302,6 +1471,11 @@ struct EffectProbe
 				if (!neverEnds.empty())
 				{
 					missing += e.what + ": " + neverEnds + "; "; // a fault of its own, not "no result"
+					continue;
+				}
+				if (!valueOff.empty())
+				{
+					missing += e.what + ": NO-VALUE: " + valueOff; // landed, but the readers do not get its value
 					continue;
 				}
 				break;
@@ -1339,6 +1513,18 @@ struct EffectProbe
 				}
 				break;
 			}
+			case STORE:
+				// lane PORT-261: the module's captured list grew (RW 0x8D1EA7); the captured objects stay in the world
+				for (const auto &kv : after.seen)
+				{
+					const Seen *b = was(kv.first);
+					if (b && kv.second.storeCount > b->storeCount)
+					{
+						got = str("object %u stored %u unit(s)", (unsigned)kv.first, kv.second.storeCount);
+						break;
+					}
+				}
+				break;
 			case HEAL:
 				for (const auto &kv : after.seen)
 				{
@@ -1741,8 +1927,17 @@ struct EffectProbe
 					{
 						continue;
 					}
+					const Object *attacker = nullptr;
+					for (ObjectID hid : holders)
+					{
+						if (const Object *ho = logic.findObjectByID(hid))
+						{
+							attacker = ho;
+							break;
+						}
+					}
 					std::string text;
-					const std::vector<float> h = expectedHits(*wt, *o, player, text);
+					const std::vector<float> h = expectedHits(*wt, *o, player, text, attacker);
 					if (h.empty())
 					{
 						continue;

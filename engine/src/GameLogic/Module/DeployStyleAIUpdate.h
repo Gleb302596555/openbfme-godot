@@ -125,6 +125,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008B1BB8 (getModuleName), RW 0x008B1BDE (getModuleNameKey), RW 0x008B1C43 (scalar deleting dtor -> 0x008B1BBE).
 class ToggleDeploySpecialAbilityUpdate : public SpecialAbilityUpdate
 {
 public:
