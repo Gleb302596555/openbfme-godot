@@ -392,6 +392,7 @@ void Drawable::advanceAnimationLocal(double elapsedMs)
 			advanceTires(e, elapsedMs);
 		}
 	}
+	flushPendingCapturePresentation();
 }
 
 void Drawable::advanceAnimation(double elapsedMs)
@@ -408,6 +409,7 @@ void Drawable::advanceAnimation(double elapsedMs)
 			advanceTires(e, elapsedMs);
 		}
 	}
+	flushPendingCapturePresentation();
 }
 
 // lane COMBAT-4 (FB-0002), RW 0x4CBFFB (W3DTruckDraw's draw update, run once per client frame: 6 per logic frame, RW 0xDE4324 + 0x38): with a front tire bone
@@ -657,4 +659,58 @@ Drawable::PresentedLook Drawable::presentedLook(const LogicSnapshot *presented, 
 	}
 	look.fogLook = look.fogLook && !look.hidden;
 	return look;
+}
+
+bool Drawable::hasPendingAnimationTransition() const
+{
+	for (const DrawEntry &e : m_entries)
+	{
+		if (e.draw && e.draw->pendingStatePending())
+		{
+			const AnimationStateInfo *st = e.draw->currentAnimationState();
+			if (st && st->stateName == "Trans_CancelReraise")
+			{
+				continue;
+			}
+			return true;
+		}
+	}
+	return false;
+}
+
+void Drawable::applyCapturePresentationNow(const std::vector<DeferredSubObject> &subObjects, bool hasHouse, std::uint32_t house)
+{
+	for (const DeferredSubObject &s : subObjects)
+	{
+		showSubObject(s.name, s.visible, s.permanent);
+	}
+	if (hasHouse)
+	{
+		setHouseColor(house);
+	}
+}
+
+void Drawable::applyOrDeferCapturePresentation(std::vector<DeferredSubObject> subObjects, bool hasHouse, std::uint32_t house)
+{
+	if (!hasPendingAnimationTransition())
+	{
+		m_pendingCapturePresentation = PendingCapturePresentation{};
+		applyCapturePresentationNow(subObjects, hasHouse, house);
+		return;
+	}
+	m_pendingCapturePresentation.active = true;
+	m_pendingCapturePresentation.subObjects = std::move(subObjects);
+	m_pendingCapturePresentation.hasHouseColor = hasHouse;
+	m_pendingCapturePresentation.houseColor = house;
+}
+
+void Drawable::flushPendingCapturePresentation()
+{
+	if (!m_pendingCapturePresentation.active || hasPendingAnimationTransition())
+	{
+		return;
+	}
+	PendingCapturePresentation pending = std::move(m_pendingCapturePresentation);
+	m_pendingCapturePresentation = PendingCapturePresentation{};
+	applyCapturePresentationNow(pending.subObjects, pending.hasHouseColor, pending.houseColor);
 }

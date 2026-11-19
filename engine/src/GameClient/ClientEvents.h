@@ -98,6 +98,16 @@ struct ClientEvent
 	int weaponTimingFrames = 0;        ///< ObjectWeapons::drawWeaponTimingFrames (RW 0x4BEE31 .. 0x4BEE91), what UseWeaponTiming animations divide by
 	std::string name;
 	bool visible = false, permanent = false;
+	// RW 0x4BF1DE -> 0x4BF214: CAPTUREFLAG transition-deferred OnStateEnter sub-objects and house colour.
+	struct DeferredSubObject
+	{
+		std::string name;
+		bool visible = false;
+		bool permanent = false;
+	};
+	std::vector<DeferredSubObject> deferredSubObjects;
+	bool hasDeferredHouseColor = false;
+	std::uint32_t deferredHouseColor = 0;
 	bool setFlags = false, setScale = false, mirror = false;
 	float scale = 1.0f;
 	UnsignedInt fadeFrames = 0;
