@@ -19,6 +19,7 @@
 #include "GameLogic/Object/PartitionManager.h"
 #include "GameLogic/ObjectFilterMatch.h"
 #include "GameLogic/Module/InvisibilityModules.h"
+#include "GameLogic/Module/EmotionModules.h"
 #include "GameLogic/Module/HeroAbilityModules.h"
 #include "GameLogic/Module/SpellEffectModules.h"
 #include "GameLogic/Module/SpecialAbilityModules.h"
@@ -868,4 +869,76 @@ TEST_CASE("PORT-238 synthetic Will temporarily dominates eligible enemies in an 
     CHECK_FALSE(enemy->testStatus((unsigned)status));
     CHECK(defect->endFrame() == 0);
     CHECK(defect->dominator() == INVALID_ID);
+}
+
+namespace
+{
+struct PhialWorld : HealWorld
+{
+    PhialWorld()
+    {
+        EmotionModules::registerAll(w.modules);
+        const char *ini =
+            "SpecialPower SpecialAbilityP238Phial\n Enum = SPECIAL_GENERAL_TARGETLESS\n ReloadTime = 30000\n End\n"
+            "Object P238PhialBearer\n"
+            " KindOf = INFANTRY HERO SELECTABLE\n"
+            " Geometry = CYLINDER\n GeometryMajorRadius = 5\n GeometryHeight = 10\n"
+            " Body = ActiveBody Body\n MaxHealth = 100\n End\n"
+            " Behavior = AIUpdateInterface AI\n End\n"
+            " Behavior = StealthUpdate Stealth\n StartsActive = Yes\n RingAnimTimeOn = 200\n RingAnimTimeOff = 200\n"
+            "  OneRingDelayOn = 200\n OneRingDelayOff = 200\n RingDelayAfterRemoving = 1000\n End\n"
+            " Behavior = SpecialPowerModule Power\n SpecialPowerTemplate = SpecialAbilityP238Phial\n UpdateModuleStartsAttack = Yes\n End\n"
+            " Behavior = ModelConditionSpecialAbilityUpdate Phial\n SpecialPowerTemplate = SpecialAbilityP238Phial\n"
+            "  UnpackTime = 2000\n PreparationTime = 1\n PersistentPrepTime = 600\n PackTime = 2666\n"
+            "  IgnoreFacingCheck = Yes\n GenerateTerror = Yes\n EmotionPulseRadius = 150\n DisableWhenWearingTheRing = Yes\n End\n"
+            "End\n"
+            "Object P238PhialTarget\n KindOf = INFANTRY SELECTABLE\n"
+            " Geometry = CYLINDER\n GeometryMajorRadius = 5\n GeometryHeight = 10\n"
+            " Body = ActiveBody Body\n MaxHealth = 100\n End\n"
+            " Behavior = EmotionTrackerUpdate Emotion\n End\n End\n";
+        const std::string error = w.load(ini, INI_LOAD_OVERWRITE, "port238_phial.ini");
+        REQUIRE_MESSAGE(error.empty(), error);
+    }
+};
+} // namespace
+
+TEST_CASE("PORT-238 Phial conditions reject the worn ring and terror targets nearby enemies")
+{
+    PhialWorld w;
+    Object *bearer = w.unit("P238PhialBearer", 'A', 300, 300);
+    Object *enemy = w.unit("P238PhialTarget", 'B', 350, 300);
+    Object *ally = w.unit("P238PhialTarget", 'A', 350, 300);
+    Object *farEnemy = w.unit("P238PhialTarget", 'B', 550, 300);
+    REQUIRE(bearer != nullptr);
+    REQUIRE(enemy != nullptr);
+    REQUIRE(ally != nullptr);
+    REQUIRE(farEnemy != nullptr);
+    auto *ability = dynamic_cast<ModelConditionSpecialAbilityUpdate *>(bearer->findModule("ModelConditionSpecialAbilityUpdate"));
+    auto *stealth = StealthUpdate::of(*bearer);
+    REQUIRE(ability != nullptr);
+    REQUIRE(stealth != nullptr);
+    w.frames(3);
+    CHECK(ability->allowsSpecialPowerUse()); // RW 0x8515E4
+    stealth->toggleRing();
+    REQUIRE(stealth->ringWorn());
+    CHECK_FALSE(ability->allowsSpecialPowerUse());
+    for (int i = 0; i < 30 && bearer->getDisabledMask() != 0; ++i) w.frames(1);
+    stealth->toggleRing();
+    for (int i = 0; i < 40 && stealth->ringWorn(); ++i) w.frames(1);
+    REQUIRE_FALSE(stealth->ringWorn());
+    CHECK(ability->allowsSpecialPowerUse());
+    ability->initiateIntentToDoSpecialPower(ability->abilityData()->m_specialPowerTemplate, nullptr, nullptr, 0, 0);
+    for (int i = 0; i < 80 && ability->abilitiesTriggered() == 0; ++i) w.frames(1);
+    REQUIRE(ability->abilitiesTriggered() == 1);
+    CHECK(ability->emotionRequests() == 1); // RW 0x894701: enemy in range only
+    auto *enemyEmotion = EmotionTrackerUpdate::of(*enemy);
+    auto *allyEmotion = EmotionTrackerUpdate::of(*ally);
+    auto *farEmotion = EmotionTrackerUpdate::of(*farEnemy);
+    REQUIRE(enemyEmotion != nullptr);
+    REQUIRE(allyEmotion != nullptr);
+    REQUIRE(farEmotion != nullptr);
+    CHECK(enemyEmotion->requested(EMOTION_TERROR));
+    CHECK(enemyEmotion->requestSource(EMOTION_TERROR) == bearer->getID());
+    CHECK_FALSE(allyEmotion->requested(EMOTION_TERROR));
+    CHECK_FALSE(farEmotion->requested(EMOTION_TERROR));
 }
