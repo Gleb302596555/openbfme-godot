@@ -195,3 +195,30 @@ TEST_CASE("PORT-210 horde excluded from collision registration does not keep wal
     f.frames(1);
     CHECK(contain->wallToScale() == 0);
 }
+
+// Integration: unlike the isolated contact test, the wall occupies pathfinder
+// cells. The horde receives a move order and no object is teleported afterward.
+// This short wall permits a detour; it does not prove a successful climb.
+TEST_CASE("PORT-210 moving horde contacts a pathfinding wall obstacle")
+{
+    Fixture f;
+    f.combat().setAutoAcquireEnabled(false);
+    Object *horde = f.unit("Port210Horde", 'A', 230, 300);
+    Object *wall = f.unit("Port210Wall", 'B', 310, 300);
+    f.ai->addObjectToPathfindMap(*wall);
+    auto *contain = dynamic_cast<HordeContain *>(horde->getContain());
+    REQUIRE(contain != nullptr);
+    const auto members = f.membersOf(horde);
+    REQUIRE(members.size() == 1);
+    const int player = f.playerIndex("Alice");
+    f.select(player, { horde });
+    f.moveTo(player, 400, 300);
+    bool contacted = false;
+    for (int frame = 0; frame < 160; ++frame)
+    {
+        f.frames(1);
+        contacted = contacted || contain->wallToScale() == wall->getID();
+    }
+    CHECK(contacted);
+    CHECK(horde->getPosition()->x > 310.0f); // tolerance: verifies progress past the obstacle, not an exact path
+}
