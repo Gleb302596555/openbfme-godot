@@ -45,6 +45,7 @@
 #include "GameLogic/WeaponState.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 
 namespace ModelCondition
@@ -1792,6 +1793,14 @@ void ControlBar::populateUnderConstruction(Object &obj, bool mine)
 	place(cb, 0); // command window 0
 }
 
+// the bar key's timer field: a percent ready can be far outside int (a power not ready by status whose ready frame passed: RW 0x991434's unsigned
+// ready - now wraps, as in retail), so it is clamped before the cast (UBSan 2026-11-18: -4.29e11 to int is undefined)
+static std::string timerKey(float timer)
+{
+	const float t = std::isfinite(timer) ? std::clamp(timer * 100.0f, -1.0e9f, 1.0e9f) : 0.0f;
+	return std::to_string((long long)t);
+}
+
 void ControlBar::emitStateKey()
 {
 	// the version moves when the picture of the bar changes
@@ -1801,7 +1810,7 @@ void ControlBar::emitStateKey()
 	{
 		for (const ControlBarButton &b : *v)
 		{
-			key += std::string(v == &m_palantir ? "a" : (v == &m_side ? "s" : "o")) + std::to_string(b.position) + "|" + std::to_string(b.slot) + ":" + std::to_string((int)b.state) + ":" + std::to_string(b.queued) + ":" + std::to_string((int)(b.timer * 100.0f)) + ":" +
+			key += std::string(v == &m_palantir ? "a" : (v == &m_side ? "s" : "o")) + std::to_string(b.position) + "|" + std::to_string(b.slot) + ":" + std::to_string((int)b.state) + ":" + std::to_string(b.queued) + ":" + timerKey(b.timer) + ":" +
 				std::to_string(b.rider) + ":" + b.image + ":" + b.textLabel + ":" + b.descriptLabel + (b.autoAbility ? ":auto" : "");
 		}
 	}

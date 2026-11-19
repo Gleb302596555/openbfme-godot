@@ -1594,7 +1594,7 @@ SpecialPowerModuleInterface *SpecialPowerModules::findModule(const Object &obj, 
 	}
 	for (const auto &m : obj.modules())
 	{
-		SpecialPowerModuleInterface *sp = m->getSpecialPower();
+		SpecialPowerModuleInterface *sp = m ? m->getSpecialPower() : nullptr;
 		if (sp && sp->getSpecialPowerTemplate() == t) // RW 0x8969D1 (the data's template pointer)
 		{
 			return sp;

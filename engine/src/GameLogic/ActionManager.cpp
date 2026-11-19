@@ -220,7 +220,7 @@ bool moduleAllows(Object &obj, SpecialPowerModuleInterface &m, const SpecialPowe
 		const SpecialPowerUpdateInterface *u = dynamic_cast<const SpecialPowerUpdateInterface *>(b.get());
 		if (u && u->drivesSpecialPower(&t)) // slot 0x1C with the module's power (module data + 0x8)
 		{
-			return u->allowsSpecialPowerUse(locOrNull); // slot 0x20; the place: RW 0x897E82 pushes the requirements' first argument
+			return u->allowsSpecialPowerUse(locOrNull); // slot 0x20; the place: RW 0x897E82 pushes the requirements' first argument (PORT-260: RW 0x893D61 reads it)
 		}
 	}
 	return true;

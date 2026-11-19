@@ -43,6 +43,7 @@
 #include "GameLogic/SkirmishAI/AIStatCollector.h"
 #include "GameLogic/SkirmishAI/AITacticalAI.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <map>
 #include <memory>

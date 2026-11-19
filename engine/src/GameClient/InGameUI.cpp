@@ -15,7 +15,11 @@
 #include <set>
 
 // RW 0x69D90C selects across the screen from the current selection, not the object that passed the ControlBar gate.
-// The region scan retains the ZH-based port (S-1202): contained-template matching and drawable traversal ordering are not yet reproduced.
+// The region scan retains the ZH-based port (S-1202): contained-template matching is not yet reproduced.
+// PORT-271 (issue #638, P-151): the traversal order is RotWK's. RW 0x6A43FE walks TheGameClient's drawables, which are newest-first, and adds
+// each match through selectDrawable (RW 0x6A4109), a push_front, so the selection ends oldest-first (ascending ObjectID) and the hero the
+// panel picks (the smallest id of the senior rank, RW 0x94475A) is the first of the selection, the one the voice answers for (RW 0x8DEDBB).
+// The object list here runs oldest-first, so the walk takes it from the end.
 int InGameUI::selectMatching(HudContext &ctx, bool acrossMap)
 {
 	std::set<const ThingTemplate *> templates;
@@ -35,7 +39,7 @@ int InGameUI::selectMatching(HudContext &ctx, bool acrossMap)
 	}
 	const ICoord2D size = ctx.view.size();
 	std::vector<Object *> found;
-	for (Object *o = ctx.logic.getFirstObject(); o; o = o->getNextObject())
+	for (Object *o = ctx.logic.getLastObject(); o; o = o->getPrevObject())
 	{
 		if (o->isDestroyed() || o->getContainedBy() || !HudObjects::isLocallyControlled(ctx, *o) || !HudObjects::isSelectable(*o, getGUICommand()) || o->isKindOfName("STRUCTURE"))
 		{

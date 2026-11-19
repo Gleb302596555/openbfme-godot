@@ -284,6 +284,15 @@ def next_free_id() -> int:
     return int(out.removeprefix("S-"))
 
 
+def pr_added_lines(n: int, f: str) -> list[str]:
+    """The lines PR n adds to file f against the batch's base (the `+` side of its diff, without the header)."""
+    out = []
+    for line in git("diff", f"{BASE}...refs/batch/{n}", "--", f).split("\n"):
+        if line.startswith("+") and not line.startswith("+++"):
+            out.append(line[1:].rstrip("\r"))
+    return out
+
+
 def renumber(n: int, old: int, content: str, why: str, renumbered: list[str]) -> None:
     """Writes PR n's stop fragment under the next free id and moves its mentions in the PR's own files."""
     new = next_free_id()
@@ -297,10 +306,47 @@ def renumber(n: int, old: int, content: str, why: str, renumbered: list[str]) ->
             text = p.read_text(encoding="utf-8")
         except UnicodeDecodeError:
             continue
-        if re.search(rf"\bS-{old}\b", text):
-            p.write_text(re.sub(rf"\bS-{old}\b", f"S-{new}", text), encoding="utf-8")
+        if not re.search(rf"\bS-{old}\b", text):
+            continue
+        if f in UNION:
+            # a shared table: only the lines this PR added, never another stop's row (2026-11-18h / i: main already had a row S-7493, #654's
+            # fragment S-7493 went to S-7507, and the global replace renamed main's row too: "S-7507 is already a row")
+            added = set(pr_added_lines(n, f))
+            lines = text.split("\n")
+            for i, line in enumerate(lines):
+                if line in added and not line.startswith(f"| S-{old} |"):
+                    lines[i] = re.sub(rf"\bS-{old}\b", f"S-{new}", line)
+            new_text = "\n".join(lines)
+        else:
+            new_text = re.sub(rf"\bS-{old}\b", f"S-{new}", text)
+        if new_text != text:
+            p.write_text(new_text, encoding="utf-8")
             git("add", f)
     renumbered.append(f"#{n}: S-{old} -> S-{new} ({why})")
+
+
+STOP_ROW = re.compile(r"^\| S-(\d+) \|")
+
+
+def dedupe_rows(merged: str, base: str) -> str | None:
+    """A union merge keeps both versions of a stop row one side edited (2026-11-19e: Port 271 narrowed S-705, main's old row stayed beside it
+    and tools/fragments.py collect refused the landing). Of two rows with one id, the one equal to the base's is the old one and goes; when
+    neither equals it (both sides edited the row) it is a real conflict: None."""
+    old = {m.group(1): line for line in base.splitlines() if (m := STOP_ROW.match(line))}
+    lines = merged.splitlines(keepends=True)
+    seen: dict[str, list[int]] = {}
+    for i, line in enumerate(lines):
+        if m := STOP_ROW.match(line):
+            seen.setdefault(m.group(1), []).append(i)
+    drop = set()
+    for sid, idx in seen.items():
+        if len(idx) < 2:
+            continue
+        stale = [i for i in idx if lines[i].rstrip("\r\n") == old.get(sid)]
+        if len(idx) != 2 or len(stale) != 1:
+            return None
+        drop.add(stale[0])
+    return "".join(line for i, line in enumerate(lines) if i not in drop)
 
 
 def resolve(n: int, pending: list[tuple[int, str]]) -> list[str]:
@@ -319,7 +365,15 @@ def resolve(n: int, pending: list[tuple[int, str]]) -> list[str]:
             for t, text in zip(tmp, parts):
                 t.write_text(text, encoding="utf-8")
             sh(["git", "merge-file", "--union", *map(str, tmp)])
-            (WT / f).write_text(tmp[0].read_text(encoding="utf-8"), encoding="utf-8")
+            merged = tmp[0].read_text(encoding="utf-8")
+            if f == "docs/STOPS.md":
+                merged = dedupe_rows(merged, parts[1])
+            if merged is None:  # both sides edited one stop row: a real conflict
+                for t in tmp:
+                    t.unlink()
+                left.append(f)
+                continue
+            (WT / f).write_text(merged, encoding="utf-8")
             for t in tmp:
                 t.unlink()
         else:
@@ -356,6 +410,19 @@ def merge_batch(name: str, prs: list[dict], out: list[int]) -> tuple[list[dict],
             renumber(n, old, content, "the id an earlier PR of the batch took", renumbered)
         if pending:
             git(*AUTHOR, "commit", "-q", "--no-verify", "-m", f"Batch {name}: #{n}'s stop renumbered (the id an earlier PR took)")
+    # A PR that conflicts with the base itself, not with an earlier PR of the batch, would be taken by every next batch and leave again
+    # (2026-11-19a .. d: #579 #615 #629 #658, checked on an old main, filled the slots for 8 hours and the green PRs behind them waited):
+    # it is marked BASE and goes back to its agent (left_batch).
+    if conflicted:
+        here = git("rev-parse", "HEAD").strip()
+        for i, (p, why) in enumerate(conflicted):
+            git("checkout", "-q", "-f", "--detach", BASE)
+            tried = sh(["git", *AUTHOR, "merge", "-q", "--no-ff", "--no-commit", "--no-verify", f"refs/batch/{p['number']}"])
+            if tried.returncode and resolve(p["number"], []):
+                conflicted[i] = (p, BASE_CONFLICT + why)
+            git("merge", "--abort", check=False)
+        git("checkout", "-q", "-f", f"batch/{name}")
+        git("reset", "-q", "--hard", here)
     # a fragment whose id main's table already has (taken since the PR started)
     owner = {f: p["number"] for p in merged for f in pr_files(p["number"]) if FRAGMENT.match(f)}
     taken = set(int(i) for i in re.findall(r"^\| S-(\d+) \|", (WT / "docs/STOPS.md").read_text(encoding="utf-8"), re.M))
@@ -537,6 +604,8 @@ def repin(test: str, ps: dict | list[dict], name: str) -> str:
 
 BATCH_MARK = "<!-- batch {name} {head} -->"
 LEFT_MARK = "<!-- batch-left {name} {head} -->"
+BASE_CONFLICT = "BASE: "   # merge_batch's mark of a conflict with the batch's base (main), not with an earlier PR
+EMPTY_RC = 3   # cmd_run's exit code for a batch whose PRs all left before the build
 
 
 def taken_comment(name: str, p: dict, sandbox: str) -> str:
@@ -554,7 +623,12 @@ def left_batch(take: list[dict], rows: dict, out: dict) -> list[tuple[dict, str]
     for p in take:
         if p["number"] in out:
             continue  # its return comment says why
-        if p["number"] in conflicted:
+        if p["number"] in conflicted and conflicted[p["number"]].startswith(BASE_CONFLICT):
+            files = conflicted[p["number"]].split("conflicts in ", 1)[-1].split(" with ")[0]
+            res.append((p, f"конфликтует с самим `main` ({files}), не с другими PR партии.\n\n<!-- returned --> Возвращён агенту: влей свежий "
+                           "`origin/main` в ветку, разреши конфликт, прогони свои тесты и запушь — проверяльщик перепроверит, и PR снова "
+                           "пойдёт в партию. Пока нового коммита нет, бот партии его не берёт"))
+        elif p["number"] in conflicted:
             res.append((p, "конфликтует с PR, влитыми в партию раньше: пойдёт в следующую партию"))
         elif not green:
             res.append((p, f"партия не зелёная ({rows['verdict']}), но не из-за этого PR: снова ждёт партии"))
@@ -704,7 +778,9 @@ def loop_round(a, st: dict) -> str:
     with open(RUNS / f"{name}.log", "w") as out:
         rc = subprocess.run([sys.executable, str(me), "run", "--name", name, "--max", str(a.max), "--base", base], cwd=str(REPO),
                             stdout=out, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL).returncode
-    st.update(name=name, finished=time.time(), red=rc != 0)
+    # an empty batch (every PR left: conflicts, returns) tested nothing, so it does not hold the next one for idle_hours (2026-11-19d held
+    # #681 #682 #683 for 2 h behind four PRs that conflicted with main)
+    st.update(name=name, finished=time.time(), red=rc not in (0, EMPTY_RC))
     if rc == 0:
         st["green"] = name
         return f"batch {name} green: batch/{name} pushed, waits for Claude's landing"
@@ -911,6 +987,8 @@ def run_batch(a, name: str, take: list[dict], wait: list, out_dir: Path) -> int:
         for p, why in left_batch(take, rows, out):
             gh("pr", "comment", str(p["number"]), "--body", left_comment(name, p, why))
     (STATUS_DIR / f"{RUN_KEY}.txt").unlink(missing_ok=True)   # done: the loop's line (or nothing) says the rest
+    if rows["verdict"].startswith("пустой"):
+        return EMPTY_RC
     return 0 if rows["verdict"].startswith("зелёный") else 1
 
 

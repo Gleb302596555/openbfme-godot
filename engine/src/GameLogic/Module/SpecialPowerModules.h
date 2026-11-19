@@ -135,7 +135,8 @@ public:
 		return empty;
 	}
 	virtual void stopSpecialPower() {}                                                  // slot 0x44 (RW 0x896751; RW 0x8CA2D0 on SiegeDeploySpecialPower)
-	virtual void onUpdateFinished() {}                                                  // slot 0x4C (RW 0x896751; SpecialAbilityUpdate::finishAbility RW 0x85314C)
+	// slot 0x4C (RW 0x00896751): SpecialAbilityUpdate::finishAbility (RW 0x0085314C) clears m_updateDisabled (+0x28)
+	virtual void clearUpdateDisabled() {}
 	virtual ObjectID getTargetObjectID() const { return INVALID_ID; }                   // slot 0x50 (RW 0x7B0F25: module + 0x2C)
 	virtual void updateRequirementsPause() {}                                           // slot 0x58 (RW 0x896A32: Player::update RW 0x6AF39A -> 0x6ADD22)
 };
@@ -182,7 +183,8 @@ public:
 		return m_spData ? m_spData->m_initiateSound : empty;
 	}
 	void stopSpecialPower() override { m_updateDisabled = false; }            // slot 0x44 (RW 0x896751)
-	void onUpdateFinished() override { m_updateDisabled = false; }            // slot 0x4C (RW 0x896751)
+	void clearUpdateDisabled() override { m_updateDisabled = false; }         // slot 0x4C (RW 0x00896751)
+	void setUpdateDisabled(bool disabled) { m_updateDisabled = disabled; }
 	ObjectID getTargetObjectID() const override { return m_targetObjectID; }  // slot 0x50 (RW 0x7B0F25)
 	void updateRequirementsPause() override;                                  // slot 0x58 (RW 0x896A32)
 	bool isUpdateDisabled() const { return m_updateDisabled; }

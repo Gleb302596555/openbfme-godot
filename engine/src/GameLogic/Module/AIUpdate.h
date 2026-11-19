@@ -237,13 +237,13 @@ public:
 	// `team` (the machine's goal squad, AIAttackSquadState)
 	bool aiAttackTeam(const Team &team, int maxShotsToFire, CommandSourceType source);
 	// RW AI + 0x6C (AI vslot 0x1E4): the area the AI attacks or guards, null for none; set by privateAttackArea, kept until another area replaces it
-	const TriggerArea *areaToGuard() const;
+	const TriggerArea *areaToGuard() const;                          // AI vslot 121, RW 0x006DA64A ([ecx + 0x6C])
 	std::int32_t areaToGuardIndex() const { return m_areaToGuard; }
 	// lane BFME2CAMP1: AI command 0x20 (RW 0x771873 aiGuardTeam; AIGroup RW 0x772777) -> aiDoCommand's gate, then privateGuardTeam RW 0x664B93 (AI vslot
 	// 0x104, AIGuardCommands.cpp): guard the team's members' mean position
 	bool aiGuardTeam(const Team &team, int mode, CommandSourceType source);
 	// RW AI + 0x68 (BFME2 getGuardTeam, AI vslot 120): the team privateGuardTeam set (its id, 0 none)
-	std::uint32_t guardTeam() const { return m_guardTeam; }
+	std::uint32_t guardTeam() const { return m_guardTeam; }          // AI vslot 120, RW 0x008EE731 ([ecx + 0x68])
 	// lane BFME2CAMP1: AI commands 0x21 / 0x44 (RW 0x7718E1 aiGuardArea / RW 0x77194F aiGuardAreaFromPosition) -> aiDoCommand's gate, then vslot 0x10C,
 	// privateGuardAreaFromPosition RW 0x664C11 (AI/AIGuardCommands.cpp): guard `area` in `mode` around `pos` (null: the area's centre); false when nothing changed
 	bool aiGuardArea(const TriggerArea &area, int mode, CommandSourceType source, const Coord3D *pos);
@@ -256,9 +256,10 @@ public:
 	// PORT-203: AI command 0x37 (RW 0x7C8154 aiGuardTunnelNetwork) -> aiDoCommand's gate, then privateGuardTunnelNetwork RW 0x664ABF (AI vslot 0xF8):
 	// enter state 0x18 (AI_TUNNEL_NETWORK_GUARD, AITunnelNetworkGuardState)
 	bool aiGuardTunnelNetwork(int mode, CommandSourceType source);
-	int guardMode() const { return m_guardMode; }                      // AI vslot 125
-	int guardTargetType() const { return m_guardTargetType; }          // AI vslot 123
-	const Coord3D &guardLocation() const { return m_guardLocation; }   // AI vslot 118
+	// PORT-264: the guard queries, each cited at its RotWK body (the getters of the two-entry guard target stack, the mode and the location)
+	int guardMode() const { return m_guardMode; }                      // AI vslot 125, RW 0x00670317 ([ecx + 0x4C])
+	int guardTargetType() const { return m_guardTargetType; }          // AI vslot 123, RW 0x0049A4D0 ([ecx + 0x54])
+	const Coord3D &guardLocation() const { return m_guardLocation; }   // AI vslot 118, RW 0x008F1161 (lea [ecx + 0x58])
 	unsigned autoAcquireFlags() const { return m_combat.autoAcquire; }
 	// RW 0x662E01 (AI + 0x21C; ZH AIUpdateInterface::setNextMoodCheckTime): the frame of the next mood check, without the random offset (+ 0x3BC cleared)
 	void setNextMoodCheckTime(unsigned frame)
@@ -387,7 +388,11 @@ public:
 	// Port 257: RW vslot 0x1D0 (RW 0x662B28): the current state's slot 0x34 (AIState::isFollowThru), true without a current state
 	bool isInFollowThruState() const { return !m_machine || !m_machine->currentState() ? true : m_machine->currentState()->isFollowThru(); }
 	bool isBlocked() const { return m_mover->isBlocked(); }
-	bool isBusy() const { return m_machine && m_machine->currentStateId() == AI_BUSY; }
+	bool isBusy() const { return m_machine && m_machine->currentStateId() == AI_BUSY; } // AI vslot 0x16C, RW 0x0066281A: the CURRENT state's slot 0x38
+	// PORT-264: AI vslot 0x1C4 (RW 0x00662B50): the machine's slot 0x30 (RW 0x741724) — the temporary state's busy flag first, the current state's
+	// otherwise — so a unit under a temporary busy state answers true here while isBusy (the current state, RW 0x0066281A) answers false. RotWK reads the
+	// machine without a test (the constructor makes it, RW 0x0066ECFE); the port answers false when it has none, as its other machine queries do.
+	bool isBusyState() const;
 	// ---- lane EXIT-1: the horde member update (GameLogic/Module/AIUpdateHordeMember.cpp) ----
 	// RW 0x66E654 .. 0x66E6F4: a HORDE_MEMBER whose machine is busy (RW 0x741724) or whose locomotor goal is explicit / an angle / explicit with a path (not a
 	// DOZER with an angle goal) runs RW 0x66C748 instead of the ordinary update RW 0x6695EF

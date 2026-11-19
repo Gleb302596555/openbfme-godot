@@ -87,6 +87,10 @@ field-audit/  the mod field audit (tools/mod/field_audit.py on main {rev}; the m
   manual-check.tsv     the hand-checked verdicts every run applies with --manual
   {totals}
 
+script-map/SCRIPT_MAP.tsv  every script of the sides' script libraries (Libraries\<name>\<name>.map) and .scb files of the mod's mount:
+                       conditions, actions with parameters, the condition / action types the port has no case for (tools/mod/script_map.py;
+                       the repository has its names-only half: docs/ennorath/SCRIPT_GRANTS.tsv, SCRIPT_MAP.md)
+
 rotwk-triage/  what RotWK 2.01 itself does with 741 of those fields (cloud-agent triage, all 25 batches), reviewed; unchanged since 2026-11-10.
 """
 buf = io.BytesIO()
@@ -96,6 +100,8 @@ with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         if (audit / f).exists():
             z.write(audit / f, f"field-audit/{f}")
     z.write(manual, "field-audit/manual-check.tsv")
+    if (audit / "script-map" / "SCRIPT_MAP.tsv").exists():
+        z.write(audit / "script-map" / "SCRIPT_MAP.tsv", "script-map/SCRIPT_MAP.tsv")
     for n in (old.namelist() if old else []):
         if n.startswith("rotwk-triage/"):
             z.writestr(n, old.read(n))
@@ -120,6 +126,12 @@ run() {
   local rev; rev=$(git rev-parse --short=8 HEAD)
   st "карты на main $rev: сборка"
   bash tools/colab/build_tests.sh > "$RUNS/nightly_build.log" 2>&1 || { echo "build failed at $rev" >> "$LOG"; return 1; }
+  mkdir -p "$AUDIT"
+  # the script map (owner 2026-11-19: mechanics the sides' script libraries give, like the Manwe science): before the matrix (matrix_run.py collect
+  # notes the script on a row naming what a script gives); its names-only half goes into the
+  # repository with the maps, the full transcription into the audit folder and its zip
+  st "карты на main $rev: карта скриптов"
+  python3 tools/mod/script_map.py "$ROTWK_INSTALL" "$OPENBFME_ENNORATH_INSTALL" --out docs/ennorath --full "$AUDIT/script-map"       > "$RUNS/nightly_scripts.log" 2>&1 || echo "script map failed at $rev (the run goes on)" >> "$LOG"
   st "карты на main $rev: матрица кнопок (все фракции)"
   python3 tools/matrix_run.py all --jobs 5 > "$RUNS/nightly_matrix.log" 2>&1 || { echo "matrix failed at $rev" >> "$LOG"; return 1; }
   # the matrix review (owner 2026-11-17): layer 1 ran inside `all` (recheck: every red object swept again alone, ORDER when fine alone);
@@ -167,7 +179,7 @@ run() {
   st "карты на main $rev: коммит auto/maps"
   git checkout -q -B auto/maps
   git add docs/ennorath/MATRIX.tsv docs/ennorath/README.md docs/ennorath/RW_FUNCTION_MAP.tsv docs/ennorath/RW_FUNCTION_MAP.md \
-      docs/ennorath/MATRIX_GAPS.tsv docs/ennorath/MATRIX_GAPS.md docs/ennorath/FIELD_GAPS.tsv docs/ennorath/PROGRESS.tsv docs/ennorath/MATRIX_FACTIONS.tsv docs/ennorath/MATRIX_REVIEW.md
+      docs/ennorath/MATRIX_GAPS.tsv docs/ennorath/MATRIX_GAPS.md docs/ennorath/FIELD_GAPS.tsv docs/ennorath/PROGRESS.tsv docs/ennorath/MATRIX_FACTIONS.tsv docs/ennorath/MATRIX_REVIEW.md       docs/ennorath/SCRIPT_GRANTS.tsv docs/ennorath/SCRIPT_MAP.md docs/ennorath/GRANTS_INI.tsv
   local red; red=$(python3 -c "import sys; sys.path.insert(0,'tools/mod'); import progress_snapshot as p; print(*p.matrix_counts(None))")
   if git diff --cached --quiet; then
     echo "$day: nothing changed at $rev" >> "$LOG"

@@ -610,6 +610,9 @@ void DrawableManager::advance(double elapsedMs)
 				d->updateTint(); // LOCAL-3: RW 0x675D8B .. 0x675F8A (Drawable.cpp)
 				// lane STEALTHLOOK-1: RW 0x673114 (GameClient/StealthLook.cpp, updateDrawable RW 0x675996)
 				d->updateStealthLook(d->stealthParentId() != INVALID_ID ? findByObject(d->stealthParentId()) : nullptr);
+				// PORT-267: the floor module's doDrawModule (RW 0x4CEBCA) and the floor buffer's record step (RW 0x4E547D -> RW 0x4E3EC5), per
+				// client frame like RW's draw module update and its buffer walk
+				d->updateFloorFades();
 			}
 		}
 	}

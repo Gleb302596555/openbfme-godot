@@ -140,8 +140,9 @@ static void runFoundation(SimulationProfile profile, bool defend, const SaveGame
 		// ENTERADJUST-1 move the game): wolf rider hits 401 -> 421, banner carrier 48 -> 51, the last sling hit taking 1073 (1318); the sling counts stay
 		// pin: the fork's merge of upstream 942fd79e (2026-11-16, measured once on the merged tree, Linux GCC on Colab; AIAttack and ThreatFinderUpdate of
 		// the merge move the game): wolf rider hits 421 -> 467, banner carrier 51 -> 56, the last sling hit taking 1097 (1073); the sling counts stay
-		const std::map<std::string, int> expected = { { "AngmarThrallMasterWolfBanner dealt 2 taken 2", 56 }, { "AngmarTrollSling dealt 1350 taken 1097", 1 },
-			{ "AngmarTrollSling dealt 1350 taken 1350", 4 }, { "AngmarTrollSling dealt 50 taken 50", 5 }, { "AngmarWolfRider dealt 5 taken 5", 467 } };
+		// pin: PR #619 (Port 226, #549) merged onto main 026fbc2f, measured once on the merged tree (Linux GCC on Colab): every fifth idle update of a unit with a StancesBehavior returns FAILURE (RW 0x7553AB -> RW 0x7537C7 / 0x7537E0), the unit goes to AIGoingIdleState -> onMoveEnd -> guardHere (RW 0x743864 -> 0x86228E -> RW 0x662A21): a guard machine main did not run: wolf rider hits 467 -> 555, banner carrier 56 -> 55, the last sling hit taking 636 (1097); the sling counts stay
+		const std::map<std::string, int> expected = { { "AngmarThrallMasterWolfBanner dealt 2 taken 2", 55 }, { "AngmarTrollSling dealt 1350 taken 636", 1 },
+			{ "AngmarTrollSling dealt 1350 taken 1350", 4 }, { "AngmarTrollSling dealt 50 taken 50", 5 }, { "AngmarWolfRider dealt 5 taken 5", 555 } };
 		CHECK(kinds == expected);
 	};
 	if (!saved)
