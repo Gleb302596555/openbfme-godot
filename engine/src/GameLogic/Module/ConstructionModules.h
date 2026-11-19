@@ -122,6 +122,12 @@ public:
 	// RW 0x856501 / 0x857074: eligibility, then source / ascending / descending contiguous dead equivalents.
 	bool canRebuild() const;
 	float neighborhoodRebuildCost(const Player &player) const;
+	// RW 0x00857182: true if this effectively dead structure and at least one contiguous dead equivalent can rebuild
+	bool canNeighborhoodRebuild() const;
+	// RW 0x00856FBE: starts construction on this effectively dead structure and contiguous dead equivalents
+	void startNeighborhoodRebuild(bool force);
+	// RW 0x0085733A: destroys effectively dead linked pieces when this module is deleted
+	void destroyDeadLinkedPiecesOnDelete();
 
 	// slot 17 RW 0x8574F0: runs the update now, then sleeps `frames` (a wall span staggers its tiles by StaggeredBuildFactor * index)
 	void runNowThenSleep(UnsignedInt frames);

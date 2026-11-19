@@ -1039,6 +1039,7 @@ void GameLogic::processDestroyList()
 			if (GettingBuiltBehavior *gb = dynamic_cast<GettingBuiltBehavior *>(m.get()))
 			{
 				gb->killSpawnedWorkerOnDelete();
+				gb->destroyDeadLinkedPiecesOnDelete(); // RW 0x0085733A
 			}
 		}
 		// the pathfinder's map removal (RW 0x6E85FB): not ported (PATH-1 hooks in through the object's modules)

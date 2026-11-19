@@ -428,7 +428,23 @@ void Object::doCommandButton(const CommandButton *button, CommandSourceType cmdS
 		return;
 	}
 	case GUI_COMMAND_START_SELF_REPAIR:
+		if (GettingBuiltBehavior *gb = dynamic_cast<GettingBuiltBehavior *>(findModule("GettingBuiltBehavior"))) // RW 0x68C3E6
+		{
+			if (gb->canRebuild())
+			{
+				gb->startConstruction(false);
+			}
+		}
+		return;
 	case GUI_COMMAND_START_NEIGHBORHOOD_REPAIR:
+		if (GettingBuiltBehavior *gb = dynamic_cast<GettingBuiltBehavior *>(findModule("GettingBuiltBehavior"))) // RW 0x68C3E6
+		{
+			if (gb->canNeighborhoodRebuild())
+			{
+				gb->startNeighborhoodRebuild(false); // RW 0x00856FBE
+			}
+		}
+		return;
 	case GUI_COMMAND_CANCEL_NEIGHBORHOOD:
 		unported(*this, b, "doCommandButton", "behaviour slot 0x80, RW 0x68C3E6");
 		return;
