@@ -328,3 +328,36 @@ True-null local and observer-player scenarios are not yet covered by this fixtur
 defeated-player coverage exercises the same inactive branch.
 All 13 PORT-239 cases plus AptPalantir.cpp/InGameHud.cpp syntax-check only.
 No execution or fail-without-fix result is claimed. S-4531 is not yet closed.
+
+## S-4531 ownership completed, execution still pending
+
+Further linear RW reads tie the already-ported ordinary gate to its actual
+controller rather than only comparing a donor helper:
+
+- Factory entry 0x92FF5C selects the non-toggle branch at 0x92FFEF and calls
+  ordinary ctor entry 0x9D2AED at 0x93000E. It installs vtable 0xC8C438
+  and constructs Impl via 0x9D29FC, storing it at +8.
+- Impl ctor entry 0x9D29FC calls base ctor 0x9D75BC, then installs vtable
+  0xC8C3D4 at 0x9D2A5A; it stores the outer controller at +8.
+- Base ctor 0x9D75BC creates the content implementation through 0x9D72DB.
+  Its entry stores the owner at +0 (0x9D72EF), and registers content callback
+  0x9D6E54; the callback reads that owner/vtable then selects +0xC for
+  clip-state 6, +0x10 otherwise on mouse button 0.
+- Impl vtable 0xC8C3D4 slots +0xC/+0x10 are thunks 0x9D295C/0x9D2964.
+  They follow outer +8 and dispatch its slots +8/+0xC, respectively.
+- Outer vtable 0xC8C438 slots +8/+0xC are 0x9D29DC/0x9D29E4, which
+  follow Impl +8 and jump to 0x9D2814/0x9D285E. Thus state 6 uses the
+  notification directly; other states use the proven 1/3/5 rejection gate.
+
+The ordinary gate is not being added again. S-4531 is narrowed to pending
+execution of its existing-main verdict test; it is not yet closed.
+
+## Queued verification (do not start a competing build)
+
+The original single-thread Ninja PID 2871 remains active. Process handle
+`port-239-full-target-verificatio-a0e3fffa` waits with `tail --pid=2871`, then
+runs `.venv/bin/ninja -C engine/build -j 1 openbfme_tests` and only on success
+runs `engine/build/openbfme_tests -tc="PORT-239*"`. This is sequential, not a
+second concurrent Ninja. Inspect this handle for the current-HEAD build/test
+result. Red/green still needs a separate controlled experiment afterwards.
+No doctest output has been observed. Code HEAD at queue creation: 3436c03f.
