@@ -305,6 +305,62 @@ float GettingBuiltBehavior::neighborhoodRebuildCost(const Player &player) const
 	return result;
 }
 
+// RW 0x00857182: true if this effectively dead structure and at least one contiguous dead equivalent can rebuild
+bool GettingBuiltBehavior::canNeighborhoodRebuild() const
+{
+	const Object &source = *getObject();
+	if (!source.isEffectivelyDead() || !canRebuild()) { return false; }
+	for (int direction : { 1, -1 })
+	{
+		ObjectID id = source.getID();
+		for (;;)
+		{
+			id += direction;
+			const Object *object = source.logic().findObjectByID(id);
+			if (!object || !ObjectFilterMatch::isEquivalentTo(object->getTemplate(), source.getTemplate()) || !object->isEffectivelyDead()) { break; }
+			const auto *building = dynamic_cast<const GettingBuiltBehavior *>(object->findModule("GettingBuiltBehavior"));
+			if (building && building->canRebuild()) { return true; }
+		}
+	}
+	return false;
+}
+
+// RW 0x00856FBE: starts construction on this effectively dead structure and contiguous dead equivalents
+void GettingBuiltBehavior::startNeighborhoodRebuild(bool force)
+{
+	Object &source = *getObject();
+	if (!source.isEffectivelyDead()) { return; }
+	startConstruction(force);
+	for (int direction : { 1, -1 })
+	{
+		ObjectID id = source.getID();
+		for (;;)
+		{
+			id += direction;
+			Object *object = source.logic().findObjectByID(id);
+			if (!object || !ObjectFilterMatch::isEquivalentTo(object->getTemplate(), source.getTemplate()) || !object->isEffectivelyDead()) { break; }
+			if (auto *building = dynamic_cast<GettingBuiltBehavior *>(object->findModule("GettingBuiltBehavior")))
+			{
+				building->startConstruction(force);
+			}
+		}
+	}
+}
+
+// RW 0x0085733A: destroys effectively dead linked pieces when this module is deleted
+void GettingBuiltBehavior::destroyDeadLinkedPiecesOnDelete()
+{
+	Object *obj = getObject();
+	for (const LinkedPiece &piece : m_linked)
+	{
+		Object *linked = obj->logic().findObjectByID(piece.id);
+		if (linked && linked->isEffectivelyDead())
+		{
+			obj->logic().destroyObject(linked);
+		}
+	}
+}
+
 void GettingBuiltBehavior::killBuilder(Object &builder)
 {
 	// RW 0x857270: the builder's model condition bit 252 (Object + 0x128 bit 28) is set first, then RW 0x698EC3: UNRESISTABLE, DEATH_FADED, amount = its max health, kill
@@ -429,7 +485,7 @@ int rebuildPrice(float cost)
 
 bool GettingBuiltBehavior::canAffordRebuild(const Player &player) const
 {
-	// RW 0x8561EA: the money (player + 0x94) >= (unsigned)ceil(rebuildCost)
+	// RW 0x00856280 / 0x8561EA: the money (player + 0x94) >= (unsigned)ceil(rebuildCost)
 	const int price = rebuildPrice(rebuildCost(player));
 	return (std::uint32_t)price <= player.getMoney()->countMoney();
 }
@@ -530,6 +586,7 @@ void GettingBuiltBehavior::startConstruction(bool force)
 	m_checkCompletion = true;
 }
 
+// RW 0x0085757F: stops construction, releases builder if any, and stops held building loop
 void GettingBuiltBehavior::stopConstruction()
 {
 	Object *obj = getObject();
@@ -1124,6 +1181,7 @@ void FoundationAIUpdate::xfer(Xfer &x)
 	xferUpdateModule(x);
 }
 
+// RW 0x008575D5: GettingBuiltBehavior::xfer
 void GettingBuiltBehavior::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);
