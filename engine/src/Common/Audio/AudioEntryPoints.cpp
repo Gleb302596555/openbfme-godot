@@ -49,7 +49,7 @@ std::atomic<std::uint64_t> g_withoutEva{ 0 };
 std::atomic<std::uint64_t> g_withoutVoice{ 0 };
 Eva *g_eva = nullptr;
 std::uint64_t g_deathReports = 0; // per manager binding, under g_bindMutex
-constexpr const char *kHeldSoundTags[] = { "building loop", "move loop", "upgrade loop", "ability loop", "flammable loop", "gate loop" };
+constexpr const char *kHeldSoundTags[] = { "building loop", "move loop", "upgrade loop", "ability loop", "flammable loop", "production speed bonus loop", "gate loop" };
 static_assert(sizeof(kHeldSoundTags) / sizeof(*kHeldSoundTags) == AudioApi::HELD_SOUND_SLOTS);
 struct FireLoop
 {
@@ -724,11 +724,11 @@ void postHeldSound(int slot, const std::string &n, std::uint32_t holderId, std::
 
 // lane PORT-93: RW 0x85403E .. 0x854054: the ability's ActiveLoopSound starts only when the handle kept at module + 0x38 does not sound (RW 0x854014 calls the
 // manager's vslot 0xD0 = isCurrentlyPlaying with it, RW 0x854021 skips the add when it answers true). The holder's own entry is the retail handle: the port keeps
-// it on the audio side like the other held loops.
-void resumeHeldSound(int slot, const std::string &n, std::uint32_t holderId, std::uint32_t objectId)
+// it on the audio side like the other held loops. PORT-280: ProductionUpdate's SpeedBonusAudioLoop (RW 0x8A1CDC .. 0x8A1D33) does the same with owningPlayerIndex.
+void resumeHeldSound(int slot, const std::string &n, std::uint32_t holderId, std::uint32_t objectId, int owningPlayerIndex)
 {
 	AudioManager *mgr = nullptr;
-	switch (route(Binding::Manager, [slot, n, holderId, objectId]() { resumeHeldSound(slot, n, holderId, objectId); }, &mgr))
+	switch (route(Binding::Manager, [slot, n, holderId, objectId, owningPlayerIndex]() { resumeHeldSound(slot, n, holderId, objectId, owningPlayerIndex); }, &mgr))
 	{
 	case Route::Run:
 		break;
@@ -746,14 +746,14 @@ void resumeHeldSound(int slot, const std::string &n, std::uint32_t holderId, std
 	auto it = held.find(holderId);
 	if (it != held.end() && mgr->isCurrentlyPlaying(it->second))
 	{
-		return; // RW 0x854021: the loop is still sounding, it is not added again
+		return; // RW 0x854021 / 0x8A1CEB: the loop is still sounding, it is not added again
 	}
 	if (it != held.end())
 	{
 		held.erase(it); // the kept handle outlived its sound: dropped, then the event is added below
 	}
 	AudioLog::Scope scope(kHeldSoundTags[slot]);
-	const AudioHandle h = mgr->playSoundForObject(n, objectId);
+	const AudioHandle h = mgr->playSoundForObject(n, objectId, owningPlayerIndex);
 	if (h >= AHSV_FirstHandle)
 	{
 		held[holderId] = h;

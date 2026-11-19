@@ -947,10 +947,14 @@ void CommandTranslator::selectAllUnits()
 	// ZH InGameUI::selectAllUnitsByType with the disqualifying kinds DOZER, HARVESTER, IGNORES_SELECT_ALL (CommandXlat.cpp:2888): every mobile
 	// object of the local player that is not contained, structure or dead. ZH selects across the whole map; the radius / screen rule of
 	// RotWK is not read (stop S-286).
+	// PORT-271 (issue #638, P-151): RotWK's select all (RW 0x69C860) walks TheGameClient's drawables, which are newest-first, and selects each
+	// through selectDrawable (RW 0x6A4109), a push_front: the selection ends oldest-first (ascending ObjectID). The object list here runs
+	// oldest-first, so the walk takes it from the end, and the panel's hero (the smallest id of the senior rank, RW 0x94475A) is also the
+	// first of the selection, the one the voice picker answers for (RW 0x8DEDBB)
 	m_ctx.ui.deselectAll();
 	ClientMessage &group = m_ctx.stream.append(MSG_CREATE_SELECTED_GROUP);
 	group.appendBoolean(true);
-	for (Object *o = m_ctx.logic.getFirstObject(); o; o = o->getNextObject())
+	for (Object *o = m_ctx.logic.getLastObject(); o; o = o->getPrevObject())
 	{
 		if (!HudObjects::isLocallyControlled(m_ctx, *o) || o->getContainedBy() || HudObjects::isEffectivelyDead(*o) || !o->getAIUpdateInterface() || !HudObjects::isSelectable(*o))
 		{
@@ -1598,7 +1602,7 @@ int CommandTranslator::evaluateCapture(Object *obj, const Coord3D *pos, Evaluate
 // GUI command and the force-move tests, before the enter and attack tests): a hint is the attack hint (0xB1, the AttackObj cursor); a command is
 // MSG_DO_SPECIAL_POWER_AT_OBJECT (0x412) with Command_SpecialAbilitySiegeDeploy's power { the template id, the target, the button's options, no source, the
 // target's position } (the unit voice of the button, RW 0x8DD5FF, is the client's audio: not played).
-// INFERENCE (S-4944): the TheInGameUI byte + 0x8B0 the branch requires clear is not identified (taken as clear); the selection is the port's selected object ids.
+// + 0x8B0 is the waypoint mode (RW 0x8200FA); this port's shared evaluateContextCommand handles that mode before the siege branch. INFERENCE (S-4944): retail's exact +0x8B0 test at RW 0x81E7A5 is not disassembled here; the selection is the port's selected object ids.
 bool CommandTranslator::canSiegeDeploy(const Object &target)
 {
 	if (!target.isKindOfName("WALK_ON_TOP_OF_WALL") || m_ctx.ui.selected().empty())

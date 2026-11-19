@@ -392,11 +392,22 @@ public:
 		m_searchAndDestroyBattlePlans = searchAndDestroy;
 	}
 
+	// PORT-280 (fork issue 647): the per-template production time change maps of RW Player + 0x2B4 (active change), + 0x2C8 (template baseline from
+	// PlayerTemplate::m_productionTimeChanges, copied in Player::init RW 0x6B0239 at RW 0x6B05C9 .. 0x6B0634) and + 0x2DC (remaining logic frames).
+	// Key equality is case-sensitive (RW 0x42B6C1 hash / RW 0x4052F9 memcmp).
+	void setProductionSpeedBonus(const std::string &templateName, float bonus, int frames); // RW 0x6AF3C8
+	void removeProductionSpeedBonus(const std::string &templateName);                       // RW 0x6AF429
+	float getProductionTimeChange(const std::string &templateName) const;                   // RW 0x6AF484
+	int getProductionTimeTimer(const std::string &templateName) const;                      // test read of RW + 0x2DC (0 when absent)
+	void updateProductionTimeTimers();                                                      // RW 0x6AF269 (loop RW 0x6AF28E .. 0x6AF2DD)
+
 	void setEconomyHost(PlayerEconomyHost *host) { m_host = host; }
 	PlayerEconomyHost *economyHost() const { return m_host; }
 
 private:
 	PlayerEconomyHost &host() const;
+	void resetProductionTimeChanges(const PlayerTemplate *pt);
+	bool isProductionTimeUntouched() const;
 
 	int m_index;
 	std::string m_name;
@@ -453,4 +464,7 @@ private:
 	int m_holdTheLineBattlePlans = 0;             ///< PORT-237: RW + 0xB0
 	int m_searchAndDestroyBattlePlans = 0;        ///< PORT-237: RW + 0xB4
 	BattlePlanBonuses m_battlePlanBonuses;        ///< PORT-237: RW + 0xB8
+	std::map<std::string, float> m_productionTimeChanges;         ///< PORT-280: RW + 0x2B4 (active build time percent delta per ThingTemplate name)
+	std::map<std::string, float> m_startingProductionTimeChanges; ///< PORT-280: RW + 0x2C8 (PlayerTemplate baseline restored when a timer expires)
+	std::map<std::string, int> m_productionTimeTimers;            ///< PORT-280: RW + 0x2DC (remaining frames per ThingTemplate name; 0 = none)
 };

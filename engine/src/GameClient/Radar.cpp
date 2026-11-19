@@ -72,6 +72,8 @@ void Radar::removeMarker(RadarMarker *marker)
 #include "Common/Player.h"
 #include "GameClient/TGAFile.h"
 #include "GameClient/HudObjects.h"
+#include "GameClient/RadarMarkerClientUpdate.h"
+#include "Common/AsciiString.h"
 #include "Common/PlayerList.h"
 #include "Common/Team.h"
 #include "Common/Thing/ThingTemplate.h"
@@ -609,6 +611,48 @@ const RadarKinds &radarKinds()
 	return k;
 }
 
+// PORT-269 (issue #636 / P-154): the rule RotWK uses to put a dropped ring on the minimap. A template with a
+// RadarMarkerClientUpdate whose MarkerType is set gets a permanent radar ping. The module is registered at
+// RW 0x65287A and its MarkerType field at RW 0x8CE0CA; clientUpdate RW 0x8CE116 (slot +0x30 of the
+// client-update vtable RW 0xC759E8, entry RW 0xC75A18) asks TheRadar for a marker of that type
+// (W3DRadar::createMarker, vslot +0x30 / RW 0x44F0FA), stores it at RW 0x8CDFC9 and moves it to the
+// drawable (RW 0x676711 -> RW 0x9F9E7B); W3DRadar::drawEvents (RW 0x44DE58, marker loop RW 0x44EDAE)
+// paints the movie ping. It is an INI module, not a template name or a KindOf: crate.ini:1095
+// (TheDroppedRing, PingOneRing), :1242 (PalantirShard, PingBeacon), :2018 / :2085 (the dropped elf rings)
+// and object/projectile.ini (DieJagdLurtzPing). No CRATE / ONE_RING / REVEAL_TO_ALL bit is read in this
+// path: the only REVEAL_TO_ALL test (RW 0x694ADA) is the shroud/vision look mask (S-564), the only
+// ONE_RING template test (RW 0x97CE0F, mask 0x82000) is an AI scan of the object list, and the RW radar
+// has no byte test for template +0x122 & 8. Object::getRadarPriority (RW 0x68EBE9) returns INVALID for
+// the ring and Radar::addObject (RW 0x6D9042) rejects 0/1 at isPriorityVisible (RW 0x6D8B21), so in
+// RotWK the ring is NOT one of the radar's object blips - it is the marker above.
+// The port's Godot minimap paints Radar::renderOverlay's listed objects; DrawableModule has no
+// clientUpdate hook and RadarMarkerClientUpdate::clientUpdate is never called from a frame, so no marker
+// is ever created there. The same retail rule is therefore carried by the port's own radar path: a template
+// with that module and an INVALID RadarPriority is listed with the RotWK priority (INVALID), while an
+// explicit NOT_ON_RADAR keeps its old state (see S-7448).
+bool hasRadarMarker(const ThingTemplate *tt)
+{
+	if (!tt)
+	{
+		return false;
+	}
+	for (const ThingTemplate::Nugget &n : tt->clientUpdateModules().nuggets())
+	{
+		if (AsciiStringUtil::compareNoCase(n.name, "RadarMarkerClientUpdate") != 0)
+		{
+			continue;
+		}
+		const auto *data = dynamic_cast<const RadarMarkerClientUpdateModuleData *>(n.data.get());
+		// The port's existing module returns without a marker when MarkerType is empty. No owner of this
+		// module in Ennorath 1.9.8.3 leaves it empty; RW 0x8CE116 passes the empty name 0xBD0C3F instead.
+		if (data && !data->m_markerType.empty())
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 bool has(const KindOfMaskType &mask, int bit)
 {
 	return bit >= 0 && MaskTest(mask, (unsigned)bit);
@@ -762,8 +806,12 @@ void Radar::captureObject(GameLogic &logic, const Object &o, const Player *local
 		}
 	}
 	out.priority = (std::int8_t)priority;
-	// RW 0x6D9042 (Radar::addObject): RW 0x6D8B21 isPriorityVisible (not 0 .. 1)
-	if (priority >= RADAR_PRIORITY_INVALID && priority <= RADAR_PRIORITY_NOT_ON_RADAR)
+	// RW 0x6D9042 (Radar::addObject): RW 0x6D8B21 isPriorityVisible (not 0 .. 1). PORT-269: a
+	// RadarMarkerClientUpdate marker (RW 0x8CE116) is RotWK's radar event for exactly the objects
+	// whose RadarPriority is INVALID, so it carries them past that gate here; the priority itself
+	// stays the one RW 0x68EBE9 computed (see hasRadarMarker above). No object is removed.
+	const bool markerCarriesInvalid = priority == RADAR_PRIORITY_INVALID && hasRadarMarker(tt->getFinalOverride());
+	if (priority >= RADAR_PRIORITY_INVALID && priority <= RADAR_PRIORITY_NOT_ON_RADAR && !markerCarriesInvalid)
 	{
 		return;
 	}

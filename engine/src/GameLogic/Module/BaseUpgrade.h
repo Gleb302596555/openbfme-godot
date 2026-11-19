@@ -31,6 +31,7 @@
 
 class ModuleFactory;
 
+// scalar deleting dtor RW 0x008B78B6; ModuleData empty-string virtual RW 0x004B612F
 class BaseUpgradeModuleData : public UpgradeModuleData
 {
 public:
@@ -40,6 +41,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// scalar deleting dtor RW 0x008B78D2
 class BaseUpgrade : public UpgradeModule
 {
 public:

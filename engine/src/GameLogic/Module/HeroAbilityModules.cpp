@@ -14,6 +14,7 @@
 #include "Common/Upgrade.h"
 #include "GameLogic/AI/AIStateMachine.h"
 #include "GameLogic/Module/EmotionModules.h"
+#include "GameLogic/Object/ObjectDoCommandButton.h"
 #include "GameClient/ControlBarCommands.h"
 #include "GameLogic/ObjectCreationList.h"
 #include "GameLogic/Damage.h"
@@ -39,6 +40,7 @@
 #include "GameLogic/Object/ExperienceTracker.h"
 #include "GameLogic/SimMath.h"
 #include "GameLogic/Weapon.h"
+#include "GameLogic/WeaponState.h" // lane PORT-260: RW 0x6CA03E / 0x6CA525 / 0x6CA701 of the volley's location test
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/GameMessage.h"
 #include "GameLogic/GameLogicDispatch.h"
@@ -752,14 +754,31 @@ bool AutoAbilityBehavior::canAct(const CommandButton &b) const
 	{
 		return false;
 	}
-	// RW 0x75CC3E: the power's module fully ready, or an upgrade the object may take and lacks
+	// RW 0x0075CC3E (CommandButton::isReady):
+	//   * FIRE_WEAPON (0x17, RW 0x0075CC4A .. 0x0075CC76): if Upgrade (+ 0x24) is set, the object must have it (RW 0x00691421);
+	//     then TheGameLogic->getFrame() >= obj->m_fireWeaponDeadline (Object + 0x478).
+	//   * other commands (RW 0x0075CC78 .. 0x0075CCBE): the power's module fully ready, or an upgrade the object may take and lacks.
 	const SpecialPowerTemplate *t = TheSpecialPowerStore && !b.m_specialPowerName.empty() ? TheSpecialPowerStore->findSpecialPowerTemplate(b.m_specialPowerName) : nullptr;
 	SpecialPowerModuleInterface *sp = t ? SpecialPowerModules::findModule(*obj, t) : nullptr;
-	bool valid = sp && sp->getPercentReady() == 1.0f;
-	if (!valid && !b.m_upgradeName.empty() && TheUpgradeCenter)
+	bool valid = false;
+	if (b.m_command == GUI_COMMAND_FIRE_WEAPON)
 	{
-		const UpgradeTemplate *u = TheUpgradeCenter->findUpgrade(b.m_upgradeName);
-		valid = u && obj->affectedByUpgrade(u) && !obj->hasUpgrade(u); // RW 0x694914 / 0x691421
+		bool upgradeOk = true;
+		if (!b.m_upgradeName.empty())
+		{
+			const UpgradeTemplate *u = TheUpgradeCenter ? TheUpgradeCenter->findUpgrade(b.m_upgradeName) : nullptr;
+			upgradeOk = u && obj->hasUpgrade(u); // RW 0x0075CC57 -> RW 0x00691421
+		}
+		valid = upgradeOk && obj->logic().getFrame() >= obj->getFireWeaponDeadline(); // RW 0x0075CC63 .. 0x0075CC74
+	}
+	else
+	{
+		valid = sp && sp->getPercentReady() == 1.0f;
+		if (!valid && !b.m_upgradeName.empty() && TheUpgradeCenter)
+		{
+			const UpgradeTemplate *u = TheUpgradeCenter->findUpgrade(b.m_upgradeName);
+			valid = u && obj->affectedByUpgrade(u) && !obj->hasUpgrade(u); // RW 0x694914 / 0x691421
+		}
 	}
 	if (!valid)
 	{
@@ -850,41 +869,66 @@ Object *AutoAbilityBehavior::pickTarget(const std::vector<Object *> &hits, const
 void AutoAbilityBehavior::doCommand(const CommandButton &b, Object *target, const Coord3D *pos, bool fromAuto)
 {
 	Object *obj = getObject();
-	if (b.m_command != GUI_COMMAND_SPECIAL_POWER && b.m_command != GUI_COMMAND_SPELL_BOOK)
+	if (b.m_command == GUI_COMMAND_SPECIAL_POWER || b.m_command == GUI_COMMAND_SPELL_BOOK)
 	{
-		++stats().unportedCommands; // RW 0x696FD2's other command types (S-1227)
+		const SpecialPowerTemplate *t = TheSpecialPowerStore && !b.m_specialPowerName.empty() ? TheSpecialPowerStore->findSpecialPowerTemplate(b.m_specialPowerName) : nullptr;
+		if (!t)
+		{
+			return; // RW: a button without a power (+ 0x44 null) does nothing
+		}
+		unsigned options = b.m_options | 0x40000u;
+		if (fromAuto)
+		{
+			options |= kOptAutoTriggered;
+		}
+		bool done = false;
+		if (pos)
+		{
+			done = SpecialPowerModules::doSpecialPowerAtLocation(*obj, t, *pos, options, false);
+		}
+		else if (target)
+		{
+			done = SpecialPowerModules::doSpecialPowerAtObject(*obj, t, target, options, false);
+		}
+		else
+		{
+			done = SpecialPowerModules::doSpecialPower(*obj, t, options, false);
+		}
+		if (done)
+		{
+			++stats().casts;
+			if (fromAuto)
+			{
+				++m_castRecord.casts;
+				m_castRecord.power = t->getName();
+				m_castRecord.target = target ? target->getID() : INVALID_ID;
+				m_castRecord.frame = obj->logic().getFrame();
+			}
+		}
 		return;
 	}
-	const SpecialPowerTemplate *t = TheSpecialPowerStore && !b.m_specialPowerName.empty() ? TheSpecialPowerStore->findSpecialPowerTemplate(b.m_specialPowerName) : nullptr;
-	if (!t)
-	{
-		return; // RW: a button without a power (+ 0x44 null) does nothing
-	}
-	unsigned options = b.m_options | 0x40000u;
-	if (fromAuto)
-	{
-		options |= kOptAutoTriggered;
-	}
-	bool done = false;
+	// RW 0x0085D9D1 (RW 0x0085DBF8 tail): all other command types (FIRE_WEAPON, upgrades, etc.)
+	// dispatch through Object::doCommandButton* (RW 0x00696FD2 / 0x00697890 / 0x006979D9) with CMD_FROM_AI.
+	const unsigned long long pressedBefore = ObjectDoCommandButton::stats().pressed;
 	if (pos)
 	{
-		done = SpecialPowerModules::doSpecialPowerAtLocation(*obj, t, *pos, options, false);
+		obj->doCommandButtonAtPosition(&b, *pos, CMD_FROM_AI, fromAuto); // RW 0x006979D9
 	}
 	else if (target)
 	{
-		done = SpecialPowerModules::doSpecialPowerAtObject(*obj, t, target, options, false);
+		obj->doCommandButtonAtObject(&b, target, CMD_FROM_AI, fromAuto); // RW 0x00697890
 	}
 	else
 	{
-		done = SpecialPowerModules::doSpecialPower(*obj, t, options, false);
+		obj->doCommandButton(&b, CMD_FROM_AI, fromAuto); // RW 0x00696FD2
 	}
-	if (done)
+	if (ObjectDoCommandButton::stats().pressed > pressedBefore)
 	{
 		++stats().casts;
 		if (fromAuto)
 		{
 			++m_castRecord.casts;
-			m_castRecord.power = t->getName();
+			m_castRecord.power = b.m_name;
 			m_castRecord.target = target ? target->getID() : INVALID_ID;
 			m_castRecord.frame = obj->logic().getFrame();
 		}
@@ -1271,7 +1315,12 @@ void WeaponModeSpecialPowerUpdate::initiate()
 	setWakeFrame(obj, (UpdateSleepTime)m_data->m_duration); // RW 0x850C32(object, Duration)
 	m_active = true;
 	startPowerRecharge(1.0f); // slot 0x3C (1.0)
-	// RW 0x8984B7: the object's FiringTracker reset (RW 0x8E302A(1)) is COMBAT-1's: not called (S-1228)
+	// RW 0x8984AF .. 0x8984B7: the object's own FiringTracker (Object + 0x248) is read and reset hard (RW 0x8E302A, argument 1) when the mode starts, so
+	// its continuous fire count and its shot victim start over; an object without weapons (Object + 0x248 null) has nothing to reset
+	if (ObjectWeapons *weapons = obj->getWeapons())
+	{
+		weapons->resetFiringTracker(true); // RW 0x8E302A(1)
+	}
 }
 
 UpdateSleepTime WeaponModeSpecialPowerUpdate::update()
@@ -1418,18 +1467,12 @@ UpdateSleepTime DualWeaponBehavior::update()
 	}
 	else
 	{
-		// RW 0x701443(object, range, 0x62) -> RW 0x7006D7 (the AI's target search: INFERENCE, S-1228: the closest visible alive enemy)
-		PartitionFilterFn chain([&](Object &o) { return !o.isEffectivelyDead() && obj->getRelationship(o) == ENEMIES && EmotionModules::canSeeObject(*obj, o, range); });
-		// lane UBER-2A, Uber only: the chain accepts only ENEMIES, so the trees of the players this one does not see as enemies are skipped. The hits enter the
-		// sort in the same order (layer by layer); Uber rule change: an object whose owner changed since the frame's partition update is looked for on its old layer
-		PartitionFilterLayers enemyLayers(obj->getTeam() ? obj->getTeam()->enemyLayerMask() : 0u);
-		PartitionFilter *const chainList[] = { &chain, &enemyLayers };
-		const PartitionFilterList filters(chainList, obj->logic().uber() ? 2 : 1);
-		for (const PartitionHit &h : obj->logic().partition().iterateObjectsInRange(*obj->getPosition(), range, FROM_CENTER_2D, filters, ITER_SORTED_NEAR_TO_FAR))
-		{
-			victim = h.object;
-			break;
-		}
+		// RW 0x85E0C2 -> RW 0x701443(object, distance, 0x62, 0, 0, 0): flags CAN_ATTACK | UNFOGGED | AUTO_ACQUIRE (0x62). The search is the ported worker
+		// RW 0x7006D7 (GameLogic/AI/AIClosestEnemy.cpp): the ENEMIES head and the alive filter, CAN_ATTACK refuses a caster that cannot attack (RW 0x691269)
+		// and links the possible-to-attack filter (RW 0x660CA4), UNFOGGED adds the shroud filter (RW 0x661027), AUTO_ACQUIRE refuses the whole search for a
+		// caster with NO_AUTO_ACQUIRE and skips NOT_AUTOACQUIRABLE / ROCK_VENDOR targets (0xC1D6AC), the stealth, off-map and canSee (within the distance)
+		// filters follow; with no attack priority info the partition's closest object at 3D centres is taken and adjusted for a horde (RW 0x68D30E)
+		victim = AI::findClosestEnemy(*obj, range, AI::CAN_ATTACK | AI::UNFOGGED | AI::AUTO_ACQUIRE, nullptr, nullptr, 0);
 	}
 	if (victim)
 	{
@@ -1870,6 +1913,63 @@ bool ArrowStormUpdate::shootOne()
 	}
 	++m_shots;
 	return m_shots >= m_as->m_maxShots;
+}
+
+// RW 0x893D61: may the volley be aimed at `loc` now — the special power update interface's slot 8 (RW 0xC63E4C + 0x20), asked by the module's location
+// requirements RW 0x897E01 (RW 0x897E7D pushes the location it was given). Read linearly from its start:
+//   RW 0x893D6A .. 0x893D76: the module's data (+ 0x4) null: false. RW 0x893D7B .. 0x893D8A: no location: the base's answer alone (RW 0x851B6E).
+//   RW 0x893D90 .. 0x893D99: the owner (+ 0x8) null: false.
+//   RW 0x893D9E .. 0x893DB6: TheWeaponStore (RW 0xDE4A1C, its call RW 0x6CC5DF is findWeaponTemplate with the name at data + 0xD0): null: false.
+//   RW 0x893DB9 .. 0x893DD5: the template's getMinimumAttackRange (RW 0x6CA03E: MinimumAttackRange - 2.5, never below 0 — the template + 0x18), squared
+//                             (`fmul`), which `fcompi` at RW 0x893DD5 compares against the squared 2D edge distance from the owner to the location (RW
+//                             0x893DCA -> RW 0x6CA525). RW 0x893DD9 `jbe` passes on, so minimum^2 > distance is the refusal (RW 0x893DDB `xor al, al`).
+//   RW 0x893DDF .. 0x893DE9: the OWNER's template KindOf bit 2 (template + 0x108; RW 0xDA0E68 names IMMOBILE at index 2, from TheKindOfNames): clear ->
+//                             the base's answer (RW 0x893E25 -> RW 0x893E2A, RW 0x851B6E with the location).
+//   RW 0x893DEB .. 0x893E20: set (an immobile caster): six floats 0x3F800000 as the WeaponBonus (RW 0x893DEB .. 0x893DF6) with RW 0x6CA701 at RW 0x893E01
+//                             — the attack range with no target (getAttackRange with dz = 0 - the location's z, then getAttackRange's scale a second
+//                             time, `fmul`) — is squared and compared against the same distance; farther than the range is `ja` at RW 0x893E20 to the
+//                             refusal. Within it: the base's answer at RW 0x893E2A (the `edi` of RW 0x893E22 is the module, RW 0x893D68).
+bool ArrowStormUpdate::allowsSpecialPowerUse(const Coord3D *loc) const
+{
+	if (!m_as || !getObject()) // RW 0x893D6A (the data), RW 0x893D90 (the owner)
+	{
+		return false;
+	}
+	if (!loc)
+	{
+		return SpecialAbilityUpdate::allowsSpecialPowerUse(nullptr); // RW 0x893D85
+	}
+	const WeaponTemplate *wt = TheWeaponStore ? TheWeaponStore->findWeaponTemplate(m_as->m_weaponTemplate) : nullptr; // RW 0x893DA4
+	if (!wt) // RW 0x893DB6
+	{
+		return false;
+	}
+	const Object *obj = getObject();
+	const float dist2 = CircleDistanceSquaredToPoint(*obj->getPosition(), CombatQueries::boundingCircleRadius(*obj), *loc); // RW 0x893DCA -> 0x6CA525
+	const float minimum = WeaponTemplateMinimumRange(*wt); // RW 0x893DB9 -> 0x6CA03E
+	if (SimMath::mulf32(minimum, minimum) > dist2) // RW 0x893DD2 `fmul` / 0x893DD5 `fcompi` / 0x893DD9 `jbe`
+	{
+		return false; // RW 0x893DDB
+	}
+	const int immobile = ObjectTemplateInfoBuilder::kindOfIndex("IMMOBILE"); // RW 0x893DE2: template + 0x108 bit 2 (RW 0xDA0E68 index 2)
+	if (immobile < 0 || !obj->isKindOf((unsigned)immobile))
+	{
+		return SpecialAbilityUpdate::allowsSpecialPowerUse(loc); // RW 0x893E2A
+	}
+	ObjectWeapons *weapons = obj->getWeapons();
+	if (!weapons)
+	{
+		return SpecialAbilityUpdate::allowsSpecialPowerUse(loc); // the store call's result read at RW 0x893DF8 (no host in the port: the base's answer)
+	}
+	const WeaponBonus sixOnes; // RW 0x893DEB .. 0x893DF6: six floats 0x3F800000, not the weapon's computed bonus
+	const float range = weapons->attackRangeNoTarget(*wt, sixOnes); // RW 0x893E01 -> 0x6CA701
+	// RW 0x893E14 `fld` / 0x893E17 `fmul` (range^2) / 0x893E1A `fxch` / 0x893E1C `fcompi st(1)` (distance^2 against range^2) / 0x893E20 `ja` to the
+	// refusal: a location FARTHER than the range is refused; within it the base's answer (RW 0x893E2A) follows
+	if (SimMath::mulf32(range, range) < dist2)
+	{
+		return false; // RW 0x893DDB
+	}
+	return SpecialAbilityUpdate::allowsSpecialPowerUse(loc);
 }
 
 // RW 0x894100
@@ -2522,15 +2622,16 @@ std::vector<std::string> HeroAbilityModules::stopLines()
 		"[S-1223] FellBeastSwoopPower (lane HERO-2, Port 257): the module runs (RW 0x8CB2CE / 0x8CB28B / 0x8CB194); AI command 0x3F (RW 0x8CB1BA) runs "
 		"GiantBirdAIUpdate's level swoop (state 0x3F3, RW 0x76A139) and command 0x40 (RW 0x8CB21F) does nothing there (RW 0x76DA5C); other AI classes count "
 		"both (aiUnported); the ability ends when the AI idles (vslot 0x1B8) or enters AIGiantBirdFollowThruState (vslot 0x1D0, RW 0x662B28 -> State::vslot 0x34 RW 0x8BD372)",
-		"[S-1227] AutoAbilityBehavior (lane HERO-2, PORT-191): the auto cast runs (RW 0x85D9D1 with RW 0x85D5EA / 0x85D4B5, RW 0x855830 DISABLED_HELD, "
+		"[S-1227] AutoAbilityBehavior (lane HERO-2, PORT-191, LOCAL-83): the auto cast runs (RW 0x85D9D1 with RW 0x85D5EA / 0x75CC3E / 0x85D4B5, RW 0x855830 DISABLED_HELD, "
 		"RW 0x68E43B vision range, RW 0x701443 flags 0x4A without Query, AI + 0x34 / + 0x48 := 2, RW 0x68E5A3 / 0x68E67A disabled exception with 0x20000000, "
-		"MSG_DO_AUTO_ABILITY RW 0x77B9BA, StartsActive); not ported: the command types other than SPECIAL_POWER / SPELL_BOOK (a FIRE_WEAPON auto button is "
-		"toggled by MSG_DO_AUTO_ABILITY_WEAPON, RW 0x77B8EE, lane AUTOCAST-1, but not fired) and the auto sound (client, RW 0x85D930); the control bar's "
+		"MSG_DO_AUTO_ABILITY RW 0x77B9BA, MSG_DO_AUTO_ABILITY_WEAPON RW 0x77B8EE, FIRE_WEAPON / Object::doCommandButton* dispatch RW 0x696FD2 / 0x697890 / 0x6979D9, "
+		"StartsActive); not ported: the auto sound (client, RW 0x85D930); the control bar's "
 		"right press toggle and glow are lane AUTOCAST-1's (ControlBar::rightPressButton, S-3460)",
 		"[S-1228] WeaponModeSpecialPowerUpdate and DualWeaponBehavior (lane HERO-2): the mode runs (RW 0x89841E / 0x8983B5 over the base timer RW 0x991660 / "
-		"0x991500 / 0x9913BC) and the close range switch runs (RW 0x85DF88); not ported: the firing tracker reset at the start (RW 0x8E302A, COMBAT-1's), the "
-		"initiate sound (client); INFERENCE: DualWeaponBehavior's victim without "
-		"UseRealVictimRange (RW 0x701443 -> 0x7006D7 flags 0x62, the AI's target search) is the closest visible alive enemy; its + 0x20 request has no writer",
+		"0x991500 / 0x9913BC), its start resets the object's FiringTracker hard (RW 0x8984B7 -> 0x8E302A(1), PORT-459), its InitiateSound is answered by the "
+		"special power interface's slot 0x40 (RW 0x991626) and the close range switch runs (RW 0x85DF88) over RW 0x701443 -> 0x7006D7 with flags 0x62 "
+		"(CAN_ATTACK | UNFOGGED | AUTO_ACQUIRE, PORT-459: the closest unfogged enemy the object can attack, a nearer NOT_AUTOACQUIRABLE one skipped, a horde "
+		"victim adjusted); not ported: the + 0x20 close range request has no logic writer in RotWK 2.01 (RW 0x85DF69 / 0x85DF85 save and load it, xfer only)",
 		"[S-1224] RousingSpeechUpdate (lane HERO-2): the speech runs (RW 0x8B068D / 0x8B0485 / 0x8B0A0D / 0x8B07EA); retail's update never ends the ability "
 		"(no call of finishAbility found: the base startPreparation's USING_ABILITY / SPECIAL_ABILITY_PACKING_UNPACKING_OR_USING stay set, so the hero's "
 		"other powers are not ready, RW 0x896C83, until something finishes it; RW 0x693919 aborts only abilities in use, RW 0x851C92): kept as read, "
@@ -2557,6 +2658,7 @@ void DamageFilteredCreateObjectDie::xfer(Xfer &x)
 	SnapshotXfer::checkRange(m_hitPlayer, -1, getObject()->logic().players().getPlayerCount() - 1, "a damage-filtered die's hitting player");
 }
 
+// RW 0x0085D2FF (DONOR BFME2 0x0045A291, AutoAbilityBehavior.cpp): xferUpdateModule (RW 0x00850C60), + 0x20 button name, + 0x30 haveStartPos, + 0x24 startPos
 void AutoAbilityBehavior::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);
@@ -2616,6 +2718,7 @@ void ActivateModuleSpecialPower::xfer(Xfer &x)
 	x.xferUnsignedInt(&m_activations);
 }
 
+// RW 0x00894327 (slot 3): SpecialAbilityUpdate::xfer (RW 0x00852782), version 1, m_targets (+0x88), m_current (+0x8C), m_shotsAtCurrent (+0x90), m_done (+0x98), m_shots (+0x94).
 void ArrowStormUpdate::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);
@@ -2644,6 +2747,7 @@ void FellBeastSwoopPower::xfer(Xfer &x)
 	x.xferUnsignedInt(&m_commands);
 }
 
+// RW 0x008B0923 (slot 3): SpecialAbilityUpdate::xfer (RW 0x00852782), version 2, m_followers (+0x88), m_started (+0x90), m_endFrame (+0x8C), m_inner (+0x94), m_outer (+0x98).
 void RousingSpeechUpdate::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);
@@ -2656,6 +2760,9 @@ void RousingSpeechUpdate::xfer(Xfer &x)
 	x.xferUnsignedInt(&m_inspired);
 }
 
+// RW 0x0089659F (slot 3): version 1, delegates to SpecialAbilityUpdate::xfer (RW 0x00852782); RW 0x0089643F (getModuleNameKey).
+// Inherited base tail-calls: RW 0x00896435 (finishAbility -> 0x008530BA), RW 0x0089643A (update -> 0x00854DF7),
+// RW 0x008B0BAC (continuePreparation -> 0x00852A3E), RW 0x00896484 (dtor -> 0x00896415 -> ~SpecialAbilityUpdate 0x00854D9A).
 void TeleportSpecialAbilityUpdate::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

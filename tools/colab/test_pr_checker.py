@@ -49,3 +49,51 @@ def test_a_hash_test_red_on_main_that_the_pr_moves_is_seen_by_its_values():
     assert pc.MOVES.search(pc.moves_mark([])).group(1) == ""
     assert pc.MOVES.search(pc.moves_mark(["perf1*", "uber1*"])).group(1) == "perf1*,uber1*"
     assert "❌" not in pc.moves_mark(["perf1*"])   # the dashboard and the batch read ❌ as a red verdict
+
+
+def test_a_pr_claimed_on_the_other_sandbox_is_left_and_this_sandboxs_claim_holds(monkeypatch, tmp_path):
+    (tmp_path / "runs").mkdir()
+    claims = tmp_path / "runs" / "prcheck" / "claims"
+    monkeypatch.setattr(pc, "CLAIMS", claims)
+    monkeypatch.setattr(pc, "SANDBOX", "1")
+    p = {"number": 7, "headRefOid": "abc"}
+    assert pc.claim_check(p, settle=0)
+    assert not pc.held_elsewhere(p, pc.check_claims())
+    (claims / "7.json").write_text('{"sandbox": "2", "head": "abc", "t": %f}' % __import__("time").time())
+    assert pc.held_elsewhere(p, pc.check_claims()) == "2"
+    assert not pc.held_elsewhere({"number": 7, "headRefOid": "new"}, pc.check_claims())
+    assert not pc.held_elsewhere(p, pc.check_claims(now=__import__("time").time() + pc.CLAIM_S + 1))
+    pc.release_check(p)   # not ours: stays
+    assert (claims / "7.json").exists()
+
+
+def test_reworked_and_never_checked_prs_take_turns_oldest_head_first():
+    # 2026-11-19: PRs 653..671 waited a day behind reworked ones
+    prs = [{"number": n} for n in (523, 653, 662, 680, 711)]
+    checked = {"523": A, "680": B}
+    when = {523: 50, 653: 10, 662: 20, 680: 40, 711: 5}
+    order = [p["number"] for p in pc.queue_order(prs, checked, lambda p: when[p["number"]], False)]
+    assert order == [680, 711, 523, 653, 662]
+    order = [p["number"] for p in pc.queue_order(prs, checked, lambda p: when[p["number"]], True)]
+    assert order == [711, 680, 653, 523, 662]
+    assert pc.queue_order([], checked, lambda p: 0, False) == []
+
+
+def test_main_runs_only_the_tests_where_the_pr_differs_from_mains_last_result():
+    # 2026-11-19: a whole main baseline per landing took 35-80 of a check's 70-80 minutes
+    last = {"perf1*": ["pass", "pass"], "save4b*": ["fail", "fail:845d"], "uber1*": ["pass", "pass"], "mapobj*": ["pass", "pass"]}
+    pr = {"perf1*": ["pass", "pass"], "save4b*": ["fail", "fail:845d"], "uber1*": ["fail", "fail:aaaa"], "mapobj*": ["pass", "pass"],
+          "LOCAL-*": ["pass", "pass"]}
+    need, view = pc.main_needed(pr, {"mapobj*": ["fail", "fail:bbbb"]}, last)
+    assert need == ["uber1*", "LOCAL-*"]   # differs from main's last result / never measured on main
+    assert view == {"perf1*": ["pass", "pass"], "save4b*": ["fail", "fail:845d"], "mapobj*": ["fail", "fail:bbbb"]}  # this main's own wins
+
+
+def test_the_old_whole_baseline_state_becomes_the_last_known_main(monkeypatch, tmp_path):
+    monkeypatch.setattr(pc, "MAIN_DRIVE", tmp_path)
+    (tmp_path / f"{A}.json").write_text('{"uber1*": ["pass", "pass"]}')
+    state = {"main": {"sha": A, "results": {"save4b*": "fail"}, "sigs": {"save4b*": "fail:845d"}, "audit": "/x/field-audit.tsv"}}
+    known = pc.main_known(state, A)
+    assert known == {"save4b*": ["fail", "fail:845d"], "uber1*": ["pass", "pass"]}  # the other sandbox's result from the Drive too
+    assert state["main_last"] == {"save4b*": ["fail", "fail:845d"]}
+    assert state["main_audit"] == ["/x/field-audit.tsv", A]

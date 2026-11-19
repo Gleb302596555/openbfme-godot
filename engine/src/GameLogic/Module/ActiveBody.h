@@ -238,20 +238,24 @@ private:
 	UnsignedInt m_damageFXThrottleUntil = 0; // RW + 0x38
 };
 
-// RW vtable 0xC71FE0: health never drops below 1 (internalChangeHealth delta = max(delta, 1 - health), RW 0x8C4AB4)
+// RW vtable 0xC71FE0: getModuleName RW 0x008C4A34, getModuleNameKey RW 0x008C4A53, dtor RW 0x008C4A98;
+// health never drops below 1 (internalChangeHealth delta = max(delta, 1 - health), RW 0x8C4AB4)
 class ImmortalBody : public ActiveBody
 {
 public:
 	using ActiveBody::ActiveBody;
+	~ImmortalBody() override = default; // RW 0x008C4A98
 	void internalChangeHealth(float delta) override;
 	OBFME_MODULE_XFER(ImmortalBody) // lane SAVE-4b: ActiveBody's (no state of its own)
 };
 
-// RW vtable 0xC71ED0, attemptDamage RW 0x8C49C7: a hit never takes more than health - 1 unless UNRESISTABLE
+// RW vtable 0xC71ED0: getModuleName RW 0x008C4947, getModuleNameKey RW 0x008C4966, dtor RW 0x008C49AB;
+// attemptDamage RW 0x8C49C7: a hit never takes more than health - 1 unless UNRESISTABLE
 class HighlanderBody : public ActiveBody
 {
 public:
 	using ActiveBody::ActiveBody;
+	~HighlanderBody() override = default; // RW 0x008C49AB
 	void attemptDamage(DamageInfo &info) override;
 	OBFME_MODULE_XFER(HighlanderBody) // lane SAVE-4b: ActiveBody's (no state of its own)
 };

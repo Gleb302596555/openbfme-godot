@@ -112,11 +112,13 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// getModuleName RW 0x008B2859, getModuleNameKey RW 0x008B28F0, dtor RW 0x008B299C
 class DetachableRiderUpdate : public UpdateModule
 {
 public:
 	OBFME_MODULE_XFER(DetachableRiderUpdate)
 	DetachableRiderUpdate(Thing *thing, const DetachableRiderUpdateModuleData *data); // RW 0x8B2941 / DONOR BFME2 0x4AE883
+	~DetachableRiderUpdate() override = default;                                       // RW 0x008B299C
 
 	DisabledMaskType getDisabledTypesToProcess() const override; // RW 0x8B2A30 / DONOR BFME2 0x4AE972
 	UpdateSleepTime update() override;                           // RW 0x8B2D59 / DONOR BFME2 0x4AEC9B
@@ -148,11 +150,15 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// getModuleName RW 0x008C5D78, getModuleNameKey RW 0x008C5D8E, dtor RW 0x008C5E99;
+// UpgradeMux accessors via base: getUpgradeActivationMasks RW 0x008C5DD3, requiresAllActivationUpgrades RW 0x008C5DFD,
+// requiresAllConflictingTriggers RW 0x008C5E0A, performUpgradeFX RW 0x008C5E17 (empty RW 0x009F3A3C).
 class DetachableRiderBody : public ActiveBody, public UpgradeMux
 {
 public:
 	OBFME_MODULE_XFER(DetachableRiderBody)
 	DetachableRiderBody(Thing *thing, const DetachableRiderBodyModuleData *data); // RW 0x8C5E2C / DONOR BFME2 0x4C1C82
+	~DetachableRiderBody() override = default;                                     // RW 0x008C5E99
 
 	UpgradeMux *getUpgrade() override { return this; } // RW 0x8C5D7E (behavior slot 10)
 	void attemptDamage(DamageInfo &info) override;     // RW 0x8C5EF3 / DONOR BFME2 0x4C1D49

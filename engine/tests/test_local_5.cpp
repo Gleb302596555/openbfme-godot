@@ -196,7 +196,11 @@ TEST_CASE("LOCAL-5 capture flash timing: DoCaptureFX accelerates countdown flash
 
 		for (const auto &ev : frameEvents)
 		{
-			if (ev.kind == ClientEvent::FLASH_AS_SELECTED)
+			// pin: PORT-234 (issue #557, RW 0x6997E2 in Object::setCapturedTeam) added the capture's own defector flash: it lands on the captured
+			// target and the flag at the frame the capture completes, and unlike DoCaptureFX's countdown flash it carries no colour (RW 0x6997E1
+			// pushes a null RGBColor). This case pins the countdown, so the colourless pair is read past. Before PORT-234 that call was unported
+			// (S-1225) and no event reached that frame at all.
+			if (ev.kind == ClientEvent::FLASH_AS_SELECTED && ev.hasFlashColor)
 			{
 				if (ev.object == target->getID())
 				{
@@ -255,6 +259,7 @@ TEST_CASE("LOCAL-5 capture flash disabled: DoCaptureFX = No produces zero flash 
 	events.take();
 
 	int totalFlashEvents = 0;
+	int captureFlashEvents = 0; // PORT-234: Object::setCapturedTeam's own flash (RW 0x6997E2), not DoCaptureFX's
 	for (int prepFrame = 1; prepFrame <= 200; ++prepFrame)
 	{
 		f.frames(1);
@@ -262,12 +267,23 @@ TEST_CASE("LOCAL-5 capture flash disabled: DoCaptureFX = No produces zero flash 
 		{
 			if (ev.kind == ClientEvent::FLASH_AS_SELECTED)
 			{
-				++totalFlashEvents;
+				// pin: PORT-234 (issue #557) flashes the two objects the capture takes (RW 0x6997E2, once per setCapturedTeam) with no colour, so
+				// this gate's "zero flash events" counts the coloured DoCaptureFX flashes it is about: DoCaptureFX = No still draws none of them.
+				if (ev.hasFlashColor)
+				{
+					++totalFlashEvents;
+				}
+				else
+				{
+					++captureFlashEvents;
+				}
 			}
 		}
 	}
 
 	CHECK(totalFlashEvents == 0);
+	// pin: PORT-234 (RW 0x6997D0 .. 0x6997E2): the target and the building whose team the capture changes, each flashed once at the capture frame.
+	CHECK(captureFlashEvents == 2);
 }
 
 TEST_CASE("LOCAL-5 capture aborts when target is allied (RW 0x852A7E)")
@@ -316,7 +332,9 @@ TEST_CASE("LOCAL-5 capture flash selects closest flag: closest of two LINKED_TO_
 		f.frames(1);
 		for (const auto &ev : events.take())
 		{
-			if (ev.kind == ClientEvent::FLASH_AS_SELECTED)
+			// pin: PORT-234 (issue #557, RW 0x6997E2): the capture flashes the flag it takes once more, with no colour, at the capture frame; the
+			// 16 below are DoCaptureFX's coloured countdown flashes.
+			if (ev.kind == ClientEvent::FLASH_AS_SELECTED && ev.hasFlashColor)
 			{
 				if (ev.object == nearFlag->getID())
 				{

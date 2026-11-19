@@ -129,9 +129,10 @@ TEST_CASE("PORT-172: a captured structure destroyed leaves no stale sampler entr
 	Object *other = fx.make("Port425Structure", bobTeam);
 	REQUIRE(other);
 	logic.runLogicFrame();
+	const ObjectID otherId = other->getID(); // read before the destroy frame deletes it (TSan heap-use-after-free, 2026-11-18)
 	logic.destroyObject(other);
 	logic.runLogicFrame(); // rebuilds the sampler over the survivors
-	REQUIRE(logic.findObjectByID(other->getID()) == nullptr);
+	REQUIRE(logic.findObjectByID(otherId) == nullptr);
 }
 
 TEST_CASE("PORT-172: neighbouring behaviour — a plain structure add/remove keeps the sampler in step (RW 0x8E4591 / RW 0x8E480C)")

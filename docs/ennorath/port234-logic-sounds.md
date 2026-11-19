@@ -63,10 +63,10 @@
 | `EnterCloseCombat`, `ExitCloseCombat` | ни одна инструкция RotWK не читает manager +6C / +70 (и донор тоже) | вердикт |
 | `BuddyMessageNotification` | ни одна инструкция не читает manager +7C | вердикт |
 | `UnitPromoted` | единственный читатель RW 0x6957B9 не вызывается и не адресуется в образе; живой путь XP идёт через LevelUpFx | вердикт |
-| `RadarNotifyOnline` / `Offline` / `InfiltrationSound` | ребро `hasRadar` и запись радара `Object + 0x268` в порте отсутствуют | S-7505 |
-| `FastForwardModeOn` / `Off` | только переключатель перемотки реплея (GlobalData + 0xBBD) | S-7506 |
-| `GameSpyCommunicatorOpen`, `PrivateMessageNotification` | самих онлайн-экранов (оверлей GameSpy, приём личного сообщения) нет | S-7507 |
-| `RepairSparks` | подмашина ремонта SlavedUpdate не перенесена | S-7508 (S-1426) |
+| `RadarNotifyOnline` / `Offline` / `InfiltrationSound` | ребро `hasRadar` и запись радара `Object + 0x268` в порте отсутствуют | S-7634 |
+| `FastForwardModeOn` / `Off` | только переключатель перемотки реплея (GlobalData + 0xBBD) | S-7635 |
+| `GameSpyCommunicatorOpen`, `PrivateMessageNotification` | самих онлайн-экранов (оверлей GameSpy, приём личного сообщения) нет | S-7636 |
+| `RepairSparks` | подмашина ремонта SlavedUpdate не перенесена | S-7637 (S-1426) |
 | `UnableToSetRallyPoint` | звучит только при отказе `QuickDoesPathExist`, проверки пути у ралли в порте нет | S-202 |
 | `ShellMapLoadMusic` | загрузочного экрана карты оболочки нет | S-1912 |
 | `RIFThingTemplateReloadedSound`, `RIFObjectsRefreshedSound` | тип перезагрузки 5 (developer reload) не перенесён | S-632 |

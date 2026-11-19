@@ -46,6 +46,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include "GameClient/FloorFade.h"
 
 class Object;
 struct LocomotorTemplate;
@@ -179,6 +180,9 @@ struct DrawEntry
 	bool noRotate = false;            ///< the model draw's NoRotate (INFERENCE: drawn at the object's position without its orientation, S-5204)
 	bool conditionHidden = false;     ///< RENDER-2: a W3DFloorDraw whose HideIfModelConditions match the drawable's flags (the foundation floor while being built)
 	std::vector<ModelConditionFlags> hideIf; ///< RENDER-2: that floor draw's HideIfModelConditions (one set per line)
+	// PORT-267 (fork issue 626): this floor draw's record in RotWK's shared W3DFloorBuffer (GameClient/FloorFade.h): its own opacity (+0x84),
+	// the fade rate a dead object's module hands over (+0x88) and its visibility state (+0x98), stepped once per client frame
+	FloorFade::Record floorFade;
 	// lane COMBAT-4: a W3DTruckDraw's tire spin (RW 0x4CBFFB): the front and rear wheel angles (W3DTruckDraw + 0x310 / + 0x314; the mid tires take the front's / the
 	// rear's: + 0x318 / + 0x31C) and the bones they turn (the module data's tire bone names; the front set, then the rear set)
 	float tireFront = 0.0f, tireRear = 0.0f;
@@ -340,6 +344,16 @@ public:
 	// lane PERF-HD: every animated draw's advance is advanceIsLocal (and the tires are this drawable's): advanceAnimation touches only this drawable
 	bool advanceIsLocal() const;
 	void advanceAnimationLocal(double elapsedMs); ///< advanceAnimation without the host's chunk name (nothing it runs reports through the host)
+	// Local 64 (P-132, RW 0x4BF1DE -> 0x4BF214): defer CAPTUREFLAG OnStateEnter sub-object / colour updates until TRANS_FlagDown / TRANS_FlagDownCancel completes.
+	struct DeferredSubObject
+	{
+		std::string name;
+		bool visible = false;
+		bool permanent = false;
+	};
+	bool hasPendingAnimationTransition() const;
+	void applyOrDeferCapturePresentation(std::vector<DeferredSubObject> subObjects, bool hasIndicator, std::uint32_t indicator, bool hasHouse, std::uint32_t house);
+	void flushPendingCapturePresentation();
 	void advanceTires(DrawEntry &e, double elapsedMs); ///< lane COMBAT-4: W3DTruckDraw's tire spin (RW 0x4CBFFB)
 
 	// RW 0x6789B4 Drawable::showModule: the draw module whose tag is `name` (exact, case sensitive) takes the request (true: a module exists; the
@@ -416,6 +430,7 @@ public:
 		m_syncSnapshot = snapshot;
 		m_syncFrame = snapshot ? snapshot->frame : 0;
 		m_syncRec = rec;
+		m_effectivelyDead = rec && rec->effectivelyDead; // PORT-267: RW 0x4CEBF6 reads the drawable's object status (Object + 0x458 bit 0)
 		bool wasObscured = m_shroudLook.fullyObscured;
 		// lane VISUAL-2: RW 0x64849E's per-frame shroud look (GameClient/DrawableShroud.h) from the presented record
 		const ShroudView *view = snapshot ? snapshot->shroud.get() : nullptr;
@@ -485,6 +500,16 @@ public:
 	// port's renderer reads shadowsEnabled() for each module's instance)
 	void setShadowsEnabled(bool on) { m_shadowsEnabled = on; }
 	bool shadowsEnabled() const { return m_shadowsEnabled; }
+
+	// Local 89 (#715): the terrain decal (TerrainDecalType 0..6, 7 = TERRAIN_DECAL_NONE; docs/ennorath/W3DSMD_FUNCTIONS.md). RotWK's callers: HordeContain
+	// RW 0x870D4E (EXHorde / EXHorde_UP on a horde's members; Port 292, #684), the crate RW 0x8889B3 (type 5), this class RW 0x675CD3 (type 7 at fade-out)
+	void setTerrainDecal(int type);                          ///< RW 0x672B96: a new type is stored (+0xA8) and handed to the first draw module (slot 20)
+	void setTerrainDecalTexture(const std::string &texture); ///< RW 0x672BBB: type 6 for a non-empty name, else 7; the first module's slot 19
+	void setTerrainDecalFadeTarget(float target, float rate, unsigned logicFrame); ///< RW 0x67093E: +0xD8 = target, +0xDC = rate per frame, +0x380 = now
+	void setTerrainDecalOpacity(float opacity) { m_decalOpacity = opacity; }      ///< RW 0x670972: +0xE0
+	void advanceTerrainDecal(unsigned logicFrame);           ///< RW 0x675C25 .. 0x675D1E, every client frame (Drawable::updateDrawable)
+	int terrainDecalType() const { return m_terrainDecalType; }
+	float terrainDecalOpacity() const { return m_decalOpacity; }
 	UnsignedInt shadowStartFrame() const { return m_shadowStartFrame; }
 	void setShadowStartFrame(UnsignedInt frame) const { m_shadowStartFrame = frame; }
 	UnsignedInt shadowFadeOutStartFrame() const { return m_shadowFadeOutStartFrame; }
@@ -555,6 +580,9 @@ public:
 	// lane BUILD-5: ZH Drawable::setDrawableOpacity, the opacity at Drawable + 0xB0 (the field the fade steps): the placement ghost's 0.45 (RW 0x69C714)
 	void setDrawableOpacity(float opacity) { m_fade.opacity = opacity; }
 	// lane FBSIM-1: the phantom structure's opacity (ObjectSnapshot::phantomStructure)
+	// PORT-267: the W3DFloorDraw module's doDrawModule (RW 0x4CEBCA) hands the rate to the record and the floor buffer's walk steps it
+	// (RW 0x4E547D -> RW 0x4E3EC5), once per client frame; none of the other entries is touched
+	void updateFloorFades();
 	void updatePhantomLook(const ObjectSnapshot &rec);
 
 	// ---- lane STEALTHLOOK-1: the drawable's stealth look (GameClient/StealthLook.h; RW 0x6760F9 setter and the per-client-frame step RW 0x673114) ----
@@ -635,6 +663,11 @@ private:
 	bool m_evaCastleMemberSighted = false; // RW Drawable +0x114 bit 0x40
 	bool m_shroudRevealed = false; // transitioned from fullyObscured == true to false
 	bool m_shadowsEnabled = true;   // RW Drawable +0x114 bit 2 (TOP20 #24)
+	int m_terrainDecalType = 7;     // RW Drawable +0xA8 (TERRAIN_DECAL_NONE)
+	float m_decalFadeTarget = 0.0f; // RW Drawable +0xD8
+	float m_decalFadeRate = 0.0f;   // RW Drawable +0xDC
+	float m_decalOpacity = 0.0f;    // RW Drawable +0xE0
+	unsigned m_decalFadeFrame = 0;  // RW Drawable +0x380
 	mutable UnsignedInt m_shadowStartFrame = 0; ///< RW 0x7323CE (+0x38: startFrame = currentFrame + 0)
 	mutable UnsignedInt m_shadowFadeOutStartFrame = ~0u; ///< RW 0x508B2D (+0x4C: fadeOutStartFrame = currentFrame)
 	mutable bool m_shadowStateInitialized = false; ///< RW 0x4C4EE0..0x4C4FBC
@@ -647,6 +680,9 @@ private:
 	bool m_clientHidden = false; ///< lane CHAT-1
 	bool m_phantomLook = false;  ///< lane FBSIM-1: drawn as a dozer's phantom structure (0.4 opacity)
 	Fade m_fade; ///< lane PROJ-2
+	// PORT-267: the drawable's object is effectively dead (DrawableManager hands the snapshot record over each sync). The gate RW 0x4CEBEC..
+	// 0x4CEBFD of a floor's doDrawModule reads the same bit of Object + 0x458 that the record RW 0x4E3EC5 does not look at itself
+	bool m_effectivelyDead = false;
 	StealthLook::State m_stealth;            ///< lane STEALTHLOOK-1: RW Drawable +0xB4 .. +0xD4, +0x164, +0x358, +0x43E
 	bool m_cannotHideByStealth = false;      ///< lane STEALTHLOOK-1: RW +0x3AB, set at construction (GameClient/StealthLook.cpp)
 	ObjectID m_stealthParentId = INVALID_ID; ///< lane STEALTHLOOK-1: the imitated parent's object (ObjectSnapshot::stealthParent)
@@ -713,5 +749,16 @@ private:
 	unsigned m_releaseClientFrame = 0;
 	void applyReleaseBlend(RenderInterpolation::Pose &p);
 
+	struct PendingCapturePresentation
+	{
+		bool active = false;
+		std::vector<DeferredSubObject> subObjects;
+		bool hasIndicatorColor = false;
+		std::uint32_t indicatorColor = 0;
+		bool hasHouseColor = false;
+		std::uint32_t houseColor = 0;
+	};
+	PendingCapturePresentation m_pendingCapturePresentation;
+	void applyCapturePresentationNow(const std::vector<DeferredSubObject> &subObjects, bool hasIndicator, std::uint32_t indicator, bool hasHouse, std::uint32_t house);
 	void setFadeHidden(bool hidden); ///< RW 0x6718FB (bumps the change count when it changes)
 };

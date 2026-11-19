@@ -133,6 +133,7 @@ void FreeLifeBody::crc(StateHasher &h) const
 	h.addU32(m_lastFrame);
 }
 
+// RW 0x008C5B1E (OpenBFME native snapshot order, S-4190; the 3 immutable data copies are read from m_freeLife)
 void FreeLifeBody::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

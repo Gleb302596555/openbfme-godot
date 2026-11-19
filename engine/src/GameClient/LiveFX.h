@@ -32,11 +32,10 @@
 //   * a ParticleSysBone system's bone is read from the draw's own pose (PORT-121, issue #305: RW 0x4C6514 asks the render object at slot +0xCC, so the
 //     creation reads the pose the draw shows - the bind pose only answers when that pose cannot, S-003 / S-004); the per-frame FOLLOW still rebuilds a
 //     pose from W3DDrawPoseView rather than reading a live render object (S-7194);
-//   * ParticleSysBone FXTrigger / Persist / PersistID / HouseColor are ignored; ParticleSysBone OnlyIfOnWater systems are still not created (that path has no water
-//     query), OnlyIfOnLand ones are; WadingParticleSys has its own terrain query (PORT-48);
+//   * ParticleSysBone Persist / PersistID / HouseColor are ignored; ParticleSysBone OnlyIfOnWater / OnlyIfOnLand (RW 0x004C6514) and WadingParticleSys (PORT-48) query PATH-1 water;
 //   * the shooter's stealth (RW 0x694C0D with a NULL viewer, RW 0x6CCB91; lane STEALTH-1) is read when the effect plays, not at the shot;
 //   * the muzzle flash and recoil of handleWeaponFireFX are not drawn;
-//   * FXPlaybackWorld::isWater is false for generic FX filters (WadingParticleSys queries PATH-1 directly); the shroud is clear (VIS-1 owns it).
+//   * FXPlaybackWorld::isWater queries PATH-1 standing water (RW 0x67DAE6); the shroud is from the presented snapshot (VIS-1).
 // Data\INI\ParticleSystem.ini (329 ZH-format `ParticleSystem` blocks) is not loaded, as in retail (lane FX-3, retires stop S-684). TARGET FACTS (RotWK
 // game.dat, S-001 caveat): GameEngine::init never names TheParticleSystemManager (the string is not in the image; the legend entry is never requested,
 // spec ini-and-object-model 3.5); no INI block registration names `ParticleSystem` (the only particle block is `FXParticleSystem` -> RW 0x5FC7DB, record
@@ -153,7 +152,7 @@ public:
 	// FXPlaybackWorld
 	std::uint32_t logicFrame() const override;
 	float groundHeight(float x, float y) override;
-	bool isWater(float, float) override { return false; }
+	bool isWater(float x, float y) override;
 	// lane VISUAL-2: the shroud as the presented snapshot shows it to the local player (the view the drawn shroud is made of)
 	int shroudStatusAt(const Coord3D &pos) override;
 	bool objectShroudedForLocalPlayer(const FXObject &obj) override;

@@ -1,9 +1,14 @@
 // OpenBFME. GPL-3.0.
-// PORT-77: W3DSupplyDraw::SupplyBonePrefix status update (RotWK RW 0x4CA784).
+// PORT-77 / Local 88 (#714): W3DSupplyDraw::SupplyBonePrefix status update (RotWK RW 0x004CA784).
+// TARGET RW 0x004B6588 getModelName, RW 0x004CA654 getModuleNameKey, RW 0x004CA699 GetSnapshotName,
+// RW 0x004CA6B8 xfer, RW 0x004CA6F0 loadPostProcess, RW 0x004CA74C scalar deleting dtor,
+// RW 0x004CA768 ModuleData scalar deleting dtor, RW 0x0066F121 module accessor.
 
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DSupplyDraw.h"
 
 #include "Common/Thing/ThingTemplate.h"
+#include "Common/Xfer.h"
+#include "GameLogic/SnapshotXfer.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DScriptedModelDraw.h"
 
 #include <algorithm>
@@ -118,4 +123,12 @@ bool W3DSupplyDraw::setSupplyStatus(W3DScriptedModelDraw &draw, const ModelCondi
 bool W3DSupplyDraw::refresh(W3DScriptedModelDraw &draw, const ModelConditionFlags &flags, float scale)
 {
 	return m_hasSupplyStatus ? setSupplyStatus(draw, flags, scale, m_currentBoxes, m_startingBoxes) : false;
+}
+
+void W3DSupplyDraw::xfer(Xfer &x)
+{
+	// RW 0x004CA6B8 (DONOR BFME2 0x000CAEDF): version(1, 1), xfers m_totalBones (+0x2E8) and m_lastNumberShown (+0x2EC)
+	SnapshotXfer::version(x, 1, 1);
+	x.xferInt(&m_totalBones);
+	x.xferInt(&m_visibleBones);
 }

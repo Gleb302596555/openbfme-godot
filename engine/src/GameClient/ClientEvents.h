@@ -117,6 +117,18 @@ struct ClientEvent
 	bool immediate = false;            ///< MODEL_FLUSH: RW 0x67449C's argument (true from the OCL's CreateObject RW 0x5F13C8, lane PORT-79)
 	std::string name;
 	bool visible = false, permanent = false;
+	// Local 64 (P-132, RW 0x4BF1DE -> 0x4BF214): CAPTUREFLAG transition-deferred OnStateEnter sub-objects and capture colour.
+	struct DeferredSubObject
+	{
+		std::string name;
+		bool visible = false;
+		bool permanent = false;
+	};
+	std::vector<DeferredSubObject> deferredSubObjects;
+	bool hasDeferredIndicatorColor = false;
+	std::uint32_t deferredIndicatorColor = 0;
+	bool hasDeferredHouseColor = false;
+	std::uint32_t deferredHouseColor = 0;
 	bool setFlags = false, setScale = false, mirror = false;
 	float scale = 1.0f;
 	float opacity = 1.0f;

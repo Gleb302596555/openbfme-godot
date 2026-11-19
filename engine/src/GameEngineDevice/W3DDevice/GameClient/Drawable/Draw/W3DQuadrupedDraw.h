@@ -32,6 +32,7 @@
 #include <vector>
 
 class DrawableLaunchBones;
+class Xfer;
 
 class W3DQuadrupedDraw : public W3DScriptedModelDraw
 {
@@ -50,6 +51,8 @@ public:
 	bool getCurrentWorldspaceClientBonePositions(const std::string &boneName, const Matrix3D &renderTransform, Matrix3D &outTransform) const;
 
 	const W3DQuadrupedDrawModuleData &quadrupedData() const { return m_quadData; }
+	// RW 0x004C984A (DONOR BFME2 0x000CA137): version(1, 1) + W3DScriptedModelDraw::xfer
+	void xfer(Xfer &x);
 
 private:
 	const W3DQuadrupedDrawModuleData &m_quadData;

@@ -400,12 +400,47 @@ ClientEvent &ClientEventRecorder::pushFlush(Object &obj)
 {
 	static const int captureFlagKind = ObjectTemplateInfoBuilder::kindOfIndex("CAPTUREFLAG");
 	const bool captureFlag = captureFlagKind >= 0 && obj.isKindOf((unsigned)captureFlagKind);
+	bool deferCapturePresentation = false;
+	bool recaptureTransition = false;
+	std::vector<ClientEvent::DeferredSubObject> deferredSubObjects;
 	if (captureFlag)
 	{
 		auto &before = m_animationConditions[obj.getID()];
+		auto bitOn = [](const std::array<std::uint32_t, 19> &bits, int bit) {
+			return (bits[(size_t)(bit >> 5)] & (1u << (bit & 31))) != 0;
+		};
+		// RW 0x4BF1DE -> 0x4BF214: when a captured flag starts a re-capture (CAPTURED -> START_CAPTURE, TRANS_FlagDown)
+		// or cancels (CANCEL_CAPTURE, TRANS_FlagDownCancel), OnStateEnter fires after the lowering transition ends.
+		constexpr int kMcStartCapture = 0x6E;
+		constexpr int kMcCancelCapture = 0x6F;
+		constexpr int kMcCaptured = 0x77;
+		const bool hadCaptured = bitOn(before, kMcCaptured);
+		const bool startingCapture = obj.testModelCondition(kMcStartCapture) && !bitOn(before, kMcStartCapture);
+		const bool cancellingCapture = obj.testModelCondition(kMcCancelCapture) && !bitOn(before, kMcCancelCapture);
+		recaptureTransition = hadCaptured && startingCapture;
+		deferCapturePresentation = hadCaptured && (startingCapture || cancellingCapture);
+		const size_t subObjStart = m_events.size();
 		// Dispatch before pushing the flush: Lua can append subobject events.
 		if (before != obj.getModelConditionBits()) m_logic.animationConditionEvents(obj, before);
 		before = obj.getModelConditionBits();
+		if (deferCapturePresentation && m_events.size() > subObjStart)
+		{
+			std::vector<ClientEvent> kept;
+			kept.reserve(m_events.size() - subObjStart);
+			for (size_t i = subObjStart; i < m_events.size(); ++i)
+			{
+				if (m_events[i].kind == ClientEvent::SHOW_SUB_OBJECT && m_events[i].object == obj.getID())
+				{
+					deferredSubObjects.push_back({ m_events[i].name, m_events[i].visible, m_events[i].permanent });
+				}
+				else
+				{
+					kept.push_back(std::move(m_events[i]));
+				}
+			}
+			m_events.resize(subObjStart);
+			for (auto &ev : kept) m_events.push_back(std::move(ev));
+		}
 	}
 	ClientEvent &e = push(ClientEvent::MODEL_FLUSH, obj);
 	if (captureFlag)
@@ -414,12 +449,36 @@ ClientEvent &ClientEventRecorder::pushFlush(Object &obj)
 		// capturer before ownership transfers. Cancel returns to the current owner.
 		const Object *capturer = m_logic.findObjectByID(obj.getCapturerID());
 		const Player *player = capturer ? capturer->getControllingPlayer() : obj.getControllingPlayer();
-		if (player && player->hasTeamColor())
+		auto colorOf = [](const Player *p) -> std::uint32_t {
+			return (p && p->hasTeamColor()) ? p->getPlayerColor() : 0u;
+		};
+		if (deferCapturePresentation)
+		{
+			e.deferredSubObjects = std::move(deferredSubObjects);
+			if (player)
+			{
+				e.hasDeferredIndicatorColor = true;
+				e.deferredIndicatorColor = colorOf(player);
+				e.hasDeferredHouseColor = m_logic.settings().showsHouseColor(obj); // RW 0x674516 / 0x6712A6
+				e.deferredHouseColor = e.hasDeferredHouseColor ? colorOf(player) : 0u;
+			}
+			if (recaptureTransition)
+			{
+				if (const Player *owner = obj.getControllingPlayer())
+				{
+					e.hasIndicatorColor = true;
+					e.indicatorColor = colorOf(owner);
+					e.hasHouseColor = m_logic.settings().showsHouseColor(obj);
+					e.houseColor = e.hasHouseColor ? colorOf(owner) : 0u;
+				}
+			}
+		}
+		else if (player)
 		{
 			e.hasIndicatorColor = true;
-			e.indicatorColor = player->getPlayerColor();
+			e.indicatorColor = colorOf(player);
 			e.hasHouseColor = m_logic.settings().showsHouseColor(obj); // RW 0x674516 / 0x6712A6
-			e.houseColor = e.hasHouseColor ? player->getPlayerColor() : 0;
+			e.houseColor = e.hasHouseColor ? colorOf(player) : 0u;
 		}
 	}
 	e.scriptTarget = DrawableScriptTarget::capture(m_logic, obj); // lane FX-3: what the state scripts this flush starts ask about (RW 0x73667D / 0x734A75)

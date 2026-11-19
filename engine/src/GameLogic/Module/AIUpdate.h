@@ -53,6 +53,9 @@ struct ObjectMovementInfo;
 // lane PHYS-1 (AIUpdateAllies.cpp): AI_MOVE_OUT_OF_THE_WAY (26), the move-away path of RW 0x66DA5F followed to its end
 std::unique_ptr<class AIState> makeMoveOutOfTheWayState(class AIStateMachine &machine);
 
+// Base AIUpdateInterface no-op/compiler slots in RotWK 2.01: RW 0x0066ECF9 (construct -> nullptr, vslot 126),
+// RW 0x00A15F21 (AICMD 0x3F/0x40 -> return -1, vslots 36/37), and MI this-0x0C thunks RW 0x008A18ED / RW 0x008FF2DB
+// (port uses single inheritance without a separate AICommandInterface subobject).
 class AIUpdateInterface : public UpdateModule, public AIMoveHost
 {
 public:
@@ -237,13 +240,13 @@ public:
 	// `team` (the machine's goal squad, AIAttackSquadState)
 	bool aiAttackTeam(const Team &team, int maxShotsToFire, CommandSourceType source);
 	// RW AI + 0x6C (AI vslot 0x1E4): the area the AI attacks or guards, null for none; set by privateAttackArea, kept until another area replaces it
-	const TriggerArea *areaToGuard() const;
+	const TriggerArea *areaToGuard() const;                          // AI vslot 121, RW 0x006DA64A ([ecx + 0x6C])
 	std::int32_t areaToGuardIndex() const { return m_areaToGuard; }
 	// lane BFME2CAMP1: AI command 0x20 (RW 0x771873 aiGuardTeam; AIGroup RW 0x772777) -> aiDoCommand's gate, then privateGuardTeam RW 0x664B93 (AI vslot
 	// 0x104, AIGuardCommands.cpp): guard the team's members' mean position
 	bool aiGuardTeam(const Team &team, int mode, CommandSourceType source);
 	// RW AI + 0x68 (BFME2 getGuardTeam, AI vslot 120): the team privateGuardTeam set (its id, 0 none)
-	std::uint32_t guardTeam() const { return m_guardTeam; }
+	std::uint32_t guardTeam() const { return m_guardTeam; }          // AI vslot 120, RW 0x008EE731 ([ecx + 0x68])
 	// lane BFME2CAMP1: AI commands 0x21 / 0x44 (RW 0x7718E1 aiGuardArea / RW 0x77194F aiGuardAreaFromPosition) -> aiDoCommand's gate, then vslot 0x10C,
 	// privateGuardAreaFromPosition RW 0x664C11 (AI/AIGuardCommands.cpp): guard `area` in `mode` around `pos` (null: the area's centre); false when nothing changed
 	bool aiGuardArea(const TriggerArea &area, int mode, CommandSourceType source, const Coord3D *pos);
@@ -253,12 +256,31 @@ public:
 	// lane SCRIPT-4: AI command 0x1E (RW 0x771790 aiGuardPosition, BFME2 decomp AICommandInterfaceAttackCommands.cpp tier A) -> aiDoCommand's gate, then
 	// privateGuardPosition (RW 0x6649C6, tier A; AI/AIGuardCommands.cpp): guard `pos` in `mode`; false when nothing changed
 	bool aiGuardPosition(const Coord3D &pos, int mode, CommandSourceType source);
+	// Local 84: RW 0x00664B19 privateGuardObject (AICMD 0x1F, AI vslot 64 / +0x100): guard `target` in `mode`
+	bool aiGuardObject(Object *target, int mode, CommandSourceType source);
+	// Local 84: RW 0x0066F121 getGuardObject (AI vslot 119, [ecx + 0x64])
+	ObjectID guardObject() const { return m_guardObject; }
+	// Local 84: RW 0x0066ECEB clearGuardTargetType (AI vslot 124, shifts +0x50 -> +0x54 and sets +0x50 = GUARDTARGET_NONE)
+	void clearGuardTargetType();
+	// Local 84: RW 0x00662CC6 doQuickExit (AI vslot 117): unlocks machine, saves goal, runs AI_FOLLOW_EXITPRODUCTION_PATH (7) as temp state for 10s, restores lock
+	void doQuickExit(const std::vector<Coord3D> &path);
+	// Local 84: RW 0x006672D8 privateTightenToPosition (AICMD 0x02, AI vslot 25, state 27 AI_MOVE_AND_TIGHTEN)
+	bool aiTightenToPosition(const Coord3D &pos, CommandSourceType source);
+	// Local 84: RW 0x0066B7A2 bfmePrivateCommand38 (AICMD 0x38, AI vslot 21, state 30 AI_MOVE_AND_DELETE)
+	bool aiMoveToAndDelete(const Coord3D &pos, CommandSourceType source);
+	// Local 84: RW 0x0066B817 bfmePrivateCommand41 (AICMD 0x41, AI vslot 22, state 55 AI_MOVE_TO_POSITION_AND_DIE)
+	bool aiMoveToPositionAndDie(const Coord3D &pos, CommandSourceType source);
+	// Local 84: RW 0x0066488A privateWanderInPlace (AICMD 0x2C, AI vslot 76, state 41 AI_WANDER_IN_PLACE)
+	bool aiWanderInPlace(CommandSourceType source);
+	// Local 84: RW 0x0066D6D5 joinTeam (AI vslot 103): sync newly-joined member with an existing teammate's state or move to it
+	void joinTeam();
 	// PORT-203: AI command 0x37 (RW 0x7C8154 aiGuardTunnelNetwork) -> aiDoCommand's gate, then privateGuardTunnelNetwork RW 0x664ABF (AI vslot 0xF8):
 	// enter state 0x18 (AI_TUNNEL_NETWORK_GUARD, AITunnelNetworkGuardState)
 	bool aiGuardTunnelNetwork(int mode, CommandSourceType source);
-	int guardMode() const { return m_guardMode; }                      // AI vslot 125
-	int guardTargetType() const { return m_guardTargetType; }          // AI vslot 123
-	const Coord3D &guardLocation() const { return m_guardLocation; }   // AI vslot 118
+	// PORT-264: the guard queries, each cited at its RotWK body (the getters of the two-entry guard target stack, the mode and the location)
+	int guardMode() const { return m_guardMode; }                      // AI vslot 125, RW 0x00670317 ([ecx + 0x4C])
+	int guardTargetType() const { return m_guardTargetType; }          // AI vslot 123, RW 0x0049A4D0 ([ecx + 0x54])
+	const Coord3D &guardLocation() const { return m_guardLocation; }   // AI vslot 118, RW 0x008F1161 (lea [ecx + 0x58])
 	unsigned autoAcquireFlags() const { return m_combat.autoAcquire; }
 	// RW 0x662E01 (AI + 0x21C; ZH AIUpdateInterface::setNextMoodCheckTime): the frame of the next mood check, without the random offset (+ 0x3BC cleared)
 	void setNextMoodCheckTime(unsigned frame)
@@ -276,6 +298,7 @@ public:
 	// lane SCRIPT-3: AI commands 6 / 7 / 0x32 / 0x33 (RW 0x770FA8 / 0x771072 / 0x77100D / 0x7710D7): the waypoint path states from `waypointId`
 	// (AIWaypointPath.cpp); false when nothing changed
 	bool aiFollowWaypointPath(int waypointId, CommandSourceType source, bool asTeam, bool exact);
+	bool aiWander(int waypointId, CommandSourceType source);
 	// lane WARG-1: AI commands 0x10 / 0x11 (RW 0x754A3C / 0x754AAA -> RW 0x66C1C9): the attack-follow state 0x22 / 0x23 from the waypoint (AIWaypointPath.h)
 	bool aiAttackFollowWaypointPath(int waypointId, int maxShotsToFire, CommandSourceType source, bool asTeam);
 	// RW 0x664CD6: a HORDE_MEMBER (status 0x26) reads its horde's AI (RW 0x693A1A(0), the horde's AI + 0x260), up the chain
@@ -387,7 +410,11 @@ public:
 	// Port 257: RW vslot 0x1D0 (RW 0x662B28): the current state's slot 0x34 (AIState::isFollowThru), true without a current state
 	bool isInFollowThruState() const { return !m_machine || !m_machine->currentState() ? true : m_machine->currentState()->isFollowThru(); }
 	bool isBlocked() const { return m_mover->isBlocked(); }
-	bool isBusy() const { return m_machine && m_machine->currentStateId() == AI_BUSY; }
+	bool isBusy() const { return m_machine && m_machine->currentStateId() == AI_BUSY; } // AI vslot 0x16C, RW 0x0066281A: the CURRENT state's slot 0x38
+	// PORT-264: AI vslot 0x1C4 (RW 0x00662B50): the machine's slot 0x30 (RW 0x741724) — the temporary state's busy flag first, the current state's
+	// otherwise — so a unit under a temporary busy state answers true here while isBusy (the current state, RW 0x0066281A) answers false. RotWK reads the
+	// machine without a test (the constructor makes it, RW 0x0066ECFE); the port answers false when it has none, as its other machine queries do.
+	bool isBusyState() const;
 	// ---- lane EXIT-1: the horde member update (GameLogic/Module/AIUpdateHordeMember.cpp) ----
 	// RW 0x66E654 .. 0x66E6F4: a HORDE_MEMBER whose machine is busy (RW 0x741724) or whose locomotor goal is explicit / an angle / explicit with a path (not a
 	// DOZER with an angle goal) runs RW 0x66C748 instead of the ordinary update RW 0x6695EF
@@ -712,6 +739,8 @@ private:
 	CombatSettings m_combat;
 	int m_guardMode = 0;                              ///< RW AI + 0x4C (lane PLAY-4)
 	int m_guardTargetType = 0;                        ///< RW AI + 0x54
+	int m_guardTargetTypeNext = 4;                    ///< Local 84: RW AI + 0x50 (4 = GUARDTARGET_NONE)
+	ObjectID m_guardObject = INVALID_ID;              ///< Local 84: RW AI + 0x64 (privateGuardObject RW 0x00664B19)
 	Coord3D m_guardLocation{ 0.0f, 0.0f, 0.0f };      ///< RW AI + 0x58
 	float m_guardAngle = 0.0f;                        ///< RW AI + 0x1A0
 	std::uint32_t m_guardTeam = 0;                    ///< lane BFME2CAMP1: RW AI + 0x68, a TeamID (0 none)

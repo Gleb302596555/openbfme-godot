@@ -24,8 +24,8 @@
 //     wall layer 0x11); otherwise OpenContain's (HordeTransportContain's) exit.
 // Lane SIEGE-1: the deployed branch of the exit (a rider of a deployed ladder / tower onto the wall: RW 0x87F87C .. / 0x880868 ..) is ported (exitOntoWall,
 // GameLogic/Module/SiegeModules.h for SiegeDeploySpecialPower; S-4943 for its inference).
-// NOT PORTED (stop S-1105): DynamicPortalBehaviour (lane WALL-2, S-4940), the selection transfer (TransferSelection, client side), the crew's team change on capture
-// (contain slots 0x108 / 0x10C / 0x110).
+// NOT PORTED (stop S-1105): the selection transfer (TransferSelection, client side) and the crew's team change on capture (contain slots 0x108 / 0x10C / 0x110).
+// The capture path is shared Object::setCapturedTeam RW 0x6996DC (S-1225, Object.cpp); do not extend that separate open capture task here.
 
 #pragma once
 
@@ -48,6 +48,11 @@ public:
 	float getCrewPowerMultiplier() const override;
 	bool moodScanWhileContained() const override; // RW 0x87EDA9 (contain vslot 0xB8): CrewAllowedToFire
 	void removeAllContained(bool exposeStealthUnits = false) override;
+	void onDefect(Object *newOwner, bool permanent) override; // RW 0x0087F1BA / RW 0x008801F7
+	void onDefectionEnded() override; // RW 0x0087F18B / RW 0x008801C8
+	void iterateContained(const std::function<void(Object *)> &fn, unsigned flags = 1) override; // RW 0x0087F10E / RW 0x0088014B
+	bool hasMinePassenger() const override { return m_hasMinePassenger; } // RW 0x0087F2F5 / RW 0x008F4D47
+	// RW 0x0087F2DA (SiegeEngineContain) / RW 0x00880317 (HordeSiegeEngineContain) contain slot 0x11C
 	const ContainModuleInterface::ContainedItemsList *crewList() const override { return &m_crew; }
 	int getCrewCount() const override { return m_crewCount; } // RW 0x86B050 (contain slot 0xCC)
 	bool isSpecificRiderFreeToExit(const Object &rider) const override;
@@ -55,7 +60,6 @@ public:
 
 	const SiegeEngineContainModuleData &siegeData() const { return *m_siege; }
 	int crewCount() const { return m_crewCount; }
-	bool hasMinePassenger() const { return m_hasMinePassenger; }
 	// RW 0x7640C1(obj, the container's player) with CrewMax >= 1: the object would be crew
 	bool isCrewCandidate(const Object &obj) const;
 

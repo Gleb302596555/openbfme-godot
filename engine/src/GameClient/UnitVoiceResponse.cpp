@@ -23,6 +23,7 @@
 #include "GameLogic/Module/InvisibilityModules.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
+#include "GameLogic/Object/ExperienceTracker.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/ExperienceTracker.h"
 #include "GameLogic/ObjectTemplateInfo.h"
@@ -1153,10 +1154,17 @@ bool UnitVoiceResponse::pickAndPlay(const std::vector<ObjectID> &selection, int 
 		rank.priority = objectVoicePriority(obj); // RW 0x675095
 		const int heroBit = ObjectTemplateInfoBuilder::kindOfIndex("HERO");
 		rank.hero = heroBit >= 0 && obj.isKindOf((unsigned)heroBit);
-		// RW 0x8DEDBB: 0x8DF0A8..0x8DF106. A missing/invalid current entry keeps INT_MIN, even for a hero.
-		if (rank.hero && obj.getExperienceTracker())
+		// PORT-271 (issue #638, P-151): a hero's level is the rank of its experience tracker, the number the panel's hero is picked by
+		// (0x8DF0A3 reads obj + 0x26C and asks getCurrentLevel RW 0x79D12A, isValid RW 0x689024 and getLevelRank RW 0x688EEC). A hero no
+		// ExperienceLevel names keeps the minimum (0x8DF0CE), so a ranked hero of the selection speaks instead of it
+		if (rank.hero)
 		{
-			obj.getExperienceTracker()->currentLevelRank(rank.level);
+			int heroLevel = 0;
+			const ExperienceTracker *tracker = obj.getExperienceTracker();
+			if (tracker && tracker->currentLevelRank(heroLevel))
+			{
+				rank.level = heroLevel;
+			}
 		}
 		switch (msgType)
 		{
@@ -1618,9 +1626,9 @@ std::vector<std::string> UnitVoiceResponse::acceptanceStops()
 		"the planned action queue (0x46A); 0x7E4 / 0x7E5 are auto-ability button sounds in ControlBar::rightPressButton; combine hordes (0x423, RW 0x8DF2EB) is answered (PORT-84); 0x7DB .. 0x7DD are answered (PORT-86); "
 		"0x7EA (RW 0x8DFD0D) and 0x7EB (RW 0x8DFE7B) are answered (PORT-87), AIAttackCharge posts 0x7EA (RW 0x7549A2)",
 		"[S-704] unit voice: VoiceCrush (InGameUI + 0x8B9, crushable target) is not ported; planning and waypoint movement gates are ported (PORT-462)",
-		"[S-705] unit voice: the candidate order is selection then member order (retail iterates a hash map keyed by Object pointers), a count tie between "
-		"two sounds goes to the lower-case name order (retail: the lower audio info POINTER, RW 0x8DE522's unsigned compare), and the current hero rank is read "
-		"from the experience level entry (RW 0x8DF106): which sound wins a tie and which object of a bucket speaks may differ from retail",
+		"[S-705] unit voice: the candidate order is selection then member order (retail iterates a hash map keyed by Object pointers) and a count tie between "
+		"two sounds goes to the lower-case name order (retail: the lower audio info POINTER, RW 0x8DE522's unsigned compare): which sound wins a tie and "
+		"which object of a bucket speaks may differ from retail. A hero's level is its experience tracker's rank (PORT-271)",
 	};
 }
 

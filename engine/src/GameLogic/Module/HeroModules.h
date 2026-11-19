@@ -255,6 +255,7 @@ public:
 	// and restricts targets in affect() to wall layers [0x11, 0x40] (RW 0x89F1DB .. 0x89F1FA).
 	void onDelete() override;
 	void crc(StateHasher &h) const override;
+	const AttributeModifierAuraUpdateModuleData *auraData() const { return m_data; } ///< read-only (the button matrix's aura check)
 	unsigned pulses() const { return m_pulses; }
 	unsigned long long antiCategoryRequests() const { return m_anti; }
 
@@ -340,6 +341,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p) { buildBaseFieldParse(p); }
 };
 
+// scalar deleting dtor RW 0x008BC4AA
 class BuildableHeroListUpgrade : public UpgradeModule
 {
 public:
@@ -348,7 +350,7 @@ public:
 
 protected:
 	void upgradeImplementation() override; ///< RW 0x8BC4C6
-	void processUpgradeRemoval() override {}
+	void processUpgradeRemoval() override; ///< slot 8, RW 0x008BC5CB
 };
 
 namespace HeroModules

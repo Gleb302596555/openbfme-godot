@@ -1,25 +1,33 @@
 // OpenBFME. GPL-3.0.
 //
-// W3DLightDraw: light sources (torches, campfires, flashes) with flickering and pulsing (lane MODGAP-2, stop S-113).
+// W3DLightDraw: light sources (torches, campfires, flashes) with flickering and pulsing (lane MODGAP-2, stop S-113; Local 88 #714).
 //
 // Both editions:
 //   RotWK 2.01:
 //     - friend_newModuleInstance: RW 0x004645EE
 //     - friend_newModuleData:     RW 0x00464626
-//     - buildFieldParse:          RW 0x004CF4F0, table RW 0x00BDBB08
-//     - ModuleData ctor:          RW 0x004CF510, vtable RW 0x00BE3790
-//     - W3DLightDraw ctor:        RW 0x004CE750, vtable RW 0x00BE37D0
-//     - ~W3DLightDraw:            RW 0x004CE800
-//     - doDrawModule:             RW 0x004CE930
-//     - reactToTransformChange:   RW 0x004CEAC0
+//     - buildFieldParse:          RW 0x004CF5A5, table RW 0x00BE3638, name RW 0x00BDBB08
+//     - ModuleData ctor:          RW 0x004CF515, vtable RW 0x00BE3700
+//     - ~ModuleData:              RW 0x004CF580, scalar deleting dtor RW 0x004CF5D2
+//     - W3DLightDraw ctor:        RW 0x004CF121, vtable RW 0x00BE3718
+//     - GetSnapshotName / name:   RW 0x004CF240
+//     - ~W3DLightDraw:            RW 0x004CF246, scalar deleting dtor RW 0x004CF5B6
+//     - setHidden:                RW 0x004CF29D
+//     - doDrawModule:             RW 0x004CF2B5
 //     - xfer:                     RW 0x004CF488
+//     - getModuleNameKey:         RW 0x004CF4D0
+//     - reactToTransformChange:   RW 0x004CF5EE
+//     - getModelName (inherited): RW 0x004B612F
 //   BFME2 1.06:
 //     - friend_newModuleInstance: BFME2 0x00464DF8 (or 0x00064E1E)
 //     - friend_newModuleData:     BFME2 0x00464E2F (or 0x00064E2F)
 //     - buildFieldParse:          BFME2 0x000CFBDF, table BFME2 0x00BCD918
 //     - ModuleData ctor:          BFME2 0x000CFB3E, vtable BFME2 0x00BCD820
 //     - W3DLightDraw ctor:        BFME2 0x004CEF80 (or 0x000CF91D), vtable BFME2 0x00BCD728
+//     - GetSnapshotName / name:   BFME2 0x000CFA3C
 //     - ~W3DLightDraw:            BFME2 0x000CFA42
+//     - setHidden:                BFME2 0x000CFA99
+//     - getModuleNameKey:         BFME2 0x000CFAF9
 //     - doDrawModule:             BFME2 0x000CFC0C
 //     - reactToTransformChange:   BFME2 0x000CFDFB
 //     - xfer:                     BFME2 0x000CFAB1
@@ -30,6 +38,7 @@
 #include "Common/INIDataTypes.h"
 #include "Common/Module.h"
 
+#include <cstdint>
 #include <string>
 
 class Xfer;
@@ -38,6 +47,7 @@ class W3DLightDrawModuleData : public ModuleData
 {
 public:
 	W3DLightDrawModuleData();
+	~W3DLightDrawModuleData() override = default; // RW 0x004CF580 / scalar deleting dtor RW 0x004CF5D2
 	static void buildFieldParse(MultiIniFieldParse &p);
 
 	RGBColor m_ambient{ 0.0f, 0.0f, 0.0f };   ///< +0x08 Ambient
@@ -54,7 +64,7 @@ public:
 
 namespace W3DLightDrawTables
 {
-const FieldParse *light(); ///< RW 0x00BDBB08 / BFME2 0x00BCD918
+const FieldParse *light(); ///< RW 0x00BE3638 / BFME2 0x00BCD918
 }
 
 class ModuleFactory;
@@ -66,16 +76,21 @@ public:
 	OBFME_MODULE_XFER(W3DLightDraw)
 
 	W3DLightDraw(Thing *thing, const ModuleData *moduleData);
-	~W3DLightDraw() override;
+	~W3DLightDraw() override; // RW 0x004CF246 / scalar deleting dtor RW 0x004CF5B6
 
 	void reactToTransformChange(const Coord3D *oldPos, float oldAngle) override;
 
 	void setEnabled(bool enabled);
 	bool isEnabled() const { return m_enabled; }
 
+	// RW 0x004CF29D (DONOR BFME2 0x000CFA99): m_light->setEnabled(!hidden)
+	void setHidden(bool hidden);
+	bool isHidden() const { return !m_enabled; }
+
 	float phase() const { return m_phase; }
 	float currentHeight() const { return m_height; }
-	float currentRadius() const { return m_radius; }
+	float currentRadius() const { return m_flickerRemaining; }
+	float flickerRemaining() const { return m_flickerRemaining; }
 	float currentAngle() const { return m_angle; }
 
 	float lightRadius() const;
@@ -83,6 +98,7 @@ public:
 	RGBColor lightAmbient() const; // lane LOCAL-38: Ambient * Intensity (Init_From_Point RW 0x53F90C)
 	Coord3D lightPosition() const;
 
+	// RW 0x004CF2B5 doDrawModule (DONOR BFME2 0x000CFC0C): advances m_phase, steps flicker and pulse intensity
 	void stepFlicker(float dt);
 	void updateLight();
 
@@ -94,14 +110,16 @@ public:
 
 private:
 	LightPulsePool *getPool() const;
+	float nextRandomUnit();
 
 	Thing *m_thing = nullptr;
 	const W3DLightDrawModuleData *m_data = nullptr;
 	LightPulsePool *m_pool = nullptr;
 	int m_lightHandle = -1;
 	float m_phase = 0.0f;                     ///< +0x10
-	float m_radius = 0.0f;                    ///< +0x14
-	float m_angle = 0.0f;                     ///< +0x18
-	float m_height = 0.0f;                    ///< +0x1C
+	float m_flickerRemaining = 0.0f;          ///< +0x14 (remaining period before picking a new flicker target)
+	float m_angle = 0.0f;                     ///< +0x18 (flicker drift rate)
+	float m_height = 0.0f;                    ///< +0x1C (current effective intensity)
 	bool m_enabled = true;
+	std::uint32_t m_rngState = 1u;            ///< MSVCR71 rand() seed for WWMath::Random_Float (RW 0x00B25D60)
 };
