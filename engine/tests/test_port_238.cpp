@@ -942,3 +942,89 @@ TEST_CASE("PORT-238 Phial conditions reject the worn ring and terror targets nea
     CHECK_FALSE(allyEmotion->requested(EMOTION_TERROR));
     CHECK_FALSE(farEmotion->requested(EMOTION_TERROR));
 }
+
+TEST_CASE("PORT-238 synthetic Boromir ring replacement synchronizes selected power timers")
+{
+    HealHudWorld w;
+    // One OBJECT ring upgrade, DoCommandUpgrade and the two named timers model
+    // gondorboromir.ini:1197..1225,1271..1282, without actual mod loading.
+    const char *data =
+        "Upgrade Upgrade_P238BoromirRing\n Type = OBJECT\n End\n"
+        "SpecialPower P238BoromirTransform\n Enum = SPECIAL_TOGGLE_MOUNTED\n ReloadTime = 1000\n End\n"
+        "SpecialPower P238BoromirHorn\n Enum = SPECIAL_GENERAL_TARGETLESS\n ReloadTime = 120000\n End\n"
+        "SpecialPower P238BoromirShield\n Enum = SPECIAL_HERO_MODE\n ReloadTime = 120000\n End\n"
+        "SpecialPower P238BoromirOther\n Enum = SPECIAL_GENERAL_TARGETLESS_TWO\n ReloadTime = 120000\n End\n"
+        "CommandButton P238BoromirSwitch\n Command = SPECIAL_POWER\n SpecialPower = P238BoromirTransform\n"
+        " Options = TOGGLE_IMAGE_ON_WEAPONSET ON_GROUND_ONLY\n InPalantir = No\n End\n"
+        "Object P238Boromir\n KindOf = INFANTRY HERO SELECTABLE COMMANDCENTER CAN_ATTACK\n"
+        " Geometry = CYLINDER\n GeometryMajorRadius = 8\n GeometryHeight = 20\n"
+        " Body = ActiveBody Body\n MaxHealth = 100\n End\n Behavior = AIUpdateInterface AI\n End\n"
+        " Behavior = UnpauseSpecialPowerUpgrade Enable\n SpecialPowerTemplate = P238BoromirTransform\n TriggeredBy = Upgrade_P238BoromirRing\n End\n"
+        " Behavior = SpecialPowerModule TransformPower\n SpecialPowerTemplate = P238BoromirTransform\n UpdateModuleStartsAttack = Yes\n StartsPaused = Yes\n End\n"
+        " Behavior = ToggleMountedSpecialAbilityUpdate Transform\n SpecialPowerTemplate = P238BoromirTransform\n MountedTemplate = P238BoromirRingForm\n"
+        "  SynchronizeTimerOnSpecialPower = P238BoromirHorn P238BoromirShield\n UnpackTime = 2000\n PreparationTime = 0\n PackTime = 0\n IgnoreFacingCheck = Yes\n End\n"
+        " Behavior = DoCommandUpgrade AutoTransform\n TriggeredBy = Upgrade_P238BoromirRing\n GetUpgradeCommandButtonName = P238BoromirSwitch\n End\n"
+        " Behavior = CitadelSlaughterHordeContain RingEntry\n PassengerFilter = NONE +P238Ring\n ObjectStatusOfContained = UNSELECTABLE ENCLOSED\n ContainMax = 1\n"
+        "  StatusForRingEntry = HOLDING_THE_RING\n UpgradeForRingEntry = Upgrade_P238BoromirRing\n ObjectToDestroyForRingEntry = NONE +P238Ring\n End\n"
+        " Behavior = SpecialPowerModule Horn\n SpecialPowerTemplate = P238BoromirHorn\n End\n"
+        " Behavior = SpecialPowerModule Shield\n SpecialPowerTemplate = P238BoromirShield\n End\n"
+        " Behavior = SpecialPowerModule Other\n SpecialPowerTemplate = P238BoromirOther\n End\n"
+        " LocomotorSet\n Locomotor = WalkerLoco\n Condition = SET_NORMAL\n Speed = 55\n End\n End\n"
+        "Object P238BoromirRingForm\n KindOf = INFANTRY HERO SELECTABLE CAN_ATTACK\n"
+        " Geometry = CYLINDER\n GeometryMajorRadius = 8\n GeometryHeight = 20\n Body = ActiveBody Body\n MaxHealth = 100\n End\n"
+        " Behavior = AIUpdateInterface AI\n End\n"
+        " Behavior = SpecialPowerModule Horn\n SpecialPowerTemplate = P238BoromirHorn\n End\n"
+        " Behavior = SpecialPowerModule Shield\n SpecialPowerTemplate = P238BoromirShield\n End\n"
+        " Behavior = SpecialPowerModule Other\n SpecialPowerTemplate = P238BoromirOther\n End\n"
+        " LocomotorSet\n Locomotor = WalkerLoco\n Condition = SET_NORMAL\n Speed = 55\n End\n End\n";
+    const std::string error = w.w.load(data, INI_LOAD_OVERWRITE, "port238_boromir.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    Object *bearer = w.unit("P238Boromir", 'A', 300, 300);
+    Object *carrier = w.unit("P238Carrier", 'A', 300, 300);
+    Object *ring = w.unit("P238Ring", 'A', 300, 300);
+    REQUIRE(bearer != nullptr);
+    REQUIRE(carrier != nullptr);
+    REQUIRE(ring != nullptr);
+    auto findPower = [&](Object &obj, const char *name) {
+        const SpecialPowerTemplate *t = w.powers.findSpecialPowerTemplate(name);
+        return t ? dynamic_cast<SpecialPowerModule *>(SpecialPowerModules::findModule(obj, t)) : nullptr;
+    };
+    auto *horn = findPower(*bearer, "P238BoromirHorn");
+    auto *shield = findPower(*bearer, "P238BoromirShield");
+    auto *other = findPower(*bearer, "P238BoromirOther");
+    REQUIRE(horn != nullptr);
+    REQUIRE(shield != nullptr);
+    REQUIRE(other != nullptr);
+    horn->setReadyFrame(300);
+    shield->setReadyFrame(600);
+    other->setReadyFrame(900);
+    Team *team = bearer->getTeam();
+    bearer->setName("P238NamedBearer");
+    const ObjectID originalId = bearer->getID();
+    auto *contain = dynamic_cast<CitadelSlaughterHordeContain *>(bearer->getContain());
+    REQUIRE(contain != nullptr);
+    deliver(*contain, *carrier); // RW 0x8840FC -> DoCommandUpgrade 0x8B8E2E
+    CHECK(bearer->hasUpgrade("Upgrade_P238BoromirRing"));
+    Object *replacement = nullptr;
+    for (int i = 0; i < 50 && !replacement; ++i)
+    {
+        w.frames(1);
+        for (Object *obj = w.logic->getFirstObject(); obj; obj = obj->getNextObject())
+            if (obj->getTemplate() && obj->getTemplate()->getName() == "P238BoromirRingForm") replacement = obj;
+    }
+    REQUIRE(replacement != nullptr);
+    CHECK(replacement->getTeam() == team);
+    CHECK(replacement->getName() == "P238NamedBearer");
+    auto *newHorn = findPower(*replacement, "P238BoromirHorn");
+    auto *newShield = findPower(*replacement, "P238BoromirShield");
+    auto *newOther = findPower(*replacement, "P238BoromirOther");
+    REQUIRE(newHorn != nullptr);
+    REQUIRE(newShield != nullptr);
+    REQUIRE(newOther != nullptr);
+    // RW 0x8B12BF iterates listed power names and calls 0x897368 to copy timers.
+    CHECK(newHorn->getReadyFrame() == 300);
+    CHECK(newShield->getReadyFrame() == 600);
+    CHECK(newOther->getReadyFrame() != 900); // not listed
+    w.frames(3);
+    CHECK(w.byId(originalId) == nullptr);
+}
