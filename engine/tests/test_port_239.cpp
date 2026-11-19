@@ -640,4 +640,14 @@ TEST_CASE("PORT-239 stance toggle: live context relationship not disabled clip s
 		}
 	}
 	CHECK(palantir->stanceErrors().empty());
+	// A queued request cannot open a radial for the ordinary controller that
+	// replaced its slot before the HUD obtained the simulation hold.
+	toggle.m_command = GUI_COMMAND_STOP;
+	buttons = { shown };
+	palantir->sync(bar);
+	CHECK_FALSE(palantir->isToggleStanceContent(0));
+	palantir->pressToggleStance(0, context);
+	REQUIRE(palantir->subMenu(0));
+	CHECK_FALSE(palantir->subMenu(0)->isOpen());
+	CHECK(stream.propagate().empty());
 }

@@ -1138,7 +1138,9 @@ const char *AptPalantir::setStanceButtonName(int stance)
 // team (RW 0x6ADBEB). No disabled-clip test belongs to this controller.
 void AptPalantir::pressToggleStance(int position, const HudContext &context)
 {
-	if (position < 0 || position >= kArcPositions) return;
+	// The deferred HUD request must still address this controller: RW 0x92FF5C
+	// destroys/replaces it when the slot changes, rather than pressing a successor.
+	if (!isToggleStanceContent(position)) return;
 	InGameCommandButtonSubMenu *menu = m_subMenu[position].get();
 	const Slot &s = m_arc[position];
 	if (!menu || !s.button)
