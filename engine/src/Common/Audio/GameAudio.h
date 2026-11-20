@@ -97,6 +97,7 @@ struct AudioReport
 	std::uint64_t culledMuted = 0;
 	std::uint64_t culledDistance = 0;
 	std::uint64_t culledShroud = 0;
+	std::uint64_t culledUnresolved = 0; ///< RW 0x45CB92: the owner could not be resolved (a dead object/drawable)
 	std::uint64_t culledVoice = 0;
 	std::uint64_t culledLimit = 0;
 	std::uint64_t culledNoChannel = 0;

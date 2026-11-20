@@ -985,16 +985,26 @@ bool AudioManager::canPlayNow(AudioEventRTS &event)
 {
 	const AudioEventInfo &info = *event.getAudioEventInfo();
 	const bool positional = event.isPositionalAudio();
-	// RW 0x45CB3B: 0x45CB71 / 0x45CB92 refuses an event whose owner cannot be resolved. That is evidence only when the manager has an owner resolver at
-	// all; a host without one (the shell, a headless test) cannot resolve anybody, so the distance and shroud checks are skipped for it as they were
-	// before PORT-234 rather than every positional event being refused.
-	if (positional && m_env.owners && !(info.type & ST_GLOBAL) && info.priority != AP_CRITICAL && info.minVolume < m_ini.settings.minSampleVolume)
+	if (positional && !(info.type & ST_GLOBAL) && info.priority != AP_CRITICAL && info.minVolume < m_ini.settings.minSampleVolume)
 	{
 		Coord3D pos;
 		if (!event.getCurrentPosition(m_env, &pos))
 		{
-			m_refusal = "unresolved position"; // cached positions still count
-			return false;
+			// RW 0x45CB3B: 0x45CB92 refuses an event whose owner cannot be resolved (RW 0x6DB31E answered false). An event that carries its own
+			// position (OT_Positional: playSoundAt, the logic's fixed-position cues) never asks the resolver, so it is refused only when the manager
+			// has an owner resolver at all: a host without one (the shell, a headless test) cannot resolve any object, and refusing every object
+			// event there would silence the whole game rather than report a dead owner.
+			const OwnerType owner = event.getOwnerType();
+			if (owner == OT_Positional || !m_env.owners)
+			{
+				pos = Coord3D{};
+			}
+			else
+			{
+				m_refusal = "unresolved position";
+				++m_report.culledUnresolved;
+				return false;
+			}
 		}
 		const float dist = length3(m_listenerPosition, pos);
 		if (dist >= info.maxRange)
