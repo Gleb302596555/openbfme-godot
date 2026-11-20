@@ -81,6 +81,10 @@ These are candidates for the shared ring-drop functionality; inclusion alone doe
 | `WOR_ArnorCastleBaseKeep` | `goodfaction/structures/arnor/arnorcampsandcastles.ini:907` |
 | `WOR_EreborThrone` | `civilian/ereborbuildings.ini:6101` |
 
+## AI library creation path
+
+`PORT238_AI_RING_SCRIPTS.md` inventories the seven base templates named by 56 create actions in the extracted AI library, including their placement types and the already-ported LOCAL-81 actions. This is an additional bounded discovery source, not a completeness proof or a verified live game path.
+
 ## What remains
 
 Resolve the actual load graph, effective object inheritance and overrides, shared includes, create/die/transform links, explicit ring objects and all command sets / powers / upgrades / visual conditions. Trace each through parser, RW and port, with per-item ported/stale/proven-no-reader/left-with-stop verdicts. Shared StealthUpdate selection remains S-7634 and generic admission remains S-7321; neither is a blanket verdict for these candidates.
