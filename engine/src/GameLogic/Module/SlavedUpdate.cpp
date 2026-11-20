@@ -190,6 +190,19 @@ void SlavedUpdate::onObjectCreated()
 	}
 }
 
+void SlavedUpdate::suspendUpdate()
+{
+	// RW vtable 0xC68820 + 0x18 -> 0x49D0E9: mov byte ptr [ecx + 0x24], 1. ECX is this interface subobject at module + 0x20,
+	// so the write is the module's existing + 0x44 suspension flag. RotWK exposes no clearing slot on this interface.
+	m_updateSuspended = true;
+}
+
+bool SlavedUpdate::isUpdateSuspended() const
+{
+	// RW vtable 0xC68820 + 0x1C -> 0x49D0F3: mov al, byte ptr [ecx + 0x24], the same module + 0x44 flag.
+	return m_updateSuspended;
+}
+
 void SlavedUpdate::onEnslave(const Object *slaver)
 {
 	// RW 0x8A510B
@@ -366,7 +379,7 @@ UpdateSleepTime SlavedUpdate::update()
 	{
 		return UPDATE_SLEEP_NONE;
 	}
-	if (m_selfTaskFlag) // slaved slot 7 (+ 0x44)
+	if (isUpdateSuspended()) // RW 0x8A5D38 vcall through slaved slot 7 -> 0x49D0F3; true branches at 0x8A5D42 to sleep forever at 0x8A5D44
 	{
 		return UPDATE_SLEEP_FOREVER;
 	}
@@ -523,12 +536,13 @@ void SlavedUpdate::crc(StateHasher &h) const
 	h.addI32(m_repairState);
 	h.addBool(m_repairing);
 	h.addU32((std::uint32_t)m_guardTargetID);
-	h.addBool(m_selfTaskFlag);
+	h.addBool(m_updateSuspended); // existing RW + 0x44 flag: preserve the current CRC layout
 	h.addBool(m_faded);
 }
 
 void SlavedUpdate::registerClass(ModuleFactory &modules)
 {
+	// RW 0x8A4F1C initializes the static class-name value and 0x8A4F61 returns its "SlavedUpdate" string; the factory binding is the equivalent name path.
 	const char *name = "SlavedUpdate";
 	modules.bindTypedData<SlavedUpdateModuleData>(name, MODULETYPE_BEHAVIOR);
 	modules.bindModuleProc(name, MODULETYPE_BEHAVIOR, [name](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &) -> std::unique_ptr<Module> {
@@ -557,6 +571,6 @@ void SlavedUpdate::xfer(Xfer &x)
 	x.xferInt(&m_repairState);
 	x.xferBool(&m_repairing);
 	x.xferObjectID(&m_guardTargetID);
-	x.xferBool(&m_selfTaskFlag);
+	x.xferBool(&m_updateSuspended); // existing RW + 0x44 flag; snapshot v1 already carries it, so no version change
 	x.xferBool(&m_faded);
 }

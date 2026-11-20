@@ -96,7 +96,8 @@ public:
 	// the object's WeaponSet conditions (WeaponSetFlags, RW Object + 0x3xx; ZH Object::m_weaponSetFlags): a change re-selects the set
 	const WeaponSetFlags &weaponSetFlags() const { return m_flags; }
 	void setWeaponSetFlag(int bit, bool on);
-	// lane UPGRADE-1: RW 0x68DECA / 0x6911B7 Object::setWeaponSetFlags / clearWeaponSetFlags: every bit of the mask, then ONE weapon set update (RW 0x6C99E2)
+	// lane UPGRADE-1: RW 0x68DECA / 0x6911B7 Object::setWeaponSetFlags / clearWeaponSetFlags: every bit of the mask, then ONE weapon set update (RW 0x6C99E2);
+	// the clear, then RW 0x6911B7's second loop (the owner's model conditions named by the mask cleared one by one)
 	void setWeaponSetFlags(const WeaponSetFlags &mask, bool on);
 	// RW 0x6C99E2
 	void updateWeaponSet();

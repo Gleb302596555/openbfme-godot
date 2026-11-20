@@ -825,14 +825,28 @@ Coord3D ClearanceTestingSlowDeathBehavior::getClearanceTestGeometryCenter() cons
 	return ExtraDieModules::transformPoint(*getObject(), m_clearanceData->m_clearanceGeometryOffset); // RW 0x70BFD1 (BFME2 0x70A812)
 }
 
-// RW 0x887191 (BFME2 0x883F19, tier A; donors Open-BFME-2 Rva00483C35Rva00483F19.cpp, Open-BFME-1 ClearanceTestingSlowDeathBehaviorRva001F7430.cpp):
-//   1. the centre: ClearanceGeometryOffset through the object's transform; the radius: GeometryInfo + 0x14 (the bounding sphere) * 1.1f (mulss, BFME2 0xBCE3B8);
-//   2. ThePartitionManager->getClosestObject(centre, radius, FROM_BOUNDINGSPHERE_3D (3), chain) with the chain in And order (BFME2 0xA25790 appends): first the
-//      filter of vtable BFME2 0xC49E84 (allow BFME2 0x883C9F: refuse when this object's crusher level (BFME2 0x694815, signed byte) is not 0 and above the
-//      other's crushable level (BFME2 0x68CE7B, jg), refuse the object itself and an object on an airborne locomotor (BFME2 0x68B81E: AI + current locomotor +
-//      template surfaces bit AIR), allow an object without a body, else allow unless the body's damage state is RUBBLE (BFME2 body vslot 0x20 == 3)), then
-//      PartitionFilterWouldCollide(centre, the clearance geometry, the object's angle, true) (ctor BFME2 0x67C2C9, allow BFME2 0x661603: the geometry overlap
-//      RW 0xAD2CE0 of the other's own GeometryInfo at its position and angle, == desired); any object found: false;
+// RW 0x887191 (BFME2 0x883F19, tier A; donors Open-BFME-2 Rva00483C35Rva00483F19.cpp, Open-BFME-1 ClearanceTestingSlowDeathBehaviorRva001F7430.cpp).
+// Read instruction by instruction from its first instruction (lane PORT-305):
+//   1. object = [ecx-0x1C] (the +0x24 interface subobject), data = [ecx-0x20]; no object: false (RW 0x8871A9);
+//   2. the centre: ClearanceGeometryOffset (data +0x1EC) through the object's transform, RW 0x8871C2 -> RW 0x70BFD1 (the same as RW 0x88701C below);
+//      the radius: GeometryInfo + 0x14 (the bounding sphere, RW 0x8871CA) * 1.1f (RW 0x8871D2, constant 0xBE4398);
+//   3. the would-collide filter (ctor RW 0x67C5F3, this at [ebp-0x64], vtable 0xC112C8) with (centre, the clearance GeometryInfo data+0x190, the object's
+//      angle object+0x44, 1) at RW 0x8871F3; then the crusher filter built inline (object, RW 0x695070's crusher level) with vtable 0xC60774 at RW 0x88720A,
+//      and the chain RW 0xA394C0 (PartitionFilter::And, would-collide inside the crusher filter);
+//   4. ThePartitionManager (0xDE4354) -> RW 0xA39090 getClosestObject(centre, radius, 3 FROM_BOUNDINGSPHERE_3D, the chain) at RW 0x88723A; any object
+//      found: false (RW 0x887247);
+//   5. the terrain gate RW 0x887250: 1.0f >= ClearanceMaxHeightFraction (data +0x1FC) or 1.0f >= ClearanceMinHeightFraction (+0x204), and TheTerrainLogic
+//      (0xDE4690) not null (RW 0x88726E) -> the footprint walk (RW 0x8E047D ctor, RW 0x8E0354 next point, the per-point limits ClearanceMaxHeight +0x1F8
+//      / ClearanceMinHeight +0x200, the counts against the two fractions at RW 0x887364 .. 0x887386);
+//   6. the crusher filter's allow (RW 0x886F1C; filter ctor RW 0x886EFF, vtable 0xC60774, +0x08 the object, +0x0C this object's crusher level as a signed
+//      byte): with the level not 0 and above the other's crushable level (RW 0x68D4D0, signed `jg` at RW 0x886F34) -> false; the object itself -> false;
+//      an object on an airborne locomotor (RW 0x68BEED) -> false; no body (object +0x25C) -> true; else true unless the body's damage state (body vslot
+//      +0x24) is 3 RUBBLE (RW 0x886F5F);
+//   7. the would-collide filter's allow RW 0x66139C: RW 0xAD2CE0(the clearance GeometryInfo, the centre, the object's angle, the other's own GeometryInfo
+//      (object +0xA8), the other's position (+0x38), the other's angle (+0x44)) == the boolean the ctor took (1 at RW 0x8871DA; RW 0x6613C7 compares with
+//      the stored +0x1C), i.e. allow exactly the objects that overlap.
+// The filter bodies were first read from the BFME2 donor (DONOR BFME2 0x883C9F allow, 0x67C2C9 ctor, 0x661603 allow); every branch above is now read
+// from RotWK 2.01 at the addresses given (S-001's caveat covered only the addresses, and PORT-305 closed that part for this class).
 //   3. when TheTerrainLogic exists and either fraction is at most 1.0 (comiss: 1.0f >= MaxHeightFraction, else 1.0f >= MinHeightFraction), the footprint walk
 //      (the sampler RW 0x8E047D / next point RW 0x8E0354, the layer heights against z + MaxHeight (x87) and MinHeight + z (SSE), the high / low fractions
 //      (cvtsi2ss, divss) against MaxHeightFraction / MinHeightFraction): the fork's MODGAP-2 port (ClearanceDeathGeometry::sample, the grid walk RW 0x8E0354 /
@@ -846,13 +860,14 @@ bool ClearanceTestingSlowDeathBehavior::canBeginSlowDeath()
 	const Coord3D center = getClearanceTestGeometryCenter();
 	const float radius = SimMath::mulf32(d->clearanceBoundingSphereRadius(), 1.1f);
 	const float angle = obj->getOrientation();
-	const signed char crusherLevel = (signed char)ObjectCrush::crusherLevel(*obj);
+	const signed char crusherLevel = (signed char)ObjectCrush::crusherLevel(*obj); // RW 0x887201 -> RW 0x695070, stored as the filter's +0x0C byte (RW 0x887214)
+	// RW 0x886F1C (the crusher filter's allow; the object at +0x08, this object's crusher level at +0x0C as a signed byte)
 	auto crusherFilter = [&](Object &other) {
-		if (crusherLevel != 0 && crusherLevel > (signed char)ObjectCrush::crushableLevel(other))
+		if (crusherLevel != 0 && crusherLevel > (signed char)ObjectCrush::crushableLevel(other)) // RW 0x886F2C -> 0x68D4D0, signed `jg` RW 0x886F34
 		{
 			return false;
 		}
-		if (&other == obj)
+		if (&other == obj) // RW 0x886F36
 		{
 			return false;
 		}
@@ -860,15 +875,17 @@ bool ClearanceTestingSlowDeathBehavior::canBeginSlowDeath()
 		{
 			if (const Locomotor *loco = ai->curLocomotor())
 			{
-				if (loco->getTemplate().m_surfaces & LOCOMOTORSURFACE_AIR)
+				if (loco->getTemplate().m_surfaces & LOCOMOTORSURFACE_AIR) // RW 0x886F3D -> RW 0x68BEED
 				{
 					return false;
 				}
 			}
 		}
-		const BodyModuleInterface *body = other.getBodyModule();
-		return !body || body->getDamageState() != BODY_RUBBLE;
+		const BodyModuleInterface *body = other.getBodyModule(); // RW 0x886F4A reads object +0x25C
+		return !body || body->getDamageState() != BODY_RUBBLE;    // RW 0x886F58 body vslot +0x24, RW 0x886F5F cmp 3
 	};
+	// RW 0x66139C (the would-collide filter's allow; ctor RW 0x67C5F3, vtable 0xC112C8): the overlap test RW 0xAD2CE0 of this object's clearance
+	// GeometryInfo at (centre, angle) with the other's own GeometryInfo at (its position, its angle), allowed when it equals the ctor's boolean
 	auto wouldCollide = [&](Object &other) {
 		return NotifyCrushModules::geometriesOverlap(d->m_clearanceGeometry, center, angle, other.geometryShapes(), *other.getPosition(), other.getOrientation());
 	};

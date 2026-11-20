@@ -11,8 +11,6 @@ std::vector<std::string> SpellStops::lines()
 		"[S-521] intrinsic sciences: PlayerTemplate IntrinsicSciences / IntrinsicSciencesMP are kept as names by the PlayerTemplate parser (S-145) and resolved when a player's "
 		"sciences reset (RW 0x6AED4B); an unknown name is a runtime error at the game start instead of retail's INI error (RW 0x73B4A0 at parse time)",
 		"[S-522] SpecialPower without a store: RW 0x7B212F reads TheSpecialPowerStore without a null test; the port throws INIException(3, \"TheSpecialPowerStore==NULL\")",
-		"[S-523] SpecialPower ObjectFilter / ForbiddenObjectFilter defaults: the constructor (RW 0x7B1F5B) builds them with RW 0x763D11 from the KindOf mask global RW 0xDE49E4, "
-		"not identified; an unset filter is null here and a parsed one starts from the parser's default",
 		"[S-524] PlayerSkillPointsScalarTable: the ExperienceScalarTable store (RW 0xDE4704, block RW 0x689920) is not ported; RW 0x782AA4 scales a player's skill points by it only "
 		"while GameLogic + 0x114 != 3, which no skirmish reaches (S-525)",
 		"[S-525] GameLogic + 0x114 is taken as 3 in every skirmish (constructor RW 0x6301D3; the other writers RW 0x7790EA, 0x779CB4, 0x779D23, 0x779F20 and 0x82BC22, found by "

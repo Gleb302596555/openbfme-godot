@@ -278,19 +278,22 @@ void StructureBody::crc(StateHasher &h) const
 }
 
 // ---- InactiveBody -------------------------------------------------------------------------------------------------------------------
+// RW 0x8C1A06: the constructor starts by calling the body base 0x8C1946, stores vtables 0xC71978 / 0xC72F08 / 0xC718C8 and
+// zero in +0x18 (m_dieCalled); RW 0x8C1A43 calls Object::setEffectivelyDead(true) (RW 0x68D950).
 InactiveBody::InactiveBody(Thing *thing, const InactiveBodyModuleData *data)
 	: BehaviorModule(thing, data)
 {
 	getObject()->friend_setEffectivelyDead(true); // RW 0x8C1A43 -> 0x68D950
 }
 
-// RW 0x8C18F7
+// RW 0x8C18F7: type 8 (UNRESISTABLE) at RW 0x8C18FE answers the amount from the input +0x1C, every other type answers zero.
 float InactiveBody::estimateDamage(const DamageInfoInput &input) const
 {
 	return input.m_damageType == DAMAGE_UNRESISTABLE ? input.m_amount : 0.0f;
 }
 
-// RW 0x8C1A75
+// RW 0x8C1A75: the null check is RW 0x8C1A7E; healing (type 7) goes to the body's second slot RW 0x8C1A8D,
+// type 8 clears noEffect at RW 0x8C1AA8 and runs onDie once (RW 0x8C1AAC .. 0x8C1ABB).
 void InactiveBody::attemptDamage(DamageInfo &info)
 {
 	if (info.m_input.m_damageType == DAMAGE_HEALING)
@@ -321,6 +324,8 @@ void InactiveBody::attemptDamage(DamageInfo &info)
 	}
 }
 
+// RW 0x8C191D: RW 0x8C1921 checks the DamageInfo pointer, RW 0x8C1925 tests type 7; the healing branch zeroes the
+// output at RW 0x8C1935 / 0x8C193A and sets noEffect at RW 0x8C193F, otherwise RW 0x8C192E calls attemptDamage.
 void InactiveBody::attemptHealing(DamageInfo &info)
 {
 	if (info.m_input.m_damageType != DAMAGE_HEALING)

@@ -43,6 +43,8 @@ class Object;
 
 class SlaveWatcherBehaviorModuleData : public ModuleData
 {
+	// RW 0x00464A09 is the generic ModuleData type-name sentinel; 0x004B612F initializes a string field; 0x0088796A tears these fields down.
+	// The typed factory uses ModuleData plus std::string RAII rather than separate retail name/constructor/destructor thunks.
 public:
 	std::string m_grantUpgrade;  ///< + 0x08
 	std::string m_removeUpgrade; ///< + 0x0C
