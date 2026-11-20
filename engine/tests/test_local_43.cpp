@@ -104,3 +104,36 @@ TEST_CASE("P-15 mouseover cursor: nothing selected, own unit is Select, an enemy
 	r.move(pa.x, pa.y);
 	CHECK(r.input->ui().cursor() == std::string(MouseCursorName::Arrow));
 }
+
+// P-15 (owner's check 2026-11-13, main dff1060a: with troops selected the cursor over his own units was Move, the green arrows). createCommandHint
+// (RW 0x6A3B77): the move hint 0xBD over a drawable that can be selected (RW 0x6A3C86 -> RW 0x83BCB1) and that the local player controls (RW 0x68B749)
+// and that is no WALK_ON_TOP_OF_WALL object (RW 0x6A3F9F) shows Select (13, RW 0x6A3FFA); an allied unit keeps Move (RW 0x6A3F9A -> 0x6A3FA8 -> 0x6A3FE1)
+TEST_CASE("P-15 command hint cursor: own troops selected, another own unit is Select, an allied unit stays Move (RW 0x6A3F8E .. 0x6A3FFA)")
+{
+	if (!haveWorld("P-15 command hint cursor"))
+	{
+		return;
+	}
+	SharedWorld &s = shared();
+	Rig r(s, "map mp fall back 4p", "FactionMen", "FactionMen");
+	Player *ally = r.game->players().findPlayerWithName("Player_3");
+	REQUIRE(ally != nullptr);
+	const Coord3D c0 = r.freeSpot(mapCentre(r).x, mapCentre(r).y, 420.0f);
+	Object *horde = r.make("GondorFighterHorde", c0.x, c0.y);
+	Object *ownHero = r.make("GondorBoromir", c0.x - 140.0f, c0.y + 40.0f);
+	Object *allyHero = r.make("GondorBoromir", c0.x + 140.0f, c0.y + 40.0f, ally);
+	r.lookAt({ c0.x, c0.y, 0.0f }, 460.0f, 560.0f);
+	r.frame(3);
+	auto px = [&](const Object *o, float up) { return r.screenOf({ o->getPosition()->x, o->getPosition()->y, o->getPosition()->z + up }); };
+	const ICoord2D ph = px(horde, 6.0f);
+	r.leftDrag(ph.x - 50, ph.y - 50, ph.x + 50, ph.y + 50);
+	r.frame(2);
+	REQUIRE(r.local->selection() == std::vector<ObjectID>{ horde->getID() });
+	const ICoord2D po = px(ownHero, 10.0f), pa = px(allyHero, 10.0f);
+	REQUIRE(HudObjects::pickObject(r.input->context(), po) == ownHero);
+	REQUIRE(HudObjects::pickObject(r.input->context(), pa) == allyHero);
+	r.move(po.x, po.y);
+	CHECK(r.input->ui().cursor() == std::string(MouseCursorName::Select)); // the symptom: Move over an own unit
+	r.move(pa.x, pa.y);
+	CHECK(r.input->ui().cursor() == std::string(MouseCursorName::Move));
+}

@@ -8,8 +8,8 @@ addresses. The dossier lists, from the maps in the repository:
   * the mod's fields of those classes no reader uses yet (FIELD_GAPS.tsv);
   * the attribute modifier reads in those classes or at the named functions (MODIFIER_READERS.tsv), and the red buttons of those classes whose
     modifier lists change an attribute the port does not read there (MODIFIER_MATRIX.tsv).
-The disassembly of the task's functions needs game.dat, which never goes to GitHub: sandbox 4 writes it to the arena files on the Drive as
-`dossier-<issue>.txt` (tools/mod/dossier_disasm.py), and the dashboard hands that file to the task's agent only.
+The disassembly of the task's functions needs game.dat, which never goes to GitHub in the clear: sandbox 3's loop (tools/colab/autostart.d/
+dossier.sh, tools/mod/dossier_disasm.py) pushes it encrypted with the arena key to refs/arena/dossier/<issue> and plain to the private Drive.
 
     port_dossier.py --issue <n>      (GITHUB_TOKEN, GITHUB_REPOSITORY): posts or updates the issue's `<!-- dossier -->` comment
     port_dossier.py --text <file>    prints the dossier of an issue text (no GitHub)

@@ -2,8 +2,8 @@
 
 For every open Port / Local issue: the RotWK functions it names (`RW 0x...`, each mapped to its function by the whole-binary inventory) and the
 depth-0 functions of the module classes it names that the function map still has as not ported (at most MAX_CLASS_FUNCS), disassembled block
-by block from game.dat, written as `dossier-<issue>.txt` (rewritten only when it changes; `WROTE <issue>` lines say which). Sandbox 4's loop
-(tools/colab/autostart.d/overlap.sh) encrypts a changed one with the arena archive's key and pushes it to `refs/arena/dossier/<issue>`, the
+by block from game.dat, written as `dossier-<issue>.txt` (rewritten only when it changes; `WROTE <issue>` lines say which). Sandbox 3's loop
+(tools/colab/autostart.d/dossier.sh) encrypts a changed one with the arena archive's key and pushes it to `refs/arena/dossier/<issue>`, the
 way the game files reach the arena (refs/arena/files): an agent's prompt fetches and decrypts its own. The plain text never goes to GitHub.
 
     dossier_disasm.py --game <game.dat> --inventory <rw_function_blocks_full.json> --map <RW_FUNCTION_MAP.tsv> --out <for-arena dir>
