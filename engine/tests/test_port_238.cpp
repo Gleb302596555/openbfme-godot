@@ -1290,3 +1290,128 @@ End
     CHECK(namedExcluded->getExperienceTracker()->getExperience() == 1.0f);
     CHECK(grant->granted() == 2);
 }
+
+TEST_CASE("PORT-238 Isildur-style ring pulse grants the eligible infantry an object upgrade")
+{
+    World w;
+    AttributeModifierStore modifiers;
+    AttributeModifierStore *savedModifiers = TheAttributeModifierStore;
+    struct RestoreModifiers
+    {
+        World &world;
+        AttributeModifierStore *saved;
+        ~RestoreModifiers() { world.logic->reset(); TheAttributeModifierStore = saved; }
+    } restore{w, savedModifiers};
+    TheAttributeModifierStore = &modifiers;
+    modifiers.registerBlock(w.w.fx.env.blocks);
+    SpellEffectModules::registerAll(w.w.modules);
+    w.combat().setAutoAcquireEnabled(false);
+    // The single active upgrade nugget of IsildurRingauswirkungWeapon, with
+    // synthetic names; the other four literal modifier lists have commented-out
+    // Upgrade fields and are intentionally not represented here.
+    const char *ini = R"ini(
+Upgrade Upgrade_P238IsildurForged
+  Type = OBJECT
+End
+ModifierList P238IsildurGrant
+  Category = SPELL
+  Duration = 0
+  Upgrade = Upgrade_P238IsildurForged Delay:103
+End
+Weapon P238IsildurPulse
+  RadiusDamageAffects = ALLIES NOT_SIMILAR
+  LeechRangeWeapon = Yes
+  AttackRange = 50
+  MeleeWeapon = No
+  DelayBetweenShots = 5000
+  PreAttackDelay = 0
+  PreAttackType = PER_SHOT
+  FiringDuration = 0
+  AttributeModifierNugget
+    AttributeModifier = P238IsildurGrant
+    Radius = 15000
+    SpecialObjectFilter = ANY +INFANTRY +CAVALRY -ARCHER +HORDE -STRUCTURE -HERO -MACHINE -DOZER -SHIP ALLIES
+  End
+End
+Object P238IsildurPulseHero
+  KindOf = HERO INFANTRY SELECTABLE
+  Geometry = CYLINDER
+  GeometryMajorRadius = 5
+  GeometryHeight = 10
+  Body = ActiveBody Body
+    MaxHealth = 100
+  End
+  Behavior = FireWeaponUpdate Fire
+    FireWeaponNugget
+      WeaponName = P238IsildurPulse
+      Offset = X:0 Y:0 Z:0
+      FireDelay = 0
+      OneShot = No
+    End
+  End
+End
+Object P238IsildurInfantry
+  KindOf = INFANTRY SELECTABLE
+  Geometry = CYLINDER
+  GeometryMajorRadius = 5
+  GeometryHeight = 10
+  Body = ActiveBody Body
+    MaxHealth = 100
+  End
+  Behavior = AttributeModifierPoolUpdate Pool
+  End
+End
+Object P238IsildurArcher
+  KindOf = INFANTRY ARCHER SELECTABLE
+  Geometry = CYLINDER
+  GeometryMajorRadius = 5
+  GeometryHeight = 10
+  Body = ActiveBody Body
+    MaxHealth = 100
+  End
+  Behavior = AttributeModifierPoolUpdate Pool
+  End
+End
+Object P238IsildurHeroTarget
+  KindOf = HERO INFANTRY SELECTABLE
+  Geometry = CYLINDER
+  GeometryMajorRadius = 5
+  GeometryHeight = 10
+  Body = ActiveBody Body
+    MaxHealth = 100
+  End
+  Behavior = AttributeModifierPoolUpdate Pool
+  End
+End
+)ini";
+    const std::string error = w.w.load(ini, INI_LOAD_OVERWRITE, "port238_isildur_pulse.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    const ModifierListTemplate *list = modifiers.find("P238IsildurGrant");
+    REQUIRE(list != nullptr);
+    REQUIRE(list->m_upgrade.get() != nullptr);
+    REQUIRE(list->m_upgrade->upgrade != nullptr);
+    CHECK(list->m_upgrade->delayFrames == 0); // RW 0x805163 compares the entire token to "Delay"
+    Object *infantry = w.unit("P238IsildurInfantry", 'A', 320, 300);
+    Object *archer = w.unit("P238IsildurArcher", 'A', 325, 300);
+    Object *otherHero = w.unit("P238IsildurHeroTarget", 'A', 330, 300);
+    Object *enemy = w.unit("P238IsildurInfantry", 'B', 335, 300);
+    for (Object *o : {infantry, archer, otherHero, enemy})
+    {
+        REQUIRE(o != nullptr);
+        w.logic->partition().registerObject(*o);
+        CHECK_FALSE(o->hasUpgrade("Upgrade_P238IsildurForged"));
+    }
+    w.frames(1); // publish targets before creating the pulse source
+    Object *hero = w.unit("P238IsildurPulseHero", 'A', 300, 300);
+    REQUIRE(hero != nullptr);
+    auto *fire = dynamic_cast<FireWeaponUpdate *>(hero->findModule("FireWeaponUpdate"));
+    REQUIRE(fire != nullptr);
+    for (int i = 0; i < 10 && fire->shots() == 0; ++i) w.frames(1);
+    REQUIRE(fire->shots() == 1);
+    CHECK(infantry->hasUpgrade("Upgrade_P238IsildurForged"));
+    CHECK_FALSE(archer->hasUpgrade("Upgrade_P238IsildurForged"));
+    CHECK_FALSE(otherHero->hasUpgrade("Upgrade_P238IsildurForged"));
+    CHECK_FALSE(enemy->hasUpgrade("Upgrade_P238IsildurForged"));
+    w.frames(30); // 5000 ms = 25 simulation frames, so the non-one-shot record repeats
+    CHECK(fire->shots() == 2);
+}
