@@ -560,6 +560,7 @@ include(cmake/Port267.cmake)    # PORT-267: the floor record's fade on death, W3
 include(cmake/Port263.cmake)    # PORT-263: EmotionTrackerUpdate (terror, fear, cheering, idle emotions) and BoredUpdate (issue #611; OPENBFME_PORT263_TESTS)
 include(cmake/Port269.cmake)    # PORT-269: the dropped One Ring's radar marker (issue #636 / P-154; OPENBFME_PORT269_TESTS)
 include(cmake/Port226.cmake)    # PORT-226: the idle state's stance countdown (fork issue #549; OPENBFME_PORT226_TESTS)
+include(cmake/Port296.cmake)    # PORT-296: the castle's crew and CastleMemberBehavior's BeingBuiltSound (fork issue #688; OPENBFME_PORT296_TESTS)
 include(cmake/Port271.cmake)    # PORT-271: several units and heroes selected — the panel, portrait and voice are the senior hero's (issue #638, P-151; OPENBFME_PORT271_TESTS)
 include(cmake/Port294.cmake)    # PORT-294: ObjectCreationUpgrade's own mux slots — wouldUpgrade, postUpgradeCheck, isPermanent (fork issue #686; OPENBFME_PORT294_TESTS)
 include(cmake/Port275.cmake)    # PORT-275: the command set swap re-evaluates the bar in the same update (fork issue 642; OPENBFME_PORT275_TESTS)
@@ -1355,6 +1356,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT263_TESTS}
     ${OPENBFME_PORT269_TESTS}
     ${OPENBFME_PORT226_TESTS}
+    ${OPENBFME_PORT296_TESTS}
     ${OPENBFME_PORT271_TESTS}
     ${OPENBFME_PORT294_TESTS}
     ${OPENBFME_PORT275_TESTS}

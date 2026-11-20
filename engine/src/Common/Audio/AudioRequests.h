@@ -62,7 +62,10 @@ enum HeldSoundSlot
 	// PORT-280: ProductionUpdate SpeedBonusAudioLoop (data + 0x48, handle module + 0x12C); RW 0x8A1C7C .. 0x8A1D4F adds / removes, RW 0x8A19FF removes in dtor,
 	// RW 0x8A35A6 xfers; holder = the module's own key (ProductionUpdate::speedBonusAudioKey).
 	HELD_PRODUCTION_SPEED_BONUS_LOOP = 5,
-	HELD_SOUND_SLOTS = 6
+	// PORT-296: CastleMemberBehavior's BeingBuiltSound (data + 0x14), the module's handle + 0x20; RW 0x798057 adds it while the object carries BASE_BUILD
+	// (RW 0x798054 vslot 0x64) and removes it (RW 0x7980F2 vslot 0x6C) when the condition goes; holder = the member itself
+	HELD_BEING_BUILT_LOOP = 6,
+	HELD_SOUND_SLOTS = 7
 };
 void postHeldSound(int slot, const std::string &eventName, std::uint32_t holderId, std::uint32_t objectId);
 // lane PORT-93: RW 0x854008 .. 0x85405B (the trigger of every special ability): when the data's ActiveLoopSound (data + 0x34) is set and the manager says the

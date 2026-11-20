@@ -36,6 +36,9 @@
 #include "Common/Team.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Module/EntEnragedUpdate.h"
+#include "GameLogic/Module/ActiveBody.h"       // PORT-296: the crew reads the last damage record's player mask
+#include "GameLogic/Module/StructureModules.h" // PORT-296: LifetimeUpdate
+#include "GameLogic/FXEvents.h"                 // PORT-296: the crew's FX
 #include "GameLogic/ObjectFilter.h"
 #include "GameLogic/ObjectFilterMatch.h"
 #include "GameLogic/ObjectTemplateInfo.h"
@@ -196,6 +199,7 @@ struct CastleNames
 	int baseBuild = CombatNames::modelCondition("BASE_BUILD"); // lane SPELL-3 (the timed unpack)
 	int unpacking = CombatNames::modelCondition("UNPACKING");
 	int packing = CombatNames::modelCondition("PACKING");
+	int preparing = CombatNames::modelCondition("PREPARING"); // PORT-296: the crew's condition (RW 0x798397, condition 95)
 };
 const CastleNames &castleNames()
 {
@@ -238,6 +242,8 @@ CastleBehavior::CastleBehavior(Thing *thing, const CastleBehaviorModuleData *dat
 }
 
 // lane CASTLEAREA-1: RW 0x79AAA7 (the module's destructor) frees the areas (RW 0x79A37D)
+// RW 0x797BCF: the destructor (the base chain RW 0x8B88B0, then, when the module has unpacked - + 0x34 != 0 -, the castle's footprint returns to the
+// pathfinder: ThePartitionManager RW 0xDE4B40 + 0x10 -> RW 0x6E85FB); the areas go in the port's own ~CastleBehavior (RW 0x79A37D, lane CASTLEAREA-1)
 CastleBehavior::~CastleBehavior()
 {
 	freeAreas();
@@ -327,9 +333,9 @@ UpdateSleepTime CastleBehavior::update()
 		{
 			abandon();
 		}
-		else if (!m_crew.empty())
+		else
 		{
-			getObject()->logic().noteStop("[S-951] castle: a castle with a crew (RW 0x79B0F1: the crew's preparation and release) is not ported");
+			updateCrew(); // RW 0x79D02A (state 4)
 		}
 		return UPDATE_SLEEP_NONE;
 	case STATE_ABANDONED:
@@ -399,8 +405,8 @@ void CastleBehavior::onCreate()
 	initiateUnpack(false, nullptr); // lane BACKLOG2: RW 0x79C17D(0, null): state 1 and the side's price (none for a retail summoned castle); the constructor's wake runs it
 }
 
-// RW 0x799F0F: the keep (+ 0x38) and the members (+ 0x5C) clear one model condition and set another (Object RW 0x68D607); their CastleMemberBehavior's own
-// sub-object call (RW 0x798057) is not ported (S-951)
+// RW 0x799F0F: the keep (+ 0x38) and the members (+ 0x5C) clear one model condition and set another (Object RW 0x68D607), the drawable is told (RW 0x67449C(0),
+// the client's) and the object's CastleMemberBehavior hears of it (RW 0x798057: BeingBuiltSound)
 void CastleBehavior::setMembersModelCondition(int clear, int set)
 {
 	GameLogic &logic = getObject()->logic();
@@ -416,6 +422,12 @@ void CastleBehavior::setMembersModelCondition(int clear, int set)
 		if (set >= 0)
 		{
 			o->setModelConditionState(set, true);
+		}
+		// RW 0x799F85 / 0x799FE2: the module is looked up by the name "CastleMemberBehavior" (RW 0xDE8240's key) on every object of the walk and its
+		// hook called with the same pair (RW 0x799F96 / 0x799FF3)
+		if (CastleMemberBehavior *member = CastleMemberBehavior::of(*o))
+		{
+			member->onModelConditionFlagsChanged(clear, set);
 		}
 	};
 	apply(m_keepId != INVALID_ID ? logic.findObjectByID(m_keepId) : nullptr);
@@ -814,7 +826,7 @@ void CastleBehavior::registerOwnedObject(Object &obj)
 		if (crew)
 		{
 			m_crew.push_back(obj.getID()); // RW 0x79AD8A
-			logic.noteStop("[S-951] castle: a crew member's preparation for the unpack (RW 0x798397) is not ported");
+			prepareCrewMember(obj);        // RW 0x79AD92
 		}
 		else
 		{
@@ -1116,27 +1128,170 @@ void CastleBehavior::setMembersStatus(int status, bool on)
 	}
 }
 
-// RW 0x79A237 (the crew's own release RW 0x798344 is not ported: S-951)
+// RW 0x798397: a crew member is taken into the castle's custody (registerOwnedObject's list + 0x68, RW 0x79AD92): its producer becomes the castle, it is held for good,
+// wears the model condition PREPARING and loses UNSELECTABLE / DO_NOT_PICK_ME (see the header)
+void CastleBehavior::prepareCrewMember(Object &obj)
+{
+	const CastleNames &n = castleNames();
+	obj.setProducer(getObject());                  // RW 0x798398: Object::setProducer RW 0x68B6A1 with the castle's object (module + 8)
+	obj.setDisabled(DISABLED_HELD, UPDATE_SLEEP_FOREVER); // RW 0x7983A6: RW 0x692432 -> RW 0x6907F1(3, 0x3FFFFFFF)
+	obj.setModelConditionState(n.preparing, true); // RW 0x7983BC: Object + 0x114 bit 31 (condition 95) and the notify RW 0x68B53C
+	obj.setStatus((unsigned)n.unselectable, true); // RW 0x7983CF: RW 0x62684D(3, 1)
+	obj.setStatus((unsigned)n.doNotPickMe, true);  // RW 0x7983DA: RW 0x62684D(0x4F, 1)
+}
+
+// RW 0x798344: the member returns to the world: no producer, DISABLED_HELD cleared, PREPARING cleared, the two statuses and NO_ATTACK cleared
+void CastleBehavior::releaseCrewMember(Object &obj)
+{
+	const CastleNames &n = castleNames();
+	obj.setProducer(nullptr);                        // RW 0x79834D: RW 0x68B6A1(0)
+	obj.clearDisabled(DISABLED_HELD);                // RW 0x798356: RW 0x692443(3)
+	obj.setModelConditionState(n.preparing, false);  // RW 0x79836B: Object + 0x117 bit 7 (condition 95) and the notify RW 0x68B53C
+	obj.setStatus((unsigned)n.unselectable, false);  // RW 0x798378: RW 0x62684D(3, 0)
+	obj.setStatus((unsigned)n.doNotPickMe, false);   // RW 0x798383: RW 0x62684D(0x4F, 0)
+	obj.setStatus((unsigned)n.noAttack, false);      // RW 0x79838E: RW 0x62684D(5, 0)
+}
+
+// RW 0x79A237: the crew leaves the castle: every member is released; with `kill` it dies (UNRESISTABLE, NORMAL), else its EntEnragedUpdate is forced and its
+// LifetimeUpdate starts a new lifetime; the castle plays CrewReleaseFX when it had a crew and did not kill it (see the header)
 void CastleBehavior::releaseCrew(bool kill)
 {
 	GameLogic &logic = getObject()->logic();
 	for (ObjectID id : m_crew)
 	{
-		if (Object *o = logic.findObjectByID(id))
+		Object *o = logic.findObjectByID(id); // RW 0x79A25F
+		if (!o)
 		{
-			logic.noteStop("[S-951] castle: the crew's release (RW 0x798344, LifetimeUpdate) is not ported");
-			if (kill)
+			continue;
+		}
+		releaseCrewMember(*o); // RW 0x79A272
+		if (kill)
+		{
+			o->kill(DAMAGE_UNRESISTABLE, DEATH_NORMAL); // RW 0x79A284: kill(8 = UNRESISTABLE, 0 = NORMAL)
+		}
+		else
+		{
+			if (EntEnragedUpdate *ent = EntEnragedUpdate::of(*o))
 			{
-				o->kill(DAMAGE_UNRESISTABLE, DEATH_NORMAL); // RW 0x79A284: kill(8 = UNRESISTABLE, 0 = NORMAL)
+				ent->setForced(true, true); // RW 0x79A2D3: RW 0x8B649F(1, 1)
 			}
-			else if (EntEnragedUpdate *ent = EntEnragedUpdate::of(*o))
+			// RW 0x79A311: the member's LifetimeUpdate (the name key of 0xBF7384) gets a new lifetime from its data (RW 0x7A7E60)
+			if (LifetimeUpdate *lifetime = dynamic_cast<LifetimeUpdate *>(o->findModule("LifetimeUpdate")))
 			{
-				ent->setForced(true, true); // RW 0x79A2D3
+				lifetime->wakeUp();
 			}
 		}
 	}
-	m_crew.clear();
-	setMembersStatus(castleNames().doNotPickMe, false); // RW 0x79A36B
+	// RW 0x79A337 .. 0x79A352: the vector still holds somebody (RW 0x79A335 `sar 2; je`) and nobody was killed, and the data has a CrewReleaseFX (+ 0x48)
+	if (!m_crew.empty() && !kill && !m_data->m_crewReleaseFX.empty())
+	{
+		logic.fxEvents().emit(FXEventLog::objectEvent(FXEvent::OBJECT_FX, "CastleBehavior crew release", logic.getFrame(), m_data->m_crewReleaseFX, *getObject()));
+	}
+	m_crew.clear();                                       // RW 0x79A35C: RW 0x98B95B
+	setMembersStatus(castleNames().doNotPickMe, false);   // RW 0x79A36B
+}
+
+// RW 0x79B0F1: the crew's clock (see the header for the whole flow)
+void CastleBehavior::updateCrew()
+{
+	if (m_crew.empty())
+	{
+		return;
+	}
+	GameLogic &logic = getObject()->logic();
+	Object *keep = m_keepId != INVALID_ID ? logic.findObjectByID(m_keepId) : nullptr; // RW 0x79B12B
+	if (!keep)
+	{
+		return;
+	}
+	const float percent = keep->getConstructionPercent(); // RW 0x79B137 (the keep's + 0x288)
+	if (8.0f > percent)
+	{
+		return; // RW 0x79B13A: below 8 percent the crew's clock does nothing
+	}
+	// RW 0x79B14D .. 0x79B27F: a hostile hit on any member (the list walked backwards) or on the keep itself, its record's frame at or after the castle's unpack frame
+	auto hitByHostile = [&](const Object &victim) {
+		const BodyModuleInterface *body = victim.getBodyModule(); // RW 0x79B174: the object's + 0x25C
+		if (!body)
+		{
+			return false;
+		}
+		if (body->lastDamageFrame() == 0xFFFFFFFFu) // RW 0x79B17D: a body without a record (vslot 0x40 answers null) stops here
+		{
+			return false;
+		}
+		if (!(body->lastDamageFrame() >= m_unpackFrame)) // RW 0x79B188: the record's frame (vslot 0x44) against the castle's + 0x48
+		{
+			return false;
+		}
+		// RW 0x79B191: the record's amount (record + 0x20) must be above 0 (RW 0xC1B594)
+		if (!(body->lastDamageAmount() > 0.0f))
+		{
+			return false;
+		}
+		// RW 0x79B1A6: the player of the record's source mask (record + 0xC) through ThePlayerList (RW 0xDE4928 -> RW 0x6A85B6). The port keeps the mask on ActiveBody
+		// (lane CAMP-1); a body of another class has no record for retail either (its vslot 0x40 answers null)
+		const ActiveBody *activeBody = dynamic_cast<const ActiveBody *>(victim.getBodyModule());
+		if (!activeBody)
+		{
+			return false;
+		}
+		const Player *attacker = nullptr;
+		const std::uint32_t mask = activeBody->lastDamagerPlayerMask();
+		for (int i = 0; i < logic.players().getPlayerCount(); ++i)
+		{
+			if ((mask >> i) & 1u)
+			{
+				attacker = logic.players().getNthPlayer(i);
+				break;
+			}
+		}
+		if (!attacker)
+		{
+			return false;
+		}
+		const Player *owner = keep->getControllingPlayer();
+		if (!owner)
+		{
+			return false;
+		}
+		// RW 0x79B1C1: ENEMIES of the keep's player (RW 0x6ADBEB), or that player is the creeps' player (RW 0xBFD514, RW 0x406585)
+		return attacker->getRelationship(owner) == ENEMIES || owner->getPlayerName() == "PlyrCreeps";
+	};
+	bool hostile = false;
+	for (auto it = m_crew.rbegin(); it != m_crew.rend() && !hostile; ++it) // RW 0x79B1A9: the reverse iterator
+	{
+		if (const Object *o = logic.findObjectByID(*it))
+		{
+			hostile = hitByHostile(*o);
+		}
+	}
+	if (!hostile)
+	{
+		hostile = hitByHostile(*keep); // RW 0x79B200: the keep itself
+	}
+	bool release = percent >= 99.0f; // RW 0x79B274: a keep at 99 percent or more is finished and releases the crew at once
+	if (!release)
+	{
+		// RW 0x79B283 bis 0x79B2A8: the unpack frame plus the data's CrewPrepareTime (+ 0x38, frames) has passed: the crew waited long enough
+		const bool expired = logic.getFrame() >= m_data->m_crewPrepareTime + m_unpackFrame;
+		release = hostile && expired;
+	}
+	if (release)
+	{
+		releaseCrew(false);                                  // RW 0x79B2B2: RW 0x79A237(this, 0)
+		keep->attemptHealing(9999.0f, getObject());          // RW 0x79B2C3: RW 0x690532(9999.0, the castle)
+		keep->setConstructionPercent(100.0f);                // RW 0x79B2C8: RW 0xBD88D8
+		// RW 0x79B2DF .. 0x79B32D: with a drawable on the castle (RW 0x70E013; a null one skips the voice) the pick and play info (RW 0x6461CA / 0x64631C)
+		// asks the voice picker RW 0x8DEDBB for 0x7DE (UnitVoiceResponse's VOICE_EVENT_TASK_COMPLETE) on the castle. The drawable lives at the client's
+		// boundary in the port (the logic has no Object::getDrawable), so the request is always posted and the HUD's handler plays what it has (S-703's rule)
+		AudioApi::postUnitVoice(0x7DE, getObject()->getID());
+	}
+	// RW 0x79B32D: the prepare FX, only while the list still holds somebody (the release above empties it), every CrewPrepareInterval frames (+ 0x40)
+	if (!m_crew.empty() && m_data->m_crewPrepareInterval != 0 && logic.getFrame() % m_data->m_crewPrepareInterval == 0 && !m_data->m_crewPrepareFX.empty())
+	{
+		logic.fxEvents().emit(FXEventLog::objectEvent(FXEvent::OBJECT_FX, "CastleBehavior crew prepare", logic.getFrame(), m_data->m_crewPrepareFX, *getObject()));
+	}
 }
 
 // RW 0x79C78C: the movable units near the castle are ordered out (see the header for what is inference)
@@ -1604,10 +1759,33 @@ void CastleBehavior::crc(StateHasher &h) const
 }
 
 // ---- CastleMemberBehavior -----------------------------------------------------------------------------------------------------------
+// RW 0x797CA7: the module's constructor: the module data (+ 4), the interface vtables, the occupant id + 0x14, the castle id + 0x18, + 0x1C and the
+// audio handle + 0x20 (1), the bytes + 0x24 / + 0x25 clear
 CastleMemberBehavior::CastleMemberBehavior(Thing *thing, const CastleMemberBehaviorModuleData *data)
 	: BehaviorModule(thing, data)
 	, m_data(data)
 {
+}
+
+// RW 0x798057: the hook of CastleBehavior's setMembersModelCondition (RW 0x799F0F). The masks are pointers to Object's condition words; the test is the bit of
+// BASE_BUILD (condition 219, the mask's + 0x18 bit 27). While the object is being built (BASE_BUILD set) its data's BeingBuiltSound (+ 0x14) loops: it is added when
+// it does not sound already (TheAudio's vslot 0xD0 is asked for the module's kept handle, module + 0x20; RW 0x6DB5B3 makes the event for the object, vslot 0x64 adds
+// it) and its handle kept; when the condition is cleared the handle (only one of the real ones, RW 0x7980E4 `cmp eax, 5`) is removed (vslot 0x6C) and reset to 1.
+// The port keeps the handle on the audio side (AudioApi::HELD_BEING_BUILT_LOOP, like the other held loops), so the module holds no state.
+void CastleMemberBehavior::onModelConditionFlagsChanged(int clear, int set)
+{
+	if (set >= 0 && set == castleNames().baseBuild)
+	{
+		if (m_data->m_beingBuiltSound.empty())
+		{
+			return; // RW 0x79807E: an empty name does nothing
+		}
+		AudioApi::resumeHeldSound(AudioApi::HELD_BEING_BUILT_LOOP, m_data->m_beingBuiltSound, getObject()->getID(), getObject()->getID());
+	}
+	else if (clear >= 0 && clear == castleNames().baseBuild)
+	{
+		AudioApi::stopHeldSound(AudioApi::HELD_BEING_BUILT_LOOP, getObject()->getID());
+	}
 }
 
 bool CastleMemberBehavior::plotIsTaken() const
@@ -1816,6 +1994,8 @@ void CastleBehavior::xfer(Xfer &x)
 	}
 }
 
+// RW 0x797CF2: the module's xfer (the block, the occupant id + 0x14, + 0x24, + 0x1C, the castle id + 0x18, then RW 0x8CD4AA); the port's native
+// snapshot (lane SAVE-4b) carries the same ids
 void CastleMemberBehavior::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

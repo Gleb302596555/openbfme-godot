@@ -164,6 +164,8 @@ public:
 	void applyDamageScalar(float scalar) override; // RW 0x8C329F (vt[0x6C])
 	// the last frame the body took a damaging hit and from whom (RW + 0xAC, the last damage record); 0xFFFFFFFF / INVALID_ID when never
 	UnsignedInt lastDamageFrame() const override { return m_lastDamageFrame; }
+	// lane PORT-296: the record's + 0x20 (see BodyModuleInterface::lastDamageAmount)
+	float lastDamageAmount() const override { return m_lastDamageAmount; }
 	ObjectID lastDamager() const { return m_lastDamager; }
 	// PORT-293: body interface vslot 0x48 (RW 0x5DC48C: `mov eax, [ecx + 0xB0]; ret` = module + 0xC0) -- the frame of the last healing hit, -1 while the
 	// body was never healed (the object's constructor ORs the dword with -1, RW 0x8C3897). attemptHealing stamps the current logic frame on every hit it
@@ -240,6 +242,7 @@ private:
 	DamageInfo *m_currentInfo = nullptr;
 	UnsignedInt m_lastDamageFrame = 0xFFFFFFFFu; // RW + 0xAC (RW 0x8C3841: -1 = never; BUILD-2)
 	UnsignedInt m_lastHealingFrame = 0xFFFFFFFFu; // PORT-293: RW + 0xB0 (RW 0x8C3897: -1 = never; attemptHealing's stamp RW 0x8C30BA)
+	float m_lastDamageAmount = 0.0f;             // lane PORT-296: the record's + 0x20 (the hit's input amount)
 	ObjectID m_lastDamager = INVALID_ID;
 	bool m_lastAttackerTaken = false; // RW + 0xB6 of the body interface (lane PLAY-4)
 	std::uint32_t m_lastDamagerPlayerMask = 0; // lane CAMP-1: the record's + 0xC
