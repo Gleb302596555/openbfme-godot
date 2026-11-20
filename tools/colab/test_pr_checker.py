@@ -97,3 +97,13 @@ def test_the_old_whole_baseline_state_becomes_the_last_known_main(monkeypatch, t
     assert known == {"save4b*": ["fail", "fail:845d"], "uber1*": ["pass", "pass"]}  # the other sandbox's result from the Drive too
     assert state["main_last"] == {"save4b*": ["fail", "fail:845d"]}
     assert state["main_audit"] == ["/x/field-audit.tsv", A]
+
+
+def test_a_pr_without_its_own_test_shown_passing_is_refused_before_the_build(monkeypatch):
+    diff = '+TEST_CASE("PORT-289 dead targets")\n'
+    monkeypatch.setattr(pc, "gh", lambda *a: '{"comments": []}')
+    new = {"number": 9, "body": "Closes #1\n`cmake --build` passed", "createdAt": "2026-11-20T00:00:00Z"}
+    assert pc.own_test_missing(new, diff) == ["PORT-289"]
+    ok = dict(new, body="Closes #1\nPORT-289*: [doctest] test cases:  4 |  4 passed | 0 failed | 7020 skipped")
+    assert pc.own_test_missing(ok, diff) == []
+    assert pc.own_test_missing(dict(new, createdAt="2026-11-18T00:00:00Z"), diff) == []  # opened before the rule

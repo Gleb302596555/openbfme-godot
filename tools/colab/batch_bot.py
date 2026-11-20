@@ -275,6 +275,8 @@ def ensure_tree() -> None:
     if not (WT / ".git").exists():
         sh(["git", "worktree", "prune"], cwd=REPO)
         sh(["git", "worktree", "add", "--detach", str(WT), BASE], cwd=REPO, check=True)
+    # docs/STOPS.md merges by stop id (tools/stops_merge.py, .gitattributes merge=stops; owner 2026-11-19): a conflict left after it is real
+    sh(["git", "config", "merge.stops.driver", "python3 tools/stops_merge.py %O %A %B"], cwd=REPO)
 
 
 def pr_files(n: int) -> list[str]:
@@ -361,6 +363,9 @@ def resolve(n: int, pending: list[tuple[int, str]]) -> list[str]:
         elif m:  # add/add of the same stop id: the earlier PR keeps it, this PR's fragment is renumbered after the merge commit
             pending.append((int(m.group(1)), sh(["git", "show", f":3:{f}"]).stdout))
             git("checkout", "-q", "--ours", "--", f)
+        elif f == "docs/STOPS.md":  # tools/stops_merge.py (the merge driver) already merged it by stop id: what is left is a real conflict
+            left.append(f)
+            continue
         elif f in UNION or (f.startswith("engine/cmake/") and f.endswith(".cmake")):
             parts = [sh(["git", "show", f":{k}:{f}"]).stdout for k in (2, 1, 3)]
             tmp = [WT.parent / f".batch-merge{k}" for k in range(3)]
