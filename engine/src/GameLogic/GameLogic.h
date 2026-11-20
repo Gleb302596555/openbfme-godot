@@ -439,10 +439,13 @@ struct GameLogicSettings
 	// lane NUGGET-1 (GameData GenericDamageFieldName, row RW 0xBFF5D0, parseAsciiString RW 0x42EE5E, GlobalData + 0x14): the object a DamageFieldNugget makes
 	// (RW 0x90F600); empty when gamedata.ini names none. Not in the settings hash: it holds no state and a mod changing it changes the INI checksum
 	std::string genericDamageFieldName;
-	// lane OWNERFIX-1 (GameData DefaultUnitHealingBuffFxList, row RW 0xBFF8C0, parseAsciiString RW 0x42EE5E, GlobalData + 0x9DC): the FXList every
-	// ActiveBodyModuleData starts with as its HealingBuffFx (constructor RW 0x8C373F: findFXList of this name when it is not empty); RotWK's gamedata.ini
-	// names FX_DefaultUnitHealBuff (the HealingBuff glow). Client effect only: not part of the settings hash
+	// lane OWNERFIX-1 (GameData DefaultUnitHealingBuffFxList, row RW 0xBFF8C0, parseAsciiString RW 0x42EE5E, GlobalData + 0x9DC): ActiveBody's
+	// default healing FX (RW 0x8C373F; RotWK names FX_DefaultUnitHealBuff). Client effect only: not part of the settings hash.
 	std::string defaultUnitHealingBuffFxList;
+	// PORT-235 (issue #558): GameData DefaultStructureRepairBuffFxList (row RW 0xBFF8D0, parseAsciiString RW 0x42EE5E, GlobalData +0x9E0).
+	// StructureBody's healing default; ActiveBody::attemptHealing uses it only for an actual health increase and keeps RW's STRUCTURE / AIRBORNE_TARGET skips.
+	// Client effect only: not part of the settings hash.
+	std::string defaultStructureRepairBuffFxList;
 	// lane STEALTH-1 (GameData, RW GlobalData + 0xEB4 / + 0x11CC / + 0x11D0 / + 0x11D4 / + 0x11D8; rows RW 0xC00C30, 0xC01070, 0xC01080, 0xC01090, 0xC010A0): the camouflage
 	// detectors' filter (RW 0x76392F), the frames before a revealed object may turn invisible again (ReinvisibityDelay [sic], parseDurationUnsignedInt RW 0x73A429) and the
 	// client's opacity pulse of an own invisible object (InvisibilityOpacityMin / Max parseReal, InvisibilityOpacityCycleFrames parseUnsignedInt RW 0x42ECB2);
