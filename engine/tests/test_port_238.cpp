@@ -20,6 +20,7 @@
 #include "GameLogic/Object/Contain/GarrisonContainRuntime.h"
 #include "GameLogic/Object/PartitionManager.h"
 #include "GameLogic/ObjectFilterMatch.h"
+#include "GameLogic/Module/AttachUpdate.h"
 #include "GameLogic/Module/InvisibilityModules.h"
 #include "GameLogic/Module/EmotionModules.h"
 #include "GameLogic/Module/HeroAbilityModules.h"
@@ -1414,4 +1415,69 @@ End
     CHECK_FALSE(enemy->hasUpgrade("Upgrade_P238IsildurForged"));
     w.frames(30); // 5000 ms = 25 simulation frames, so the non-one-shot record repeats
     CHECK(fire->shots() == 2);
+}
+
+TEST_CASE("PORT-238 Isildur-style fear marker selects the allied equivalent form")
+{
+    World w;
+    w.combat().setAutoAcquireEnabled(false);
+    // IsildurBlazeObject uses a name filter for the base hero even though the
+    // ring form is a distinct template; RW 0x89515C scans, 0x73D5C2 compares.
+    const char *ini = R"ini(
+Object P238IsildurBase
+  KindOf = HERO INFANTRY SELECTABLE
+  Geometry = CYLINDER
+  GeometryMajorRadius = 5
+  GeometryHeight = 10
+  Body = ActiveBody Body
+    MaxHealth = 100
+  End
+End
+Object P238IsildurRingForm
+  EquivalentTo = P238IsildurBase
+  KindOf = HERO INFANTRY SELECTABLE
+  Geometry = CYLINDER
+  GeometryMajorRadius = 5
+  GeometryHeight = 10
+  Body = ActiveBody Body
+    MaxHealth = 100
+  End
+End
+Object P238OtherHero
+  KindOf = HERO INFANTRY SELECTABLE
+  Body = ActiveBody Body
+    MaxHealth = 100
+  End
+End
+Object P238FearMarker
+  KindOf = NO_COLLIDE IMMOBILE UNATTACKABLE IGNORE_FOR_VICTORY IGNORE_FOR_EVA_SPEECH_POSITION MOVE_ONLY
+  Body = ActiveBody Body
+    MaxHealth = 999999
+  End
+  Behavior = AttachUpdate Attach
+    ObjectFilter = ANY +P238IsildurBase ALLIES
+    ScanRange = 35
+    AlwaysTeleport = No
+    AnchorToTopOfGeometry = Yes
+  End
+End
+)ini";
+    const std::string error = w.w.load(ini, INI_LOAD_OVERWRITE, "port238_isildur_marker.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    Object *other = w.unit("P238OtherHero", 'A', 301, 300);
+    Object *enemy = w.unit("P238IsildurBase", 'B', 302, 300);
+    Object *ringForm = w.unit("P238IsildurRingForm", 'A', 320, 300);
+    Object *marker = w.unit("P238FearMarker", 'A', 300, 300);
+    REQUIRE(other != nullptr);
+    REQUIRE(enemy != nullptr);
+    REQUIRE(ringForm != nullptr);
+    REQUIRE(marker != nullptr);
+    auto *attach = dynamic_cast<AttachUpdate *>(marker->findModule("AttachUpdate"));
+    REQUIRE(attach != nullptr);
+    w.logic->partition().update();
+    CHECK(attach->parentID() == 0);
+    CHECK(attach->update() == UPDATE_SLEEP_NONE);
+    CHECK(attach->parentID() == ringForm->getID());
+    CHECK(marker->getPosition()->x == ringForm->getPosition()->x);
+    CHECK_FALSE(marker->wasTeleportGatheredAt(w.logic->getFrame()));
 }
