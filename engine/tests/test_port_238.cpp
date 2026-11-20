@@ -1077,3 +1077,100 @@ TEST_CASE("PORT-238 ring ownership bias changes a synthetic WOTR surrender score
     CHECK(noRing.counter == 60);
     CHECK(hasRing.counter == 60);
 }
+
+TEST_CASE("PORT-238 Elrond-style Restoration refresh excludes ring form and summoned allies")
+{
+    HealWorld w;
+    const char *ini = R"ini(
+SpecialPower P238Restore
+  Enum = SPECIAL_GENERAL_TARGETLESS
+  ReloadTime = 1000
+End
+SpecialPower P238Cooldown
+  Enum = SPECIAL_GENERAL_TARGETLESS
+  ReloadTime = 60000
+End
+Object ImladrisElrond_RingHero
+  KindOf = HERO INFANTRY SELECTABLE
+  Geometry = CYLINDER
+  GeometryMajorRadius = 5
+  GeometryHeight = 10
+  Body = ActiveBody Body
+    MaxHealth = 100
+  End
+  Behavior = SpecialPowerTimerRefreshSpecialPower Refresh
+    SpecialPowerTemplate = P238Restore
+    AffectAllies = Yes
+    AttributeModifierRange = 150
+    AttributeModifierAffects = ALL -ElvenElrond -ImladrisElrond -ArnorAranarth -ElrondBeacon -ImladrisElrond_RingHero -SUMMONED ALLIES
+  End
+  Behavior = SpecialPowerModule Cooldown
+    SpecialPowerTemplate = P238Cooldown
+  End
+End
+Object P238RestoreTarget
+  KindOf = HERO INFANTRY SELECTABLE
+  Geometry = CYLINDER
+  GeometryMajorRadius = 5
+  GeometryHeight = 10
+  Body = ActiveBody Body
+    MaxHealth = 100
+  End
+  Behavior = SpecialPowerModule Cooldown
+    SpecialPowerTemplate = P238Cooldown
+  End
+End
+Object P238RestoreSummoned
+  KindOf = HERO INFANTRY SELECTABLE SUMMONED
+  Geometry = CYLINDER
+  GeometryMajorRadius = 5
+  GeometryHeight = 10
+  Body = ActiveBody Body
+    MaxHealth = 100
+  End
+  Behavior = SpecialPowerModule Cooldown
+    SpecialPowerTemplate = P238Cooldown
+  End
+End
+)ini";
+    const std::string error = w.w.load(ini, INI_LOAD_OVERWRITE, "port238_elrond_restoration.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    w.logic->partition().setRegion(0, 0, 1000, 1000);
+    Object *caster = w.unit("ImladrisElrond_RingHero", 'A', 300, 300);
+    Object *sameForm = w.unit("ImladrisElrond_RingHero", 'A', 340, 300);
+    Object *ally = w.unit("P238RestoreTarget", 'A', 350, 300);
+    Object *summoned = w.unit("P238RestoreSummoned", 'A', 355, 300);
+    Object *enemy = w.unit("P238RestoreTarget", 'B', 360, 300);
+    Object *far = w.unit("P238RestoreTarget", 'A', 500, 300);
+    REQUIRE(caster != nullptr);
+    REQUIRE(sameForm != nullptr);
+    REQUIRE(ally != nullptr);
+    REQUIRE(summoned != nullptr);
+    REQUIRE(enemy != nullptr);
+    REQUIRE(far != nullptr);
+    const auto cooldown = [](Object *o) { return dynamic_cast<SpecialPowerModule *>(o->findModule("SpecialPowerModule")); };
+    for (Object *o : {caster, sameForm, ally, summoned, enemy, far})
+    {
+        w.logic->partition().registerObject(*o);
+        REQUIRE(cooldown(o) != nullptr);
+        cooldown(o)->startPowerRecharge(1.0f);
+        REQUIRE_FALSE(cooldown(o)->isReady());
+    }
+    w.frames(1); // publish pending partition registrations before the area scan
+    auto *refresh = dynamic_cast<SpecialPowerTimerRefreshSpecialPower *>(caster->findModule("SpecialPowerTimerRefreshSpecialPower"));
+    REQUIRE(refresh != nullptr);
+    REQUIRE(refresh->spData()->m_attributeModifierAffects.get() != nullptr);
+    CHECK(ObjectFilterMatch::allows(*w.logic, *refresh->spData()->m_attributeModifierAffects, *ally, caster->getControllingPlayer()));
+    CHECK(w.logic->partition().iterateObjectsInRange(*caster->getPosition(), 150, FROM_CENTER_2D, {}, ITER_SORTED_NEAR_TO_FAR).size() == 5);
+    // Direct cast: this does not test the real level-7 gate, button or animations.
+    refresh->doSpecialPower(0);
+    w.frames(1);
+    CHECK(refresh->triggers() == 1);
+    CHECK(cooldown(ally)->isReady());
+    CHECK_FALSE(cooldown(caster)->isReady());
+    CHECK_FALSE(cooldown(sameForm)->isReady());
+    CHECK_FALSE(cooldown(summoned)->isReady());
+    CHECK_FALSE(cooldown(enemy)->isReady());
+    CHECK_FALSE(cooldown(far)->isReady());
+    CHECK(refresh->refreshed() == 1);
+}
