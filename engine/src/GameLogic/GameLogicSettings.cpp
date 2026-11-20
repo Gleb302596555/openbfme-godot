@@ -395,6 +395,8 @@ const FieldParse kGameDataFields[] = {
 	{ "GenericDamageFieldName", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.genericDamageFieldName) },
 	// lane OWNERFIX-1: DefaultUnitHealingBuffFxList (row RW 0xBFF8C0, parseAsciiString RW 0x42EE5E, + 0x9DC): the healing glow of a healed unit (ActiveBody)
 	{ "DefaultUnitHealingBuffFxList", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.defaultUnitHealingBuffFxList) },
+	// PORT-235 (issue #558): DefaultStructureRepairBuffFxList (row RW 0xBFF8D0, parseAsciiString RW 0x42EE5E, + 0x9E0): StructureBody's repair/healing FX
+	{ "DefaultStructureRepairBuffFxList", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.defaultStructureRepairBuffFxList) },
 	// lane STEALTH-1: the invisibility rows (RW 0xC00C30 CamouflageDetectorObjectFilter + 0xEB4, RW 0xC01070 ReinvisibityDelay + 0x11CC, RW 0xC01080 / 0xC01090
 	// InvisibilityOpacityMin / Max + 0x11D0 / + 0x11D4, RW 0xC010A0 InvisibilityOpacityCycleFrames + 0x11D8)
 	{ "CamouflageDetectorObjectFilter", parseNoting<parseFilterPtr>, SEEN_DATA(SEEN_CAMOFILTER), (int)offsetof(BlockState, values.camouflageDetectorFilter) },

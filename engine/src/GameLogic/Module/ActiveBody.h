@@ -74,7 +74,7 @@ public:
 	};
 	std::vector<DamageCreation> m_damageCreationList; ///< one entry per `DamageCreationList` line, in file order
 	std::string m_healingBuffFx;
-	bool m_healingBuffFxSet = false; ///< lane OWNERFIX-1: a HealingBuffFx row was read (else the GameData default, RW 0x8C373F)
+	bool m_healingBuffFxSet = false; ///< an explicit HealingBuffFx row was read; otherwise ActiveBody / StructureBody use their respective GameData defaults
 	std::string m_damagedAttributeModifier;
 	std::string m_reallyDamagedAttributeModifier;
 	float m_cheerRadius = 200.0f;

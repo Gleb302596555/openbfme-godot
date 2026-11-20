@@ -375,6 +375,7 @@ include(cmake/Fx3.cmake)        # FX-3: particle and draw gaps (OPENBFME_FX3_SOU
 include(cmake/Fogfx1.cmake)     # FOGFX-1: the shroud's fade (OPENBFME_FOGFX1_SOURCES / OPENBFME_FOGFX1_TESTS)
 include(cmake/Fx4.cmake)        # FX-4: TransitionDamageFX, the camera shake (appends to OPENBFME_SIM_SOURCES; OPENBFME_FX4_TESTS)
 include(cmake/Port66.cmake)     # PORT-66: GameData AutoFire / AutoSmoke / AutoAflame particles (issue #180; OPENBFME_PORT66_TESTS)
+include(cmake/Port235.cmake)    # PORT-235 (issue #558): DefaultStructureRepairBuffFxList (OPENBFME_PORT235_TESTS)
 include(cmake/Hero.cmake)       # HERO-1: heroes (appends to OPENBFME_SIM_SOURCES; OPENBFME_HERO_TESTS)
 include(cmake/Proj2.cmake)      # PROJ-2: siege projectiles (appends to OPENBFME_SIM_SOURCES; OPENBFME_PROJ2_TESTS)
 include(cmake/Castle1.cmake)    # OPENBFME_CASTLE1_TESTS (lane CASTLE-1: the castle after its unpack)
@@ -1195,6 +1196,7 @@ add_executable(openbfme_tests
     ${OPENBFME_FX3_TESTS}
     ${OPENBFME_FX4_TESTS}
     ${OPENBFME_PORT66_TESTS}
+    ${OPENBFME_PORT235_TESTS}
     ${OPENBFME_BLDFX1_TESTS}
     ${OPENBFME_FOGFX1_TESTS}
     ${OPENBFME_HERO_TESTS}

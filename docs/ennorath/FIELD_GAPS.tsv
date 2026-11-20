@@ -318,7 +318,6 @@ not-read	gamedata		DebugVisibilityTileTargettableColor	1	catch-all		no				the ow
 not-read	gamedata		DebugVisibilityTileWidth	1	catch-all		no				the owner is not a module class of the map (an INI block, or a class the mod's objects do not use)	
 not-read	gamedata		DefaultEngagedStateTimeout	1	catch-all		no				0x0073FB7A (ported; read 0x00740257)	global TheGlobalData +0xC3C
 not-read	gamedata		DefaultMaxDistanceForEngaged	1	catch-all		no				0x0073FB7A (ported; read 0x00740246)	global TheGlobalData +0xC38
-not-read	gamedata		DefaultStructureRepairBuffFxList	1	catch-all		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0x9E0
 not-read	gamedata		DefaultVoiceAttackChargeTimeout	1	catch-all		no				0x0073FB7A (ported; read 0x00740235)	global TheGlobalData +0xC34
 not-read	gamedata		DrawEntireTerrain	1	catch-all	S-3501	no				0x004ABE03 (none; read 0x004ABE3B), 0x004AEC41 (none; read 0x004AF1F5)	global TheGlobalData +0x4E
 not-read	gamedata		DrawSkyBox	1	catch-all	S-1653	no				0x00644152 (none; read 0x0064418B)	global TheGlobalData +0x98
@@ -330,10 +329,10 @@ not-read	gamedata		GetHealedAnimationTime	1	catch-all		no				0x008558C0 (ported;
 not-read	gamedata		GetHealedAnimationZRise	1	catch-all		no				0x008558C0 (ported; read 0x00855CF2)	global TheGlobalData +0x130
 parsed-unused	gamedata		GoodCommandPointLimit	1	block-parser		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0xE8C
 parsed-unused	gamedata		GoodCommandPointsBonus	1	block-parser		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0xDFC
-not-read	gamedata		GroundStiffness	1	catch-all		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0xBC
-not-read	gamedata		GroupSelectMinSelectSize	1	catch-all		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0xB44
-not-read	gamedata		GroupSelectVolumeBase	1	catch-all		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0xB48
-not-read	gamedata		GroupSelectVolumeIncrement	1	catch-all		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0xB4C
+not-read	gamedata		GroundStiffness	1	catch-all	S-7636	no				unresolved: raw +0xBC candidates are not attributed to GameData; 213 candidates, see batch-17#29 / S-7636; not a RotWK no-reader verdict	global TheGlobalData +0xBC
+not-read	gamedata		GroupSelectMinSelectSize	1	catch-all	S-7636	no				unresolved: +0xB44 reads at RW 0xAB7DD4 / 0xAB8D53 / 0xAB8FFB have no proven GameData base; see batch-17#30 / S-7636	global TheGlobalData +0xB44
+not-read	gamedata		GroupSelectVolumeBase	1	catch-all		no				RW +0xB48 candidates were owner-checked; all 19 are other bases/types, no GameData reader, see batch-18#1 / manual-check.tsv	global TheGlobalData +0xB48
+not-read	gamedata		GroupSelectVolumeIncrement	1	catch-all		no				RW +0xB4C candidates were owner-checked; all eight are other bases/types, no GameData reader, see batch-18#2 / manual-check.tsv	global TheGlobalData +0xB4C
 not-read	gamedata		HandicapBuildSpeed10	1	catch-all		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0x10A8
 not-read	gamedata		HandicapBuildSpeed100	1	catch-all		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0x10F0
 not-read	gamedata		HandicapBuildSpeed15	1	catch-all		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0x10AC
@@ -354,30 +353,30 @@ not-read	gamedata		HandicapBuildSpeed80	1	catch-all		no				no candidate in recov
 not-read	gamedata		HandicapBuildSpeed85	1	catch-all		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0x10E4
 not-read	gamedata		HandicapBuildSpeed90	1	catch-all		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0x10E8
 not-read	gamedata		HandicapBuildSpeed95	1	catch-all		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0x10EC
-not-read	gamedata		HideGarrisonFlags	1	catch-all		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0x13D
+not-read	gamedata		HideGarrisonFlags	1	catch-all		no				RW +0x13D candidates are bumpmap, module data/UI or another class; none reads GameData, see batch-18#23 / manual-check.tsv	global TheGlobalData +0x13D
 not-read	gamedata		HumanSoloPlayerHealthBonus_Easy	1	catch-all		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0x954
 not-read	gamedata		HumanSoloPlayerHealthBonus_Hard	1	catch-all		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0x95C
 not-read	gamedata		HumanSoloPlayerHealthBonus_Normal	1	catch-all		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0x958
-not-read	gamedata		InitialMaxRingLevel	1	catch-all	S-525	no				0x006B34EE (ported; read 0x006B3517)	global TheGlobalData +0xE84
-not-read	gamedata		LevelGainAnimationName	1	catch-all		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0x11C
-not-read	gamedata		LevelGainAnimationTime	1	catch-all		no				0x006957C3 (none; read 0x00695988)	global TheGlobalData +0x120
-not-read	gamedata		LevelGainAnimationZRise	1	catch-all		no				0x006957C3 (none; read 0x0069597E)	global TheGlobalData +0x124
+not-read	gamedata		InitialMaxRingLevel	1	catch-all	S-525	no				RW +0xE84 is read in the Living World branch only; RW 0x7827C8 returns at 0x78280D when [0xDE4950] is zero. Ordinary skirmish is covered by S-525 and does not reach this path	global TheGlobalData +0xE84
+not-read	gamedata		LevelGainAnimationName	1	catch-all	S-7635	no				static Anim2D consumer RW 0x6957B9 has no proven incoming entry; see batch-18#28 / S-7635	global TheGlobalData +0x11C
+not-read	gamedata		LevelGainAnimationTime	1	catch-all	S-7635	no				static Anim2D consumer RW 0x6957B9 reads +0x120 at RW 0x695988; incoming entry is not proven; see batch-18#29 / S-7635	global TheGlobalData +0x120
+not-read	gamedata		LevelGainAnimationZRise	1	catch-all	S-7635	no				static Anim2D consumer RW 0x6957B9 reads +0x124 at RW 0x69597E; incoming entry is not proven; see batch-18#30 / S-7635	global TheGlobalData +0x124
 not-read	gamedata		MapName	1	catch-all		no				0x0062E4F2 (none; read 0x0062ED0B), 0x006314CD (none; read 0x0063162C), 0x00819C46 (none; read 0x00819CCB)	global TheGlobalData +0xC
 not-read	gamedata		MaxCastleRadius	1	catch-all	S-272	no				0x00796D41 (none; read 0x00796DC3), 0x00796D41 (none; read 0x00796DFB)	global TheGlobalData +0x1220
-not-read	gamedata		MaxCellsAdjustTargetDestination	1	catch-all		no				0x006F4FE5 (none; read 0x006F5025)	global TheGlobalData +0x11F8
-not-read	gamedata		MaxCellsAdjustToNearestGroundCell	1	catch-all		no				0x006EF0C1 (none; read 0x006EF0F5)	global TheGlobalData +0x1204
-not-read	gamedata		MaxCellsAdjustToNearestValidCell	1	catch-all		no				0x006EF173 (ported; read 0x006EF1A7)	global TheGlobalData +0x1208
-not-read	gamedata		MaxCellsFindAttackPathSideways	1	catch-all		no				0x006FDE42 (none; read 0x006FE382)	global TheGlobalData +0x1218
+not-read	gamedata		MaxCellsAdjustTargetDestination	1	catch-all	S-7634	no				RW 0x6F5025 feeds the unported shared AI target-destination spiral search RW 0x6F4BD0; see PORT-36 analysis / S-7634	global TheGlobalData +0x11F8
+not-read	gamedata		MaxCellsAdjustToNearestGroundCell	1	catch-all		no				static read RW 0x6EF0F5 is inside dead function RW 0x6EF0C1 (no call/jump or pointer); no runtime reader, see batch-19#5 / port36-cellbudgets-rw.md	global TheGlobalData +0x1204
+not-read	gamedata		MaxCellsAdjustToNearestValidCell	1	catch-all	S-931	no				only edge OCL / Dragon Strike consumer RW 0x8C7657 / 0x8C7688; left with S-530 / S-931	global TheGlobalData +0x1208
+not-read	gamedata		MaxCellsFindAttackPathSideways	1	catch-all	S-784	no				ship-sideways search RW 0x6FDE38 is not ported; see S-784	global TheGlobalData +0x1218
 not-read	gamedata		MaxDebugCashValueMapValue	1	catch-all		no				the owner is not a module class of the map (an INI block, or a class the mod's objects do not use)	
 not-read	gamedata		MaxDebugThreatMapValue	1	catch-all		no				the owner is not a module class of the map (an INI block, or a class the mod's objects do not use)	
-not-read	gamedata		MaxFieldParticleCount	1	catch-all		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0xACC
-not-read	gamedata		MaxParticleCount	1	catch-all		no				0x005FC3A4 (none; read 0x005FC43D), 0x005FC3A4 (none; read 0x005FC459), 0x00602FAF (none; read 0x00602FB4)	global TheGlobalData +0xAC8
+not-read	gamedata		MaxFieldParticleCount	1	catch-all		no				full GameData-base scan found no +0xACC read; RW 0xAB7E01 is an FX-manager argument, not GameData; batch-19#10 / manual-check.tsv	global TheGlobalData +0xACC
+not-read	gamedata		MaxParticleCount	1	catch-all		no				RW client consumer at 0x5FC43D / 0x5FC459; current port has ParticleSettings/StaticGameLOD support but does not parse GameData +0xAC8; client-only	global TheGlobalData +0xAC8
 not-read	gamedata		MaxRoadIndex	1	catch-all		no				0x004D6307 (none; read 0x004D6440), 0x004D6FFA (none; read 0x004D7035)	global TheGlobalData +0x994
 not-read	gamedata		MaxRoadSegments	1	catch-all		no				0x004D6FFA (none; read 0x004D7016)	global TheGlobalData +0x98C
 not-read	gamedata		MaxRoadTypes	1	catch-all		no				0x004D6FFA (none; read 0x004D7043)	global TheGlobalData +0x998
 not-read	gamedata		MaxRoadVertex	1	catch-all		no				0x004D6307 (none; read 0x004D63FF), 0x004D6FFA (none; read 0x004D7024)	global TheGlobalData +0x990
-not-read	gamedata		MaxShellScreens	1	catch-all		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0x38
-not-read	gamedata		MaxUnitSelectSounds	1	catch-all		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0xB50
+not-read	gamedata		MaxShellScreens	1	catch-all	S-7636	no				bounded direct scan found no [0xDE4364]+0x38 reader; indirect/argument-owned access remains open, see batch-19#16 / S-7636	global TheGlobalData +0x38
+not-read	gamedata		MaxUnitSelectSounds	1	catch-all	S-7636	no				candidate reads RW 0xABEB58 / 0xABA025 have no proven GameData base; see batch-19#18 / S-7636	global TheGlobalData +0xB50
 not-read	gamedata		MusicOn	1	catch-all		no				0x006302ED (none; read 0x00630677), 0x0063AD59 (none; read 0x0063C851)	global TheGlobalData +0x99D
 parsed-unused	gamedata		NetworkCushionHistoryLength	1	block-parser		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0xC14
 parsed-unused	gamedata		NetworkDisconnectScreenNotifyTime	1	block-parser		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0xC28
@@ -398,15 +397,15 @@ not-read	gamedata		ParticleCursorPerFrameSize	1	catch-all		no				0x006A536C (non
 not-read	gamedata		ParticleCursorStopBurstFactor	1	catch-all		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0xD60
 not-read	gamedata		ParticleCursorSystemLife	1	catch-all		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0xD74
 not-read	gamedata		ParticleCursorVelocityDrag	1	catch-all		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0xD98
-not-read	gamedata		ParticleScale	1	catch-all		no				0x005F4B88 (ported; read 0x005F4BB0), 0x005F4C02 (ported; read 0x005F4C23), 0x007B06DA (none; read 0x007B0703), 0x007B06DA (none; read 0x007B072D), 0x007B06DA (none; read 0x007B0747), 0x0096B2F6 (none; read 0x0096B36A), 0x0096B2F6 (none; read 0x0096B398)	global TheGlobalData +0x9EC
+not-read	gamedata		ParticleScale	1	catch-all		no				RW client readers scale particle size; current port has ParticleSettings default/consumer but does not load GameData +0x9EC; client-only, batch-20#10	global TheGlobalData +0x9EC
 not-read	gamedata		ProgressMovieOffset	1	catch-all		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0xDC0
 not-read	gamedata		ProgressMovieSize	1	catch-all		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0xDC8
 not-read	gamedata		RefundPercent	1	catch-all	S-7197	no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0xA84
 parsed-unused	gamedata		ResourceBonusMultiplier	1	block-parser		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0xE88
 not-read	gamedata		RightMouseAlwaysScrolls	1	catch-all		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0x5D
-parsed-unused	gamedata		ScoreKeeper_NormalVictoryRequiredObjectivesPercentage	1	block-file		no				0x0079E175 (none; read 0x0079E1C9)	global TheGlobalData +0x11B0
-parsed-unused	gamedata		ScoreKeeper_NormalVictoryRequiredScore	1	block-file		no				0x0079E175 (none; read 0x0079E1B7)	global TheGlobalData +0x11AC
-parsed-unused	gamedata		ScoreKeeper_TotalVictoryRequiredScore	1	manual		no				0x0079E175 (none; read 0x0079E199)	global TheGlobalData +0x11A8
+parsed-unused	gamedata		ScoreKeeper_NormalVictoryRequiredObjectivesPercentage	1	block-file	S-7186	no				port parses/hashes this setting; static RW rating read 0x79E1C9 is behind unreachable wrapper 0x79E218; owner decision S-7186 remains open	global TheGlobalData +0x11B0
+parsed-unused	gamedata		ScoreKeeper_NormalVictoryRequiredScore	1	block-file	S-7186	no				port parses/hashes this setting; static RW rating read 0x79E1B7 is behind unreachable wrapper 0x79E218; owner decision S-7186 remains open	global TheGlobalData +0x11AC
+parsed-unused	gamedata		ScoreKeeper_TotalVictoryRequiredScore	1	manual	S-7186	no				port parses/hashes this setting; static RW rating read 0x79E199 is behind unreachable wrapper 0x79E218; owner decision S-7186 remains open	global TheGlobalData +0x11A8
 not-read	gamedata		ShellMapName	1	catch-all		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0xAEC
 not-read	gamedata		ShowCollisionExtents	1	catch-all		no				the owner is not a module class of the map (an INI block, or a class the mod's objects do not use)	
 not-read	gamedata		ShowProps	1	catch-all	S-3402 S-7215	no				0x004E6C74 (ported; read 0x004E6C80), 0x004E70F5 (ported; read 0x004E7100), 0x004E837E (none; read 0x004E83A4), 0x004E8B8F (ported; read 0x004E8B98), 0x004EDE13 (none; read 0x004EDE28), 0x004EE5B8 (none; read 0x004EE5C3)	global TheGlobalData +0x1C
@@ -415,10 +414,10 @@ not-read	gamedata		SkipMapUnroll	1	catch-all		no				0x0091C108 (ported; read 0x0
 not-read	gamedata		SoundsOn	1	catch-all		no				0x0063AD59 (none; read 0x0063C87D)	global TheGlobalData +0x99E
 not-read	gamedata		SpeechOn	1	catch-all		no				0x0063AD59 (none; read 0x0063C8D5)	global TheGlobalData +0x9A0
 not-read	gamedata		StateMachineDebug	1	catch-all		no				the owner is not a module class of the map (an INI block, or a class the mod's objects do not use)	
-parsed-unused	gamedata		StealthFriendlyOpacity	1	manual		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0xC8
+parsed-unused	gamedata		StealthFriendlyOpacity	1	manual	S-7636	no				port parses/stores VisionSettings value but no consumer uses it; RW +0xC8 candidates not attributed to GameData, see S-7636; not a RotWK no-reader verdict	global TheGlobalData +0xC8
 not-read	gamedata		StretchTerrain	1	catch-all		no				0x004ABE03 (none; read 0x004ABE30), 0x004AEC41 (none; read 0x004AEC61)	global TheGlobalData +0x4C
-not-read	gamedata		StructureStiffness	1	catch-all		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0xC0
-not-read	gamedata		TerrainHeightAtEdgeOfMap	1	catch-all		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0xB0
+not-read	gamedata		StructureStiffness	1	catch-all		no				no GameData-owned read established after checking 592 raw +0xC0 hits; batch-20#30 / manual-check.tsv	global TheGlobalData +0xC0
+not-read	gamedata		TerrainHeightAtEdgeOfMap	1	catch-all		no				constructor write only; no GameData-owned read, batch-21#2 / manual-check.tsv	global TheGlobalData +0xB0
 not-read	gamedata		TerrainLOD	1	catch-all	S-3402	no				0x004438DA (none; read 0x00443920), 0x00465E57 (none; read 0x00465E74), 0x00465E57 (none; read 0x00465E79), 0x00465E57 (none; read 0x00465E86), 0x00465E57 (none; read 0x00465E8C), 0x00465E57 (none; read 0x00465E94), 0x00465EC2 (none; read 0x00465EF9)	global TheGlobalData +0x50
 not-read	gamedata		TerrainLODTargetTimeMS	1	catch-all		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0x58
 not-read	gamedata		TerrainLightingAfternoonAmbient	1	catch-all		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0x218
@@ -458,7 +457,7 @@ not-read	gamedata		TerrainObjectsLightingNightAmbient	1	catch-all		no				no cand
 not-read	gamedata		TerrainObjectsLightingNightDiffuse	1	catch-all		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0x584
 not-read	gamedata		TerrainObjectsLightingNightLightPos	1	catch-all		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0x590
 not-read	gamedata		TimeOfDay	1	catch-all		no				0x00442E56 (none; read 0x00442EEC), 0x00443D5F (none; read 0x00443D6D), 0x0044633A (none; read 0x004464CD), 0x004628C9 (none; read 0x00462A47), 0x004628C9 (none; read 0x00462A62), 0x0047A0AD (ported; read 0x0047A431), 0x00491F8C (none; read 0x00491FC3), 0x004ACB08 (none; read 0x004ACB26), 0x004C451D (ported; read 0x004C49BC), 0x004E4D2C (ported; read 0x004E4DB3), 0x004EDE13 (none; read 0x004EDE80), 0x004FBF86 (none; read 0x004FC08C), 0x00674566 (ported; read 0x00674592), 0x006745D2 (none; read 0x006745E4), 0x0068D8A8 (none; read 0x0068D8B8), 0x00690F3D (none; read 0x00690FA0), 0x0069C5E6 (ported; read 0x0069C6BE), 0x006AEAEB (none; read 0x006AEC9B), 0x006AEAEB (none; read 0x006AECBB), 0x0071D18F (ported; read 0x0071D266), 0x00776F03 (ported; read 0x00776FD9), 0x00776F03 (ported; read 0x00777126), 0x007BB2A9 (ported; read 0x007BB2D8), 0x0080585F (ported; read 0x0080593F), 0x0080F45F (none; read 0x0080F464), 0x0085935C (ported; read 0x008593F4), 0x0085935C (ported; read 0x0085943D), 0x0085935C (ported; read 0x008594C7), 0x00869A5A (none; read 0x00869B06), 0x0087C6CE (ported; read 0x0087C89B)	global TheGlobalData +0x134
-not-read	gamedata		TintUnitIfPathingForMoreThan	1	catch-all		no				0x006F2364 (ported; read 0x006F2548), 0x006F2364 (ported; read 0x006F2581), 0x006F2364 (ported; read 0x006F25AF)	global TheGlobalData +0x11C0
+not-read	gamedata		TintUnitIfPathingForMoreThan	1	catch-all	S-164	no				port does not consume this row; RW logic path 0x6F2364 reads +0x11C0 at 0x6F2548/0x6F2581/0x6F25AF and sends timed-out paths to Drawable tint helper 0x6ED163. Client/debug presentation, not gameplay; batch-22#12 / S-164	global TheGlobalData +0x11C0
 not-read	gamedata		TreeFadeObjectFilter	1	catch-all		no				no candidate in recovered basic blocks; not a no-reader verdict	global TheGlobalData +0xEB0
 not-read	gamedata		Use3WayTerrainBlends	1	catch-all		no				0x004AE772 (none; read 0x004AE8E5), 0x004B0AA2 (none; read 0x004B0C5C), 0x004B0AA2 (none; read 0x004B0FE5)	global TheGlobalData +0x44
 not-read	gamedata		UseCameraConstraints	1	catch-all		no				the owner is not a module class of the map (an INI block, or a class the mod's objects do not use)	
