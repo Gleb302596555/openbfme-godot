@@ -1174,3 +1174,119 @@ End
     CHECK_FALSE(cooldown(far)->isReady());
     CHECK(refresh->refreshed() == 1);
 }
+
+TEST_CASE("PORT-238 Elrond-style teaching grants experience only to allied heroes near the target")
+{
+    HealWorld w;
+    ExperienceLevelSystem levels;
+    ExperienceLevelSystem *savedLevels = TheExperienceLevelSystem;
+    struct RestoreLevels
+    {
+        HealWorld &world;
+        ExperienceLevelSystem *saved;
+        ~RestoreLevels() { world.logic->reset(); TheExperienceLevelSystem = saved; }
+    } restore{w, savedLevels};
+    TheExperienceLevelSystem = &levels;
+    levels.registerBlocks(w.w.fx.env.blocks);
+    const char *ini = R"ini(
+ExperienceLevel P238TeachingRank1
+  TargetNames = P238Teacher P238TeachingHero P238TeachingInfantry GasthausPalando GaladrielTornado
+  RequiredExperience = 1
+  Rank = 1
+End
+ExperienceLevel P238TeachingRank2
+  TargetNames = P238Teacher P238TeachingHero P238TeachingInfantry GasthausPalando GaladrielTornado
+  RequiredExperience = 100
+  Rank = 2
+End
+SpecialPower P238TeachingPower
+  Enum = SPECIAL_KINGS_FAVOR
+  ReloadTime = 200000
+End
+Object P238Teacher
+  KindOf = HERO INFANTRY SELECTABLE
+  Geometry = CYLINDER
+  GeometryMajorRadius = 5
+  GeometryHeight = 10
+  Body = ActiveBody Body
+    MaxHealth = 100
+  End
+  Behavior = SpecialPowerModule Power
+    SpecialPowerTemplate = P238TeachingPower
+    UpdateModuleStartsAttack = Yes
+  End
+  Behavior = LevelGrantSpecialPower Teaching
+    SpecialPowerTemplate = P238TeachingPower
+    Experience = 200
+    RadiusEffect = 50
+    AcceptanceFilter = NONE +HERO +GasthausPalando +GasthausAlatar +ManveEagle +ImladrisGwaihir -GaladrielTornado02 -GaladrielTornado ALLIES
+  End
+End
+Object P238TeachingHero
+  KindOf = HERO INFANTRY SELECTABLE
+  Geometry = CYLINDER
+  GeometryMajorRadius = 5
+  GeometryHeight = 10
+  Body = ActiveBody Body
+    MaxHealth = 100
+  End
+End
+Object P238TeachingInfantry
+  KindOf = INFANTRY SELECTABLE
+  Geometry = CYLINDER
+  GeometryMajorRadius = 5
+  GeometryHeight = 10
+  Body = ActiveBody Body
+    MaxHealth = 100
+  End
+End
+Object GasthausPalando
+  KindOf = INFANTRY SELECTABLE
+  Geometry = CYLINDER
+  GeometryMajorRadius = 5
+  GeometryHeight = 10
+  Body = ActiveBody Body
+    MaxHealth = 100
+  End
+End
+Object GaladrielTornado
+  KindOf = HERO INFANTRY SELECTABLE
+  Geometry = CYLINDER
+  GeometryMajorRadius = 5
+  GeometryHeight = 10
+  Body = ActiveBody Body
+    MaxHealth = 100
+  End
+End
+)ini";
+    const std::string error = w.w.load(ini, INI_LOAD_OVERWRITE, "port238_elrond_teaching.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    Object *caster = w.unit("P238Teacher", 'A', 300, 300);
+    Object *ally = w.unit("P238TeachingHero", 'A', 320, 300);
+    Object *infantry = w.unit("P238TeachingInfantry", 'A', 330, 300);
+    Object *enemy = w.unit("P238TeachingHero", 'B', 340, 300);
+    Object *far = w.unit("P238TeachingHero", 'A', 360, 300);
+    Object *namedAllowed = w.unit("GasthausPalando", 'A', 345, 300);
+    Object *namedExcluded = w.unit("GaladrielTornado", 'A', 348, 300);
+    for (Object *o : {caster, ally, infantry, enemy, far, namedAllowed, namedExcluded})
+    {
+        REQUIRE(o != nullptr);
+        REQUIRE(o->getExperienceTracker() != nullptr);
+        o->getExperienceTracker()->setExperienceAndLevel(1.0f, false);
+    }
+    auto *grant = dynamic_cast<LevelGrantSpecialPower *>(caster->findModule("LevelGrantSpecialPower"));
+    REQUIRE(grant != nullptr);
+    // Invoke the effect at the chosen position; this deliberately bypasses UI,
+    // approach and the real level-3 unpause. RW 0x8C6FA4 -> 0x8C6E82.
+    grant->triggerAtForTest(*caster->getPosition());
+    CHECK(ally->getExperienceTracker()->getExperience() == 201.0f);
+    CHECK(ally->getExperienceTracker()->getRank() == 2);
+    CHECK(caster->getExperienceTracker()->getExperience() == 1.0f);
+    CHECK(infantry->getExperienceTracker()->getExperience() == 1.0f);
+    CHECK(enemy->getExperienceTracker()->getExperience() == 1.0f);
+    CHECK(far->getExperienceTracker()->getExperience() == 1.0f);
+    CHECK(namedAllowed->getExperienceTracker()->getExperience() == 201.0f);
+    CHECK(namedAllowed->getExperienceTracker()->getRank() == 2);
+    CHECK(namedExcluded->getExperienceTracker()->getExperience() == 1.0f);
+    CHECK(grant->granted() == 2);
+}
