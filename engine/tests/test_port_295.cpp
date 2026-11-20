@@ -101,6 +101,7 @@ End
 
 	world.logic->destroyObject(hub);
 	world.logic->update(0);
+	world.logic->update(0);
 
 	CHECK(world.logic->findObjectByID(pieceId) == nullptr);
 }
