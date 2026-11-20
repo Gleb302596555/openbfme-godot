@@ -337,10 +337,10 @@ bool InGameHud::boot(std::string *error)
 	});
 	// PORT-239: RW 0x96FAC6 reads the live context, unlike the ordinary clip gate.
 	// Keep those reads and the menu transition under the same hold as button orders.
-	m_palantirRef->setToggleStanceHandler([this](int position) {
-		whenHeld([this, position]() {
+	m_palantirRef->setToggleStanceHandler([this](int position, std::uint64_t controller) {
+		whenHeld([this, position, controller]() {
 			const auto worldContext = enterContext();
-			m_palantirRef->pressToggleStance(position, m_input->context());
+			m_palantirRef->pressToggleStance(position, controller, m_input->context());
 		});
 	});
 	// lane CAMPUI-1: a stance item of the stance toggle's radial (RW 0x96F53C: MSG_CHANGE_STANCE with the item's stance)

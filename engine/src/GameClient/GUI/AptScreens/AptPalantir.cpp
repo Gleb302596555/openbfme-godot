@@ -478,7 +478,7 @@ void AptPalantir::syncFrames(const std::vector<ControlBarButton> &buttons, bool 
 						// RW 0x96FAC6 replaces the ordinary RW 0x9D285E clip gate.
 						if (m_toggleStancePress)
 						{
-							m_toggleStancePress(position);
+							m_toggleStancePress(position, shown.controller);
 						}
 						else
 						{
@@ -530,6 +530,7 @@ void AptPalantir::syncFrames(const std::vector<ControlBarButton> &buttons, bool 
 					}
 				});
 			}
+			s.controller = ++m_nextController;
 			s.created = true;
 		}
 		s.slot = b.slot;
@@ -1136,11 +1137,11 @@ const char *AptPalantir::setStanceButtonName(int stance)
 // 0x96FAF9 bypasses eligibility when absent. Otherwise RW 0x6A8803 requires
 // a local player and, only while active (RW 0x6AAC52), ALLIES to the object's
 // team (RW 0x6ADBEB). No disabled-clip test belongs to this controller.
-void AptPalantir::pressToggleStance(int position, const HudContext &context)
+void AptPalantir::pressToggleStance(int position, std::uint64_t controller, const HudContext &context)
 {
 	// The deferred HUD request must still address this controller: RW 0x92FF5C
 	// destroys/replaces it when the slot changes, rather than pressing a successor.
-	if (!isToggleStanceContent(position)) return;
+	if (!isToggleStanceContent(position) || m_arc[position].controller != controller) return;
 	InGameCommandButtonSubMenu *menu = m_subMenu[position].get();
 	const Slot &s = m_arc[position];
 	if (!menu || !s.button)

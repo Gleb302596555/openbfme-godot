@@ -576,11 +576,13 @@ TEST_CASE("PORT-239 stance toggle: live context relationship not disabled clip s
 	shown.image = "SyntheticStance";
 	auto &buttons = const_cast<std::vector<ControlBarButton> &>(bar.palantirButtons());
 	int requests = 0, ordinaryPresses = 0;
+	std::uint64_t lastController = 0;
 	palantir->setButtonHandler([&](int, bool) { ++ordinaryPresses; });
 	// Same entry and live-context callback as InGameHud, without a worker thread.
-	palantir->setToggleStanceHandler([&](int position) {
+	palantir->setToggleStanceHandler([&](int position, std::uint64_t controller) {
 		++requests;
-		palantir->pressToggleStance(position, context);
+		lastController = controller;
+		palantir->pressToggleStance(position, controller, context);
 	});
 	movie.windows->setPressButton(0);
 	for (Relationship relationship : { ENEMIES, NEUTRAL, ALLIES })
@@ -646,8 +648,36 @@ TEST_CASE("PORT-239 stance toggle: live context relationship not disabled clip s
 	buttons = { shown };
 	palantir->sync(bar);
 	CHECK_FALSE(palantir->isToggleStanceContent(0));
-	palantir->pressToggleStance(0, context);
+	palantir->pressToggleStance(0, lastController, context);
 	REQUIRE(palantir->subMenu(0));
 	CHECK_FALSE(palantir->subMenu(0)->isOpen());
+	CHECK(stream.propagate().empty());
+
+	// A new TOGGLE_STANCE in the same position also has a different lifetime;
+	// testing only the new command's type would incorrectly accept the old press.
+	AptPalantir::LocalState missing;
+	missing.context = true;
+	palantir->setLocalState(missing);
+	toggle.m_command = GUI_COMMAND_TOGGLE_STANCE;
+	buttons = { shown };
+	palantir->sync(bar);
+	std::uint64_t queuedController = 0;
+	int queuedRequests = 0;
+	palantir->setToggleStanceHandler([&](int, std::uint64_t controller) { ++queuedRequests; queuedController = controller; });
+	REQUIRE(movie.windows->invokeCallback("_level1.Frame.content_OnPress", ""));
+	REQUIRE(queuedRequests == 1);
+	CommandButton replacement = toggle;
+	shown.button = &replacement;
+	buttons = { shown };
+	palantir->sync(bar);
+	REQUIRE(palantir->isToggleStanceContent(0));
+	palantir->pressToggleStance(0, queuedController, context);
+	CHECK_FALSE(palantir->subMenu(0)->isOpen());
+	const auto oldController = queuedController;
+	REQUIRE(movie.windows->invokeCallback("_level1.Frame.content_OnPress", ""));
+	CHECK(queuedController != oldController);
+	palantir->pressToggleStance(0, queuedController, context);
+	CHECK(palantir->subMenu(0)->isOpen());
+	CHECK(palantir->subMenu(0)->itemCount() == 3);
 	CHECK(stream.propagate().empty());
 }

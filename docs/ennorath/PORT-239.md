@@ -361,3 +361,18 @@ runs `engine/build/openbfme_tests -tc="PORT-239*"`. This is sequential, not a
 second concurrent Ninja. Inspect this handle for the current-HEAD build/test
 result. Red/green still needs a separate controlled experiment afterwards.
 No doctest output has been observed. Code HEAD at queue creation: 3436c03f.
+
+## Deferred stance-controller identity follow-up
+
+The first replacement guard only checked that the successor was still a stance
+toggle. That was insufficient when one TOGGLE_STANCE controller replaced
+another before `whenHeld` drained the request. The presentation slot now gets
+a monotonically increasing lifetime ID on content creation; the event carries
+that ID and the deferred press rejects a mismatch. Slot reset loses its ID,
+so recreating the same button pointer cannot revive its old request either.
+This represents RW 0x92FF5C releasing the controller before constructing its
+successor, not new gameplay state. No simulation xfer/CRC change is required.
+The ID is neither serialized nor used in any logic message or availability rule.
+The synthetic callback test covers a replacement **of the same command type**,
+then verifies a fresh request opens exactly the successor's menu with three
+items and no stance order. Syntax-only passed; runtime remains pending.
