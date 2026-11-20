@@ -1292,6 +1292,7 @@ void SiegeDeploySpecialPower::setPhase(int next)
 	}
 }
 
+// RW 0x008C9FC8
 void SiegeDeploySpecialPower::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

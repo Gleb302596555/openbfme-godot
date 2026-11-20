@@ -169,6 +169,19 @@ run() {
   [ -f "$XMAP/rw_map.csv" ] && xm=(--xmap "$XMAP/rw_map.csv")
   python3 tools/mod/field_gaps.py --audit "$AUDIT/field-audit.tsv" --inventory "$finv" --game "$RW_GAME_DAT" "${xm[@]}" \
       > "$RUNS/nightly_fgaps.log" 2>&1 || { echo "field_gaps failed at $rev" >> "$LOG"; return 1; }
+  # the attribute modifier map (owner 2026-11-19) on this run's MATRIX_GAPS: docs/ennorath/MODIFIER_*; the per-list table is the mod's data: Drive only
+  if [ -f "$INV_FULL" ]; then
+    local mm="$RUNS/modifier-map"; mkdir -p "$mm"
+    if python3 tools/mod/modifier_map.py --base "$ROTWK_INSTALL" --overlay "$OPENBFME_ENNORATH_INSTALL" --game "$RW_GAME_DAT" --inventory "$INV_FULL"         --out "$mm" > "$RUNS/nightly_modmap.log" 2>&1; then
+      cp -f "$mm/modifier-map.md" docs/ennorath/MODIFIER_MAP.md
+      cp -f "$mm/modifier-readers.tsv" docs/ennorath/MODIFIER_READERS.tsv
+      cp -f "$mm/modifier-port-reads.tsv" docs/ennorath/MODIFIER_PORT_READS.tsv
+      cp -f "$mm/modifier-unresolved.tsv" docs/ennorath/MODIFIER_UNRESOLVED.tsv
+      cp -f "$mm/modifier-matrix.tsv" docs/ennorath/MODIFIER_MATRIX.tsv
+    else
+      echo "modifier map failed at $rev (the run goes on)" >> "$LOG"
+    fi
+  fi
   rm -f workspace/rebuild_inventory.json
   # task drafts from the red buttons, grouped by module class, after MATRIX_GAPS (owner 2026-11-17): Drive openbfme-runs/maps/drafts, never the repository
   python3 tools/mod/matrix_drafts.py --ini "$INI" --out "$RUNS/drafts" > "$RUNS/nightly_drafts.log" 2>&1           || echo "matrix drafts failed at $rev (the run goes on)" >> "$LOG"
@@ -179,7 +192,7 @@ run() {
   st "карты на main $rev: коммит auto/maps"
   git checkout -q -B auto/maps
   git add docs/ennorath/MATRIX.tsv docs/ennorath/README.md docs/ennorath/RW_FUNCTION_MAP.tsv docs/ennorath/RW_FUNCTION_MAP.md \
-      docs/ennorath/MATRIX_GAPS.tsv docs/ennorath/MATRIX_GAPS.md docs/ennorath/FIELD_GAPS.tsv docs/ennorath/PROGRESS.tsv docs/ennorath/MATRIX_FACTIONS.tsv docs/ennorath/MATRIX_REVIEW.md       docs/ennorath/SCRIPT_GRANTS.tsv docs/ennorath/SCRIPT_MAP.md docs/ennorath/GRANTS_INI.tsv
+      docs/ennorath/MATRIX_GAPS.tsv docs/ennorath/MATRIX_GAPS.md docs/ennorath/FIELD_GAPS.tsv docs/ennorath/PROGRESS.tsv docs/ennorath/MATRIX_FACTIONS.tsv docs/ennorath/MATRIX_REVIEW.md       docs/ennorath/SCRIPT_GRANTS.tsv docs/ennorath/SCRIPT_MAP.md docs/ennorath/GRANTS_INI.tsv \n      docs/ennorath/MODIFIER_MAP.md docs/ennorath/MODIFIER_READERS.tsv docs/ennorath/MODIFIER_PORT_READS.tsv docs/ennorath/MODIFIER_UNRESOLVED.tsv docs/ennorath/MODIFIER_MATRIX.tsv
   local red; red=$(python3 -c "import sys; sys.path.insert(0,'tools/mod'); import progress_snapshot as p; print(*p.matrix_counts(None))")
   if git diff --cached --quiet; then
     echo "$day: nothing changed at $rev" >> "$LOG"

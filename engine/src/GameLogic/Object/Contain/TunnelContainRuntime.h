@@ -118,6 +118,7 @@ public:
 	bool isValidContainerFor(const Object &obj, bool checkCapacity, bool checkPath) const override;
 	int getContainMax() const override;
 	void removeAllContained(bool exposeStealthUnits = false) override;
+	void iterateContained(const std::function<void(Object *)> &fn, unsigned flags = 1) override; // RW 0x00880F78
 	// lane UI-1: the tunnel's contain table RW 0xC5DCE0 answers slot 0x10 with RW 0x9188EB (false), not GarrisonContain's true; slot 0xC8 stays true (RW 0x8BD372)
 	bool isGarrisonable() const override { return false; }
 

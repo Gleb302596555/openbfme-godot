@@ -255,6 +255,7 @@ private:
 	unsigned m_applied = 0;          // lane HERO-1: RW 0x89763B calls (a test counter, hashed)
 };
 
+// Local 87: RW 0x008CC2C7 (getModuleName), RW 0x008CC31A (getModuleNameKey), RW 0x008CC35F (dtor), RW 0x008C6583 (base dtor thunk).
 class PlayerHealSpecialPower : public SpecialPowerModule
 {
 public:
@@ -341,6 +342,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p); // RW 0x8CCBD0, table RW 0xC75398
 };
 
+// Local 87: RW 0x008CCC15 (getModuleName), RW 0x008CCC34 (getModuleNameKey), RW 0x008CCC79 (dtor), RW 0x008C6583 (base dtor thunk).
 class CombineHordeSpecialPower : public SpecialPowerModule
 {
 public:
@@ -361,6 +363,7 @@ private:
 };
 
 // RW 0x8CB3D1 (DONOR BFME2 0x004C7063)
+// Local 87: RW 0x008CB3FB (getModuleName), RW 0x008CB4AC (getModuleNameKey), RW 0x006548BC (dtor), RW 0x008C6583 (base dtor thunk).
 class ManTheWallsSpecialPower : public SpecialPowerModule
 {
 public:

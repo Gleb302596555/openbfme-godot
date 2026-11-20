@@ -66,6 +66,8 @@ public:
 
 	// ---- BehaviorModule ----
 	void onObjectCreated() override; // the payload (main slot 0x70, INFERENCE S-1103: RW's caller is not located)
+	void onCapture(Player *oldOwner, Player *newOwner) override; // RW 0x0086A3DB / RW 0x0086B057
+	void orderAllPassengersToIdle(int source) override;
 	void crc(StateHasher &hasher) const override;
 	// ---- UpdateModule ----
 	UpdateSleepTime update() override; // RW 0x86B86D
@@ -149,6 +151,7 @@ public:
 	Object *passengerToHit(const Coord3D &pos) const override { return nearestShownHordeMember(m_contained, pos); } // slot 0xF4 RW 0x87A38E -> 0x990D14 (S-321)
 	void removeFromContain(Object *obj, bool exposeStealthUnits = false) override;                                                 // RW 0x87A6D3
 	void orderAllPassengersToExit(int source) override;                                           // RW 0x87A559 -> 0x991027
+	void onContainerUpgrade(const std::vector<const UpgradeTemplate *> &granted) override;        // RW 0x0087A988
 	void exitObjectViaDoor(Object *obj, int door) override;                                       // RW 0x87A89E
 	void onDie(const DieModuleInterface::Event &event) override;                                  // RW 0x87AE0A
 	// slot 0xF8 RW 0x87A321: the riders start to fall off (the update's timers)

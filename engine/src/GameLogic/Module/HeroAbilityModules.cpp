@@ -2718,6 +2718,7 @@ void ActivateModuleSpecialPower::xfer(Xfer &x)
 	x.xferUnsignedInt(&m_activations);
 }
 
+// RW 0x00894327 (slot 3): SpecialAbilityUpdate::xfer (RW 0x00852782), version 1, m_targets (+0x88), m_current (+0x8C), m_shotsAtCurrent (+0x90), m_done (+0x98), m_shots (+0x94).
 void ArrowStormUpdate::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);
@@ -2746,6 +2747,7 @@ void FellBeastSwoopPower::xfer(Xfer &x)
 	x.xferUnsignedInt(&m_commands);
 }
 
+// RW 0x008B0923 (slot 3): SpecialAbilityUpdate::xfer (RW 0x00852782), version 2, m_followers (+0x88), m_started (+0x90), m_endFrame (+0x8C), m_inner (+0x94), m_outer (+0x98).
 void RousingSpeechUpdate::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);
@@ -2758,7 +2760,7 @@ void RousingSpeechUpdate::xfer(Xfer &x)
 	x.xferUnsignedInt(&m_inspired);
 }
 
-// RW 0x0089659F (slot 3): version 1, delegates to SpecialAbilityUpdate::xfer (RW 0x00852782).
+// RW 0x0089659F (slot 3): version 1, delegates to SpecialAbilityUpdate::xfer (RW 0x00852782); RW 0x0089643F (getModuleNameKey).
 // Inherited base tail-calls: RW 0x00896435 (finishAbility -> 0x008530BA), RW 0x0089643A (update -> 0x00854DF7),
 // RW 0x008B0BAC (continuePreparation -> 0x00852A3E), RW 0x00896484 (dtor -> 0x00896415 -> ~SpecialAbilityUpdate 0x00854D9A).
 void TeleportSpecialAbilityUpdate::xfer(Xfer &x)

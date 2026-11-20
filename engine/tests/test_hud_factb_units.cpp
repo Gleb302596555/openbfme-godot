@@ -1592,6 +1592,95 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 						}
 					}
 				}
+				else if (cb->hasOption(COMMAND_OPTION_NEED_TARGET_POS) && !cb->hasOption(COMMAND_OPTION_NEED_TARGET_ENEMY_OBJECT | COMMAND_OPTION_NEED_TARGET_ALLY_OBJECT | COMMAND_OPTION_NEED_TARGET_NEUTRAL_OBJECT)
+						 && atOwn && !atEnemy && t)
+				{
+					// lane LOCAL-87: position powers on own units with a narrow ObjectFilter (SPF_NEEDS_OBJECT_FILTER, e.g. Golfimbul / Malbeth / Narin / Sharku /
+					// Lorgan / Pippin) or LevelGrantSpecialPower AcceptanceFilter (Legolas's Train Archers) need a matching own target at the cast spot
+					const ObjectFilter *ownFilter = t->m_objectFilter.get();
+					if (!ownFilter)
+					{
+						for (const std::unique_ptr<BehaviorModule> &m : u->modules())
+						{
+							if (const LevelGrantSpecialPower *lg = dynamic_cast<const LevelGrantSpecialPower *>(m.get()))
+							{
+								if (const auto *ld = dynamic_cast<const LevelGrantSpecialPowerModuleData *>(lg->getModuleData());
+									ld && ld->m_specialPowerTemplate == t && ld->m_acceptanceFilter)
+								{
+									ownFilter = ld->m_acceptanceFilter.get();
+									break;
+								}
+							}
+						}
+					}
+					Object *oh = ownHordeId != INVALID_ID ? g.logic().findObjectByID(ownHordeId) : nullptr;
+					if (ownFilter && (!oh || !ObjectFilterMatch::allows(g.logic(), *ownFilter, *oh, g.rig.local)))
+					{
+						if (const ThingTemplate *tt = pickFilteredTemplate(*ownFilter, g.rig.local))
+						{
+							tempTarget.id = g.rig.make(tt->getName(), c.x - 100.0f, c.y + 60.0f)->getID();
+							g.step(5);
+						}
+					}
+				}
+				else if (cb->hasOption(COMMAND_OPTION_NEED_TARGET_POS) && !cb->hasOption(COMMAND_OPTION_NEED_TARGET_ENEMY_OBJECT | COMMAND_OPTION_NEED_TARGET_ALLY_OBJECT | COMMAND_OPTION_NEED_TARGET_NEUTRAL_OBJECT)
+						 && !atOwn && !atEnemy && t)
+				{
+					// lane LOCAL-87: ActivateModuleSpecialPower triggering a SpecialPowerModule whose AttributeModifierAffects restricts targets
+					// (e.g. Mouth of Sauron's Worte des Elends affecting enemy +HERO only) needs a matching target at the cast spot
+					const ObjectFilter *modFilter = nullptr;
+					for (const std::unique_ptr<BehaviorModule> &m : u->modules())
+					{
+						const ActivateModuleSpecialPower *am = dynamic_cast<const ActivateModuleSpecialPower *>(m.get());
+						const auto *amd = am ? dynamic_cast<const ActivateModuleSpecialPowerModuleData *>(am->getModuleData()) : nullptr;
+						if (!amd || amd->m_specialPowerTemplate != t)
+						{
+							continue;
+						}
+						for (const ActivateModuleSpecialPowerModuleData::Entry &e : amd->m_triggers)
+						{
+							const NameKeyType key = g.logic().things().nameKeys().findKey(e.tag);
+							BehaviorModule *act = key == NAMEKEY_INVALID ? nullptr : u->findModuleByTag(key);
+							if (const SpecialPowerModule *sp = dynamic_cast<const SpecialPowerModule *>(act))
+							{
+								if (const auto *spd = dynamic_cast<const SpecialPowerModuleData *>(sp->getModuleData());
+									spd && !spd->m_attributeModifier.empty() && spd->m_attributeModifierAffects)
+								{
+									modFilter = spd->m_attributeModifierAffects.get();
+									break;
+								}
+							}
+						}
+						if (modFilter)
+						{
+							break;
+						}
+					}
+					if (modFilter)
+					{
+						Object *eu = g.logic().findObjectByID(enemyUnitId);
+						Object *eb = g.logic().findObjectByID(enemyBuildingId);
+						Object *oh = ownHordeId != INVALID_ID ? g.logic().findObjectByID(ownHordeId) : nullptr;
+						const bool anyMatch = (eu && ObjectFilterMatch::allows(g.logic(), *modFilter, *eu, g.rig.local))
+											  || (eb && ObjectFilterMatch::allows(g.logic(), *modFilter, *eb, g.rig.local))
+											  || (oh && ObjectFilterMatch::allows(g.logic(), *modFilter, *oh, g.rig.local));
+						if (!anyMatch)
+						{
+							if (const ThingTemplate *tt = pickFilteredTemplate(*modFilter, enemy))
+							{
+								tempTarget.id = g.rig.make(tt->getName(), c.x + 120.0f, c.y + 120.0f, enemy)->getID();
+								tempEnemyTarget = true;
+								g.step(5);
+								toughen(g.logic(), tempTarget.id);
+							}
+							else if (const ThingTemplate *tt = pickFilteredTemplate(*modFilter, g.rig.local))
+							{
+								tempTarget.id = g.rig.make(tt->getName(), c.x - 100.0f, c.y + 60.0f)->getID();
+								g.step(5);
+							}
+						}
+					}
+				}
 				if (needsHeal)
 				{
 					auto injure = [](Object *o) {
@@ -1787,7 +1876,7 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 					}
 					else if (atOwn)
 					{
-						tgt = g.logic().findObjectByID(ownHordeId);
+						tgt = (tempTarget.id != INVALID_ID && !tempEnemyTarget) ? g.logic().findObjectByID(tempTarget.id) : g.logic().findObjectByID(ownHordeId);
 					}
 					else if (atEnemy)
 					{
@@ -1820,6 +1909,10 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 								}
 							}
 						}
+					}
+					if (!tgt && tempTarget.id != INVALID_ID)
+					{
+						tgt = g.logic().findObjectByID(tempTarget.id);
 					}
 					// an object target: a horde is clicked on one of its members (the horde object has no body to pick); a position power is cast at the
 					// horde's own position (its centre: an area dominate skips HORDE_MEMBERs and takes the horde within DominateRadius)

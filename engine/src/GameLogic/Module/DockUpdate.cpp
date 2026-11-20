@@ -524,7 +524,7 @@ void DockUpdate::xferDockUpdate(Xfer &x)
 	}
 	x.xferInt(&m_numberApproachPositions);
 	x.xferBool(&m_positionsLoaded);
-	x.xferInt(&m_numberApproachPositionBones); // OpenBFME: retail recomputes it when the positions load again (RW 0x99198A)
+	x.xferInt(&m_numberApproachPositionBones); // OpenBFME: retail recomputes it when the positions load again (RW 0x99198A; SupplyCenterDockUpdate::loadPostProcess RW 0x008A4ABF)
 	std::uint32_t n = (std::uint32_t)m_approachPositions.size();
 	x.xferCount(&n, 12 + 4 + 1, sizeof(Coord3D) + sizeof(ObjectID) + 1);
 	if (x.isLoading())
@@ -567,6 +567,7 @@ SupplyCenterDockUpdate::SupplyCenterDockUpdate(Thing *thing, const SupplyCenterD
 {
 }
 
+// GetSnapshotName RW 0x008A44D2, getModuleNameKey RW 0x008A4513
 void SupplyCenterDockUpdate::registerClass(ModuleFactory &modules)
 {
 	modules.bindTypedData<SupplyCenterDockUpdateModuleData>("SupplyCenterDockUpdate", MODULETYPE_BEHAVIOR);

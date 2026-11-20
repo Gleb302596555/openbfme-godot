@@ -408,6 +408,7 @@ private:
 	const HeroModeSpecialAbilityUpdateModuleData *m_hm;
 };
 
+// Local 87: RW 0x008C6D2B (getModuleName), RW 0x008C6DAD (getModuleNameKey), RW 0x008C6E46 (data dtor).
 class LevelGrantSpecialPower : public SpecialAbilityUpdate
 {
 public:
@@ -457,12 +458,13 @@ private:
 // it merges: ToggleMounted's trigger with the replacement RW 0x8B228C (RW 0x8B140D's twin over the + 0xE8 / + 0xEC fields) and ModelCondition's emotion
 // pulse (RW 0x8B2584), ToggleMounted's finishAfterPacking (RW 0x8B202A) and initiate (RW 0x8B1FDA), ModelCondition's startUnpacking (RW 0x89455B), a
 // finishAbility of both (RW 0x8B208A), and the base continuePreparation (RW 0x852A3E: no early out at the second trigger).
+// RW 0x008B1E94 (getModuleName), RW 0x008B1F14 (getModuleNameKey), RW 0x008B1FA3 (scalar deleting dtor -> 0x008B1E6A).
 class SummonReplacementSpecialAbilityUpdate : public SpecialAbilityUpdate, public CreateModuleInterface
 {
 public:
 	OBFME_MODULE_XFER(SummonReplacementSpecialAbilityUpdate)
 	SummonReplacementSpecialAbilityUpdate(Thing *thing, const SummonReplacementSpecialAbilityUpdateModuleData *data); // RW 0x8B1F59
-	CreateModuleInterface *getCreate() override { return this; }
+	CreateModuleInterface *getCreate() override { return this; } // RW 0x008B42E6 (BehaviorModule::getCreate, shared with SpecialDisguiseUpdate)
 	void onCreate() override {}
 	void onBuildComplete() override; // RW 0x8B1FBF: TriggerInstantlyOnCreate triggers at once
 	void initiateIntentToDoSpecialPower(const SpecialPowerTemplate *t, Object *target, const Coord3D *loc, unsigned options, int extra) override; // RW 0x8B1FDA
@@ -490,12 +492,13 @@ private:
 // + 0x130 bit 12) on with ForceMountedWhenDisguising's mount (RW 0x8B45BF), or off; the drawable of DisguiseAsTemplate replaces the object's (client). RW 0x8B4702
 // ends it from SPECIAL_SMITE_CANCELDISGUISE's unpack (RW 0x8538DD), SPECIAL_ATTRIBUTEMOD_CANCELDISGUISE's trigger (RW 0x8549DD) and attribute modifier power
 // (RW 0x897840), a stealth detector (RW 0x8A6644) and the mount toggles' CancelDisguiseWhenDismounting (RW 0x8B17C2 / 0x8B26BB).
+// RW 0x008B42E0 (getModuleName), RW 0x008B429B (getModuleNameKey), RW 0x008B43F4 (scalar deleting dtor -> 0x008B4271).
 class SpecialDisguiseUpdate : public SpecialAbilityUpdate, public CreateModuleInterface
 {
 public:
 	OBFME_MODULE_XFER(SpecialDisguiseUpdate) // lane SAVE-4b
 	SpecialDisguiseUpdate(Thing *thing, const SpecialDisguiseUpdateModuleData *data); // RW 0x8B439F
-	CreateModuleInterface *getCreate() override { return this; }
+	CreateModuleInterface *getCreate() override { return this; } // RW 0x008B42E6 (BehaviorModule::getCreate, shared with SummonReplacementSpecialAbilityUpdate)
 	void onCreate() override {}
 	void onBuildComplete() override;                            // RW 0x8B4410
 	void finishAbility(bool ownerDying, bool aborted) override; // RW 0x8B4521

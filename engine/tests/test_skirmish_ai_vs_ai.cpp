@@ -965,7 +965,11 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 	// (RW 0x85E0C2 -> RW 0x701443 flags 0x62: CAN_ATTACK | UNFOGGED | AUTO_ACQUIRE through the ported RW 0x7006D7 instead of the closest visible enemy)
 	// and its FiringTracker reset at the weapon mode's start (RW 0x8984B7): seed 2 stays open at 9000 (was Mordor's defeat at 8197), seed 7 ends with
 	// the Men's defeat (start position 1) at 4465 (was open), seed 1234 ends with Mordor's defeat at 5359 (was 8887)
-	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, -1, -1 }, Game{ "FactionMen", "FactionMordor", 7u, 1, 4465 }, Game{ "FactionMordor", "FactionMen", 1234u, 0, 5359 } })
+	// pin: the fork's merge of upstream 4a8d8272 (2026-11-19: lanes BUILDCLEAR-1, THREATLEVEL-1, PRs #325 / #340), measured once on the merged tree
+	// (Windows MSVC): BUILDCLEAR-1's isLocationClearOfObjects (RW 0x796D37, the options in RotWK's numbering) changes where the computer players place
+	// their structures (upstream's own perf1 pin names the same move); seed 7 still ends with the Men's defeat, now at 4571 (was 4465); seeds 2 and
+	// 1234 keep their results
+	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, -1, -1 }, Game{ "FactionMen", "FactionMordor", 7u, 1, 4571 }, Game{ "FactionMordor", "FactionMen", 1234u, 0, 5359 } })
 	{
 		INFO(g.a << " vs " << g.b << " seed " << g.seed);
 		VersusRun run;

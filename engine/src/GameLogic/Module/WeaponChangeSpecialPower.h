@@ -48,12 +48,15 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// Local 87: RW 0x008C82A7 (getModuleName), RW 0x008C82FA (getModuleNameKey), RW 0x008C82AD / RW 0x008C83BA (dtors), RW 0x008C6583 (base dtor thunk), RW 0x004B612F (empty-string helper).
 class WeaponChangeSpecialPowerModule : public SpecialPowerModule
 {
 public:
 	OBFME_MODULE_XFER(WeaponChangeSpecialPowerModule) // lane SAVE-4b: SpecialPowerModule's
 	WeaponChangeSpecialPowerModule(Thing *thing, const WeaponChangeSpecialPowerModuleData *data) : SpecialPowerModule(thing, data), m_data(data) {}
-	void doSpecialPower(unsigned options) override; // RW 0x8C8420
+	void doSpecialPower(unsigned options) override; // RW 0x008C8420
+	void doSpecialPowerAtObject(Object *target, unsigned options) override { (void)target; doSpecialPower(options); } // RW 0x008C82E2
+	void doSpecialPowerAtLocation(const Coord3D &loc, unsigned options) override { (void)loc; doSpecialPower(options); } // RW 0x008C82EE
 
 	static void registerClass(ModuleFactory &modules);
 

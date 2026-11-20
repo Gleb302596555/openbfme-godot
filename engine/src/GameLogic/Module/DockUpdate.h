@@ -151,6 +151,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// scalar deleting dtor RW 0x008A4558
 class SupplyCenterDockUpdate : public DockUpdate
 {
 public:

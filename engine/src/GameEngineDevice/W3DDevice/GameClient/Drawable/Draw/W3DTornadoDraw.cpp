@@ -138,8 +138,10 @@ void W3DTornadoDraw::createDecals()
 	}
 }
 
+// TARGET RW 0x004D1071 GetSnapshotName, RW 0x004D11EE scalar deleting destructor.
 void W3DTornadoDraw::reactToTransformChange(const Coord3D * /*oldPos*/, float /*oldAngle*/)
 {
+	// RW 0x004D1000 (DONOR BFME2 0x000D17EF): updates decal positions to drawable position
 	if (m_thing && m_thing->getPosition())
 	{
 		const Coord3D pos = *m_thing->getPosition();

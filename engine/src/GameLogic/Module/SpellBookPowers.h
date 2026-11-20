@@ -66,6 +66,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// Local 87: RW 0x008CC04C (getModuleName), RW 0x008CC06B (getModuleNameKey), RW 0x008CC0B0 / RW 0x008CC1D7 (dtors), RW 0x008C6583 (base dtor thunk), RW 0x004B612F (empty-string helper).
 class PlayerUpgradeSpecialPower : public SpecialPowerModule
 {
 public:
@@ -73,7 +74,7 @@ public:
 	PlayerUpgradeSpecialPower(Thing *thing, const PlayerUpgradeSpecialPowerModuleData *data) : SpecialPowerModule(thing, data), m_data(data) {}
 	void doSpecialPower(unsigned options) override;                                    // RW 0x8CC0CC
 	void doSpecialPowerAtObject(Object *, unsigned options) override { doSpecialPower(options); }            // RW 0x8C82E2
-	void doSpecialPowerAtLocation(const Coord3D &, unsigned options) override { doSpecialPower(options); }   // RW 0x8C82E2
+	void doSpecialPowerAtLocation(const Coord3D &, unsigned options) override { doSpecialPower(options); }   // RW 0x008C82EE
 
 private:
 	const PlayerUpgradeSpecialPowerModuleData *m_data;
@@ -147,6 +148,7 @@ protected:
 	void emitCentreFX(const std::string &fx, const Coord3D *castLoc);
 };
 
+// Local 87: RW 0x008C924E (getModuleName), RW 0x008C926D (getModuleNameKey), RW 0x008C92B2 (dtor), RW 0x008C6583 (base dtor thunk).
 class DarknessSpecialPower : public WeatherFamilySpecialPower
 {
 public:
@@ -157,6 +159,7 @@ public:
 private:
 	const DarknessSpecialPowerModuleData *m_data;
 };
+// Local 87: RW 0x008C9084 (getModuleName), RW 0x008C90A3 (getModuleNameKey), RW 0x008C90E8 (dtor), RW 0x008C6583 (base dtor thunk).
 class FreezingRainSpecialPower : public WeatherFamilySpecialPower
 {
 public:
@@ -167,6 +170,7 @@ public:
 private:
 	const FreezingRainSpecialPowerModuleData *m_data;
 };
+// Local 87: RW 0x008C89BB (getModuleName), RW 0x008C89DA (getModuleNameKey), RW 0x008C8A1F / RW 0x008C8C90 (dtors), RW 0x008C6583 (base dtor thunk), RW 0x004B612F (empty-string helper).
 class CloudBreakSpecialPower : public WeatherFamilySpecialPower
 {
 public:
@@ -183,6 +187,7 @@ private:
 	unsigned long long m_sunbeams = 0;
 	unsigned long long m_firesPutOut = 0; // a counter: the request is the tracker's state (hashed there), not this module's
 };
+// Local 87: RW 0x008C8D79 (getModuleName), RW 0x008C8D98 (getModuleNameKey), RW 0x008C8DDD / RW 0x008C8FA4 (dtors), RW 0x008C6583 (base dtor thunk), RW 0x004B612F (empty-string helper).
 class TaintSpecialPower : public WeatherFamilySpecialPower
 {
 public:
@@ -196,6 +201,7 @@ private:
 	const TaintSpecialPowerModuleData *m_data;
 	ObjectID m_lastObject = INVALID_ID;
 };
+// Local 87: RW 0x008C7B72 (getModuleName), RW 0x008C7B91 (getModuleNameKey), RW 0x008C7BD6 (dtor), RW 0x008C6583 (base dtor thunk).
 class ElvenWoodSpecialPower : public WeatherFamilySpecialPower
 {
 public:
@@ -242,6 +248,7 @@ public:
 	float m_bountyPercent = 0.0f; // + 0x7C
 	static void buildFieldParse(MultiIniFieldParse &p); // RW 0xC73EFC
 };
+// Local 87: RW 0x008C8820 (getModuleName), RW 0x008C885B (getModuleNameKey), RW 0x008C8826 (dtor), RW 0x008C891C (xfer), RW 0x008C6583 (base dtor thunk).
 class ScavengerSpecialPower : public SpecialPowerModule
 {
 public:
@@ -258,6 +265,7 @@ private:
 };
 
 // ---- UntamedAllegianceSpecialPower ---------------------------------------------------------------------------------------------------------
+// Local 87: RW 0x008CBF4F (getModuleName), RW 0x008CBF6E (getModuleNameKey), RW 0x008CBFB3 (dtor), RW 0x008C6583 (base dtor thunk).
 class UntamedAllegianceSpecialPower : public SpecialPowerModule
 {
 public:
@@ -283,6 +291,7 @@ public:
 	std::string m_fireWeapon;           // + 0x8C
 	static void buildFieldParse(MultiIniFieldParse &p); // RW 0xC75000
 };
+// Local 87: RW 0x008CC639 (getModuleName), RW 0x008CC69C (getModuleNameKey), RW 0x008CC6E1 (dtor), RW 0x008C6583 (base dtor thunk).
 class DevastateSpecialPower : public SpecialPowerModule
 {
 public:

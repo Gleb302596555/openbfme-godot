@@ -1,7 +1,12 @@
 // OpenBFME. GPL-3.0.
 // See BuffDraw.h (lane SPELL-4). Client-only.
 
+// TARGET W3DBuffDraw: RW 0x004B1B3F xfer, RW 0x004B612F getModelName, RW 0x004CE5CF GetSnapshotName,
+//   RW 0x004CE5D5 getModuleNameKey, RW 0x004CE672 ModuleData scalar deleting dtor.
+// TARGET TBuff: RW 0x004D13A7 GetSnapshotName, RW 0x004D187F scalar deleting dtor, RW 0x004D18E9 xfer.
 #include "GameClient/BuffDraw.h"
+#include "Common/Xfer.h"
+#include "GameLogic/SnapshotXfer.h"
 
 #include <cstddef>
 #include <iterator>
@@ -179,5 +184,24 @@ void ClientBuffs::advance(double seconds, unsigned logicFrame)
 	if (steps >= 8)
 	{
 		m_clock = 0.0; // a stall: no catching up
+	}
+}
+
+void ClientBuffs::xferBuff(Xfer &x, Buff &b)
+{
+	// RW 0x004D18E9 TBuff::xfer: version(1, 5), xfers state (+0x08), opacity (+0x0C), visible (+0x44), position (+0x48), scale (+0x54)
+	SnapshotXfer::version(x, 5, 5);
+	const std::uint8_t v = 5;
+	x.xferAsciiString(&b.thing);
+	x.xferInt(&b.state);
+	x.xferReal(&b.opacity);
+	x.xferBool(&b.visible);
+	if (v >= 3)
+	{
+		SnapshotXfer::coord3D(x, b.position);
+	}
+	if (v >= 5)
+	{
+		x.xferReal(&b.scale);
 	}
 }
