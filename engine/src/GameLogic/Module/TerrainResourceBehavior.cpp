@@ -179,6 +179,8 @@ void TerrainResourceBehavior::crc(StateHasher &h) const
 }
 
 // ---- lane SAVE-4b: the snapshot (OpenBFME native, S-4190) ---------------------------------------------------------------------------------------------------
+// RW 0x8853F9 (retail version 2): UpdateModule::xfer, then claimed (+0x28), needToRunOnBuildComplete (+0x29), the share (+0x2C): the same fields in the same
+// order. Retail's loadPostProcess RW 0x88546B wakes an unclaimed module for the next frame; the saved wake frame (xferUpdateModule) is that frame already.
 void TerrainResourceBehavior::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

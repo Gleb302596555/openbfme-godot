@@ -364,6 +364,8 @@ public:
 	bool active() const { return m_active; }
 
 	const SpecialPowerTemplate *getSpecialPowerTemplate() const override { return m_data->m_specialPowerTemplate; }
+	// RW 0xC873E0 (this class's interface) slot 0x50 = 0x43B160, a CRT pure-call stub (this module keeps no target id)
+	ObjectID getTargetId() const override { return INVALID_ID; }
 	bool isReady() const override { return readyImpl(true); }                          // RW 0x99135D
 	float getPercentReady() const override { return percentImpl(true); }               // RW 0x9913BC
 	bool isPaused() const override { return m_pauseCount > 0; }                        // slot 0x0C (RW 0x89825A)

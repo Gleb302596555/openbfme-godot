@@ -489,15 +489,14 @@ TEST_CASE("AIPOW-1: TOGGLE_SIEGE (RW 0x9EA2E1 / 0x9EA201 / 0x9EA280) and DOMINAT
 	CHECK(dominate->decision()->kind == AISpecialPowerDecision::KIND_OBJECT);
 }
 
-TEST_CASE("AIPOW-1: the ActionManager's stops [S-1871] .. [S-1874] and the computer's sciences [S-1875] are reported, S-1421 names what stays unported")
+TEST_CASE("PORT-232 AIPOW-1 stops: the ActionManager's stops [S-1872] .. [S-1874] and the computer's sciences [S-1875] are reported, S-1421 names what stays unported")
 {
 	const std::vector<std::string> am = ActionManager::stopLines();
-	REQUIRE(am.size() == 5);
-	CHECK(am[0].rfind("[S-1871]", 0) == 0);
-	CHECK(am[1].rfind("[S-1872]", 0) == 0);
-	CHECK(am[2].rfind("[S-1873]", 0) == 0);
-	CHECK(am[3].rfind("[S-1874]", 0) == 0);
-	CHECK(am[4].rfind("[S-7140]", 0) == 0); // MODCOMPAT-MOD1: RW 0x82D925's unported per-type object tests
+	REQUIRE(am.size() == 4);
+	CHECK(am[0].rfind("[S-1872]", 0) == 0);
+	CHECK(am[1].rfind("[S-1873]", 0) == 0);
+	CHECK(am[2].rfind("[S-1874]", 0) == 0);
+	CHECK(am[3].rfind("[S-7140]", 0) == 0); // MODCOMPAT-MOD1: RW 0x82D925's unported per-type object tests
 	const std::vector<std::string> ai = AISpecialPowerUpdate::stopLines();
 	REQUIRE(ai.size() == 2);
 	CHECK(ai[0].rfind("[S-1421]", 0) == 0);

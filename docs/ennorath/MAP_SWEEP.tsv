@@ -1,0 +1,337 @@
+map	status	error	load_errors	load_first	mapini_errors	mapini_first	start_errors	play_errors	play_first	seconds	map_objects
+maps\amon hen ii\amon hen ii.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	3364
+maps\brandy hills\brandy hills.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2649
+maps\brandybuck i\brandybuck i.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1637
+maps\breeiv\breeiv.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2419
+maps\camera_demo\camera_demo.map	not in the map cache	the map 'maps/camera_demo/camera_demo.map' is not in the map cache	0		0			0		0	0
+maps\cardolan highlands\cardolan highlands.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1989
+maps\castles of the middle earth\castles of the middle earth.map	errors		3	object 99 'DwarvenSchl�chterHorde': no template of that name | object 101 'IsenfurtSpeertr�gerHorde': no template of that name | object 102 'AngmarOrkSchl�chterHorde': no template of that name	0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	3823
+maps\chaos ring of isengard\chaos ring of isengard.map	ok		0		0			0		60	2560
+maps\cin amon sul - castle pan2\cin amon sul - castle pan2.map	not in the map cache	the map 'maps/cin amon sul - castle pan2/cin amon sul - castle pan2.map' is not in the map cache	0		0			0		0	0
+maps\cin amon sul - castle pan\cin amon sul - castle pan.map	not in the map cache	the map 'maps/cin amon sul - castle pan/cin amon sul - castle pan.map' is not in the map cache	0		0			0		0	0
+maps\cin amon sul - invasion\cin amon sul - invasion.map	not in the map cache	the map 'maps/cin amon sul - invasion/cin amon sul - invasion.map' is not in the map cache	0		0			0		0	0
+maps\cin angmar - rogash run\cin angmar - rogash run.map	not in the map cache	the map 'maps/cin angmar - rogash run/cin angmar - rogash run.map' is not in the map cache	0		0			0		0	0
+maps\cin angmar - witchking rally\cin angmar - witchking rally.map	not in the map cache	the map 'maps/cin angmar - witchking rally/cin angmar - witchking rally.map' is not in the map cache	0		0			0		0	0
+maps\cin barrow downs - sorcerer\cin barrow downs - sorcerer.map	not in the map cache	the map 'maps/cin barrow downs - sorcerer/cin barrow downs - sorcerer.map' is not in the map cache	0		0			0		0	0
+maps\cin barrow downs - swamp pull\cin barrow downs - swamp pull.map	not in the map cache	the map 'maps/cin barrow downs - swamp pull/cin barrow downs - swamp pull.map' is not in the map cache	0		0			0		0	0
+maps\cin fornost - invasion\cin fornost - invasion.map	not in the map cache	the map 'maps/cin fornost - invasion/cin fornost - invasion.map' is not in the map cache	0		0			0		0	0
+maps\cin fornost - legions seige\cin fornost - legions seige.map	not in the map cache	the map 'maps/cin fornost - legions seige/cin fornost - legions seige.map' is not in the map cache	0		0			0		0	0
+maps\cin fornost - peaceful pan - clean\cin fornost - peaceful pan - clean.map	not in the map cache	the map 'maps/cin fornost - peaceful pan - clean/cin fornost - peaceful pan - clean.map' is not in the map cache	0		0			0		0	0
+maps\cin fornost - peaceful pan\cin fornost - peaceful pan.map	not in the map cache	the map 'maps/cin fornost - peaceful pan/cin fornost - peaceful pan.map' is not in the map cache	0		0			0		0	0
+maps\cin fornost - shade of wolf\cin fornost - shade of wolf.map	not in the map cache	the map 'maps/cin fornost - shade of wolf/cin fornost - shade of wolf.map' is not in the map cache	0		0			0		0	0
+maps\cin fornost - witchking fire\cin fornost - witchking fire.map	not in the map cache	the map 'maps/cin fornost - witchking fire/cin fornost - witchking fire.map' is not in the map cache	0		0			0		0	0
+maps\cin fornost - witchking\cin fornost - witchking.map	not in the map cache	the map 'maps/cin fornost - witchking/cin fornost - witchking.map' is not in the map cache	0		0			0		0	0
+maps\cin gundabad - snowy landscape2\cin gundabad - snowy landscape2.map	not in the map cache	the map 'maps/cin gundabad - snowy landscape2/cin gundabad - snowy landscape2.map' is not in the map cache	0		0			0		0	0
+maps\cin gundabad - snowy landscape2_bright\cin gundabad - snowy landscape2_bright.map	not in the map cache	the map 'maps/cin gundabad - snowy landscape2_bright/cin gundabad - snowy landscape2_bright.map' is not in the map cache	0		0			0		0	0
+maps\cin gundabad - snowy landscape\cin gundabad - snowy landscape.map	not in the map cache	the map 'maps/cin gundabad - snowy landscape/cin gundabad - snowy landscape.map' is not in the map cache	0		0			0		0	0
+maps\cin gundabad - witchking\cin gundabad - witchking.map	not in the map cache	the map 'maps/cin gundabad - witchking/cin gundabad - witchking.map' is not in the map cache	0		0			0		0	0
+maps\cin north downs - waterfall\cin north downs - waterfall.map	not in the map cache	the map 'maps/cin north downs - waterfall/cin north downs - waterfall.map' is not in the map cache	0		0			0		0	0
+maps\cin rhudaur - hwalder battle\cin rhudaur - hwalder battle.map	not in the map cache	the map 'maps/cin rhudaur - hwalder battle/cin rhudaur - hwalder battle.map' is not in the map cache	0		0			0		0	0
+maps\cin rhudaur - thrallmaster rally\cin rhudaur - thrallmaster rally.map	not in the map cache	the map 'maps/cin rhudaur - thrallmaster rally/cin rhudaur - thrallmaster rally.map' is not in the map cache	0		0			0		0	0
+maps\cin thrallmaster battle - ithilien\cin thrallmaster battle - ithilien.map	not in the map cache	the map 'maps/cin thrallmaster battle - ithilien/cin thrallmaster battle - ithilien.map' is not in the map cache	0		0			0		0	0
+maps\createahero\createahero.map	not in the map cache	the map 'maps/createahero/createahero.map' is not in the map cache	0		0			0		0	0
+maps\cursedfortress\cursedfortress.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2694
+maps\dagorlad ii\dagorlad ii.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2569
+maps\dead marshes ii\dead marshes ii.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2720
+maps\ered luin ii\ered luin ii.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	3336
+maps\ered luin rt ii\ered luin rt ii.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	3336
+maps\eryn rhun ii\eryn rhun ii.map	errors		1	object 3374 'PTreeSpruce01_NEW': no template of that name	0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	3830
+maps\field of gondolin\field of gondolin.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	467
+maps\firien dale\firien dale.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2474
+maps\ford of bruinen\ford of bruinen.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1583
+maps\ford of isen v\ford of isen v.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1153
+maps\fords of isen unlame\fords of isen unlame.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1313
+maps\fords of isen vi\fords of isen vi.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1762
+maps\greylin river i\greylin river i.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	3649
+maps\hills of eriador iii\hills of eriador iii.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2102
+maps\himling\himling.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	399
+maps\hobbiton ii\hobbiton ii.map	errors		6	object 251 'RohanHobbitBanner': no template of that name | object 253 'RohanHobbitBanner': no template of that name | object 255 'RohanHobbitBanner': no template of that name | object 256 'RohanHobbitBanner': no template of that name | object 258 'RohanHobbitBanner': no template of that name	0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1042
+maps\hollin ii\hollin ii.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1448
+maps\iron mountains i\iron mountains i.map	errors		1	CastleBehavior of object 70 (IsengardFortress): CastleToUnpackForFaction names no base for the faction ''	0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	3513
+maps\island\island.map	ok		0		0			0		60	826
+maps\jungles iv\jungles iv.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	3758
+maps\lanthir lamath ii\lanthir lamath ii.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1676
+maps\lossarnach ii\lossarnach ii.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	3062
+maps\map advanced tutorial\map advanced tutorial.map	not in the map cache	the map 'maps/map advanced tutorial/map advanced tutorial.map' is not in the map cache	0		0			0		0	0
+maps\map ang amon sul\map ang amon sul.map	not in the map cache	the map 'maps/map ang amon sul/map ang amon sul.map' is not in the map cache	0		0			0		0	0
+maps\map ang angmar\map ang angmar.map	not in the map cache	the map 'maps/map ang angmar/map ang angmar.map' is not in the map cache	0		0			0		0	0
+maps\map ang barrow downs\map ang barrow downs.map	not in the map cache	the map 'maps/map ang barrow downs/map ang barrow downs.map' is not in the map cache	0		0			0		0	0
+maps\map ang barrow wights\map ang barrow wights.map	not in the map cache	the map 'maps/map ang barrow wights/map ang barrow wights.map' is not in the map cache	0		0			0		0	0
+maps\map ang bonus\map ang bonus.map	not in the map cache	the map 'maps/map ang bonus/map ang bonus.map' is not in the map cache	0		0			0		0	0
+maps\map ang carn dum\map ang carn dum.map	not in the map cache	the map 'maps/map ang carn dum/map ang carn dum.map' is not in the map cache	0		0			0		0	0
+maps\map ang dark eye\map ang dark eye.map	not in the map cache	the map 'maps/map ang dark eye/map ang dark eye.map' is not in the map cache	0		0			0		0	0
+maps\map ang fornost\map ang fornost.map	not in the map cache	the map 'maps/map ang fornost/map ang fornost.map' is not in the map cache	0		0			0		0	0
+maps\map ang gundabad\map ang gundabad.map	not in the map cache	the map 'maps/map ang gundabad/map ang gundabad.map' is not in the map cache	0		0			0		0	0
+maps\map ang rhudaur\map ang rhudaur.map	not in the map cache	the map 'maps/map ang rhudaur/map ang rhudaur.map' is not in the map cache	0		0			0		0	0
+maps\map beginner tutorial\map beginner tutorial.map	not in the map cache	the map 'maps/map beginner tutorial/map beginner tutorial.map' is not in the map cache	0		0			0		0	0
+maps\map cs winter shire\map cs winter shire.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	868
+maps\map et eryn rhun ii\map et eryn rhun ii.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	3788
+maps\map et south road\map et south road.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2467
+maps\map evil erebor\map evil erebor.map	not in the map cache	the map 'maps/map evil erebor/map evil erebor.map' is not in the map cache	0		0			0		0	0
+maps\map evil fornost\map evil fornost.map	not in the map cache	the map 'maps/map evil fornost/map evil fornost.map' is not in the map cache	0		0			0		0	0
+maps\map evil grey havens\map evil grey havens.map	not in the map cache	the map 'maps/map evil grey havens/map evil grey havens.map' is not in the map cache	0		0			0		0	0
+maps\map evil lorien\map evil lorien.map	not in the map cache	the map 'maps/map evil lorien/map evil lorien.map' is not in the map cache	0		0			0		0	0
+maps\map evil mirkwood\map evil mirkwood.map	not in the map cache	the map 'maps/map evil mirkwood/map evil mirkwood.map' is not in the map cache	0		0			0		0	0
+maps\map evil rivendell\map evil rivendell.map	not in the map cache	the map 'maps/map evil rivendell/map evil rivendell.map' is not in the map cache	0		0			0		0	0
+maps\map evil shire\map evil shire.map	not in the map cache	the map 'maps/map evil shire/map evil shire.map' is not in the map cache	0		0			0		0	0
+maps\map evil withered heath\map evil withered heath.map	not in the map cache	the map 'maps/map evil withered heath/map evil withered heath.map' is not in the map cache	0		0			0		0	0
+maps\map good blue mountain\map good blue mountain.map	not in the map cache	the map 'maps/map good blue mountain/map good blue mountain.map' is not in the map cache	0		0			0		0	0
+maps\map good celduin\map good celduin.map	not in the map cache	the map 'maps/map good celduin/map good celduin.map' is not in the map cache	0		0			0		0	0
+maps\map good dol guldur\map good dol guldur.map	not in the map cache	the map 'maps/map good dol guldur/map good dol guldur.map' is not in the map cache	0		0			0		0	0
+maps\map good erebor\map good erebor.map	not in the map cache	the map 'maps/map good erebor/map good erebor.map' is not in the map cache	0		0			0		0	0
+maps\map good ettenmoors\map good ettenmoors.map	not in the map cache	the map 'maps/map good ettenmoors/map good ettenmoors.map' is not in the map cache	0		0			0		0	0
+maps\map good grey havens\map good grey havens.map	not in the map cache	the map 'maps/map good grey havens/map good grey havens.map' is not in the map cache	0		0			0		0	0
+maps\map good high pass\map good high pass.map	not in the map cache	the map 'maps/map good high pass/map good high pass.map' is not in the map cache	0		0			0		0	0
+maps\map good rivendell\map good rivendell.map	not in the map cache	the map 'maps/map good rivendell/map good rivendell.map' is not in the map cache	0		0			0		0	0
+maps\map mp adorn river\map mp adorn river.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1915
+maps\map mp amon amarth\map mp amon amarth.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	694
+maps\map mp amon hen\map mp amon hen.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1511
+maps\map mp amon sul fortress\map mp amon sul fortress.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1935
+maps\map mp anfalas ii\map mp anfalas ii.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1759
+maps\map mp anfalas\map mp anfalas.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2509
+maps\map mp angmar waste\map mp angmar waste.map	errors		3	object 788 'D�monenFestung': no template of that name | object 789 'D�monenFestung': no template of that name | object 790 'D�monenFestung': no template of that name	0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	969
+maps\map mp anorien ii\map mp anorien ii.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1015
+maps\map mp anorien\map mp anorien.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1103
+maps\map mp argonath\map mp argonath.map	not in the map cache	the map 'maps/map mp argonath/map mp argonath.map' is not in the map cache	0		0			0		0	0
+maps\map mp arthorien\map mp arthorien.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2358
+maps\map mp azanulbizar valley\map mp azanulbizar valley.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	994
+maps\map mp bamfurlong\map mp bamfurlong.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2975
+maps\map mp belfalas abyss\map mp belfalas abyss.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	963
+maps\map mp brandybuck ii\map mp brandybuck ii.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1642
+maps\map mp bree ring ii\map mp bree ring ii.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	3729
+maps\map mp bree ring\map mp bree ring.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	3729
+maps\map mp brithombar\map mp brithombar.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	519
+maps\map mp brown lands\map mp brown lands.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	4217
+maps\map mp buckland ii\map mp buckland ii.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1908
+maps\map mp buckland iii\map mp buckland iii.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	3287
+maps\map mp carnen\map mp carnen.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1959
+maps\map mp central ithilien\map mp central ithilien.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	3245
+maps\map mp cirdans cove\map mp cirdans cove.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1176
+maps\map mp dale\map mp dale.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1667
+maps\map mp defence of arda\map mp defence of arda.map	not in the map cache	the map 'maps/map mp defence of arda/map mp defence of arda.map' is not in the map cache	0		0			0		0	0
+maps\map mp desert of rhun\map mp desert of rhun.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1086
+maps\map mp druadan forest ring\map mp druadan forest ring.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2152
+maps\map mp druadan forest\map mp druadan forest.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1358
+maps\map mp druwaith reef\map mp druwaith reef.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	746
+maps\map mp dungeons of erebor\map mp dungeons of erebor.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	4880
+maps\map mp dwarrowdelf\map mp dwarrowdelf.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	4225
+maps\map mp east emnet\map mp east emnet.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	3075
+maps\map mp east march\map mp east march.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1535
+maps\map mp eastfold\map mp eastfold.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2681
+maps\map mp emyn arnen\map mp emyn arnen.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1320
+maps\map mp emyn beraid\map mp emyn beraid.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2547
+maps\map mp enchanted river\map mp enchanted river.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	3382
+maps\map mp enedwaith ii\map mp enedwaith ii.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1710
+maps\map mp enedwaith rt ii\map mp enedwaith rt ii.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1710
+maps\map mp ephel duath\map mp ephel duath.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1559
+maps\map mp erech iii\map mp erech iii.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2728
+maps\map mp ered luin valley\map mp ered luin valley.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1407
+maps\map mp eregion\map mp eregion.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1224
+maps\map mp eryn laer\map mp eryn laer.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	859
+maps\map mp evendim\map mp evendim.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1575
+maps\map mp fall back 4p\map mp fall back 4p.map	not in the map cache	the map 'maps/map mp fall back 4p/map mp fall back 4p.map' is not in the map cache	0		0			0		0	0
+maps\map mp fall back 8p\map mp fall back 8p.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2064
+maps\map mp far downs\map mp far downs.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	717
+maps\map mp far harad\map mp far harad.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1190
+maps\map mp fords of glanduin\map mp fords of glanduin.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1819
+maps\map mp fords of isen ii ring\map mp fords of isen ii ring.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2097
+maps\map mp fords of isen ii\map mp fords of isen ii.map	not in the map cache	the map 'maps/map mp fords of isen ii/map mp fords of isen ii.map' is not in the map cache	0		0			0		0	0
+maps\map mp fords of isen iii\map mp fords of isen iii.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2010
+maps\map mp fords of isen iv\map mp fords of isen iv.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1556
+maps\map mp fords of isen\map mp fords of isen.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1535
+maps\map mp fords of rohan\map mp fords of rohan.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1255
+maps\map mp fornost siege\map mp fornost siege.map	errors		0		0			3	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: bad argument #1 to `strlen' (string expected, got nil) stack traceback:    1:  function `strlen' [C]    2:  function `GetObjString' at line 64 [string "Data\Scripts\Scripts.lua"]    3:  function `SetUnitReference' at line 78 [string "Data\Scripts\Scripts.lua"]    4:  function `GetUnitReference' at line 85 [string "Data\Scripts\Scripts.lua"]    5:  functi...	60	4578
+maps\map mp forochel iii\map mp forochel iii.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	546
+maps\map mp forochel rt iii\map mp forochel rt iii.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	546
+maps\map mp frostfall canyon\map mp frostfall canyon.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1901
+maps\map mp frozen rift\map mp frozen rift.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1989
+maps\map mp furnaces of moria\map mp furnaces of moria.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	868
+maps\map mp gates of moria\map mp gates of moria.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1275
+maps\map mp glanduin canyon\map mp glanduin canyon.map	errors		98	object 357 'TreeDiospyros4': no template of that name | object 366 'TreeDiospyros4': no template of that name | object 690 'TreeDiospyros4': no template of that name | object 701 'TreeDiospyros4': no template of that name | object 797 'TreeDiospyros4': no template of that name	0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	6564
+maps\map mp gondor outpost\map mp gondor outpost.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1574
+maps\map mp gorgoroth\map mp gorgoroth.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1435
+maps\map mp greenleaf forest\map mp greenleaf forest.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	3117
+maps\map mp greenway\map mp greenway.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2003
+maps\map mp grey mountains\map mp grey mountains.map	not in the map cache	the map 'maps/map mp grey mountains/map mp grey mountains.map' is not in the map cache	0		0			0		0	0
+maps\map mp harad oasis\map mp harad oasis.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	521
+maps\map mp harlindon\map mp harlindon.map	not in the map cache	the map 'maps/map mp harlindon/map mp harlindon.map' is not in the map cache	0		0			0		0	0
+maps\map mp harlond\map mp harlond.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1751
+maps\map mp hills of eriador\map mp hills of eriador.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1938
+maps\map mp hobbiton\map mp hobbiton.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1757
+maps\map mp hollin\map mp hollin.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1420
+maps\map mp iron hills iii\map mp iron hills iii.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1445
+maps\map mp iron hills iv\map mp iron hills iv.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1474
+maps\map mp iron hills rt iv\map mp iron hills rt iv.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1474
+maps\map mp iron hills v\map mp iron hills v.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	763
+maps\map mp islands of valinor\map mp islands of valinor.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1707
+maps\map mp ithilien hills\map mp ithilien hills.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	894
+maps\map mp jungles of far harad\map mp jungles of far harad.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1137
+maps\map mp lamedon\map mp lamedon.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	4837
+maps\map mp lanthir lamath\map mp lanthir lamath.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1701
+maps\map mp lebennin ii\map mp lebennin ii.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1702
+maps\map mp lebennin\map mp lebennin.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1972
+maps\map mp lithlad\map mp lithlad.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	809
+maps\map mp lorien plateau\map mp lorien plateau.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1068
+maps\map mp lossarnach ring\map mp lossarnach ring.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	6318
+maps\map mp midgewater\map mp midgewater.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1499
+maps\map mp mirkwood iii sw\map mp mirkwood iii sw.map	errors		1	object 1784 'RockBigEnt': no template of that name	0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1805
+maps\map mp mirkwood iii\map mp mirkwood iii.map	errors		1	object 1642 'RockBigEnt': no template of that name	0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1663
+maps\map mp moonglade vale\map mp moonglade vale.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2393
+maps\map mp morthond valley\map mp morthond valley.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	967
+maps\map mp mount gram\map mp mount gram.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	573
+maps\map mp nafarat\map mp nafarat.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	805
+maps\map mp nan elmoth\map mp nan elmoth.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	3944
+maps\map mp nan marillion\map mp nan marillion.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2738
+maps\map mp near harad\map mp near harad.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2305
+maps\map mp northern hills\map mp northern hills.map	errors		11	object 139 'DwarvenGuardianLangb�rte': no template of that name | object 141 'DwarvenGuardianLangb�rte': no template of that name | object 143 'DwarvenGuardianLangb�rte': no template of that name | object 145 'DwarvenGuardianLangb�rte': no template of that name | object 152 'DwarvenGuardianLangb�rte': no template of that name	0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1056
+maps\map mp old brown lands\map mp old brown lands.map	not in the map cache	the map 'maps/map mp old brown lands/map mp old brown lands.map' is not in the map cache	0		0			0		0	0
+maps\map mp old ford of anduin ring\map mp old ford of anduin ring.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	3559
+maps\map mp old forest\map mp old forest.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	912
+maps\map mp ost-in-edhil i\map mp ost-in-edhil i.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1046
+maps\map mp paths of the dead\map mp paths of the dead.map	not in the map cache	the map 'maps/map mp paths of the dead/map mp paths of the dead.map' is not in the map cache	0		0			0		0	0
+maps\map mp pelennor fields chaos\map mp pelennor fields chaos.map	ok		0		0			0		60	1703
+maps\map mp pelennor fields iii\map mp pelennor fields iii.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1837
+maps\map mp pelennor fields\map mp pelennor fields.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1995
+maps\map mp pelennor glinomesos ring\map mp pelennor glinomesos ring.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1687
+maps\map mp pelennor glinomesos sw\map mp pelennor glinomesos sw.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1820
+maps\map mp pelennor glinomesos\map mp pelennor glinomesos.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1687
+maps\map mp plains of lindon\map mp plains of lindon.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	982
+maps\map mp plains of rohan\map mp plains of rohan.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1429
+maps\map mp red desert of khand\map mp red desert of khand.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	628
+maps\map mp rhun shore\map mp rhun shore.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1781
+maps\map mp ring of isengard\map mp ring of isengard.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2572
+maps\map mp ringlo river\map mp ringlo river.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1812
+maps\map mp river heleg\map mp river heleg.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1211
+maps\map mp river langwell\map mp river langwell.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2503
+maps\map mp river of orodruin\map mp river of orodruin.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	762
+maps\map mp rohan fortifications\map mp rohan fortifications.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1222
+maps\map mp sakura forest ii\map mp sakura forest ii.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2191
+maps\map mp sirannon\map mp sirannon.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	745
+maps\map mp sorrow isles\map mp sorrow isles.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2034
+maps\map mp south downs\map mp south downs.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1085
+maps\map mp south rhun\map mp south rhun.map	errors		82	object 1470 'WoodenFence': no template of that name | object 1479 'WoodenFence': no template of that name | object 1492 'WoodenFence': no template of that name | object 1493 'WoodenFence': no template of that name | object 1494 'WoodenFence': no template of that name	0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2472
+maps\map mp staddle\map mp staddle.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1189
+maps\map mp tharbad\map mp tharbad.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2263
+maps\map mp the heubris\map mp the heubris.map	not in the map cache	the map 'maps/map mp the heubris/map mp the heubris.map' is not in the map cache	0		0			0		0	0
+maps\map mp tombs of karna ii\map mp tombs of karna ii.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	961
+maps\map mp tombs of karna iv\map mp tombs of karna iv.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1227
+maps\map mp tombs of karna\map mp tombs of karna.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1002
+maps\map mp tournament gundabad\map mp tournament gundabad.map	not in the map cache	the map 'maps/map mp tournament gundabad/map mp tournament gundabad.map' is not in the map cache	0		0			0		0	0
+maps\map mp tournament hills\map mp tournament hills.map	not in the map cache	the map 'maps/map mp tournament hills/map mp tournament hills.map' is not in the map cache	0		0			0		0	0
+maps\map mp tournament mp1\map mp tournament mp1.map	not in the map cache	the map 'maps/map mp tournament mp1/map mp tournament mp1.map' is not in the map cache	0		0			0		0	0
+maps\map mp tournament rhudaur\map mp tournament rhudaur.map	not in the map cache	the map 'maps/map mp tournament rhudaur/map mp tournament rhudaur.map' is not in the map cache	0		0			0		0	0
+maps\map mp tournament udun\map mp tournament udun.map	not in the map cache	the map 'maps/map mp tournament udun/map mp tournament udun.map' is not in the map cache	0		0			0		0	0
+maps\map mp tournament westmarch\map mp tournament westmarch.map	not in the map cache	the map 'maps/map mp tournament westmarch/map mp tournament westmarch.map' is not in the map cache	0		0			0		0	0
+maps\map mp tower hills ii\map mp tower hills ii.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	989
+maps\map mp tower hills iii\map mp tower hills iii.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	769
+maps\map mp trollfells\map mp trollfells.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2126
+maps\map mp trollshaws\map mp trollshaws.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1065
+maps\map mp tyrn gorthad\map mp tyrn gorthad.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1995
+maps\map mp udun iii\map mp udun iii.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1232
+maps\map mp udunn ii\map mp udunn ii.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	984
+maps\map mp umbar ii\map mp umbar ii.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1737
+maps\map mp umbar\map mp umbar.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1248
+maps\map mp volcanos of forodwaith\map mp volcanos of forodwaith.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1602
+maps\map mp weather hills\map mp weather hills.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2250
+maps\map mp weathertop\map mp weathertop.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1700
+maps\map mp west emnet\map mp west emnet.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	972
+maps\map mp westfold iii\map mp westfold iii.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2093
+maps\map mp westfold\map mp westfold.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2096
+maps\map mp wilds of forochel\map mp wilds of forochel.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1405
+maps\map mp withered heath\map mp withered heath.map	not in the map cache	the map 'maps/map mp withered heath/map mp withered heath.map' is not in the map cache	0		0			0		0	0
+maps\map mp wold\map mp wold.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	535
+maps\map mp woody end\map mp woody end.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1424
+maps\map sb chetwood\map sb chetwood.map	errors		2	object 419 'TheForsakenInn': no template of that name | object 420 'TheForsakenInn': no template of that name	0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	778
+maps\map sb trollshaws\map sb trollshaws.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1400
+maps\map sb upper anduin\map sb upper anduin.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1427
+maps\map tt south hollin\map tt south hollin.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	3267
+maps\map wor amon sul\map wor amon sul.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	3795
+maps\map wor ang amon sul\map wor ang amon sul.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1905
+maps\map wor ang angmar\map wor ang angmar.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1481
+maps\map wor ang barrow downs\map wor ang barrow downs.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2620
+maps\map wor ang carn dum\map wor ang carn dum.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1970
+maps\map wor ang fornost\map wor ang fornost.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	3421
+maps\map wor ang gundabad\map wor ang gundabad.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1667
+maps\map wor ang north downs\map wor ang north downs.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1973
+maps\map wor ang rhudaur\map wor ang rhudaur.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2699
+maps\map wor arnor\map wor arnor.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2072
+maps\map wor belfalas\map wor belfalas.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1905
+maps\map wor black gate ii\map wor black gate ii.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	927
+maps\map wor black gate\map wor black gate.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	968
+maps\map wor buckland\map wor buckland.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1788
+maps\map wor cair andros ii\map wor cair andros ii.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2941
+maps\map wor cair andros\map wor cair andros.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1708
+maps\map wor cardolan\map wor cardolan.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1904
+maps\map wor carrock\map wor carrock.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1476
+maps\map wor celduin\map wor celduin.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1278
+maps\map wor dagorlad\map wor dagorlad.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2862
+maps\map wor dead marshes\map wor dead marshes.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2920
+maps\map wor dol guldur\map wor dol guldur.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	3660
+maps\map wor dunland ii\map wor dunland ii.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2001
+maps\map wor dunland\map wor dunland.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1997
+maps\map wor enedwaith\map wor enedwaith.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2313
+maps\map wor erebor\map wor erebor.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2569
+maps\map wor ettenmoors ii\map wor ettenmoors ii.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1016
+maps\map wor ettenmoors\map wor ettenmoors.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1105
+maps\map wor fangorn ii\map wor fangorn ii.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	989
+maps\map wor fangorn\map wor fangorn.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2416
+maps\map wor forlindon\map wor forlindon.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1609
+maps\map wor forodwaith\map wor forodwaith.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1468
+maps\map wor gap of rohan\map wor gap of rohan.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2040
+maps\map wor gondor\map wor gondor.map	not in the map cache	the map 'maps/map wor gondor/map wor gondor.map' is not in the map cache	0		0			0		0	0
+maps\map wor grey havens\map wor grey havens.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2423
+maps\map wor harad\map wor harad.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1213
+maps\map wor harlindon\map wor harlindon.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1335
+maps\map wor helms deep\map wor helms deep.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1657
+maps\map wor high pass ii\map wor high pass ii.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	603
+maps\map wor high pass\map wor high pass.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	286
+maps\map wor iron hills\map wor iron hills.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1435
+maps\map wor isengard\map wor isengard.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1508
+maps\map wor ithilien\map wor ithilien.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1757
+maps\map wor lorien\map wor lorien.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1571
+maps\map wor lostriand\map wor lostriand.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2410
+maps\map wor minas morgul\map wor minas morgul.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2791
+maps\map wor minas tirith\map wor minas tirith.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2012
+maps\map wor minhiriath\map wor minhiriath.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	981
+maps\map wor mirkwood\map wor mirkwood.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2736
+maps\map wor mordor\map wor mordor.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1401
+maps\map wor mount doom\map wor mount doom.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1322
+maps\map wor osgiliath\map wor osgiliath.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1205
+maps\map wor redhorn pass\map wor redhorn pass.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1464
+maps\map wor rhun\map wor rhun.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	3301
+maps\map wor rivendell\map wor rivendell.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2230
+maps\map wor rohan\map wor rohan.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2364
+maps\map wor shire\map wor shire.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	4066
+maps\map wor tower hills\map wor tower hills.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1616
+maps\mering stream\mering stream.map	errors		5	object 230 'Macaw': no template of that name | object 455 'Macaw': no template of that name | object 1555 'Macaw': no template of that name | object 1556 'Macaw': no template of that name | object 1557 'Macaw': no template of that name	0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1926
+maps\minheldolath tu\minheldolath tu.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1934
+maps\minheldolath\minheldolath.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1926
+maps\mirkwood ii\mirkwood ii.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2859
+maps\monument i\monument i.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1619
+maps\nevrast ii\nevrast ii.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1361
+maps\nevrast\nevrast.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1177
+maps\norbury i\norbury i.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1573
+maps\norbury rt i\norbury rt i.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1573
+maps\pelennor fields i\pelennor fields i.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1426
+maps\randomizer game of chances brandy hills\randomizer game of chances brandy hills.map	ok		0		0			0		60	2656
+maps\randomizer game of chances eastfold\randomizer game of chances eastfold.map	ok		0		0			0		60	2663
+maps\randomizer game of chances fords of isen\randomizer game of chances fords of isen.map	ok		0		0			0		60	1535
+maps\randomizer game of chances hollin ii\randomizer game of chances hollin ii.map	ok		0		0			0		60	1440
+maps\randomizer game of chances plains of rohan\randomizer game of chances plains of rohan.map	not in the map cache	the map 'maps/randomizer game of chances plains of rohan/randomizer game of chances plains of rohan.map' is not in the map cache	0		0			0		0	0
+maps\randomizer game of chances westfold\randomizer game of chances westfold.map	ok		0		0			0		60	2092
+maps\rhudaur\rhudaur.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1254
+maps\scorchedland\scorchedland.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1283
+maps\shellmap1\shellmap1.map	not in the map cache	the map 'maps/shellmap1/shellmap1.map' is not in the map cache	0		0			0		0	0
+maps\shellmapbackup\shellmapbackup.map	not in the map cache	the map 'maps/shellmapbackup/shellmapbackup.map' is not in the map cache	0		0			0		0	0
+maps\south hollin ii\south hollin ii.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1490
+maps\southfarthing\southfarthing.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	4270
+maps\test_map_big\test_map_big.map	errors		5	ElvenLegolas W3DScriptedModelDraw: hide/show of sub object arrow with no model | ElvenLegolas W3DScriptedModelDraw: hide/show of sub object arrow with no model | IsengardCitadelUnpack W3DScriptedModelDraw: hide/show of sub object FELLOWSHIPBADGE with no model | ElvenLegolas W3DScriptedModelDraw: hide/show of sub object arrow with no model | IsengardCitadelUnpack W3DScriptedModelDraw: hide/show of sub object FELLOWSHIPBADGE with no model	0			4	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | movement failure of AgandaurLightSphere1: S-084: ZAxisBehavior other than NO_Z_MOTIVE_FORCE, FLOATING_Z, SEA_LEVEL, SURFACE_RELATIVE_HEIGHT, ABSOLUTE_HEIGHT, FIXED_SURFACE_RELATIVE_HEIGHT, FIXED_ABSOLUTE_HEIGHT and SCALING_WALLS is not ported | movement failure of AgandaurLightSphere2: S-084: ZAxisBehavior other than NO_Z_MOTIVE_FORCE, FLOATING_Z, SEA_LEVEL, SURFACE_RELATIVE_HEIGHT, ABSOLUTE_HEIGHT, FIXED_SURFACE_RELATIVE_HEIGHT, FIXED_ABSOLUTE_HEIGHT and SCALING_WALLS is not ported | movement failure of AgandaurLightSphere3: S-084: ZAxisBehavior other than NO_Z_MOTIVE_FORCE, FLOATING_Z, SEA_LEVEL, SURFACE_RELATIVE_HEIGHT, ABSOLUTE_HEIGHT, FIXED_SURFACE_RELATIVE_HEIGHT, FIXED_ABSOLUTE_HEIGHT and SCALING_WALLS is not ported	60	1396
+maps\testmap i\testmap i.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	438
+maps\testmap ii\testmap ii.map	errors		14	object 24 'GondorAragornEntwicklung4': no template of that name | object 27 'GondorAragornEntwicklung4': no template of that name | object 42 'BruchtalSchwertk�mpferHorde': no template of that name | object 44 'BruchtalSchwertk�mpferHorde': no template of that name | object 46 'BruchtalSchwertk�mpferHorde': no template of that name	0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	84
+maps\theageofwar\theageofwar.map	ok		0		0			0		60	3950
+maps\tombs of karna iii\tombs of karna iii.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1162
+maps\tumladen ii\tumladen ii.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	3038
+maps\tumladen rt ii\tumladen rt ii.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	3038
+maps\tumladen\tumladen.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	2612
+maps\udun i\udun i.map	errors		0		0			1	OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	760
+maps\westfold ii\westfold ii.map	errors		0		0			2	OnCreated handler failed: LUA Alert: error: attempt to call a nil value  | OnCreated handler failed: LUA Alert: error: attempt to call a nil value 	60	1971

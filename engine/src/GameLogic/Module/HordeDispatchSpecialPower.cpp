@@ -6,8 +6,10 @@
 
 #include "Common/StateHash.h"
 #include "Common/Thing/ModuleFactory.h"
+#include "GameLogic/GameLogic.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/ObjectTemplateInfo.h"
+#include "GameLogic/SimMath.h"
 
 #include <stdexcept>
 #include <string>
@@ -68,19 +70,43 @@ void HordeDispatchSpecialPower::doSpecialPowerAtLocation(const Coord3D &loc, uns
 	}
 }
 
+// RW 0x5E3BE4: squared 3D distance between an object (ECX reads its position + 0x38 .. 0x40) and a position; dz*dz + dy*dy, then + dx*dx (x87 at PC24)
+static float distanceSquared3(const Coord3D &a, const Coord3D &b)
+{
+	const float dx = SimMath::subf32(a.x, b.x), dy = SimMath::subf32(a.y, b.y), dz = SimMath::subf32(a.z, b.z);
+	return SimMath::addf32(SimMath::addf32(SimMath::mulf32(dz, dz), SimMath::mulf32(dy, dy)), SimMath::mulf32(dx, dx));
+}
+
 void HordeDispatchSpecialPower::doSpecialPowerAtObject(Object *target, unsigned options)
 {
-	// RW 0x8CCF76: the members first, then the horde's own base call (with the order's target: see the header's INFERENCE)
-	if (!isHordeWithContain())
+	// RW 0x8CCF76: the members first (each with the order's target); the member's kept target (the special power interface's slot 0x50, RW 0x7B0F25), found again
+	// (RW 0x449681), replaces the horde's own base call's target when it is farther from the horde (squared distance RW 0x5E3BE4) than the best so far, start: the
+	// order's target (RW computes its distance before the member loop, and keeps the first only on a strictly greater distance); then
+	// SpecialPowerModule::doSpecialPowerAtObject (RW 0x8980EF) on the horde with that target
+	if (!isHordeWithContain() || !target)
 	{
 		return;
 	}
+	GameLogic &logic = getObject()->logic();
+	const Coord3D hpos = *getObject()->getPosition(); // obj + 0x38
+	Object *chosen = target;
+	float bestDist = distanceSquared3(*target->getPosition(), hpos); // RW 0x8CCFF1 .. 0x8CCFF6 (ECX = the order's target)
 	for (SpecialPowerModuleInterface *m : memberModules())
 	{
-		m->doSpecialPowerAtObject(target, options);
+		m->doSpecialPowerAtObject(target, options); // vslot 0x2C (RW 0x8CD018)
 		++m_dispatched;
+		const ObjectID kept = m->getTargetId();     // vslot 0x50 (RW 0x8CD01F .. 0x8CD022)
+		if (Object *t = logic.findObjectByID(kept)) // RW 0x449681 (findObjectByID(0) finds nothing)
+		{
+			const float d = distanceSquared3(*t->getPosition(), hpos); // RW 0x8CD034 .. 0x8CD03E
+			if (d > bestDist)                                          // RW 0x8CD041 .. 0x8CD049: fcompi + jbe (replace only on a strictly greater distance)
+			{
+				bestDist = d;
+				chosen = t;
+			}
+		}
 	}
-	SpecialPowerModule::doSpecialPowerAtObject(target, options); // RW 0x8980EF
+	SpecialPowerModule::doSpecialPowerAtObject(chosen, options); // RW 0x8CD067 -> RW 0x8980EF
 }
 
 void HordeDispatchSpecialPower::crc(StateHasher &h) const
@@ -101,13 +127,6 @@ void HordeDispatchSpecialPower::registerClass(ModuleFactory &modules)
 		}
 		return std::make_unique<HordeDispatchSpecialPower>(thing, typed);
 	});
-}
-
-std::vector<std::string> HordeDispatchSpecialPower::acceptanceStops()
-{
-	return { "[S-2001] HordeDispatchSpecialPower (lane FACT-C): doSpecialPowerAtObject (RW 0x8CCF76) hands the horde's own base call the member's kept target (module "
-	         "+ 0x2C, interface slot 0x50 RW 0x7B0F25) farthest from the horde; the port's SpecialPowerModule keeps no such target id, so the order's target is used "
-	         "(the same unless a member's initiate swaps it through adjustVictim, which the port's base does not do either)" };
 }
 
 // ---- lane SAVE-4b: the snapshot (OpenBFME native, S-4190) ---------------------------------------------------------------------------------------------------

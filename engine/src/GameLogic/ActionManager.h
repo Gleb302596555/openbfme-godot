@@ -106,7 +106,7 @@ EnterMessage getEnterMessage(const Object &target, const std::vector<const Objec
 int finalTestKind(int type);
 bool targetlessTypeAccepted(int type);
 
-// diagnostics (not state): the tests that ran into an unported part (S-1871 .. S-1874), by the power type of RW 0x82DFB7's per-type tests
+// diagnostics (not state): the tests that ran into an unported part (S-1872 .. S-1874), by the power type of RW 0x82DFB7's per-type tests
 struct Stats
 {
 	unsigned long long fireWeaponButtons = 0, movingOnLayer = 0, typeTests = 0;

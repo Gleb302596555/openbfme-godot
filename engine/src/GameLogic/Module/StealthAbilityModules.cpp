@@ -182,10 +182,7 @@ void ToggleHiddenSpecialAbilityUpdate::unhide()
 	{
 		obj->setModelConditionState(b.condition, false); // RW 0x8B19EA: Object + 0x12C bit 3, RW 0x68B53C
 	}
-	if (ObjectWeapons *w = obj->getWeapons())
-	{
-		w->setWeaponSetFlag(b.weaponSet, false); // RW 0x691106(0x3D)
-	}
+	obj->setWeaponSetFlag(b.weaponSet, false); // RW 0x691106(0x3D) on the OBJECT
 	if (SpecialPowerModule *spm = mySpecialPowerModule()) // RW 0x68C26D
 	{
 		spm->pauseCountdown(false); // slot 0x24
@@ -228,10 +225,7 @@ void ToggleHiddenSpecialAbilityUpdate::hide()
 	}
 	m_hideFrame = now(); // RW 0x8B1B06: TheGameLogic + 0x40
 	obj->setStatus((unsigned)b.status, true);
-	if (ObjectWeapons *w = obj->getWeapons())
-	{
-		w->setWeaponSetFlag(b.weaponSet, true); // RW 0x691059(0x3D)
-	}
+	obj->setWeaponSetFlag(b.weaponSet, true); // RW 0x691059(0x3D) on the OBJECT
 	if (!obj->testModelCondition(b.condition))
 	{
 		obj->setModelConditionState(b.condition, true);

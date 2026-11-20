@@ -250,6 +250,25 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// lane PORT-305: the class's own RotWK functions, each read from its first instruction (game.dat 2.01; the map's own list came from
+// docs/ennorath/RW_FUNCTION_MAP.tsv, class ClearanceTestingSlowDeathBehavior). The module's object starts with the vtable 0xC6073C (INSTALLED BY
+// RW 0x886FB1: +0x00 0xC6073C, +0x0C 0xC60680, +0x10 0xC60670, +0x20 0xC6066C, +0x24 0xC6065C, +0x50 0xC60650), so every member function reads its data at
+// this+4 and its object at this+8 through whichever interface pointer it was called with (data = ecx-0x1C or ecx-0x20, object = ecx-0x18 / ecx-0x1C).
+//   * BEHAVIOUR, ported: RW 0x887191 canBeginSlowDeath (this file), RW 0x88701C getClearanceTestGeometryCenter (this file, RW 0x88701C's data = ecx-0x4C,
+//     object = ecx-0x48: the +0x50 interface subobject), and the two partition filters the former builds: the crusher filter's allow RW 0x886F1C (ctor
+//     RW 0x886EFF, vtable 0xC60774, built inline at RW 0x88720A with the object and RW 0x695070's crusher level) and the would-collide filter (ctor
+//     RW 0x67C5F3, allow RW 0x66139C -> RW 0xAD2CE0, vtable 0xC112C8), ported inline in canBeginSlowDeath (RW 0x8871E0..0x887221, the And chain
+//     RW 0xA394C0, the query RW 0xA39090);
+//   * GEOMETRY INTERFACE 0xC60650 at +0x50 (installed by RW 0x886FB1, reached through the primary slot +0x34 RW 0x886EE6 and the behaviour slot +0x60
+//     RW 0x886EF2): slot 0 RW 0x887013 returns module data +0x190 (the clearance GeometryInfo), slot 1 RW 0x88701C the clearance centre (ported),
+//     slot 2 RW 0x887070 returns the owner's angle (object +0x44) or 0.0f (0xC1B594) with no object. Slots 0 and 2 have no consumer in the traced
+//     RotWK code (RW 0x887191 reads object +0x44 itself) -> S-7557, no port code without a caller;
+//   * MODULE BASE, no behaviour: RW 0x886EE0 returns the tag name string (data 0xC0B9F0 = "ClearanceTestingSlowDeathBehavior"), RW 0x886F6C the
+//     cached name key (TheNameKeyGenerator 0xDD90E4, cache 0xDE921C; BFME2 donor 0x483CF4 getModuleNameKey), RW 0x887082 the tag-name setter
+//     (module base RW 0x8603F9), RW 0x886EB2 the destructor, RW 0x886FF7 its scalar deleting destructor. The port has the equivalent in the module
+//     factory (the template name) and needs no per-class code;
+//   * NOT THIS CLASS: RW 0x893738 is the scalar deleting destructor in the would-collide filter's vtable 0xC112C8 (its destructor RW 0x893629), which
+//     the map attributes to this class by proximity; RW 0x886EFF (the crusher filter's ctor) and RW 0x887082 sit between the map's function starts.
 class ClearanceTestingSlowDeathBehavior : public SlowDeathBehavior
 {
 public:

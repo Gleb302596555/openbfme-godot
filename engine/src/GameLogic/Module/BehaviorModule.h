@@ -98,13 +98,22 @@ public:
 	}
 	// RW body vslot 0x44; a body without a damage frame answers -1 (RW 0x8C511E).
 	virtual UnsignedInt lastDamageFrame() const { return 0xFFFFFFFFu; }
+	// PORT-293: RW body vslot 0x48, the frame of the last healing hit. ActiveBody answers it through RW 0x5DC48C (module + 0xC0, -1 until the first
+	// healing hit: RW 0x8C3897). Every other body class of 2.01 answers the shared `or eax, -1` stub (e.g. InactiveBody's table RW 0xC718C8 + 0x48 =
+	// RW 0x48DACD), so the default is the never-healed value. AutoHealBehavior's NonStackable rule reads it (RW 0x855797)
+	virtual UnsignedInt getLastHealingFrame() const { return 0xFFFFFFFFu; }
 	// lane BACKLOG-1: RW vt[0x74], the body's GrabObject template name (ActiveBody RW 0x8C281E: the data's + 0x2C; InactiveBody RW 0x8C1B14: the empty string
 	// RW 0xBD0C3F). OpenContain's CHUNK_VENDOR / ROCK_VENDOR entry test reads it (RW 0x8660FC)
 	virtual std::string getGrabObjectName() const { return std::string(); }
-	// PORT-78: InactiveBody slots 0x78/0x7C/0x80: RW 0x851E97 (null), 0x70D41A (zero), 0x8C19EB (zero vector).
+	// PORT-78: InactiveBody slots 0x78/0x7C/0x80: RW 0x851E97 (null), 0x70D41A (zero), RW 0x8C19EB (zero vector).
 	virtual const std::string *getGrabFXName() const { return nullptr; }
 	virtual float getGrabDamage() const { return 0.0f; }
 	virtual Coord2D getGrabOffset() const { return Coord2D{}; }
+	// PORT-302: RW 0x8C1AC3 (InactiveBody's body slot 0x3C) writes zero ArmorSetFlags; slots 0x34/0x38 are the
+	// `ret 4` stub RW 0x9F3A3C. A body that answers like that must not let ArmorUpgrade (RW 0x8B761E, `call [eax+0x34]`
+	// at RW 0x8B76A5) change the object's armor-set bits. ActiveBody stores the bits in the body (RW +0xF0), and the port
+	// keeps them on Object; the body tells Object whether the write belongs to it.
+	virtual bool ignoresArmorSetFlagChanges() const { return false; }
 	// lane XP-1: RW vt[0x5C] (ActiveBody RW 0x8C1CD5) setMaxHealth(newMax, changeType): 1 keeps the health ratio, 2 adds the difference to the health
 	// (the AttributeModifier HEALTH / HEALTH_MULT bonuses use 1). A body class without the override counts the call (bodyMaxHealthCallsIgnored)
 	// RW 0x8C1BF9 / BFME2 slot 9: slot 0x28 of body interface

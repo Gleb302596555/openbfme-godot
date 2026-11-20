@@ -56,6 +56,7 @@ public:
 		const std::vector<std::string> &standardPublicBones, const std::vector<Matrix3D> &pose);
 
 	// ZH ModelConditionInfo::findPristineBone: nullptr (and *boneIndex 0) when the bone is not cached.
+	// RW 0x004B4FBC (getNumConsecutivePristineBones, slot +0x5C) and RW 0x004B4FFD (getPristineBonePositionsForConditionState, slot +0x58)
 	const W3DPristineBone *findPristineBone(const std::string &lowerName, int *boneIndex = nullptr) const;
 	bool findPristineBonePos(const std::string &lowerName, Vector3 &pos) const;
 

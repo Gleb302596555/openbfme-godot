@@ -4,7 +4,7 @@
 //      Player::update via SpecialPowerModules::updateSpellBookRequirements (RW 0x6ADD22): edge-toggles
 //      m_pausedByRequirements (+0x30) and pauseCountdown (slot 0x24, RW 0x896756) when
 //      RequirementsFilterMPSkirmish flips in skirmish/MP.
-//   2. SpecialPowerModule::initiate records m_targetObjectID (+0x2C, RW 0x897EA3, slot 0x50 RW 0x7B0F25)
+//   2. SpecialPowerModule::initiate records m_targetId (+0x2C, RW 0x897EA3, slot 0x50 RW 0x7B0F25)
 //      when target != nullptr, and sets m_updateDisabled (+0x28, RW 0x897FD9..0x897FEB) when the driving
 //      SpecialPowerUpdate is active (slot 0x08) and options carries kOptionUngated (0x40000); cleared by
 //      interface slots 0x44 / 0x4C (RW 0x896751): SpecialAbilityUpdate::finishAbility (RW 0x85314C, S-859)
@@ -13,7 +13,7 @@
 //      SpecialPowerModule, WeaponModeSpecialPowerUpdate, and SpecialPowerUpdateBase, and used by
 //      ControlBar SPECIAL_POWER evaluation (RW 0x943520) instead of dynamic_cast<const SpecialPowerModule *>.
 //   4. SpecialPowerModule::crc() and xfer() v2 (RW 0x89679D, S-529 item 2) hash and serialize
-//      m_targetObjectID (+0x2C) and m_pausedByRequirements (+0x30) and reject version 1 / 3 blocks.
+//      m_targetId (+0x2C) and m_pausedByRequirements (+0x30) and reject version 1 / 3 blocks.
 //   5. UnpauseSpecialPowerUpgrade (RW 0x8B9676 / 0x8B9701) pause count stacks cleanly with
 //      RequirementsFilterMPSkirmish and drives ControlBar availability on WeaponModeSpecialPowerUpdate.
 // Synthetic INI, no retail files. Expectations come from RotWK game.dat instructions cited at each case.
@@ -393,7 +393,7 @@ TEST_CASE("PORT-251: spellbook RequirementsFilterMPSkirmish edge-pauses and unpa
 	CHECK(aliceSp->pauseCount() == 1);
 }
 
-TEST_CASE("PORT-251: initiate records m_targetObjectID (+0x2C, RW 0x897EA3 / 0x7B0F25) and m_updateDisabled (+0x28, RW 0x897FD9..0x897FEB), cleared by finishAbility (RW 0x85314C -> 0x896751)")
+TEST_CASE("PORT-251: initiate records m_targetId (+0x2C, RW 0x897EA3 / 0x7B0F25) and m_updateDisabled (+0x28, RW 0x897FD9..0x897FEB), cleared by finishAbility (RW 0x85314C -> 0x896751)")
 {
 	Port251World f(kPort251Ini);
 	Object *casterA = f.spawnFor("P251Caster", "Alice", 100.0f, 100.0f);
@@ -412,19 +412,19 @@ TEST_CASE("PORT-251: initiate records m_targetObjectID (+0x2C, RW 0x897EA3 / 0x7
 	// Wait until cooldown finishes (ReloadTime = 1000ms = 5 frames).
 	f.frames(6);
 	CHECK(spA->isReady() == true);
-	CHECK(spA->getTargetObjectID() == INVALID_ID);
+	CHECK(spA->getTargetId() == INVALID_ID);
 	CHECK(spA->isUpdateDisabled() == false);
 
 	// Initiate without kOptionUngated (options = 0): +0x2C records target1->getID(), +0x28 remains false.
 	spA->doSpecialPowerAtObject(target1, 0u);
 	CHECK(updA->isActive() == true);
-	CHECK(spA->getTargetObjectID() == target1->getID());
+	CHECK(spA->getTargetId() == target1->getID());
 	CHECK(spA->isUpdateDisabled() == false);
 
 	// Initiate with kOptionUngated (0x40000) while driving update becomes active: +0x2C records target2->getID(), +0x28 becomes true (RW 0x897FD9..0x897FEB).
 	spB->doSpecialPowerAtObject(target2, kOptionUngated);
 	CHECK(updB->isActive() == true);
-	CHECK(spB->getTargetObjectID() == target2->getID());
+	CHECK(spB->getTargetId() == target2->getID());
 	CHECK(spB->isUpdateDisabled() == true);
 
 	// While m_updateDisabled is true, refreshTimer() (RW 0x896F99) must not reset readyFrame to now().
@@ -445,7 +445,7 @@ TEST_CASE("PORT-251: initiate records m_targetObjectID (+0x2C, RW 0x897EA3 / 0x7
 	f.frames(6);
 	const Coord3D loc{ 160.0f, 140.0f, 0.0f };
 	spB->doSpecialPowerAtLocation(loc, 0u);
-	CHECK(spB->getTargetObjectID() == target2->getID());
+	CHECK(spB->getTargetId() == target2->getID());
 }
 
 TEST_CASE("PORT-251: StopSpecialPower clears m_updateDisabled via interface slot 0x44 (RW 0x8CAC5E -> 0x896751)")
@@ -569,7 +569,7 @@ TEST_CASE("PORT-251: ControlBar SPECIAL_POWER checks interface isPaused() (RW 0x
 	CHECK(wmBtn->state == ButtonState::NotReady);
 }
 
-TEST_CASE("PORT-251: SpecialPowerModule::crc and xfer v2 round-trip m_targetObjectID (+0x2C) and m_pausedByRequirements (+0x30) and reject v1/v3 (RW 0x89679D)")
+TEST_CASE("PORT-251: SpecialPowerModule::crc and xfer v2 round-trip m_targetId (+0x2C) and m_pausedByRequirements (+0x30) and reject v1/v3 (RW 0x89679D)")
 {
 	Port251World f(kPort251Ini);
 	Player *alice = f.players.findPlayerWithName("Alice");
@@ -594,7 +594,7 @@ TEST_CASE("PORT-251: SpecialPowerModule::crc and xfer v2 round-trip m_targetObje
 
 	// Use ungated target initiate so +0x2C is populated even while paused, and verify crc() changes again.
 	src->doSpecialPowerAtObject(target, kOptionUngated);
-	CHECK(src->getTargetObjectID() == target->getID());
+	CHECK(src->getTargetId() == target->getID());
 	const std::uint32_t hashBoth = hashModule(*src);
 	CHECK(hashBoth != hashReqPaused);
 
@@ -606,14 +606,14 @@ TEST_CASE("PORT-251: SpecialPowerModule::crc and xfer v2 round-trip m_targetObje
 	CHECK(bytes.front() == 2u);
 
 	// Load into fresh dst (whose +0x2C is INVALID_ID and whose +0x30 is false because book1 is Alice's cached spellbook).
-	CHECK(dst->getTargetObjectID() == INVALID_ID);
+	CHECK(dst->getTargetId() == INVALID_ID);
 	CHECK(dst->isPausedByRequirements() == false);
 	CHECK(dst->pauseCount() == 0);
 	dst->setReadyFrame(0u);
 	XferLoad load(bytes);
 	dst->xfer(load);
 	CHECK(load.atEnd() == true);
-	CHECK(dst->getTargetObjectID() == target->getID());
+	CHECK(dst->getTargetId() == target->getID());
 	CHECK(dst->isPausedByRequirements() == true);
 	CHECK(dst->isPaused() == true);
 	CHECK(dst->pauseCount() == 1);

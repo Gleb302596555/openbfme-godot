@@ -611,7 +611,7 @@ bool SpecialPowerModule::requirementsMet() const
 	const std::shared_ptr<const ObjectFilter> &f = kind3 ? m_spData->m_requirementsFilterMPSkirmish : m_spData->m_requirementsFilterStrategic;
 	if (!f || !f->flag)
 	{
-		return true;
+		return true; // RW 0x896A0E: an unset RequirementsFilterMPSkirmish — no requirements test in a skirmish (not the RW 0xDE49E4 object-filter default of S-523, which is closed)
 	}
 	return !p || p->hasObjectMatching(*f, true);
 }
@@ -1054,11 +1054,12 @@ bool SpecialPowerModule::initiate(Object *target, const Coord3D *loc, unsigned o
 	{
 		return false;
 	}
-	++m_initiates;
+	// RW 0x897E9E .. 0x897EA3: keep the target's id at + 0x2C (only for a cast with a target; the interface's slot 0x50, RW 0x7B0F25, answers with it)
 	if (target)
 	{
-		m_targetObjectID = target->getID(); // PORT-251: RW 0x897E94 .. 0x897EA3: module + 0x2C (slot 0x50 RW 0x7B0F25)
+		m_targetId = target->getID();
 	}
+	++m_initiates;
 	// lane LUMBER1: the enum switch's SPECIAL_HARVEST case (RW 0x897EC6 .. 0x897F07, enum 0x8D: the workers' Harvest button): the object's AI (+ 0x260) and its
 	// player's ResourceGatheringManager (+ 0x304) find a tree (RW 0x8FA834); found: aiHarvest(position, CMD_FROM_AI) (RW 0x771655) and the AI byte + 0x3CC
 	// cleared (not part of the port: S-583).
@@ -1180,7 +1181,7 @@ void SpecialPowerModule::crc(StateHasher &h) const
 	h.addU32(m_pauseFrame);
 	h.addFloat(m_pausedPercent);
 	h.addBool(m_updateDisabled);
-	h.addU32(m_targetObjectID);       // PORT-251: + 0x2C (RW 0x897EA3)
+	h.addU32(m_targetId);              // + 0x2C (RW 0x897EA3)
 	h.addBool(m_pausedByRequirements); // PORT-251: + 0x30 (RW 0x896A32)
 	h.addU32(m_triggers);
 	h.addU32(m_applied); // lane HERO-1
@@ -2041,7 +2042,7 @@ void ManTheWallsSpecialPower::xfer(Xfer &x)
 // plus OpenBFME's native counters. Version bumped 1 -> 2 for +0x2C and +0x30.
 void SpecialPowerModule::xfer(Xfer &x)
 {
-	SnapshotXfer::version(x, 2, 2);
+	SnapshotXfer::version(x, 2, 2); // 2: + m_targetId (the target initiate kept, RW + 0x2C) and + m_pausedByRequirements (RW 0x896A32); version 1 saves are refused
 	xferBehaviorModule(x);
 	x.xferUnsignedInt(&m_rechargeLength);
 	x.xferUnsignedInt(&m_readyFrame);
@@ -2049,8 +2050,8 @@ void SpecialPowerModule::xfer(Xfer &x)
 	x.xferUnsignedInt(&m_pauseFrame);
 	x.xferReal(&m_pausedPercent);
 	x.xferBool(&m_updateDisabled);
-	x.xferObjectID(&m_targetObjectID);
-	x.xferBool(&m_pausedByRequirements);
+	x.xferObjectID(&m_targetId);
+	x.xferBool(&m_pausedByRequirements); // PORT-251: + 0x30 (RW 0x896A32)
 	x.xferUnsignedInt(&m_triggers);
 	x.xferUnsignedInt(&m_applied);
 	SnapshotXfer::u64(x, m_unported);

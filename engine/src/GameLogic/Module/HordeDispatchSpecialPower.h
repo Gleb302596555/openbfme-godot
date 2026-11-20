@@ -15,11 +15,13 @@
 //     - doSpecialPower (0x28, RW 0x8CD08C): SpecialPowerModule::doSpecialPower (RW 0x8980A3) on the horde, then each member module's doSpecialPower(options);
 //     - doSpecialPowerAtLocation (0x30, RW 0x8CCEC9): SpecialPowerModule::doSpecialPowerAtLocation (RW 0x89816C), then each member's at the location;
 //     - doSpecialPowerAtObject (0x2C, RW 0x8CCF76): each member's doSpecialPowerAtObject(target, options) first; the target the member module kept (interface
-//       slot 0x50, RW 0x7B0F25: module + 0x2C, the target id initiateIntentToDoSpecialPower stores) found again (RW 0x449681) replaces the horde's target
-//       when it is farther from the horde (squared distance RW 0x5E3BE4, x87 at PC24) than the best so far (start: the order's target); then
+//       slot 0x50, RW 0x7B0F25: module + 0x2C, the target id initiate keeps, RW 0x897E9E .. 0x897EA3) found again (RW 0x449681) replaces the horde's target
+//       when it is farther from the horde (squared distance RW 0x5E3BE4, x87 at PC24) than the best so far (start: the order's target; RW computes its distance
+//       before the member loop, and adopts a kept target only on a strictly greater distance); then
 //       SpecialPowerModule::doSpecialPowerAtObject (RW 0x8980EF) on the horde with that target.
-// INFERENCE: the port's SpecialPowerModule keeps no + 0x2C target id; a member's kept target is the order's target unless the member's initiate swaps it
-// (adjustVictim, BFME2 decomp SpecialPowerModuleDo.cpp:157, not ported by the base either), so the horde's base call takes the order's target.
+// The port's SpecialPowerModule keeps the same target id (m_targetId, + 0x2C; lane PORT-232), its slot 0x50 answers with it, and the farthest kept target
+// pick is ported. A member's kept target only differs from the order's target when the member's initiate swapped it (e.g. a gated member whose cast kept
+// an earlier, farther target); the adjustVictim swap (RW 0x898115 .. 0x89813A, BFME2 decomp SpecialPowerModuleDo.cpp:157) is still not ported (S-920).
 
 #pragma once
 
@@ -38,7 +40,6 @@ public:
 	unsigned long long dispatched() const { return m_dispatched; }               // member module calls (a test counter, hashed)
 	void crc(StateHasher &h) const override;
 	static void registerClass(ModuleFactory &modules);
-	static std::vector<std::string> acceptanceStops(); // [S-2001]
 
 private:
 	// the members' modules of this power (empty when the object is no HORDE or has no contain)

@@ -287,8 +287,9 @@ TEST_CASE("hud5 rank interface retail: a selected hero shows its rank and the ex
 	b.hud->input().ui().selectObject(farm->getID());
 	b.frames(5);
 	CHECK(PalantirCommandUI::rankInfoFor(b.hud->input().context(), INVALID_ID, { hero->getID(), farm->getID() }).type == 2);
-	CHECK_FALSE(pal->rankInterfaceShown());
-	CHECK(called("HideRankInterface()"));
+	// ...but with a qualifying HERO in the selection there is a context object: PORT-213 (RW 0x94475A / 0x944834) hands the hero to the
+	// Palantir, whose rank RW 0x9305CE reads first, so the hero's rank stays shown. (Before Port 213 this expected HideRankInterface.)
+	CHECK(pal->rankInterfaceShown());
 }
 
 TEST_CASE("hud5 recovered timers retail: defection precedes cloak and mixed timers do not reuse experience state")

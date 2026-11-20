@@ -17,6 +17,7 @@
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/PartitionManager.h"
 #include "GameLogic/System/InvisibilityManager.h"
+#include <cstdlib>
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDraw.h"
 
 namespace
@@ -74,7 +75,26 @@ bool LiveScripting::start(const std::string &mapFolder, std::string *error)
 		LuaObjectInfo info;
 		const bool dispatch = describe(obj, &info, true);
 		++m_stats.creations;
-		return LuaScriptEngine::sendObjectCreated(m_logic.random(), dispatch ? m_engine.get() : nullptr, dispatch ? &info : nullptr, bindDrawable);
+		const size_t before = m_engine->logic() ? m_engine->logic()->alerts().size() : 0;
+		auto created = LuaScriptEngine::sendObjectCreated(m_logic.random(), dispatch ? m_engine.get() : nullptr, dispatch ? &info : nullptr, bindDrawable);
+		if (m_engine->logic() && m_engine->logic()->alerts().size() > before)
+		{
+			// name the object and its handler in the report (an alert carries neither)
+			std::string source = obj.getTemplate() ? obj.getTemplate()->getName() : std::string("?");
+			if (dispatch && info.luaEvents)
+			{
+				if (const LuaEventHandler *h = info.luaEvents->find(m_engine->events().internalKey(LUAEVENT_OnCreated)))
+				{
+					source += " OnCreated " + h->function;
+				}
+			}
+			m_alertSources.resize(m_engine->logic()->alerts().size());
+			for (size_t i = before; i < m_alertSources.size(); ++i)
+			{
+				m_alertSources[i] = source;
+			}
+		}
+		return created;
 	});
 	m_logic.setWorldHooks(
 		[this](Object &obj) {
@@ -425,9 +445,27 @@ LiveScripting::Stats LiveScripting::stats() const
 		{
 			s.stops.push_back("[" + e.stop + "] " + e.text);
 		}
-		for (const std::string &a : m_engine->logic()->alerts())
+		const std::vector<std::string> &alerts = m_engine->logic()->alerts();
+		for (size_t i = 0; i < alerts.size(); ++i)
 		{
-			s.errors.push_back("OnCreated handler failed: " + a);
+			const std::string &from = i < m_alertSources.size() ? m_alertSources[i] : std::string();
+			const std::vector<std::string> &ctx = m_engine->logic()->alertSources();
+			std::string where = i < ctx.size() ? ctx[i] : std::string();
+			if (!where.empty())
+			{
+				// the handler's object, by its id, while it lives
+				const size_t at = where.find(" of object ");
+				if (at != std::string::npos)
+				{
+					const int id = std::atoi(where.c_str() + at + 11);
+					if (const Object *o = m_logic.findObjectByID((ObjectID)id); o && o->getTemplate())
+					{
+						where += " " + o->getTemplate()->getName();
+					}
+				}
+			}
+			s.errors.push_back(!from.empty() ? "OnCreated handler failed (" + from + "): " + alerts[i]
+				: !where.empty() ? "Lua alert (" + where + "): " + alerts[i] : "Lua alert: " + alerts[i]);
 		}
 	}
 	return s;

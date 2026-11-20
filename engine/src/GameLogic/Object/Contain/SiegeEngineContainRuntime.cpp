@@ -138,7 +138,7 @@ void SiegeEngineContainT<Base, Horde>::addToContainList(Object *obj)
 	ObjectWeapons *w = obj->getWeapons();
 	if (w && w->hasWeaponSetFor(WEAPONSET_CONTAINED))
 	{
-		w->setWeaponSetFlag(WEAPONSET_CONTAINED, true);    // RW 0x691059(0x14)
+		obj->setWeaponSetFlag(WEAPONSET_CONTAINED, true); // RW 0x691059(0x14) on the OBJECT
 		setCondition(*obj, weaponStateContained, true);   // + 0x128 bit 18
 	}
 	if (!Horde)
@@ -165,10 +165,7 @@ void SiegeEngineContainT<Base, Horde>::removeFromContainList(Object *obj)
 	}
 	m_crew.erase(it); // RW 0x87EDB7
 	--m_crewCount;
-	if (ObjectWeapons *w = obj->getWeapons())
-	{
-		w->setWeaponSetFlag(WEAPONSET_CONTAINED, false); // RW 0x691106(0x14)
-	}
+	obj->setWeaponSetFlag(WEAPONSET_CONTAINED, false); // RW 0x691106(0x14) on the OBJECT
 	setCondition(*obj, weaponStateContained, false);
 	if (!Horde)
 	{

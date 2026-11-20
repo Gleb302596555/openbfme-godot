@@ -4,9 +4,9 @@
 name: Sanitizers
 
 on:
-  pull_request:
-    branches:
-      - main
+  # fork (owner 2026-11-20): not on pull requests. Upstream's full matrix filled GitHub's 20 parallel jobs with every agent push while
+  # the fork reads none of it; the fork's per-PR checks are fork-pr.yml (build + own tests) and pr-rules.yml. Pushes to main still run it
+  # (and keep main's compiler caches warm, which fork-pr.yml restores).
   push:
     branches:
       - main

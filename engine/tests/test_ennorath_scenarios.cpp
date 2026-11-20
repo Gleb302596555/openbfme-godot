@@ -847,3 +847,39 @@ TEST_CASE("LOCAL-2 neighbor: AIPlayer::acquireEnemy keeps a cached enemy while i
 	CHECK(localThings.findTemplate("PlainTower")->thingClass() == ThingClassType::FACTION_BUILDING);
 }
 
+
+TEST_CASE("ENNORATH scenario W3DScriptedModelDraw: the archery range's idle script does not compile in RotWK either; the drawable report counts it as a data defect, so a map that places one at start still loads (RW 0x42D423, RW 0x734E41)")
+{
+	// data\ini\object\goodfaction\structures\rohan\archerrange.ini: RohanArcherRangeMod's idle state has a BeginScript whose body holds the Lua comment
+	// "-- (sound moved to VoiceFullyCreated ...)" before its two `end`s; RohanArcherRangeModPlayer (line 560) is its ChildObject. RotWK joins the body's
+	// lines without separators (RW 0x42D423 .. 0x42D474; TextFile::ParseFile ended each line at its CR / LF, RW 0xA159AA), so the comment swallows the
+	// `end`s and the compile fails; retail's _ALERT drops the message (RW 0x734E41) and the drawable plays on. The randomizer maps (maps\randomizer game of
+	// chances *\map.ini) spawn RohanArcherRangeModPlayer at start, and the port refused to start them (owner, 2026-11-20).
+	World world;
+	if (!world.load("ENNORATH scenario W3DScriptedModelDraw syntax")) return;
+	hudtest::Rig game(world.shared);
+	std::string error;
+	float x = 1200.0f;
+	for (const char *name : { "RohanArcherRangeMod", "RohanArcherRangeModPlayer" })
+	{
+		Object *range = game.game->createObject(name, game.index(), Coord3D{ x, 1200.0f, 0.0f }, 0.0f, &error);
+		REQUIRE_MESSAGE(range != nullptr, error);
+		x += 400.0f;
+	}
+	for (int i = 0; i < 3; ++i)
+	{
+		game.logic().runLogicFrame();
+		game.game->refreshClient(1000.0 / 30.0, 0.0);
+	}
+	const DrawableManager::Report r = game.game->drawables().report();
+	bool defect = false;
+	for (const auto &kv : r.dataDefects)
+	{
+		defect = defect || (kv.first.find("last token read") != std::string::npos && kv.first.find("RohanArcherRangeMod") != std::string::npos);
+	}
+	CHECK_MESSAGE(defect, "the archery range's syntax error is not among the data defects");
+	for (const std::string &e : r.errors)
+	{
+		CHECK_MESSAGE(e.find("last token read") == std::string::npos, e);
+	}
+}

@@ -296,6 +296,18 @@ struct GameLogicSettings
 	// (RW 0xDE4B40 + 0x18): FireSpreadUpdate's tree branch (RW 0x88EF0F) and the attack on a map tree (RW 0x77AF3B / 0x77C1E5) make a tree an object
 	// (TerrainTrees::makeTreeObject, RW 0x68449B) only with it set. Retail 2.01 and Ennorath set No (defaultidata.ini)
 	bool allowForestFires = false;
+	// Local 93: AIData ForceHordesToLowLOD (row RW 0xC1CE70, parseBool RW 0x42E558, AIData + 0xBB; ctor RW 0x6FFBEF -> RW 0x6FFDA5: true):
+	// sets OBJECT_STATUS_CREATE_DRAWABLE_WITH_LOW_DETAIL (bit 55) on produced units (RW 0x8A1B9F -> 0x8A25E4) and horde payloads / upgrade
+	// creation triggers (RW 0x86A104 -> 0x86A151, RW 0x86B169 -> 0x86B282; excluding HERO and MONSTER templates).
+	bool forceHordesToLowLOD = true;
+	// Local 93: AIData low-LOD trees (rows RW 0xC1CF50 UseLowLODTrees + 0xD8 parseBool, RW 0xC1CF70..0xC1CF90 LowLodTreeName / NoGrab /
+	// NoHarvest + 0xDC/+0xE0/+0xE4 parseAsciiString, RW 0xC1CFA0 LowLodTreeScale + 0xE8 parseReal; ctor RW 0x6FFBEF -> RW 0x6FFE0C..0x6FFE4A:
+	// false, "", "", "", 0.55f from RW 0xBDAE10). Read by RW 0x62DCE4 (MapObjectCreation::build) when staticLODLevel <= 0. Presentation only: not in crc.
+	bool useLowLODTrees = false;
+	std::string lowLodTreeName;
+	std::string lowLodTreeNameNoGrab;
+	std::string lowLodTreeNameNoHarvest;
+	float lowLodTreeScale = 0.55f;
 	// lane PORT-38 (issue #123): the AI player's team build tempo — six AIData rows of the table that starts at RW 0xC1CB20, and the constructor
 	// RW 0x6FFBEF stores 0.0f / 0 to all of them (so a data set that leaves them out divides by a zero rate, exactly as the image does; the rules
 	// and their callers are GameLogic/SkirmishAI/AITeamTempo.h, stop S-5620 for the team build that would consume them):
@@ -765,6 +777,14 @@ public:
 	// and GameData UseBehindBuildingMarker are set (RW 0x47074D). Not hashed and not saved (no GameLogic xfer reads it): presentation only
 	void setShowBehindBuildingMarkers(bool on) { m_showBehindBuildingMarkers = on; }
 	bool getShowBehindBuildingMarkers() const { return m_showBehindBuildingMarkers; }
+	// LOCAL-94 (issue #720): TheGameLogic + 0x9A (OPTIONS_SET_DRAWICON_UI_MODE, action 300, RW 0x7CE222 -> RW 0x7BD55C, DONOR BFME2 0x003BCA7B;
+	// init / reset / startNewGame RW 0x62D1D9 / 0x62D3DD / 0x62A236; read by Drawable::drawIconUI RW 0x679134) and TheGameLogic + 0x9B
+	// (OPTIONS_SET_PARTICLE_CAP_MODE, action 301, RW 0x7CE2B6 -> RW 0x7BD56F, DONOR BFME2 0x003BCA8E; init / reset / startNewGame RW 0x62D1E0 /
+	// 0x62D3E4 / 0x62A23D; read by GameLogic::getParticleCapMode RW 0x441B52 at RW 0x4438ED). Not hashed (XferCRC skips them, RW 0x630ADF).
+	void setShowDrawableIconUI(bool on) { m_showDrawableIconUI = on; }
+	bool getShowDrawableIconUI() const { return m_showDrawableIconUI; }
+	void setParticleCapMode(bool on) { m_particleCapMode = on; }
+	bool getParticleCapMode() const { return m_particleCapMode; }
 	// PORT-43: TheGameLogic + 0x118, m_rankLevelLimit: constructor RW 0x6301DD and startNewGame's init helper RW 0x62A20D (RW 0x62A11A, called at
 	// RW 0x631555; GameLogic::reset RW 0x62D232 leaves +0x118 untouched) set 1000 (0x3E8); startNewGame's tail helper RW 0x6311ED (called at RW 0x6315A7)
 	// copies GlobalData + 0xE94 (GameData PowerLimit, row RW 0xC00C00, EconomySettings::powerLimit) into +0x118 at RW 0x631420 .. 0x631436 when RW 0x625456
@@ -1293,6 +1313,8 @@ private:
 	UnsignedInt m_frame = 0;
 	int m_gameDifficulty = 1;     ///< lane CAMP-1H: RW GameLogic + 0xA4
 	bool m_showBehindBuildingMarkers = true; ///< lane OCCLUDE-1: RW GameLogic + 0x99
+	bool m_showDrawableIconUI = true;        ///< LOCAL-94: RW GameLogic + 0x9A
+	bool m_particleCapMode = true;           ///< LOCAL-94: RW GameLogic + 0x9B
 	int m_rankLevelLimit = kDefaultRankLevelLimit; ///< PORT-43: RW GameLogic + 0x118 (m_rankLevelLimit)
 	bool m_rankLevelLimitScripted = false;         ///< PORT-43: set by PLAYER_SET_RANKLEVELLIMIT (RW 0x7BB04E)
 	GameRules m_gameRules = MpGameRules::none(); ///< lane RULES-1
