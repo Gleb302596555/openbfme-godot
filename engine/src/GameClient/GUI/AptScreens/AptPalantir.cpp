@@ -1044,6 +1044,9 @@ void AptPalantir::subMenuLoaded(const std::string &arg, bool loaded)
 	}
 	if (!loaded)
 	{
+		// RW entry 0x930340: release controller (+0xC) before submenu (+4).
+		// Its destructor RW 0x96FCCB hides the still-existing open menu.
+		clearFrame(i, true);
 		m_subMenu[i].reset();
 		return;
 	}
@@ -1099,6 +1102,8 @@ void AptPalantir::toggleFlashLoaded(const std::string &arg, bool loaded)
 	}
 	if (!loaded)
 	{
+		// RW entry 0x930481: release controller (+0xC), then flash (+8).
+		clearFrame(i, true);
 		m_toggleFlashPath[i].clear();
 		return;
 	}

@@ -164,8 +164,8 @@ public:
 	// ---- lane CAMPUI-1: the arc's sub-menus and the stance toggle's radial (InGameToggleStanceCommandButton) ----
 	// TARGET FACTS (RotWK game.dat, caveat S-001): PalantirCommandUI::OnSubMenuLoaded (RW 0x93023D) takes atoi(index) in [0, 6) (RW 0x930088) and the clip from
 	// `name` (level prefix removed, RW 0x815563) and, when the arc slot has none, makes the slot's sub-menu (+ 4 of the record (index + 5) * 0x14, RW 0x9D353B);
-	// OnSubMenuUnloaded (RW 0x930340) drops it. OnToggleFlashLoaded / Unloaded keep the slot's CommandButtonToggleFlash clip (+ 8; INFERENCE: their bodies were
-	// not read, the layout of their sub-menu twins is assumed). The content factory (RW 0x92FF5C) makes an InGameToggleStanceCommandButton (RW 0x97004A) for a
+	// OnSubMenuUnloaded (RW 0x930340) drops it. OnToggleFlashLoaded / Unloaded keep the slot's CommandButtonToggleFlash clip (+8; RW 0x93037E / 0x930481);
+	// unload releases the controller before the flash, as submenu unload does before its submenu (RW 0x930340). The content factory (RW 0x92FF5C) makes an InGameToggleStanceCommandButton (RW 0x97004A) for a
 	// TOGGLE_STANCE (0x39) button when the slot has both; its press (RW 0x96FAC6) adds an item per stance of the button's Stances list (at most 3, RW 0x96F62F)
 	// and opens the sub-menu, or requests its close when open; an item's press (RW 0x96F85A -> 0x96F53C) sends MSG_CHANGE_STANCE with the item's stance,
 	// requests the close and plays the toggle flash's Go() (RW 0x9D2DA3). The content's destructor hides an open sub-menu (RW 0x96FCCB).

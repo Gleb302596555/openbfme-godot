@@ -27,7 +27,7 @@ source of retail expectations. No game data or disassembly dumps are included.
 | S-287 | `CommandXlat.cpp` meta switch | Unresolved: compare entire switch with RW 0x81F8D8; do not remove the deliberate force-attack addition (S-1675) without the owner's decision. |
 | S-1201 | Context resume/repair | Unresolved: read retail ActionManager eligibility and context priority before changing builder clicks. |
 | S-3301 | `SelectionXlat`, `HudInput`; point collector / polygon test | Real missing mechanism indicated by current plain-box implementation; numerical branches read below, caller/class chain and integration still pending. |
-| S-3803 | `AptPalantir` stance submenu | Unresolved: notifications, press context and inferred lifecycle need tracing; existing submenu must be extended, not duplicated. |
+| S-3803 | `AptPalantir` stance submenu | Owner notifications proven no-ops; live press eligibility and unload lifecycle implemented; full execution/red-green and item-help delay proof pending. |
 | S-4360 | Same Ctrl-selection mechanism as S-3301 | Treat together with S-3301, not as a separate selection handler. S-1675 remains a distinct owner-decision row. |
 | S-4531 | `GUI/AptScreens/AptPalantir.cpp:477–490` | The ordinary left-press gate and disabled cue already exist in baseline. The old stop's statement “every press reaches ControlBar” is stale for this path. Verify synthetically before closing/narrowing; toggle-stance uses another virtual path. |
 
@@ -376,3 +376,29 @@ The ID is neither serialized nor used in any logic message or availability rule.
 The synthetic callback test covers a replacement **of the same command type**,
 then verifies a fresh request opens exactly the successor's menu with three
 items and no stance order. Syntax-only passed; runtime remains pending.
+
+## S-3803 unload lifecycle: same-class gap implemented
+
+DONOR BFME2 `Tactical/PalantirCommandInterface.cpp` (OnToggleFlashLoaded and
+related callbacks) guided the read, not the target conclusion. RW entry
+0x93037E (through return 0x93047E) validates index/name, refuses an existing
+flash, constructs RW 0x9D2D88 and stores it in the slot at +8. Entry 0x930481
+releases the controller at +0xC (0x9304A8), clears cached command +0x10, then
+releases flash +8 (0x9304B4). Entry 0x930340 has the same order for submenu
++4. The port previously dropped only the menu/flash, leaving its controller
+alive; a flash unload could therefore leave an open radial visible.
+
+Both callbacks now use the existing clearFrame before dropping the resource.
+That hides an open menu and releases its items/hotkeys while the menu still
+exists, rather than relying on destruction of an unrelated holder. Controller
+IDs also expire, preventing a queued request from reviving after reload.
+Synthetic test covers unload/reload of each resource, immediate hide, empty
+items, old request rejection and fresh request reopening with no order emitted.
+This is PROCESS 5.7's same-class, non-shared neighbour fix; no foreign tests,
+pins or mechanisms were changed. Syntax validation passes; runtime pending.
+
+Context-switch hide is no longer an inference: linear entry 0x930809 compares
+object and command-set identity, calls reset 0x92F990 at 0x93084E; reset releases
+all six controller references at 0x92FA1D. Stance Impl destructor entry
+0x96FCCB checks its still-live menu and hides it at 0x96FD1A. Item-help delay
+remains unverified. No S-3803 closure is claimed before full execution.

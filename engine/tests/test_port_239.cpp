@@ -680,4 +680,35 @@ TEST_CASE("PORT-239 stance toggle: live context relationship not disabled clip s
 	CHECK(palantir->subMenu(0)->isOpen());
 	CHECK(palantir->subMenu(0)->itemCount() == 3);
 	CHECK(stream.propagate().empty());
+
+	// RW entries 0x930340 / 0x930481 release the controller before dropping
+	// its submenu / flash, so the destructor hides an open radial immediately.
+	for (bool unloadMenu : { false, true })
+	{
+		CAPTURE(unloadMenu);
+		const auto beforeUnload = queuedController;
+		const std::string unload = unloadMenu ? "PalantirCommandUI::OnSubMenuUnloaded" : "PalantirCommandUI::OnToggleFlashUnloaded";
+		const std::string load = unloadMenu ? "PalantirCommandUI::OnSubMenuLoaded" : "PalantirCommandUI::OnToggleFlashLoaded";
+		REQUIRE(movie.windows->invokeCallback(unload, "index=0"));
+		CHECK_FALSE(palantir->isToggleStanceContent(0));
+		if (unloadMenu) CHECK(palantir->subMenu(0) == nullptr);
+		else
+		{
+			REQUIRE(palantir->subMenu(0));
+			CHECK_FALSE(palantir->subMenu(0)->isOpen());
+			CHECK(palantir->subMenu(0)->itemCount() == 0);
+		}
+		REQUIRE(movie.windows->invokeCallback(load, unloadMenu ? "index=0&name=SubMenu" : "index=0&name=Flash"));
+		palantir->sync(bar);
+		REQUIRE(palantir->isToggleStanceContent(0));
+		palantir->pressToggleStance(0, beforeUnload, context);
+		CHECK_FALSE(palantir->subMenu(0)->isOpen());
+		REQUIRE(movie.windows->invokeCallback("_level1.Frame.content_OnPress", ""));
+		CHECK(queuedController != beforeUnload);
+		palantir->pressToggleStance(0, queuedController, context);
+		CHECK(palantir->subMenu(0)->isOpen());
+		CHECK(palantir->subMenu(0)->itemCount() == 3);
+		CHECK(stream.propagate().empty());
+	}
+	CHECK(palantir->stanceErrors().empty());
 }
