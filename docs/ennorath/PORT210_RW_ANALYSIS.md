@@ -79,3 +79,18 @@ caller, and adding a shortcut only for this task would violate the scope rule.
 Whether it prevents the full walking/climbing scenario must be tested; the
 collision-only tests cannot establish that it is harmless. Do not close S-1751
 or claim full in-game wall scaling based on the collision tests alone.
+
+## Synthetic moving-wall diagnostic
+
+The test added in `test_port_210.cpp` sends the horde across the position of a
+single wall installed in the pathfinder, without teleporting either object. It
+checks contact and progress beyond the wall, not a climb. A temporary diagnostic
+runner (not the required complete `openbfme_tests`) tried requiring a member's
+height to increase. With the test's short wall the horde contacted it but went
+around: horde Y ranged from 275 to 305, the horde and member ended at (405,
+305, 0), and the height assertion failed. Increasing the synthetic wall's
+minor radius to 100 produced a detour to Y 185; increasing it to 600 led to a
+path to Y 953.322 and no observed contact. These are fixture observations, not
+evidence that S-1751 causes or does not cause a real climbing failure. A
+representative wall/path scenario still needs to be established before making
+that conclusion.
