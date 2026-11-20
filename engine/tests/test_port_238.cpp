@@ -5,6 +5,8 @@
 #include "doctest.h"
 #include "CombatTestUtil.h"
 #include "Common/SpecialPower.h"
+#include "Common/INI.h"
+#include "Common/NameKeyGenerator.h"
 #include "GameClient/ControlBar.h"
 #include "GameClient/ControlBarCommands.h"
 #include "GameClient/HudInput.h"
@@ -25,6 +27,8 @@
 #include "GameLogic/Module/SpecialAbilityModules.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/SpellCommands.h"
+#include "GameLogic/SkirmishAI/AITacticalAI.h"
+#include "GameLogic/SkirmishAI/SkirmishAIData.h"
 
 #include <memory>
 #include <vector>
@@ -1027,4 +1031,49 @@ TEST_CASE("PORT-238 synthetic Boromir ring replacement synchronizes selected pow
     CHECK(newOther->getReadyFrame() != 900); // not listed
     w.frames(3);
     CHECK(w.byId(originalId) == nullptr);
+}
+
+TEST_CASE("PORT-238 ring ownership bias changes a synthetic WOTR surrender score")
+{
+    NameKeyGenerator keys;
+    keys.init();
+    SkirmishAIStore store(keys);
+    INIEnvironment env;
+    store.registerBlocks(env.blocks);
+    // Active scalar values in Ennorath default/skirmishaidata.ini:1332..1341.
+    // Synthetic blocks only; ringHeld is supplied explicitly rather than
+    // claiming an OBJECT upgrade is already held by a player.
+    const std::string ini =
+        "SkirmishAIData\n FarmingThreshold = -2\n ArmyQualityBias = 3\n ArmyQuantityBias = 2\n"
+        " HeroQualityBias = 2\n MapControlBias = 3\n BaseStrengthBias = 2\n RingOwnershipBias = 2\n"
+        " LogicFramesTillRetreatChecksStart = 1500\n LogicFrameBetweenRetreatChecks = 400\n LogicFramesTillAISelfDestructs = 60\n End\n";
+    INI loader(env);
+    loader.loadMemory("port238_ai.ini", std::vector<std::uint8_t>(ini.begin(), ini.end()), INI_LOAD_OVERWRITE);
+    REQUIRE(store.dataBlockSeen());
+    const SkirmishAIData &d = store.data();
+    CHECK(d.farmingThreshold == -2);
+    CHECK(d.ringOwnershipBias == 2);
+    CHECK(d.logicFrameBetweenRetreatChecks == 400);
+    CHECK(d.logicFramesTillAISelfDestructs == 60);
+    ForfeitTerms own, enemy;
+    own.armyQuality = 1.0f;
+    enemy.armyQuality = 10.0f;
+    const int withoutRing = AITacticalAI::forfeitScoreFrom(own, enemy, false, d);
+    const int withRing = AITacticalAI::forfeitScoreFrom(own, enemy, true, d);
+    CHECK(withoutRing == -3);
+    CHECK(withRing == -1); // RW 0x9B7D41..0x9B7D4F: add RingOwnershipBias
+    ForfeitState noRing, hasRing;
+    noRing.counter = hasRing.counter = d.logicFramesTillAISelfDestructs;
+    int nextNoRing = 0, nextHasRing = 0;
+    for (unsigned frame : {0u, 400u, 800u})
+    {
+        CHECK(AITacticalAI::forfeitFrame(noRing, nextNoRing, frame, [&] { return withoutRing; }, d).checked);
+        CHECK(AITacticalAI::forfeitFrame(hasRing, nextHasRing, frame, [&] { return withRing; }, d).checked);
+    }
+    CHECK(noRing.triggered); // RW 0x9B7D7C..0x9B7D9B: three scores below threshold
+    CHECK(noRing.badChecks == 3);
+    CHECK_FALSE(hasRing.triggered);
+    CHECK(hasRing.badChecks == 0);
+    CHECK(noRing.counter == 60);
+    CHECK(hasRing.counter == 60);
 }

@@ -118,8 +118,33 @@ activation are not yet claimed equivalent.
   DONOR BFME2 `GrantUpgradeCreate_onCreate.cpp` documents the same bit test;
   it does not justify granting multiple names from an INI field read as one
   string.
-* `RingOwnershipBias` is parsed in `SkirmishAIData.cpp` and consumed in
-  `AITacticalAI.cpp`; this observation alone is not a full RW comparison.
+* `RingOwnershipBias` — **already ported, bounded to the score path** by
+  PORT-33 (`345378fd`), with residual S-7187. Ennorath's active
+  `default/skirmishaidata.ini:1332–1341` has `FarmingThreshold=-2`,
+  `ArmyQualityBias=3`, `RingOwnershipBias=2`, interval 400 and self-destruct
+  delay 60. The BFME2 donor's `AIBuilder.cpp` offers a separate player-upgrade
+  lookup lead, not proof of this tactic. RW generator `0x90C29F–0x90C2B7`
+  allocates and calls ctor `0x9B7316`, installing vtable `0xC89B74`; slot
+  `+0x1C` = `0x9B7458`. It calls `0x9B737F` at `0x9B7D48`: that function
+  resolves `Upgrade_RingHero`, checks ALLIES (`0x6ACEAF == 2`), and calls
+  `Player::hasUpgradeComplete` (`0x6AC2AF -> 0x6AB2B1`) for each player.
+  The score conditionally **adds**, never subtracts, the configured bias
+  (`0x9B7D4F`). The port's `ringHeld` and `forfeitScoreFrom` implement that
+  path in `SkirmishAI/AITacticalAI.cpp`; parsing is in `SkirmishAIData.cpp`.
+  Existing `PORT-33` exercises score arithmetic, not actual Ennorath loading.
+  The new synthetic `PORT-238 ring ownership bias*` loads the listed scalars
+  and supplies the ring-held boolean explicitly: an enemy-quality disadvantage
+  scores -3 without it versus -1 with it, and three checks start the forfeit
+  countdown only in the first case (19/19 assertions against matching isolated
+  `3f0105c8` core/headers). It calls the score/frame helpers directly and does
+  not exercise the 1500-frame start gate. Replacing only the fixture's bias 2 with 0 fails
+  4/19 assertions; this is fixture sensitivity, not a code-fix control.
+  This is **not** proof that a live ring hero makes the player-level check true:
+  the literal `Upgrade_RingHero` definition is OBJECT (`upgrade.ini:181–184`),
+  and the contain's OBJECT branch grants the object, not necessarily the
+  player's completed-upgrade mask. Other player-grant routes, mod overrides,
+  alliances and actual WOTR execution are unresolved; do not invent one or
+  rewrite the rule. S-7187 still covers message and Living World limitations.
   `ChildObject`, `ModelConditionUpgrade`, ring ownership and command-set paths
   exist in the port, but existence is not proof of complete hero behavior.
 
