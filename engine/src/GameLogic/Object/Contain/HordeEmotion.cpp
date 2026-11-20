@@ -263,6 +263,7 @@ void HordeContain::endQuarrel()
 		clearFlags(*b, m_quarrelFighterFlags);
 	}
 	m_quarrelA = INVALID_ID;
+	onReformFlagSet(); // RW 0x870B91 -> 0x86D2C3: [this + 0x121] = 1
 }
 
 bool HordeContain::attackedWithin(unsigned frames, ObjectID &attacker) const

@@ -1645,6 +1645,12 @@ bool AIUpdateInterface::aiEnter(Object *container, CommandSourceType source)
 	{
 		return false; // RW 0x667174: aiDoCommand's gate (lane MODULES-3) before the command
 	}
+	return privateEnter(container, source);
+}
+
+// RW 0x66D85F (AI vslot 0x5C; HordeAIUpdate overrides with RW 0x89E41F)
+bool AIUpdateInterface::privateEnter(Object *container, CommandSourceType source)
+{
 	if (!container || !GarrisonRules::isMobile(*getObject()) || m_mover->isAiDead())
 	{
 		return false;

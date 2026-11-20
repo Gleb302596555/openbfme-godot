@@ -564,6 +564,10 @@ public:
 		{
 			return false;
 		}
+		if (!filterAcceptedCommand(source, command))
+		{
+			return false;
+		}
 		if (source != CMD_FROM_AI)
 		{
 			endTemporaryStateMachine(); // lane MODCOMPAT-MOD1: RW 0x66A91A .. 0x66A92A: an order that is not the AI's own ends the temporary machine
@@ -579,6 +583,9 @@ public:
 	// lane MOVE-2: the command number of a move variant whose RotWK number is not identified (the group move with a final angle, a queued waypoint): the gate
 	// treats it as an unknown command (-1), HordeAIUpdate's member hand-off (RW 0x89E169) as a move (INFERENCE, S-1501)
 	static const int kCommandUnidentifiedMove = -2;
+	// a command passed the gate and may rewrite or refuse the command before base AIUpdateInterface::aiDoCommand runs (PORT-283: HordeAIUpdate::aiDoCommand
+	// RW 0x89E1C0 .. 0x89E205 toggles a porcupine formation on RW 0x89DE81 or refuses on RW 0x89DF11 before StancesBehavior / the base switch see it)
+	virtual bool filterAcceptedCommand(CommandSourceType source, int command) { (void)source; (void)command; return true; }
 	// a command passed the gate and is about to run (RotWK DozerAIUpdate::aiDoCommand RW 0x88E44F cancels its task on a player command; HordeAIUpdate::aiDoCommand
 	// RW 0x89E169 makes its members busy, lane MOVE-2); `target` is the command's object (attack commands 0xB / 0xC), else null; default nothing
 	virtual void commandAccepted(CommandSourceType source, int command, Object *target) { (void)source; (void)command; (void)target; }
@@ -658,13 +665,14 @@ protected:
 	// (privateFacePosition, base RW 0x667290); GiantBirdAIUpdate overrides both (RW 0x76B543 / 0x76B559 -> RW 0x76AB4E: its turn states 0x3FF / 0x3FC)
 	virtual void privateFaceObject(Object *target, CommandSourceType source);
 	virtual void privateFacePosition(const Coord3D &pos, CommandSourceType source);
+	// PORT-151: the move body (RW 0x66B3FD; AI vslot 0x34, overridden by HordeAIUpdate RW 0x89E0F6) asks the unit voice for the enter-state move (0x7E7)
+	// at RW 0x66B4C4 .. 0x66B4D2; the attack-move body (RW 0x66C0B9, command 0xF) passes `postMoveVoice` false and posts 0x7E8 (RW 0x66C136)
+	virtual void privateMoveToPosition(const Coord3D &pos, CommandSourceType source, bool postMoveVoice);
+	// AI vslot 0x5C (RW 0x66D85F, command 0x42; overridden by HordeAIUpdate RW 0x89E41F)
+	virtual bool privateEnter(Object *container, CommandSourceType source);
 
 private:
 	class ObjectLocomotorHost;
-	// PORT-151: the move body (RW 0x66B3FD) asks the unit voice for the enter-state move (0x7E7) at RW 0x66B4C4 .. 0x66B4D2; the attack-move
-	// body (RW 0x66C0B9, command 0xF) never goes through it and asks for the enter-state attack-move (0x7E8) instead (RW 0x66C136), so the port's
-	// attack-move stand-in calls this with `postMoveVoice` false and posts its own message
-	void privateMoveToPosition(const Coord3D &pos, CommandSourceType source, bool postMoveVoice);
 	// PORT-151: the enter-state attack voice of aiAttackObject / aiForceAttackObject (RW 0x66B1D0, message 0x7E6) with the victim's airborne locomotor
 	static void postEnterStateAttackVoice(Object &obj, const Object &victim);
 	void goalPositionClipped(const Coord3D &pos, CommandSourceType source, Coord3D &out) const;
