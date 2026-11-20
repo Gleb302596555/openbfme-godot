@@ -278,19 +278,22 @@ void StructureBody::crc(StateHasher &h) const
 }
 
 // ---- InactiveBody -------------------------------------------------------------------------------------------------------------------
+// RW 0x8C1A06: the constructor starts by calling the body base 0x8C1946, stores vtables 0xC71978 / 0xC72F08 / 0xC718C8 and
+// zero in +0x18 (m_dieCalled); RW 0x8C1A43 calls Object::setEffectivelyDead(true) (RW 0x68D950).
 InactiveBody::InactiveBody(Thing *thing, const InactiveBodyModuleData *data)
 	: BehaviorModule(thing, data)
 {
 	getObject()->friend_setEffectivelyDead(true); // RW 0x8C1A43 -> 0x68D950
 }
 
-// RW 0x8C18F7
+// RW 0x8C18F7: type 8 (UNRESISTABLE) at RW 0x8C18FE answers the amount from the input +0x1C, every other type answers zero.
 float InactiveBody::estimateDamage(const DamageInfoInput &input) const
 {
 	return input.m_damageType == DAMAGE_UNRESISTABLE ? input.m_amount : 0.0f;
 }
 
-// RW 0x8C1A75
+// RW 0x8C1A75: the null check is RW 0x8C1A7E; healing (type 7) goes to the body's second slot RW 0x8C1A8D,
+// type 8 clears noEffect at RW 0x8C1AA8 and runs onDie once (RW 0x8C1AAC .. 0x8C1ABB).
 void InactiveBody::attemptDamage(DamageInfo &info)
 {
 	if (info.m_input.m_damageType == DAMAGE_HEALING)
@@ -321,6 +324,8 @@ void InactiveBody::attemptDamage(DamageInfo &info)
 	}
 }
 
+// RW 0x8C191D: RW 0x8C1921 checks the DamageInfo pointer, RW 0x8C1925 tests type 7; the healing branch zeroes the
+// output at RW 0x8C1935 / 0x8C193A and sets noEffect at RW 0x8C193F, otherwise RW 0x8C192E calls attemptDamage.
 void InactiveBody::attemptHealing(DamageInfo &info)
 {
 	if (info.m_input.m_damageType != DAMAGE_HEALING)
@@ -692,27 +697,32 @@ BodyModuleInterface *SymbioticStructuresBody::symbioteBody() const
 	return o ? o->getBodyModule() : nullptr;
 }
 
+// RW 0x008C4F2D
 float SymbioticStructuresBody::getHealth() const
 {
 	BodyModuleInterface *b = symbioteBody();
 	return b ? b->getHealth() : 0.0f;
 }
+// RW 0x008C51EE
 float SymbioticStructuresBody::getMaxHealth() const
 {
 	BodyModuleInterface *b = symbioteBody();
 	return b ? b->getMaxHealth() : 0.0f;
 }
+// RW 0x008C521F
 float SymbioticStructuresBody::getInitialHealth() const
 {
 	BodyModuleInterface *b = symbioteBody();
 	return b ? b->getInitialHealth() : 0.0f;
 }
+// RW 0x008C4FF9 (RW 0x008C5017: push 3; pop eax -> BODY_RUBBLE when unlinked)
 BodyDamageType SymbioticStructuresBody::getDamageState() const
 {
 	BodyModuleInterface *b = symbioteBody();
-	return b ? b->getDamageState() : BODY_PRISTINE;
+	return b ? b->getDamageState() : BODY_RUBBLE;
 }
-void SymbioticStructuresBody::attemptDamage(DamageInfo &) {} // RW slot 0 is a `ret 4` stub: the symbiotic object itself takes no damage
+void SymbioticStructuresBody::attemptDamage(DamageInfo &) {} // RW slot 0 (0x009F3A3C) is a `ret 4` stub: the symbiotic object itself takes no damage
+// RW 0x008C4F62
 void SymbioticStructuresBody::attemptHealing(DamageInfo &info)
 {
 	if (BodyModuleInterface *b = symbioteBody())
@@ -720,12 +730,49 @@ void SymbioticStructuresBody::attemptHealing(DamageInfo &info)
 		b->attemptHealing(info);
 	}
 }
+// RW 0x008C51BC
 float SymbioticStructuresBody::estimateDamage(const DamageInfoInput &input) const
 {
 	BodyModuleInterface *b = symbioteBody();
 	return b ? b->estimateDamage(input) : 0.0f;
 }
-// RW body vslots 0x40 / 0x44 forward to the resolved symbiote (RW 0x8C4FD7 / 0x8C5100).
+// RW 0x008C52DB (body vslot +0x8C)
+bool SymbioticStructuresBody::isIndestructible() const
+{
+	BodyModuleInterface *b = symbioteBody();
+	return b ? b->isIndestructible() : false;
+}
+// RW 0x008C5250 (body vslot +0x90)
+float SymbioticStructuresBody::getDodgePercent() const
+{
+	BodyModuleInterface *b = symbioteBody();
+	return b ? b->getDodgePercent() : 0.0f;
+}
+// RW 0x008C505F (body vslot +0x74)
+std::string SymbioticStructuresBody::getGrabObjectName() const
+{
+	BodyModuleInterface *b = symbioteBody();
+	return b ? b->getGrabObjectName() : std::string();
+}
+// RW 0x008C4FB5 (body vslot +0x78)
+const std::string *SymbioticStructuresBody::getGrabFXName() const
+{
+	BodyModuleInterface *b = symbioteBody();
+	return b ? b->getGrabFXName() : nullptr;
+}
+// RW 0x008C5284 (body vslot +0x7C)
+float SymbioticStructuresBody::getGrabDamage() const
+{
+	BodyModuleInterface *b = symbioteBody();
+	return b ? b->getGrabDamage() : 0.0f;
+}
+// RW 0x008C5146 (body vslot +0x80)
+Coord2D SymbioticStructuresBody::getGrabOffset() const
+{
+	BodyModuleInterface *b = symbioteBody();
+	return b ? b->getGrabOffset() : Coord2D{};
+}
+// RW body vslots 0x40 / 0x44 forward to the resolved symbiote (RW 0x8C4FD7 / 0x008C5100).
 bool SymbioticStructuresBody::lastDamageRecordType(int &type) const
 {
 	BodyModuleInterface *b = symbioteBody();
@@ -736,6 +783,7 @@ bool SymbioticStructuresBody::lastDamageRecordNoEffect(bool &noEffect) const
 	BodyModuleInterface *b = symbioteBody();
 	return b && b->lastDamageRecordNoEffect(noEffect);
 }
+// RW 0x008C5100 (body vslot +0x44)
 UnsignedInt SymbioticStructuresBody::lastDamageFrame() const
 {
 	BodyModuleInterface *b = symbioteBody();
@@ -1030,6 +1078,7 @@ void RubbleRiseUpdate::crc(StateHasher &h) const
 }
 
 // ---- lane SAVE-4b: the snapshots (OpenBFME native, S-4190: each class's fields in its crc's order) ---------------------------------------------------
+// RW 0x008C4BB2
 void StructureBody::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);
@@ -1075,6 +1124,7 @@ void RespawnBody::xfer(Xfer &x)
 	ActiveBody::xfer(x);
 }
 
+// RW 0x008C5976 (OpenBFME native snapshot order, S-4190)
 void DelayedDeathBody::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);
@@ -1083,6 +1133,7 @@ void DelayedDeathBody::xfer(Xfer &x)
 	x.xferBool(&m_checked);
 }
 
+// RW 0x008C4C07
 void SymbioticStructuresBody::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

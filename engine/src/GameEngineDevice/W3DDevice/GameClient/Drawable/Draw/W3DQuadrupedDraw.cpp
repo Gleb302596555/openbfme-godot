@@ -1,8 +1,12 @@
 // OpenBFME. GPL-3.0. See W3DQuadrupedDraw.h for RotWK 2.01 binary facts.
+// TARGET RW 0x004C97E6 getModuleNameKey, RW 0x004C982B GetSnapshotName, RW 0x004C984A xfer,
+// RW 0x004C9892 scalar deleting dtor, RW 0x004CA6F0 loadPostProcess.
 
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DQuadrupedDraw.h"
 
 #include "Common/AsciiString.h"
+#include "Common/Xfer.h"
+#include "GameLogic/SnapshotXfer.h"
 #include "GameClient/DrawableLaunchBones.h"
 
 W3DQuadrupedDraw::W3DQuadrupedDraw(const W3DQuadrupedDrawModuleData &data, W3DDrawAssets &assets, W3DDrawRandom &random,
@@ -148,4 +152,10 @@ bool W3DQuadrupedDraw::getFootLocations(std::vector<Coord3D> &feet, bool worldSp
 	}
 
 	return true;
+}
+
+void W3DQuadrupedDraw::xfer(Xfer &x)
+{
+	// RW 0x004C984A (DONOR BFME2 0x000CA137): version(1, 1) + W3DScriptedModelDraw::xfer
+	SnapshotXfer::version(x, 1, 1);
 }

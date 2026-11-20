@@ -360,6 +360,16 @@ void DrawableManager::applyEvents(const std::vector<ClientEvent> &events)
 				if (ev.hasHouseColor) d->setHouseColor(ev.houseColor);
 				d->setScriptTarget(ev.scriptTarget); // lane FX-3: before the flush runs the state scripts
 				d->flushModelConditions(ev.hasWeaponTiming, ev.weaponTimingFrames, ev.immediate);
+				if (!ev.deferredSubObjects.empty() || ev.hasDeferredIndicatorColor || ev.hasDeferredHouseColor)
+				{
+					std::vector<Drawable::DeferredSubObject> subs;
+					subs.reserve(ev.deferredSubObjects.size());
+					for (const auto &s : ev.deferredSubObjects)
+					{
+						subs.push_back({ s.name, s.visible, s.permanent });
+					}
+					d->applyOrDeferCapturePresentation(std::move(subs), ev.hasDeferredIndicatorColor, ev.deferredIndicatorColor, ev.hasDeferredHouseColor, ev.deferredHouseColor);
+				}
 			}
 			break;
 		case ClientEvent::CUSTOM_COLORS: // lane CAH-2 (RW 0x80AF0B -> 0x6727B0)
@@ -580,6 +590,7 @@ void DrawableManager::advance(double elapsedMs)
 				d->advanceAnimation(elapsedMs);
 			}
 			d->updateFade(elapsedMs); // lane PROJ-2: RW 0x675AB7 (DrawableFade.cpp)
+			d->advanceTerrainDecal(m_logic.getFrame()); // Local 89 (#715): RW 0x675C25 .. 0x675D1E, the terrain decal's fade
 		}
 	}
 
@@ -610,6 +621,9 @@ void DrawableManager::advance(double elapsedMs)
 				d->updateTint(); // LOCAL-3: RW 0x675D8B .. 0x675F8A (Drawable.cpp)
 				// lane STEALTHLOOK-1: RW 0x673114 (GameClient/StealthLook.cpp, updateDrawable RW 0x675996)
 				d->updateStealthLook(d->stealthParentId() != INVALID_ID ? findByObject(d->stealthParentId()) : nullptr);
+				// PORT-267: the floor module's doDrawModule (RW 0x4CEBCA) and the floor buffer's record step (RW 0x4E547D -> RW 0x4E3EC5), per
+				// client frame like RW's draw module update and its buffer walk
+				d->updateFloorFades();
 			}
 		}
 	}
@@ -1126,6 +1140,11 @@ DrawableManager::Report DrawableManager::report(const LogicSnapshot *presented) 
 	r.scriptsRun = m_services.host.scriptsRun();
 	for (const std::string &f : m_services.host.failures())
 	{
+		if (isLuaSyntaxAlert(f)) // retail drops it (RW 0x734E41): a data defect of the mod's script text, not a failed load
+		{
+			++r.dataDefects["BeginScript does not compile (retail drops the alert, RW 0x734E41): " + f.substr(0, f.find("  in: "))];
+			continue;
+		}
 		r.errors.push_back("BeginScript failed: " + f);
 	}
 	for (const LuaReportSink::Entry &e : m_services.host.reports().entries())

@@ -91,6 +91,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// Local 87: RW 0x008C657D (getModuleName), RW 0x008C6588 (getModuleNameKey), RW 0x006548BC / RW 0x008C6697 (dtors), RW 0x008C6583 (base dtor thunk), RW 0x004B612F (empty-string helper).
 class InvisibilitySpecialPower : public SpecialPowerModule
 {
 public:

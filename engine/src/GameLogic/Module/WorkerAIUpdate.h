@@ -92,6 +92,10 @@ public:
 	UpdateSleepTime update() override; // RW 0x8AE020
 
 	SupplyTruckAIInterface *getSupplyTruckAIInterface() override { return this; }
+
+	// lane PORT-282: RW 0x8AD2D3, the worker's own repair order (the dozer interface's slot 0xB0; DozerAIUpdate's is RW 0x88BD8D). The ActionManager's test,
+	// then - unless the worker is a SWARM_DOZER - the slot 0x50 test and the structure's sole healer; then a REPAIR task on the ordered structure.
+	bool repair(Object &structure) override;
 	const SupplyTruckAIInterface *getSupplyTruckAIInterface() const override { return this; }
 	WorkerAIInterface *getWorkerAIInterface() override { return this; }
 

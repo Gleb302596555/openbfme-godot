@@ -955,7 +955,21 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 	// pin: batch 2026-11-17a, Port 237 (#596: death / create modules, ObjectCreationList, OCLUpdate), measured once on the batch tree (Linux GCC on
 	// Colab); merge-point bisect: 6e3b8a16 (before #596) keeps the old values, 2ce6a623 (with it) moves them: seed 7 stays open at 9000 (was Mordor's
 	// defeat at 3367), seed 2 a new table from the first window on, seed 1234 open at 9000 as before
-	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, -1, -1 }, Game{ "FactionMen", "FactionMordor", 7u, -1, -1 }, Game{ "FactionMordor", "FactionMen", 1234u, -1, -1 } })
+	// pin: PR #619 (Port 226, #549) merged onto main 026fbc2f, measured once on the merged tree (Linux GCC on Colab): every fifth idle update of a unit with a StancesBehavior returns FAILURE (RW 0x7553AB -> RW 0x7537C7 / 0x7537E0), the unit goes to AIGoingIdleState -> onMoveEnd -> guardHere (RW 0x743864 -> 0x86228E -> RW 0x662A21): a guard machine main did not run: seed 2 ends with Mordor's defeat (start position 0) at 8197 (was open at 9000), seeds 7 and 1234 stay open at 9000
+	// pin: the landing of 2026-11-19 (the four local stations, PRs #681 / #682 / #683 / #709), measured on the merged tree and on main 4e9f0ad7 alone
+	// (Windows MSVC): both give the same three games, so the local PRs do not move them; main was already red here (the checker on Colab saw it red on
+	// main since 2026-11-18; an earlier landing moved it, not identified): seed 1234 ends with Mordor's defeat (start position 0) at 8887 (was open at
+	// 9000), seed 2 ends with Mordor's defeat at 8197 as before, seed 7 stays open
+	// pin: the PC batch of 2026-11-19 (batch 19f, Ports 300, 294, 270, 275, 459, 282, 272, 241, 277, 280, 136), measured on the merged tree (Windows MSVC)
+	// and bisected over its merge points (green after batch 19f, after Port 294 #723, red after PORT-459 #653): PORT-459's DualWeaponBehavior victim search
+	// (RW 0x85E0C2 -> RW 0x701443 flags 0x62: CAN_ATTACK | UNFOGGED | AUTO_ACQUIRE through the ported RW 0x7006D7 instead of the closest visible enemy)
+	// and its FiringTracker reset at the weapon mode's start (RW 0x8984B7): seed 2 stays open at 9000 (was Mordor's defeat at 8197), seed 7 ends with
+	// the Men's defeat (start position 1) at 4465 (was open), seed 1234 ends with Mordor's defeat at 5359 (was 8887)
+	// pin: the fork's merge of upstream 4a8d8272 (2026-11-19: lanes BUILDCLEAR-1, THREATLEVEL-1, PRs #325 / #340), measured once on the merged tree
+	// (Windows MSVC): BUILDCLEAR-1's isLocationClearOfObjects (RW 0x796D37, the options in RotWK's numbering) changes where the computer players place
+	// their structures (upstream's own perf1 pin names the same move); seed 7 still ends with the Men's defeat, now at 4571 (was 4465); seeds 2 and
+	// 1234 keep their results
+	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, -1, -1 }, Game{ "FactionMen", "FactionMordor", 7u, 1, 4571 }, Game{ "FactionMordor", "FactionMen", 1234u, 0, 5359 } })
 	{
 		INFO(g.a << " vs " << g.b << " seed " << g.seed);
 		VersusRun run;
@@ -1010,16 +1024,18 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 			// pin: the fork's merge of upstream 1d505ac3 (2026-11-13, measured once on the merged tree, Windows MSVC): a new table from the first window on; the three games stay open at 9000
 			// pin: the landing of 2026-11-17 (see above; main dbea96b5 already gave this table): a new table from the first window on; open at 9000
 			// pin: batch 2026-11-17a, Port 237 (#596; see above): a new table from the first window on; open at 9000
+			// pin: PR #619 (Port 226, #549) merged onto main 026fbc2f, measured once on the merged tree (Linux GCC on Colab): every fifth idle update of a unit with a StancesBehavior returns FAILURE (RW 0x7553AB -> RW 0x7537C7 / 0x7537E0), the unit goes to AIGoingIdleState -> onMoveEnd -> guardHere (RW 0x743864 -> 0x86228E -> RW 0x662A21): a guard machine main did not run: a new table from the first window on, ending at 8000 (the game ends at 8197)
+			// pin: the PC batch of 2026-11-19 (PORT-459 #653, see above): a new table from the first window on; the game stays open at 9000
 			CHECK(run.progress ==
-			"frame 1000: [0 attacks 1 built 70u/8s destroyed 24u/1s] [1 attacks 3 built 81u/7s destroyed 8u/1s]\n"
-			"frame 2000: [0 attacks 3 built 226u/10s destroyed 177u/1s] [1 attacks 4 built 242u/10s destroyed 123u/2s]\n"
-			"frame 3000: [0 attacks 5 built 388u/12s destroyed 335u/2s] [1 attacks 7 built 430u/11s destroyed 311u/2s]\n"
-			"frame 4000: [0 attacks 9 built 590u/14s destroyed 458u/2s] [1 attacks 10 built 571u/15s destroyed 457u/4s]\n"
-			"frame 5000: [0 attacks 11 built 813u/16s destroyed 591u/3s] [1 attacks 11 built 684u/17s destroyed 744u/5s]\n"
-			"frame 6000: [0 attacks 13 built 1028u/19s destroyed 742u/6s] [1 attacks 14 built 812u/19s destroyed 962u/6s]\n"
-			"frame 7000: [0 attacks 17 built 1227u/22s destroyed 815u/7s] [1 attacks 15 built 908u/22s destroyed 1218u/7s]\n"
-			"frame 8000: [0 attacks 19 built 1454u/24s destroyed 976u/7s] [1 attacks 16 built 1062u/23s destroyed 1398u/9s]\n"
-			"frame 9000: [0 attacks 21 built 1622u/24s destroyed 1134u/7s] [1 attacks 17 built 1221u/25s destroyed 1578u/9s]\n");
+			"frame 1000: [0 attacks 1 built 71u/7s destroyed 22u/1s] [1 attacks 2 built 75u/8s destroyed 20u/1s]\n"
+			"frame 2000: [0 attacks 2 built 200u/10s destroyed 143u/2s] [1 attacks 4 built 229u/10s destroyed 133u/2s]\n"
+			"frame 3000: [0 attacks 3 built 402u/12s destroyed 263u/2s] [1 attacks 6 built 325u/12s destroyed 303u/4s]\n"
+			"frame 4000: [0 attacks 5 built 553u/15s destroyed 371u/4s] [1 attacks 8 built 429u/15s destroyed 440u/4s]\n"
+			"frame 5000: [0 attacks 8 built 636u/18s destroyed 425u/4s] [1 attacks 10 built 515u/19s destroyed 495u/8s]\n"
+			"frame 6000: [0 attacks 14 built 708u/22s destroyed 544u/4s] [1 attacks 12 built 655u/22s destroyed 622u/9s]\n"
+			"frame 7000: [0 attacks 16 built 809u/24s destroyed 650u/4s] [1 attacks 14 built 808u/24s destroyed 730u/9s]\n"
+			"frame 8000: [0 attacks 18 built 1006u/24s destroyed 822u/4s] [1 attacks 16 built 972u/24s destroyed 945u/9s]\n"
+			"frame 9000: [0 attacks 27 built 1159u/27s destroyed 1005u/4s] [1 attacks 17 built 1108u/24s destroyed 1106u/14s]\n");
 		}
 	}
 }

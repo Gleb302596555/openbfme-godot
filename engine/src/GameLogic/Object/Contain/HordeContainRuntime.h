@@ -41,6 +41,7 @@
 #include <vector>
 
 class HordeContainCore;
+class UpgradeTemplate;
 class ThingTemplate;
 struct ComboHordeEntry;
 struct HordeContainModuleData;
@@ -208,6 +209,14 @@ public:
 	virtual bool isPorcupineFormation() const = 0;                 ///< slot 0xF0 (RW 0x872BB8): module data + 0x238
 	virtual bool canToggleFormationHorde() const = 0;              ///< slot 0x5C (RW 0x8700AC): canToggleFormation through the interface
 	virtual HordeContainInterface *toggleFormationHorde() = 0;     ///< slot 0x60 (RW 0x86C7F6): toggleFormation through the interface
+	// ---- lane PORT-199 (issue #466): the two slots GiveUpgradeUpdate's delivery asks a horde (declared LAST so no earlier declared order moves) ----
+	// slot 0xAC (RW 0x86ECAB): a contained member, or a member still on its way into a garrison (the id map at interface + 0x54), answers
+	// Object::affectedByUpgrade (RW 0x694914) for the upgrade; the first true member answers for the horde
+	virtual bool affectedByUpgrade(const UpgradeTemplate *upgrade) const = 0;
+	// slot 0xB8 (RW 0x871A90): the horde object takes the upgrade itself (RW 0x69388B), then every member: with `allMembers` all of them,
+	// otherwise only the members that are affectedByUpgrade; every member that takes it flashes (RW 0x871B0F -> RW 0x70E013, the grey
+	// 0.99 colour at RW 0xBE53BC, pushed as `push 0xf; push 4; push 4` at RW 0x871B18)
+	virtual void giveUpgrade(const UpgradeTemplate *upgrade, bool allMembers) = 0;
 };
 
 class HordeContain : public UpdateModule, public ContainModuleInterface, public CreateModuleInterface, public HordeContainInterface
@@ -289,6 +298,9 @@ public:
 	void exitContainer(Object *container, int source) override;
 	void releaseMembersToward(Object *container, int source) override;
 	std::vector<ObjectID> membersEntering() const override { return std::vector<ObjectID>(m_garrisonEntering.begin(), m_garrisonEntering.end()); }
+	// lane PORT-199: HordeContainInterface slots 0xAC / 0xB8 (RW 0x86ECAB / 0x871A90)
+	bool affectedByUpgrade(const UpgradeTemplate *upgrade) const override;
+	void giveUpgrade(const UpgradeTemplate *upgrade, bool allMembers) override;
 	void setMembersTeam(Team *team) override;
 	// lane GARRISON-3 (HordeGarrisonLink.cpp)
 	void recentreOnMembers(Object *about) override;
@@ -340,6 +352,9 @@ public:
 	bool canSplit() const;
 	// lane MODGAP-2: slot 0x1F8 (RW 0x8791C5; BFME2 0x875F61): the members go to new hordes by the SplitHorde rows, this horde is destroyed (stop S-6004)
 	void splitHorde();
+	// PORT-265 (fork issue 613): RW 0x86DF44, the class's own slot +0x7C of the update. RW 0x86DFB5 .. 0x86E09A: the split of a horde that holds no
+	// more members than SplitHordeNumber (data + 0x258) and whose experience tracker rank is at most 1; true when the horde split (the update then ends).
+	bool splitHordeIfDue();
 	static const char *splitStopLine();
 	// contain slot 0x110 (RW 0x87055D): the first member of the contain list, else the first member on its way into a garrison, else null
 	Object *firstMember() const;

@@ -195,7 +195,6 @@ Object *HeroSystem::produce(GameLogic &logic, Player &player, std::uint32_t prod
 		return nullptr;
 	}
 	const HeroRecord r = *found; // RW 0x78147B: a copy (the list entry is erased at the end)
-	const size_t index = (size_t)(found - list.records().data());
 	const ThingTemplate *tt = logic.things().findTemplate(r.templateName);
 	if (!tt)
 	{
@@ -259,7 +258,13 @@ Object *HeroSystem::produce(GameLogic &logic, Player &player, std::uint32_t prod
 	{
 		obj->addAttributeModifier("SpellBookAnduril", -1);
 	}
-	list.erase(index); // RW 0x7813FF: the first record with the production id
+	// RW 0x7813FF: the first record with the production id, looked up NOW: the object's creation above runs its modules and upgrade checks
+	// (ObjectCreationUpgrade::postUpgradeCheck, BuildableHeroListUpgrade's removal -> PlayerHeroList::removePurchase), which can change the
+	// list, so the index taken before it may name another record or none (factb heroes crashed freeing a record's string, 2026-11-19)
+	if (const HeroRecord *still = list.findByProductionID(productionID))
+	{
+		list.erase((size_t)(still - list.records().data()));
+	}
 	return obj;
 }
 
@@ -285,9 +290,9 @@ std::vector<std::string> HeroSystem::stopLines()
 		"list's order: as an applied modifier can grant an upgrade at once (a CostModifierUpgrade appends to the player's ordered list), that order can change "
 		"shared player state); lane TAINTAREA-1 ported the TAINT / ELVEN_WOOD condition (RW 0x89F200, BFME2 0x49B98A) on TheTaintManager (RW 0xAD49B0) and the "
 		"destructor's radius clear of a TAINT object (RW 0x89EE67 -> 0x683393)",
-		"[S-858] AutoHealBehavior: not ported: NonStackable (the body's last heal frame, body vslot 0x48: the heal stacks), AffectsWholePlayer (no retail use), "
+		"[S-858] AutoHealBehavior: not ported: AffectsWholePlayer (no retail use), "
 		"Object + 0x458 bit 3 in the eligibility, the contain's FX flag; the combat and recent "
-		"damage tests of RW 0x855533 read the healer (verified)",
+		"damage tests of RW 0x855533 read the healer (verified); NonStackable is ported (PORT-293: the body's last-heal frame, body vslot 0x48, RW 0x855797)",
 	};
 	for (const std::string &l : SpecialAbilityModules::stopLines())
 	{

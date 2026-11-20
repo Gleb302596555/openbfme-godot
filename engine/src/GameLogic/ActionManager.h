@@ -71,6 +71,8 @@ bool unitCostMet(const Object &obj, const SpecialPowerTemplate &t);
 bool canDoSpecialPowerAtLocation(Object &obj, const CommandButton &button, const Coord3D &loc);
 // lane MODCOMPAT-AI: RW 0x75CF21 with no target object and no location (TEAM_PARTIAL_USE_COMMANDBUTTON, RW 0x7C7D95, source 1)
 bool canUseCommandButton(Object &obj, const CommandButton &button);
+// RW 0x75CF21 with target != null and loc == null (PartitionFilterValidCommandButtonTarget RW 0x6611FD, NAMED_USE_COMMANDBUTTON_ON_NEAREST_KINDOF RW 0x7BE6EE)
+bool canUseCommandButtonAtObject(Object &obj, const CommandButton &button, Object &target, CommandSourceType source);
 // RW 0x82DFB7(obj, loc, 0, power, 0, options, 0); lane SPELL-4: `unported` (when given) is set when the answer no came from a per-type test this file does
 // not port (S-1874), not from a test that was run
 bool canDoSpecialPowerAtLocation(Object &obj, const Coord3D &loc, const SpecialPowerTemplate *power, unsigned options, bool *unported = nullptr);
@@ -104,7 +106,7 @@ EnterMessage getEnterMessage(const Object &target, const std::vector<const Objec
 int finalTestKind(int type);
 bool targetlessTypeAccepted(int type);
 
-// diagnostics (not state): the tests that ran into an unported part (S-1871 .. S-1874), by the power type of RW 0x82DFB7's per-type tests
+// diagnostics (not state): the tests that ran into an unported part (S-1872 .. S-1874), by the power type of RW 0x82DFB7's per-type tests
 struct Stats
 {
 	unsigned long long fireWeaponButtons = 0, movingOnLayer = 0, typeTests = 0;

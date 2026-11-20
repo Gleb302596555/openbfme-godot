@@ -1,4 +1,5 @@
-// OpenBFME. GPL-3.0. See GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DDebrisDraw.h (issue #285, LOCAL-35).
+// OpenBFME. GPL-3.0. See GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DDebrisDraw.h (issue #285, LOCAL-35; Local 88 #714).
+// TARGET RW 0x004B15BC getModuleNameKey, RW 0x004B1601 GetSnapshotName, RW 0x004B17F4 scalar deleting destructor.
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DDebrisDraw.h"
 
 #include "Common/AsciiString.h"
@@ -26,21 +27,43 @@ W3DDebrisDraw::W3DDebrisDraw(Thing *thing, const W3DDebrisDrawModuleData *data)
 {
 }
 
-void W3DDebrisDraw::setModelName(const std::string &name, std::int32_t color, int /*shadowType*/)
+void W3DDebrisDraw::setShadowsEnabled(bool enable)
 {
-	// RW 0x4B15E1 side (donor setModelName 0x000B1EEB): the model is loaded and added to the scene only when no model is set
-	// yet and the name is not empty. The RenderObj / scene add / shadow are the renderer's (stop S-7101).
+	// RW 0x004B12FE (DONOR BFME2 0x000B19D9, W3DDebrisDrawLegacy.cpp): sets m_shadow->enableShadowRender(enable)
+	m_shadowsEnabled = enable;
+}
+
+void W3DDebrisDraw::setFullyObscuredByShroud(bool fullyObscured)
+{
+	// RW 0x004B130F (DONOR BFME2 0x000B19EA, W3DDebrisDrawLegacy.cpp): sets m_shadow->enableShadowInvisible(fullyObscured)
+	m_fullyObscuredByShroud = fullyObscured;
+}
+
+void W3DDebrisDraw::reactToTransformChange(const Coord3D * /*oldPos*/, float /*oldAngle*/)
+{
+	// RW 0x004B1339 (DONOR BFME2 0x000B1A14, W3DDebrisDrawReactToTransformChange.cpp): forwards drawable transform matrix to m_renderObject
+	if (!m_modelName.empty())
+	{
+		++m_transformChanges;
+	}
+}
+
+void W3DDebrisDraw::setModelName(const std::string &name, std::int32_t color, int shadowType)
+{
+	// RW 0x004B1810 (DONOR BFME2 0x000B1EEB, W3DDebrisDrawSetModelName.cpp): the model is loaded and added to the scene only when no model is set
+	// yet and the name is not empty.
 	if (!m_modelName.empty() || name.empty())
 	{
 		return;
 	}
 	m_modelName = name;
 	m_modelColor = color;
+	m_shadowType = shadowType;
 }
 
 void W3DDebrisDraw::setAnimNames(const std::string &initial, const std::string &flying, const std::string &final)
 {
-	// RW donor setAnimNames 0x000B207F: "STOP" means the final animation is the flying one frozen on its last frame.
+	// RW 0x004B19A4 (DONOR BFME2 0x000B207F): "STOP" means the final animation is the flying one frozen on its last frame.
 	std::string finalName = final;
 	if (AsciiStringUtil::compareNoCase(final, "STOP") == 0)
 	{
@@ -60,7 +83,7 @@ void W3DDebrisDraw::setAnimNames(const std::string &initial, const std::string &
 
 W3DDebrisDrawStep W3DDebrisDraw::advance(bool isAboveTerrain, bool animationComplete)
 {
-	// RW 0x4B15E1 doDrawModule (donor 0x000B1A37). No model -> nothing is drawn and the machine does not advance.
+	// RW 0x004B135C doDrawModule (DONOR BFME2 0x000B1A37). No model -> nothing is drawn and the machine does not advance.
 	W3DDebrisDrawStep step;
 	if (m_modelName.empty())
 	{
@@ -97,13 +120,28 @@ W3DDebrisDrawStep W3DDebrisDraw::advance(bool isAboveTerrain, bool animationComp
 
 void W3DDebrisDraw::xfer(Xfer &x)
 {
-	// RW donor W3DDebrisDraw.cpp xfer: model name / colour, the three anim names, then the state, frames and final-stop flag.
+	// RW 0x004B16E8 (DONOR BFME2 0x000B1DC3, W3DDebrisDrawXfer.cpp): calls DrawModule::xfer, then version(1, 1),
+	// xfers m_modelName, m_modelColor (calls setModelName on load), xfers m_animInitial, m_animFlying, m_animFinal
+	// (calls setAnimNames on load), then xfers m_state, m_frames, m_finalStop.
 	SnapshotXfer::version(x, 1, 1);
-	x.xferAsciiString(&m_modelName);
+	std::string loadedModel = m_modelName;
+	x.xferAsciiString(&loadedModel);
 	x.xferInt(&m_modelColor);
-	x.xferAsciiString(&m_animInitial);
-	x.xferAsciiString(&m_animFlying);
-	x.xferAsciiString(&m_animFinal);
+	if (x.isLoading())
+	{
+		m_modelName.clear();
+		setModelName(loadedModel, m_modelColor, 0);
+	}
+	std::string loadedInitial = m_animInitial;
+	std::string loadedFlying = m_animFlying;
+	std::string loadedFinal = m_animFinal;
+	x.xferAsciiString(&loadedInitial);
+	x.xferAsciiString(&loadedFlying);
+	x.xferAsciiString(&loadedFinal);
+	if (x.isLoading())
+	{
+		setAnimNames(loadedInitial, loadedFlying, loadedFinal);
+	}
 	x.xferInt(&m_state);
 	x.xferInt(&m_frames);
 	x.xferBool(&m_finalStop);
@@ -123,6 +161,7 @@ void W3DDebrisDraw::crc(StateHasher &hasher) const
 
 void W3DDebrisDraw::registerClass(ModuleFactory &modules)
 {
+	// RW 0x004B15BC getModuleNameKey / RW 0x004B1601 GetSnapshotName
 	modules.bindTypedData<W3DDebrisDrawModuleData>("W3DDebrisDraw", MODULETYPE_DRAW);
 	modules.bindModuleProc("W3DDebrisDraw", MODULETYPE_DRAW,
 		[](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &) -> std::unique_ptr<Module> {

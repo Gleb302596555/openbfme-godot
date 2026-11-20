@@ -1,4 +1,7 @@
-// OpenBFME. GPL-3.0. See W3DStreakDraw.h (RW 0x4CFD13 / 0xBE39F8 / 0x4CF884, donor BFME1 0x77D6B0).
+// OpenBFME. GPL-3.0. See W3DStreakDraw.h (RW 0x004CFD13 / 0x00BE39F8 / 0x004CF884, donor BFME1 0x77D6B0).
+// TARGET RW 0x004B1B3F xfer, RW 0x004B612F getModelName, RW 0x004CF73F setHidden, RW 0x004CF839 getModuleNameKey,
+// RW 0x004CF87E GetSnapshotName, RW 0x004CFC30 scalar deleting dtor, RW 0x004CFC4C reactToTransformChange,
+// RW 0x004CFC54 doDrawModule, RW 0x004CFE66 ModuleData scalar deleting dtor.
 
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DStreakDraw.h"
 

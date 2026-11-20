@@ -151,3 +151,50 @@ bool AIUpdateInterface::aiGuardTunnelNetwork(int mode, CommandSourceType source)
 	wakeUpNow();
 	return true;
 }
+
+// Local 84: RW 0x00664B19 privateGuardObject (AICMD 0x1F, AI vslot 64 / +0x100):
+// rejects null target, HORDE_MEMBER (status 0x26), !isMobile (RW 0x690E97), or PROJECTILE (template +0x10B bit 1);
+// writes GUARDTARGET_OBJECT (1) to +0x54 when NONE (else +0x50), sets +0x4C = mode and +0x64 = target->getID(),
+// clears machine, sets +0x48 = source, enters AI_GUARD (0x10).
+bool AIUpdateInterface::aiGuardObject(Object *target, int mode, CommandSourceType source)
+{
+	if (!target)
+	{
+		return false;
+	}
+	if (!acceptCommand(source, 0x1F))
+	{
+		return false; // RW 0x667174
+	}
+	Object &obj = *getObject();
+	if (obj.testStatus((unsigned)CombatNames::statuses().hordeMember) || !GarrisonRules::isMobile(obj) ||
+		obj.isKindOf((unsigned)CombatNames::kinds().projectile))
+	{
+		return false; // RW 0x00664B20 .. 0x00664B47
+	}
+	const bool none = m_guardTargetType == 4 ||
+		(m_guardMode == 0 && m_guardTargetType == 0 && m_guardLocation.x == 0.0f && m_guardLocation.y == 0.0f && m_guardLocation.z == 0.0f && m_guardObject == INVALID_ID);
+	if (none)
+	{
+		m_guardTargetType = GUARDTARGET_OBJECT; // RW 0x00664B52: + 0x54 = 1
+	}
+	else
+	{
+		m_guardTargetTypeNext = GUARDTARGET_OBJECT; // RW 0x00664B5B: + 0x50 = 1
+	}
+	m_guardMode = mode;                // RW 0x00664B69: + 0x4C
+	m_guardObject = target->getID();   // RW 0x00664B73: + 0x64
+	m_machine->clear();                // RW 0x00664B78: vslot 0x14
+	setLastCommandSource(source);      // RW 0x00664B82: + 0x48
+	m_machine->setState(AI_GUARD);     // RW 0x00664B89: setState(0x10)
+	wakeUpNow();
+	return true;
+}
+
+// Local 84: RW 0x0066ECEB clearGuardTargetType (AI vslot 124 / +0x1F0):
+// shifts m_guardTargetType (+0x54) = m_guardTargetTypeNext (+0x50) and sets +0x50 = 4 (GUARDTARGET_NONE).
+void AIUpdateInterface::clearGuardTargetType()
+{
+	m_guardTargetType = m_guardTargetTypeNext; // RW 0x0066ECEE
+	m_guardTargetTypeNext = 4;                 // RW 0x0066ECF1: GUARDTARGET_NONE
+}

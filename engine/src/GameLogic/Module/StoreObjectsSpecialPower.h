@@ -13,6 +13,7 @@ public:
     static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// Local 87: RW 0x008D1DD3 (getModuleName), RW 0x008D1DD9 (getModuleNameKey), RW 0x008D1E77 (data dtor).
 class StoreObjectsSpecialPower : public SpecialAbilityUpdate {
 public:
     OBFME_MODULE_XFER(StoreObjectsSpecialPower)

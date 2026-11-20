@@ -16,6 +16,16 @@
 //     for ToggleOnSleepFrames frames (RW 0x68B581); a horde repeats each on its members. Turned off: the ToggleOff modifier and the disabled frames
 //     the same way with the Off fields, no special model condition. Then the SpecialPowerModule base (RW 0x8980A3).
 //   * the target / location forms are the base class's (the button has no target).
+// Port 256 (fork issue 604): the class's own map rows that carried no citation, classified by reading them (RW_FUNCTION_MAP depth 0):
+//   0x8C82AD / 0x8C83BA  the scalar deleting destructors of the module (RW 0x8C82C9, the three vtable stores, then operator delete RW 0x42F6A0) and of the data
+//                       (RW 0x8C83D6) -- the port's implicit destructors;
+//   0x8C82A7 / 0x8C82FA  the static type descriptor accessor (returns RW 0xC0A8A0) and its one-shot initializer (RW 0x5487EC): no game code calls them;
+//   0x8C6583            jmp RW 0x8972B2, the base module's slot (already cited from the base);
+//   0x8C6606            the xfer override: version (1, 1) RW 0x404F15 then the base RW 0x89679D -- the port's xfer();
+//   0x8C82E2 / 0x8C82EE  the at-object and at-location forwarders onto slot 0x28 (RW 0x8C8420) -- the port's base class forwarders doSpecialPowerAtObject /
+//                       doSpecialPowerAtLocation, which the class does not override;
+//   0x4B612F            a static helper of the module data that builds a string from the constant RW 0xDC62B8 (RW 0x435F30) and returns its argument;
+//   0x464A09            returns the constant RW 0xBDBA8C, the SAME function in the other ModuleData table RW 0xC651C0: a shared data-class helper, not this class's.
 
 #pragma once
 
@@ -38,12 +48,15 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// Local 87: RW 0x008C82A7 (getModuleName), RW 0x008C82FA (getModuleNameKey), RW 0x008C82AD / RW 0x008C83BA (dtors), RW 0x008C6583 (base dtor thunk), RW 0x004B612F (empty-string helper).
 class WeaponChangeSpecialPowerModule : public SpecialPowerModule
 {
 public:
 	OBFME_MODULE_XFER(WeaponChangeSpecialPowerModule) // lane SAVE-4b: SpecialPowerModule's
 	WeaponChangeSpecialPowerModule(Thing *thing, const WeaponChangeSpecialPowerModuleData *data) : SpecialPowerModule(thing, data), m_data(data) {}
-	void doSpecialPower(unsigned options) override; // RW 0x8C8420
+	void doSpecialPower(unsigned options) override; // RW 0x008C8420
+	void doSpecialPowerAtObject(Object *target, unsigned options) override { (void)target; doSpecialPower(options); } // RW 0x008C82E2
+	void doSpecialPowerAtLocation(const Coord3D &loc, unsigned options) override { (void)loc; doSpecialPower(options); } // RW 0x008C82EE
 
 	static void registerClass(ModuleFactory &modules);
 

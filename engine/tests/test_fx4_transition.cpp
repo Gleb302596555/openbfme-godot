@@ -404,7 +404,7 @@ TEST_CASE("fx4 save: the last damage record's type round-trips in ActiveBody's x
 	XferSave saved;
 	ba->xfer(saved);
 	REQUIRE_FALSE(saved.data().empty());
-	CHECK(saved.data()[0] == 3); // includes the record's noEffect byte
+	CHECK(saved.data()[0] == 4); // includes the record's noEffect byte and PORT-293's last-healing frame (version 4)
 	XferLoad load(saved.data());
 	bb->xfer(load);
 	REQUIRE(load.atEnd());
@@ -417,10 +417,11 @@ TEST_CASE("fx4 save: the last damage record's type round-trips in ActiveBody's x
 	XferSave again;
 	bb->xfer(again);
 	CHECK(again.data() == saved.data());
-	// version 2 (before Local 30): without the trailing noEffect byte (loads cleanly with default false)
+	// version 3 (before PORT-293): without the trailing last-healing frame, then version 2 (before Local 30): also without the noEffect byte
+	// (both load cleanly with their defaults); PORT-293 added the 4-byte frame after the noEffect byte
 	std::vector<std::uint8_t> v2 = saved.data();
 	v2[0] = 2;
-	v2.pop_back();
+	v2.resize(v2.size() - 5);
 	XferLoad oldV2(v2);
 	bc->xfer(oldV2);
 	REQUIRE(oldV2.atEnd());

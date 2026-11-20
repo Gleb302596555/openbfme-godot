@@ -243,12 +243,13 @@ UpdateSleepTime LargeGroupBonusUpdate::update()
 	{
 		m_lastScan = now;
 		const Player *owner = obj->getControllingPlayer();
-		// RW 0x89396E: RW 0xC0F374 (bit 3: never set), RW 0xC10E20, RW 0xC10E14 (the same controlling player), RW 0xC63870 (a horde with an allowed member)
+		// RW 0x89396E: RW 0xC0F374 (PartitionFilterSameMapStatus RW 0x660E93: same Object + 0x458 bit 3 = isOffMap()), RW 0xC10E20 (not effectively dead),
+		// RW 0xC10E14 (the same controlling player), RW 0xC63870 (a horde with an allowed member)
 		// the filter's member count of each accepted object, kept for the sum below (performance: the hits of an unsorted scan are the accepted objects in
 		// acceptance order, so the count need not be recomputed; the same pure function either way)
 		m_scanCounts.clear();
 		PartitionFilterFn filter([&](Object &o) {
-			if (o.isEffectivelyDead() || o.getControllingPlayer() != owner)
+			if (o.isEffectivelyDead() || o.isOffMap() != obj->isOffMap() || o.getControllingPlayer() != owner)
 			{
 				return false;
 			}

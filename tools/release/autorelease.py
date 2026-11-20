@@ -104,7 +104,9 @@ GHPR_TOP = frozenset({".github", "CONTRIBUTING.md"})
 # REVIEW.md, .greptile/ and .macroscope/ (the review bots' shared rules) are public by the owner's decision of 2026-11-03
 PUBLIC_TOP = frozenset({".gitattributes", ".gitignore", ".gitmodules", ".greptile", ".macroscope", "AGENTS.md", "CLAUDE.md", "LICENSE",
                         "NOTICE", "README.md", "REVIEW.md", "build.bat", "docs", "engine", "godot", "launcher", "pytest.ini",
-                        "run_tests.bat", "services", "tools"} | GHPR_TOP)
+                        "run_tests.bat", "services", "tools"} | GHPR_TOP
+                       # the Ennorath fork's agent rules (Cline .clinerules/, Roo Code .roo/), tracked on purpose (owner 2026-11-14)
+                       | {".clinerules", ".roo"})
 PRIVATE_DIRS = frozenset({"workspace", "archive", "reference", "references"})
 URL = re.compile(r"(?i)\b[a-z][a-z0-9+.-]*://\S*|\bwww\.\S+|\bmailto:\S+")
 # characters that could start emphasis, code or a link in Markdown: replaced by plain look-alikes, never escaped with a backslash (the launcher
@@ -1339,7 +1341,7 @@ BUILTIN_RULES = [
                 r"[A-Za-z]{2,}\b"},
     # operational files by name: deploy notes, the deploy folder (the sync drops it), logs, agent and orchestration files, CI config.
     # BFME2MODE-0: the root AGENTS.md is the public contributor rules for game editions (owner, 2026-10-29); any other AGENTS.md stays refused
-    {"id": "operational-file", "kind": "regex", "paths": True, "allow": ["AGENTS.md"],
+    {"id": "operational-file", "kind": "regex", "paths": True, "allow": ["AGENTS.md", ".clinerules/agents.md"],
      "pattern": r"(?:^|/)DEPLOY[^/]*\.md$|^services/online/deploy/|\.log$|(?:^|/)\.codex|(?:^|/)\.lane-|(?:^|/)orchestration/|"
                 r"(?:^|/)briefs/|(?:^|/)AGENTS\.md$|^\.gitea/|"
                 r"^(?:services|tools/net)/(?:.*/)?[^/]*(?<![a-z0-9])(?:backup|monitor|watch|infra|ops)(?![a-z0-9])[^/]*$"},

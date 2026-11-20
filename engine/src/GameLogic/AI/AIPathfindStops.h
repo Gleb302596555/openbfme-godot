@@ -66,8 +66,8 @@ const char *const kRampNoHeight =
 // S-4857 .. portals (lane WALL-2, AIPathfindPortals.cpp)
 const char *const kPortals =
 	"S-4857 portal waypoints live in the pathfinder (RW: TheTerrainLogic's waypoint list with the map's waypoints; the id counter restarts at each map), a map "
-	"waypoint of a portal type is not registered, the portal search's movement is the caller's locomotor set, and RW 0x68C053's object flag (Object + 0x4AC) is "
-	"never set (S-4851)";
+	"waypoint of a portal type is not registered, the portal search's movement is the caller's locomotor set; RW 0x68C053's object flag (Object + 0x4AC) blocks portal use while set. Retail's writer is HordeContain's transform reaction "
+	"RW 0x871536 -> 0x68C02E, cleared 13 frames later by RW 0x68C05A; the port leaves this shared transient ground override unset (S-4851)";
 const char *const kPortalTable = "S-4857 more than 65534 portal waypoints: the waypoint is not created";
 const char *const kPortalLostHorde =
 	"S-4852 a horde was crossing a portal that was removed: RW classifies its members before / on / after it (HordeContain slot 0x21C) and kills the ones on it; "

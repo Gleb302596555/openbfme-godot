@@ -27,8 +27,9 @@ Claude reads the report, adds what needs judgement (the pin's `// pin:` line, th
 
 `loop` (owner 2026-11-18: "сделать бота постоянным циклом на sb2"; autostart.d/batch.sh starts it, watchdog.py keeps it running, the
 dashboard's Colab 2 card shows it): every 15 minutes, from its installed copy /content/sandbox/batch_bot.py, it
-  - waits while a `run` is going (a hand one too) and while its last green batch is not in origin/main yet: the batch's PRs stay open
-    until Claude lands it, so a next batch would take them again;
+  - waits while a `run` is going (a hand one too); waits STACK_AFTER_S (7 min) for Claude to land its last green batch, then runs the
+    next one on top of that batch (`run --base origin/batch/<last>`, owner 2026-11-18): the unlanded batch's PRs stay claimed, and
+    landing the newest batch lands the ones under it;
   - otherwise runs a batch (`run --name <date><next letter>`, log on the Drive next to the reports) when the checker has --min (3) green
     PRs, or at least one and --idle-hours (2) passed since the last batch;
   - after a batch that did not come out green waits --idle-hours before the next (a red main must not rebuild every 15 minutes);
@@ -53,6 +54,10 @@ WT = Path(os.environ.get("BATCH_TREE", str(REPO / "workspace" / "wt" / "batch"))
 RUNS = Path(os.environ.get("BATCH_RUNS", "/content/drive/MyDrive/openbfme-runs/batch"))
 GH_REPO = "Gleb302596555/openbfme-godot"
 AUTHOR = ["-c", "user.name=Gleb302596555", "-c", "user.email=Gleb302596555@users.noreply.github.com"]
+# what a batch is merged onto: origin/main, or the last green batch Claude has not landed yet (`run --base`, owner 2026-11-18: the loop
+# waited an hour for a landing; after STACK_AFTER_S the next batch goes on top of the unlanded one, and landing the newest lands both)
+BASE = "origin/main"
+STACK_AFTER_S = 7 * 60
 
 # the base set every batch runs (the hand batches 17a-18a): (doctest -tc pattern, short name)
 SUITE = [("perf1*", "perf1"), ("uber1*", "uber1"), ("skirmish?ai?vs?ai*", "aivsai"), ("aiexpand1*", "aiexpand1"),
@@ -67,6 +72,8 @@ PINS = {"perf1*": "OPENBFME_PERF1_REGEN", "uber1*": "OPENBFME_UBER1_REGEN"}
 UNION = {"docs/STOPS.md", "engine/CMakeLists.txt", "docs/stops.d/RESERVED.tsv", "docs/ennorath/NIGHT_WATCH.md", "docs/ennorath/PROBLEMS.md",
          "docs/ennorath/TOP20.md", "docs/ennorath/PR_CANDIDATES.md", "docs/ennorath/MODULE_GAPS.md", "docs/ennorath/TEST_BASELINE.md"}
 RETURNED = re.compile(r"<!-- returned -->|не принят", re.I)
+# pr_checker.py's mark (2026-11-18): the base tests the PR moves (their values differ from main's); empty = a quiet PR
+MOVES = re.compile(r"<!-- prcheck-moves ([^ ]*) ?-->")
 FRAGMENT = re.compile(r"^docs/stops\.d/S-(\d+)\.md$")
 
 
@@ -145,6 +152,8 @@ def verdict(p: dict) -> str:
         return "draft"
     if p["headRefName"].startswith(("claude/", "agent/claude/", "up/", "batch/")):
         return "Claude's own / not an agent PR"
+    if p["headRefName"].startswith("agent/local/"):   # owner 2026-11-19: a local station's PR carries much at once; Claude lands it into main directly
+        return "Local: Claude переносит в main напрямую, без партии"
     head = p["headRefOid"]
     extra = json.loads(gh("pr", "view", str(p["number"]), "--json", "comments,commits"))
     last_commit = max((c.get("committedDate") or "" for c in extra.get("commits") or []), default="")
@@ -172,6 +181,8 @@ def verdict(p: dict) -> str:
     if "❌" in real[-1]["body"]:
         return "red in the checker's report"
     p["_report"] = real[-1]["body"]  # its named pins attribute a moved pin without a bisect (checker_pins)
+    m = MOVES.search(real[-1]["body"])
+    p["_moves"] = [t for t in m.group(1).split(",") if t] if m else None   # None: checked before the mark, treated as quiet
     return "green"
 
 
@@ -233,10 +244,28 @@ def candidates(only: list[int] | None, cap: int = MAX_PRS, own: str = "") -> tup
     for p in prs:
         why = f"уже в партии {held[p['number']]}" if p["number"] in held else verdict(p)
         (take.append(p) if why == "green" else wait.append((p, why)))
+    take, held_back = split_movers(take)
+    wait = held_back + wait
     if cap > 0 and len(take) > cap:   # the oldest green PRs go first; the rest wait for the next batch, with no comment on them
         wait = [(p, f"следующая партия (в партии не больше {cap} PR)") for p in take[cap:]] + wait
         take = take[:cap]
     return take, wait
+
+
+def split_movers(green: list[dict]) -> tuple[list[dict], list[tuple[dict, str]]]:
+    """Owner 2026-11-18: the bisects of moved hash tests made the batches slow (18b: 6.5 hours for 15 PRs). A PR the checker saw move a base
+    test (pr_checker.py's prcheck-moves mark) goes alone: no bisect, its pins are re-measured on it; the quiet ones go together. The oldest
+    green PR decides which kind of batch comes next, so neither kind waits for ever."""
+    if not green:
+        return [], []
+    if green[0].get("_moves"):
+        return [green[0]], [(p, f"следующая партия: #{green[0]['number']} сдвигает хеш-тесты и идёт один") for p in green[1:]]
+    quiet = [p for p in green if not p.get("_moves")]
+    return quiet, [(p, f"сдвигает хеш-тесты ({', '.join(p['_moves'])}): пойдёт отдельной партией") for p in green if p.get("_moves")]
+
+
+def solo_mover(take: list[dict]) -> bool:
+    return len(take) == 1 and bool(take[0].get("_moves"))
 
 
 # ---------------------------------------------------------------- 2-3. merging, stops
@@ -245,16 +274,27 @@ def ensure_tree() -> None:
     RUNS.mkdir(parents=True, exist_ok=True)
     if not (WT / ".git").exists():
         sh(["git", "worktree", "prune"], cwd=REPO)
-        sh(["git", "worktree", "add", "--detach", str(WT), "origin/main"], cwd=REPO, check=True)
+        sh(["git", "worktree", "add", "--detach", str(WT), BASE], cwd=REPO, check=True)
+    # docs/STOPS.md merges by stop id (tools/stops_merge.py, .gitattributes merge=stops; owner 2026-11-19): a conflict left after it is real
+    sh(["git", "config", "merge.stops.driver", "python3 tools/stops_merge.py %O %A %B"], cwd=REPO)
 
 
 def pr_files(n: int) -> list[str]:
-    return git("diff", "--name-only", f"origin/main...refs/batch/{n}").split()
+    return git("diff", "--name-only", f"{BASE}...refs/batch/{n}").split()
 
 
 def next_free_id() -> int:
     out = sh([sys.executable, "tools/fragments.py", "next"], check=True).stdout.strip()
     return int(out.removeprefix("S-"))
+
+
+def pr_added_lines(n: int, f: str) -> list[str]:
+    """The lines PR n adds to file f against the batch's base (the `+` side of its diff, without the header)."""
+    out = []
+    for line in git("diff", f"{BASE}...refs/batch/{n}", "--", f).split("\n"):
+        if line.startswith("+") and not line.startswith("+++"):
+            out.append(line[1:].rstrip("\r"))
+    return out
 
 
 def renumber(n: int, old: int, content: str, why: str, renumbered: list[str]) -> None:
@@ -270,10 +310,47 @@ def renumber(n: int, old: int, content: str, why: str, renumbered: list[str]) ->
             text = p.read_text(encoding="utf-8")
         except UnicodeDecodeError:
             continue
-        if re.search(rf"\bS-{old}\b", text):
-            p.write_text(re.sub(rf"\bS-{old}\b", f"S-{new}", text), encoding="utf-8")
+        if not re.search(rf"\bS-{old}\b", text):
+            continue
+        if f in UNION:
+            # a shared table: only the lines this PR added, never another stop's row (2026-11-18h / i: main already had a row S-7493, #654's
+            # fragment S-7493 went to S-7507, and the global replace renamed main's row too: "S-7507 is already a row")
+            added = set(pr_added_lines(n, f))
+            lines = text.split("\n")
+            for i, line in enumerate(lines):
+                if line in added and not line.startswith(f"| S-{old} |"):
+                    lines[i] = re.sub(rf"\bS-{old}\b", f"S-{new}", line)
+            new_text = "\n".join(lines)
+        else:
+            new_text = re.sub(rf"\bS-{old}\b", f"S-{new}", text)
+        if new_text != text:
+            p.write_text(new_text, encoding="utf-8")
             git("add", f)
     renumbered.append(f"#{n}: S-{old} -> S-{new} ({why})")
+
+
+STOP_ROW = re.compile(r"^\| S-(\d+) \|")
+
+
+def dedupe_rows(merged: str, base: str) -> str | None:
+    """A union merge keeps both versions of a stop row one side edited (2026-11-19e: Port 271 narrowed S-705, main's old row stayed beside it
+    and tools/fragments.py collect refused the landing). Of two rows with one id, the one equal to the base's is the old one and goes; when
+    neither equals it (both sides edited the row) it is a real conflict: None."""
+    old = {m.group(1): line for line in base.splitlines() if (m := STOP_ROW.match(line))}
+    lines = merged.splitlines(keepends=True)
+    seen: dict[str, list[int]] = {}
+    for i, line in enumerate(lines):
+        if m := STOP_ROW.match(line):
+            seen.setdefault(m.group(1), []).append(i)
+    drop = set()
+    for sid, idx in seen.items():
+        if len(idx) < 2:
+            continue
+        stale = [i for i in idx if lines[i].rstrip("\r\n") == old.get(sid)]
+        if len(idx) != 2 or len(stale) != 1:
+            return None
+        drop.add(stale[0])
+    return "".join(line for i, line in enumerate(lines) if i not in drop)
 
 
 def resolve(n: int, pending: list[tuple[int, str]]) -> list[str]:
@@ -286,13 +363,24 @@ def resolve(n: int, pending: list[tuple[int, str]]) -> list[str]:
         elif m:  # add/add of the same stop id: the earlier PR keeps it, this PR's fragment is renumbered after the merge commit
             pending.append((int(m.group(1)), sh(["git", "show", f":3:{f}"]).stdout))
             git("checkout", "-q", "--ours", "--", f)
+        elif f == "docs/STOPS.md":  # tools/stops_merge.py (the merge driver) already merged it by stop id: what is left is a real conflict
+            left.append(f)
+            continue
         elif f in UNION or (f.startswith("engine/cmake/") and f.endswith(".cmake")):
             parts = [sh(["git", "show", f":{k}:{f}"]).stdout for k in (2, 1, 3)]
             tmp = [WT.parent / f".batch-merge{k}" for k in range(3)]
             for t, text in zip(tmp, parts):
                 t.write_text(text, encoding="utf-8")
             sh(["git", "merge-file", "--union", *map(str, tmp)])
-            (WT / f).write_text(tmp[0].read_text(encoding="utf-8"), encoding="utf-8")
+            merged = tmp[0].read_text(encoding="utf-8")
+            if f == "docs/STOPS.md":
+                merged = dedupe_rows(merged, parts[1])
+            if merged is None:  # both sides edited one stop row: a real conflict
+                for t in tmp:
+                    t.unlink()
+                left.append(f)
+                continue
+            (WT / f).write_text(merged, encoding="utf-8")
             for t in tmp:
                 t.unlink()
         else:
@@ -307,7 +395,7 @@ def merge_batch(name: str, prs: list[dict], out: list[int]) -> tuple[list[dict],
     git("fetch", "-q", "origin")
     for p in prs:
         git("fetch", "-q", "origin", f"+pull/{p['number']}/head:refs/batch/{p['number']}")
-    git("checkout", "-q", "-f", "-B", f"batch/{name}", "origin/main")
+    git("checkout", "-q", "-f", "-B", f"batch/{name}", BASE)
     git("clean", "-fdq", "docs", "engine/tests")
     merged, conflicted, renumbered = [], [], []
     for p in prs:
@@ -329,6 +417,19 @@ def merge_batch(name: str, prs: list[dict], out: list[int]) -> tuple[list[dict],
             renumber(n, old, content, "the id an earlier PR of the batch took", renumbered)
         if pending:
             git(*AUTHOR, "commit", "-q", "--no-verify", "-m", f"Batch {name}: #{n}'s stop renumbered (the id an earlier PR took)")
+    # A PR that conflicts with the base itself, not with an earlier PR of the batch, would be taken by every next batch and leave again
+    # (2026-11-19a .. d: #579 #615 #629 #658, checked on an old main, filled the slots for 8 hours and the green PRs behind them waited):
+    # it is marked BASE and goes back to its agent (left_batch).
+    if conflicted:
+        here = git("rev-parse", "HEAD").strip()
+        for i, (p, why) in enumerate(conflicted):
+            git("checkout", "-q", "-f", "--detach", BASE)
+            tried = sh(["git", *AUTHOR, "merge", "-q", "--no-ff", "--no-commit", "--no-verify", f"refs/batch/{p['number']}"])
+            if tried.returncode and resolve(p["number"], []):
+                conflicted[i] = (p, BASE_CONFLICT + why)
+            git("merge", "--abort", check=False)
+        git("checkout", "-q", "-f", f"batch/{name}")
+        git("reset", "-q", "--hard", here)
     # a fragment whose id main's table already has (taken since the PR started)
     owner = {f: p["number"] for p in merged for f in pr_files(p["number"]) if FRAGMENT.match(f)}
     taken = set(int(i) for i in re.findall(r"^\| S-(\d+) \|", (WT / "docs/STOPS.md").read_text(encoding="utf-8"), re.M))
@@ -388,7 +489,7 @@ def run_tests(patterns: list[str]) -> dict[str, tuple[str, str]]:
 
 
 def own_tests(p: dict) -> list[str]:
-    diff = git("diff", f"origin/main...refs/batch/{p['number']}", "--", "engine/tests")
+    diff = git("diff", f"{BASE}...refs/batch/{p['number']}", "--", "engine/tests")
     pats = {re.split(r"[:\s]", name, maxsplit=1)[0] + "*" for name in re.findall(r'^\+\s*TEST_CASE\("([^"]+)"', diff, re.M)}
     m = re.match(r"(Port|Local)\s+(\d+)", p["title"], re.I)
     if m and not pats:
@@ -410,7 +511,7 @@ def tool_checks(out_dir: Path) -> dict[str, tuple[str, str]]:
     py = sh([sys.executable, "-m", "pytest", "-q", "tools/re", "tools/mod", "tools/test_fragments.py"], timeout=1800)
     (out_dir / "pytest.log").write_text(py.stdout + py.stderr, encoding="utf-8")
     res["pytest tools"] = ("pass" if py.returncode == 0 else "fail", (py.stdout.strip().splitlines() or [""])[-1])
-    md = sh([sys.executable, "tools/matrix_run.py", "diff", "--against", "origin/main"], timeout=600)
+    md = sh([sys.executable, "tools/matrix_run.py", "diff", "--against", BASE], timeout=600)
     (out_dir / "matrix_diff.log").write_text(md.stdout + md.stderr, encoding="utf-8")
     res["matrix diff"] = ("pass" if md.returncode == 0 else "fail", (md.stdout + md.stderr).strip()[-600:])
     return res
@@ -421,7 +522,7 @@ def tool_checks(out_dir: Path) -> dict[str, tuple[str, str]]:
 def merge_points() -> list[tuple[str, int | None]]:
     """The batch's first-parent commits after origin/main, oldest first, each with the PR it brings (renumber commits: their PR)."""
     out = []
-    for line in git("log", "--first-parent", "--reverse", "--format=%H %s", "origin/main..HEAD").splitlines():
+    for line in git("log", "--first-parent", "--reverse", "--format=%H %s", f"{BASE}..HEAD").splitlines():
         sha, subject = line.split(" ", 1)
         m = re.search(r"#(\d+)", subject)
         out.append((sha, int(m.group(1)) if m else None))
@@ -475,7 +576,7 @@ def checker_pins(merged: list[dict]) -> dict[str, list[dict]]:
 
 def names_cause(p: dict, test: str) -> bool:
     """The checker's rule: the PR text or diff names the pin's test and a pin / cause word."""
-    text = ((p.get("body") or "") + "\n" + git("diff", f"origin/main...refs/batch/{p['number']}")).lower()
+    text = ((p.get("body") or "") + "\n" + git("diff", f"{BASE}...refs/batch/{p['number']}")).lower()
     return (re.search(r"\bpins?\b|пин|причин|cause|re-?measure|перемер", text) is not None
             and re.split(r"[*?]", test)[0].lower() in text)
 
@@ -508,6 +609,43 @@ def repin(test: str, ps: dict | list[dict], name: str) -> str:
 
 # ---------------------------------------------------------------- 6-7. returns, report
 
+BATCH_MARK = "<!-- batch {name} {head} -->"
+LEFT_MARK = "<!-- batch-left {name} {head} -->"
+BASE_CONFLICT = "BASE: "   # merge_batch's mark of a conflict with the batch's base (main), not with an earlier PR
+EMPTY_RC = 3   # cmd_run's exit code for a batch whose PRs all left before the build
+
+
+def taken_comment(name: str, p: dict, sandbox: str) -> str:
+    """The PR is in batch `name`: the dashboard shows it "в батче" until a later check, return or this batch's left mark."""
+    return (BATCH_MARK.format(name=name, head=p["headRefOid"]) + "\n"
+            f"📦 **PR #{p['number']} взят в партию `{name}`** (песочница {sandbox}): тесты всей партии идут там. Зелёная партия переносится "
+            "в main, и PR закроется сам; при поломке придёт комментарий с причиной.")
+
+
+def left_batch(take: list[dict], rows: dict, out: dict) -> list[tuple[dict, str]]:
+    """PRs that leave batch `name` without a return comment: a conflict with the PRs before them, or a batch that is not green."""
+    conflicted = {p["number"]: why for p, why in rows.get("conflicted") or []}
+    green = rows["verdict"].startswith("зелёный")
+    res = []
+    for p in take:
+        if p["number"] in out:
+            continue  # its return comment says why
+        if p["number"] in conflicted and conflicted[p["number"]].startswith(BASE_CONFLICT):
+            files = conflicted[p["number"]].split("conflicts in ", 1)[-1].split(" with ")[0]
+            res.append((p, f"конфликтует с самим `main` ({files}), не с другими PR партии.\n\n<!-- returned --> Возвращён агенту: влей свежий "
+                           "`origin/main` в ветку, разреши конфликт, прогони свои тесты и запушь — проверяльщик перепроверит, и PR снова "
+                           "пойдёт в партию. Пока нового коммита нет, бот партии его не берёт"))
+        elif p["number"] in conflicted:
+            res.append((p, "конфликтует с PR, влитыми в партию раньше: пойдёт в следующую партию"))
+        elif not green:
+            res.append((p, f"партия не зелёная ({rows['verdict']}), но не из-за этого PR: снова ждёт партии"))
+    return res
+
+
+def left_comment(name: str, p: dict, why: str) -> str:
+    return LEFT_MARK.format(name=name, head=p["headRefOid"]) + f"\n↩️ PR #{p['number']} вышел из партии `{name}`: {why}."
+
+
 def return_comment(name: str, p: dict, tests: list[tuple[str, str]]) -> str:
     lines = [f"<!-- returned --> Не принят в батч {name}: бисект по точкам слияния (точка до этого PR зелёная, точка с ним красная, остальное "
              "то же) показал, что этот PR ломает то, что на main зелёное (`tools/colab/batch_bot.py`).", ""]
@@ -535,7 +673,7 @@ def in_game(p: dict) -> str:
 
 def report(name: str, out_dir: Path, rows: dict) -> Path:
     r = rows
-    lines = [f"# Батч {name}", "", f"Ветка `batch/{name}` на `origin/main` {r['main'][:8]}, голова {r.get('head', '?')[:8]} "
+    lines = [f"# Батч {name}", "", f"Ветка `batch/{name}` на `{BASE}` {r['main'][:8]}, голова {r.get('head', '?')[:8]} "
              f"(`tools/colab/batch_bot.py`, {dt.datetime.utcnow():%Y-%m-%d %H:%M} UTC). Итог: **{r['verdict']}**.", ""]
     lines += [f"## Вошли ({len(r['merged'])})", ""] + [f"- #{p['number']} {p['title'][:110]}" for p in r["merged"]]
     if r["out"]:
@@ -563,7 +701,15 @@ def report(name: str, out_dir: Path, rows: dict) -> Path:
 
 # ---------------------------------------------------------------- loop
 
-LOOP_STATE = Path(os.environ.get("BATCH_LOOP_STATE", "/content/sandbox/batch-loop.json"))
+# The loop's state lives on the Drive beside the runs (owner 2026-11-19: sandbox 1 runs batch rounds when it has nothing to check, so both
+# sandboxes must see the same unlanded green batch, the same red one and the same idle time); the old per-sandbox file seeds it once.
+LOOP_STATE = Path(os.environ.get("BATCH_LOOP_STATE", str(RUNS / "loop.json")))
+OLD_LOOP_STATE = Path("/content/sandbox/batch-loop.json")
+# Owner 2026-11-19: "если на 2 песочнице нету готовых пр на сборку 30 мин то включался проверяльщик как на 1 песочнице" — after HELP_AFTER_S
+# with no batch (since 2026-11-20 also while green PRs wait for the third), a loop round runs one PR checker cycle (pr_checker.py --once --no-helper); claims on the Drive keep the
+# two checkers off the same PR (pr_checker.py claim_check), the batch claims keep the two batchers off the same PRs (claimed above).
+HELP_AFTER_S = 30 * 60
+INSTALL = Path("/content/sandbox")
 
 
 def say(msg: str) -> None:
@@ -607,29 +753,87 @@ def should_start(green: int, since_s: float, minimum: int, idle_hours: float) ->
     return green > 0 and (green >= minimum or since_s >= idle_hours * 3600)
 
 
+def stack_base(last: str | None, pending: bool, waited_s: float) -> tuple[str | None, float]:
+    """What the next batch is merged onto, or (None, seconds to wait): the last green batch still unlanded is waited for STACK_AFTER_S
+    (Claude may land it at once), then the next batch goes on top of it (its PRs stay claimed, so they are not taken twice; landing the
+    newest batch lands every batch under it). A landed or given-up batch (its branch deleted) is not pending: origin/main."""
+    if not (last and pending):
+        return "origin/main", 0.0
+    if waited_s < STACK_AFTER_S:
+        return None, STACK_AFTER_S - waited_s
+    return f"origin/batch/{last}", 0.0
+
+
+def helper_due(st: dict, now: float) -> bool:
+    """No batch for HELP_AFTER_S: time to check a PR instead. Owner 2026-11-20: also while one or two green PRs wait for the third (the old
+    rule counted from the last green PR seen, so with 1-2 green PRs waiting the bot stood idle for hours); a round that starts a batch runs it
+    first, so the help only fills the rounds that would wait anyway, and it brings the third green PR sooner."""
+    return now - st.get("finished", 0) >= HELP_AFTER_S   # shared state: a restart does not reset the wait
+
+
+def install(name: str) -> Path:
+    """The other bot's script, as origin/main has it, beside this one (the watchdog installs the same way)."""
+    new = sh(["git", "show", f"origin/main:tools/colab/{name}"], cwd=REPO).stdout
+    path = INSTALL / name
+    if new and (not path.exists() or path.read_text(encoding="utf-8", errors="replace") != new):
+        tmp = path.with_name(name + ".new")
+        tmp.write_text(new, encoding="utf-8")
+        os.replace(tmp, path)
+    return path
+
+
+def help_check() -> int:
+    """One PR checker cycle on this sandbox (it checks at most one PR, then returns)."""
+    env = dict(os.environ, PRCHECK_STATE=str(INSTALL / "prcheck-state.json"))
+    with open("/content/prcheck.log", "ab") as log:
+        return subprocess.run([sys.executable, str(install("pr_checker.py")), "--once", "--no-helper"], cwd=str(INSTALL), env=env,
+                              stdout=log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL).returncode
+
+
+def load_loop_state() -> dict:
+    for f in (LOOP_STATE, OLD_LOOP_STATE):
+        try:
+            if f.exists():
+                return json.loads(f.read_text())
+        except (OSError, ValueError):
+            continue
+    return {}
+
+
 def loop_round(a, st: dict) -> str:
     """One round; returns the line for the log."""
     sh(["git", "fetch", "-q", "--prune", "origin"], cwd=REPO)
     if run_going():
         return "a batch run is going: waiting"
     last = st.get("green")
-    if last and unlanded(last):
-        return f"batch/{last} is green and waits for Claude's landing (tools/land.py --batch {last})"
+    base, wait_s = stack_base(last, bool(last) and unlanded(last), time.time() - st.get("finished", 0))
+    if base is None:
+        st["sleep"] = wait_s   # wake when the wait ends, not a whole round later
+        return (f"batch/{last} is green and waits for Claude's landing (tools/land.py --batch {last}): "
+                f"{int(wait_s / 60) + 1} min more, then the next batch goes on top of it")
     since = time.time() - st.get("finished", 0)
     if st.get("red") and since < a.idle_hours * 3600:
         return f"the last batch ({st.get('name')}) did not come out green: next try in {int((a.idle_hours * 3600 - since) / 60)} min"
     take, _ = candidates(None, a.max)
-    if not should_start(len(take), since, a.min, a.idle_hours):
+    if take:
+        st["ready_at"] = time.time()
+    if not solo_mover(take) and not should_start(len(take), since, a.min, a.idle_hours):   # a PR that moves pins goes at once
         return f"{len(take)} green PR(s): a batch starts at {a.min}, or at 1 after {a.idle_hours:g} h since the last batch"
     used = {q.name.split(".")[0] for q in RUNS.glob("2*")} if RUNS.exists() else set()
+    # the batch branches on origin too: a run folder can be gone from Drive while its branch lives (2026-11-18: the loop named its batch
+    # 2026-11-18a over the morning's batch/2026-11-18a)
+    used |= {r.rsplit("/", 1)[-1] for r in sh(["git", "ls-remote", "--heads", "origin", "refs/heads/batch/*"], cwd=REPO).stdout.split()
+             if r.startswith("refs/heads/batch/")}
     name = next_name(time.strftime("%Y-%m-%d", time.gmtime()), used)
     RUNS.mkdir(parents=True, exist_ok=True)
-    say(f"batch {name}: {' '.join('#%d' % p['number'] for p in take)}")
+    say(f"batch {name}{'' if base == 'origin/main' else ' on top of ' + base}: {' '.join('#%d' % p['number'] for p in take)}")
     me = Path(__file__).resolve()
     with open(RUNS / f"{name}.log", "w") as out:
-        rc = subprocess.run([sys.executable, str(me), "run", "--name", name, "--max", str(a.max)], cwd=str(REPO),
+        rc = subprocess.run([sys.executable, str(me), "run", "--name", name, "--max", str(a.max), "--base", base], cwd=str(REPO),
                             stdout=out, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL).returncode
-    st.update(name=name, finished=time.time(), red=rc != 0)
+    # an empty batch (every PR left: conflicts, returns) tested nothing, so it does not hold the next one for idle_hours (2026-11-19d held
+    # #681 #682 #683 for 2 h behind four PRs that conflicted with main)
+    st.update(name=name, finished=time.time(), red=rc not in (0, EMPTY_RC))
     if rc == 0:
         st["green"] = name
         return f"batch {name} green: batch/{name} pushed, waits for Claude's landing"
@@ -658,19 +862,22 @@ def self_update() -> None:
 
 def cmd_loop(a) -> int:
     while True:
-        try:
-            st = json.loads(LOOP_STATE.read_text()) if LOOP_STATE.exists() else {}
-        except ValueError:
-            st = {}
+        st = load_loop_state()
         try:
             line = loop_round(a, st)
         except Exception as e:  # a GitHub or Drive hiccup: the next round tries again
             line = f"round failed: {e}"[:300]
-        LOOP_STATE.write_text(json.dumps(st))
+        RUNS.mkdir(parents=True, exist_ok=True)
+        LOOP_STATE.write_text(json.dumps({k: v for k, v in st.items() if k != "sleep"}))
         say(line)
         if a.once:
             return 0
-        time.sleep(a.every)
+        if not a.no_helper and not run_going() and helper_due(st, time.time()):
+            say(f"{HELP_AFTER_S // 60} мин без новой партии: один цикл проверщика PR (pr_checker.py --once)")
+            rc = help_check()
+            say(f"цикл проверщика закончен (код {rc}); дальше партии")
+            continue
+        time.sleep(max(30.0, min(float(a.every), float(st.pop("sleep", a.every)))))
         sh(["git", "fetch", "-q", "origin"], cwd=REPO)
         self_update()
 
@@ -687,7 +894,8 @@ def cmd_plan(a) -> int:
 
 
 def cmd_run(a) -> int:
-    global RUN_KEY
+    global RUN_KEY, BASE
+    BASE = a.base
     ensure_tree()
     name = a.name or dt.datetime.utcnow().strftime("%Y-%m-%d-%H%M")
     RUN_KEY = f"batch-{name}"
@@ -697,13 +905,50 @@ def cmd_run(a) -> int:
     (out_dir / "claim.json").write_text(json.dumps({"prs": [p["number"] for p in take], "sandbox": Path("/content/sandbox_id").read_text().strip()
                                                     if Path("/content/sandbox_id").exists() else "?", "started": time.time()}))
     log(f"batch {name}: {len(take)} green PRs: {' '.join('#%d' % p['number'] for p in take)}")
-    rows: dict = {"main": git("rev-parse", "origin/main").strip(), "wait": wait, "out": {}, "repinned": [], "results": {}, "main_red": set(),
+    sandbox = Path("/content/sandbox_id").read_text().strip() if Path("/content/sandbox_id").exists() else "?"
+    if not a.no_comment:
+        # the dashboard learns from GitHub only: without this mark a PR in a running batch stayed "✅ можно брать в батч" (owner 2026-11-18)
+        for p in take:
+            gh("pr", "comment", str(p["number"]), "--body", taken_comment(name, p, sandbox))
+    try:
+        return run_batch(a, name, take, wait, out_dir)
+    except Exception as e:
+        # a crash (2026-11-18a: its branch was checked out in another tree) left its PRs "в батче" and claimed for 12 hours: the report
+        # releases the claim, the left marks put the PRs back among the green ones
+        (out_dir / "report.md").write_text(f"# Партия {name}: упала\n\n```\n{e}\n```\n", encoding="utf-8")
+        if not a.no_comment:
+            for p in take:
+                gh("pr", "comment", str(p["number"]), "--body", left_comment(name, p, f"партия упала ({str(e)[:200]}), не из-за этого PR: снова ждёт партии"))
+        (STATUS_DIR / f"{RUN_KEY}.txt").unlink(missing_ok=True)
+        raise
+
+
+def load_main_results(path: Path) -> dict[str, str]:
+    """A test's status on one origin/main ("pass" / "fail" / "build" / "none"), from a batch that ran it before; {} when none did."""
+    try:
+        return {str(k): str(v) for k, v in json.loads(path.read_text(encoding="utf-8")).items()}
+    except (OSError, ValueError, AttributeError):
+        return {}
+
+
+def save_main_results(path: Path, results: dict[str, str]) -> None:
+    merged = {**load_main_results(path), **results}   # another sandbox may have added its tests meanwhile
+    tmp = path.with_suffix(f".{os.getpid()}.tmp")
+    tmp.write_text(json.dumps(merged, sort_keys=True), encoding="utf-8")
+    tmp.replace(path)
+
+
+def run_batch(a, name: str, take: list[dict], wait: list, out_dir: Path) -> int:
+    rows: dict = {"main": git("rev-parse", BASE).strip(), "wait": wait, "out": {}, "repinned": [], "results": {}, "main_red": set(),
                   "merged": [], "conflicted": [], "renumbered": [], "verdict": "нет PR"}
     if not take:
         report(name, out_dir, rows)
         return 0
     out: dict[int, str] = {}
-    main_cache: dict[str, str] = {}
+    # the results of origin/main's own run, shared by every batch on the same main (2026-11-18: 18a on sb2 and 18d on sb3 each spent ~50
+    # minutes building the same main 1910e252 for the same red pins)
+    main_file = RUNS / f"main-{rows['main'][:12]}.json"
+    main_cache: dict[str, str] = load_main_results(main_file)
     for rnd in range(1, a.rounds + 1):
         rows["verdict"] = ""
         merged, conflicted, renumbered = merge_batch(name, take, list(out))
@@ -729,9 +974,10 @@ def cmd_run(a) -> int:
         doctests = [t for t in failing if t in dict(SUITE)]
         unknown = [t for t in doctests if t not in main_cache]
         if unknown:
-            git("checkout", "-q", "-f", "--detach", "origin/main")
+            git("checkout", "-q", "-f", "--detach", BASE)
             ok_main, _ = build("main", out_dir)
             main_cache.update({t: s for t, (s, _) in run_tests(unknown).items()} if ok_main else {t: "build" for t in unknown})
+            save_main_results(main_file, main_cache)
             git("checkout", "-q", "-f", f"batch/{name}")
         rows["main_red"] = {t for t in doctests if main_cache.get(t) in ("fail", "build")}
         excluded_now: dict[int, list[tuple[str, str]]] = {}
@@ -793,7 +1039,12 @@ def cmd_run(a) -> int:
         git("push", "-q", "-f", "origin", f"HEAD:refs/heads/batch/{name}")
     path = report(name, out_dir, rows)
     log(f"{rows['verdict']}: {path}")
+    if not a.no_comment:
+        for p, why in left_batch(take, rows, out):
+            gh("pr", "comment", str(p["number"]), "--body", left_comment(name, p, why))
     (STATUS_DIR / f"{RUN_KEY}.txt").unlink(missing_ok=True)   # done: the loop's line (or nothing) says the rest
+    if rows["verdict"].startswith("пустой"):
+        return EMPTY_RC
     return 0 if rows["verdict"].startswith("зелёный") else 1
 
 
@@ -806,12 +1057,14 @@ def main() -> int:
     lp.add_argument("--idle-hours", type=float, default=2.0, help="after this long since the last batch, one green PR is enough")
     lp.add_argument("--every", type=int, default=900)
     lp.add_argument("--once", action="store_true")
+    lp.add_argument("--no-helper", action="store_true", help="never run a PR checker cycle (the round pr_checker.py runs itself)")
     for c in ("plan", "run"):
         s = sub.add_parser(c)
         s.add_argument("--prs", type=lambda v: [int(x) for x in v.split(",") if x], default=None)
         s.add_argument("--max", type=int, default=MAX_PRS, help=f"at most this many green PRs per batch, oldest first (default {MAX_PRS}; 0 = all)")
         if c == "run":
             s.add_argument("--name")
+            s.add_argument("--base", default="origin/main", help="merge onto this ref (the loop: an unlanded green batch, see stack_base)")
             s.add_argument("--rounds", type=int, default=3)
             s.add_argument("--no-comment", action="store_true", help="do not comment on the excluded PRs (a dry run)")
     a = ap.parse_args()

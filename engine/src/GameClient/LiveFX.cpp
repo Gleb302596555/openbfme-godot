@@ -16,6 +16,7 @@
 #include "GameLogic/Combat/CombatQueries.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Map/FireLogicSystem.h"
+#include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/ObjectFilterMatch.h"
 #include "GameLogic/ObjectTemplateInfo.h"
@@ -101,6 +102,11 @@ public:
 	}
 	bool hasKindOf(const char *kindOfName) const override { return m_obj && m_obj->isKindOfName(kindOfName); }
 	bool isHorde() const override { return m_obj && m_obj->isKindOfName("HORDE"); }
+	int layer() const override
+	{
+		const AIUpdateInterface *ai = m_obj ? m_obj->getAIUpdateInterface() : nullptr;
+		return ai ? (int)ai->adapter().getLayer() : (int)LAYER_GROUND;
+	}
 
 private:
 	GameLogic &m_logic;
@@ -126,6 +132,7 @@ struct CapturedFXObject : public FXObject
 	int relationship = (int)NEUTRAL;
 	KindOfMaskType kindOf{};
 	bool horde = false;
+	int objLayer = (int)LAYER_GROUND;
 	std::map<const ObjectFilter *, bool> filters;
 	mutable unsigned long long *uncapturedFilters = nullptr;
 
@@ -157,6 +164,7 @@ struct CapturedFXObject : public FXObject
 		return bit >= 0 && MaskTest(kindOf, (unsigned)bit);
 	}
 	bool isHorde() const override { return horde; }
+	int layer() const override { return objLayer; }
 };
 
 LiveFXObject eventPrimary(GameLogic &logic, Object *obj, const FXEvent &e)
@@ -410,9 +418,8 @@ std::vector<std::string> LiveFX::stops()
 	out.push_back("[S-682] live FX: ParticleSysBone systems follow their animated bone only for a draw module whose ParticlesAttachedToAnimatedBones is on "
 					  "and only where the draw's pose defines the bone (lane PORT-50: RW 0x4C7795 -> RW 0x4B6D5F, S-7194). The fire FX of a weapon, the FXEvent"
 					  " bones and the pristine bones still come from the model's bind pose; ParticleSysBone Persist / PersistID / HouseColor are"
-					  " ignored and OnlyIfOnWater systems are not created (FXTrigger is ported since PORT-68: RW 0x4C662D skips an entry whose trigger is"
-					  " neither NONE nor the drawable's own); WadingParticleSys uses the PATH-1 water-surface query (PORT-48); the shooter's stealth (RW 0x694C0D, NULL viewer) is read when the effect plays,"
-					  " not at the shot (lane STEALTH-1); muzzle flashes and recoil are not drawn; isWater is false (the shroud: S-4971)");
+					  " ignored (FXTrigger is ported since PORT-68: RW 0x4C662D; OnlyIfOnWater/OnlyIfOnLand since LOCAL-66: RW 0x004C6514); WadingParticleSys uses the PATH-1 water-surface query (PORT-48); the shooter's stealth (RW 0x694C0D, NULL viewer) is read when the effect plays,"
+					  " not at the shot (lane STEALTH-1); muzzle flashes and recoil are not drawn; isWater queries PATH-1 standing water (RW 0x67DAE6; getGroundLayer RW 0x6EACB9 unqueried; the shroud: S-4971)");
 	out.push_back("[S-686] TransitionDamageFX: runs in the logic since lane FX-4 (RW 0x8BE077: the FXLists, OCLs and attached particle systems of a worse damage "
 				  "state, the sub objects of every state); not ported: the rubble neighbours (RW 0x8BDF08, S-342), the OCL's secondary position (S-530), an OCL "
 				  "call without a damage source (retail reads an invalid pointer); the drawable of RW 0x8BDDAC is taken as present; FXList and particle system "
@@ -545,6 +552,13 @@ std::uint32_t LiveFX::logicFrame() const
 float LiveFX::groundHeight(float x, float y)
 {
 	return m_game.logic().getGroundHeight(x, y);
+}
+
+bool LiveFX::isWater(float x, float y)
+{
+	// RW 0x005E1270 (0x5E19B3 / 0x5E1A41): TheTerrainLogic vslot +0x4C (isUnderwater, RW 0x67DAE6)
+	const TerrainPathfindSource *pathTerrain = m_game.pathTerrain();
+	return pathTerrain && pathTerrain->isUnderwater(x, y, nullptr, nullptr);
 }
 
 bool LiveFX::viewShake(const Coord3D &epicenter, int type, float angle)
@@ -1001,6 +1015,8 @@ void LiveFX::onFXEvent(const FXEvent &e)
 		c->relationship = local ? (int)local->getRelationship(o->getTeam()) : (int)NEUTRAL;
 		c->kindOf = o->getKindOf();
 		c->horde = o->isKindOfName("HORDE");
+		const AIUpdateInterface *ai = o->getAIUpdateInterface();
+		c->objLayer = ai ? (int)ai->adapter().getLayer() : (int)LAYER_GROUND;
 		for (const FXList *fx : lists)
 		{
 			for (const std::unique_ptr<FXNugget> &n : fx->nuggets())
@@ -1465,10 +1481,6 @@ void LiveFX::createSystems(Drawable &d, Attached &a)
 			}
 			for (const ParticleSysBoneInfo &info : *list)
 			{
-				if (info.onlyIfOnWater)
-				{
-					continue; // S-682: no water query
-				}
 				if (!allowsParticleSysBoneFXTrigger(d, info))
 				{
 					continue; // PORT-68, RW 0x4C662D .. 0x4C663E (INFERENCE: gated before createParticleSystem so non-matching entries emit nothing)
@@ -1526,6 +1538,19 @@ void LiveFX::createSystems(Drawable &d, Attached &a)
 					if (f.model && m_stats.missingBones.size() < 200)
 					{
 						m_stats.missingBones.insert(f.model->Name + ":" + info.boneName);
+					}
+				}
+				if (info.onlyIfOnWater || info.onlyIfOnLand)
+				{
+					// RW 0x004C6514 (W3DModelDraw::doCreateParticleSystems): 0x4C6A94 (OnlyIfOnWater) / 0x4C6C87 (OnlyIfOnLand)
+					Matrix3D worldBone;
+					Matrix3D::Multiply(thingMatrix(*d.getPosition(), d.getBasis()), bone, &worldBone);
+					const Vector3 worldPos = worldBone.Get_Translation();
+					const bool water = isWater(worldPos.X, worldPos.Y);
+					if (info.onlyIfOnWater ? !water : water)
+					{
+						m_playback.particles().destroyParticleSystemByID(id);
+						continue;
 					}
 				}
 				if (info.followBone && (source != BoneSource::NONE || attachedEntry))

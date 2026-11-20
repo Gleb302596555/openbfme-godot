@@ -3,6 +3,8 @@
 // Module data of W3DTreeDraw / W3DPropDraw / W3DFloorDraw. See W3DTreeDraw.h for the sources.
 
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DTreeDraw.h"
+#include "Common/Xfer.h"
+#include "GameLogic/SnapshotXfer.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -115,3 +117,116 @@ const FieldParse *prop() { return kPropFieldParse; }
 const FieldParse *floor() { return kFloorFieldParse; }
 const char *const *weatherNames() { return kWeatherNames; }
 } // namespace W3DTreeDrawTables
+
+// ---------------------------------------------------------------------------------------------------------------------
+// W3DPropDrawState & W3DFloorDrawState (Local 88 #714)
+// TARGET W3DPropDraw: RW 0x004B1B3F xfer, RW 0x004CE6AE GetSnapshotName, RW 0x004CE6BF getModuleNameKey,
+//   RW 0x004CE75C getModelName, RW 0x004CE793 reactToTransformChange, RW 0x004CE84C ModuleData deleting dtor.
+// TARGET W3DFloorDraw: RW 0x004CE868 xfer, RW 0x004CE95F GetSnapshotName, RW 0x004CE971 getModuleNameKey,
+//   RW 0x004CEA6F reactToTransformChange, RW 0x004CEB80 replaceModelConditionState, RW 0x004CEBCA doDrawModule,
+//   RW 0x004CEC85 scalar deleting dtor, RW 0x004CECA1 setSubObjectHidden, RW 0x004CECB5 setHidden,
+//   RW 0x004CF013 ModuleData scalar deleting dtor.
+// ---------------------------------------------------------------------------------------------------------------------
+
+bool W3DPropDrawState::reactToTransformChange(float posX, float posY)
+{
+	// RW 0x004CE793 (DONOR BFME2 0x000CEF9F, W3DPropDrawReact.cpp)
+	if (!m_propCreated && (posX != 0.0f || posY != 0.0f))
+	{
+		m_propCreated = true;
+		return m_data != nullptr && !m_data->m_modelName.empty();
+	}
+	return false;
+}
+
+void W3DPropDrawState::xfer(Xfer &x)
+{
+	// RW 0x004B1B3F (DONOR BFME2 0x000B221A, W3DPropDrawXfer.cpp)
+	SnapshotXfer::version(x, 1, 1);
+}
+
+W3DFloorDrawState::W3DFloorDrawState(const W3DFloorDrawModuleData *data)
+	: W3DPropDrawState(data)
+	, m_floorData(data)
+	, m_hiddenBySubObject(data ? data->m_startHidden : false) // RW 0x004CE91B seeds +0x15 from data->m_startHidden (+0x1E)
+{
+}
+
+std::string W3DFloorDrawState::resolveWeatherTexture(int weather) const
+{
+	// RW 0x004CEA1C
+	if (!m_floorData)
+	{
+		return std::string();
+	}
+	for (const auto &entry : m_floorData->m_weatherTextures)
+	{
+		if (entry.first == weather)
+		{
+			return entry.second;
+		}
+	}
+	return std::string();
+}
+
+bool W3DFloorDrawState::reactToTransformChange(int weather)
+{
+	// RW 0x004CEA6F (DONOR BFME2 0x000CF25F)
+	if (!m_registered)
+	{
+		m_registered = true;
+		m_activeWeatherTexture = resolveWeatherTexture(weather);
+		return m_floorData != nullptr && !m_floorData->m_modelName.empty();
+	}
+	return false;
+}
+
+bool W3DFloorDrawState::replaceModelConditionState(const ModelConditionFlags &flags)
+{
+	// RW 0x004CEB80 (DONOR BFME2 0x000CF370): tests each entry in m_hideIfModelConditions via RW 0x004CE8CA
+	bool hide = false;
+	if (m_floorData)
+	{
+		for (const ModelConditionFlags &mask : m_floorData->m_hideIfModelConditions)
+		{
+			if (mask.any() && flags.testForAll(mask))
+			{
+				hide = true;
+				break;
+			}
+		}
+	}
+	const bool changed = (m_hiddenByModelCondition != hide);
+	m_hiddenByModelCondition = hide;
+	return changed;
+}
+
+void W3DFloorDrawState::setSubObjectHidden(bool hidden)
+{
+	// RW 0x004CECA1 (DONOR BFME2 0x000CF4AE): sets +0x15
+	m_hiddenBySubObject = hidden;
+}
+
+void W3DFloorDrawState::setHidden(bool hidden)
+{
+	// RW 0x004CECB5 (DONOR BFME2 0x000CF4C2): sets +0x16
+	m_hiddenByModule = hidden;
+}
+
+void W3DFloorDrawState::xfer(Xfer &x)
+{
+	// RW 0x004CE868 (DONOR BFME2 0x000CF074): version(1..3), calls W3DPropDraw::xfer (0x004B1B3F),
+	// v>=2 xfers +0x16 (m_hiddenByModule), v>=3 xfers +0x17 (m_hiddenByModelCondition) and +0x15 (m_hiddenBySubObject).
+	SnapshotXfer::version(x, 3, 3);
+	const std::uint8_t v = 3;
+	W3DPropDrawState::xfer(x);
+	if (v >= 2)
+	{
+		x.xferBool(&m_hiddenByModule);
+	}
+	if (v >= 3)
+	{
+		x.xferBool(&m_hiddenByModelCondition);
+		x.xferBool(&m_hiddenBySubObject);
+	}
+}

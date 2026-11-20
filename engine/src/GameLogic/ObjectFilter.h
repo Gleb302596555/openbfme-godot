@@ -106,3 +106,9 @@ struct ObjectFilter
 
 // INI field parse proc (RW 0x76392F): `store` points at an ObjectFilter.
 void ParseObjectFilter(INI *ini, void *instance, void *store, const void *userData);
+
+// The default of a SpecialPowerTemplate's ObjectFilter (S-523, closed by Port 232, issue #555): RW 0x7B1F5B -> RW 0x763D11 with the empty KindOf mask
+// RW 0xDE49E4 (raw zeros in the RotWK 2.01 image, BSS in BFME2 1.06): rule NONE, both masks empty, as CostModifierUpgrade's constructor builds it
+// (RW 0x8B9D79 at RW 0x8B9E08).
+// An unset special power filter allows nothing, as in retail. Pass `filter.get()` (shared_ptr is null when the template sets no filter).
+const ObjectFilter &specialPowerFilterOrDefault(const ObjectFilter *filter);

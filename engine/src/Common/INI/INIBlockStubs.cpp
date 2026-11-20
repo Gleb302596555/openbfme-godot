@@ -10,6 +10,8 @@
 #include "GameLogic/Locomotor.h" // HORDE-1: the Locomotor block is parsed for real
 #include "GameLogic/Armor.h"     // WEAPON-1: the Weapon, Armor and DamageFX blocks are parsed for real
 #include "GameLogic/DamageFX.h"
+#include "GameLogic/System/CrateSystem.h"    // PORT-236: CrateData (RW 0x75EC76)
+#include "GameLogic/System/VictorySystem.h"  // PORT-236: VictorySystemData/FactionVictoryData (RW 0x61584E/0x615A68)
 #include "GameLogic/Weapon.h"
 
 #include <algorithm>
@@ -210,6 +212,33 @@ void RegisterRecordingBlockStubs(INIBlockRegistry &registry, INIBlockRecorder &r
 		else if (keyword == "DamageFX")
 		{
 			registry.registerBlock(keyword, [](INI *ini) { DamageFXStore::parseDamageFXDefinitionGlobal(ini); }); // RW 0x762799
+			continue;
+		}
+		else if (keyword == "CrateData")
+		{
+			// PORT-236: CrateData into TheCrateSystem (RW 0x75EC76, table RW 0xC2C928)
+			registry.registerBlock(keyword, [](INI *ini) {
+				if (!TheCrateSystem) { static CrateSystem fallback; TheCrateSystem = &fallback; }
+				TheCrateSystem->parseCrateData(ini);
+			});
+			continue;
+		}
+		else if (keyword == "VictorySystemData")
+		{
+			// PORT-236: VictorySystemData (RW 0x61584E, table RW 0xC4EBF8 with offsets 0x10/0x18/0x1C/0x24)
+			registry.registerBlock(keyword, [](INI *ini) {
+				if (!TheVictorySystem) { static VictorySystem fallback; TheVictorySystem = &fallback; }
+				TheVictorySystem->parseVictorySystemData(ini);
+			});
+			continue;
+		}
+		else if (keyword == "FactionVictoryData")
+		{
+			// PORT-236: FactionVictoryData (RW 0x615A68, table RW 0xC38760 +0x04/0x08/0x0C/0x10/0x14)
+			registry.registerBlock(keyword, [](INI *ini) {
+				if (!TheVictorySystem) { static VictorySystem fallback; TheVictorySystem = &fallback; }
+				TheVictorySystem->parseFactionVictoryData(ini);
+			});
 			continue;
 		}
 		registry.registerBlock(keyword, [&recorder, keyword, mode](INI *ini) {

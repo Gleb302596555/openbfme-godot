@@ -651,8 +651,9 @@ TEST_CASE("aiexpand1 expansion in a game: the Medium Men computer kept above 300
 	// pin: the landing of 2026-11-17 (batch 16c and the merge of upstream 16474d71), measured once on the merged tree (Linux GCC on Colab): main dbea96b5
 	// already gave these frames (an earlier landing moved them, not identified; both keep them): chosen and tactic 1821 -> 1519, request 1824 -> 1894,
 	// in progress 1825 -> 1895, complete and second base 2594 -> 2638
-	CHECK(chosenFrame == 1519);
-	CHECK(tacticFrame == 1519);
+	// pin: PR #619 (Port 226, #549) merged onto main 026fbc2f, measured once on the merged tree (Linux GCC on Colab): every fifth idle update of a unit with a StancesBehavior returns FAILURE (RW 0x7553AB -> RW 0x7537C7 / 0x7537E0), the unit goes to AIGoingIdleState -> onMoveEnd -> guardHere (RW 0x743864 -> 0x86228E -> RW 0x662A21): a guard machine main did not run: the expansion is chosen at 1821 (1519), requested at 1824 / 1825 (1894 / 1895), done at 2596 (2638)
+	CHECK(chosenFrame == 1821);
+	CHECK(tacticFrame == 1821);
 	// merge queue q35 (#132's ground-structure melee reach, measured once on the merged tree and at each merge point; SIMSMALL-1, #178 and #179 keep the archive's values): the same start is chosen at 1519, its request at 1894 (2196), in progress at 1895 (2197), complete with the second base at 2635 (2937)
 	// lane PATH-REBUILD (RW 0x767B0E: every found path bent from the unit's facing with its corners rounded; measured on the lane's tree, Windows MSVC): the same
 	// start is chosen at 1519, its request at 1569 (1894), in progress at 1570 (1895), complete with the second base at 2372 (2635)
@@ -660,10 +661,10 @@ TEST_CASE("aiexpand1 expansion in a game: the Medium Men computer kept above 300
 	// pin: TOP20 #21 r3 (an attack ends when its victim is UNATTACKABLE, RW 0x7417E4 / 0x6C9207; measured on station-1, Windows MSVC): the Men army no longer shoots the
 	// MordorFortress foundation and the human's base is kept standing by the loop above; the same start is chosen at 1519, its request at 2075 (1894), in progress
 	// at 2076 (1895), complete with the second base at 2815 (2634).
-	CHECK(requestFrame == 1894);
-	CHECK(inProgressFrame == 1895);
-	CHECK(doneFrame == 2638);
-	CHECK(baseFrame == 2638);
+	CHECK(requestFrame == 1824);
+	CHECK(inProgressFrame == 1825);
+	CHECK(doneFrame == 2596);
+	CHECK(baseFrame == 2596);
 	MESSAGE("EXPANSION target on frame " << chosenFrame << " at (" << chosenAt.x << ", " << chosenAt.y << "); SimpleExpansion on frame " << tacticFrame
 		<< ", its request on " << requestFrame << " (last state " << lastState << ", in progress on " << inProgressFrame << ", complete on " << doneFrame
 		<< "), the second base on " << baseFrame << "; bases " << aiPtr->build.bases.size() << ", tactics started " << aiPtr->brain.tacticsStarted

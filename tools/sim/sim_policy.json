@@ -507,6 +507,50 @@
    "reason": "builds the Godot scene nodes of the map's objects for display: rendering (reads the retail object world, creates no logic objects)"
   },
   {
+   "glob": "src/Common/BootSplash.cpp",
+   "reason": "Port 157: the <Language>Splash picture shown while the game loads, before the main menu: presentation, no simulation state"
+  },
+  {
+   "glob": "src/GameClient/ContainedPose.cpp",
+   "reason": "PORT-146: the drawn pose of an object standing on a bone of its container: drawing only"
+  },
+  {
+   "glob": "src/GameClient/ControlBarScheme.cpp",
+   "reason": "the control bar's look (ControlBarScheme, RW 0x721BA1): user interface"
+  },
+  {
+   "glob": "src/GameClient/DdsDecode.cpp",
+   "reason": "decodes DDS texture levels Godot's loader refuses: rendering only"
+  },
+  {
+   "glob": "src/GameClient/EvaAnnounceClientCreate.cpp",
+   "reason": "a client create module that plays an EVA announcement (RW 0x8CDE22): audio feedback, no simulation state"
+  },
+  {
+   "glob": "src/GameClient/LaserUpdate.cpp",
+   "reason": "Local 34: a client update module that places and scales drawn laser beams: drawing only"
+  },
+  {
+   "glob": "src/GameClient/ObjectShadow.cpp",
+   "reason": "issue #135: shadow map and decal shadow resolution: rendering only"
+  },
+  {
+   "glob": "src/GameClient/OrderLines.cpp",
+   "reason": "the queued-order lines drawn for selected objects: user interface"
+  },
+  {
+   "glob": "src/GameClient/ParticleBoneFollow.cpp",
+   "reason": "PORT-50: particle systems following animated bones of a model draw: drawing only"
+  },
+  {
+   "glob": "src/GameClient/SegLineGeometry.cpp",
+   "reason": "WW3D SegmentedLineClass geometry without the device: drawing only"
+  },
+  {
+   "glob": "src/GodotDevice/GodotDds.cpp",
+   "reason": "decodes DDS textures Godot's loader refuses (Ennorath's farm and fortress images): rendering only"
+  },
+  {
    "glob": "src/GodotDevice/GodotAptPlayer.cpp",
    "reason": "hosts the Apt menu player: user interface"
   },

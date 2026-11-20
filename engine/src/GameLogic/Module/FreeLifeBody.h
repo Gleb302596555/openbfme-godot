@@ -35,11 +35,13 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// getModuleName RW 0x008C5A29, getModuleNameKey RW 0x008C5A2F, dtor RW 0x008C5ACA, xfer RW 0x008C5B1E
 class FreeLifeBody : public RespawnBody
 {
 public:
-	OBFME_MODULE_XFER(FreeLifeBody)
+	OBFME_MODULE_XFER(FreeLifeBody) // RW 0x008C5B1E
 	FreeLifeBody(Thing *thing, const FreeLifeBodyModuleData *data); // RW 0x8C5A74
+	~FreeLifeBody() override = default;                            // RW 0x008C5ACA
 	void attemptDamage(DamageInfo &info) override;                  // RW 0x8C5AE6
 	void internalChangeHealth(float delta) override;                // RW 0x8C5B86
 	void crc(StateHasher &hasher) const override;

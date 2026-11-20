@@ -120,7 +120,7 @@ void PartTheHeavensUpdate::sampleCurves(int elapsed)
 	}
 }
 
-// RW 0x8B0214 / BFME2 0x4ACBB3
+// RW 0x008B022E / BFME2 0x4ACBB3
 UpdateSleepTime PartTheHeavensUpdate::update()
 {
 	if (!m_data)

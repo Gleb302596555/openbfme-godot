@@ -17,9 +17,21 @@
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Module/BehaviorModule.h"
 #include "GameLogic/Object/Object.h"
+#include "Common/BuildAssistant.h"
+#include "Common/PlayerList.h"
+#include "Common/SpecialPower.h"
+#include "GameLogic/AI/AIPathfind.h"
+#include "GameLogic/AI/AIWorld.h"
+#include "GameLogic/Map/TerrainLogic.h"
+#include "GameLogic/Module/ActiveBody.h"
+#include "GameLogic/Module/DozerAIUpdate.h"
+#include "GameLogic/Module/WorkerAIUpdate.h"
+#include "GameLogic/ObjectTemplateInfo.h"
 #include "GameLogic/ObjectFilter.h"
 #include "GameLogic/ObjectFilterMatch.h"
+#include "GameLogic/SkirmishAI/SkirmishAIManager.h"
 
+#include <cstring>
 #include <stdexcept>
 
 Relationship Player::getRelationship(const Team *that) const
@@ -87,7 +99,7 @@ void Player::removeTeamRelationship(const Team *that)
 	}
 }
 
-// ZH Player::init(const PlayerTemplate *) (Player.cpp:360-470, the parts this layer has)
+// RW 0x6B0239: ZH Player::init(const PlayerTemplate *) (Player.cpp:360-470, the parts this layer has)
 void Player::init(const PlayerTemplate *pt, std::uint32_t defaultStartingCash)
 {
 	m_observer = false;
@@ -115,7 +127,9 @@ void Player::init(const PlayerTemplate *pt, std::uint32_t defaultStartingCash)
 	m_upgradesCompleted = UpgradeMaskType{};
 	m_costModifiers.clear();
 	m_upgradeDiscounts.clear();
-	m_heroes.clear(); // HERO-1: the list is filled at the game start (RW 0x6B16EC)
+	m_heroes.clear();                 // HERO-1: the list is filled at the game start (RW 0x6B16EC)
+	resetProductionTimeChanges(pt);   // PORT-280: RW 0x6B05C9 .. 0x6B0634 (with pt) / RW 0x6B06C9 .. 0x6B06E5 (without pt)
+	resetAIPlayerRepair();            // LOCAL-94: RW AIPlayer::init (RW 0x8F83F9)
 	if (pt)
 	{
 		m_side = pt->m_side;
@@ -239,6 +253,44 @@ void Player::crc(StateHasher &h) const
 		{
 			h.addU32(w);
 		}
+	}
+	if (!isProductionTimeUntouched())
+	{
+		// PORT-280: RW + 0x2B4 / + 0x2C8 / + 0x2DC; hashed only once a production speed bonus touched them so unaffected games keep their hash
+		h.addU32(0x2B400001u);
+		h.addU32((std::uint32_t)m_productionTimeChanges.size());
+		for (const auto &kv : m_productionTimeChanges)
+		{
+			h.addString(kv.first);
+			h.addFloat(kv.second);
+		}
+		h.addU32((std::uint32_t)m_startingProductionTimeChanges.size());
+		for (const auto &kv : m_startingProductionTimeChanges)
+		{
+			h.addString(kv.first);
+			h.addFloat(kv.second);
+		}
+		h.addU32((std::uint32_t)m_productionTimeTimers.size());
+		for (const auto &kv : m_productionTimeTimers)
+		{
+			h.addString(kv.first);
+			h.addI32(kv.second);
+		}
+	}
+	if (!isAIPlayerRepairUntouched())
+	{
+		// LOCAL-94 (issue #720): RW AIPlayer + 0x4C .. + 0x6C; hashed only once PLAYER_REPAIR_NAMED_STRUCTURE queued a repair
+		h.addU32(0x2FC0004Cu);
+		h.addU32(m_structuresToRepair[0]);
+		h.addU32(m_structuresToRepair[1]);
+		h.addU32(m_repairDozer);
+		h.addFloat(m_repairDozerOrigin.x);
+		h.addFloat(m_repairDozerOrigin.y);
+		h.addFloat(m_repairDozerOrigin.z);
+		h.addI32(m_structuresInQueue);
+		h.addBool(m_dozerQueuedForRepair);
+		h.addBool(m_dozerIsRepairing);
+		h.addI32(m_bridgeTimer);
 	}
 	h.addU32((std::uint32_t)m_upgradeRecords.size()); // UPGRADE-1: the records in list order, then both masks
 	for (const UpgradeRecord &r : m_upgradeRecords)
@@ -743,12 +795,17 @@ void Player::checkLoadedIndices(int playerCount) const
 	}
 }
 
+// RW 0x6B205F (Player::xfer; OpenBFME native snapshot layout)
 void Player::xfer(Xfer &x, TeamFactory &teams)
 {
 	// lane LUMBER1: version 2 adds the ResourceGatheringManager (RW + 0x304) at the end. PORT-113: version 3 adds the light points (RW + 0x338) after it;
-	// PORT-237: version 4 adds BattlePlanBonuses (+ 0xAC .. + 0xB8); untouched players save version 2 or 3 so existing streams stay unchanged.
+	// PORT-237: version 4 adds BattlePlanBonuses (+ 0xAC .. + 0xB8); PORT-280: version 5 adds the three production time change maps (RW + 0x2B4 / + 0x2C8 /
+	// + 0x2DC, RW 0x6B2B8D .. 0x6B2BBB via RW 0x6AFD2D / RW 0x6AFE32); untouched players save earlier versions so existing streams stay unchanged.
+	const bool hasAIPlayerRepair = !isAIPlayerRepairUntouched();
+	const bool hasProductionTime = !isProductionTimeUntouched();
 	const bool hasBattlePlans = !m_battlePlanBonuses.isUntouched() || hasActiveBattlePlans();
-	XferVersion v{ 1, (std::uint8_t)(x.isLoading() || hasBattlePlans ? 4 : (!m_lightPoints.isUntouched() ? 3 : 2)) };
+	const std::uint8_t saveVer = hasAIPlayerRepair ? 6 : (hasProductionTime ? 5 : (hasBattlePlans ? 4 : (!m_lightPoints.isUntouched() ? 3 : 2)));
+	XferVersion v{ 1, (std::uint8_t)(x.isLoading() ? 6 : saveVer) };
 	x.xferVersion(v);
 	// the identity the START made: checked, never overwritten
 	std::int32_t index = m_index;
@@ -938,6 +995,182 @@ void Player::xfer(Xfer &x, TeamFactory &teams)
 		m_searchAndDestroyBattlePlans = 0;
 		m_battlePlanBonuses = BattlePlanBonuses{};
 	}
+	if (v.current >= 5)
+	{
+		// PORT-280: RW 0x6B2B8D .. 0x6B2BBB (retail v>=4): m_productionTimeChanges (+0x2B4, RW 0x6AFD2D), m_startingProductionTimeChanges (+0x2C8,
+		// RW 0x6AFD2D) and m_productionTimeTimers (+0x2DC, RW 0x6AFE32). Fewest encoded bytes per entry: 1-byte string length + 4-byte scalar = 5.
+		auto xferNamedMap = [&](auto &mapRef, const char *what, auto xferVal) {
+			using Map = std::decay_t<decltype(mapRef)>;
+			std::uint32_t n = x.isLoading() ? 0 : (std::uint32_t)mapRef.size();
+			x.xferCount(&n, 5, sizeof(typename Map::value_type) + Xfer::kNodeBytes);
+			if (!x.isLoading())
+			{
+				for (auto &kv : mapRef)
+				{
+					std::string k = kv.first;
+					x.xferAsciiString(&k);
+					xferVal(kv.second);
+				}
+				return;
+			}
+			Map loaded;
+			for (std::uint32_t i = 0; i < n; ++i)
+			{
+				std::string k;
+				x.xferAsciiString(&k);
+				if (loaded.count(k))
+				{
+					throw XferException("player '" + m_name + "': " + std::string(what) + " key '" + k + "' is listed twice");
+				}
+				xferVal(loaded[k]);
+			}
+			mapRef.swap(loaded);
+		};
+		xferNamedMap(m_productionTimeChanges, "a production time change", [&](float &delta) { x.xferReal(&delta); });
+		xferNamedMap(m_startingProductionTimeChanges, "a starting production time change", [&](float &baseline) { x.xferReal(&baseline); });
+		xferNamedMap(m_productionTimeTimers, "a production time timer", [&](int &timerFrames) { x.xferInt(&timerFrames); });
+	}
+	else if (x.isLoading())
+	{
+		resetProductionTimeChanges(m_template);
+	}
+	if (v.current >= 6)
+	{
+		// LOCAL-94 (issue #720): RW AIPlayer::xfer (RW 0x8F8AC4, DONOR BFME2 0x004F3DFB): m_structuresToRepair[2], m_repairDozer,
+		// m_repairDozerOrigin, m_structuresInQueue, m_dozerQueuedForRepair, m_dozerIsRepairing, m_bridgeTimer.
+		x.xferObjectID(&m_structuresToRepair[0]);
+		x.xferObjectID(&m_structuresToRepair[1]);
+		x.xferObjectID(&m_repairDozer);
+		x.xferReal(&m_repairDozerOrigin.x);
+		x.xferReal(&m_repairDozerOrigin.y);
+		x.xferReal(&m_repairDozerOrigin.z);
+		x.xferInt(&m_structuresInQueue);
+		x.xferBool(&m_dozerQueuedForRepair);
+		x.xferBool(&m_dozerIsRepairing);
+		x.xferInt(&m_bridgeTimer);
+		if (x.isLoading() && (m_structuresInQueue < 0 || m_structuresInQueue > kMaxStructuresToRepair))
+		{
+			throw XferException("player '" + m_name + "': invalid structuresInQueue " + std::to_string(m_structuresInQueue));
+		}
+	}
+	else if (x.isLoading())
+	{
+		resetAIPlayerRepair();
+	}
+}
+
+namespace
+{
+bool sameRealMap(const std::map<std::string, float> &a, const std::map<std::string, float> &b)
+{
+	if (a.size() != b.size())
+	{
+		return false;
+	}
+	for (auto ia = a.begin(), ib = b.begin(); ia != a.end(); ++ia, ++ib)
+	{
+		if (ia->first != ib->first || std::memcmp(&ia->second, &ib->second, sizeof(float)) != 0)
+		{
+			return false;
+		}
+	}
+	return true;
+}
+} // namespace
+
+// PORT-280 (fork issue 647): RW 0x6B05C9 .. 0x6B0634 (with pt: copies PlayerTemplate + 0x100, parsed by RW 0x5FD7D9, to Player + 0x2B4 and + 0x2C8, clears
+// + 0x2DC and sets timer 0 per entry) and RW 0x6B06C9 .. 0x6B06E5 (without pt: clears all three maps).
+void Player::resetProductionTimeChanges(const PlayerTemplate *pt)
+{
+	m_productionTimeChanges.clear();
+	m_startingProductionTimeChanges.clear();
+	m_productionTimeTimers.clear();
+	if (!pt)
+	{
+		return;
+	}
+	m_productionTimeChanges = pt->m_productionTimeChanges;
+	m_startingProductionTimeChanges = pt->m_productionTimeChanges;
+	for (const auto &kv : pt->m_productionTimeChanges)
+	{
+		m_productionTimeTimers[kv.first] = 0;
+	}
+}
+
+bool Player::isProductionTimeUntouched() const
+{
+	static const std::map<std::string, float> kEmpty;
+	const std::map<std::string, float> &initial = m_template ? m_template->m_productionTimeChanges : kEmpty;
+	if (m_productionTimeTimers.size() != initial.size() || !sameRealMap(m_startingProductionTimeChanges, initial)
+		|| !sameRealMap(m_productionTimeChanges, m_startingProductionTimeChanges))
+	{
+		return false;
+	}
+	auto ii = initial.begin();
+	for (auto it = m_productionTimeTimers.begin(); it != m_productionTimeTimers.end(); ++it, ++ii)
+	{
+		if (it->first != ii->first || it->second != 0)
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+// PORT-280 (fork issue 647): RW 0x6AF3C8 (STL hash_map helpers RW 0x5DD47E find, RW 0x5FD6A5 / RW 0x5FD431 float operator[] / insert, RW 0x6AEFBE /
+// RW 0x6AE82A int operator[] / insert, RW 0x60D23A bucket grow). When `templateName` is absent from m_startingProductionTimeChanges (+0x2C8, RW 0x6AF3E7),
+// records a 0.0f baseline (RW 0x6AF3ED .. 0x6AF3F8) while keeping an existing PlayerTemplate baseline intact; then overwrites m_productionTimeTimers[name]
+// (+0x2DC, RW 0x6AF3FC .. 0x6AF40B) with `frames` and m_productionTimeChanges[name] (+0x2B4, RW 0x6AF40D .. 0x6AF422) with `bonus`.
+void Player::setProductionSpeedBonus(const std::string &templateName, float bonus, int frames)
+{
+	if (m_startingProductionTimeChanges.find(templateName) == m_startingProductionTimeChanges.end())
+	{
+		m_startingProductionTimeChanges[templateName] = 0.0f;
+	}
+	m_productionTimeTimers[templateName] = frames;
+	m_productionTimeChanges[templateName] = bonus;
+}
+
+// PORT-280 (fork issue 647): RW 0x6AF429: when `templateName` is in m_productionTimeChanges (+0x2B4, RW 0x6AF445), erases it from +0x2C8, +0x2DC and +0x2B4.
+void Player::removeProductionSpeedBonus(const std::string &templateName)
+{
+	if (m_productionTimeChanges.find(templateName) != m_productionTimeChanges.end())
+	{
+		m_startingProductionTimeChanges.erase(templateName);
+		m_productionTimeTimers.erase(templateName);
+		m_productionTimeChanges.erase(templateName);
+	}
+}
+
+// PORT-280 (fork issue 647): RW 0x6AF484: looks up `templateName` in m_productionTimeChanges (+0x2B4, RW 0x6AF498); returns its float or 0.0f when absent.
+float Player::getProductionTimeChange(const std::string &templateName) const
+{
+	const auto it = m_productionTimeChanges.find(templateName);
+	return it == m_productionTimeChanges.end() ? 0.0f : it->second;
+}
+
+int Player::getProductionTimeTimer(const std::string &templateName) const
+{
+	const auto it = m_productionTimeTimers.find(templateName);
+	return it == m_productionTimeTimers.end() ? 0 : it->second;
+}
+
+// PORT-280 (fork issue 647): RW 0x6AF269 (Player::update, timer walk RW 0x6AF28E .. 0x6AF2DD): each non-zero entry in m_productionTimeTimers (+0x2DC,
+// RW 0x6AF297) is decremented by 1 (RW 0x6AF29D); reaching 0 (RW 0x6AF2A0) restores m_productionTimeChanges[name] from m_startingProductionTimeChanges[name]
+// (RW 0x6AF2A5 .. 0x6AF2C8).
+void Player::updateProductionTimeTimers()
+{
+	for (auto &kv : m_productionTimeTimers)
+	{
+		if (kv.second != 0)
+		{
+			kv.second = (int)((std::uint32_t)kv.second - 1u);
+			if (kv.second == 0)
+			{
+				m_productionTimeChanges[kv.first] = m_startingProductionTimeChanges[kv.first];
+			}
+		}
+	}
 }
 
 // PORT-113 (issue #280): RW 0x6AB148
@@ -1070,4 +1303,458 @@ void Player::removeLightPointLevel(const std::string &levelName)
 	{
 		TheLightPointSystem->removeLevel(m_lightPoints, levelName);
 	}
+}
+
+// ---- LOCAL-94 (issue #720): AIPlayer structure repair queue & superweapon target computation ----------------------------------------------------
+
+void Player::resetAIPlayerRepair()
+{
+	m_structuresToRepair = { INVALID_ID, INVALID_ID };
+	m_repairDozer = INVALID_ID;
+	m_repairDozerOrigin = Coord3D{ 0.0f, 0.0f, 0.0f };
+	m_structuresInQueue = 0;
+	m_dozerQueuedForRepair = false;
+	m_dozerIsRepairing = false;
+	m_bridgeTimer = 0;
+}
+
+bool Player::isAIPlayerRepairUntouched() const
+{
+	return m_structuresInQueue == 0 && m_structuresToRepair[0] == INVALID_ID && m_structuresToRepair[1] == INVALID_ID &&
+		m_repairDozer == INVALID_ID && m_repairDozerOrigin.x == 0.0f && m_repairDozerOrigin.y == 0.0f && m_repairDozerOrigin.z == 0.0f &&
+		!m_dozerQueuedForRepair && !m_dozerIsRepairing && m_bridgeTimer == 0;
+}
+
+// RW 0x6AA671 (Player::repairStructure -> m_ai->repairStructure) -> RW 0x8F78EB (DONOR BFME2 0x004F2F66, AIPlayer::repairStructure):
+// queues up to MAX_STRUCTURES_TO_REPAIR (2) damaged (getDamageState() != BODY_PRISTINE) structure IDs when not already in m_structuresToRepair.
+void Player::repairStructure(GameLogic &logic, ObjectID structureID)
+{
+	if (m_type != PLAYER_COMPUTER)
+	{
+		return;
+	}
+	Object *structureObj = logic.findObjectByID(structureID);
+	if (!structureObj)
+	{
+		return;
+	}
+	const BodyModuleInterface *body = structureObj->getBodyModule();
+	if (!body || body->getDamageState() == BODY_PRISTINE)
+	{
+		return;
+	}
+	for (int i = 0; i < m_structuresInQueue; ++i)
+	{
+		if (m_structuresToRepair[(size_t)i] == structureID)
+		{
+			return;
+		}
+	}
+	if (m_structuresInQueue < kMaxStructuresToRepair)
+	{
+		m_structuresToRepair[(size_t)m_structuresInQueue++] = structureID;
+	}
+}
+
+// RW 0x8F55FD (DONOR BFME2 0x004F0F7C, AIPlayer::findDozer): walks logic.getFirstObject() (RW 0x97338F), keeps this player's DOZER objects with a
+// DozerAIUpdate that are not forced into busy/wanting supply state when idle, not m_repairDozer, and have no pending DOZER_TASK_BUILD; prefers the
+// closest idle (!isAnyTaskPending) dozer in 2D distance squared to `pos`, falling back to the last non-building dozer.
+Object *Player::findDozerForRepair(GameLogic &logic, const Coord3D &pos) const
+{
+	static const int kDozer = ObjectTemplateInfoBuilder::kindOfIndex("DOZER");
+	if (kDozer < 0)
+	{
+		return nullptr;
+	}
+	Object *anyDozer = nullptr;
+	Object *bestIdleDozer = nullptr;
+	float minDistSqr = 0.0f;
+	for (Object *obj = logic.getFirstObject(); obj; obj = obj->getNextObject())
+	{
+		if (obj->getControllingPlayer() != this || !obj->isKindOf((unsigned)kDozer))
+		{
+			continue;
+		}
+		AIUpdateInterface *ai = obj->getAIUpdateInterface();
+		DozerAIUpdate *dozerAI = dynamic_cast<DozerAIUpdate *>(ai);
+		if (!dozerAI)
+		{
+			continue;
+		}
+		if (!dozerAI->isAnyTaskPending())
+		{
+			if (const SupplyTruckAIInterface *supplyTruckAI = ai->getSupplyTruckAIInterface())
+			{
+				if (supplyTruckAI->isForcedIntoBusyState() || supplyTruckAI->isForcedIntoWantingState())
+				{
+					continue;
+				}
+			}
+		}
+		if (obj->getID() == m_repairDozer || dozerAI->isTaskPending(DozerAIUpdate::DOZER_TASK_BUILD))
+		{
+			continue;
+		}
+		anyDozer = obj;
+		if (!dozerAI->isAnyTaskPending())
+		{
+			const Coord3D *p = obj->getPosition();
+			const float dx = SimMath::subf32(p->x, pos.x);
+			const float dy = SimMath::subf32(p->y, pos.y);
+			const float distSqr = SimMath::addf32(SimMath::mulf32(dx, dx), SimMath::mulf32(dy, dy));
+			if (!bestIdleDozer || minDistSqr > distSqr)
+			{
+				bestIdleDozer = obj;
+				minDistSqr = distSqr;
+			}
+		}
+	}
+	return bestIdleDozer ? bestIdleDozer : anyDozer;
+}
+
+// RW 0x8F9705 (AIPlayer::update, jumped to by AISkirmishPlayer::update RW 0x8F3F5C) -> RW 0x8F8F68 (DONOR BFME2 0x004F418A, AIPlayer::updateBridgeRepair):
+// skipped when TheSkirmishAIManager->findAI(this) is non-null (RW 0x8F9711 .. 0x8F9718); otherwise ticks m_bridgeTimer (reset to LOGICFRAMES_PER_SECOND = 5),
+// drops destroyed queue entries, assigns a dozer via findDozerForRepair (RW 0x8F55FD) and sends CMD_FROM_AI repair (RW 0x66BBF1 -> RW 0x88E552), then once
+// the structure reaches BODY_PRISTINE and the dozer has no task pending shifts the queue and moves the dozer back to m_repairDozerOrigin (RW 0x6F3C87 / 0x66C4CA).
+void Player::updateAIPlayerRepair(GameLogic &logic)
+{
+	if (m_type != PLAYER_COMPUTER || m_structuresInQueue == 0 || logic.skirmishAI().findAI(m_index) != nullptr)
+	{
+		return;
+	}
+	--m_bridgeTimer;
+	if (m_bridgeTimer > 0)
+	{
+		return;
+	}
+	m_bridgeTimer = LOGICFRAMES_PER_SECOND;
+	while (m_structuresInQueue > 0 && !logic.findObjectByID(m_structuresToRepair[0]))
+	{
+		for (int i = 0; i < m_structuresInQueue - 1; ++i)
+		{
+			m_structuresToRepair[(size_t)i] = m_structuresToRepair[(size_t)(i + 1)];
+		}
+		m_structuresToRepair[(size_t)(m_structuresInQueue - 1)] = INVALID_ID;
+		--m_structuresInQueue;
+	}
+	if (m_structuresInQueue == 0)
+	{
+		return;
+	}
+	Object *bridgeObj = logic.findObjectByID(m_structuresToRepair[0]);
+	const BodyDamageType bridgeState = bridgeObj && bridgeObj->getBodyModule() ? bridgeObj->getBodyModule()->getDamageState() : BODY_PRISTINE;
+	if (m_repairDozer == INVALID_ID)
+	{
+		m_dozerIsRepairing = false;
+		if (m_dozerQueuedForRepair)
+		{
+			return;
+		}
+		Object *dozer = findDozerForRepair(logic, *bridgeObj->getPosition());
+		if (dozer)
+		{
+			m_repairDozer = dozer->getID();
+			m_repairDozerOrigin = *dozer->getPosition();
+			if (DozerAIUpdate *dozerAI = dynamic_cast<DozerAIUpdate *>(dozer->getAIUpdateInterface()))
+			{
+				if (dozerAI->acceptCommand(CMD_FROM_AI, 0x13, bridgeObj))
+				{
+					dozerAI->repair(*bridgeObj);
+				}
+			}
+			m_dozerIsRepairing = true;
+			return;
+		}
+		m_dozerQueuedForRepair = true;
+		return;
+	}
+	Object *dozer = logic.findObjectByID(m_repairDozer);
+	if (!dozer)
+	{
+		m_repairDozer = INVALID_ID;
+		m_bridgeTimer = 0;
+		return;
+	}
+	DozerAIUpdate *dozerAI = dynamic_cast<DozerAIUpdate *>(dozer->getAIUpdateInterface());
+	if (!dozerAI)
+	{
+		return;
+	}
+	if (m_dozerIsRepairing)
+	{
+		if (!dozerAI->isAnyTaskPending())
+		{
+			if (bridgeState == BODY_PRISTINE)
+			{
+				for (int i = 0; i < m_structuresInQueue - 1; ++i)
+				{
+					m_structuresToRepair[(size_t)i] = m_structuresToRepair[(size_t)(i + 1)];
+				}
+				m_structuresToRepair[(size_t)(m_structuresInQueue - 1)] = INVALID_ID;
+				--m_structuresInQueue;
+				m_dozerIsRepairing = false;
+				if (m_structuresInQueue == 0)
+				{
+					Coord3D pos = m_repairDozerOrigin;
+					if (dozerAI->world().mapReady())
+					{
+						dozerAI->world().pathfinder().adjustToPossibleDestination(dozerAI->adapter(), dozerAI->locomotorInfo(), &pos); // RW 0x6F3C87
+					}
+					dozerAI->aiMoveToPosition(pos, CMD_FROM_AI); // RW 0x66C4CA
+					return;
+				}
+			}
+		}
+		else
+		{
+			return;
+		}
+	}
+	if (dozerAI->acceptCommand(CMD_FROM_AI, 0x13, bridgeObj))
+	{
+		dozerAI->repair(*bridgeObj);
+	}
+	m_dozerIsRepairing = true;
+}
+
+namespace
+{
+// RW 0x8F6511 (DONOR BFME2 0x004F1B8C, AIPlayer::getPlayerStructureBounds): 2D min/max bounds of the player's team members with KindOf STRUCTURE.
+void getPlayerStructureBounds(GameLogic &logic, int playerIndex, Coord2D &lo, Coord2D &hi)
+{
+	lo = Coord2D{ 0.0f, 0.0f };
+	hi = Coord2D{ 0.0f, 0.0f };
+	const Player *player = logic.players().getNthPlayer(playerIndex);
+	if (!player)
+	{
+		return;
+	}
+	static const int kStructure = ObjectTemplateInfoBuilder::kindOfIndex("STRUCTURE");
+	if (kStructure < 0)
+	{
+		return;
+	}
+	Coord2D curLo{ 1000000.0f, 1000000.0f };
+	Coord2D curHi{ -1000000.0f, -1000000.0f };
+	bool found = false;
+	for (const auto &proto : logic.players().teams().prototypes())
+	{
+		if (proto->getControllingPlayer() != player)
+		{
+			continue;
+		}
+		for (Team *team : proto->teams())
+		{
+			for (Object *o = team->getFirstMember(); o; o = o->friend_teamNext())
+			{
+				if (!o->isKindOf((unsigned)kStructure))
+				{
+					continue;
+				}
+				const Coord3D *p = o->getPosition();
+				found = true;
+				if (p->x < curLo.x) curLo.x = p->x;
+				if (p->y < curLo.y) curLo.y = p->y;
+				if (p->x > curHi.x) curHi.x = p->x;
+				if (p->y > curHi.y) curHi.y = p->y;
+			}
+		}
+	}
+	if (found)
+	{
+		lo = curLo;
+		hi = curHi;
+	}
+}
+
+// RW 0x8F5BDB (DONOR BFME2 0x004F1256, AIPlayer::getPlayerSuperweaponValue): evaluates the build-cost-weighted density of enemy team members within
+// max(searchRadius, 40.0f) in 2D, skipping airborne AIRCRAFT (RW 0x70C55D), scaling COMMANDCENTER by 0.1f and costs > 3000.0f by 0.1f.
+int getPlayerSuperweaponValue(GameLogic &logic, const Coord3D &searchCenter, int playerIndex, float searchRadius)
+{
+	if (searchRadius < 40.0f)
+	{
+		searchRadius = 40.0f; // RW 0xBDD28C
+	}
+	const float radSqr = SimMath::mulf32(searchRadius, searchRadius);
+	const Player *player = logic.players().getNthPlayer(playerIndex);
+	if (!player)
+	{
+		return 0;
+	}
+	static const int kAircraft = ObjectTemplateInfoBuilder::kindOfIndex("AIRCRAFT");
+	static const int kCommandCenter = ObjectTemplateInfoBuilder::kindOfIndex("COMMANDCENTER");
+	float cash = 0.0f;
+	for (const auto &proto : logic.players().teams().prototypes())
+	{
+		if (proto->getControllingPlayer() != player)
+		{
+			continue;
+		}
+		for (Team *team : proto->teams())
+		{
+			for (Object *o = team->getFirstMember(); o; o = o->friend_teamNext())
+			{
+				if (kAircraft >= 0 && o->isKindOf((unsigned)kAircraft) && o->isSignificantlyAboveTerrain()) // RW 0x70C55D
+				{
+					continue;
+				}
+				const Coord3D *p = o->getPosition();
+				const float dx = SimMath::subf32(searchCenter.x, p->x);
+				const float dy = SimMath::subf32(searchCenter.y, p->y);
+				const float d2 = SimMath::addf32(SimMath::mulf32(dx, dx), SimMath::mulf32(dy, dy));
+				if (d2 >= radSqr)
+				{
+					continue;
+				}
+				const float dist = (float)SimMath::sqrtd(d2);
+				const float factor = SimMath::subf32(1.0f, SimMath::divf32(dist, SimMath::mulf32(2.0f, searchRadius)));
+				float cost = o->getTemplate() ? SimMath::sseFromInt32(BuildAssistant::calcCostToBuild(*o->getTemplate(), player, nullptr, -1)) : 0.0f;
+				if (kCommandCenter >= 0 && o->isKindOf((unsigned)kCommandCenter))
+				{
+					cost = SimMath::mulf32(cost, 0.1f); // RW 0xBD83D4
+				}
+				if (cost > 3000.0f) // RW 0xC1EE14
+				{
+					cost = SimMath::mulf32(cost, 0.1f);
+				}
+				cash = SimMath::addf32(cash, SimMath::mulf32(factor, cost));
+			}
+		}
+	}
+	return SimMath::cvttss2si(cash);
+}
+} // namespace
+
+// RW 0x6AA5CA (Player::computeSuperweaponTarget) -> AISkirmishPlayer::computeSuperweaponTarget (RW 0x8F481C, DONOR BFME2 0x004EFFD2) /
+// AIPlayer::computeSuperweaponTarget (RW 0x8F66BD, DONOR BFME2 0x004F1D38).
+void Player::computeSuperweaponTarget(GameLogic &logic, const SpecialPowerTemplate *power, Coord3D &retPos, int enemyPlayerIndex, float weaponRadius) const
+{
+	if (m_type != PLAYER_COMPUTER)
+	{
+		return;
+	}
+	if (m_skirmish && power && power->getName() == "SuperweaponClusterMines")
+	{
+		// RW 0x8F4845 .. 0x8F4994: picks "Center" / "Flank" / "Backdoor" + (m_mpStartIndex + 1), finds closest waypoint on that path to m_baseCenter
+		// ({0,0,0}) or falls back to enemy structure bounds center, then offsets by m_baseRadius (10.0f, RW 0xBD83D8).
+		const int which = logic.random().getValue(0, 2, "AISkirmishPlayer.cpp", 0x35F);
+		const std::string pathName = std::string(which == 0 ? "Center" : which == 1 ? "Flank" : "Backdoor") + std::to_string(m_mpStartIndex + 1);
+		const Waypoint *bestWay = nullptr;
+		float minDist = 0.0f;
+		if (const TerrainLogic *terrain = logic.terrain())
+		{
+			for (const Waypoint &w : terrain->waypoints())
+			{
+				if (w.label1 == pathName || w.label2 == pathName || w.label3 == pathName)
+				{
+					const float d2 = SimMath::addf32(SimMath::mulf32(w.location.x, w.location.x), SimMath::mulf32(w.location.y, w.location.y));
+					if (!bestWay || minDist > d2)
+					{
+						bestWay = &w;
+						minDist = d2;
+					}
+				}
+			}
+		}
+		Coord3D targetPos{ 0.0f, 0.0f, 0.0f };
+		if (bestWay)
+		{
+			targetPos = bestWay->location;
+		}
+		else
+		{
+			Coord2D lo{}, hi{};
+			getPlayerStructureBounds(logic, enemyPlayerIndex, lo, hi);
+			targetPos.x = SimMath::mulf32(SimMath::addf32(lo.x, hi.x), 0.5f);
+			targetPos.y = SimMath::mulf32(SimMath::addf32(lo.y, hi.y), 0.5f);
+		}
+		Coord2D offset{ targetPos.x, targetPos.y };
+		const float len = (float)SimMath::sqrtd(SimMath::addf32(SimMath::mulf32(offset.x, offset.x), SimMath::mulf32(offset.y, offset.y)));
+		if (len > 0.0f)
+		{
+			offset.x = SimMath::divf32(offset.x, len);
+			offset.y = SimMath::divf32(offset.y, len);
+		}
+		retPos.x = SimMath::mulf32(offset.x, 10.0f);
+		retPos.y = SimMath::mulf32(offset.y, 10.0f);
+		retPos.z = logic.getGroundHeight(retPos.x, retPos.y);
+		return;
+	}
+	// RW 0x8F66BD (AIPlayer::computeSuperweaponTarget): coarse grid scan (up to 10x10 at radius 2*r) over enemy structure bounds shrunk by r, then
+	// fine 11x11 scan (step 0.1*r at radius r) averaging ties for the maximum superweapon value.
+	Coord2D lo{}, hi{};
+	getPlayerStructureBounds(logic, enemyPlayerIndex, lo, hi);
+	if (weaponRadius < 1.0f)
+	{
+		weaponRadius = 1.0f; // RW 0xBD19D8
+	}
+	lo.x = SimMath::addf32(lo.x, weaponRadius);
+	hi.x = SimMath::subf32(hi.x, weaponRadius);
+	if (hi.x < lo.x)
+	{
+		lo.x = hi.x = SimMath::mulf32(SimMath::addf32(hi.x, lo.x), 0.5f);
+	}
+	lo.y = SimMath::addf32(lo.y, weaponRadius);
+	hi.y = SimMath::subf32(hi.y, weaponRadius);
+	if (hi.y < lo.y)
+	{
+		lo.y = hi.y = SimMath::mulf32(SimMath::addf32(hi.y, lo.y), 0.5f);
+	}
+	int xCount = (int)std::ceil((double)SimMath::divf32(SimMath::subf32(hi.x, lo.x), weaponRadius)) + 1;
+	int yCount = (int)std::ceil((double)SimMath::divf32(SimMath::subf32(hi.y, lo.y), weaponRadius)) + 1;
+	if (xCount > 10) xCount = 10;
+	if (yCount > 10) yCount = 10;
+	Coord3D bestPos{ 0.0f, 0.0f, 0.0f };
+	int cash = -1;
+	for (int i = 0; i < xCount; ++i)
+	{
+		for (int j = 0; j < yCount; ++j)
+		{
+			Coord3D pos{
+				SimMath::addf32(lo.x, SimMath::divf32(SimMath::mulf32(SimMath::subf32(hi.x, lo.x), SimMath::sseFromInt32(i)), SimMath::sseFromInt32(xCount))),
+				SimMath::addf32(lo.y, SimMath::divf32(SimMath::mulf32(SimMath::subf32(hi.y, lo.y), SimMath::sseFromInt32(j)), SimMath::sseFromInt32(yCount))),
+				0.0f,
+			};
+			const int curCash = getPlayerSuperweaponValue(logic, pos, enemyPlayerIndex, SimMath::mulf32(2.0f, weaponRadius));
+			if (curCash > cash)
+			{
+				cash = curCash;
+				bestPos = pos;
+			}
+		}
+	}
+	Coord3D veryBestPos{ 0.0f, 0.0f, 0.0f };
+	int count = 1;
+	cash = -1;
+	for (int i = 0; i < 11; ++i)
+	{
+		for (int j = 0; j < 11; ++j)
+		{
+			Coord3D pos{
+				SimMath::addf32(bestPos.x, SimMath::mulf32(SimMath::sseFromInt32(i - 5), SimMath::mulf32(weaponRadius, 0.1f))),
+				SimMath::addf32(bestPos.y, SimMath::mulf32(SimMath::sseFromInt32(j - 5), SimMath::mulf32(weaponRadius, 0.1f))),
+				0.0f,
+			};
+			const int curCash = getPlayerSuperweaponValue(logic, pos, enemyPlayerIndex, weaponRadius);
+			if (curCash > cash)
+			{
+				cash = curCash;
+				veryBestPos = pos;
+				count = 1;
+			}
+			else if (curCash == cash)
+			{
+				veryBestPos.x = SimMath::addf32(veryBestPos.x, pos.x);
+				veryBestPos.y = SimMath::addf32(veryBestPos.y, pos.y);
+				++count;
+			}
+		}
+	}
+	if (count > 1)
+	{
+		veryBestPos.x = SimMath::divf32(veryBestPos.x, SimMath::sseFromInt32(count));
+		veryBestPos.y = SimMath::divf32(veryBestPos.y, SimMath::sseFromInt32(count));
+	}
+	veryBestPos.z = logic.getGroundHeight(veryBestPos.x, veryBestPos.y);
+	retPos = veryBestPos;
 }

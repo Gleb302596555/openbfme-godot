@@ -271,10 +271,11 @@ TEST_CASE("SPELL-1 retail: the Science, Rank and SpecialPower stores of the pure
 							   << " special powers; SpellBookHeal reload " << h->getReloadTime() << " frames");
 }
 
-TEST_CASE("SPELL-1 stops: the remaining S-520 .. S-532 stops are reported once; resolved S-527 is absent")
+// S-523 is not in the list since issue #555: the default ObjectFilter is identified (RW 0xDE49E4 is an all-zero KindOfMaskType in both images; RW 0x763D11 builds rule NONE with empty masks) and the code hands it out for an unset filter (ObjectFilter specialPowerFilterOrDefault, shared by ActionManager's filterOrDefault and StoreObjectsSpecialPower and TeleportToCasterSpecialPower), so the reported gap is closed
+TEST_CASE("SPELL-1 stops: the remaining S-520 .. S-532 stops are reported once; resolved S-523 and S-527 are absent")
 {
 	const std::vector<std::string> lines = SpellStops::lines();
-	const std::vector<int> remaining{ 520, 521, 522, 523, 524, 525, 526, 528, 529, 530, 531, 532 };
+	const std::vector<int> remaining{ 520, 521, 522, 524, 525, 526, 528, 529, 530, 531, 532 };
 	REQUIRE(lines.size() == remaining.size());
 	for (size_t i = 0; i < remaining.size(); ++i)
 	{

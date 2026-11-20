@@ -69,7 +69,10 @@ enum AIStateType
 	AI_WAIT = 8,
 	AI_MOVE_OUT_OF_THE_WAY = 26,
 	AI_MOVE_AND_TIGHTEN = 27,
+	AI_MOVE_AND_DELETE = 30,             // RW 0x753755: AIMoveAndDeleteState (AICMD 0x38, RW 0x0066B7A2)
+	AI_WANDER_IN_PLACE = 41,             // RW 0x753755: AIWanderInPlaceState (AICMD 0x2C, RW 0x0066488A)
 	AI_BUSY = 42,
+	AI_MOVE_TO_POSITION_AND_DIE = 55,    // RW 0x753755: AIMoveToPositionAndDieState (AICMD 0x41, RW 0x0066B817)
 	AI_FOLLOW_PATH_AS_TEAM = 54,        // lane BACKLOG-8 r2: RotWK's state 54 (RW 0x753B27: AIFollowPathAsTeamState, isAttack = false)
 	AI_FOLLOW_PATH_AS_TEAM_ATTACK = 61, // lane PORT-13: RotWK's state 61 (RW 0x753B4E: AIFollowPathAsTeamState, isAttack = true)
 	AI_ABILITY_APPROACH = 0x3F, // RW 0x753823 -> 0x741A7B
@@ -264,8 +267,7 @@ private:
 };
 
 // ---- the states ----------------------------------------------------------------------------------------------------------------
-// stop S-5148: the stop line of the idle state's unported stance failure (RotWK RW 0x7553AB / 0x7537E0; AIStateMachine.cpp), noted by AIIdleState::update
-const char *idleStanceStopLine();
+// Port 226 (issue #549): stop S-5148 is closed: the idle state's stance countdown (RotWK RW 0x7553AB / 0x7537E0) runs in AIIdleState::update
 
 // AIIdleState (ZH AIStates.cpp:1273-1460, B1 RW-equivalent 0x188090): stakes out the unit's cell and sleeps.
 class AIIdleState : public AIState
@@ -277,11 +279,14 @@ public:
 	bool isIdle() const override { return true; }
 	void crc(class StateHasher &hasher) const override;
 	void xfer(class Xfer &x) override;
+	/// retail's + 0x22 (RW 0x7553AB's stance countdown); read by the tests of its rule
+	unsigned short stancesCountdown() const { return m_stancesCountdown; }
 
 private:
 	void doInitIdleState();
-	unsigned short m_initialSleepOffset = 0xFFFF;
-	bool m_inited = false;
+	unsigned short m_initialSleepOffset = 0xFFFF; // + 0x20
+	unsigned short m_stancesCountdown = 5;        // + 0x22: RW 0x7489B6 sets it to 5 at every onEnter (DONOR BFME2 0x00346FD0 AIIdleStateOnEnter.cpp)
+	bool m_inited = false;                        // + 0x25
 };
 
 // AIMoveToState (ZH AIStates.cpp:2076 and AIInternalMoveToState): a PATH-1 AIMoveToState driven as a machine state; with a goal object
@@ -319,6 +324,35 @@ private:
 	bool backOff(Coord3D &goal); // RW 0x745C6C
 	unsigned m_waitUntil = 0; // RW state + 0x4C
 	bool m_waiting = false;   // RW state + 0x50
+};
+
+// Local 84: AIMoveAndDeleteState (state 30 = 0x1E, AICMD 0x38 RW 0x0066B7A2; DONOR BFME2 0x0034A02D AIMoveAndDeleteStateUpdate.cpp).
+class AIMoveAndDeleteState : public AIMoveToMachineState
+{
+public:
+	explicit AIMoveAndDeleteState(AIStateMachine &m) : AIMoveToMachineState(m, "AIMoveAndDeleteState") {}
+	StateReturnType update() override;
+};
+
+// Local 84: AIMoveToPositionAndDieState (state 55 = 0x37, AICMD 0x41 RW 0x0066B817; DONOR BFME2 0x003513C9 AIStatesBfmeOnExit.cpp).
+class AIMoveToPositionAndDieState : public AIMoveToMachineState
+{
+public:
+	explicit AIMoveToPositionAndDieState(AIStateMachine &m) : AIMoveToMachineState(m, "AIMoveToPositionAndDieState") {}
+	StateReturnType update() override;
+};
+
+// Local 84: AIWanderInPlaceState (state 41 = 0x29, AICMD 0x2C RW 0x0066488A; DONOR BFME2 0x0034F2F7 AIWanderInPlaceStateUpdate.cpp).
+class AIWanderInPlaceState : public AIMoveToMachineState
+{
+public:
+	explicit AIWanderInPlaceState(AIStateMachine &m) : AIMoveToMachineState(m, "AIWanderInPlaceState") {}
+	StateReturnType onEnter() override;
+	StateReturnType update() override;
+	void crc(class StateHasher &hasher) const override;
+	void xfer(class Xfer &x) override;
+private:
+	Coord3D m_origin{ 0.0f, 0.0f, 0.0f };
 };
 
 // AIFollowPathState (ZH AIStates.cpp:3253-3420): walks the machine's goal path node by node; the exit-production variant (id 7) does not

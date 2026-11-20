@@ -12,6 +12,7 @@
 #include "Common/Xfer.h"
 #include "GameLogic/Combat/CombatNames.h"
 #include "GameLogic/Combat/CombatQueries.h"
+#include "GameLogic/Damage.h"
 #include "GameLogic/Economy.h"
 #include "GameLogic/FindPositionAround.h"
 #include "GameLogic/GameLogic.h"
@@ -524,7 +525,7 @@ void DockUpdate::xferDockUpdate(Xfer &x)
 	}
 	x.xferInt(&m_numberApproachPositions);
 	x.xferBool(&m_positionsLoaded);
-	x.xferInt(&m_numberApproachPositionBones); // OpenBFME: retail recomputes it when the positions load again (RW 0x99198A)
+	x.xferInt(&m_numberApproachPositionBones); // OpenBFME: retail recomputes it when the positions load again (RW 0x99198A; SupplyCenterDockUpdate::loadPostProcess RW 0x008A4ABF)
 	std::uint32_t n = (std::uint32_t)m_approachPositions.size();
 	x.xferCount(&n, 12 + 4 + 1, sizeof(Coord3D) + sizeof(ObjectID) + 1);
 	if (x.isLoading())
@@ -567,6 +568,7 @@ SupplyCenterDockUpdate::SupplyCenterDockUpdate(Thing *thing, const SupplyCenterD
 {
 }
 
+// GetSnapshotName RW 0x008A44D2, getModuleNameKey RW 0x008A4513
 void SupplyCenterDockUpdate::registerClass(ModuleFactory &modules)
 {
 	modules.bindTypedData<SupplyCenterDockUpdateModuleData>("SupplyCenterDockUpdate", MODULETYPE_BEHAVIOR);
@@ -673,6 +675,7 @@ void SupplyWarehouseDockUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 	p.add(kSupplyWarehouseDockUpdateFieldParse);
 }
 
+// RW 0x8AB4C0: DockUpdate's constructor (RW 0x99230C), then the boxes (+0x88) are StartingBoxes (data + 0x10)
 SupplyWarehouseDockUpdate::SupplyWarehouseDockUpdate(Thing *thing, const SupplyWarehouseDockUpdateModuleData *data)
 	: DockUpdate(thing, data), m_data(data), m_boxesStored(data->m_startingBoxes)
 {
@@ -737,6 +740,39 @@ bool SupplyWarehouseDockUpdate::action(Object &docker, Object *)
 	return true;
 }
 
+// RW 0x8AB6E3 (dock interface slot 17, + 0x44)
+void SupplyWarehouseDockUpdate::setDockCrippled(bool setting)
+{
+	if (setting && activeDocker() != INVALID_ID) // RW 0x8AB6E3 .. 0x8AB6F2: the argument, then the active docker (+ 0x80)
+	{
+		Object *docker = getObject()->logic().findObjectByID(activeDocker()); // RW 0x8AB6FC: RW 0x449681
+		if (docker)
+		{
+			if (dockerInside()) // RW 0x8AB707: + 0x84
+			{
+				if (!usesAirborneLocomotor(*docker)) // RW 0x8AB70F: RW 0x68BEED
+				{
+					docker->kill(DAMAGE_UNRESISTABLE, DEATH_NORMAL); // RW 0x8AB71E: RW 0x698EC3(8, 0)
+				}
+			}
+			else
+			{
+				// RW 0x8AB725 .. 0x8AB74E: the docker's AI (+ 0x260; retail reads it without a null test: every docker has one) and its supply truck interface
+				// (AI vslot 0x17C); with one, aiIdle(CMD_FROM_AI) (RW 0x5E821A with 2, on the AI's + 0x20 command interface) and setForceWantingState(true)
+				// (slot 0x2C)
+				AIUpdateInterface *ai = docker->getAIUpdateInterface();
+				SupplyTruckAIInterface *sup = ai ? ai->getSupplyTruckAIInterface() : nullptr;
+				if (sup)
+				{
+					ai->aiIdle(CMD_FROM_AI);
+					sup->setForceWantingState(true);
+				}
+			}
+		}
+	}
+	DockUpdate::setDockCrippled(setting); // RW 0x8AB759: RW 0x991727
+}
+
 void SupplyWarehouseDockUpdate::crc(StateHasher &h) const
 {
 	DockUpdate::crc(h);
@@ -745,7 +781,7 @@ void SupplyWarehouseDockUpdate::crc(StateHasher &h) const
 
 void SupplyWarehouseDockUpdate::xfer(Xfer &x)
 {
-	SnapshotXfer::version(x, 1, 1); // INFERENCE: ZH's version 1 (the dock base, then the boxes); RotWK's xfer was not read
+	SnapshotXfer::version(x, 1, 1); // RW 0x8AB451: version 1 (RW 0x404F15), the dock base (RW 0x99248C), then the boxes (+ 0x88)
 	xferDockUpdate(x);
 	x.xferInt(&m_boxesStored);
 }

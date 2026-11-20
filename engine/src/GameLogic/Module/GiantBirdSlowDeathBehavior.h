@@ -14,7 +14,17 @@
 //   * RW 0x66A61A (AI, radius, in, out): r = max(10, the object's bounding circle radius); the objects within `radius` of `in` (2D, near to far) of every kind of the mask (RW 0x70C4FE);
 //     for R = r, 2r, ... up to `radius`, and the angle from -PI to PI by r / R (x87-free SSE: 2PI / (R * 2PI * (1 / r))): the point in + (sin, cos) * R (RW 0x66A704: x takes the sine) with
 //     no hit whose circle (its radius + r) strictly contains it is the answer; none: `in` stays.
-// NOT READ by these functions: FXHitGround, OCLHitGround, DelayFromGroundToFinalDeath, CrashAvoidStrength, NeedToMaintainFlailingHeight (stop S-5606). The data keeps them.
+// NOT READ by these functions: FXHitGround, OCLHitGround, DelayFromGroundToFinalDeath (stop S-5606). The data keeps them.
+// PORT-304 (issue #696): CrashAvoidStrength (+ 0x1BC, row RW 0xC59480, parser RW 0x42ED00) and NeedToMaintainFlailingHeight (+ 0x1C0, row RW 0xC59490, parser
+//   RW 0x42E558) are parsed and READ BY NOTHING in RotWK 2.01: the data constructor RW 0x865076 writes them (0.1 from RW 0xBD83D4; 0 at RW 0x8650D9), and no
+//   function of the module's five vtables (RW 0xC5958C, 0xC594D0, 0xC594C0, 0xC6066C, 0xC594B0: 26 functions) nor any function they call reads + 0x1BC or
+//   + 0x1C0 of the data (+ 0x19C / + 0x1B8 are read at RW 0x8651E9 / 0x8651FA); the module's name key (RW 0xDE903C) is used only by its own getter, so no
+//   other class finds the module to read them; the .text has no + 0x1BC read and its + 0x1C0 byte reads are other classes' (arena triage batch 5, rows 22 / 23).
+//   DONOR BFME2: the class contract of GiantBirdSlowDeathBehaviorModuleData (Open-BFME-2 reverse/class_contracts) lists no retail access beyond the
+//   constructor, and its beginSlowDeath view reads only the mask and the radius. The port keeps both fields parsed and stored, read by nothing.
+//   The module's other own functions (none are behaviour): RW 0x864F97 getModuleNameKey (NameKey of RW 0xC0BCD8, cached at RW 0xDE903C), RW 0x864FDC the
+//   module name (`mov eax, 0xC0BCD8`), RW 0x8650E4 / RW 0x865100 scalar deleting destructors (RW 0x8619E8 / RW 0x864FE2, then RW 0x42F6A0), RW 0x4B612F a
+//   shared name helper (RW 0x435F30 on the global RW 0xDC62B8, used by many modules).
 // The snapshot is OpenBFME native (S-4190).
 
 #pragma once

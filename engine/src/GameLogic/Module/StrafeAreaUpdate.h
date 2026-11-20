@@ -54,6 +54,7 @@ namespace StrafeAreaUpdateTables
 const FieldParse *strafe(); ///< RW 0x00BF7394 / BFME2 0x00C1B1F8
 }
 
+// RW 0x007A8055 (getModuleName), RW 0x007A805B (getModuleNameKey), RW 0x007A8132 (scalar deleting dtor -> 0x007A803C).
 class StrafeAreaUpdate : public UpdateModule
 {
 public:

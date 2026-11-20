@@ -767,6 +767,7 @@ void SkirmishAIManager::reset()
 	m_attackedAtIds = 0; // RW 0x6A922D
 	m_expansionHeuristicFrames = 0;
 	m_assistTimers.clear();
+	m_armyBreakerTimers.clear();
 }
 
 const AISkirmishPlayer *SkirmishAIManager::findAI(int playerIndex) const
@@ -806,6 +807,20 @@ void SkirmishAIManager::crc(StateHasher &h) const
 	{
 		h.addI32(t.first);
 		h.addU32(t.second);
+	}
+	// lane PORT-196: the ARMY_BREAKER taken-player timer list (RW 0xDEC168 / 0xDEC16C): the caster's player index and the frame it is free again. The delay
+	// bounds are RW's constants (RW 0xBCA418 / 0xBCA42F: LOGICFRAMES_PER_SECOND * 15 / * 30) in both ports, so only the list is state. Hashed only while it
+	// holds an entry, behind a marker word (the rule the newer state follows: Player's supply centers 0x5C and light points 0x338), so a game whose AI never
+	// took ARMY_BREAKER keeps the hash this manager had before the lane (the perf1 / uber1 vectors among them)
+	if (!m_armyBreakerTimers.empty())
+	{
+		h.addU32(0x9E92CAu); // RW 0x9E92CA, the decision that fills the list
+		h.addU32((std::uint32_t)m_armyBreakerTimers.size());
+		for (const std::pair<int, unsigned> &t : m_armyBreakerTimers)
+		{
+			h.addI32(t.first);
+			h.addU32(t.second);
+		}
 	}
 	// the data the AI decides from (SkirmishAIData, armies, bases and their layouts, dozers, PlayerAITypes): a peer with other data diverges here
 	h.addBool(m_store != nullptr);

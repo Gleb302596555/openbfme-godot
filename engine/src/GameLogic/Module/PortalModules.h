@@ -54,9 +54,10 @@
 // The mover's side of a type 7 waypoint: the path is dropped and the unit idles (RW 0x662A0E, AIMove.cpp); the pathfinder's: the waypoint refuses a unit
 // without an AI or inside a move-away search (RW 0x68230B, AIPathfindPortals.cpp).
 // INFERENCE / NOT PORTED (stops S-4853 .. S-4855, docs/STOPS.md): the order of the map placement broadcast (RW 0x62DCE4 sorts the objects: the creation order
-// here); saves (loadPostProcess, TheGameLogic + 0x6E); the drawable's WallBoundsMesh change (no retail DynamicPortalBehaviour sets WallBoundsMesh: reported);
-// the FoundationAIUpdate slot 2 call (RW 0x8582DE's statuses and drawable calls are not ported: reported); a WayPoint index without its bone (retail reads an
-// uninitialised slot: reported, nothing is made); more than six WayPoint entries (retail writes past its six slots: reported, nothing is made).
+// here); the drawable's WallBoundsMesh change (no retail DynamicPortalBehaviour sets WallBoundsMesh: reported); the FoundationAIUpdate slot 2 call
+// (RW 0x8582DE's statuses and drawable calls are not ported: reported); a WayPoint index without its bone (retail reads an uninitialised slot: the port reports
+// and refuses it); more than six WayPoint entries (retail writes past its six slots: the port reports and refuses it). Saves are covered by xfer/crc and
+// test_walls_snapshot.cpp (deployed ladder snapshot load, waypoint/module state and following 100 hashes); the exact retail loadPostProcess sequencing is not claimed.
 
 #pragma once
 
@@ -130,8 +131,7 @@ public:
 	bool isEndPortalAboveWall(Coord3D *out) override { return static_cast<const DynamicPortalBehaviour *>(this)->isEndPortalAboveWall(out); }
 	void createPortalWaypoints() override { createWaypoints(); }
 	void clearPortalWaypoints() override { clearPortals(); }
-	// RW 0x863D77: TopAttackPos's X and Y scaled by the length of the object's planar X axis normalised by its larger component, Z as is, through the
-	// object's transform (RW 0x70BFD1). INFERENCE (S-4940): the arithmetic order of RW 0x863D77 was taken from lane SIEGE-1's reading, not re-read
+	// RW 0x863D77: normalize the transformed local X axis by max(abs(x), abs(y)), take its 3D length, scale TopAttackPos X/Y only (Z is unchanged), then transform (RW 0x70BFD1).
 	Coord3D topAttackPosition() override;
 	const DynamicPortalBehaviourModuleData *portalData() const { return m_data; }
 	bool created() const { return m_created; }

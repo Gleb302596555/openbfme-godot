@@ -77,7 +77,8 @@
 //     FX unless the contain's flag; a contained healer uses its parent's contain); Radius: the allies within Radius (FROM_CENTER_2D) that are KindOf, below their
 //     max health and pass RW 0x855533 are healed. RespawnNearbyHordeMembers independently refills non-construction hordes below Slots after the raw-frame
 //     RespawnMinimumDelay (RW 0x855D16); else the object itself when below its max health; then FOREVER after a SingleBurst, else HealingDelay.
-//     heal one (RW 0x855761): not while waiting for the button; NonStackable needs the body's last heal frame (body vslot 0x48, S-858); amount as above; Radius 0:
+//     heal one (RW 0x855761): not while waiting for the button; NonStackable refuses while the body's last heal frame (body vslot 0x48) plus HealingDelay is
+//     in the future (PORT-293, RW 0x855777 .. 0x8557A2); amount as above; Radius 0:
 //     Object::attemptHealing(amount, the object) (RW 0x690532), else attemptHealingFromSoleBenefactor(amount, the object, HealingDelay) (RW 0x690584);
 //     UnitHealPulseFX on the target; the next heal frame = now + HealingDelay.
 //     eligible (RW 0x855533): HealOnlyOthers and the healer itself: no; HealOnlyIfNotInCombat and the healer in combat: no; HealOnlyIfNotUnderAttack and healer
@@ -241,15 +242,21 @@ public:
 class AttributeModifierAuraUpdate : public UpdateModule, public UpgradeMux
 {
 public:
+	// RotWK vtable identity & UpgradeMux boilerplate: getModuleName RW 0x89EDD2, getModuleNameKey RW 0x89EDD8,
+	// getUpgradeActivationMasks RW 0x89EE1D, no-op mux slots 12/15 RW 0x89EE44, requiresAllTriggers RW 0x89EE53,
+	// requiresAllConflictingTriggers RW 0x89EE5D, scalar deleting dtor RW 0x89F00E (-> RW 0x89EE67 TAINT clear).
 	OBFME_MODULE_XFER(AttributeModifierAuraUpdate) // lane SAVE-4b
 	AttributeModifierAuraUpdate(Thing *thing, const AttributeModifierAuraUpdateModuleData *data); ///< RW 0x89ED5C
 	UpgradeMux *getUpgrade() override { return this; }
+	bool isPermanent() const override { return false; } ///< RW 0x9188EB (UpgradeMux slot 7)
 	UpdateSleepTime update() override; ///< RW 0x89F42D
-	// the destructor RW 0x89EE67: an object of KindOf TAINT clears the taint within Range at its position, owned by its id
-	// (TheTerrainLogic RW 0x683393, GameLogic/Map/TerrainTaintClear.h); a TAINT aura source (template m_kindof[1] bit 28, RW 0x89F615) skips the ally
-	// relationship filter (RW 0x89F61F .. 0x89F62A) and uses its geometry radius instead of Range (RW 0x89F63C .. 0x89F655)
+	// the destructor RW 0x89EE67 (via RW 0x89F00E): an object of KindOf TAINT clears the taint within Range at its position, owned by its id
+	// (TheTerrainLogic RW 0x683393, GameLogic/Map/TerrainTaintClear.h); a WALK_ON_TOP_OF_WALL source (template m_kindof[1] bit 28 = index 60, RW 0x89F4CA)
+	// skips the ally relationship filter (RW 0x89F61F .. 0x89F62A), uses its bounding circle radius instead of Range (RW 0x89F63C .. 0x89F655),
+	// and restricts targets in affect() to wall layers [0x11, 0x40] (RW 0x89F1DB .. 0x89F1FA).
 	void onDelete() override;
 	void crc(StateHasher &h) const override;
+	const AttributeModifierAuraUpdateModuleData *auraData() const { return m_data; } ///< read-only (the button matrix's aura check)
 	unsigned pulses() const { return m_pulses; }
 	unsigned long long antiCategoryRequests() const { return m_anti; }
 
@@ -261,6 +268,7 @@ private:
 	{
 		UnsignedInt antiExpire = 0;
 		Object *source = nullptr;
+		bool specialAuraSource = false;
 		bool containedMode = false;
 	};
 	void affect(Object &o, const Pulse &pulse); ///< RW 0x89F114
@@ -297,10 +305,13 @@ public:
 class AutoHealBehavior : public UpdateModule, public UpgradeMux, public DamageModuleInterface
 {
 public:
+	// RotWK vtable identity & boilerplate: getModuleNameKey RW 0x8553D0, getModuleName RW 0x855415, onObjectCreated RW 0x8554C5,
+	// scalar deleting dtor RW 0x8556EA, requiresAllConflictingTriggers RW 0x88744E, xfer RW 0x855466 (v1..2).
 	OBFME_MODULE_XFER(AutoHealBehavior) // lane SAVE-4b
 	AutoHealBehavior(Thing *thing, const AutoHealBehaviorModuleData *data); ///< RW 0x85562D
 	UpgradeMux *getUpgrade() override { return this; }
-	DamageModuleInterface *getDamage() override { return this; }
+	bool isPermanent() const override { return false; } ///< RW 0x9188EB (UpgradeMux slot 7)
+	DamageModuleInterface *getDamage() override { return this; } ///< RW 0x862758
 	UpdateSleepTime update() override;                                    ///< RW 0x8558C0
 	void onDamage(const DamageInfo &info) override;                       ///< RW 0x855706
 	void onBodyDamageStateChange(const DamageInfo *, BodyDamageType, BodyDamageType) override {}
@@ -315,6 +326,7 @@ protected:
 	void processUpgradeRemoval() override;  ///< RW 0x85544E
 
 private:
+	friend struct Port293HealAccess;        // PORT-293 tests (test_port_293.cpp) drive healOne (RW 0x855761) directly, a step update() owns otherwise
 	void healOne(Object &target, bool fx);  ///< RW 0x855761
 	bool eligible(Object &target) const;    ///< RW 0x855533
 	int amount() const;
@@ -331,6 +343,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p) { buildBaseFieldParse(p); }
 };
 
+// scalar deleting dtor RW 0x008BC4AA
 class BuildableHeroListUpgrade : public UpgradeModule
 {
 public:
@@ -339,7 +352,7 @@ public:
 
 protected:
 	void upgradeImplementation() override; ///< RW 0x8BC4C6
-	void processUpgradeRemoval() override {}
+	void processUpgradeRemoval() override; ///< slot 8, RW 0x008BC5CB
 };
 
 namespace HeroModules

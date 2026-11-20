@@ -41,9 +41,9 @@ namespace
 {
 const char *const kStopPortal =
 	"[S-4940] siege deploy portal (lanes SIEGE-1 / WALL-2): SiegeDeploySpecialPower asks the ladder's / tower's DynamicPortalBehaviour through "
-	"SiegePortalInterface (RW 0x863EB3 IsEndPortalAboveWall, the waypoints RW 0x86404D / 0x8639EF, RW 0x863D77 / 0x863D30 the top attack point); INFERENCE: "
-	"RW 0x863D77's arithmetic order is lane SIEGE-1's reading; a DynamicPortalBehaviour that does not implement the interface (none in the port) would keep "
-	"the deploy in phase 1";
+	"SiegePortalInterface (RW 0x863EB3 IsEndPortalAboveWall, waypoints RW 0x86404D / 0x8639EF, TopAttackPos RW 0x863D77 / TopAttackRadius RW 0x863D30; PORT-230 "
+	"re-read RW 0x863D77 and ported its max-planar-axis normalization, 3D length and X/Y-only TopAttackPos scaling; Z remains unchanged). INFERENCE: an object with a differently named module that "
+	"does not implement SiegePortalInterface would keep the deploy in phase 1";
 const char *const kStopSiege =
 	"[S-4942] siege deploy (lane SIEGE-1): ported from RotWK: SiegeDockingBehavior (RW 0x85D216 / 0x85CE65 / 0x85CBC8 / 0x85CA8A / 0x85CD20 / 0x85CCB8), "
 	"SiegeDeploySpecialPower (RW 0x8CA5C2 / 0x8CA30F / 0x8CA072 / 0x8C9D06 / 0x8CA2D0 over the base RW 0x991660), SiegeDeployHordeSpecialPower (RW 0x8CAA12 / "
@@ -263,7 +263,7 @@ SiegePortalInterface *findSiegePortal(Object &obj)
 	SiegePortalInterface *portal = dynamic_cast<SiegePortalInterface *>(m);
 	if (!portal)
 	{
-		obj.logic().noteStop(kStopPortal); // WALL-2's module is not ported yet (S-4940)
+		obj.logic().noteStop(kStopPortal); // S-4940: a named module did not implement the portal interface
 	}
 	return portal;
 }
@@ -1292,6 +1292,7 @@ void SiegeDeploySpecialPower::setPhase(int next)
 	}
 }
 
+// RW 0x008C9FC8
 void SiegeDeploySpecialPower::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

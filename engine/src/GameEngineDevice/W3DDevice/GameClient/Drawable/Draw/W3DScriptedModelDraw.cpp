@@ -96,6 +96,57 @@ void W3DScriptedModelDraw::rebuildTextureSwaps()
 }
 
 // RW 0x4C1068 (slot 0x84): push 1; push [esi+0x14]; call [eax+0x100] (force = 1)
+const char *W3DScriptedModelDraw::terrainDecalTexture(int type)
+{
+	// RW 0xD99F40 (seven entries; entry 6 repeats EXHordeB_UP as a filler: type 6 is the custom texture of slot 19, Drawable RW 0x672BBB)
+	static const char *const kTextures[6] = { "TERRAIN_DECAL_DEMORALIZED_OBSOLETE", "EXHorde", "EXHorde_UP", "EXHordeB", "EXHordeB_UP", "EXJunkCrate" };
+	return type >= 0 && type < 6 ? kTextures[type] : nullptr;
+}
+
+void W3DScriptedModelDraw::setTerrainDecal(int type, float sizeX, float sizeY, float offsetX, float offsetY)
+{
+	m_hasTerrainDecal = false; // RW 0x4B94CD .. 0x4B94DC: the old decal released
+	if (type >= 7)             // RW 0x4B94E0: TERRAIN_DECAL_NONE
+	{
+		return;
+	}
+	const char *texture = type == 6 ? "EXHordeB_UP" : terrainDecalTexture(type); // RW 0x4B94F8: the table entry, filler included
+	if (!texture)
+	{
+		return;
+	}
+	m_terrainDecal = TerrainDecal{ texture, sizeX, sizeY, offsetX, offsetY, 255 };
+	m_hasTerrainDecal = true;
+}
+
+void W3DScriptedModelDraw::setTerrainDecalTexture(const std::string &texture, float sizeX, float sizeY, float offsetX, float offsetY)
+{
+	m_hasTerrainDecal = false; // RW 0x4B95BE .. 0x4B95CF
+	if (texture.empty())       // RW 0x4B95D2
+	{
+		return;
+	}
+	m_terrainDecal = TerrainDecal{ texture, sizeX, sizeY, offsetX, offsetY, 255 };
+	m_hasTerrainDecal = true;
+}
+
+void W3DScriptedModelDraw::setTerrainDecalSize(float x, float y)
+{
+	if (m_hasTerrainDecal) // RW 0x4B2A1B: the decal's +0x58 / +0x5C
+	{
+		m_terrainDecal.sizeX = x;
+		m_terrainDecal.sizeY = y;
+	}
+}
+
+void W3DScriptedModelDraw::setTerrainDecalOpacity(float opacity)
+{
+	if (m_hasTerrainDecal) // RW 0x4B2A3B -> RadiusDecal::setOpacity RW 0x73228B
+	{
+		m_terrainDecal.opacity = (int)(opacity * 255.0f);
+	}
+}
+
 void W3DScriptedModelDraw::setUpgradeTextureSwaps(const std::vector<std::pair<std::string, std::string>> &swaps)
 {
 	m_upgradeTextureSwaps = swaps;

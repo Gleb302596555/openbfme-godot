@@ -206,6 +206,13 @@ TEST_CASE("castle1: the unpack sorts the members like RW 0x79AC19: the keep, the
 	CastleBehavior *b = f.cb(c);
 	REQUIRE(b->state() == CastleBehavior::STATE_UNPACKED);
 	REQUIRE(b->ownedObjects().size() == 3);
+	// RW 0x79899A -> creation interface slot 7 RW 0x858701: every member is constructed through the castle's foundation interface with the castle as producer.
+	for (ObjectID id : b->ownedObjects())
+	{
+		const Object *member = f.byId(id);
+		REQUIRE(member);
+		CHECK(member->getProducerID() == c->getID());
+	}
 	// RW 0x79C03A / 0x79C0FD: UNPACKING instead of PACKING; the keep takes the script name and the truncated price, the castle is "No Name"
 	CHECK(c->testModelCondition(CombatNames::modelCondition("UNPACKING")));
 	CHECK_FALSE(c->testModelCondition(CombatNames::modelCondition("PACKING")));

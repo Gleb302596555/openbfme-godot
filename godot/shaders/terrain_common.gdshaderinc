@@ -32,7 +32,11 @@
 // Filtering (lane TERRAIN-SAMPLING): the Base / Normal samplers are 8x anisotropic in retail (terrain.fxo); see atlas_gradients(). The shroud texel is the 4-bit red
 // nibble of W3DShroud's A4R4G4B4 pixel (RW 0x47266B; engine ShroudTexel.h), sampled bilinearly with clamp (ShroudSampler).
 //
-// S-5261: the Taint path of every pass (terrain.fxo ps_2_0): a = mask.a, d = 2|a - 0.5|; t = a <= 0.5 ? TaintLow : TaintHigh at the layer's UV;
+// S-5261 / LOCAL-67: the Taint path of every pass (terrain.fxo ps_2_0, blobs 35..51): a = mask.a, d = 2|a - 0.5|;
+//   t = a <= 0.5 ? TaintLow : TaintHigh at oT0 = v3 (vs blob 60 @ 0x1c780, WRAP, LINEAR), which on flat terrain is
+//   W3DTerrainBackground's 16x16-cell tile UV ((i - minX) / 16, 1 - (j - minY) / 16) (doTesselatedUpdate RW 0x514398 at
+//   RW 0x514628..0x51465F, m_width = 16 from FlatHeightMap::initHeightData RW 0x4E14A1: one 512x512 taint texture spans
+//   16x16 map cells) and on cliff cells (rect.z > 0) is TCliffInfo's normalized class UV (doPartialUpdate RW 0x5149F1, RW 0x4ADE8F);
 //   albedo = mask.rgb * lerp(albedo, t, d) while Taint.IsEnabled (GameData TaintOn); the mask's UV (world.xy + Offset) * Scale (W3DTaintMask.h).
 // Not wired here (reported by the builder, stop S-031): the shadow-receiving variants.
 
@@ -237,10 +241,17 @@ vec3 shade_layer(vec2 uv_unwrapped, vec4 rect, vec4 vcol, vec2 gx, vec2 gy) {
 		return albedo;
 	}
 	if (taint_enabled) {
-		// S-5261: terrain.fxo's Taint path (W3DTaintMask.h); the mask has one level (textureLod keeps it valid in this per-layer branch)
+		// S-5261 / LOCAL-67: terrain.fxo's Taint path (W3DTaintMask.h); the mask has one level (textureLod keeps it valid in this per-layer branch).
+		// oT0 = v3 is W3DTerrainBackground's 16x16-cell tile UV on flat terrain (RW 0x514628..0x51465F, m_width = 16 from RW 0x4E14A1),
+		// and TCliffInfo's normalized class UV on cliff cells (RW 0x5149F1, RW 0x4ADE8F), never the 2048x2048 tile atlas sub-rectangle uv_unwrapped.
 		vec4 mask = textureLod(taint_mask_tex, (v_wfx_pos.xy + taint_offset) * taint_scale, 0.0); // terrain.fxo vs (world.xy + Taint.Offset) * Taint.Scale; v_wfx_pos.xy is the SAGE point (no varying of its own: Intel varying budget)
 		float d = 2.0 * abs(mask.a - 0.5);
-		vec3 t = (0.5 - mask.a >= 0.0) ? textureGrad(taint_low_tex, uv_unwrapped, gx, gy).rgb : textureGrad(taint_high_tex, uv_unwrapped, gx, gy).rgb;
+		float taint_span = 16.0 * map_cell_size;
+		vec2 taint_uv = (rect.z > 0.0) ? (uv_unwrapped - rect.xy) / rect.zw
+			: vec2((v_wfx_pos.x + map_border_width) / taint_span, 1.0 - (v_wfx_pos.y + map_border_width) / taint_span);
+		vec2 tgx = dFdx(taint_uv);
+		vec2 tgy = dFdy(taint_uv);
+		vec3 t = (0.5 - mask.a >= 0.0) ? textureGrad(taint_low_tex, taint_uv, tgx, tgy).rgb : textureGrad(taint_high_tex, taint_uv, tgx, tgy).rgb;
 		albedo = mask.rgb * mix(albedo, t, d);
 	}
 	vec3 lit;

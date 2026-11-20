@@ -24,7 +24,7 @@
 //   * samples angle = m_angle(elapsed) * 0.017453292f
 //   * samples opacity = (int)(m_opacity(elapsed) * 255.0f)
 //   * updates shadow child sizes, angle (+angle on child 1, -angle on child 2), and opacity.
-//   update RW 0x8B0214 / BFME2 0x4ACBB3 (at elapsed == 0 calls createEmitter, then sampleCurves),
+//   update RW 0x008B022E / BFME2 0x4ACBB3 (at elapsed == 0 calls createEmitter, then sampleCurves),
 //   loadPostProcess RW 0x8B0263 / BFME2 0x4ACBE8 (calls base then createEmitter).
 // - xfer: RW 0x8B0125 / BFME2 0x4ACAAA (version 1, m_startFrame).
 
@@ -54,6 +54,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008AFFA6 (getModuleName), RW 0x008AFFAC (getModuleNameKey), RW 0x008B0059 (scalar deleting dtor -> 0x008AFF59).
 class PartTheHeavensUpdate : public UpdateModule
 {
 public:

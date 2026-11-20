@@ -78,8 +78,16 @@ public:
 class EmotionTrackerUpdate : public UpdateModule
 {
 public:
+	// lane SAVE-4b: the class's own table RW 0xC6D26C (13 slots) is, in order: ~EmotionTrackerUpdate (RW 0x8B56CF), RW 0x8B50BE (the loading fixup:
+	// + 0xC4 index -> + 0x9C pointer, null when the index is negative or past the + 0x90 vector's end — the port does it inside xfer), RW 0x8B5492
+	// (the class name RW 0xC0B038, which the port's ModuleFactory knows from the registration name), RW 0x8B5FD0 (xfer), RW 0x8B5498 (the typed data
+	// factory RW 0x5487EC by the same name — ModuleFactory::bindTypedData), then the interface thunks. None of the four needs a method of its own here.
 	OBFME_MODULE_XFER(EmotionTrackerUpdate) // lane SAVE-4b
 	EmotionTrackerUpdate(Thing *thing, const EmotionTrackerUpdateModuleData *data); ///< RW 0x8B62BE
+	// RW 0x8B56CF: the deleting destructor (both of the class's tables hold it: RW 0xC6D26C + 0x0 and RW 0xC6D1B0 + 0xBC): RW 0x8B5427 then the
+	// UpdateModule's (RW 0x64A492). The class's other entry point, RW 0x8B56EB, is the only entry of table RW 0xC6D19C (the + 0x20 interface) and is
+	// called from nowhere in the class's own code: a caller would reach it through whatever keeps that subobject, and no row of the map names one (S-7507)
+	~EmotionTrackerUpdate() override = default;
 	UpdateSleepTime update() override;                                               ///< RW 0x8B5738
 	SleepyUpdatePhase getUpdatePhase() const override { return PHASE_INITIAL; }     ///< lane IDLE-1 r2: vslot 0x30 = RW 0x851E97 (updates[0])
 	void crc(StateHasher &h) const override;

@@ -85,4 +85,7 @@ jobs:
           ASAN_OPTIONS: detect_leaks=0:halt_on_error=1
           UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
           TSAN_OPTIONS: die_after_fork=0
-        run: engine/build/openbfme_tests
+        run: |
+          # the fork's scope (tools/fork_scope.txt, docs/ennorath/PROCESS.md 16): other games' and mods' tests are not run here either
+          scope=(); while IFS= read -r line; do scope+=("$line"); done < <(grep -v '^#' tools/fork_scope.txt | tr -d '\r' | grep .)
+          engine/build/openbfme_tests "${scope[@]}"

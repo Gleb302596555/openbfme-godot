@@ -339,7 +339,7 @@ bool Pathfinder::quickDoesPathExist(const PathfindObject &obj, const Coord3D *fr
 	}
 	if (obj.refusesPortals())
 	{
-		return true; // RW 0x6F5C63: RW 0x68C053 (Object + 0x4AC) == 1, "Success 1" (S-4851: nothing sets that byte in the port)
+		return true; // RW 0x6F5C63: RW 0x68C053 (Object + 0x4AC) == 1, "Success 1" (S-4851: retail writer is HordeContain's transient override; the port leaves it unset)
 	}
 	PathfindLocomotorInfo set; // RW 0x6F5C90 .. 0x6F5CCE: the caller's set, else the AI's (AI + 0x1CC); neither -> "Failure 2"
 	if (overrideSet)

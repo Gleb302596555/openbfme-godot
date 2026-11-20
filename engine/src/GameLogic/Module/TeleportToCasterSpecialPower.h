@@ -29,6 +29,7 @@ public:
     static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// Local 87: RW 0x008D1833 (getModuleName), RW 0x008D1878 (getModuleNameKey), RW 0x008D189E (dtor).
 class TeleportToCasterSpecialPower : public SpecialAbilityUpdate {
 public:
     OBFME_MODULE_XFER(TeleportToCasterSpecialPower)

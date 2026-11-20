@@ -1168,10 +1168,11 @@ TEST_CASE("ownerfix2: TerrainResourceClientBehavior registers as a ported Client
 	dFarm->createSelectionFeedback();
 	CHECK(cb->isShowing());
 	CHECK(fb.users() == 1);
+	const ObjectID farmId = farm->getID(); // read before the destroy frame deletes it (TSan heap-use-after-free, 2026-11-18)
 	lw.logic->destroyObject(farm);
 	lw.logic->runLogicFrame();
 	dm.applyEvents(rec.take());
-	CHECK(dm.findByObject(farm->getID()) == nullptr);
+	CHECK(dm.findByObject(farmId) == nullptr);
 	CHECK(fb.users() == 0);
 
 	lw.logic->reset();

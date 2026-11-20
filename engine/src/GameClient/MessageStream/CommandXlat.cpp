@@ -27,6 +27,7 @@
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/Module/BehaviorModule.h"
+#include "GameLogic/Module/SpawnBehavior.h"
 #include "GameLogic/Module/BloodthirstyUpdate.h"
 #include "GameLogic/Module/SiegeModules.h"
 #include "GameLogic/AI/AIPathfind.h"
@@ -148,6 +149,19 @@ bool CommandTranslator::objectCanAttack(Object &obj)
 			}
 		}
 	}
+	// PORT-208 (issue #490): RW 0x6913B7 .. 0x691416, the tail of Object::isAbleToAttack: a SPAWNS_ARE_THE_WEAPONS object (KindOf bit 84) whose spawn
+	// interface (RW 0x68C3A3) answers slot 0x1C canAnySlavesAttack (RW 0x862A4E) can attack through its slaves — the AngForStronghold-style lair has no
+	// weapon of its own, so without this branch a selection of it never reaches the force attack
+	if (obj.isKindOf((unsigned)CombatNames::kinds().spawnsAreTheWeapons))
+	{
+		if (const SpawnBehaviorInterface *spawn = SpawnBehaviorInterface::of(obj))
+		{
+			if (spawn->canAnySlavesAttack())
+			{
+				return true;
+			}
+		}
+	}
 	return false;
 }
 
@@ -191,6 +205,22 @@ bool CommandTranslator::objectCanDamage(Object &obj, Object &victim)
 				{
 					return true;
 				}
+			}
+		}
+	}
+	// PORT-208 (issue #490): RW 0x6913B7 .. 0x691416 as in objectCanAttack: a spawner's slaves decide whether the spawner can hurt the victim
+	if (obj.isKindOf((unsigned)CombatNames::kinds().spawnsAreTheWeapons))
+	{
+		if (SpawnBehaviorInterface *spawn = SpawnBehaviorInterface::of(obj))
+		{
+			bool any = false;
+			spawn->forEachSpawnID([&](ObjectID slaveId) {
+				Object *slave = m_ctx.logic.findObjectByID(slaveId);
+				any = any || (slave && !slave->isDestroyed() && objectCanDamage(*slave, victim));
+			});
+			if (any)
+			{
+				return true;
 			}
 		}
 	}
@@ -307,6 +337,21 @@ void CommandTranslator::hint(const char *cursor, bool moveHint)
 			return;
 		}
 	}
+	// P-15 (owner 2026-11-13: with troops selected, own units showed Move): createCommandHint's move / attack move hints (jump table RW 0x6A4099) show
+	// Select (13) when the drawable under the pointer can be selected (RW 0x6A3C86: RW 0x83BCB1 (drawable, 0) into [ebp - 0xE], the object [ebp - 0x20]) and
+	// the local player controls it (RW 0x68B749): the move hint 0xBD unless the object is WALK_ON_TOP_OF_WALL (template + 0x10F & 0x10, RW 0x6A3F8E ..
+	// 0x6A3FA6 -> 0x6A3FFA), the attack move hint 0xBE always (RW 0x6A3FE8 .. 0x6A3FFA). The unreachable hint 0xC9 (GenericInvalid, RW 0x6A3F87) has no
+	// such test. Same selectable test as the mouseover's (SelectionXlat.cpp, RW 0x69FD53)
+	if (moveHint && m_ctx.ui.mouseMode() == 0 && (c == MouseCursorName::Move || c == MouseCursorName::AttackMove))
+	{
+		const Object *over = m_ctx.logic.findObjectByID(m_ctx.ui.mouseoverObject());
+		if (over && HudObjects::canSelect(m_ctx, *over, false) && !over->isKindOfName("SHRUBBERY") && HudObjects::isLocallyControlled(m_ctx, *over)
+			&& (c == MouseCursorName::AttackMove || !over->isKindOfName("WALK_ON_TOP_OF_WALL")))
+		{
+			m_ctx.ui.hintCursor(MouseCursorName::Select);
+			return;
+		}
+	}
 	// RW 0x6A3F63 .. 0x6A3F87 (the default mode's move hint 0xBD, jump table RW 0x6A4099; BFME2 InGameUICreateCommandHint.cpp case 0xb3): nothing selectable under the pointer and a
 	// single selected object that the local player controls and that is a STRUCTURE (template + 0x108 & 0x80): GenericInvalid (12), not Move
 	if (m_ctx.ui.mouseMode() == 0 && c == MouseCursorName::Move && m_ctx.ui.getSelectCount() == 1)
@@ -406,6 +451,41 @@ int CommandTranslator::evaluateForceAttack(Object *target, const Coord3D *pos, E
 		hint(target ? MouseCursorName::ForceAttackObj : MouseCursorName::ForceAttackGround);
 	}
 	return msgType;
+}
+
+// PORT-208 (issue #490, S-2480): RW 0x81E4B5 (evaluateForceAttack) with the picker's tree stand-in instead of an object. The eligibility test is the
+// same one RW 0x81D9DE makes for an object (the selection's Object::isAbleToAttack, RW 0x691269), plus the object form's reserved-id gate: the message
+// carries the stand-in id and the click's point, and the logic refuses it when AIData AllowForestFires is off (RW 0x77AF29: TheAI's data + 0xBC == 0
+// jumps to the null victim at RW 0x77AF67). A tree the selection cannot attack is no command at all.
+bool CommandTranslator::evaluateForceAttackTree(ObjectID treeID, const Coord3D &pos, EvaluateType type)
+{
+	if (!GameLogic::isTreeStandInID(treeID) || !m_ctx.logic.settings().allowForestFires)
+	{
+		return false;
+	}
+	Object *first = nullptr;
+	for (ObjectID id : m_ctx.ui.selected())
+	{
+		if ((first = m_ctx.logic.findObjectByID(id)) != nullptr)
+		{
+			break;
+		}
+	}
+	if (!first || !objectCanAttack(*first))
+	{
+		return false;
+	}
+	if (type == EvaluateType::DoCommand)
+	{
+		ClientMessage &m = m_ctx.stream.append(MSG_DO_FORCE_ATTACK_OBJECT);
+		m.appendObjectID(treeID);
+		m.appendLocation(pos);
+	}
+	else if (type == EvaluateType::DoHint)
+	{
+		hint(MouseCursorName::ForceAttackObj);
+	}
+	return true;
 }
 
 int CommandTranslator::evaluateContextCommand(Object *obj, const Coord3D *pos, EvaluateType type)
@@ -881,10 +961,14 @@ void CommandTranslator::selectAllUnits()
 	// ZH InGameUI::selectAllUnitsByType with the disqualifying kinds DOZER, HARVESTER, IGNORES_SELECT_ALL (CommandXlat.cpp:2888): every mobile
 	// object of the local player that is not contained, structure or dead. ZH selects across the whole map; the radius / screen rule of
 	// RotWK is not read (stop S-286).
+	// PORT-271 (issue #638, P-151): RotWK's select all (RW 0x69C860) walks TheGameClient's drawables, which are newest-first, and selects each
+	// through selectDrawable (RW 0x6A4109), a push_front: the selection ends oldest-first (ascending ObjectID). The object list here runs
+	// oldest-first, so the walk takes it from the end, and the panel's hero (the smallest id of the senior rank, RW 0x94475A) is also the
+	// first of the selection, the one the voice picker answers for (RW 0x8DEDBB)
 	m_ctx.ui.deselectAll();
 	ClientMessage &group = m_ctx.stream.append(MSG_CREATE_SELECTED_GROUP);
 	group.appendBoolean(true);
-	for (Object *o = m_ctx.logic.getFirstObject(); o; o = o->getNextObject())
+	for (Object *o = m_ctx.logic.getLastObject(); o; o = o->getPrevObject())
 	{
 		if (!HudObjects::isLocallyControlled(m_ctx, *o) || o->getContainedBy() || HudObjects::isEffectivelyDead(*o) || !o->getAIUpdateInterface() || !HudObjects::isSelectable(*o))
 		{
@@ -1180,6 +1264,10 @@ MessageDisposition CommandTranslator::translate(const ClientMessage &msg)
 				++m_clickOutcomes["off-terrain"];
 				break;
 			}
+			// PORT-208 (issue #490, S-2480): RW 0x81E63D .. 0x81E68A, the head of evaluateContextCommand (RW 0x81E60B): when the picked id is one of the four
+			// tree stand-ins (99999996 .. 99999999), the click's world point is taken from the pointer again (the tactical view slot 0x168) rather than
+			// from an object: a tree is a point, and the commands below carry it. The port's picker never returns a stand-in object (the stand-ins have
+			// no Object; HudObjects::pickTreeStandIn answers the id), and `pos` is already that pointer point
 			if (!isPoint)
 			{
 				++m_clickOutcomes["region"];
@@ -1192,6 +1280,24 @@ MessageDisposition CommandTranslator::translate(const ClientMessage &msg)
 			{
 				Object *draw = pending && pending->m_command == GUI_COMMAND_SPECIAL_POWER
 					? HudObjects::pickForGuiCommand(m_ctx, region.lo, *pending) : HudObjects::pickObject(m_ctx, region.lo);
+				// PORT-208 (issue #490, S-2480): RW 0x48ACF5 .. 0x48ADA0 hands the picker's tree as one of the reserved ids (99999996 .. 99999999) when
+				// its own hit-test found no object and the local player sees the tree; the force attack then names that id with the click's point
+				// (MSG_DO_FORCE_ATTACK_OBJECT) and the logic makes the tree an object (RW 0x77AF3B -> RW 0x68449B)
+				ObjectID treeID = INVALID_ID;
+				if (!draw && m_ctx.ui.isInForceAttackMode() && HudObjects::pickTreeStandIn(m_ctx, region.lo, treeID))
+				{
+					if (evaluateForceAttackTree(treeID, pos, EvaluateType::DoCommand))
+					{
+						++m_clickOutcomes["command on a tree"];
+						disp = MessageDisposition::Destroy;
+						m_ctx.ui.clearAttackMoveToMode();
+					}
+					else
+					{
+						++m_clickOutcomes["no command on a tree"];
+					}
+					break;
+				}
 				int issued = 0;
 				if (m_ctx.ui.isInForceAttackMode())
 				{
@@ -1503,7 +1609,7 @@ int CommandTranslator::evaluateCapture(Object *obj, const Coord3D *pos, Evaluate
 // GUI command and the force-move tests, before the enter and attack tests): a hint is the attack hint (0xB1, the AttackObj cursor); a command is
 // MSG_DO_SPECIAL_POWER_AT_OBJECT (0x412) with Command_SpecialAbilitySiegeDeploy's power { the template id, the target, the button's options, no source, the
 // target's position } (the unit voice of the button, RW 0x8DD5FF, is the client's audio: not played).
-// INFERENCE (S-4944): the TheInGameUI byte + 0x8B0 the branch requires clear is not identified (taken as clear); the selection is the port's selected object ids.
+// + 0x8B0 is the waypoint mode (RW 0x8200FA); this port's shared evaluateContextCommand handles that mode before the siege branch. INFERENCE (S-4944): retail's exact +0x8B0 test at RW 0x81E7A5 is not disassembled here; the selection is the port's selected object ids.
 bool CommandTranslator::canSiegeDeploy(const Object &target)
 {
 	if (!target.isKindOfName("WALK_ON_TOP_OF_WALL") || m_ctx.ui.selected().empty())

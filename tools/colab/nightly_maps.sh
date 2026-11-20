@@ -1,7 +1,7 @@
 #!/bin/bash
 # Maps (owner 2026-11-16; 2026-11-17: one run of all three tools on one main, after every landing): the button matrix, the field audit,
-# the RotWK function map and their joins (MATRIX_GAPS, FIELD_GAPS), pushed to the branch auto/maps for Claude to land (never into main from
-# here), with one summary on the Drive (openbfme-runs/maps/<date>.md, and latest.md: the PR checker and the agents read it).
+# the RotWK function map and their joins (MATRIX_GAPS, FIELD_GAPS), pushed to the branch auto/maps; GitHub Actions checks the commit and lands it on main (.github/workflows/maps-land.yml, owner
+# 2026-11-20; never into main from here), with one summary on the Drive (openbfme-runs/maps/<date>.md, and latest.md: the PR checker and the agents read it).
 #
 #   bash tools/colab/nightly_maps.sh          # every 15 min: when origin/main moved since the last run and has been still for 15 min, run
 #   bash tools/colab/nightly_maps.sh --now    # one run now
@@ -87,6 +87,10 @@ field-audit/  the mod field audit (tools/mod/field_audit.py on main {rev}; the m
   manual-check.tsv     the hand-checked verdicts every run applies with --manual
   {totals}
 
+script-map/SCRIPT_MAP.tsv  every script of the sides' script libraries (Libraries\<name>\<name>.map) and .scb files of the mod's mount:
+                       conditions, actions with parameters, the condition / action types the port has no case for (tools/mod/script_map.py;
+                       the repository has its names-only half: docs/ennorath/SCRIPT_GRANTS.tsv, SCRIPT_MAP.md)
+
 rotwk-triage/  what RotWK 2.01 itself does with 741 of those fields (cloud-agent triage, all 25 batches), reviewed; unchanged since 2026-11-10.
 """
 buf = io.BytesIO()
@@ -96,6 +100,8 @@ with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         if (audit / f).exists():
             z.write(audit / f, f"field-audit/{f}")
     z.write(manual, "field-audit/manual-check.tsv")
+    if (audit / "script-map" / "SCRIPT_MAP.tsv").exists():
+        z.write(audit / "script-map" / "SCRIPT_MAP.tsv", "script-map/SCRIPT_MAP.tsv")
     for n in (old.namelist() if old else []):
         if n.startswith("rotwk-triage/"):
             z.writestr(n, old.read(n))
@@ -120,6 +126,12 @@ run() {
   local rev; rev=$(git rev-parse --short=8 HEAD)
   st "карты на main $rev: сборка"
   bash tools/colab/build_tests.sh > "$RUNS/nightly_build.log" 2>&1 || { echo "build failed at $rev" >> "$LOG"; return 1; }
+  mkdir -p "$AUDIT"
+  # the script map (owner 2026-11-19: mechanics the sides' script libraries give, like the Manwe science): before the matrix (matrix_run.py collect
+  # notes the script on a row naming what a script gives); its names-only half goes into the
+  # repository with the maps, the full transcription into the audit folder and its zip
+  st "карты на main $rev: карта скриптов"
+  python3 tools/mod/script_map.py "$ROTWK_INSTALL" "$OPENBFME_ENNORATH_INSTALL" --out docs/ennorath --full "$AUDIT/script-map"       > "$RUNS/nightly_scripts.log" 2>&1 || echo "script map failed at $rev (the run goes on)" >> "$LOG"
   st "карты на main $rev: матрица кнопок (все фракции)"
   python3 tools/matrix_run.py all --jobs 5 > "$RUNS/nightly_matrix.log" 2>&1 || { echo "matrix failed at $rev" >> "$LOG"; return 1; }
   # the matrix review (owner 2026-11-17): layer 1 ran inside `all` (recheck: every red object swept again alone, ORDER when fine alone);
@@ -157,6 +169,19 @@ run() {
   [ -f "$XMAP/rw_map.csv" ] && xm=(--xmap "$XMAP/rw_map.csv")
   python3 tools/mod/field_gaps.py --audit "$AUDIT/field-audit.tsv" --inventory "$finv" --game "$RW_GAME_DAT" "${xm[@]}" \
       > "$RUNS/nightly_fgaps.log" 2>&1 || { echo "field_gaps failed at $rev" >> "$LOG"; return 1; }
+  # the attribute modifier map (owner 2026-11-19) on this run's MATRIX_GAPS: docs/ennorath/MODIFIER_*; the per-list table is the mod's data: Drive only
+  if [ -f "$INV_FULL" ]; then
+    local mm="$RUNS/modifier-map"; mkdir -p "$mm"
+    if python3 tools/mod/modifier_map.py --base "$ROTWK_INSTALL" --overlay "$OPENBFME_ENNORATH_INSTALL" --game "$RW_GAME_DAT" --inventory "$INV_FULL"         --out "$mm" > "$RUNS/nightly_modmap.log" 2>&1; then
+      cp -f "$mm/modifier-map.md" docs/ennorath/MODIFIER_MAP.md
+      cp -f "$mm/modifier-readers.tsv" docs/ennorath/MODIFIER_READERS.tsv
+      cp -f "$mm/modifier-port-reads.tsv" docs/ennorath/MODIFIER_PORT_READS.tsv
+      cp -f "$mm/modifier-unresolved.tsv" docs/ennorath/MODIFIER_UNRESOLVED.tsv
+      cp -f "$mm/modifier-matrix.tsv" docs/ennorath/MODIFIER_MATRIX.tsv
+    else
+      echo "modifier map failed at $rev (the run goes on)" >> "$LOG"
+    fi
+  fi
   rm -f workspace/rebuild_inventory.json
   # task drafts from the red buttons, grouped by module class, after MATRIX_GAPS (owner 2026-11-17): Drive openbfme-runs/maps/drafts, never the repository
   python3 tools/mod/matrix_drafts.py --ini "$INI" --out "$RUNS/drafts" > "$RUNS/nightly_drafts.log" 2>&1           || echo "matrix drafts failed at $rev (the run goes on)" >> "$LOG"
@@ -167,21 +192,20 @@ run() {
   st "карты на main $rev: коммит auto/maps"
   git checkout -q -B auto/maps
   git add docs/ennorath/MATRIX.tsv docs/ennorath/README.md docs/ennorath/RW_FUNCTION_MAP.tsv docs/ennorath/RW_FUNCTION_MAP.md \
-      docs/ennorath/MATRIX_GAPS.tsv docs/ennorath/MATRIX_GAPS.md docs/ennorath/FIELD_GAPS.tsv docs/ennorath/PROGRESS.tsv docs/ennorath/MATRIX_FACTIONS.tsv docs/ennorath/MATRIX_REVIEW.md
+      docs/ennorath/MATRIX_GAPS.tsv docs/ennorath/MATRIX_GAPS.md docs/ennorath/FIELD_GAPS.tsv docs/ennorath/PROGRESS.tsv docs/ennorath/MATRIX_FACTIONS.tsv docs/ennorath/MATRIX_REVIEW.md       docs/ennorath/SCRIPT_GRANTS.tsv docs/ennorath/SCRIPT_MAP.md docs/ennorath/GRANTS_INI.tsv \
+      docs/ennorath/MODIFIER_MAP.md docs/ennorath/MODIFIER_READERS.tsv docs/ennorath/MODIFIER_PORT_READS.tsv docs/ennorath/MODIFIER_UNRESOLVED.tsv docs/ennorath/MODIFIER_MATRIX.tsv \
+      || { echo "$day: git add of the maps failed at $rev (nothing committed)" >> "$LOG"; return 1; }
   local red; red=$(python3 -c "import sys; sys.path.insert(0,'tools/mod'); import progress_snapshot as p; print(*p.matrix_counts(None))")
   if git diff --cached --quiet; then
     echo "$day: nothing changed at $rev" >> "$LOG"
   else
     git commit -q -m "Nightly maps $day on main $rev: matrix, function map, MATRIX_GAPS, FIELD_GAPS (red buttons / specific gaps: $red)" \
-        -m "tools/colab/nightly_maps.sh (sandbox $SB); land with the next batch." || { echo "commit refused at $rev" >> "$LOG"; return 1; }
+        -m "tools/colab/nightly_maps.sh (sandbox $SB); GitHub Actions lands it (maps-land.yml)." || { echo "commit refused at $rev" >> "$LOG"; return 1; }
     # the sandbox shell may have no GitHub credentials: the commit then waits on the Drive as a patch (Claude applies it on the PC, 2026-11-16)
     git format-patch -1 --stdout HEAD > "$RUNS/$day.patch"
     git push -q -f origin auto/maps 2>/dev/null && rm -f "$RUNS/$day.patch" || echo "push failed at $rev: the commit is $RUNS/$day.patch" >> "$LOG"
-    # owner 2026-11-17: the agents read the maps from main, so the commit (only the generated tables and the progress row, checked by the
-    # gate) fast-forwards main when main has not moved during the run; otherwise it waits in auto/maps for the next landing
-    if [ -z "$(git diff --name-only HEAD~1 HEAD | grep -vxE 'docs/ennorath/(MATRIX\.tsv|README\.md|RW_FUNCTION_MAP\.(tsv|md)|MATRIX_GAPS\.(tsv|md)|FIELD_GAPS\.tsv|PROGRESS\.tsv|MATRIX_FACTIONS\.tsv|MATRIX_REVIEW\.md)')" ]; then
-      git push -q origin HEAD:main 2>/dev/null && echo "$day: maps fast-forwarded main" >> "$LOG" || echo "$day: main moved during the run, maps wait in auto/maps" >> "$LOG"
-    fi
+    # owner 2026-11-20: GitHub Actions lands the commit on main (.github/workflows/maps-land.yml, tools/ci/maps_land.py: only the maps
+    # files, whole tables, PROGRESS by date, README three-way); a red check leaves auto/maps for Claude
   fi
   { echo "# Nightly maps $day (main $rev, sandbox $SB)"; echo; echo "red buttons / specific gaps: $red"; echo
     echo "stops since the previous progress row: $stops"; echo
@@ -210,7 +234,10 @@ while true; do
   age=$(( $(date +%s) - $(git -C "$REPO" log -1 --format=%ct origin/main 2>/dev/null || echo 0) ))
   landed=0
   if [ -n "$last" ] && git -C "$REPO" cat-file -e "$last^{commit}" 2>/dev/null; then
-    git -C "$REPO" log --format=%s "$last..origin/main" | grep -qE '^(Landing|Merge upstream)' && landed=1
+    # the 15 still minutes count from the newest landing, not from main's tip (2026-11-19: Claude's doc and tool commits every 10-20 minutes
+    # after the 08:50 landing kept the run from starting for 1.5 hours)
+    land_ct=$(git -C "$REPO" log -1 --format=%ct -E --grep='^(Landing|Merge upstream)' "$last..origin/main" 2>/dev/null)
+    [ -n "$land_ct" ] && landed=1 && age=$(( $(date +%s) - land_ct ))
   else
     landed=1   # no previous run known: run once
   fi

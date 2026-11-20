@@ -108,3 +108,72 @@ const FieldParse *prop();      ///< RW 0xBE3340, 2 rows
 const FieldParse *floor();     ///< RW 0xBE3548, 6 rows
 const char *const *weatherNames(); ///< RW 0xDA3A84: NORMAL, SNOWY (NULL terminated)
 } // namespace W3DTreeDrawTables
+
+class Xfer;
+
+// Runtime state of W3DPropDraw (RW 0x004CE776 ctor, RW 0x004CE6AE GetSnapshotName, RW 0x004CE6BF getModuleNameKey,
+// RW 0x004CE75C getModelName, RW 0x004CE793 reactToTransformChange, RW 0x004B1B3F xfer, RW 0x004CE84C ModuleData deleting dtor).
+class W3DPropDrawState
+{
+public:
+	explicit W3DPropDrawState(const W3DPropDrawModuleData *data = nullptr) : m_data(data) {}
+
+	// RW 0x004CE75C: returns m_data->m_modelName
+	std::string getModelName() const { return m_data ? m_data->m_modelName : std::string(); }
+	bool distanceFog() const { return m_data ? m_data->m_distanceFog : true; }
+
+	// RW 0x004CE793 (DONOR BFME2 0x000CEF9F, W3DPropDrawReact.cpp): one-shot prop registration when !m_propCreated (+0x0C)
+	// and (pos.x != 0.0f || pos.y != 0.0f).
+	bool reactToTransformChange(float posX, float posY);
+	bool propCreated() const { return m_propCreated; }
+
+	// RW 0x004B1B3F (DONOR BFME2 0x000B221A, W3DPropDrawXfer.cpp): version(1, 1)
+	void xfer(Xfer &x);
+
+protected:
+	const W3DPropDrawModuleData *m_data = nullptr;
+	bool m_propCreated = false; ///< +0x0C
+};
+
+// Runtime state of W3DFloorDraw (RW 0x004CE91B ctor, RW 0x004CE95F GetSnapshotName, RW 0x004CE971 getModuleNameKey,
+// RW 0x004CE868 xfer, RW 0x004CEA6F reactToTransformChange, RW 0x004CEB80 replaceModelConditionState,
+// RW 0x004CEBCA doDrawModule, RW 0x004CEC85 scalar deleting dtor, RW 0x004CECA1 setSubObjectHidden,
+// RW 0x004CECB5 setHidden, RW 0x004CF013 ModuleData scalar deleting dtor).
+class W3DFloorDrawState : public W3DPropDrawState
+{
+public:
+	explicit W3DFloorDrawState(const W3DFloorDrawModuleData *data = nullptr);
+
+	// RW 0x004CEA1C: resolves texture name for weather index (0 NORMAL, 1 SNOWY) from m_weatherTextures (+0x10)
+	std::string resolveWeatherTexture(int weather) const;
+
+	// RW 0x004CEA6F: one-shot (+0x14 == 0 -> 1) floor registration with terrain visual
+	bool reactToTransformChange(int weather = 0);
+	bool registered() const { return m_registered; }
+	const std::string &activeWeatherTexture() const { return m_activeWeatherTexture; }
+
+	// RW 0x004CEB80: checks m_hideIfModelConditions (+0x24); updates +0x17 and refreshes floor visibility (RW 0x004CEADF)
+	bool replaceModelConditionState(const ModelConditionFlags &flags);
+
+	// RW 0x004CECA1: sets +0x15 (m_hiddenBySubObject, seeded from StartHidden +0x1E in ctor RW 0x004CE91B)
+	void setSubObjectHidden(bool hidden);
+	// RW 0x004CECB5: sets +0x16 (m_hiddenByModule)
+	void setHidden(bool hidden);
+
+	bool hiddenBySubObject() const { return m_hiddenBySubObject; }
+	bool hiddenByModule() const { return m_hiddenByModule; }
+	bool hiddenByModelCondition() const { return m_hiddenByModelCondition; }
+	// RW 0x004CEADF: floor is visible in terrain visual iff all three hide flags (+0x15, +0x16, +0x17) are false
+	bool isFloorVisible() const { return !m_hiddenBySubObject && !m_hiddenByModule && !m_hiddenByModelCondition; }
+
+	// RW 0x004CE868 (DONOR BFME2 0x000CF074): version(1..3), calls W3DPropDraw::xfer, v>=2 xfers +0x16, v>=3 xfers +0x17 and +0x15
+	void xfer(Xfer &x);
+
+private:
+	const W3DFloorDrawModuleData *m_floorData = nullptr;
+	bool m_registered = false;             ///< +0x14
+	bool m_hiddenBySubObject = false;      ///< +0x15 (seeded from m_startHidden +0x1E)
+	bool m_hiddenByModule = false;         ///< +0x16
+	bool m_hiddenByModelCondition = false; ///< +0x17
+	std::string m_activeWeatherTexture;
+};

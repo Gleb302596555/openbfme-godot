@@ -608,6 +608,10 @@ bool DozerAIUpdate::repair(Object &structure)
 	// RW 0x88BD8D: the dozer can repair (slot 0x50) and the ActionManager allows it (RW 0x82D7F2, S-1282), the structure has no other sole healer (RW 0x68B8D3);
 	// the command path RW 0x88E552 idles a dozer without a current task first
 	Object *self = getObject();
+	if (!canAcceptNewRepair(&structure)) // RW 0x88BDA2: the dozer interface's slot 0x50, FIRST
+	{
+		return false;
+	}
 	if (!canRepair(*self, &structure))
 	{
 		return false;
@@ -627,6 +631,81 @@ bool DozerAIUpdate::repair(Object &structure)
 	}
 	newTask(DOZER_TASK_REPAIR, structure);
 	return true;
+}
+
+// lane PORT-282: RW 0x8AD2D3 (the worker's dozer-interface slot 0xB0; WorkerAIUpdate, not the dozer's 0x88BD8D). The ActionManager's test (RW 0x82D7F2) is
+// asked first with the ordered structure, and the order is dropped when it says no; a builder that is not a SWARM_DOZER (the template's KindOf byte + 0x109
+// bit 7) then asks the dozer interface's slot 0x50 (RW 0x88CB8A, canAcceptNewRepair) and the structure's sole healer (RW 0x68B8D3, Object's own accessor):
+// only its own heal on the structure lets it through. A SWARM_DOZER skips both tests (the horde's repairers share their target) and the taker does
+// newTask(REPAIR) through the interface's slot 0x30 - the port's newTask - with the ordered object.
+bool WorkerAIUpdate::repair(Object &structure)
+{
+	Object *self = getObject();
+	if (!canRepair(*self, &structure)) // RW 0x8AD2EB(0x82D7F2): the ActionManager's structure test
+	{
+		return false;
+	}
+	static const int kSwarmDozer = KindOfTokens::indexOf("SWARM_DOZER");
+	if (!(kSwarmDozer >= 0 && self->isKindOf((unsigned)kSwarmDozer))) // RW 0x8AD2F7: test byte [tmpl + 0x109], 0x80
+	{
+		if (!canAcceptNewRepair(&structure)) // RW 0x8AD309: slot 0x50
+		{
+			return false;
+		}
+		const ObjectID healer = self->logic().getFrame() > structure.soleHealingBenefactorExpiry() ? (ObjectID)INVALID_ID : structure.soleHealingBenefactor();
+		if (healer != INVALID_ID && healer != self->getID()) // RW 0x8AD31B: soleHealingBenefactor != self
+		{
+			return false;
+		}
+	}
+	if (m_primaryState < 0)
+	{
+		primarySetState(PRIMARY_IDLE);
+	}
+	if (m_currentTask == DOZER_TASK_INVALID)
+	{
+		aiIdle(CMD_FROM_AI);
+	}
+	newTask(DOZER_TASK_REPAIR, structure); // RW 0x8AD32B: the dozer interface's slot 0x30
+	return true;
+}
+
+// RW 0x88CB8A (the dozer interface's slot 0x50): the ActionManager's repair test first reads this builder's current task through the interface's own
+// slot 0x24 (RW 0x88C93C's table; the port's getCurrentTask). Only a builder already on DOZER_TASK_REPAIR has an opinion: the structure it repairs is the one
+// its task holds (slot 0x1C, + 0xC = the pending target of task 1), found again by id (RW 0x449681). When that structure is the ordered one, the order is
+// refused (FALSE): the running repair keeps it. Another structure is refused too while BOTH are bridge towers (the template's KindOf word + 0x108 bit 24 in
+// both, RW 0x85B874 on each side): that call is the object's bridge module (its id through the module's vslot 4) and two equal ids mean one bridge, whose
+// second tower a builder must not abandon for the first. Every other order is accepted (TRUE).
+bool DozerAIUpdate::canAcceptNewRepair(const Object *structure) const
+{
+	if (!structure)
+	{
+		return true; // RW: a null target never reaches the test (the caller's guard); the port answers the accepting branch
+	}
+	if (getCurrentTask() != DOZER_TASK_REPAIR)
+	{
+		return true; // RW 0x88CB9B: the task is not REPAIR - nothing to protect
+	}
+	Object *current = getObject()->logic().findObjectByID(getTaskTarget(DOZER_TASK_REPAIR)); // RW 0x88CBA0 (the interface's + 0xC = task 1's target)
+	if (!current)
+	{
+		return true; // RW 0x88CBB0
+	}
+	if (current == structure)
+	{
+		return false; // RW 0x88CBB4: the same structure is being repaired already
+	}
+	static const int kBridgeTower = ObjectTemplateInfoBuilder::kindOfIndex("BRIDGE_TOWER");
+	const bool bothBridges = kBridgeTower >= 0 && current->isKindOf((unsigned)kBridgeTower) && structure->isKindOf((unsigned)kBridgeTower);
+	if (!bothBridges)
+	{
+		return true; // RW 0x88CBC4 / 0x88CBCF: not two bridge towers
+	}
+	// RW 0x88CBD1 .. 0x88CBFB: each tower's bridge module (RW 0x85B874 walks the template's + 0x24C table of the kind's modules and asks each one for its
+	// bridge id through vslot 4); a NULL id on either side makes the comparison false and the order is refused - the test then only accepts two
+	// towers whose ids differ, which in practice is never (both towers of one bridge share their id). The port has no bridge module (S-161), so both
+	// sides are NULL and the order for the other tower is refused, as in retail.
+	return false;
 }
 
 void DozerAIUpdate::commandAccepted(CommandSourceType source, int command, Object *target)

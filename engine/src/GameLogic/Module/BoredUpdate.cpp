@@ -103,6 +103,18 @@ void BoredUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 	p.add(kFields);
 }
 
+// RW 0x899E8C: the data's constructor (vtable RW 0xC65C38). It builds the BoredFilter through RW 0x76406F and the default filter's value
+// (RW 0x763D11: NONE with empty masks, which RW 0x762977 calls not valid), and stores ScanDelayTime = 5 (RW 0xD9F608, LOGICFRAMES_PER_SECOND),
+// ScanDistance = 300.0 (RW 0xBD9E90) and CanScanWhileAttackingOrMoving = false (+ 0x14); the fields' parse (RW 0xC65CC0) overwrites them.
+BoredUpdateModuleData::BoredUpdateModuleData()
+{
+	m_scanDelayTime = (unsigned)LOGICFRAMES_PER_SECOND; // RW 0x899ED3: mov dword ptr [esi + 8], [0xD9F608]
+	m_scanDistance = 300.0f;                            // RW 0x899ED6: movss dword ptr [esi + 0xC], [0xBD9E90]
+	m_boredFilter = ObjectFilter::none({}, {});         // RW 0x899EF0 -> RW 0x763D11
+	m_canScanWhileAttackingOrMoving = false;            // RW 0x899EFD: mov byte ptr [esi + 0x14], 0
+	m_specialPowerTemplate = nullptr;                   // RW 0x899EFA: and dword ptr [esi + 0x18], 0
+}
+
 void BoredUpdate::registerModule(ModuleFactory &modules)
 {
 	static const char kName[] = "BoredUpdate";

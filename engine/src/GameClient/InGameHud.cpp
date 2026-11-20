@@ -708,9 +708,9 @@ void InGameHud::update(double seconds)
 	}
 	part(m_updateParts.windows);
 	if (!movieIsModAuthored(m_config.fs, "palantir")) m_palantirRef->setViewportSize(m_windowW, m_windowH);
-	// lane HUD-2: the local side and the control bar's context the Palantir's update reads (AptPalantir::syncLocal, PalantirCommandUI.h). INFERENCE: the context
-	// drawable is the selection's only object; a multiple selection hands NULL, as ZH's ControlBar does for its multi-select context (the RotWK context rules,
-	// RW 0x944390 .. 0x9450B3, were not read)
+	// lane HUD-2 / PORT-213 (issue #503): ControlBar::evaluateContextUI (RW 0x71EBDA) hands single selection's object
+	// to AptPalantir::setDrawable (RW 0x9443BD -> 0x6D4671) and routes multi-selection to populateMultiSelect
+	// (RW 0x94475A), which picks the highest-rank qualifying HERO (RW 0x944834) or passes NULL/INVALID_ID (RW 0x9448FC).
 	AptPalantir::LocalState local;
 	if (Player *p = m_config.game.players().getLocalPlayer())
 	{
@@ -744,7 +744,7 @@ void InGameHud::update(double seconds)
 	}
 	const std::vector<ObjectID> &selected = m_input->ui().selected();
 	local.context = true;
-	local.contextObject = selected.size() == 1 ? selected.front() : (ObjectID)INVALID_ID;
+	local.contextObject = m_bar->contextObject();
 	local.commandSet = m_bar->commandSetName();
 	local.portrait = PalantirCommandUI::portraitFor(m_input->context(), local.contextObject, selected);
 	{

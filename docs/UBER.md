@@ -499,9 +499,12 @@ the bounding radii (6%), the large group bonus scans (4%) and `TargetFinder`
   distance so far (the range walk's pre-reject, now inlined), and keeps its
   heap storage between calls. The Faithful pins and the Faithful bench hash
   chain are unchanged. (The bounding radii are UBER-2B's cache.)
-- **Uber rule changes:** the taunt scan, the dual weapon switch scan and
-  `TargetFinder` walk only the layers of the players the seeker sees as
-  enemies (`Team::enemyLayerMask`), the large group bonus only its owner's;
+- **Uber rule changes:** the taunt scan and `TargetFinder` walk only the
+  layers of the players the seeker sees as enemies (`Team::enemyLayerMask`),
+  the large group bonus only its owner's; the dual weapon switch scan is no
+  longer one of them (PORT-459: `DualWeaponBehavior`'s victim is the ported
+  worker RW 0x7006D7 with the qualities 0x62, whose own layer mask and filters
+  apply in both profiles);
   `TargetFinder` builds its grid once a frame and appends the objects made
   later in the frame instead of rebuilding. What a player can notice: nothing
   (of two candidates at exactly the same distance another may win; an object

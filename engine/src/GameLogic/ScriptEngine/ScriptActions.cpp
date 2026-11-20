@@ -17,6 +17,7 @@
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Map/TerrainLogic.h"
 #include "GameLogic/Object/Object.h"
+#include "GameLogic/Object/PartitionManager.h"
 #include "GameLogic/ScriptEngine/ScriptConditions.h"
 #include "GameLogic/ScriptEngine/ScriptEngine.h"
 #include "GameLogic/ScriptEngine/ScriptTemplates.h"
@@ -87,6 +88,9 @@ const std::set<int> &clientActions()
 			// lane PORT-439: RW 0x7CAFA5 case 0x185 (RW 0x7CB6FB) -> RW 0x7BB627(focal, seconds * 1000, easeIn * 1000, easeOut * 1000) ->
 			// TheTacticalView vslot 0xF0 = View::setFocalLength RW 0x48885E: the view's own camera animation (client, not saved)
 			"FOCAL_LENGTH_CAMERA",
+			// LOCAL-94 (issue #720): case 331 (RW 0x7CE53A) -> RW 0x7BD6E9 (DONOR BFME2 0x003BCC08, ScriptActions::doResizeViewGuardband) ->
+			// TheTacticalView vslot 0x1BC = W3DView::setGuardBandBias (RW 0x48B5FC: View + 0x78 / + 0x7C); client tactical view state only
+			"RESIZE_VIEW_GUARDBAND",
 		};
 		std::set<int> out;
 		for (const char *n : names)
@@ -104,7 +108,7 @@ const std::set<int> &clientActions()
 
 bool positionOf(ScriptEngine &engine, const std::string &name, Coord3D &out, bool cameraFirst = false)
 {
-	// lane CAMPUI-1: MOVE_CAMERA_TO's parameter (type 51) is a named camera or a waypoint; RW 0x7BB540 (BFME2 0x7BAAE4, decomp ScriptActionsRva003BACCA.cpp)
+	// lane CAMPUI-1: MOVE_CAMERA_TO's parameter (type 51) is a named camera or a waypoint; RW 0x7BB540 (BFME2 0x7BAAE4, decomp ScriptActions.cpp)
 	// looks up both and the named camera's position wins
 	if (cameraFirst)
 	{
@@ -130,8 +134,8 @@ bool positionOf(ScriptEngine &engine, const std::string &name, Coord3D &out, boo
 	return false;
 }
 
-// Lane BACKLOG3 (S-2452): the scripts' radar events. TARGET FACTS (RotWK game.dat, caveat S-001; BFME2 decomp ScriptActionsRva003BB76E.cpp /
-// ScriptActions_doObjectRadarCreateEvent.cpp / ScriptActions_doTeamRadarCreateEvent.cpp, tier A for these addresses):
+// Lane BACKLOG3 (S-2452): the scripts' radar events. TARGET FACTS (RotWK game.dat, caveat S-001; BFME2 decomp ScriptActions.cpp /
+// ScriptActions_doObjectRadarCreateEvent.cpp, tier A for these addresses):
 //   RADAR_CREATE_EVENT (RW 0x7BC221): TheRadar->createEvent(the Coord3D parameter, the type parameter, 4.0f (RW 0xBD88C0)), then TheEva's event position (RW 0x5DD1F3);
 //   OBJECT_CREATE_RADAR_EVENT (RW 0x7BC250): the same at the named unit's position (Object + 0x38); nothing without the unit;
 //   TEAM_CREATE_RADAR_EVENT (RW 0x7C0B61): the team by name (getTeamNamed), only when it has a unit (RW 0x7A07D8: a member that is not dead, not Object + 0x94
@@ -257,12 +261,44 @@ void createOnTeamAtWaypoint(ScriptEngine &engine, const std::string &name, const
 		engine.note("***WARNING: Team not found:*** " + teamName);
 		return;
 	}
-	const Waypoint *wp = logic.terrain() ? logic.terrain()->findWaypointByName(waypointName) : nullptr;
-	if (!wp)
+	Coord3D spawnPos{ 0.0f, 0.0f, 0.0f };
+	if (const Waypoint *wp = logic.terrain() ? logic.terrain()->findWaypointByName(waypointName) : nullptr)
 	{
-		// RW 0x7C5C6C .. 0x7C5CD5: a waypoint name that is an object type places at the nearest such object (not ported)
-		engine.note("***WARNING: Waypoint not found (the object-type waypoint form is not ported):*** " + waypointName);
-		return;
+		spawnPos = wp->location;
+	}
+	else
+	{
+		// RW 0x7C5C36 .. 0x7C5CD5: when waypointName is not a waypoint, resolve it as a ThingTemplate (RW 0x6D1305) and find the closest
+		// equivalent object (filter RW 0xC3603C -> RW 0x66114D -> RW 0x73D5C2) to Team::getApproximatePosition (RW 0x7A0ECD) within 1e6 (FROM_CENTER_2D, RW 0xA39090).
+		Object *atObj = nullptr;
+		if (const ThingTemplate *atTmpl = logic.things().findTemplate(waypointName))
+		{
+			Coord3D centre{ 0.0f, 0.0f, 0.0f };
+			int n = 0;
+			for (Object *m : ScriptConditions::members(*team))
+			{
+				centre.x = SimMath::sseAdd(centre.x, m->getPosition()->x);
+				centre.y = SimMath::sseAdd(centre.y, m->getPosition()->y);
+				centre.z = SimMath::sseAdd(centre.z, m->getPosition()->z);
+				++n;
+			}
+			if (n > 0)
+			{
+				const float inv = SimMath::sseDiv(1.0f, SimMath::sseFromInt32(n));
+				centre.x = SimMath::sseMul(inv, centre.x);
+				centre.y = SimMath::sseMul(inv, centre.y);
+				centre.z = SimMath::sseMul(inv, centre.z);
+			}
+			auto typed = [atTmpl](Object &o) { return ScriptConditions::equivalentTemplates(o.getTemplate(), atTmpl); };
+			PartitionFilterFn<decltype(typed)> fTyped(typed);
+			atObj = logic.partition().getClosestObject(centre, 1000000.0f, FROM_CENTER_2D, { &fTyped });
+		}
+		if (!atObj)
+		{
+			engine.note("***WARNING: Waypoint/Object type not found:*** " + waypointName);
+			return;
+		}
+		spawnPos = *atObj->getPosition();
 	}
 	const ThingTemplate *tt = logic.things().findTemplate(templateName);
 	if (!tt)
@@ -277,7 +313,7 @@ void createOnTeamAtWaypoint(ScriptEngine &engine, const std::string &name, const
 	}
 	// the name goes on before the object enters the cache (RW 0x7C5D30: + 0x88, then RW 0x60A1D5); the host makes the full object (ZH
 	// ScriptActions::doCreateObject: newObject, position, pathfinder registration)
-	Object *obj = engine.host()->createObject(*tt, *team, wp->location, 0.0f);
+	Object *obj = engine.host()->createObject(*tt, *team, spawnPos, 0.0f);
 	if (obj)
 	{
 		obj->friend_onBuildComplete(); // RW 0x7C5B3B: onBuildComplete (RW 0x68D252) after the position
@@ -422,6 +458,12 @@ void ScriptActions::execute(ScriptEngine &engine, const ScriptActionRec &a)
 		engine.addEndRequest(false, name); // RW 0x7BF15E
 		return;
 	}
+	if (name == "DEBUG_MESSAGE_BOX" || name == "DEBUG_STRING")
+	{
+		// LOCAL-94 (issue #720): case 0 (RW 0x7CB007) / case 104 (RW 0x7CB017) -> RW 0x604D85 (DONOR BFME2 0x00205263, ScriptEngine::AppendDebugMessage):
+		// tests [0xDE87B8] (ScriptDebugMessagesDisabled) and [0xDE3B98] (TheScriptDebugWindowDLL, always null in retail 2.01), returning immediately.
+		return;
+	}
 	if (name == "OPTIONS_SET_OCCLUSION_MODE")
 	{
 		// lane OCCLUDE-1: case 298 (RW 0x7CE207): TheGameLogic + 0x99 = (param 0's int (+ 8) != 0) through RW 0x7BD549; the renderer's occluded-object
@@ -429,9 +471,65 @@ void ScriptActions::execute(ScriptEngine &engine, const ScriptActionRec &a)
 		logic.setShowBehindBuildingMarkers(param(a, 0).intValue != 0);
 		return;
 	}
+	if (name == "OPTIONS_SET_DRAWICON_UI_MODE")
+	{
+		// LOCAL-94 (issue #720): case 300 (RW 0x7CE222) -> RW 0x7BD55C (DONOR BFME2 0x003BCA7B): TheGameLogic + 0x9A = (param 0's int != 0),
+		// read by Drawable::drawIconUI (RW 0x679134).
+		logic.setShowDrawableIconUI(param(a, 0).intValue != 0);
+		return;
+	}
+	if (name == "OPTIONS_SET_PARTICLE_CAP_MODE")
+	{
+		// LOCAL-94 (issue #720): case 301 (RW 0x7CE2B6) -> RW 0x7BD56F (DONOR BFME2 0x003BCA8E): TheGameLogic + 0x9B = (param 0's int != 0),
+		// read by GameLogic::getParticleCapMode (RW 0x441B52 at RW 0x4438ED).
+		logic.setParticleCapMode(param(a, 0).intValue != 0);
+		return;
+	}
+	if (name == "PLAYER_REPAIR_NAMED_STRUCTURE")
+	{
+		// LOCAL-94 (issue #720): case 257 (RW 0x7CC332) -> RW 0x7C0402 (DONOR BFME2 0x003BF96F, ScriptActions::doPlayerRepairNamedStructure):
+		// resolves the named unit (RW 0x75A243) and the first player of the mask (RW 0x758F7C / 0x6A85EE), then calls Player::repairStructure
+		// (RW 0x6AA671 -> AIPlayer::repairStructure RW 0x8F78EB).
+		Object *obj = engine.getUnitNamed(param(a, 1).stringValue);
+		Player *player = obj ? ScriptConditions::firstPlayer(engine, param(a, 0).stringValue) : nullptr;
+		if (player)
+		{
+			player->repairStructure(logic, obj->getID());
+		}
+		return;
+	}
 	if (name == "RADAR_CREATE_EVENT" || name == "OBJECT_CREATE_RADAR_EVENT" || name == "TEAM_CREATE_RADAR_EVENT")
 	{
 		radarEventAction(engine, a, name);
+		return;
+	}
+	if (name == "PLAYER_ADD_SKILLPOINTS") // case 276: RW 0x7CDF75 -> RW 0x7BD063(param 0 player, param 1 int) -> RW 0x782AA4(float, false)
+	{
+		const float pts = SimMath::sseFromInt32(param(a, 1).intValue); // cvtsi2ss (RW 0x7BD090)
+		for (Player *p : ScriptConditions::players(engine, param(a, 0).stringValue))
+		{
+			p->science().addSkillPoints(pts, false);
+		}
+		return;
+	}
+	if (name == "PLAYER_ADD_RANKLEVEL") // case 277: RW 0x7CDFB4 -> RW 0x7BD0AF(param 0 player, param 1 int) -> vslot 1 (RW 0x6AA9C2 / RW 0x782865), RW 0x71C311
+	{
+		const int delta = param(a, 1).intValue;
+		for (Player *p : ScriptConditions::players(engine, param(a, 0).stringValue))
+		{
+			p->science().setRankLevel(p->science().getRankLevel() + delta);
+			p->science().setScalarBaseRank(p->science().getRankLevel()); // RW 0x71C311 (+0x18 = +0x14)
+		}
+		return;
+	}
+	if (name == "PLAYER_SET_RANKLEVEL") // case 278: RW 0x7CDFD8 -> RW 0x7BD107(param 0 player, param 1 int) -> vslot 1 (RW 0x6AA9C2 / RW 0x782865), RW 0x71C311
+	{
+		const int level = param(a, 1).intValue;
+		for (Player *p : ScriptConditions::players(engine, param(a, 0).stringValue))
+		{
+			p->science().setRankLevel(level);
+			p->science().setScalarBaseRank(p->science().getRankLevel()); // RW 0x71C311 (+0x18 = +0x14)
+		}
 		return;
 	}
 	if (name == "PLAYER_SET_RANKLEVELLIMIT") // PORT-43: case 279, RW 0x7CE020 -> RW 0x7BD1A8 -> RW 0x7BB04E(param 0 int)
@@ -466,7 +564,7 @@ void ScriptActions::execute(ScriptEngine &engine, const ScriptActionRec &a)
 		engine.objectListAdd(param(a, 0).stringValue, param(a, 1).stringValue, name == "OBJECTLIST_ADDOBJECTTYPE");
 		return;
 	}
-	if (name == "CREATE_NAMED_ON_TEAM_AT_WAYPOINT")
+	if (name == "CREATE_NAMED_ON_TEAM_AT_WAYPOINT" || name == "CREATE_NAMED_ON_TEAM_AT_OBJECTTYPE") // RW 0x7CBD6F -> RW 0x7C5B3B
 	{
 		createOnTeamAtWaypoint(engine, param(a, 0).stringValue, param(a, 1).stringValue, param(a, 2).stringValue, param(a, 3).stringValue);
 		return;

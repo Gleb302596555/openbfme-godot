@@ -261,6 +261,15 @@ EmotionTrackerUpdate::EmotionTrackerUpdate(Thing *thing, const EmotionTrackerUpd
 	}
 }
 
+// RW 0x8B56CF: the class's deleting destructor (both of its tables hold it, RW 0xC6D26C + 0x0 and RW 0xC6D1B0 + 0xBC). It runs RW 0x8B5427 —
+// the four tables back, the + 0xA4 set destroyed, the + 0x90 storage freed — then UpdateModule's (RW 0x64A492). The class's other entry point,
+// RW 0x8B56EB (the + 0x20 interface's slot: the running nugget's stop RW 0x8E168A, then every nugget's end RW 0x8E116B and release, then the vector's
+// range erase RW 0x5FF9D3), is the only entry of table RW 0xC6D19C and is called from nowhere in the class's own code: a caller would reach it
+// through whatever keeps the + 0x20 subobject, and no row of the map names one.
+// What the slot would do at the end (the stop, the ends, the releases) the destructor's members already do; on a live object its effect would be the
+// nuggets' loss (they are the module's own, made by its constructor from the data, so the next update would choose from an empty list and a request
+// would never run). Left with no caller to hang it on (S-7507); the end's work is the default one, declared in the header.
+
 void EmotionTrackerUpdate::stopCurrentWithAIState()
 {
 	// RW 0x8B4FA1: + 0x9C and its template's AIState (+ 0x4C) != -1
@@ -714,6 +723,12 @@ UpdateSleepTime EmotionTrackerUpdate::update()
 				};
 				if (!(rel == ALLIES && !always()))
 				{
+					// RW 0x8B5B0C..0x8B5B2F: the SCARY bit (object template + 0x11A), and for an ALLY the AlwaysAfraidOf filter (data + 0x18,
+					// RW 0x7640C1) that sends a candidate it refuses on to the hero part (RW 0x8B5CDA) before anything is measured. Then
+					// RW 0x8B5B35 measures the edge distance (RW 0x66352C) into [ebp - 0x2C]; RW 0x8B5B41 compares the fear radius squared
+					// ([ebp - 0x60], RW 0x8B5AC8) with it and a node past it jumps to the point branch (RW 0x8B5BF7) with this same value. Only
+					// then do the AfraidOf (data + 0x14) and AlwaysAfraidOf (+ 0x18) filters run (RW 0x8B5B4E..0x8B5B6A) and canSee
+					// (RW 0x68FA3D) with + 0x24. The port reads the filters in the same order, each at most once (they are pure).
 					const float d2 = edgeDistanceSquared(*obj, *o);
 					bool feared = false;
 					if (fear2 > d2 && (afraid() || always()) && canSee(*obj, *o, m_data->m_fearScanDistance))

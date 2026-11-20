@@ -1,6 +1,8 @@
 // OpenBFME. GPL-3.0.
 //
-// Both editions: RW 0x004CE750, BFME2 0x004CEF80. See W3DLightDraw.h.
+// Both editions: RW 0x004CF121, BFME2 0x004CEF80. See W3DLightDraw.h.
+// TARGET RW 0x004B612F getModelName, RW 0x004CF240 GetSnapshotName, RW 0x004CF29D setHidden,
+// RW 0x004CF2B5 doDrawModule, RW 0x004CF4D0 getModuleNameKey, RW 0x004CF5B6 / RW 0x004CF5D2 deleting destructors.
 
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
@@ -66,7 +68,7 @@ void W3DLightDrawModuleData::buildFieldParse(MultiIniFieldParse &p)
 W3DLightDraw::W3DLightDraw(Thing *thing, const ModuleData *moduleData)
 	: DrawableModule(thing, moduleData), m_thing(thing), m_data(dynamic_cast<const W3DLightDrawModuleData *>(moduleData))
 {
-	m_radius = 0.0f;
+	m_flickerRemaining = 0.0f;
 	m_angle = 0.0f;
 	m_height = m_data ? m_data->m_intensity : 1.0f;
 	m_phase = 0.0f;
@@ -79,12 +81,21 @@ W3DLightDraw::W3DLightDraw(Thing *thing, const ModuleData *moduleData)
 
 W3DLightDraw::~W3DLightDraw()
 {
+	// RW 0x004CF246 / scalar deleting destructor RW 0x004CF5B6
 	LightPulsePool *pool = getPool();
 	if (pool && m_lightHandle >= 0)
 	{
 		pool->removePersistent(m_lightHandle);
 		m_lightHandle = -1;
 	}
+}
+
+float W3DLightDraw::nextRandomUnit()
+{
+	// RW 0x00B25D60 WWMath::Random_Float: (rand() & 0xFFF) * (1.0f / 4095.0f)
+	m_rngState = m_rngState * 214013u + 2531011u;
+	const int r = (int)((m_rngState >> 16) & 0xFFFu);
+	return (float)r * (1.0f / 4095.0f);
 }
 
 LightPulsePool *W3DLightDraw::getPool() const
@@ -204,8 +215,15 @@ void W3DLightDraw::setEnabled(bool enabled)
 	updateLight();
 }
 
+void W3DLightDraw::setHidden(bool hidden)
+{
+	// RW 0x004CF29D (DONOR BFME2 0x000CFA99): m_light->setEnabled(!hidden)
+	setEnabled(!hidden);
+}
+
 void W3DLightDraw::stepFlicker(float dt)
 {
+	// RW 0x004CF2B5 doDrawModule (DONOR BFME2 0x000CFC0C, W3DLightDrawDoDrawModule.cpp)
 	m_phase += dt;
 	if (!m_data)
 	{
@@ -216,24 +234,24 @@ void W3DLightDraw::stepFlicker(float dt)
 
 	if (m_data->m_flickerAmplitude > 0.0f)
 	{
-		if (m_radius <= 0.0f)
+		if (m_flickerRemaining <= 0.0f)
 		{
 			if (m_data->m_flickerFrequency > 0.0001f)
 			{
-				m_radius = 1.0f / m_data->m_flickerFrequency;
+				m_flickerRemaining = 1.0f / m_data->m_flickerFrequency;
 			}
 			else
 			{
-				m_radius = 1.0f;
+				m_flickerRemaining = 1.0f;
 			}
-			float minVal = -m_data->m_flickerAmplitude;
-			float maxVal = m_data->m_flickerAmplitude;
-			// Drift toward target
-			float targetOffset = (minVal + maxVal) * 0.5f;
-			m_angle = (targetOffset + intensity - m_height) / (m_radius > 0.0f ? m_radius : 1.0f);
+			const float minVal = -m_data->m_flickerAmplitude;
+			const float maxVal = m_data->m_flickerAmplitude;
+			// RW 0x004CF3E1..0x004CF40B: Random_Float(-m_flickerAmplitude, +m_flickerAmplitude)
+			const float targetOffset = minVal + nextRandomUnit() * (maxVal - minVal);
+			m_angle = (targetOffset + intensity - m_height) / (m_flickerRemaining > 0.0f ? m_flickerRemaining : 1.0f);
 		}
-		m_radius -= dt;
-		intensity = m_angle + m_height;
+		m_flickerRemaining -= dt;
+		intensity = m_angle * dt + m_height;
 		m_height = intensity;
 	}
 
@@ -248,15 +266,17 @@ void W3DLightDraw::stepFlicker(float dt)
 
 void W3DLightDraw::xfer(Xfer &x)
 {
+	// RW 0x004CF488 (DONOR BFME2 0x000CFAB1, W3DLightDrawXfer.cpp)
 	SnapshotXfer::version(x, 1, 1);
 	x.xferReal(&m_phase);
-	x.xferReal(&m_radius);
+	x.xferReal(&m_flickerRemaining);
 	x.xferReal(&m_angle);
 	x.xferReal(&m_height);
 }
 
 void W3DLightDraw::registerClass(ModuleFactory &modules)
 {
+	// RW 0x004CF4D0 getModuleNameKey / RW 0x004CF240 GetSnapshotName
 	modules.bindTypedData<W3DLightDrawModuleData>("W3DLightDraw", MODULETYPE_DRAW);
 	modules.bindModuleProc("W3DLightDraw", MODULETYPE_DRAW, [](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &) -> std::unique_ptr<Module> {
 		const auto *typed = dynamic_cast<const W3DLightDrawModuleData *>(data);

@@ -3,10 +3,13 @@
 // See GameLogic/ScriptEngine/ScriptConditions.h.
 
 #include "GameLogic/ScriptEngine/ScriptConditions.h"
+#include "GameLogic/ScriptEngine/ScriptThreat.h"
 #include "GameLogic/Module/EmotionModules.h"
 #include "GameLogic/Module/GateModules.h"
 
 #include "Common/AsciiString.h"
+#include "Common/Audio/AudioEntryPoints.h"
+#include "GameClient/Eva.h"
 #include "GameLogic/BitFlags.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "Common/Player.h"
@@ -33,6 +36,8 @@
 #include "GameLogic/Object/PartitionManager.h"
 #include "GameLogic/Module/CastleModules.h"
 #include "GameLogic/Module/ConstructionModules.h"
+#include "Common/SpecialPower.h"
+#include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/Object/ExperienceTracker.h"
 #include "GameLogic/System/InvisibilityManager.h"
 #include "GameLogic/System/ShroudManager.h"
@@ -76,6 +81,22 @@ bool compare(int op, std::int32_t lhs, std::int32_t rhs)
 	}
 }
 
+// lane THREATLEVEL-1: RW 0x7E5970 / 0x7E8A25's compare of the threat (lhs) with the parameter (rhs): comiss / ucomiss per op, 0 <, 1 <=, 2 ==, 3 >=, 4 >,
+// 5 !=, anything else false (the threat is read before the op is: an unknown op still refreshes the cache)
+bool compareReal(int op, float lhs, float rhs)
+{
+	switch (op)
+	{
+	case 0: return lhs < rhs;
+	case 1: return lhs <= rhs;
+	case 2: return lhs == rhs;
+	case 3: return lhs >= rhs;
+	case 4: return lhs > rhs;
+	case 5: return lhs != rhs;
+	default: return false;
+	}
+}
+
 // the condition ordinals ported here
 enum ConditionType
 {
@@ -88,7 +109,9 @@ enum ConditionType
 	UNIT_HAS_OBJECT_STATUS = 80,
 	TEAM_ALL_HAS_OBJECT_STATUS = 81,
 	TEAM_SOME_HAVE_OBJECT_STATUS = 82,
+	SKIRMISH_SPECIAL_POWER_READY = 85,
 	SKIRMISH_PLAYER_FACTION = 87,
+	REGION_CAMPS_SHOULD_UNPACK = 167,
 	TEAM_HAS_CUSTOM_STATE = 143,
 	TEAM_HAS_UNITS = 10,
 	NAMED_INSIDE_AREA = 13,
@@ -105,6 +128,8 @@ enum ConditionType
 	PLAYER_HAS_COMPARISON_UNIT_TYPE_IN_TRIGGER_AREA_WITH_UPGRADE = 110,
 	UNIT_HAS_GAINED_LEVEL = 117, // lane BFME2CAMP1
 	UNIT_IS_AT_LEVEL = 118,
+	UNIT_THREAT_LEVEL = 115, // lane THREATLEVEL-1
+	TEAM_THREAT_LEVEL = 116,
 	PLAYER_HAS_COMPARISON_UNIT_TYPE_IN_TRIGGER_AREA_COMPLETELY_BUILT = 188,
 	PLAYER_HAS_CREDITS = 26,
 	PLAYER_COMPARE_LIGHT_POINTS = 124, // PORT-113 (issue #280)
@@ -115,6 +140,8 @@ enum ConditionType
 	SKIRMISH_PLAYER_HAS_UNITS_IN_AREA = 96,
 	PLAYER_ACQUIRED_SCIENCE = 100,
 	PLAYER_CAN_PURCHASE_SCIENCE = 102,
+	PLAYER_LOST_OBJECT_TYPE = 104,
+	IS_NUM_OF_UNITS_BELONGING_TO_PLAYER_NEAR_EVA_EVENT_LAST_PLAYED_LOCATION_COMPARISON_INT = 187,
 	START_POSITION_IS = 107,
 	COUNTER_COUNTER = 111,
 	COUNTER_SECONDS = 112,
@@ -150,6 +177,7 @@ enum ConditionType
 	NAMED_BUILDING_IS_EMPTY = 78,
 	PLAYER_HAS_SCIENCEPURCHASEPOINTS = 101,
 	PLAYER_HAS_KILLED_TYPE_UNITS = 129,
+	PLAYER_COMPARE_RANK = 145,
 	PLAYER_HAS_OBJECT_OF_VETERANCY = 146,
 	PLAYER_HAS_NUMBER_OBJECTS_WITH_MODELCONDITION = 160,
 	COMPARE_NUM_PLAYERS_IN_GAME = 168,
@@ -1801,6 +1829,11 @@ bool ScriptConditions::evaluate(ScriptEngine &engine, const ScriptCondition &c)
 		const ContainModuleInterface *ct = o ? o->getContain() : nullptr;
 		return ct && ct->getContainCount() == 0;
 	}
+	case PLAYER_COMPARE_RANK: // RW 0x7ECFF6 -> RW 0x7E5EC8(player, op, rank): exact single-player mask (RW 0x6A85B6), compare m_rankLevel (+0x1C)
+	{
+		const Player *p = playerOfMask(engine, param(c, 0).stringValue);
+		return p && compare(param(c, 1).intValue, p->science().getRankLevel(), param(c, 2).intValue);
+	}
 	case PLAYER_HAS_SCIENCEPURCHASEPOINTS: // RW 0x7E50AE (BFME2 ScriptConditions.cpp, tier A): any player with at least the points
 		for (Player *p : players(engine, param(c, 0).stringValue))
 		{
@@ -2076,6 +2109,151 @@ bool ScriptConditions::evaluate(ScriptEngine &engine, const ScriptCondition &c)
 			}
 		}
 		return count >= param(c, 1).intValue;
+	}
+	case SKIRMISH_SPECIAL_POWER_READY: // RW 0x7EC79F -> RW 0x7E9C33 (player, specialPower; Parameter + 0x20 retry cache not ported: evaluated every time)
+	{
+		const SpecialPowerTemplate *sp = TheSpecialPowerStore ? TheSpecialPowerStore->findSpecialPowerTemplate(param(c, 1).stringValue) : nullptr; // RW 0x69C146
+		if (!sp)
+		{
+			return false;
+		}
+		for (Player *p : ScriptConditions::players(engine, param(c, 0).stringValue)) // RW 0x75968D / RW 0x6A85EE
+		{
+			for (Object *o = logic.getFirstObject(); o; o = o->getNextObject())
+			{
+				if (o->getControllingPlayer() != p)
+				{
+					continue;
+				}
+				if (o->testStatus(OBJECT_STATUS_UNDER_CONSTRUCTION) || o->getDisabledMask() != DISABLEDMASK_NONE) // RW 0x44DDEC(2), RW 0x9325B4 (+0x1C8)
+				{
+					continue;
+				}
+				const SpecialPowerModuleInterface *mod = SpecialPowerModules::findModule(*o, sp); // RW 0x68C26D
+				if (mod && SpecialPowerModules::canUseSpecialPower(*o, sp) && mod->isReady()) // RW 0x7B1D79, vslot 0x04
+				{
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+	case REGION_CAMPS_SHOULD_UNPACK: // RW 0x7ED40B (jump table 0x7ED414 + (167 - 5) * 4): xor al, al in both RotWK 2.01 and BFME2 1.06
+		return false;
+	case PLAYER_LOST_OBJECT_TYPE:
+	{
+		// LOCAL-94 (issue #720): RW 0x7ECBDF -> RW 0x7EACCE (DONOR BFME2 0x003E9EB0, ScriptConditions::evaluatePlayerLostObjectType).
+		// Resolves the object type / list (RW 0x96E85F -> RW 0x77907A; empty: false), then walks each player of the mask (RW 0x75968D / 0x6A85EE):
+		// counts living, built objects of those templates (RW 0x7BDF78 -> RW 0x6ABAF7(ignoreDead = 1, ignoreUnderConstruction = 1)), reads
+		// ScriptEngine::getObjectCount (RW 0x605DB0), updates ScriptEngine::setObjectCount when the count changed (RW 0x607822), and returns true
+		// immediately when sumOfObjs < currentCount (RW 0x7EADF3).
+		const std::string &typeSpec = param(c, 1).stringValue;
+		std::vector<const ThingTemplate *> types;
+		for (const std::string &n : typeNames(engine, typeSpec))
+		{
+			if (const ThingTemplate *t = logic.things().findTemplate(n))
+			{
+				types.push_back(t);
+			}
+		}
+		if (types.empty())
+		{
+			return false;
+		}
+		for (Player *p : players(engine, param(c, 0).stringValue))
+		{
+			const int sumOfObjs = countPlayerObjects(logic, *p, types, true);
+			const int currentCount = engine.getObjectCount(p->getPlayerIndex(), typeSpec);
+			if (sumOfObjs != currentCount)
+			{
+				engine.setObjectCount(p->getPlayerIndex(), typeSpec, sumOfObjs);
+			}
+			if (sumOfObjs < currentCount)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+	case IS_NUM_OF_UNITS_BELONGING_TO_PLAYER_NEAR_EVA_EVENT_LAST_PLAYED_LOCATION_COMPARISON_INT:
+	{
+		// LOCAL-94 (issue #720): RW 0x7ED34F -> RW 0x7EB582 (DONOR BFME2 0x003EA764,
+		// ScriptConditions::evaluateIsNumOfUnitsBelongingToPlayerNearEvaEventLastPlayedLocationComparisonInt).
+		// Resolves the Eva event name in TheEva (RW 0xDE3670 -> RW 0x5DDEA2; unknown: count 0), asks Eva::lastPlayedPosition (RW 0x5DCDBB;
+		// never played: count 0), builds the player mask (RW 0x75968D; 0: count 0), and counts objects within param(1).realValue of that
+		// position (FROM_BOUNDINGSPHERE_2D, RW 0xA39340) passing PartitionFilterIsKindOfUnit (vtable RW 0xC4BE68, allow RW 0x6619D5 ->
+		// ThingTemplate::isKindOfUnit RW 0x6618E6: any of {INFANTRY, CAVALRY, MONSTER, MACHINE, AIRCRAFT} RW 0x6615E5 and none of
+		// {STRUCTURE, INERT, HORDE} RW 0x66158D) and PartitionFilterPlayerAffiliation (vtable RW 0xC36030, allow RW 0x6610B0: controlling
+		// player in mask); compares the count with param(4).intValue by param(3).intValue.
+		int count = 0;
+		Eva *eva = AudioApi::currentEva();
+		const int evIndex = eva ? eva->findEvent(param(c, 2).stringValue) : -1;
+		Coord3D pos{};
+		if (evIndex != -1 && eva->lastPlayedPosition(evIndex, &pos))
+		{
+			const std::uint32_t mask = playerMaskOf(engine, param(c, 0).stringValue);
+			if (mask != 0)
+			{
+				static const int kInfantry = kindOfBit("INFANTRY"), kCavalry = kindOfBit("CAVALRY"), kMonster = kindOfBit("MONSTER"),
+								 kMachine = kindOfBit("MACHINE"), kAircraft = kindOfBit("AIRCRAFT"), kStructure = kindOfBit("STRUCTURE"),
+								 kInert = kindOfBit("INERT"), kHorde = kindOfBit("HORDE");
+				PartitionFilterFn filter([&](Object &o) {
+					const bool anyUnitKind = (kInfantry >= 0 && o.isKindOf((unsigned)kInfantry)) ||
+						(kCavalry >= 0 && o.isKindOf((unsigned)kCavalry)) ||
+						(kMonster >= 0 && o.isKindOf((unsigned)kMonster)) ||
+						(kMachine >= 0 && o.isKindOf((unsigned)kMachine)) ||
+						(kAircraft >= 0 && o.isKindOf((unsigned)kAircraft));
+					if (!anyUnitKind)
+					{
+						return false;
+					}
+					if ((kStructure >= 0 && o.isKindOf((unsigned)kStructure)) ||
+						(kInert >= 0 && o.isKindOf((unsigned)kInert)) ||
+						(kHorde >= 0 && o.isKindOf((unsigned)kHorde)))
+					{
+						return false;
+					}
+					const Player *owner = o.getControllingPlayer();
+					return owner && (mask & (1u << owner->getPlayerIndex())) != 0;
+				});
+				count = (int)logic.partition().iterateObjectsInRange(pos, param(c, 1).realValue, FROM_BOUNDINGSPHERE_2D, { &filter }, ITER_FASTEST).size();
+			}
+		}
+		return compare(param(c, 3).intValue, count, param(c, 4).intValue);
+	}
+	case UNIT_THREAT_LEVEL:
+	case TEAM_THREAT_LEVEL:
+	{
+		// lane THREATLEVEL-1: RW 0x7EB7CD -> RW 0x7E5970 (115, tier A = BFME2 0x7E4D93, ScriptConditions_evaluateTeamStateIs.cpp:293-310) /
+		// RW 0x7E8A25 (116, tier A = BFME2 0x7E7E54, ScriptConditions.cpp:3576): all four parameters present (else false); the unit (RW 0x75A3D8) /
+		// the team (getTeamNamed RW 0x759FDA, no create) by parameter 0, none: false; then the cached threat RW 0x697B41 / 0x7A6A20(parameter 3, the
+		// radius) against parameter 2 (real) by the op of parameter 1. Both editions (the BFME2 template table never fills 115, so only 116 can be
+		// authored there; the sum is per edition: ScriptThreat.h)
+		if (c.params.size() < 4)
+		{
+			return false;
+		}
+		const float radius = param(c, 3).realValue;
+		float threat = 0.0f;
+		if (c.resolved == UNIT_THREAT_LEVEL)
+		{
+			Object *unit = engine.getUnitNamed(param(c, 0).stringValue);
+			if (!unit)
+			{
+				return false;
+			}
+			threat = ScriptThreat::getThreatInRange(logic, *unit, radius);
+		}
+		else
+		{
+			Team *tm = team(engine, param(c, 0).stringValue);
+			if (!tm)
+			{
+				return false;
+			}
+			threat = ScriptThreat::getThreatInRange(logic, *tm, radius);
+		}
+		return compareReal(param(c, 1).intValue, threat, param(c, 2).realValue);
 	}
 	default:
 		engine.noteUnportedCondition(t->name);

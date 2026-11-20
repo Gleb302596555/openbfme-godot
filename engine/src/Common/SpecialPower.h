@@ -10,8 +10,8 @@
 //     +0x18 Flags (0), +0x1C Enum (0 = SPECIAL_INVALID), +0x20 ReloadTime (0 frames), +0x24 RequiredSciences, +0x30 LightPointCost (0), +0x34
 //     InitiateSound, +0x38 InitiateAtLocationSound, +0x3C / +0x40 the two UnitSpecificSound names, +0x44 EvaEventToPlayOnSuccess (-1), +0x48
 //     DetectionTime (RW 0xD9F608 * 10 = 5 * 10 = 50 frames), +0x4C ViewObjectDuration (0), +0x50 ViewObjectRange (0.0), +0x54 RadiusCursorRadius
-//     (0.0), +0x58 PublicTimer (false), +0x59 SharedSyncedTimer (false), +0x5C PalantirMovie, +0x60 ObjectFilter (a default filter built from a
-//     global at RW 0xDE49E4: stop S-523), +0x64 PreventActivationConditions (ObjectStatus mask, 128 bits), +0x74 MaxCastRange (0.0), +0x78
+//     (0.0), +0x58 PublicTimer (false), +0x59 SharedSyncedTimer (false), +0x5C PalantirMovie, +0x60 ObjectFilter (the default filter built from the
+//     zero global RW 0xDE49E4: S-523, closed — 28 zero bytes in both cited images (raw .data zeros in RotWK 2.01, BSS in BFME2 1.06; rule NONE with empty masks), +0x64 PreventActivationConditions (ObjectStatus mask, 128 bits), +0x74 MaxCastRange (0.0), +0x78
 //     ForbiddenObjectFilter (same default), +0x7C ForbiddenObjectRange (0.0), +0x80 UnitCost (0), +0x84 UnitCostDeathType (0).
 //   * field table RW 0xDA5FD8 (24 rows, order below). Parsers: Flags parseBitString32 RW 0x42E840 over RW 0xDA5F34; ReloadTime / DetectionTime /
 //     ViewObjectDuration parseDurationUnsignedInt RW 0x73A429; RequiredSciences parseScienceVector RW 0x73B4A0; the sounds RW 0x73B217 (audio
@@ -99,10 +99,10 @@ public:
 	bool m_publicTimer = false;                      // +0x58
 	bool m_sharedNSync = false;                      // +0x59
 	std::string m_palantirMovie;                     // +0x5C
-	std::shared_ptr<const ObjectFilter> m_objectFilter;          // +0x60 (null = the default filter, S-523)
+	std::shared_ptr<const ObjectFilter> m_objectFilter;          // +0x60 (null = the default filter; RW 0xDE49E4, S-523 closed)
 	std::array<std::uint32_t, 4> m_preventActivationConditions{}; // +0x64 ObjectStatus mask
 	float m_maxCastRange = 0.0f;                     // +0x74
-	std::shared_ptr<const ObjectFilter> m_forbiddenObjectFilter; // +0x78 (S-523)
+	std::shared_ptr<const ObjectFilter> m_forbiddenObjectFilter; // +0x78 (same default as +0x60; S-523 closed)
 	float m_forbiddenObjectRange = 0.0f;             // +0x7C
 	int m_unitCost = 0;                              // +0x80
 	int m_unitCostDeathType = 0;                     // +0x84

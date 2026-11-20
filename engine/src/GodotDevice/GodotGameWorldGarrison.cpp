@@ -214,11 +214,8 @@ Dictionary GameWorld::debug_set_weapon_set_flag(int64_t id, const String &flag, 
 	}
 	for (::Object *t : targets)
 	{
-		if (ObjectWeapons *w = t->getWeapons())
-		{
-			w->setWeaponSetFlag(bit, on);
-			++changed;
-		}
+		t->setWeaponSetFlag(bit, on);
+		++changed;
 	}
 	r["ok"] = changed > 0;
 	r["objects"] = changed;

@@ -12,7 +12,17 @@
 //     SoundFinishedClosingGate (RW 0x73B217, +0x1C .. +0x28), TimeBeforePlayingOpenSound / TimeBeforePlayingClosedSound (parseDurationUnsignedInt, +0x44 /
 //     +0x48, -1 = the reset time);
 //   * the module (constructor RW 0x89C04B): the state (+0x28) starts open (1) with OpenByDefault, else closed (3); settled (+0x30) true; percent 100; the
-//     state frame now; the geometry state (+0x2C) 0, the want-open request (+0x40) -1. States: 0 opening, 1 open, 2 closing, 3 closed;
+//     state frame now; the geometry state (+0x2C) 0, the want-open request (+0x40) -1. States: 0 opening, 1 open, 2 closing, 3 closed; the ctor's
+//     percent rate goes to +0x38 (100 / ResetTimeInMilliseconds, x87 fild / fdivr, RW 0x89C0DD) and the proxy link (+0x20, the chunk RW 0x707887) to 0;
+//   * the update interface (vtable RW 0xC667E0, installed at +0x14): slot 0 RW 0x89CC29 (`jmp 0x89CB19`, the update), slot 1 the disabled mask
+//     RW 0x654FD1, slot 2 RW 0x850C4E (UpdateModule's wake), slot 5 / slot 13 the shared no-ops RW 0x006519CA / RW 0x0064DFDE, slot 3 the data hook 0.
+//     Slot 1 is the ONE place the gate differs from every other module's empty mask: it answers RW 0x654FD1's single bit 11, DISABLED_USER_FROZEN
+//     (RW 0xDAD904), so the scheduler (RW 0x62EA46 .. 0x62EA7A) keeps updating a frozen gate;
+//   * the class's other two interfaces: the data table RW 0xC667F0 (slot 1 RW 0x006519CA, slot 9 RW 0x0064DFDE, both shared no-ops) and the module-data
+//     object RW 0xC668AC, whose slot 0 RW 0x0089BFFE is the this-adjustor to +4, slot 1 RW 0x0089CB19 the class's xfer entry (the body is the same as
+//     RW 0x89C37A's), slot 2 the name RW 0x0089BFAF (`mov eax, 0xC0A0A0`), slot 3 the snapshot RW 0x0089C37A, slot 4 the static key RW 0x0089C006,
+//     slots 5 .. 8 the shared false / empty stubs, slot 9 RW 0x008851E4, slots 10 / 11 RW 0x00851E97, slot 12 the shared no-op RW 0x0064DFDA and slot 13
+//     the collide interface RW 0x0089C6F5;
 //   * the primary interface (vtable RW 0xC668E0, a collide interface: slot 0 onCollide RW 0x89C6F5, slot 1 wouldLikeToCollideWith RW 0x89C35E): slot 6 isOpen (state == 1, RW 0x8DC9AB), slot 7 open (RW 0x89C97A: when settled and not open: the push-out
 //     scan, state 0, unsettled, percent 0, the state frame now), slot 8 close (RW 0x89C9BA: the same when settled and open, state 2), slot 9 toggle
 //     (RW 0x89BFB5), slot 10 settled (RW 0x86277F: + 0x30); changeWantOpenCount (RW 0x89BFE0: +-1 only; a request below 0 starts from 0);
@@ -122,6 +132,11 @@ public:
 
 	virtual bool isOpen() const { return m_state == OPEN; } // slot 6
 	virtual bool isSettled() const { return m_settled; }    // slot 10
+	// RW 0x654FD1 (the update interface RW 0xC667E0 slot 1; the base class's slot 1 is RW 0x8B3313, `*out = 0`): the gate overrides the empty mask
+	// with ONE bit, bit 3 of the second byte = 0x800 = DISABLED_USER_FROZEN (11) of the table RW 0xDAD904. A frozen gate therefore keeps running
+	// its update (an open / close under way still advances); every other disabled type skips it, exactly as the base's empty mask does.
+	// RW 0x654FD1 zeroes the 4-byte buffer (RW 0xA3CF28 = memset), ORs 8 at buffer + 1 and answers it.
+	DisabledMaskType getDisabledTypesToProcess() const override { return (DisabledMaskType)(1u << DISABLED_USER_FROZEN); }
 	virtual void open();                                     // slot 7
 	virtual void close();                                    // slot 8
 	virtual void toggle();                                   // slot 9
@@ -144,8 +159,11 @@ public:
 	void pushOut();
 	unsigned pushOutRequests() const { return m_pushOutRequests; }
 
+	// port accessors (no retail slot of their own: RW 0x89C12F / 0x89C18E read the members directly)
 	virtual State state() const { return (State)m_state; }
 	virtual GeometryState geometryState() const { return (GeometryState)m_geometryState; }
+	// RW 0x9A5E04 (the gate interface RW 0xC668E0 slot 11, `fld dword ptr [ecx + 0x34]`): the open / close progress the AI gate walk and the proxy
+	// (RW 0x656779 -> [gate interface]+0x2C) read. The port's m_percent is the same +0x34 value the update writes (RW 0x89CE33 / 0x89CDCC).
 	virtual float percent() const { return m_percent; }
 	int wantOpenRequest() const { return m_request; }
 	// the sounds the gate would have started (stop S-1942: not played), in order: "opening", "closing", "opened", "closed"

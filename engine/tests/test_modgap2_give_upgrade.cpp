@@ -68,7 +68,7 @@ TEST_CASE("modgap2 give upgrade: the carrier delivers its upgrade to a valid tar
         CHECK(recipient->hasUpgrade(upgrade));
         bool stopped = false;
         for (const auto &line : w.logic->report().stops) stopped = stopped || line == GiveUpgradeUpdate::stopLine();
-        CHECK(stopped);
+        CHECK_FALSE(stopped); // PORT-199: the ordinary target path is ported, no S-6011 line
         const ObjectID carrierId = carrier->getID();
         w.frames(50);
         CHECK(w.logic->findObjectByID(carrierId) == nullptr);
@@ -124,7 +124,7 @@ TEST_CASE("modgap2 give upgrade: linked recipient reports unsupported provider")
         CHECK_FALSE(recipient->hasUpgrade(upgrade));
         bool stopped = false;
         for (const auto &line : w.logic->report().stops) stopped = stopped || line == GiveUpgradeUpdate::stopLine();
-        CHECK(stopped);
+        CHECK_FALSE(stopped); // PORT-199: the producer-linked path is ported (the upgrade goes to the producer's horde), no S-6011 line
     }
 }
 

@@ -81,6 +81,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// scalar deleting dtor RW 0x008881CD
 class PillageModule : public BehaviorModule
 {
 public:
