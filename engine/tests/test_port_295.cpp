@@ -35,6 +35,7 @@ GettingBuiltBehavior *findGB(Object *o)
 TEST_CASE("PORT-295 GettingBuiltBehavior::canNeighborhoodRebuild and startNeighborhoodRebuild (RW 0x00857182, 0x00856FBE)")
 {
 	LogicWorld world;
+	ConstructionModules::registerAll(world.w.modules);
 	const std::string err = world.w.load(R"(
 Object Port295Wall
 	KindOf = STRUCTURE WALL_SEGMENT
@@ -72,6 +73,7 @@ End
 TEST_CASE("PORT-295 GettingBuiltBehavior::destroyDeadLinkedPiecesOnDelete (RW 0x0085733A)")
 {
 	LogicWorld world;
+	ConstructionModules::registerAll(world.w.modules);
 	const std::string err = world.w.load(R"(
 Object Port295Hub
 	KindOf = STRUCTURE WALL_HUB
@@ -106,6 +108,7 @@ End
 TEST_CASE("PORT-295 GettingBuiltBehavior::canAffordRebuild and stopConstruction (RW 0x00856280, 0x0085757F)")
 {
 	LogicWorld world;
+	ConstructionModules::registerAll(world.w.modules);
 	const std::string err = world.w.load(R"(
 Object Port295Struct
 	KindOf = STRUCTURE
