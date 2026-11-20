@@ -13,7 +13,7 @@ not find them). Example: `Multiplayer_Human` / `ImladrisTechManve` grants `SCIEN
 
 Files: 10, scripts: 2483, grants: 1613.
 
-Library scripts: 2468; with a condition or action the port has no case for: 97.
+Library scripts: 2468; with a condition or action the port has no case for: 0.
 (A script whose every type has a case is counted as executed: the case may still differ from RotWK, as a matrix PASS is checked
 behaviour and this is not.)
 
@@ -23,22 +23,3 @@ behaviour and this is not.)
 
 | type | uses | files |
 |---|---|---|
-| `CREATE_NAMED_ON_TEAM_AT_OBJECTTYPE` | 56 | libraries\ai_men of the west\ai_men of the west.map |
-| `TEAM_ENTER_NAMED` | 56 | libraries\ai_men of the west\ai_men of the west.map |
-| `PLAYER_COMPARE_RANK` | 16 | libraries\multiplayer_human\multiplayer_human.map |
-| `PLAYER_ADD_RANKLEVEL` | 7 | libraries\multiplayer_human\multiplayer_human.map |
-| `PLAYER_ENABLE_FACTORIES` | 6 | libraries\ai_men of the west\ai_men of the west.map |
-| `PLAYER_SELL_EVERYTHING` | 5 | libraries\ai_men of the west\ai_men of the west.map, libraries\multiplayer_human\multiplayer_human.map |
-| `IS_NUM_OF_UNITS_BELONGING_TO_PLAYER_NEAR_EVA_EVENT_LAST_PLAYED_LOCATION_COMPARISON_INT` | 4 | libraries\music_musicscripts_single\music_musicscripts_single.map |
-| `SKIRMISH_SPECIAL_POWER_READY` | 2 | libraries\ai_men of the west\ai_men of the west.map, libraries\multiplayer_human\multiplayer_human.map |
-| `RESIZE_VIEW_GUARDBAND` | 2 | maps\camera_demo\1shotcinematicstripts.scb, maps\camera_demo\defaultcinematicscripts.scb |
-| `OPTIONS_SET_PARTICLE_CAP_MODE` | 2 | maps\camera_demo\1shotcinematicstripts.scb, maps\camera_demo\defaultcinematicscripts.scb |
-| `OPTIONS_SET_DRAWICON_UI_MODE` | 2 | maps\camera_demo\1shotcinematicstripts.scb, maps\camera_demo\defaultcinematicscripts.scb |
-| `PLAYER_REPAIR_NAMED_STRUCTURE` | 1 | libraries\ai_men of the west\ai_men of the west.map |
-| `TEAM_SET_PLAYERS_NEAREST_UNIT_OF_TYPE_TO_REFERENCE` | 1 | libraries\ai_men of the west\ai_men of the west.map |
-| `NAMED_USE_COMMANDBUTTON_ON_NEAREST_KINDOF` | 1 | libraries\ai_men of the west\ai_men of the west.map |
-| `REGION_CAMPS_SHOULD_UNPACK` | 1 | libraries\multiplayer_human\multiplayer_human.map |
-| `SKIRMISH_FIRE_SPECIAL_POWER_AT_MOST_COST` | 1 | libraries\multiplayer_human\multiplayer_human.map |
-| `PLAYER_LOST_OBJECT_TYPE` | 1 | libraries\multiplayer_human\multiplayer_human.map |
-| `PLAYER_SET_RANKLEVEL` | 1 | libraries\multiplayer_human\multiplayer_human.map |
-| `DEBUG_MESSAGE_BOX` | 1 | libraries\multiplayer_human\multiplayer_human.map |

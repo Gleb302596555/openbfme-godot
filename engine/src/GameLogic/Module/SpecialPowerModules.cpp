@@ -610,7 +610,7 @@ bool SpecialPowerModule::requirementsMet() const
 	const std::shared_ptr<const ObjectFilter> &f = kind3 ? m_spData->m_requirementsFilterMPSkirmish : m_spData->m_requirementsFilterStrategic;
 	if (!f || !f->flag)
 	{
-		return true;
+		return true; // RW 0x896A0E: an unset RequirementsFilterMPSkirmish — no requirements test in a skirmish (not the RW 0xDE49E4 object-filter default of S-523, which is closed)
 	}
 	return !p || p->hasObjectMatching(*f, true);
 }
@@ -1034,6 +1034,11 @@ bool SpecialPowerModule::initiate(Object *target, const Coord3D *loc, unsigned o
 	{
 		return false;
 	}
+	// RW 0x897E9E .. 0x897EA3: keep the target's id at + 0x2C (only for a cast with a target; the interface's slot 0x50, RW 0x7B0F25, answers with it)
+	if (target)
+	{
+		m_targetId = target->getID();
+	}
 	++m_initiates;
 	// lane LUMBER1: the enum switch's SPECIAL_HARVEST case (RW 0x897EC6 .. 0x897F07, enum 0x8D: the workers' Harvest button): the object's AI (+ 0x260) and its
 	// player's ResourceGatheringManager (+ 0x304) find a tree (RW 0x8FA834); found: aiHarvest(position, CMD_FROM_AI) (RW 0x771655) and the AI byte + 0x3CC
@@ -1151,6 +1156,7 @@ void SpecialPowerModule::crc(StateHasher &h) const
 	h.addU32(m_pauseFrame);
 	h.addFloat(m_pausedPercent);
 	h.addBool(m_updateDisabled);
+	h.addU32(m_targetId);
 	h.addU32(m_triggers);
 	h.addU32(m_applied); // lane HERO-1
 }
@@ -1974,7 +1980,7 @@ void ManTheWallsSpecialPower::xfer(Xfer &x)
 // Retail's SpecialPowerModule::xfer is not one of the inventory's named rows; the port's fields (RW + 0x14 .. + 0x28) and its counters, in declaration order.
 void SpecialPowerModule::xfer(Xfer &x)
 {
-	SnapshotXfer::version(x, 1, 1);
+	SnapshotXfer::version(x, 2, 2); // 2: + m_targetId (the target initiate kept, RW + 0x2C); version 1 saves are refused
 	xferBehaviorModule(x);
 	x.xferUnsignedInt(&m_rechargeLength);
 	x.xferUnsignedInt(&m_readyFrame);
@@ -1982,6 +1988,7 @@ void SpecialPowerModule::xfer(Xfer &x)
 	x.xferUnsignedInt(&m_pauseFrame);
 	x.xferReal(&m_pausedPercent);
 	x.xferBool(&m_updateDisabled);
+	x.xferObjectID(&m_targetId);
 	x.xferUnsignedInt(&m_triggers);
 	x.xferUnsignedInt(&m_applied);
 	SnapshotXfer::u64(x, m_unported);

@@ -623,11 +623,17 @@ TEST_CASE("hud2 palantir: custom heroes use their model-state portraits rather t
 	h.hud->input().ui().selectObject(maiden->getID());
 	h.frames(10);
 	CHECK(h.hud->palantir()->portraitShown() == "CPShieldMaiden");
-	// Both objects have the same template, but different portraits: do not
-	// skip the second object using the ordinary template comparison cache.
+	// Both selected: PORT-213 (RW 0x94475A / 0x944834) hands the senior qualifying HERO to the Palantir, the smallest id of the
+	// rank (RW 0x94480D): the maiden, made first. (Before Port 213 this expected the faction's multi-selection portrait.)
 	h.hud->input().ui().selectObject(captain->getID());
 	h.frames(10);
-	CHECK(h.hud->palantir()->portraitShown() == h.rig.local->getPlayerTemplate()->m_multiSelectionPortrait);
+	CHECK(h.hud->palantir()->portraitShown() == "CPShieldMaiden");
+	// Both objects have the same template, but different portraits: do not
+	// skip the second object using the ordinary template comparison cache.
+	h.hud->input().ui().deselectAll();
+	h.hud->input().ui().selectObject(captain->getID());
+	h.frames(10);
+	CHECK(h.hud->palantir()->portraitShown() == "CPCaptainofGondor");
 }
 
 TEST_CASE("hud2 custom hero buttons: model-state icons distinguish Shield Maiden and Captain")

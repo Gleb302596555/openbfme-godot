@@ -701,6 +701,27 @@ def sync_from_comments(p: dict, state: dict) -> None:
     save_state(state)
 
 
+# Owner 2026-11-20: GitHub Actions builds every PR and runs its own tests first (.github/workflows/fork-pr.yml, the job of this name, for this
+# repository's PRs too); the sandbox checks a PR only when that job is green on its head, so a build failure or a red own test costs a runner,
+# not an hour of the sandbox. A head pushed before the rule (no run of the job) is checked as before.
+ACTIONS_CHECK = "Fork PR: build and own tests"
+ACTIONS_FROM = 1795208400   # 2026-11-20 21:00 UTC: heads committed earlier have no run of the job for all PRs
+
+
+def actions_check(head: str) -> str:
+    """The job's conclusion on this commit ('success', 'failure', ...), 'running', or '' when it has not run."""
+    name = ACTIONS_CHECK.replace(" ", "%20").replace(":", "%3A")
+    done = subprocess.run(["gh", "api", f"repos/{GH}/commits/{head}/check-runs?check_name={name}"], capture_output=True, text=True,
+                          encoding="utf-8", errors="replace", env=dict(os.environ, GH_TOKEN=token()))
+    if done.returncode:
+        raise RuntimeError(f"gh api check-runs: {done.stderr.strip()[:300]}")
+    runs = json.loads(done.stdout).get("check_runs") or []
+    if not runs:
+        return ""
+    last = max(runs, key=lambda r: r.get("started_at") or "")
+    return last.get("conclusion") or "running"
+
+
 def head_time(n: int | str) -> int:
     """The committer time of the PR's head (refs/prcheck/N, fetched each cycle): when its agent last pushed. Not updatedAt, which every
     comment moves, the checker's own report too."""
@@ -775,6 +796,25 @@ def cycle(args) -> int:
                        f"⏸️ **PR #{p['number']} не проверялся заново** (песочница {SANDBOX}, голова {p['headRefOid'][:8]}): {what}."],
                        not args.no_comment, state)
             continue
+        if args.pr is None:
+            n, head = str(p["number"]), p["headRefOid"]
+            ci = actions_check(head)
+            if ci in ("", "running") and (ci == "running" or head_time(n) >= ACTIONS_FROM):
+                if state.setdefault("actions_wait", {}).get(n) != head:
+                    print(f"#{n}: waits for GitHub Actions ({ci or 'not started'})", flush=True)
+                    state["actions_wait"][n] = head
+                    save_state(state)
+                continue
+            if ci not in ("", "success", "neutral", "skipped"):
+                if state.setdefault("actions_red", {}).get(n) != head:
+                    print(f"#{n}: GitHub Actions {ci}: not checked here", flush=True)
+                    if not args.no_comment:
+                        gh("pr", "comment", n, "--body", f"<!-- prcheck {head} -->\n❌ **PR #{n} не проверялся в песочнице** (голова {head[:8]}): "
+                           f"в GitHub Actions красная проверка «{ACTIONS_CHECK}» ({ci}) — сборка или свои тесты. Ошибки — в аннотациях проверки "
+                           "на вкладке Checks этого PR. Исправь и запушь: Actions проверит заново, песочница возьмёт PR после зелёного результата.")
+                    state["actions_red"][n] = head
+                    save_state(state)
+                continue
         keep.append(p)
     todo = keep
     held = check_claims()

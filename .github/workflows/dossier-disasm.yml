@@ -1,0 +1,93 @@
+# The disassembly half of the task dossiers (owner 2026-11-20: moved from sandbox 3, whose loop stopped whenever the sandbox did; GitHub Actions
+# always runs). For every open Port / Local issue tools/mod/dossier_disasm.py disassembles from RotWK's game.dat the functions the issue names and
+# the unported functions of the classes it names; each dossier is encrypted with the arena key and pushed to refs/arena/dossier/<issue> (only
+# when its text changed). The arena prompt and the local agents fetch and decrypt their own.
+#
+# The game file and the function inventory come from the encrypted refs refs/arena/files and refs/arena/inventory, decrypted on the runner
+# with the ARENA_KEY secret (the arena key, which the arena prompts carry already). Rules of this job (owner's rule change, 2026-11-20): the game
+# file, the inventory and the dossiers' plain text never reach a log, an artifact or a branch: the steps write them to files only (the
+# disassembly's own output goes to a file, a failure shows only its last lines without disassembly rows), the last step wipes them, and the
+# runner is discarded after the job.
+name: Task dossier disassembly
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+  schedule:
+    - cron: "17,47 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: read
+
+concurrency:
+  group: dossier-disasm
+  cancel-in-progress: false
+
+jobs:
+  disasm:
+    name: "Dossier: disassembly"
+    if: github.event_name != 'issues' || startsWith(github.event.issue.title, 'Port') || startsWith(github.event.issue.title, 'Local')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Tools
+        run: python3 -m pip install -q capstone pefile
+      - name: Inputs (decrypted on the runner only)
+        env:
+          ARENA_KEY: ${{ secrets.ARENA_KEY }}
+        run: |
+          set -eu
+          test -n "$ARENA_KEY" || { echo "::error::the ARENA_KEY secret is not set"; exit 1; }
+          W="$RUNNER_TEMP/dossier"; mkdir -p "$W/out" "$W/old"
+          umask 077
+          printf '%s' "$ARENA_KEY" > "$W/key"
+          git fetch -q origin '+refs/arena/files:refs/arena/files' '+refs/arena/inventory:refs/arena/inventory' '+refs/arena/dossier/*:refs/arena/dossier/*'
+          git show refs/arena/files:arena-files.zip.enc > "$W/files.enc"
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in "$W/files.enc" -out "$W/files.zip" -pass file:"$W/key"
+          unzip -q -o "$W/files.zip" game.dat -d "$W"
+          echo "daed3668006cd90f01c34e5a7da1901f  $W/game.dat" | md5sum -c --quiet
+          git show refs/arena/inventory:inventory.json.gz.enc > "$W/inv.enc"
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in "$W/inv.enc" -pass file:"$W/key" | gunzip > "$W/inventory.json"
+          rm -f "$W/files.enc" "$W/files.zip" "$W/inv.enc"
+          echo "W=$W" >> "$GITHUB_ENV"
+      - name: Disassemble the open tasks' functions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          (cd tools/mod && python3 dossier_disasm.py --game "$W/game.dat" --inventory "$W/inventory.json" --map ../../docs/ennorath/RW_FUNCTION_MAP.tsv --out "$W/out") > "$W/disasm.log" 2>&1 || { tail -5 "$W/disasm.log" | grep -v -E '^\s*[0-9A-F]{8}\s' ; exit 1; }
+          grep -c '^WROTE ' "$W/disasm.log" | sed 's/^/dossiers written: /'
+      - name: Push the changed dossiers, encrypted
+        run: |
+          set -eu
+          git config user.name "dossier"; git config user.email "dossier@localhost"
+          pushed=0; same=0
+          for f in "$W"/out/dossier-*.txt; do
+            [ -e "$f" ] || continue
+            n=$(basename "$f" .txt); n=${n#dossier-}
+            if git rev-parse -q --verify "refs/arena/dossier/$n" >/dev/null \
+               && git show "refs/arena/dossier/$n:dossier.txt.enc" > "$W/old/$n.enc" 2>/dev/null \
+               && openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in "$W/old/$n.enc" -out "$W/old/$n.txt" -pass file:"$W/key" 2>/dev/null \
+               && cmp -s "$W/old/$n.txt" "$f"; then
+              same=$((same + 1)); continue
+            fi
+            openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -in "$f" -out "$f.enc" -pass file:"$W/key"
+            blob=$(git hash-object -w "$f.enc")
+            tree=$(printf '100644 blob %s\tdossier.txt.enc\n' "$blob" | git mktree)
+            commit=$(git commit-tree "$tree" -m "dossier of issue $n")
+            git push -q -f origin "$commit:refs/arena/dossier/$n"
+            pushed=$((pushed + 1))
+          done
+          echo "dossiers pushed: $pushed, unchanged: $same"
+      - name: Wipe the inputs
+        if: always()
+        run: rm -rf "${W:-/nonexistent}"

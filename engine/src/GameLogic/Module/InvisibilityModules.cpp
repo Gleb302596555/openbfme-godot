@@ -640,10 +640,7 @@ void StealthUpdate::toggleRing()
 		}
 		obj->setSpecialModelConditionState(b.puttingOnRing, m_data->m_ringAnimTimeOn); // RW 0x68B581(0x104, RingAnimTimeOn)
 		obj->setDisabled(kDisabledHeld, m_stealthAllowedFrame);                     // RW 0x6907F1(3, the allowed frame)
-		if (ObjectWeapons *w = obj->getWeapons())
-		{
-			w->setWeaponSetFlag(b.ringWeaponSet, true); // RW 0x691059(0x1C)
-		}
+		obj->setWeaponSetFlag(b.ringWeaponSet, true); // RW 0x691059(0x1C) on the OBJECT
 		m_ring = true;
 	}
 	else
@@ -917,10 +914,7 @@ UpdateSleepTime StealthUpdate::evaluate()
 				obj->setModelConditionState(b.oneRing, false); // Object + 0x12B bit 5, RW 0x68B53C
 			}
 			setStatusAll(b.stealthed, false);
-			if (ObjectWeapons *w = obj->getWeapons())
-			{
-				w->setWeaponSetFlag(b.ringWeaponSet, false); // RW 0x691106(0x1C)
-			}
+			obj->setWeaponSetFlag(b.ringWeaponSet, false); // RW 0x691106(0x1C) on the OBJECT
 			m_ring = false;
 			m_ringReadyFrame = m_data->m_ringDelayAfterRemoving + now;
 		}

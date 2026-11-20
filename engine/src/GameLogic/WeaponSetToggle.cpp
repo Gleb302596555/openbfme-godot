@@ -114,6 +114,37 @@ void Object::setWeaponSetFlag(int bit, bool on)
 	}
 }
 
+// RW 0x68DECA (set) / 0x6911B7 (clear) Object::setWeaponSetFlags / clearWeaponSetFlags: the mask over Object + 0x38C, ONE weapon set update (RW 0x6C99E2);
+// the clear, then every bit the mask names whose mapped model condition this object has, cleared one by one (RW 0x6911B7's second loop over bits 0..0x67,
+// each with a RW 0x68B53C notify). The set touches no model condition (RW does not there either)
+void Object::setWeaponSetFlags(const WeaponConditionFlags &mask, bool on)
+{
+	if (m_weapons)
+	{
+		m_weapons->setWeaponSetFlags(mask, on); // the word, the update and (on clear) RW 0x6911B7's model condition mirror
+		return;
+	}
+	for (size_t i = 0; i < m_weaponlessSetFlags.size(); ++i)
+	{
+		m_weaponlessSetFlags[i] = on ? (m_weaponlessSetFlags[i] | mask[i]) : (m_weaponlessSetFlags[i] & ~mask[i]);
+	}
+	if (on)
+	{
+		return;
+	}
+	for (int bit = 0; bit < 128; ++bit) // RW 0x6911B7's second loop is over bits 0..0x67; the table answers -1 beyond it
+	{
+		if ((mask[(size_t)bit >> 5] >> (bit & 31)) & 1u)
+		{
+			const int mc = WeaponSetToggle::modelConditionForWeaponSetBit(bit);
+			if (mc >= 0 && testModelCondition(mc))
+			{
+				setModelConditionState(mc, false); // RW 0x6911B7's per-bit mirror
+			}
+		}
+	}
+}
+
 namespace WeaponSetToggle
 {
 int modelConditionForWeaponSetBit(int bit)

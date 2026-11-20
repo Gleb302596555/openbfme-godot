@@ -62,12 +62,13 @@ TEST_CASE("factb inventory: Isengard and Mordor reach every structure, unit, her
 		{
 			classes.insert(kv.first);
 		}
-		const std::set<std::string> isengard = { "BaseUpgrade",
+		// Local 36 (c0258217, 2026-11-10) ported BaseUpgrade; the sync of 2026-11-12 (53f84ed9) ported SlaughterHordeContain: both sets are empty since
+		const std::set<std::string> isengard = {
 			}; // MODGAP-1 ported EvacuateDamage, MODGAP-2 FlingPassengerSpecialAbilityUpdate; lane MODCOMPAT-MOD1 ported GeometryUpgrade, SlaveWatcherBehavior and PickupStuffUpdate; lane FX-4 ported TransitionDamageFX; lane SIEGE-1 SiegeDeployHordeSpecialPower; lane LUMBER1: SupplyCenterCreate / SupplyCenterDockUpdate ported (S-1993); AnnounceBirthAndDeathBehavior ported
-		const std::set<std::string> mordor = { "BaseUpgrade", // MODGAP-1 ported AimWeaponBehavior
+		const std::set<std::string> mordor = { // MODGAP-1 ported AimWeaponBehavior
 			// MODGAP-1 ported EvacuateDamage; lane SUMMON-1 ported DoCommandUpgrade; lane MODCOMPAT-MOD1 ClickReactionBehavior; lane MODCOMPAT-MOD1 AudioLoopUpgrade
 			// MODGAP-1 ported HordeTransportContainDamage; MODGAP-2 ported FlingPassengerSpecialAbilityUpdate; lane MODCOMPAT-MOD1 ported GeometryUpgrade and GrabPassengerSpecialPower
-			"SlaughterHordeContain" }; // MODGAP-2 ported RunOffMapBehavior (6117d165, RW 0x8652BB); lane MODCOMPAT-MOD1 ported SlaveWatcherBehavior, PickupStuffUpdate, AutoPickUpUpdate and BoredUpdate; lane FX-4 ported TransitionDamageFX; lane SIEGE-1 SiegeDeployHordeSpecialPower; lane LUMBER1: SupplyCenterCreate / SupplyCenterDockUpdate ported (S-1993)
+			}; // MODGAP-2 ported RunOffMapBehavior (6117d165, RW 0x8652BB); lane MODCOMPAT-MOD1 ported SlaveWatcherBehavior, PickupStuffUpdate, AutoPickUpUpdate and BoredUpdate; lane FX-4 ported TransitionDamageFX; lane SIEGE-1 SiegeDeployHordeSpecialPower; lane LUMBER1: SupplyCenterCreate / SupplyCenterDockUpdate ported (S-1993)
 		CHECK(classes == (std::string(f) == "FactionIsengard" ? isengard : mordor));
 	}
 	if (const char *out = std::getenv("FACTB_INVENTORY_OUT"))

@@ -1208,9 +1208,18 @@ void AutoHealBehavior::healOne(Object &target, bool fx)
 		return;
 	}
 	GameLogic &logic = target.logic();
-	if (m_data->m_nonStackable && target.getBodyModule())
+	// PORT-293: RW 0x855777 .. 0x8557A2: a NonStackable heal (data + 0x174) is refused while the target's last-healing frame (body vslot 0x48,
+	// ActiveBody RW 0x5DC48C) plus this module's HealingDelay (data + 0x140) is still in the future. The sum is unsigned in retail, so a body that was
+	// never healed (-1, RW 0x8C3897) refuses the first hit until HealingDelay frames have passed. The frame is not refreshed on a refusal
+	if (m_data->m_nonStackable)
 	{
-		logic.noteStop("[S-858] AutoHealBehavior NonStackable: the body's last heal frame (body vslot 0x48) is not ported; the heal stacks");
+		if (const BodyModuleInterface *body = target.getBodyModule())
+		{
+			if (body->getLastHealingFrame() + m_data->m_healingDelay > logic.getFrame())
+			{
+				return;
+			}
+		}
 	}
 	const float heal = (float)amount();
 	if (m_data->m_radius == 0)

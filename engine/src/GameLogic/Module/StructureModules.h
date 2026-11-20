@@ -125,6 +125,9 @@ public:
 	void attemptDamage(DamageInfo &info) override;
 	void attemptHealing(DamageInfo &info) override;
 	float estimateDamage(const DamageInfoInput &input) const override;
+	// RW 0x8C1AC3: slot 0x3C returns four zero bytes (ArmorSetFlags), while slots 0x34/0x38 are the RW 0x9F3A3C
+	// `ret 4` stubs. An armor upgrade therefore cannot add a condition to an untouchable object's armor set.
+	bool ignoresArmorSetFlagChanges() const override { return true; }
 	bool dieCalled() const { return m_dieCalled; }
 	void crc(StateHasher &hasher) const override;
 
