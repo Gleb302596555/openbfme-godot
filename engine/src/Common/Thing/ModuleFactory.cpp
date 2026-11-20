@@ -217,7 +217,7 @@ std::unique_ptr<Module> ModuleFactory::newModule(Thing *thing, const std::string
 	{
 		throw std::logic_error("ModuleFactory: the runtime class of '" + name + "' returned no module");
 	}
-	module->friend_setModuleClass(name, m_keys.nameToKey(name));
+	module->friend_setModuleClass(name, m_keys.nameToKey(name)); // PORT-303: RW 0x8C130B's answer, resolved once at creation (RW 0x5487EC makes the key)
 	if (module->isUnported())
 	{
 		++m_unportedCreated[name];
