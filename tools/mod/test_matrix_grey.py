@@ -195,3 +195,204 @@ def test_a_power_that_starts_paused_needs_its_unpause_upgrade(tmp_path):
     assert 'ModuleTag_Unpause' in paused[0]['note']
     free = e.explain({'faction': 'F', 'object': 'FreeHero', 'button': 'PausedPower'})
     assert [x['condition'] for x in free] == ['none']
+
+
+WRITERS_INI = '''
+Upgrade Upgrade_Finished
+  Type = OBJECT
+End
+ModifierList DelayedGrant
+  Category = BUFF
+  Duration = 1800
+  Upgrade = Upgrade_Finished Delay:650
+End
+ModifierList StartupMark
+  Category = BUFF
+  Duration = 2400
+  ModelCondition = USER_8
+End
+ModifierList PowerMark
+  Category = BUFF
+  ModelCondition = HERO
+End
+ModifierList WeaponMark
+  Category = WEAPON
+  ModelCondition = USER_1
+End
+ModifierList AuraMark
+  Category = BUFF
+  ModelCondition = USER_9
+End
+ModifierList AreaMark
+  Category = BUFF
+  ModelCondition = USER_3
+End
+Weapon Signal
+  AttributeModifierNugget
+    AttributeModifier = WeaponMark
+    Radius = 130
+    SpecialObjectFilter = NONE +URUK -Excluded ALLIES
+  End
+End
+Weapon Axe
+End
+SpecialPower ChooseAxe
+  Enum = SPECIAL_KNIFE_FIGHTER
+End
+SpecialPower Restore
+  Enum = SPECIAL_ATHELAS
+End
+CommandButton PressAxe
+  Command = SPECIAL_POWER
+  SpecialPower = ChooseAxe
+End
+CommandButton PressRestore
+  Command = SPECIAL_POWER
+  SpecialPower = Restore
+End
+CommandButton PressOther
+  Command = SPECIAL_POWER
+  SpecialPower = Restore
+  EnableOnModelCondition = USER_2
+End
+CommandButton Purchase
+  Command = STOP
+  DisableOnModelCondition = USER_8
+End
+CommandSet HeroSet
+  1 = PressAxe
+  2 = PressRestore
+  3 = PressOther
+End
+Object Hero
+  CommandSet = HeroSet
+  WeaponSet
+    Conditions = None
+    Weapon = SECONDARY Axe
+  End
+  Behavior = WeaponModeSpecialPowerUpdate LockTag
+    SpecialPowerTemplate = ChooseAxe
+    LockWeaponSlot = SECONDARY
+    StartsPaused = Yes
+  End
+  Behavior = UnpauseSpecialPowerUpgrade UnlockTag
+    SpecialPowerTemplate = ChooseAxe
+    TriggeredBy = Upgrade_Ready
+  End
+  Behavior = SpecialPowerModule CastTag
+    SpecialPowerTemplate = Restore
+    AttributeModifierAffectsSelf = Yes
+    AttributeModifier = DelayedGrant
+  End
+  Behavior = ModelConditionUpgrade GrantTag
+    TriggeredBy = Upgrade_Finished
+    AddConditionFlags = USER_2
+  End
+End
+ChildObject Ward Hero
+  Behavior = SpecialPowerModule CastTag
+    SpecialPowerTemplate = Restore
+    AttributeModifierAffectsSelf = No
+    AttributeModifier = DelayedGrant
+  End
+End
+Object DisplayOnly
+  Draw = SomeDraw DrawTag
+    ModelConditionState = USER_3
+    End
+  End
+End
+Object Tower
+  Behavior = AttributeModifierUpgrade StartupTag
+    AttributeModifier = StartupMark
+    TriggeredBy = Upgrade_Setup
+  End
+End
+Object Officer
+  Behavior = AttributeModifierUpgrade HeroTag
+    TriggeredBy = Upgrade_Rank
+    AttributeModifier = PowerMark
+  End
+  Behavior = FireWeaponUpdate PulseTag
+    HeroModeTrigger = Yes
+    FireWeaponNugget
+      WeaponName = Signal
+    End
+  End
+End
+Object Follower
+  KindOf = URUK HORDE
+  Behavior = HorseHordeContain HordeTag
+    AlternateFormation = FollowerWedge
+    ThisFormationIsTheMainFormation = Yes
+  End
+End
+ChildObject FollowerWedge Follower
+  Behavior = HorseHordeContain HordeTag
+    AlternateFormation = Follower
+    ThisFormationIsTheMainFormation = No
+  End
+End
+ChildObject PlainChild Follower
+End
+ChildObject Excluded Follower
+End
+ChildObject NotUruk Follower
+  KindOf = INFANTRY
+End
+Object Shrine
+  Behavior = PassiveAreaEffectBehavior AreaTag
+    ModifierName = AreaMark
+    AllowFilter = NONE +Hero
+  End
+End
+Object Stable
+  Behavior = AttributeModifierAuraUpdate AuraTag
+    TriggeredBy = Upgrade_Stable
+    StartsActive = No
+    BonusName = AuraMark
+    ObjectFilter = ANY +Follower +Beast ALLIES
+  End
+End
+Object Beast
+  KindOf = CAVALRY
+End
+'''
+
+
+@pytest.fixture
+def writers(tmp_path):
+    ini = tmp_path / 'data/ini/writers.ini'
+    ini.parent.mkdir(parents=True)
+    ini.write_text(WRITERS_INI, encoding='ascii')
+    return m.Explainer(m.load(tmp_path))
+
+
+def test_model_producers_prefer_pressable_buttons_and_keep_the_upgrade(writers):
+    assert writers.model_producers('hero', 'WEAPONLOCK_SECONDARY') == 'PressAxe (weapon slot lock after Upgrade_Ready)'
+    assert writers.model_producers('Hero', 'WEAPONLOCK_PRIMARY') == '-'
+    assert writers.model_producers('Hero', 'USER_2') == 'PressRestore (DelayedGrant grants Upgrade_Finished), Upgrade_Finished'
+    assert writers.model_producers('Ward', 'USER_2') == 'Upgrade_Finished'  # no self grant, even with the same button
+
+
+def test_model_producers_report_actual_external_emitters_and_filters(writers):
+    assert writers.model_producers('Follower', 'USER_1') == 'Officer:PulseTag (Upgrade_Rank; allied modifier weapon)'
+    assert writers.model_producers('Excluded', 'USER_1') == '-'
+    assert writers.model_producers('NotUruk', 'USER_1') == '-'
+    assert writers.model_producers('Hero', 'USER_3') == 'Shrine:AreaTag (allied passive area)'
+    assert writers.model_producers('Ward', 'USER_3') == '-'
+    assert writers.model_producers('DisplayOnly', 'USER_3') == '-'
+    assert writers.model_producers('Beast', 'USER_9') == 'Stable:AuraTag (Upgrade_Stable; allied aura)'
+
+
+def test_formation_prerequisite_is_not_generic_child_equivalence(writers):
+    assert writers.model_producers('Follower', 'USER_9') == 'Stable:AuraTag (Upgrade_Stable; allied aura)'
+    assert writers.model_producers('FollowerWedge', 'USER_9') == (
+        'Stable:AuraTag (Upgrade_Stable; allied aura; only when Follower changes formation, not a standalone spawn)')
+    assert writers.model_producers('PlainChild', 'USER_9') == '-'
+
+
+def test_disable_model_condition_reports_expiry_not_the_upgrade_as_an_unlock(writers):
+    result = writers.explain({'faction': 'F', 'object': 'Tower', 'button': 'Purchase'})
+    assert [(r['value'], r['satisfied by']) for r in result] == [('USER_8', 'wait for expiry (Tower:StartupTag, Upgrade_Setup)')]
+    assert 'mask must be absent' in result[0]['note']

@@ -96,7 +96,8 @@ public:
 	// the object's WeaponSet conditions (WeaponSetFlags, RW Object + 0x3xx; ZH Object::m_weaponSetFlags): a change re-selects the set
 	const WeaponSetFlags &weaponSetFlags() const { return m_flags; }
 	void setWeaponSetFlag(int bit, bool on);
-	// lane UPGRADE-1: RW 0x68DECA / 0x6911B7 Object::setWeaponSetFlags / clearWeaponSetFlags: every bit of the mask, then ONE weapon set update (RW 0x6C99E2)
+	// lane UPGRADE-1: RW 0x68DECA / 0x6911B7 Object::setWeaponSetFlags / clearWeaponSetFlags: every bit of the mask, then ONE weapon set update (RW 0x6C99E2);
+	// the clear, then RW 0x6911B7's second loop (the owner's model conditions named by the mask cleared one by one)
 	void setWeaponSetFlags(const WeaponSetFlags &mask, bool on);
 	// RW 0x6C99E2
 	void updateWeaponSet();
@@ -208,6 +209,8 @@ public:
 	Weapon *crushRevengeWeapon() const { return m_crushRevengeWeapon.get(); }
 	// RW 0x6CF328 Weapon::fireWeapon(source, victim): privateFireWeapon at an object, no lock, no tracker
 	void fireExtraWeapon(Weapon &w, Object &victim);
+	// LOCAL-97: RW 0x006CF407 Weapon::forceFireWeapon(source, victim): privateFireWeapon RW 0x6CEF6D with ignoreRanges = true (arg 6 = 1)
+	void forceFireExtraWeapon(Weapon &w, Object &victim);
 	// lane SPELL-2 / HERO-1: RW 0x6CF3D2 Weapon::forceFireWeapon(source, pos): privateFireWeapon at a position (ZH: no victim, ranges ignored), no lock, no tracker
 	void fireExtraWeaponAt(Weapon &w, const Coord3D &pos);
 	// lane HERO-1: a weapon of its own (WeaponFireSpecialAbilityUpdate RW 0x895E1A: RW 0x68B150(template, slot 0), owner 0, RW 0x6CEE0F loadAmmoNow)

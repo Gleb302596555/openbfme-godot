@@ -105,5 +105,8 @@ private:
 	};
 	std::map<const ThingTemplate *, TemplateLists> m_templates;
 	Stats m_stats;
+	// map sweep 2026-11-20: per alert of the logic Lua state (same index), the creation that raised it ("<template> OnCreated <handler>"); empty when
+	// the alert came from elsewhere. Only names the report: the alert itself is retail's, swallowed (RW 0x734E41)
+	std::vector<std::string> m_alertSources;
 	bool m_attached = false;
 };

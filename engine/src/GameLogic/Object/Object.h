@@ -193,6 +193,10 @@ public:
 	// RW 0x691059 / 0x691106 Object::setWeaponSetFlag / clearWeaponSetFlag (GameLogic/WeaponSetToggle.cpp): the flag, the weapon set update, the mapped model
 	// condition and the SWAPPING_TO_WEAPONSET_n special model condition
 	void setWeaponSetFlag(int bit, bool on);
+	// RW 0x68DECA / 0x6911B7 Object::setWeaponSetFlags / clearWeaponSetFlags: every bit of the mask, then ONE weapon set update (RW 0x6C99E2); the clear also
+	// mirrors into the model conditions named by the mask (RW 0x6911B7's second loop: the object's condition word has the bit -> cleared, one notify each).
+	// Mutates the object's flags whether or not it has a weapon set (RW writes Object + 0x38C)
+	void setWeaponSetFlags(const WeaponConditionFlags &mask, bool on);
 	bool hasAnyWeapon() const;
 	// ZH Object::getRelationship: this object's team toward the other's (NEUTRAL when either has no team or is undetectable RW 0x68D850)
 	Relationship getRelationship(const Object &other) const;

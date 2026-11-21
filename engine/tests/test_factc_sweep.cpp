@@ -17,7 +17,6 @@
 #include "GameClient/GUI/Skirmish/IniSkirmishSetupSource.h"
 #include "GameClient/HudObjects.h"
 #include "GameClient/MapCache.h"
-#include "GameLogic/Module/HordeDispatchSpecialPower.h"
 #include "GameLogic/Module/ObjectCreationUpgrade.h"
 #include "GameLogic/Module/SpawnBehavior.h"
 #include "CreepTestUtil.h"
@@ -1468,7 +1467,7 @@ TEST_CASE("factc combat: every Goblin and Angmar unit and hero attacks an enemy 
 	}
 }
 
-TEST_CASE("factc stops: S-2000 / S-2001 / S-2002 are reported")
+TEST_CASE("PORT-232 factc stops: S-2000 / S-2002 are reported (S-2001 was ported: the kept target id pick, lane PORT-232)")
 {
 	bool s2000 = false, s2002 = false;
 	if (haveWorld("factc stops"))
@@ -1483,9 +1482,6 @@ TEST_CASE("factc stops: S-2000 / S-2001 / S-2002 are reported")
 		CHECK(s2000);
 		CHECK(s2002);
 	}
-	const std::vector<std::string> d = HordeDispatchSpecialPower::acceptanceStops();
-	REQUIRE(d.size() == 1);
-	CHECK(d[0].compare(0, 8, "[S-2001]") == 0);
 	const std::vector<std::string> o = ObjectCreationUpgrade::acceptanceStops();
 	REQUIRE(o.size() == 1);
 	CHECK(o[0].compare(0, 8, "[S-2007]") == 0);

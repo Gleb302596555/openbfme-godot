@@ -1,40 +1,71 @@
-# Pull requests from another account's fork (a trusted person's own agent, owner 2026-11-17): they are built and their own tests run here,
+# Every pull request (owner 2026-11-20; before: only another account's fork, owner 2026-11-17) is built here and its own tests run here;
+# a fork's pull request (a trusted person's own agent) is built and tested ONLY here,
 # on GitHub's runner, never on the owner's machines (tools/colab/pr_checker.py leaves them alone). The trigger is pull_request: a fork's
 # pull request gets no secret and a read-only token. The tests that need the game files skip here; they run in the owner's batch after the
 # code was read (tools/colab/batch_bot.py waits for the owner's "<!-- reviewed <head> -->"). The dashboard (lib/prs.ts) and the batch bot
 # read this job's result by its name, "Fork PR: build and own tests", and its error annotations. A pull request that changes .github/ or
 # tools/ci/ fails here (it could rewrite this check), and the dashboard does not count such a run.
+#
+# A manual run (workflow_dispatch, input `pr`, owner 2026-11-20) checks an open pull request whose head was pushed before this job ran for
+# every pull request: it builds refs/pull/<pr>/merge the same way, and the `report` job (the only one with checks: write; it runs no pull
+# request code) puts the result on the pull request's head commit under the same name, where the sandbox checker reads it.
 name: Fork PR checks
 
 on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: "the pull request number to check"
+        required: true
 
 permissions:
   contents: read
 
 concurrency:
-  group: fork-pr-${{ github.event.pull_request.number }}
+  group: fork-pr-${{ github.event.pull_request.number || inputs.pr }}
   cancel-in-progress: true
 
 jobs:
   fork-pr:
     name: "Fork PR: build and own tests"
-    # the owner's own agents push to this repository: their pull requests are checked on the owner's sandbox instead
-    if: github.event.pull_request.head.repo.full_name != github.repository
+    # every pull request since 2026-11-20 (owner): this repository's own too. The sandbox checker (tools/colab/pr_checker.py actions_check)
+    # takes a pull request of this repository only when this job is green on its head; it keeps the runs that need the game files
     runs-on: ubuntu-24.04
     # a cold compiler cache took 24 minutes for the Linux tests (pr.yml); main's cache is restored below
     timeout-minutes: 120
+    outputs:
+      head: ${{ steps.manual.outputs.head }}
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
       CCACHE_MAXSIZE: 2G
       CCACHE_NOHASHDIR: "1"
     steps:
+      - name: The pull request of a manual run
+        id: manual
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr }}
+        run: |
+          gh api "repos/${{ github.repository }}/pulls/$PR" > "$RUNNER_TEMP/pr.json"
+          python3 - "$RUNNER_TEMP/pr.json" <<'EOF'
+          import json, os, sys
+          p = json.load(open(sys.argv[1]))
+          with open(os.environ["GITHUB_ENV"], "a") as f:
+              for k, v in (("MANUAL_TITLE", p["title"]), ("MANUAL_BODY", p.get("body") or "")):
+                  f.write(f"{k}<<__END_OF_VALUE__\n{v}\n__END_OF_VALUE__\n")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"head={p['head']['sha']}\n")
+          EOF
+          # a pull request in conflict with main has no refs/pull/<pr>/merge: the checkout below fails, and the report job still marks the head red
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           # GitHub's merge of the pull request into main: its first parent is main, so HEAD^1..HEAD is exactly the pull request
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/pull/{0}/merge', inputs.pr) || '' }}
           fetch-depth: 2
       - name: Install the build tools
         run: |
@@ -57,6 +88,27 @@ jobs:
           ccache -s
       - name: Own tests and stop fragments
         env:
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_TITLE: ${{ github.event_name == 'workflow_dispatch' && env.MANUAL_TITLE || github.event.pull_request.title }}
+          PR_BODY: ${{ github.event_name == 'workflow_dispatch' && env.MANUAL_BODY || github.event.pull_request.body }}
         run: python3 tools/ci/fork_pr_check.py
+
+  report:
+    name: "Manual run: result on the pull request's head"
+    needs: fork-pr
+    if: always() && github.event_name == 'workflow_dispatch' && needs.fork-pr.outputs.head != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      checks: write
+    steps:
+      - name: Put the result on the head commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ needs.fork-pr.outputs.head }}
+          RESULT: ${{ needs.fork-pr.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          case "$RESULT" in success) c=success ;; cancelled) c=cancelled ;; *) c=failure ;; esac
+          gh api -X POST "repos/${{ github.repository }}/check-runs" \
+            -f name="Fork PR: build and own tests" -f head_sha="$HEAD_SHA" -f status=completed -f conclusion="$c" \
+            -f "output[title]=manual run: $RESULT" -f "output[summary]=Built and the own tests run by a manual run of Fork PR checks: $RUN_URL (the errors are that run's annotations)."

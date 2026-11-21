@@ -2,178 +2,55 @@
 
 Layer 2 (lint) flags verdicts the mod's own data contradicts; layer 3 lists every button whose verdict moved since the previous run. A flagged red is likely the sweep's; an unflagged red that moved is the one to check against RotWK.
 
-## Lint: 66 flagged, 5 of them red
+## Lint: 71 flagged, 0 of them red
 
-By rule: L1 60, L2 1, L4 5
+By rule: L1 66, L4 5
 
-- Imladris `ImladrisLoremaster` `Command_SpecialAbilityLoremasterAlueChoice` (LEFT-WORLD): L1: none of the object's command sets has the button (the inventory placed it)
-- Imladris `ImladrisLoremaster` `Command_SpecialAbilityLoremasterManveChoice` (LEFT-WORLD): L1: none of the object's command sets has the button (the inventory placed it)
-- Imladris `ImladrisLoremaster` `Command_SpecialAbilityLoremasterUlmoChoice` (LEFT-WORLD): L1: none of the object's command sets has the button (the inventory placed it)
-- Imladris `ImladrisLoremaster` `Command_SpecialAbilityLoremasterYavannaChoice` (LEFT-WORLD): L1: none of the object's command sets has the button (the inventory placed it)
-- Men `GondorGandalfGeprfte` `Command_SpecialAbilityWizardBlastGeprfte` (NO-EFFECT): L2: passes in FactionImladris
 
-## Changes since 9645c88e: 163 buttons moved, 15 turned red
+## Changes since 3f939131: 45 buttons moved, 2 turned red
 
-- Arnor `GondorTowerShieldGuardHordeShieldWall` `Command_ToggleFormationSchieldwallTurmwachenNo`: DISABLED -> FAIL — the button left the bar after the fixture
-- Elves `LothlorienOuterFlet` `Command_PurchaseLothlorienSentryTowerFireArrowsUpgrade`: DISABLED -> GREY-BUG — GREY-BUG: still restricted with upgrade Upgrade_TechnologyElvenSilverthornArrows met (button state 2)
-- Evilmen `HaradBigScorpion` `Command_BigScorpionUnderground`: DISABLED -> NO-EFFECT — SpecialAbilityToggleMountedScorp (target none) fired but ToggleMountedSpecialAbilityUpdate MountedTemplate HaradBigScorpion_Underground: no 
-- Evilmen `MordorBlackUrukHordeBlock` `Command_MordorBloodThirstySacrificeUruk`: DISABLED -> NO-FIRE — SpecialAbilityBlackUrukBloodThirsty (target GondorFighterHorde (nothing sent; the pick there hits GondorFighter/0x14/Player_2 GondorFighter/
-- Imladris `DwarvenGuardianEreborHorde_Summoned` `Command_PurchaseUpgradeDwarvenBasicTraining`: DISABLED -> GREY-BUG — GREY-BUG: still restricted with upgrade Upgrade_TechnologyDwarvenBasicTraining met (button state 2)
-- Men `GondorDenethor_forFortress` `Command_SpecialAbilityDenethorNotstandssituation`: DISABLED -> GREY-BUG — GREY-BUG: still restricted with upgrade Upgrade_PlantShield met
-- Men `GondorDenethor_forFortress` `Command_SpecialAbilityDenethorSehenderStein1`: DISABLED -> GREY-BUG — GREY-BUG: still restricted with upgrade Upgrade_MenFortressIvoryTower, upgrade Upgrade_MenFortressIvoryTower met
-- Men `GondorDenethor_forFortress` `Command_SpecialAbilityDenethorSteuererlass`: DISABLED -> GREY-BUG — GREY-BUG: still restricted with upgrade Upgrade_RaiseShield, upgrade Upgrade_RaiseShield met
-- Men `GondorDenethor_forFortress` `Command_SpecialAbilityDenethorVerzweiflungsakt`: DISABLED -> GREY-BUG — GREY-BUG: still restricted with upgrade Upgrade_SwitchToRockThrowing, upgrade Upgrade_SwitchToRockThrowing met
-- Men `GondorTowerShieldGuardHordeShieldWall` `Command_ToggleFormationSchieldwallTurmwachenNo`: DISABLED -> FAIL — the button left the bar after the fixture
-- Mordor `MordorBlackUrukHordeBlock` `Command_MordorBloodThirstySacrificeUruk`: DISABLED -> NO-FIRE — SpecialAbilityBlackUrukBloodThirsty (target GondorFighterHorde (nothing sent; the pick there hits GondorFighter/0x14/Player_2 GondorFighter/
-- Mordor `MordorSchwarzeReiterHordeFoot` `Command_BlackRiderMorgulBladeForHorde`: DISABLED -> NO-FIRE — SpecialAbilityBlackRiderMorgulBladeHorde (target GondorBoromir) did not fire in 300 frames (sent: MSG_DESTROY_SELECTED_GROUP b1 | MSG_DESTRO
-- Rohan `GondorTowerShieldGuardHordeShieldWall` `Command_ToggleFormationSchieldwallTurmwachenNo`: DISABLED -> FAIL — the button left the bar after the fixture
-- Wild `MordorBalrogAI` `Command_SpecialAbilityBalrogWingsAI`: DISABLED -> NO-EFFECT — SpecialAbilityBalrogWingsAI (target GondorFighterHorde) fired but WeaponFireSpecialAbilityUpdate SpecialWeapon MordorBalrogLeap: no result (
-- Wild `MordorBalrogAI` `Command_SpecialAbilityMordorBalrogWhipAI`: DISABLED -> NO-EFFECT — SpecialAbilityMordorBalrogWhipAI (target GondorBarracks) fired but WeaponFireSpecialAbilityUpdate SpecialWeapon MordorBalrogWhipEdain (MetaI
-- Angmar `AngmarDarkFortress` `Command_DarkFortressLightningStrike`: DISABLED -> PASS
-- Angmar `AngmarHassall` `Command_SpecialAbilityHasalWerewolf`: DISABLED -> PASS
-- Angmar `AngmarNecromancerHordeFrost` `Command_NecromancerFrostArmor`: DISABLED -> PASS
-- Angmar `AngmarNecromancerHordePlague` `Command_NecromancerCorpseRain`: DISABLED -> PASS
-- Angmar `AngmarNecromancerHordeSoul` `Command_NecromancerWellOfSouls`: DISABLED -> PASS
-- Angmar `AngmarTrollSling` `Command_SpecialAbilityAngmarCatapultPoisonBarrels`: DISABLED -> PASS
-- Angmar `AngmarTrollSlingFortress` `Command_SpecialAbilityAngmarCatapultPoisonBarrels`: DISABLED -> PASS
-- Angmar `AngmarTrollSlingWall` `Command_SpecialAbilityAngmarCatapultPoisonBarrels`: DISABLED -> PASS
-- Angmar `AngmarWolfRider` `Command_SpecialAbilityWargHowl`: MOD-DATA -> MEMBER
-- Angmar `RhudaurBarbarianBowHorde` `Command_RhudaurSacrifice`: DISABLED -> PASS
-- Arnor `ArnorKnightHordeNew` `Command_ToggleFormationArnKnightBlock`: DISABLED -> PASS
-- Arnor `ArnorKnightHordeNewBlockFormation` `Command_ToggleFormationArnKnightBlock`: DISABLED -> PASS
-- Arnor `GondorTowerShieldGuardHordeShieldWall` `Command_ToggleFormationSchieldwallTurmwachen`: DISABLED -> PASS
-- Arnor `HobbitPikeman` `Command_SpecialAbilityArnorHobbitWorking`: MOD-DATA -> MEMBER
-- Arnor `LothlorienCirdan_summ` `Command_SpecialAbilityCirdanWhirlpoolBig`: DISABLED -> PASS
-- Arnor `MordorWitchKing` `Command_WitchkingMorgulBlade`: DISABLED -> PASS
-- Arnor `TowerShieldGuard_forArnor` `Command_ToggleFormationSchieldwallTurmwachen`: DISABLED -> MEMBER
-- Dwarves `DwarvenFortressCitadel` `Command_FireWeaponDwarvenFortressOilCasks`: DISABLED -> PASS
-- Dwarves `DwarvenFortressCitadel` `Command_PurchaseUpgradeDwarvenFortressMightyCatapult`: DISABLED -> PASS
-- Dwarves `DwarvenMenOfDale` `Command_BlackArrows`: MOD-DATA -> MEMBER
-- Dwarves `DwarvenMenOfDale_Summoned` `Command_BlackArrows`: MOD-DATA -> MEMBER
-- Dwarves `ImladrisGwaihir_Summoned` `Command_SpecialAbilityGwahirScreechManve`: DISABLED -> MOD-DATA; lint: L4: MOD-DATA, but the INI lists a module for SpecialAbilityKampfschreiEffectWK
-- Dwarves `ImladrisGwaihir_Summoned` `Command_SpecialAbilityGwaiharSpeed`: DISABLED -> PASS
-- Elves `ElvenMirkwoodArcher` `Command_SpecialAbilityDornpfeileDsterwalds`: DISABLED -> PASS
-- Elves `ElvenMirkwoodArcher` `Command_SpecialAbilityElfCloak`: MOD-DATA -> MEMBER
-- Elves `ElvenMirkwoodArcherHorde` `Command_SpecialAbilityDornpfeileDsterwalds`: DISABLED -> PASS
-- Elves `ElvenThranduil_mod` `Command_SpecialAbilityThranduilThornofVengeance`: DISABLED -> PASS
-- Elves `ImladrisGwaihir_Summoned` `Command_SpecialAbilityGwahirScreechManve`: DISABLED -> MOD-DATA; lint: L4: MOD-DATA, but the INI lists a module for SpecialAbilityKampfschreiEffectWK
-- Elves `ImladrisGwaihir_Summoned` `Command_SpecialAbilityGwaiharSpeed`: DISABLED -> PASS
-- Elves `MirkwoodAvariWarrior` `Command_SpecialAbilityElfCloakTroops`: MOD-DATA -> MEMBER
-- Elves `MirkwoodWachterPfade` `Command_SpecialAbilityElfCloakTroopsWatcher`: MOD-DATA -> MEMBER
-- Elves `MirkwoodWachterPfade_Summoned` `Command_SpecialAbilityElfCloakTroopsWatcher`: MOD-DATA -> MEMBER
-- Elves `MirkwoodWachterPfade_SummonedTrand` `Command_SpecialAbilityElfCloakTroopsWatcher`: MOD-DATA -> MEMBER
-- Elves `MirkwoodWarrior` `Command_SpecialAbilityElfCloakTroops`: DISABLED -> MOD-DATA
-- Elves `MirkwoodWarrior_Summoned` `Command_SpecialAbilityElfCloakTroops`: DISABLED -> MOD-DATA
-- Elves `RohanFrodo_mod` `Command_SpecialAbilityPhialOfGaladrielGeschenke`: DISABLED -> PASS
-- Elves `RohanSam_mod` `Command_SpecialAbilitySamSaat`: DISABLED -> PASS
-- Evilmen `HaradArnorSlaveAxe` `Command_SpecialAbilityHaradSlavesBuildBoost`: MOD-DATA -> MEMBER
-- Evilmen `HaradArnorSlaveAxe` `Command_SpecialAbilityHaradSlavesWorking`: MOD-DATA -> MEMBER
-- Evilmen `HaradDwarvenSlave` `Command_SpecialAbilityHaradSlavesBuildBoost`: MOD-DATA -> MEMBER
-- Evilmen `HaradDwarvenSlave` `Command_SpecialAbilityHaradSlavesWorking`: MOD-DATA -> MEMBER
-- Evilmen `HaradElfSlave` `Command_SpecialAbilityHaradSlavesBuildBoost`: MOD-DATA -> MEMBER
-- Evilmen `HaradElfSlave` `Command_SpecialAbilityHaradSlavesWorking`: MOD-DATA -> MEMBER
-- Evilmen `HaradGondorSlave1` `Command_SpecialAbilityHaradSlavesBuildBoost`: MOD-DATA -> MEMBER
-- Evilmen `HaradGondorSlave1` `Command_SpecialAbilityHaradSlavesWorking`: MOD-DATA -> MEMBER
-- Evilmen `HaradHaradrimRider` `Command_ToggleFormationHalfCircle`: DISABLED -> MEMBER
-- Evilmen `HaradHaradrimRiderHorde` `Command_ToggleFormationHalfCircle`: DISABLED -> PASS
-- Evilmen `HaradOrcSlave` `Command_SpecialAbilityHaradSlavesBuildBoost`: MOD-DATA -> MEMBER; lint: L1: none of the object's command sets has the button (the inventory placed it)
-- Evilmen `HaradOrcSlave` `Command_SpecialAbilityHaradSlavesWorking`: MOD-DATA -> MEMBER; lint: L1: none of the object's command sets has the button (the inventory placed it)
-- Evilmen `HaradOrcSlaveAxe` `Command_SpecialAbilityHaradSlavesBuildBoost`: MOD-DATA -> MEMBER
-- Evilmen `HaradOrcSlaveAxe` `Command_SpecialAbilityHaradSlavesWorking`: MOD-DATA -> MEMBER
-- Evilmen `HaradOrcSlaveHammer` `Command_SpecialAbilityHaradSlavesBuildBoost`: MOD-DATA -> MEMBER
-- Evilmen `HaradOrcSlaveHammer` `Command_SpecialAbilityHaradSlavesWorking`: MOD-DATA -> MEMBER
-- Evilmen `HaradPikemanModHorde` `Command_PurchaseUpgradeHaradHarondors`: DISABLED -> PASS
-- Evilmen `HaradPikemanModHordePorcupine` `Command_PurchaseUpgradeHaradHarondors`: DISABLED -> PASS
-- Evilmen `HaradRohanSlave` `Command_SpecialAbilityHaradSlavesBuildBoost`: MOD-DATA -> MEMBER; lint: L1: none of the object's command sets has the button (the inventory placed it)
-- Evilmen `HaradRohanSlave` `Command_SpecialAbilityHaradSlavesWorking`: MOD-DATA -> MEMBER; lint: L1: none of the object's command sets has the button (the inventory placed it)
-- Evilmen `HaradRohanSlave1` `Command_SpecialAbilityHaradSlavesBuildBoost`: MOD-DATA -> MEMBER
-- Evilmen `HaradRohanSlave1` `Command_SpecialAbilityHaradSlavesWorking`: MOD-DATA -> MEMBER
-- Evilmen `HaradRohanSlave2` `Command_SpecialAbilityHaradSlavesBuildBoost`: MOD-DATA -> MEMBER
-- Evilmen `HaradRohanSlave2` `Command_SpecialAbilityHaradSlavesWorking`: MOD-DATA -> MEMBER
-- Evilmen `Haradmuhad` `Command_ToggleMuhadMumakil`: DISABLED -> PASS
-- Evilmen `HaradmuhadMounted` `Command_SpecialAbilityMuhadSummonOliph`: DISABLED -> PASS
-- Evilmen `HaradrimArcherModNew` `Command_HaradrimArcherBarbedArrowAbility`: MOD-DATA -> MEMBER
-- Evilmen `HaradrimRangerMod` `Command_HaradrimRangerPoisonArrowAbility`: MOD-DATA -> MEMBER
-- Evilmen `HaradrimRiderWedgeFormation` `Command_ToggleFormationHalfCircle`: DISABLED -> PASS
-- Evilmen `HaradrrimSlaveAxe` `Command_SpecialAbilityHaradSlavesBuildBoost`: MOD-DATA -> MEMBER
-- Evilmen `HaradrrimSlaveAxe` `Command_SpecialAbilityHaradSlavesWorking`: MOD-DATA -> MEMBER
-- Evilmen `HarondorConqueror_Summoned` `Command_HaradShieldWallFormation`: DISABLED -> MEMBER
-- Imladris `AngmarTrollSlingWall` `Command_SpecialAbilityAngmarCatapultPoisonBarrels`: DISABLED -> PASS
-- Imladris `BruchtalBogenschuetzenHorde` `Command_NoldorMasteryAbilityArchers`: DISABLED -> PASS
-- Imladris `BruchtalLancerHorde` `Command_NoldorMasteryAbilityPike`: DISABLED -> PASS
-- Imladris `BruchtalLancerHordePorcupine` `Command_NoldorMasteryAbilityPike`: DISABLED -> PASS
-- Imladris `BruchtalLanzer` `Command_NoldorMasteryAbilityPike`: DISABLED -> PASS
-- Imladris `BruchtalLichtbringerErde` `Command_SpecialAbilityEarthMageSabotage`: DISABLED -> PASS
-- Imladris `BruchtalLichtbringerFeuer` `Command_SpecialAbilityFireMageFlood`: DISABLED -> PASS
-- Imladris `BruchtalLichtbringerLuft` `Command_SpecialAbilityWindMageTeleport`: DISABLED -> PASS
-- Imladris `BruchtalLichtbringerWasser` `Command_SpecialAbilityWaterMageFlood`: DISABLED -> PASS
-- Imladris `BruchtalSchwertkmpferHorde` `Command_NoldorMasteryAbilitySword`: DISABLED -> PASS
-- Imladris `BruchtalSchwertkmpferHordeLine` `Command_NoldorMasteryAbilitySword`: DISABLED -> PASS
-- Imladris `ElvenCitadel` `Command_SpecialAbilitySummonFortressEagle`: DISABLED -> PASS
-- Imladris `ElvenRivendellLancerHordeMod` `Command_NoldorMasteryAbilityCavalry`: DISABLED -> PASS
-- Imladris `ImladrisArwen` `Command_SpecialAbilityArwenCavalry`: DISABLED -> PASS
-- Imladris `ImladrisArwen` `Command_SpecialAbilityNorolim`: DISABLED -> PASS
-- Imladris `ImladrisElrond_RingHero` `Command_SpecialAbilityElrondRestoration`: PASS -> ORDER
-- Imladris `ImladrisGwaihirMod` `Command_SpecialAbilityGwaiharSpeed`: DISABLED -> PASS
-- Imladris `ImladrisWaffenmeisterHorde` `Command_NoldorMasteryAbilityChampion`: DISABLED -> PASS
-- Imladris `IsengardSarumanKorrumpierte` `Command_SarumanHerrIsengartUpgrade`: PASS -> ORDER
-- Imladris `IsengardSaruman_Mod` `Command_SarumanHerrIsengartUpgrade`: ORDER -> PASS
-- Imladris `LothlorienCirdan` `Command_CirdanRingNaryaActive`: DISABLED -> PASS
-- Imladris `MordorWitchKing` `Command_WitchkingMorgulBlade`: DISABLED -> PASS
-- Imladris `RohanRadagast_RingHero` `Command_RadagastAdleraufsteigenRing`: DISABLED -> PASS
-- Imladris `RohanRadagastaufdemAdler` `Command_RadagastAdlerabsteigen`: DISABLED -> PASS
-- Imladris `RohanRadagastaufdemAdler` `Command_SpecialAbilityRadagastGreenRoots`: DISABLED -> PASS
-- Imladris `RohanRadagastaufdemAdler_RingHero` `Command_RadagastAdlerabsteigen`: DISABLED -> PASS
-- Isengard `IsengardBergwargreiterHorde` `Command_ToggleFormationWargreiterWedge`: DISABLED -> PASS
-- Isengard `IsengardBergwargreiterHordeWedgeFormation` `Command_ToggleFormationWargreiterWedge`: DISABLED -> PASS
-- Isengard `IsengardWargBow` `Command_SpecialAbilityWargHowl`: MOD-DATA -> MEMBER
-- Isengard `IsengardWargBow_Summoned` `Command_SpecialAbilityWargHowl`: DISABLED -> MEMBER
-- Isengard `IsengardWargRider_Bergwargreiter` `Command_SpecialAbilityWargHowl`: MOD-DATA -> MEMBER
-- Men `FaraScoutCamp` `Command_SpecialAbilityFaraScoutTentUnpack`: DISABLED -> PASS
-- Men `GondorAdvisor_forFortress` `Command_SpecialAbilityIvoryTowerVisionAdvisor`: DISABLED -> PASS
-- Men `GondorDenethor_forFortress` `Command_SpecialAbilityDenethorErnennung`: GREY-BUG -> DISABLED
-- Men `GondorImrahil` `Command_SpecialAbilityImrahilGlorius`: DISABLED -> PASS
-- Men `GondorTowerShieldGuardHordeShieldWall` `Command_ToggleFormationSchieldwallTurmwachen`: DISABLED -> PASS
-- Men `ImladrisGwaihir_Summoned` `Command_SpecialAbilityGwahirScreechManve`: DISABLED -> MOD-DATA; lint: L4: MOD-DATA, but the INI lists a module for SpecialAbilityKampfschreiEffectWK
-- Men `ImladrisGwaihir_Summoned` `Command_SpecialAbilityGwaiharSpeed`: DISABLED -> PASS
-- Men `MenFortressCitadel` `Command_PurchaseUpgradeMenFortressIvoryTower`: DISABLED -> PASS
-- Men `MordorWitchKing` `Command_WitchkingMorgulBlade`: DISABLED -> PASS
-- Men `RohanTheoden_mod` `Command_SpecialAbilityTheodenGloriousChargeEdain`: DISABLED -> PASS
-- Men `Theoden_OneRing` `Command_SpecialAbilityTheodenGloriousChargeEdain`: DISABLED -> PASS
-- Mordor `GasthausKhamulSpell` `Command_KhamulNewFlyToggleMounted`: DISABLED -> PASS
-- Mordor `GasthausKhamulSpellOnFoot` `Command_KhamulNewFlyToggleMounted`: DISABLED -> PASS
-- Mordor `GasthausKhamulonFellBeastSpell` `Command_SpecialAbilityKhamulBlackGuardsSummon`: PASS -> ORDER
-- Mordor `HaradHaradrimRider` `Command_ToggleFormationHalfCircle`: DISABLED -> MEMBER
-- Mordor `HaradHaradrimRiderHorde` `Command_ToggleFormationHalfCircle`: DISABLED -> PASS
-- Mordor `HaradHaradrimRider_Summoned` `Command_ToggleFormationHalfCircle`: DISABLED -> MEMBER
-- Mordor `HaradrimRiderWedgeFormation` `Command_ToggleFormationHalfCircle`: DISABLED -> PASS
-- Mordor `MordorCatapult` `Command_ToggleMordorCatapultHeadsWeaponNew`: DISABLED -> PASS
-- Mordor `MordorSchwarzeReiterHordeFoot` `Command_NazgulJagdnachRing`: DISABLED -> PASS
-- Mordor `Wildmollok_mod` `Command_MollokTrollhhen`: PASS -> ORDER
-- Rohan `GondorAragorn_SummonedHunters` `Command_AragornFinalStand`: DISABLED -> PASS
-- Rohan `GondorAragorn_SummonedHunters` `Command_SpawnOathbreakersMod`: DISABLED -> PASS
-- Rohan `GondorGandalf_forEdoras_Summoned` `Command_SpecialAbilityWordOfPowerEdain`: DISABLED -> PASS
-- Rohan `GondorTowerShieldGuardHordeShieldWall` `Command_ToggleFormationSchieldwallTurmwachen`: DISABLED -> PASS
-- Rohan `IsengardVerraeter` `Command_SpecialAbilityToggleMountedHorde`: MOD-DATA -> MEMBER
-- Rohan `MordorWitchKing` `Command_WitchkingMorgulBlade`: DISABLED -> PASS
-- Rohan `RohanErkenbrand` `Command_SpecialAbilityMeisterderHornburg`: GREY-BUG -> PASS
-- Rohan `RohanErkenbrand_Summoned` `Command_SpecialAbilityMeisterderHornburg`: GREY-BUG -> PASS
-- Rohan `RohanRadagast_RingHero` `Command_RadagastAdleraufsteigenRing`: DISABLED -> PASS
-- Rohan `RohanRadagastaufdemAdler` `Command_RadagastAdlerabsteigen`: DISABLED -> PASS
-- Rohan `RohanRadagastaufdemAdler` `Command_SpecialAbilityRadagastGreenRoots`: DISABLED -> PASS
-- Rohan `RohanRadagastaufdemAdler_RingHero` `Command_RadagastAdlerabsteigen`: DISABLED -> PASS
-- Rohan `RohanTheoden_mod` `Command_SpecialAbilityTheodenGloriousChargeEdain`: DISABLED -> PASS
-- Rohan `Theoden_OneRing` `Command_SpecialAbilityTheodenGloriousChargeEdain`: DISABLED -> PASS
-- Wild `DrogothGround` `Command_DrogothFliegen`: DISABLED -> PASS
-- Wild `GoblinTownArcherHorde` `Command_AbilityTownArchers`: DISABLED -> PASS
-- Wild `GundabadWargRider` `Command_SpecialAbilityWargHowl`: MOD-DATA -> MEMBER
-- Wild `IsengardWargPack` `Command_SpecialAbilityWargHowl`: MOD-DATA -> MEMBER
-- Wild `MordorBalrogAI` `Command_SpecialAbilityBalrogBreathAI`: DISABLED -> PASS
-- Wild `WildAzogGundabad` `Command_SpecialAbilityAzogRavenPost`: DISABLED -> ORDER
-- Wild `WildDrogothnew` `Command_DrogothKriechen`: DISABLED -> PASS
-- Wild `WildFortressCitadel` `Command_PurchaseNewFireDrake`: DISABLED -> PASS
-- Wild `WildGoblinKingMounted` `Command_SpecialAbilityGorkilPoisonBow`: GREY-BUG -> ORDER
-- Wild `WildMarauderSwordsHordePorcupine` `Command_HalftrollChargeAttack`: DISABLED -> PASS
-- Wild `WildSmaugNewRing` `Command_SmaugFliegen`: DISABLED -> PASS
-- Wild `WildSmaugNewRingFly` `Command_SmaugKriechen`: DISABLED -> PASS
-- Wild `WildSmaug_mod` `Command_SmaugIncinerateNew`: ORDER -> PASS
+- Elves `ElvenThranduil_mod` `Command_ThranduilKnigDsterwalds`: ORDER -> NO-EFFECT — SpecialAbilityTheodenGloriousCharge (target none) fired but SpecialPowerModule AttributeModifier KnigDsterwaldsModifier: no result; 
+- Isengard `IsengardDeployedExplosiveMine` `Command_IsengardMineDetonate`: ORDER -> NO-EFFECT — SpecialAbilityDetonate (target none) fired but WeaponFireSpecialAbilityUpdate SpecialWeapon IsegardDetonateMine: no result (the caster's big
+- Angmar `AngmarGolfimbul` `Command_SpecialAbilityGolfimbulRaid`: NO-FIRE -> PASS
+- Angmar `AngmarRogashEnnorath` `Command_AngmarRogashLeap`: NO-EFFECT -> PASS
+- Arnor `ArnorMalbethSeer` `Command_SpecialAbilityMalbethOnFarm`: NO-FIRE -> PASS
+- Arnor `FornostHammer` `Command_SpecialAbilityFornostHammerQuake`: PASS -> DISABLED
+- Arnor `LothlorienCirdan_summ` `Command_SpecialAbilityKirdanKingsFavor`: NO-FIRE -> PASS
+- Arnor `spell` `SpellBookStarOfTheNorth`: NO-RULE -> PASS
+- Dwarves `DwarvenDwalin` `Command_SpecialAbilityDwalinErdenhammer`: NO-EFFECT -> PASS
+- Dwarves `DwarvenGimliMod` `Command_RohanGimliLeap`: NO-EFFECT -> PASS
+- Dwarves `DwarvenGloin_mod` `Command_SpecialAbilityGloinSmash`: NO-EFFECT -> PASS
+- Dwarves `DwarvenNarin` `Command_SpecialAbilityNarinExp`: NO-FIRE -> PASS
+- Elves `LothlorienGaladriel` `Command_SpecialAbilityGaladrielVilya`: NO-EFFECT -> PASS
+- Elves `LothlorienLegolas` `Command_SpecialAbilityArrowStorm`: NO-EFFECT -> PASS
+- Elves `LothlorienLegolas` `Command_SpecialAbilityTrainArchers`: NO-EFFECT -> PASS
+- Elves `MirkwoodElkrider` `Command_SpecialAbilityElkriderNaturBuff`: NO-VALUE -> PASS
+- Elves `MirkwoodElkriderHorde` `Command_SpecialAbilityElkriderNaturBuff`: NO-VALUE -> PASS
+- Elves `MirkwoodElkriderHordeWedgeFormation` `Command_SpecialAbilityElkriderNaturBuff`: NO-VALUE -> PASS
+- Evilmen `HaradAlatar_modRing` `Command_SpecialAbilityAlatarSummonOliphs`: PASS -> ORDER
+- Evilmen `HaradmuhadMounted` `Command_SpecialAbilityMuhadSummonOliph`: ORDER -> PASS
+- Evilmen `HaradrimArcherHordeNewOnMumakil` `Command_HaradrimArcherBarbedArrowAbility`: PASS -> ORDER
+- Evilmen `MordorOutpost` `Command_OutpostOrcSpawn`: PASS -> ORDER
+- Imladris `GondorGandalfGeprfte` `Command_GondorGandalfLightningSwordGeprfte`: NO-EFFECT -> PASS
+- Imladris `GondorGandalfGeprfte` `Command_SpecialAbilityWordOfPowerEdainGeprfte`: NO-EFFECT -> PASS
+- Imladris `GondorGandalfVerfhrte` `Command_SpecialAbilityDunklesWortderMacht`: NO-EFFECT -> PASS
+- Imladris `ImladrisElrond_RingHero` `Command_SpecialAbilityElrondNoldorKingActive`: NO-FIRE -> PASS
+- Imladris `ImladrisZwillingeEdain` `Command_SpecialAbilityHeldenkillerElladan`: NO-EFFECT -> PASS
+- Imladris `IsengardSarumanKorrumpierte` `Command_SarumanPower`: NO-EFFECT -> PASS
+- Imladris `IsengardSaruman_Mod` `Command_SarumanPower`: NO-EFFECT -> PASS
+- Imladris `LothlorienCirdan` `Command_SpecialAbilityKirdanKingsFavor`: NO-FIRE -> PASS
+- Isengard `IsengardSarumanKorrumpierte` `Command_SarumanPower`: NO-EFFECT -> PASS
+- Isengard `IsengardSaruman_Mod` `Command_SarumanPower`: NO-EFFECT -> PASS
+- Isengard `IsengardSharku_mod` `Command_SpecialAbilityTameTheBeastNew`: NO-FIRE -> PASS
+- Men `GondorGandalfGeprfte` `Command_GondorGandalfLightningSwordGeprfte`: NO-EFFECT -> PASS
+- Men `GondorGandalfGeprfte` `Command_SpecialAbilityWizardBlastGeprfte`: NO-EFFECT -> PASS
+- Men `GondorGandalfGeprfte` `Command_SpecialAbilityWordOfPowerEdainGeprfte`: NO-EFFECT -> PASS
+- Men `GondorGandalfVerfhrte` `Command_SpecialAbilityDunklesWortderMacht`: NO-EFFECT -> PASS
+- Men `ImladrisZwillingeEdain` `Command_SpecialAbilityHeldenkillerElladan`: NO-EFFECT -> PASS
+- Men `RohanPippin_mod` `Command_PippinSongs`: NO-FIRE -> PASS
+- Mordor `MordorLorgan` `Command_SpecialAbilityTrainSoldersLorgan`: NO-FIRE -> PASS
+- Mordor `MordorMouthOfSauronNew` `Command_SpecialAbilityWortedesElends`: NO-EFFECT -> PASS
+- Wild `WildDuhrbur` `Command_DuhrburLeap`: NO-EFFECT -> PASS
+- Wild `WildGoblinKing_mod` `Command_GoblinKingGiftangriff`: NO-EFFECT -> PASS
+- Wild `WildGoblinKing_mod` `Command_GorkilZuchtspinnenSummon`: PASS -> ORDER
+- Wild `WildSmaugNewRingFly` `Command_SmaugIncinerateNew`: PASS -> ORDER

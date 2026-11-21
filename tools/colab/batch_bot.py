@@ -706,7 +706,7 @@ def report(name: str, out_dir: Path, rows: dict) -> Path:
 LOOP_STATE = Path(os.environ.get("BATCH_LOOP_STATE", str(RUNS / "loop.json")))
 OLD_LOOP_STATE = Path("/content/sandbox/batch-loop.json")
 # Owner 2026-11-19: "если на 2 песочнице нету готовых пр на сборку 30 мин то включался проверяльщик как на 1 песочнице" — after HELP_AFTER_S
-# with no green PR and no batch, a loop round runs one PR checker cycle (pr_checker.py --once --no-helper); claims on the Drive keep the
+# with no batch (since 2026-11-20 also while green PRs wait for the third), a loop round runs one PR checker cycle (pr_checker.py --once --no-helper); claims on the Drive keep the
 # two checkers off the same PR (pr_checker.py claim_check), the batch claims keep the two batchers off the same PRs (claimed above).
 HELP_AFTER_S = 30 * 60
 INSTALL = Path("/content/sandbox")
@@ -765,8 +765,10 @@ def stack_base(last: str | None, pending: bool, waited_s: float) -> tuple[str | 
 
 
 def helper_due(st: dict, now: float) -> bool:
-    """No green PR and no batch for HELP_AFTER_S: time to check a PR instead (the round marks ready_at whenever it sees a green PR)."""
-    return now - max(st.get("finished", 0), st.get("ready_at", 0)) >= HELP_AFTER_S   # shared state: a restart does not reset the wait
+    """No batch for HELP_AFTER_S: time to check a PR instead. Owner 2026-11-20: also while one or two green PRs wait for the third (the old
+    rule counted from the last green PR seen, so with 1-2 green PRs waiting the bot stood idle for hours); a round that starts a batch runs it
+    first, so the help only fills the rounds that would wait anyway, and it brings the third green PR sooner."""
+    return now - st.get("finished", 0) >= HELP_AFTER_S   # shared state: a restart does not reset the wait
 
 
 def install(name: str) -> Path:
@@ -871,7 +873,7 @@ def cmd_loop(a) -> int:
         if a.once:
             return 0
         if not a.no_helper and not run_going() and helper_due(st, time.time()):
-            say(f"{HELP_AFTER_S // 60} мин без зелёных PR и партий: один цикл проверщика PR (pr_checker.py --once)")
+            say(f"{HELP_AFTER_S // 60} мин без новой партии: один цикл проверщика PR (pr_checker.py --once)")
             rc = help_check()
             say(f"цикл проверщика закончен (код {rc}); дальше партии")
             continue

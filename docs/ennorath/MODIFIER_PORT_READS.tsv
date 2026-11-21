@@ -1,13 +1,13 @@
 attribute	number	file	line	call	argument	in function
-ARMOR	1	src/GameLogic/Module/ActiveBody.cpp	394	attributeModifierSum	ATTRIBUTE_MODIFIER_ARMOR	armorModifierSum
+ARMOR	1	src/GameLogic/Module/ActiveBody.cpp	398	attributeModifierSum	ATTRIBUTE_MODIFIER_ARMOR	armorModifierSum
 DAMAGE_ADD	2	src/GameClient/UnitHelpSource.cpp	87	attributeModifierSum	2	displayDamage
 DAMAGE_ADD	2	src/GameLogic/Object/Damage.cpp	148	sourceAdditive	ATTRIBUTE_MODIFIER_DAMAGE_ADD	FillDamageInfo
 DAMAGE_MULT	3	src/GameClient/UnitHelpSource.cpp	103	attributeModifierProduct	3	displayDamage
 DAMAGE_MULT	3	src/GameLogic/Object/Damage.cpp	164	sourceMultiplicative	ATTRIBUTE_MODIFIER_DAMAGE_MULT	FillDamageInfo
 RESIST_FEAR	4	src/GameLogic/System/EmotionSystem.cpp	392	attributeModifierSum	t.type == EMOTION_TERROR ? 5 : 4	canApply
 RESIST_TERROR	5	src/GameLogic/System/EmotionSystem.cpp	392	attributeModifierSum	t.type == EMOTION_TERROR ? 5 : 4	canApply
-EXPERIENCE	6	src/GameLogic/Object/Object.cpp	2630	attributeModifierProduct	ATTRIBUTE_EXPERIENCE	grantExperienceForKill
-RANGE	7	src/GameLogic/Combat/ObjectWeapons.cpp	266	attributeModifierSum	ATTRIBUTE_RANGE	rangeAttributeSum
+EXPERIENCE	6	src/GameLogic/Object/Object.cpp	2637	attributeModifierProduct	ATTRIBUTE_EXPERIENCE	grantExperienceForKill
+RANGE	7	src/GameLogic/Combat/ObjectWeapons.cpp	278	attributeModifierSum	ATTRIBUTE_RANGE	rangeAttributeSum
 SPEED	8	src/GameLogic/Module/AIUpdate.cpp	238	attributeModifierProduct	ATTRIBUTE_SPEED	speedAttributeModifier
 CRUSH_DECELERATE	9	src/GameLogic/Object/Collide/SquishCollide.cpp	364	attributeModifierProduct	kCrushDecelerateModifier	onCrush
 RESIST_KNOCKBACK	10	src/GameLogic/Combat/WeaponDelivery.cpp	594	attributeModifierSum	10	apply
@@ -19,29 +19,29 @@ RECHARGE_TIME	12	src/GameLogic/Module/SiegeModules.cpp	645	attributeModifierProd
 RECHARGE_TIME	12	src/GameLogic/Module/SpecialPowerModules.cpp	543	attributeModifierProduct	ATTRIBUTE_RECHARGE_TIME	startPowerRecharge
 PRODUCTION	13	src/GameLogic/Economy.cpp	589	attributeModifierProduct	ATTRIBUTE_MODIFIER_PRODUCTION	productionMoneyProduct
 PRODUCTION	13	src/GameLogic/Module/AISpecialPowerDecisions.cpp	843	attributeModifierProduct	0xD	decideDebuffEconomy
-PRODUCTION	13	src/GameLogic/Module/DockUpdate.cpp	624	attributeModifierProduct	Economy::ATTRIBUTE_MODIFIER_PRODUCTION	computeDelivery
+PRODUCTION	13	src/GameLogic/Module/DockUpdate.cpp	625	attributeModifierProduct	Economy::ATTRIBUTE_MODIFIER_PRODUCTION	computeDelivery
 PRODUCTION	13	src/GameLogic/Module/ProductionUpdate.cpp	1186	attributeModifierProduct	ATTRIBUTE_PRODUCTION	update
 PRODUCTION	13	src/GameLogic/SkirmishAI/AITacticalAI.cpp	2890	attributeModifierProduct	ATTRIBUTE_PRODUCTION	selectFarmTarget
 PRODUCTION	13	src/GameLogic/SkirmishAI/AITacticalAI.cpp	2986	attributeModifierProduct	ATTRIBUTE_PRODUCTION	selectProductionTarget
 HEALTH	14	src/GameLogic/Object/AttributeModifierPool.cpp	166	value	ATTRIBUTE_HEALTH	removeByName
-HEALTH	14	src/GameLogic/Object/AttributeModifierPool.cpp	387	value	ATTRIBUTE_HEALTH	add
+HEALTH	14	src/GameLogic/Object/AttributeModifierPool.cpp	386	value	ATTRIBUTE_HEALTH	add
 HEALTH_MULT	15	src/GameLogic/Object/AttributeModifierPool.cpp	170	product	ATTRIBUTE_HEALTH_MULT	removeByName
 HEALTH_MULT	15	src/GameLogic/Object/AttributeModifierPool.cpp	180	value	ATTRIBUTE_HEALTH_MULT	removeByName
-HEALTH_MULT	15	src/GameLogic/Object/AttributeModifierPool.cpp	393	product	ATTRIBUTE_HEALTH_MULT	add
-HEALTH_MULT	15	src/GameLogic/Object/AttributeModifierPool.cpp	405	value	ATTRIBUTE_HEALTH_MULT	add
+HEALTH_MULT	15	src/GameLogic/Object/AttributeModifierPool.cpp	392	product	ATTRIBUTE_HEALTH_MULT	add
+HEALTH_MULT	15	src/GameLogic/Object/AttributeModifierPool.cpp	404	value	ATTRIBUTE_HEALTH_MULT	add
 VISION	16	src/GameLogic/System/ShroudManager.cpp	1779	attributeModifierSum	16	objectVisionRange
 BOUNTY_PERCENTAGE	17	src/GameLogic/Economy.cpp	224	attributeModifierSum	ATTRIBUTE_MODIFIER_BOUNTY_PERCENTAGE	awardBounty
 MINIMUM_CRUSH_VELOCITY	18	src/GameLogic/Object/Collide/SquishCollide.cpp	396	attributeModifierProduct	kMinimumCrushVelocityModifier	onCrush
 AUTO_HEAL	19	src/GameLogic/Module/HeroModules.cpp	1157	attributeModifierSum	ATTRIBUTE_AUTO_HEAL	amount
 SHROUD_CLEARING	20	src/GameLogic/Object/AttributeModifierPool.cpp	191	value	ATTRIBUTE_SHROUD_CLEARING	removeByName
-SHROUD_CLEARING	20	src/GameLogic/Object/AttributeModifierPool.cpp	425	value	ATTRIBUTE_SHROUD_CLEARING	add
+SHROUD_CLEARING	20	src/GameLogic/Object/AttributeModifierPool.cpp	424	value	ATTRIBUTE_SHROUD_CLEARING	add
 SHROUD_CLEARING	20	src/GameLogic/System/ShroudManager.cpp	1747	attributeModifierSum	20	shroudClearingRange
-RATE_OF_FIRE	21	src/GameLogic/Combat/ObjectWeapons.cpp	142	attributeModifierProduct	ATTRIBUTE_RATE_OF_FIRE	rateOfFireAttributeProduct
+RATE_OF_FIRE	21	src/GameLogic/Combat/ObjectWeapons.cpp	154	attributeModifierProduct	ATTRIBUTE_RATE_OF_FIRE	rateOfFireAttributeProduct
 RATE_OF_FIRE	21	src/GameLogic/Module/SpecialAbilityModules.cpp	2206	attributeModifierProduct	ATTRIBUTE_RATE_OF_FIRE	rateOfFireAttributeProduct
 CRUSHER_LEVEL	23	src/GameLogic/Object/Collide/SquishCollide.cpp	281	attributeModifierSum	kCrusherLevelModifier	crusherLevel
 COMMAND_POINT_BONUS	24	src/GameLogic/Economy.cpp	340	m_attributeSums	ATTRIBUTE_MODIFIER_COMMAND_POINT_BONUS	commandPointBonusOf
 CRUSHABLE_LEVEL	25	src/GameLogic/Object/Collide/SquishCollide.cpp	254	attributeModifierSum	kCrushableLevelModifier	crushableLevel
 CRUSHED_DECELERATE	26	src/GameLogic/Object/Collide/SquishCollide.cpp	369	attributeModifierProduct	kCrushedDecelerateModifier	onCrush
-INVULNERABLE	27	src/GameLogic/Module/ActiveBody.cpp	387	attributeModifierSum	ATTRIBUTE_MODIFIER_INVULNERABLE	invulnerableTo
+INVULNERABLE	27	src/GameLogic/Module/ActiveBody.cpp	391	attributeModifierSum	ATTRIBUTE_MODIFIER_INVULNERABLE	invulnerableTo
 #28	28	src/GameLogic/Economy.cpp	594	attributeModifierProduct	28	productionMoneyProduct
 #31	31	src/GameLogic/Module/DozerAIUpdate.cpp	1167	attributeModifierProduct	31	workOnBuild

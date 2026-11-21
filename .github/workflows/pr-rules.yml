@@ -1,0 +1,61 @@
+# The formal rules of a pull request (owner 2026-11-20), checked in seconds without a build: tools/ci/pr_rules.py — the description's blocks
+# (in-game check, local or engine, "Осталось", maps), a source of the expectations next to every added TEST_CASE (PROCESS 15.7), a citation
+# near added engine code (a warning), and no "#<number>" in an up/* branch for Open-BFME. It runs on an edit of the description too, so a
+# fixed description turns it green without a push. The sandbox checker (pr_checker.py actions_check) and the dashboard read the job by its
+# name, "PR rules: description, test sources, citations".
+name: PR rules
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+    branches:
+      - main
+  push:
+    branches:
+      - "up/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-rules-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rules:
+    name: "PR rules: description, test sources, citations"
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # GitHub's merge of the pull request into main: HEAD^1..HEAD is exactly the pull request
+          fetch-depth: 2
+      - name: Rules
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        # the rules script comes from main, never from the pull request (it could rewrite the check)
+        run: |
+          git fetch -q --depth 1 origin main
+          git show FETCH_HEAD:tools/ci/pr_rules.py > "$RUNNER_TEMP/pr_rules.py"
+          python3 "$RUNNER_TEMP/pr_rules.py"
+
+  upstream:
+    name: "PR rules: upstream branch"
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: No "#<number>" for Open-BFME
+        run: |
+          git fetch -q --depth 200 https://github.com/Open-BFME/openbfme-godot.git main:refs/upstream/main
+          git fetch -q --depth 1 origin main
+          git show FETCH_HEAD:tools/ci/pr_rules.py > "$RUNNER_TEMP/pr_rules.py"
+          python3 "$RUNNER_TEMP/pr_rules.py" --up "$(git merge-base HEAD refs/upstream/main 2>/dev/null || echo refs/upstream/main)"

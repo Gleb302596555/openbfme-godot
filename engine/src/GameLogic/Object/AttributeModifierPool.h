@@ -47,7 +47,8 @@ class AttributeModifierPool : public UpdateModule
 public:
 	OBFME_MODULE_XFER(AttributeModifierPool) // lane SAVE-4b
 	AttributeModifierPool(Thing *thing, const ModuleData *data);
-	static void registerClass(ModuleFactory &modules);
+	~AttributeModifierPool() override = default; // RW 0x008055C9 (~AttributeModifierPoolUpdate), RW 0x00805843 (scalar deleting dtor)
+	static void registerClass(ModuleFactory &modules); // getModuleName RW 0x00805612, getModuleNameKey RW 0x00805618
 
 	UpdateSleepTime update() override; ///< RW 0x80585F
 	DisabledMaskType getDisabledTypesToProcess() const override { return (DisabledMaskType)(1u << DISABLED_PARALYZED); } // RW 0x792C6A
