@@ -2,7 +2,7 @@
 
 Command: `tools/mod/matrix_gaps.py --base <ROTWK_INSTALL> --overlay <mod install> --matrix docs/ennorath/MATRIX.tsv --map docs/ennorath/RW_FUNCTION_MAP.tsv --out docs/ennorath/MATRIX_GAPS --inventory <rw_function_blocks.json> --game <game.dat>`
 
-Failing matrix rows: 263; joined rows: 525; module classes reached: 16.
+Failing matrix rows: 268; joined rows: 545; module classes reached: 16.
 
 A link is a name match: the module's fields name the button's SpecialPower or Upgrade. The map's status is exact RW citation in engine/src (a port without a citation reads `none`). The join says where to look first, not which function fails: each row's cause is still traced.
 
@@ -16,8 +16,8 @@ The main class of a button is the class it links to that the fewest failing butt
 
 | class | buttons | results | specific none | first specific none functions | example buttons |
 |---|---:|---|---:|---|---|
-| WeaponFireSpecialAbilityUpdate | 40 | NO-EFFECT 24, NO-TARGET 7, NO-FIRE 5, ORDER 3, LEFT-WORLD 1 | 2 | 0x00896156@0 0x00896370@0 | AngmarAgandaur Command_SpecialAbilityAgandaurLighting, AngmarHwaldar_mod Command_HwaldarVerbrannteErde, AngmarMorgramir_mod Command_SpecialAbilityBetrayer |
-| AutoAbilityBehavior | 20 | NO-EFFECT 11, NO-FIRE 4, ORDER 2, GREY-BUG 1, MOD-DATA 1, NOT-ON-BAR 1 | 5 | 0x0085D3ED@1 0x006289E7@5 0x0062AB74@5 0x00629BCA@6 0x006A95E6@6 | AngmarDarkRangerHorde Command_AngmarRangersIceArrowAbility, AngmarGulmataur Command_SpecialAbilityGulmatRunes, AngmarGulmataur Command_SpecialAbilityGulmatRunesPoison |
+| WeaponFireSpecialAbilityUpdate | 42 | NO-EFFECT 24, NO-FIRE 7, NO-TARGET 7, ORDER 3, LEFT-WORLD 1 | 0 | - | AngmarAgandaur Command_SpecialAbilityAgandaurLighting, AngmarHwaldar_mod Command_HwaldarVerbrannteErde, AngmarMorgramir_mod Command_SpecialAbilityBetrayer |
+| AutoAbilityBehavior | 23 | NO-EFFECT 11, NO-FIRE 7, ORDER 2, GREY-BUG 1, MOD-DATA 1, NOT-ON-BAR 1 | 5 | 0x0085D3ED@1 0x006289E7@5 0x0062AB74@5 0x00629BCA@6 0x006A95E6@6 | AngmarDarkRangerHorde Command_AngmarRangersIceArrowAbility, AngmarGulmataur Command_SpecialAbilityGulmatRunes, AngmarGulmataur Command_SpecialAbilityGulmatRunesPoison |
 | OCLSpecialPower | 16 | NO-FIRE 6, ORDER 4, NO-EFFECT 3, NOT-ON-BAR 3 | 0 | - | DwarvenDain_mod Command_SpecialAbilityDrarSpeerfeuer, DwarvenNarin Command_ramridercaptain, GaladrielDarkMirror Command_GaladrielMirrorWardByMirror |
 | ToggleMountedSpecialAbilityUpdate | 10 | NO-EFFECT 4, NO-FIRE 3, ORDER 2, STUCK 1 | 0 | - | GasthausKhamulSpell Command_SpecialAbilityKhamulGuldurEmpowered, GasthausKhamulSpellOnFoot Command_SpecialAbilityKhamulGuldurEmpowered, GasthausKhamulonFellBeastSpell Command_SpecialAbilityKhamulGuldurEmpowered |
 | ModelConditionSpecialAbilityUpdate | 6 | NO-EFFECT 5, GREY-BUG 1 | 0 | - | GondorAragorn_SummonedHunters Command_SpecialAbilityElendilSummoned, GondorBoromir_OneRing Command_SpecialAbilityBoromirHornRing, GondorBoromir_mod Command_SpecialAbilityBoromirHorn |
@@ -36,11 +36,11 @@ The main class of a button is the class it links to that the fewest failing butt
 
 | class | buttons | map none | specific none | map partial | first specific none functions |
 |---|---:|---:|---:|---:|---|
-| SpecialPowerModule | 79 | 290 | 3 | 3 | 0x00654F8E@0 0x00896A32@0 0x008981BE@0 |
-| UnpauseSpecialPowerUpgrade | 70 | 17 | 2 | 0 | 0x00697B6E@1 0x008D280A@3 |
-| WeaponFireSpecialAbilityUpdate | 60 | 164 | 2 | 11 | 0x00896156@0 0x00896370@0 |
+| SpecialPowerModule | 84 | 290 | 3 | 3 | 0x00654F8E@0 0x00896A32@0 0x008981BE@0 |
+| UnpauseSpecialPowerUpgrade | 73 | 17 | 2 | 0 | 0x00697B6E@1 0x008D280A@3 |
+| WeaponFireSpecialAbilityUpdate | 65 | 162 | 0 | 11 | - |
 | OCLSpecialPower | 29 | 252 | 0 | 0 | - |
-| AutoAbilityBehavior | 25 | 306 | 5 | 14 | 0x0085D3ED@1 0x006289E7@5 0x0062AB74@5 0x00629BCA@6 0x006A95E6@6 |
+| AutoAbilityBehavior | 28 | 306 | 5 | 14 | 0x0085D3ED@1 0x006289E7@5 0x0062AB74@5 0x00629BCA@6 0x006A95E6@6 |
 | ToggleMountedSpecialAbilityUpdate | 12 | 337 | 0 | 16 | - |
 | ModelConditionSpecialAbilityUpdate | 6 | 157 | 0 | 11 | - |
 | HeroModeSpecialAbilityUpdate | 5 | 88 | 0 | 4 | - |

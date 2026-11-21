@@ -40,6 +40,10 @@ enum class ModEngineFeature
 	EdainUnchainedUpgradeDescription,  // an owned upgrade's help keeps its description, the purchased text below it (.upgdsc)
 	EdainUnchainedObserverCommandRange, // an observer may page the command ranges (PUSH / POP_VISIBLE_COMMAND_RANGE) (.obscmd)
 	EdainUnchainedProductionSplit,     // the PRODUCTION_MONEY / _UNIT / _UPGRADE / _CONSTRUCTION attribute modifiers (.prodsp)
+	// Ennorath 1.9.8.5 (its game.dat's pySAGE sections: docs/ennorath/ENNORATH_EXE.md)
+	EnnorathStanceKeepsMoving,         // HoldGround idles the AI only when it is idle and not waiting for a path (.stancem)
+	EnnorathMiddleClickCamera,         // a middle click resets the camera: at most 350 ms by the clock, never moved beyond 5 pixels (.camfix)
+	EnnorathEvacuateContainers,        // evacuate all lets a rider with a contain that is no horde out of a horde garrison / tunnel (.keydef 0xF39580)
 	Count
 };
 

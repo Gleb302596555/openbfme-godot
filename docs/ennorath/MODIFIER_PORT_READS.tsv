@@ -6,8 +6,8 @@ DAMAGE_MULT	3	src/GameClient/UnitHelpSource.cpp	103	attributeModifierProduct	3	d
 DAMAGE_MULT	3	src/GameLogic/Object/Damage.cpp	164	sourceMultiplicative	ATTRIBUTE_MODIFIER_DAMAGE_MULT	FillDamageInfo
 RESIST_FEAR	4	src/GameLogic/System/EmotionSystem.cpp	392	attributeModifierSum	t.type == EMOTION_TERROR ? 5 : 4	canApply
 RESIST_TERROR	5	src/GameLogic/System/EmotionSystem.cpp	392	attributeModifierSum	t.type == EMOTION_TERROR ? 5 : 4	canApply
-EXPERIENCE	6	src/GameLogic/Object/Object.cpp	2670	attributeModifierProduct	ATTRIBUTE_EXPERIENCE	grantExperienceForKill
-RANGE	7	src/GameLogic/Combat/ObjectWeapons.cpp	278	attributeModifierSum	ATTRIBUTE_RANGE	rangeAttributeSum
+EXPERIENCE	6	src/GameLogic/Object/Object.cpp	2671	attributeModifierProduct	ATTRIBUTE_EXPERIENCE	grantExperienceForKill
+RANGE	7	src/GameLogic/Combat/ObjectWeapons.cpp	280	attributeModifierSum	ATTRIBUTE_RANGE	rangeAttributeSum
 SPEED	8	src/GameLogic/Module/AIUpdate.cpp	238	attributeModifierProduct	ATTRIBUTE_SPEED	speedAttributeModifier
 CRUSH_DECELERATE	9	src/GameLogic/Object/Collide/SquishCollide.cpp	364	attributeModifierProduct	kCrushDecelerateModifier	onCrush
 RESIST_KNOCKBACK	10	src/GameLogic/Combat/WeaponDelivery.cpp	594	attributeModifierSum	10	apply
@@ -15,7 +15,7 @@ RESIST_KNOCKBACK	10	src/GameLogic/Module/PhysicsBehavior.cpp	869	attributeModifi
 SPELL_DAMAGE	11	src/GameLogic/Object/Damage.cpp	160	sourceMultiplicative	ATTRIBUTE_MODIFIER_SPELL_DAMAGE	FillDamageInfo
 RECHARGE_TIME	12	src/GameClient/CommandButtonHelp.cpp	646	attributeModifierProduct	ATTRIBUTE_RECHARGE_TIME	addTimerLine
 RECHARGE_TIME	12	src/GameLogic/Module/HeroAbilityModules.cpp	1241	attributeModifierProduct	ATTRIBUTE_RECHARGE_TIME	startPowerRecharge
-RECHARGE_TIME	12	src/GameLogic/Module/SiegeModules.cpp	645	attributeModifierProduct	ATTRIBUTE_RECHARGE_TIME	startPowerRecharge
+RECHARGE_TIME	12	src/GameLogic/Module/SiegeModules.cpp	659	attributeModifierProduct	ATTRIBUTE_RECHARGE_TIME	startPowerRecharge
 RECHARGE_TIME	12	src/GameLogic/Module/SpecialPowerModules.cpp	543	attributeModifierProduct	ATTRIBUTE_RECHARGE_TIME	startPowerRecharge
 PRODUCTION	13	src/GameLogic/Economy.cpp	589	attributeModifierProduct	ATTRIBUTE_MODIFIER_PRODUCTION	productionMoneyProduct
 PRODUCTION	13	src/GameLogic/Module/AISpecialPowerDecisions.cpp	843	attributeModifierProduct	0xD	decideDebuffEconomy
