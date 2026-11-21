@@ -116,8 +116,10 @@ public:
 	virtual bool ignoresArmorSetFlagChanges() const { return false; }
 	// lane XP-1: RW vt[0x5C] (ActiveBody RW 0x8C1CD5) setMaxHealth(newMax, changeType): 1 keeps the health ratio, 2 adds the difference to the health
 	// (the AttributeModifier HEALTH / HEALTH_MULT bonuses use 1). A body class without the override counts the call (bodyMaxHealthCallsIgnored)
-	// RW 0x8C1BF9 / BFME2 slot 9: slot 0x28 of body interface
+	// RW 0x008C1BF9 / DONOR BFME2 0x004BDAA9 (slot 10 +0x28 of body interface)
 	virtual void resetDamageState(int state = 0) { (void)state; }
+	// RW 0x008C1C75 / DONOR BFME2 0x004BDB25 (slot 3 +0x0C of body interface): setDamageState(getDamageState())
+	virtual void resetHealthToDamageState() { resetDamageState((int)getDamageState()); }
 	virtual void setMaxHealth(float newMax, int changeType)
 	{
 		(void)newMax;

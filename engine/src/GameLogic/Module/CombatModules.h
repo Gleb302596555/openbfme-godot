@@ -117,15 +117,17 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
-// Body interface 0xC72E58 slot 0 is RW 0x8C63C4 and slot 0x9C is RW 0x8C62BB. Both call the gate and, because it returns
-// false, fall through to ActiveBody::attemptDamage (RW 0x8C3FA3) and to "allow crush" (al = 1, the same answer as
-// ActiveBody's slot RW 0x9B501B). No override is ported: a second path would fire weapons retail never fires. xfer is
-// ActiveBody's (RW 0x8C5524 -> 0x8C3388).
+// Body interface 0xC72E58 slot 0 is RW 0x8C63C4 and slot 0x9C is RW 0x8C62BB. Both call the gate (RW 0x8C6244) and, because it
+// returns false, fall through to ActiveBody::attemptDamage (RW 0x8C3FA3) and to "allow crush" (al = 1, the same answer as
+// ActiveBody's slot RW 0x9B501B); the dead-branch helpers RW 0x008C6269 (3D range, DONOR BFME2 0x004C20D5) and RW 0x008C633D
+// (reflected weapon, DONOR BFME2 0x004C21A9) are unreachable (S-7191). Primary slot 1 loadPostProcess thunk RW 0x008C60BF -> RW 0x008C35AF
+// is S-7408 / S-342. xfer is ActiveBody's (RW 0x8C5524 -> 0x8C3388).
 class PorcupineFormationBody : public ActiveBody
 {
 public:
 	OBFME_MODULE_XFER(PorcupineFormationBody) // lane SAVE-4b: ActiveBody's
 	PorcupineFormationBody(Thing *thing, const PorcupineFormationBodyModuleData *data) : ActiveBody(thing, data), m_porcupine(data) {}
+	~PorcupineFormationBody() override = default; // RW 0x008C61CA (~PorcupineFormationBodyModule), RW 0x008C6228 (scalar deleting dtor)
 	const PorcupineFormationBodyModuleData *porcupineData() const { return m_porcupine; }
 
 private:

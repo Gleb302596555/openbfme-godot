@@ -114,8 +114,9 @@ public:
 class InactiveBody : public BehaviorModule, public BodyModuleInterface
 {
 public:
-	OBFME_MODULE_XFER(InactiveBody) // lane SAVE-4b
+	OBFME_MODULE_XFER(InactiveBody) // lane SAVE-4b (RW 0x008C1AEA)
 	InactiveBody(Thing *thing, const InactiveBodyModuleData *data);
+	~InactiveBody() override = default; // RW 0x008C18D8 (~InactiveBody), RW 0x008C1A59 (scalar deleting dtor)
 	BodyModuleInterface *getBody() override { return this; }
 	float getHealth() const override { return 0.0f; }
 	float getMaxHealth() const override { return 0.0f; }

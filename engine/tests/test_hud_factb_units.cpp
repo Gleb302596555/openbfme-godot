@@ -517,6 +517,25 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 			{
 				u->setCommandSetOverride(wearSet); // what the CommandSetUpgrade does once its upgrade is in (RW: Object's command set override string)
 			}
+			// LOCAL-113 (PORT-276): a self-detonating trap with StartsActive AutoAbilityBehavior (Saleme*Trap) would auto-detonate during spawn's
+			// g.step(20) when the nearby enemy horde walks into MaxScanRange; pause that auto-ability before stepping so the sweep can test the button
+			for (const std::unique_ptr<BehaviorModule> &m : u->modules())
+			{
+				if (const WeaponFireSpecialAbilityUpdate *wf = dynamic_cast<const WeaponFireSpecialAbilityUpdate *>(m.get()))
+				{
+					if (wf->abilityData()->m_specialPowerTemplate && wf->ownedWeapon() && wf->ownedWeapon()->getTemplate())
+					{
+						const unsigned mask = wf->ownedWeapon()->getTemplate()->m_affectsMask;
+						if ((mask & (WEAPON_AFFECTS_SELF | WEAPON_KILLS_SELF)) && !(mask & WEAPON_AFFECTS_ENEMIES))
+						{
+							if (AutoAbilityBehavior *aa = AutoAbilityBehavior::forPower(*u, wf->abilityData()->m_specialPowerTemplate->getName()))
+							{
+								aa->setAutoButton(nullptr);
+							}
+						}
+					}
+				}
+			}
 			refreshTargets();
 			g.step(20); // a horde's members are made, the objects settle
 			toughen(g.logic(), enemyUnitId);
@@ -707,8 +726,20 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 				{
 					// a button neither the arc nor the side bar shows (RW 0x92FF5C / 0x92F082: InPalantir past window 5, or neither flag) is off the bar in retail
 					// too: the context command or a hotkey reaches it (hud4 placement test)
+					// LOCAL-113: a slot at or past InitialVisible that no submenu button in the CommandSet opens (e.g. HaradFortressCommandSet slot 32
+					// Command_SpecialAbilityFortressHaradSpyTechAI, placed off-menu solely for AI AutoAbilityBehavior) is off the bar in retail too
+					bool slotReachable = !cs || i < cs->m_initialVisible;
+					for (int k = 0; !slotReachable && k < CommandSet::STORAGE; ++k)
+					{
+						const CommandButton *opener = cs->getCommandButton(k);
+						if (opener && opener->m_commandRangeCount > 0 && opener->m_commandRangeStart > 0
+							&& i >= opener->m_commandRangeStart && i < opener->m_commandRangeStart + opener->m_commandRangeCount)
+						{
+							slotReachable = true;
+						}
+					}
 					const ControlBar::Placement place = ControlBar::placementOf(*cb, i, 0);
-					if (cb->m_showButton && (place.arc || place.side))
+					if (slotReachable && cb->m_showButton && (place.arc || place.side))
 					{
 						// 2026-11-17 (matrix review): HIDE_WHILE_DISABLED (option bit 22, RW 0x943B39) hides a disabled button in retail too:
 						// off the bar is the grey verdict, not a fault (15 of 20 NOT-ON-BAR were fortress expansions and upgrade-gated powers)
@@ -1721,6 +1752,34 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 							break;
 						}
 					}
+					if (!modFilter && (t->m_flags & SPF_NEEDS_OBJECT_FILTER) && t->m_objectFilter)
+					{
+						// LOCAL-113: OCLSpecialPower with SPF_NEEDS_OBJECT_FILTER (RW 0x82DEA6, e.g. AngmarGulmataur runes / GondorAdvisor market trade)
+						// needs a matching object within RadiusCursorRadius at the cast spot
+						Object *eu = g.logic().findObjectByID(enemyUnitId);
+						Object *eb = g.logic().findObjectByID(enemyBuildingId);
+						Object *oh = ownHordeId != INVALID_ID ? g.logic().findObjectByID(ownHordeId) : nullptr;
+						Object *al = allyId != INVALID_ID ? g.logic().findObjectByID(allyId) : nullptr;
+						const bool anyMatch = (eu && ObjectFilterMatch::allows(g.logic(), *t->m_objectFilter, *eu, g.rig.local))
+						                      || (eb && ObjectFilterMatch::allows(g.logic(), *t->m_objectFilter, *eb, g.rig.local))
+						                      || (oh && ObjectFilterMatch::allows(g.logic(), *t->m_objectFilter, *oh, g.rig.local))
+						                      || (al && ObjectFilterMatch::allows(g.logic(), *t->m_objectFilter, *al, g.rig.local));
+						if (!anyMatch)
+						{
+							if (const ThingTemplate *tt = pickFilteredTemplate(*t->m_objectFilter, g.rig.local))
+							{
+								tempTarget.id = g.rig.make(tt->getName(), c.x - 100.0f, c.y + 60.0f)->getID();
+								g.step(5);
+							}
+							else if (const ThingTemplate *tt = pickFilteredTemplate(*t->m_objectFilter, enemy))
+							{
+								tempTarget.id = g.rig.make(tt->getName(), c.x + 120.0f, c.y + 120.0f, enemy)->getID();
+								tempEnemyTarget = true;
+								g.step(5);
+								toughen(g.logic(), tempTarget.id);
+							}
+						}
+					}
 					if (modFilter)
 					{
 						Object *eu = g.logic().findObjectByID(enemyUnitId);
@@ -1742,6 +1801,42 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 							{
 								tempTarget.id = g.rig.make(tt->getName(), c.x - 100.0f, c.y + 60.0f)->getID();
 								g.step(5);
+							}
+						}
+					}
+				}
+				// LOCAL-113 (RW 0x893D61): a NEED_TARGET_POS WeaponFireSpecialAbilityUpdate whose weapon has a MinimumAttackRange (e.g. AngmarTrollSling
+				// plague barrels, MinimumAttackRange 150) refuses targets closer than minRange + boundingRadius; place an enemy in the valid ring
+				if (cb->hasOption(COMMAND_OPTION_NEED_TARGET_POS) && tempTarget.id == INVALID_ID && t)
+				{
+					Object *eu = g.logic().findObjectByID(enemyUnitId);
+					if (eu && !ActionManager::canDoSpecialPowerAtLocation(*u, *eu->getPosition(), t, cb->m_options))
+					{
+						float minR = 0.0f;
+						for (const std::unique_ptr<BehaviorModule> &m : u->modules())
+						{
+							if (const WeaponFireSpecialAbilityUpdate *wf = dynamic_cast<const WeaponFireSpecialAbilityUpdate *>(m.get()))
+							{
+								if (wf->abilityData()->m_specialPowerTemplate == t && wf->ownedWeapon() && wf->ownedWeapon()->getTemplate())
+								{
+									minR = std::max(minR, WeaponTemplateMinimumRange(*wf->ownedWeapon()->getTemplate()));
+								}
+							}
+						}
+						if (minR > 0.0f)
+						{
+							const float dist = minR + CombatQueries::boundingCircleRadius(*u) + 80.0f;
+							for (const Coord3D d : { Coord3D{ dist, 0.0f, 0.0f }, Coord3D{ -dist, 0.0f, 0.0f }, Coord3D{ 0.0f, dist, 0.0f }, Coord3D{ 0.0f, -dist, 0.0f } })
+							{
+								const Coord3D spot{ c.x + d.x, c.y + d.y, g.logic().getGroundHeight(c.x + d.x, c.y + d.y) };
+								if (ActionManager::canDoSpecialPowerAtLocation(*u, spot, t, cb->m_options))
+								{
+									tempTarget.id = g.rig.make(enemyName, spot.x, spot.y, enemy)->getID();
+									tempEnemyTarget = true;
+									g.step(5);
+									toughen(g.logic(), tempTarget.id);
+									break;
+								}
 							}
 						}
 					}
@@ -1875,6 +1970,27 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 						}
 					}
 				}
+				// LOCAL-113 (PORT-276): a targetless self-detonating trap with StartsActive AutoAbilityBehavior (Saleme*Trap) auto-detonates if an enemy
+				// walks within scan range during the 30 baseline frames; pause its auto-cast while the sweep tests the manual button press
+				bool selfDetonateTrap = false;
+				if (!cb->hasOption(COMMAND_OPTION_NEED_TARGET_ENEMY_OBJECT | COMMAND_OPTION_NEED_TARGET_NEUTRAL_OBJECT | COMMAND_OPTION_NEED_TARGET_ALLY_OBJECT | COMMAND_OPTION_NEED_TARGET_POS) && t)
+				{
+					for (const std::unique_ptr<BehaviorModule> &m : u->modules())
+					{
+						if (const WeaponFireSpecialAbilityUpdate *wf = dynamic_cast<const WeaponFireSpecialAbilityUpdate *>(m.get()))
+						{
+							if (wf->abilityData()->m_specialPowerTemplate == t && wf->ownedWeapon() && wf->ownedWeapon()->getTemplate())
+							{
+								const unsigned mask = wf->ownedWeapon()->getTemplate()->m_affectsMask;
+								if ((mask & (WEAPON_AFFECTS_SELF | WEAPON_KILLS_SELF)) && !(mask & WEAPON_AFFECTS_ENEMIES))
+								{
+									selfDetonateTrap = true;
+								}
+							}
+						}
+					}
+
+				}
 				// the caster's hits before the cast (the DAMAGE baseline), then the probe
 				HitTracker hits;
 				hits.casters.insert(uid);
@@ -1988,6 +2104,29 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 					}
 					return tgt;
 				};
+				// LOCAL-113 (PORT-276): a targetless self-detonating trap (RadiusDamageAffects SELF/SUICIDE without ENEMIES, e.g. Saleme*Trap) blasts
+				// enemies at its own position via SlowDeathBehavior (Radius 80); place a victim right before the press (after baseline frames so StartsActive
+				// AutoAbilityBehavior does not detonate the trap before the button is pressed)
+				if (!cb->hasOption(COMMAND_OPTION_NEED_TARGET_ENEMY_OBJECT | COMMAND_OPTION_NEED_TARGET_NEUTRAL_OBJECT | COMMAND_OPTION_NEED_TARGET_ALLY_OBJECT | COMMAND_OPTION_NEED_TARGET_POS)
+				    && tempTarget.id == INVALID_ID && t)
+				{
+					if (selfDetonateTrap)
+					{
+						tempTarget.id = g.rig.make(enemyName, c.x + 35.0f, c.y, enemy)->getID();
+						tempEnemyTarget = true;
+						toughen(g.logic(), tempTarget.id);
+						hits.track(g.logic());
+					}
+					else if (attempt == 1 && enemyName == "GondorBoromir")
+					{
+						// LOCAL-113: targetless AOE retry with GondorBoromir (e.g. ErinnerunganTelperion: DamageScalar 0% ALL -HERO + ParalyzeNugget ALL -HERO)
+						// also needs a non-hero infantry unit in range so both nuggets fire in the same cast
+						tempTarget.id = g.rig.make("GondorFighterHorde", c.x + 80.0f, c.y, enemy)->getID();
+						tempEnemyTarget = true;
+						toughen(g.logic(), tempTarget.id);
+						hits.track(g.logic());
+					}
+				}
 				Object *plannedOn = resolveTarget();
 				const ObjectID plannedOnId = plannedOn ? plannedOn->getID() : INVALID_ID;
 				EffectProbe probeBefore = EffectProbe::take(g.logic(), u, t, g.rig.game->report().scripting.engineEvents, plannedOn);
@@ -2313,7 +2452,9 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 							break;
 						}
 					}
-					if (!missing.empty() && attempt == 0 && cb->hasOption(COMMAND_OPTION_NEED_TARGET_ENEMY_OBJECT) && firstEnemy != "GondorBoromir")
+					const bool targetlessZeroDamage = !cb->hasOption(COMMAND_OPTION_NEED_TARGET_ENEMY_OBJECT | COMMAND_OPTION_NEED_TARGET_NEUTRAL_OBJECT | COMMAND_OPTION_NEED_TARGET_ALLY_OBJECT | COMMAND_OPTION_NEED_TARGET_POS)
+					                                  && missing.find("against that victim 0") != std::string::npos; // LOCAL-113: e.g. ErinnerunganTelperion DamageScalar 0% ALL -HERO
+					if (!missing.empty() && attempt == 0 && (cb->hasOption(COMMAND_OPTION_NEED_TARGET_ENEMY_OBJECT) || targetlessZeroDamage) && firstEnemy != "GondorBoromir")
 					{
 						g.hud->input().ui().setGUICommand(nullptr);
 						retryHero = true;

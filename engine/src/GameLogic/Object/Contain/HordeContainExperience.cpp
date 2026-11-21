@@ -112,6 +112,31 @@ void HordeContain::removeAttributeModifier(const std::string &listName)
 	}
 }
 
+// RW 0x00879106 (slot 0x1E0, DONOR BFME2 0x00475E06): clears contained members, garrison-entering members (+0x54), and the horde's own pool entries
+void HordeContain::clearAllAttributeModifiers()
+{
+	const std::vector<Object *> members(m_members.begin(), m_members.end());
+	for (Object *m : members) // RW 0x87911B..0x87913B: contain slot 0x118
+	{
+		if (m)
+		{
+			m->clearAllAttributeModifiers(); // RW 0x87912F -> RW 0x006998D0
+		}
+	}
+	const std::vector<ObjectID> entering(m_garrisonEntering.begin(), m_garrisonEntering.end());
+	for (ObjectID id : entering) // RW 0x87913D..0x87916C: interface + 0x54 map
+	{
+		if (Object *m = getObject()->logic().findObjectByID(id)) // RW 0x879150 -> RW 0x00449681
+		{
+			m->clearAllAttributeModifiers(); // RW 0x87915B -> RW 0x006998D0
+		}
+	}
+	if (AttributeModifierPool *pool = static_cast<AttributeModifierPool *>(getObject()->findModule("AttributeModifierPoolUpdate"))) // RW 0x879174 -> RW 0x0068C4A6
+	{
+		pool->clearEntries(); // RW 0x87917F..0x879187 -> RW 0x00698DC9
+	}
+}
+
 // slot 0x260 (RW 0x86C40D): the old behaviour object goes, the new one is made from the selected data and starts fresh
 void HordeContain::setMeleeBehavior(std::shared_ptr<MeleeBehaviorModuleData> data)
 {

@@ -19,6 +19,7 @@
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/ActiveBody.h"
 #include "GameLogic/Module/BehaviorModule.h"
+#include "GameLogic/Module/CombatModules.h"
 #include "GameLogic/Module/DeployStyleAIUpdate.h"
 #include "GameLogic/Module/EmotionModules.h"
 #include "GameLogic/Module/ExtraDieModules.h"
@@ -493,6 +494,30 @@ struct EffectProbe
 		for (size_t i = 0; i < ws.size(); ++i)
 		{
 			const WeaponTemplate *cur = ws[i];
+			// LOCAL-113 (PORT-276, RW 0x8961F7 / 0x90E28C / 0x8609A8): a self-detonation igniter (RadiusDamageAffects SELF/SUICIDE without ENEMIES,
+			// e.g. SalemeDetonateFallen) kills the caster so SlowDeathBehavior fires the real blast weapons; inspect those death weapons instead
+			if ((cur->m_affectsMask & (WEAPON_AFFECTS_SELF | WEAPON_KILLS_SELF)) && !(cur->m_affectsMask & WEAPON_AFFECTS_ENEMIES))
+			{
+				bool anyDeathWeapon = false;
+				for (const std::unique_ptr<BehaviorModule> &bm : holder.modules())
+				{
+					if (const SlowDeathBehaviorModuleData *sd = dynamic_cast<const SlowDeathBehaviorModuleData *>(bm->getModuleData()))
+					{
+						for (int ph = 0; ph < SDPHASE_COUNT; ++ph)
+						{
+							for (const std::string &dw : sd->m_weapon[ph])
+							{
+								enqueueWeapon(dw);
+								anyDeathWeapon = true;
+							}
+						}
+					}
+				}
+				if (anyDeathWeapon)
+				{
+					continue;
+				}
+			}
 			bool curHasDamage = false;
 			for (const std::shared_ptr<WeaponNugget> &n : cur->m_nuggets)
 			{
@@ -1268,14 +1293,16 @@ struct EffectProbe
 					const float dmgBonus = std::max(1.0f, std::max(casterDamageMult, after.casterDamageMult));
 					const float dmgAdd = std::max(casterDamageAdd, after.casterDamageAdd);
 					const float upperMult = (e.hordeMembers > 1 ? 2.5f * (float)e.hordeMembers : 2.5f) * dmgBonus;
+					const bool projSelf = e.weapon && e.weapon->m_projectileSelf; // LOCAL-113: ProjectileSelf (e.g. BalrogLeap) can also deal CrushWeapon damage on the same landing frame (500 + 3000 = 3500)
+					const UnsignedInt maxFrame = projSelf ? first + 2 : first;
 					for (const HitTracker::Hit &x : hits->hits)
 					{
 						auto it = hitNominal.find(x.victim);
 						const float nominal = it == hitNominal.end() ? 0.0f : it->second, sum = it == hitNominal.end() ? 0.0f : hitSum.at(x.victim);
-						if (x.frame == first && nominal > 0.0f && x.amount >= nominal * 0.9f && x.amount <= (sum + dmgAdd) * upperMult)
+						if (x.frame >= first && x.frame <= maxFrame && nominal > 0.0f && x.amount >= nominal * 0.9f && (projSelf || x.amount <= (sum + dmgAdd) * upperMult))
 						{
 							got = str("its first hit after the cast (frame %u) %.0f, the weapon's %.0f (all nuggets %.0f) against the victim's armour; no hit before the cast",
-									  first - frame, (double)x.amount, (double)nominal, (double)sum);
+									  x.frame - frame, (double)x.amount, (double)nominal, (double)sum);
 							break;
 						}
 					}

@@ -257,7 +257,7 @@ public:
 	};
 	float m_maxScanRange = 0.0f;       // + 0x08
 	float m_minScanRange = 0.0f;       // + 0x0C
-	float m_workingRadius = 0.0f;      // + 0x10 (not read by the update)
+	float m_workingRadius = 0.0f;      // + 0x10 (RW 0xC57EC0 parse, RW 0x85D37D zero-init in ctor RW 0x85D355; never read in RotWK or BFME2 donor)
 	float m_idleTimeSeconds = 0.0f;    // + 0x14
 	std::string m_specialAbility;      // + 0x18
 	ObjectStatusMaskType m_forbiddenStatus{}; // + 0x1C
@@ -274,6 +274,7 @@ class AutoAbilityBehavior : public UpdateModule
 public:
 	OBFME_MODULE_XFER(AutoAbilityBehavior) // lane SAVE-4b
 	AutoAbilityBehavior(Thing *thing, const AutoAbilityBehaviorModuleData *data); // RW 0x85D7FD
+	~AutoAbilityBehavior() override = default; // RW 0x0085D3ED (~AutoAbilityBehavior), RW 0x0085D5CE (scalar deleting dtor)
 	UpdateSleepTime update() override;                                           // RW 0x85D9D1
 	DisabledMaskType getDisabledTypesToProcess() const override { return (DisabledMaskType)(1u << 3); } // RW 0x855830 (vtable RW 0xC57F80 slot 1): DISABLED_HELD
 	void onObjectCreated() override;                                              // the StartsActive part of the constructor (needs the command set)
