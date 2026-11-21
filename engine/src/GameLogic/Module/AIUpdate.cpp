@@ -1886,6 +1886,7 @@ void AIUpdateInterface::setLocomotorUpgrade(bool on)
 	}
 }
 
+// RW 0x006680B2 (AIUpdateInterface::chooseLocomotorSet) -> RW 0x00667FC9 (chooseLocomotorSetExplicit) + RW 0x0073DD2A (ThingTemplate::getLocomotorSetSpeed)
 bool AIUpdateInterface::chooseLocomotorSet(int set)
 {
 	if (set == LOCOMOTORSET_NORMAL && m_upgradedLocomotors)
@@ -1901,7 +1902,7 @@ bool AIUpdateInterface::chooseLocomotorSet(int set)
 	{
 		return false;
 	}
-	// chooseLocomotorSetExplicit: the locomotor instances of the set, in set order (a template that did not resolve stays null in retail and is skipped)
+	// RW 0x00667FC9 (chooseLocomotorSetExplicit): the locomotor instances of the set, in set order (a template that did not resolve stays null in retail and is skipped)
 	m_locomotors.clear();
 	m_curLocomotor = nullptr;
 	for (const LocomotorTemplate *lt : slot->locomotors)

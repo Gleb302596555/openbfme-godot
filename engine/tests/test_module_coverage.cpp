@@ -162,13 +162,14 @@ TEST_CASE("module coverage: every registry class is ported, base AI, parsed only
 	// Local 36 (#286): BaseUpgrade, DamageFieldUpdate, CivilianSpawnUpdate, CivilianSpawnCollide missing -> ported: 238 -> 242, missing 73 -> 69
 	// PORT-206 (fork issue 488): WeaponBonusUpgrade (RW 0x64FF7C; its PLAYER_UPGRADE writer RW 0x8B980D) missing -> ported: 242 -> 243, missing 69 -> 68.
 	// LOCAL-97 (fork issue 762): PoisonedBehavior (RW 0x00658636) missing -> ported: 243 -> 244, missing 68 -> 67.
+	// LOCAL-103 (fork issue 773): SwayClientUpdate (RW 0x008CD514..0x008CD9CD) missing -> ported: 245 -> 246, missing 66 -> 65 (on top of LOCAL-102 ToppleUpdate).
 	// pin: PORT-234 (fork issue 557): the four reward crate overrides HealCrateCollide, MoneyCrateCollide, ShroudCrateCollide and
-	// UnitCrateCollide (RW 0x8C06B6, registered in EconomyModules) are four distinct registry classes: 244 -> 248, missing 67 -> 63.
-	CHECK(c.ported == 248);
+	// UnitCrateCollide (RW 0x8C06B6, registered in EconomyModules) are four distinct registry classes: 246 -> 250, missing 65 -> 61.
+	CHECK(c.ported == 250);
 	CHECK(c.baseAi == 4);
 	// S-207: SpawnUnitBehavior data is parsed-only; its runtime remains unported (S-140).
 	CHECK(c.parsedOnly == 14); // W3DBuffDraw 13 -> 14 (drawn via ClientBuffs, S-4642). PORT-74 (#206): W3DLaserDraw missing -> parsed only (its data, no beam draw: S-7218): 13 -> 14, missing 83 -> 82.
-	CHECK(c.missing == 63); // PORT-234: four reward crates missing -> ported (see the pin above).
+	CHECK(c.missing == 61); // PORT-234: four reward crates missing -> ported (see the pin above).
 
 	if (const char *out = std::getenv("OPENBFME_MODULE_COVERAGE_OUT"))
 	{

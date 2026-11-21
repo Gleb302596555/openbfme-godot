@@ -2282,6 +2282,67 @@ int WeaponFireSpecialAbilityUpdate::specialWeaponCondition() const
 	}
 }
 
+// RW 0x896156 (special-power interface slot +0x20): the minimum applies to every point,
+// the maximum only to IMMOBILE casters. Object-target requirements pass a null point.
+bool WeaponFireSpecialAbilityUpdate::allowsSpecialPowerUse(const Coord3D *loc) const
+{
+	if (!m_weapon)
+	{
+		return false;
+	}
+	if (loc)
+	{
+		Object *owner = getObject();
+		if (!owner)
+		{
+			return false;
+		}
+		const WeaponTemplate &weapon = *m_weapon->getTemplate();
+		const float edge2 = CircleDistanceSquaredToPoint(*owner->getPosition(), CombatQueries::boundingCircleRadius(*owner), *loc);
+		const float min = WeaponTemplateMinimumRange(weapon);
+		if (SimMath::pc24MulW(min, min) > edge2)
+		{
+			return false;
+		}
+		static const int immobile = CombatNames::kindOf("IMMOBILE");
+		if (owner->isKindOf(immobile))
+		{
+			const float max = SimMath::pc24Sub(ObjectWeapons::abilityWeaponRange(weapon, *owner), 2.5f);
+			if (edge2 > SimMath::pc24MulW(max, max))
+			{
+				return false;
+			}
+		}
+	}
+	return SpecialAbilityUpdate::allowsSpecialPowerUse(loc);
+}
+
+// RW 0x896370: during unpacking track a live object target at the current locomotor's
+// turn rate, before the base advances the packing state. Not a new AI face order.
+UpdateSleepTime WeaponFireSpecialAbilityUpdate::update()
+{
+	if (m_packingState == 2)
+	{
+		Object *victim = target();
+		AIUpdateInterface *ai = getObject()->getAIUpdateInterface();
+		Locomotor *loco = ai ? ai->curLocomotor() : nullptr;
+		if (victim && loco)
+		{
+			const Coord3D pos = *victim->getPosition();
+			LocomotorHost &host = ai->locomotorHost();
+			loco->rotateTowardsWrapper(host, pos, nullptr);
+			host.setTransform(loco->matrix());
+		}
+	}
+	return SpecialAbilityUpdate::update();
+}
+
+// RW 0x895C6B: this override always packs through the success branch.
+void WeaponFireSpecialAbilityUpdate::startPacking(bool)
+{
+	SpecialAbilityUpdate::startPacking(true);
+}
+
 // RW 0x895E60
 bool WeaponFireSpecialAbilityUpdate::continuePreparation()
 {
@@ -2318,19 +2379,22 @@ void WeaponFireSpecialAbilityUpdate::triggerAbilityEffect()
 {
 	Object *obj = getObject();
 	ObjectWeapons *weapons = m_weapon ? weaponHost() : obj->getWeapons();
-	// RW 0x896210: the FiringTracker's RW 0x8E302A(1) (the object's + 0x248) is COMBAT-1's: not called here
+	ObjectWeapons *tracked = obj->getWeapons(); // only the actual owner set has the FiringTrackerHelper
+	if (tracked)
+	{
+		tracked->resetFiringTracker(true); // RW 0x8961F7: before suppression and readiness
+	}
 	if (!(isHorde(*obj) && m_data->m_suppressForHordes))
 	{
 		Object *victim = target();
 		if (victim && isHorde(*victim))
 		{
 			// RW 0x896263: a horde target is shot through one of its members (HordeContain vslot 0x110)
-			if (ContainModuleInterface *c = victim->getContain())
+			if (auto *hc = dynamic_cast<HordeContain *>(victim->getContain()))
 			{
-				const ContainModuleInterface::ContainedItemsList *items = c->getContainedItemsList();
-				if (items && !items->empty())
+				if (Object *member = hc->firstMember()) // RW 0x87055D includes members entering a garrison
 				{
-					victim = items->front();
+					victim = member;
 				}
 			}
 		}
@@ -2341,10 +2405,13 @@ void WeaponFireSpecialAbilityUpdate::triggerAbilityEffect()
 			{
 				const Coord3D at = (isZero(m_targetPos) || m_wf->m_needLivingTargets) ? *obj->getPosition() : m_targetPos;
 				weapons->fireExtraWeaponAt(*m_weapon, at); // RW 0x6CF3D2
+				if (tracked) tracked->trackAbilityShot(*m_weapon, INVALID_ID, at);
 			}
 			else
 			{
+				const ObjectID id = victim->getID(); // capture before delivery can kill the victim
 				weapons->fireExtraWeapon(*m_weapon, *victim); // RW 0x6CF328
+				if (tracked) tracked->trackAbilityShot(*m_weapon, id, {});
 			}
 			++m_shots;
 			obj->setStatus(kStatusIgnoreAI, true); // RW 0x6907BD(now + BusyForDuration): IGNORE_AI_COMMAND and its expiry (Object + 0x448)

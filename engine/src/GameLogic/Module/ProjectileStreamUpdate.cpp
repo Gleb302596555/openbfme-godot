@@ -115,6 +115,7 @@ bool ProjectileStreamUpdate::considerDying()
 	return false;
 }
 
+// RW 0x00740A56 (DONOR BFME2 ProjectileStreamUpdate::getAllPoints): walks circular buffer m_firstValidIndex..m_nextFreeIndex (mod 20)
 void ProjectileStreamUpdate::getAllPoints(Coord3D *points, int *count) const
 {
 	Object *me = const_cast<ProjectileStreamUpdate *>(this)->getObject();

@@ -17,10 +17,12 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW SpecialEnemySenseUpdate: getModuleName RW 0x0089D70D, getModuleNameKey RW 0x0089D713,
+// dtors RW 0x0089D7A9 / 0x0089D6F4, xfer RW 0x0089D7C5.
 class SpecialEnemySenseUpdate : public UpdateModule
 {
 public:
-	OBFME_MODULE_XFER(SpecialEnemySenseUpdate)
+	OBFME_MODULE_XFER(SpecialEnemySenseUpdate) // RW 0x0089D7C5
 	SpecialEnemySenseUpdate(Thing *thing, const SpecialEnemySenseUpdateModuleData *data);
 	UpdateSleepTime update() override;
 	static void registerClass(ModuleFactory &modules);

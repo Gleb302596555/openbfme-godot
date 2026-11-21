@@ -215,7 +215,7 @@ UpdateSleepTime FireWeaponUpdate::update()
 			}
 			Coord3D at = *obj->getPosition();
 			const float lsq = SimMath::addf32(SimMath::addf32(SimMath::mulf32(r.offset.x, r.offset.x), SimMath::mulf32(r.offset.y, r.offset.y)),
-				SimMath::mulf32(r.offset.z, r.offset.z)); // Coord3D::lengthSqr (SSE)
+				SimMath::mulf32(r.offset.z, r.offset.z)); // RW 0x00403156 Coord3D::lengthSqr (called at RW 0x88F637)
 			if (lsq > 0.0f)
 			{
 				// RW 0x88F5F5 ..: s = sin(angle), c = cos(angle) (CRT, stored as floats); x87: (c * x - s * y) + px, c * y + s * x + py
@@ -427,6 +427,7 @@ void FloodUpdate::crc(StateHasher &h) const
 
 void SpellEffectModules::registerAll(ModuleFactory &modules)
 {
+	// RW 0x0088F419 (getModuleName), RW 0x0088F41F (getModuleNameKey), RW 0x0088F7A1 (scalar deleting dtor), RW 0x0088EFD0 (Record::~Record)
 	bindUpdate<FireWeaponUpdate, FireWeaponUpdateModuleData>(modules, "FireWeaponUpdate");
 	bindUpdate<FloodUpdate, FloodUpdateModuleData>(modules, "FloodUpdate"); // lane SPELL-3
 }
@@ -441,6 +442,7 @@ std::string SpellEffectModules::stopLine()
 // ---- lane SAVE-4b: the snapshots (OpenBFME native, S-4190) ------------------------------------------------------------------------------------------------
 // FireWeaponUpdate's records are made by its constructor from the data (the same list for the object a load makes); each loads its weapon's state and its
 // timer. The weapon host of an object without a WeaponSet (S-924) is saved whole.
+// RW 0x0088F113 (FireWeaponUpdate::xfer: version (1,2), UpdateModule::xfer RW 0x850C60, m_weapon +0x20, m_initialized +0x28, record list +0x24)
 void FireWeaponUpdate::xfer(Xfer &x)
 {
 	// version 2 (lane NUGGET-1): the single weapon of RW 0x88F041 after the counters
@@ -501,7 +503,7 @@ void FireWeaponUpdate::xfer(Xfer &x)
 	}
 }
 
-// the flood's members (their ids, paths and cursors)
+// RW 0x00891B72 (DONOR BFME2 0x0088DB42; dtor RW 0x00891AE4 / RW 0x00891C93, name RW 0x00891768, getModuleNameKey RW 0x0089176E): the flood's members (their ids, paths and cursors)
 void FloodUpdate::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);
