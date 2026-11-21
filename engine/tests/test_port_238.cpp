@@ -1500,6 +1500,9 @@ End
 Upgrade Upgrade_P238ArveduiProtected
   Type = OBJECT
 End
+Upgrade Upgrade_P238ArveduiPlayerRing
+  Type = PLAYER
+End
 SpecialPower P238ArveduiEvilPower
   Enum = SPECIAL_TOGGLE_MOUNTED
   ReloadTime = 1000
@@ -1573,6 +1576,14 @@ Object P238ArveduiBase
     RequiresAllTriggers = Yes
     GetUpgradeCommandButtonName = P238ArveduiGoodButton
   End
+  Behavior = ObjectCreationUpgrade ProtectionFromPlayer
+    TriggeredBy = Upgrade_P238ArveduiPlayerRing
+    GrantUpgrade = Upgrade_P238ArveduiProtected
+  End
+  Behavior = DoCommandUpgrade GoodCommandFromPlayer
+    TriggeredBy = Upgrade_P238ArveduiPlayerRing
+    GetUpgradeCommandButtonName = P238ArveduiGoodButton
+  End
   Behavior = CitadelSlaughterHordeContain RingEntry
     PassengerFilter = NONE +P238Ring
     ObjectStatusOfContained = UNSELECTABLE ENCLOSED
@@ -1607,8 +1618,10 @@ End
     const std::string error = w.w.load(data, INI_LOAD_OVERWRITE, "port238_arvedui.ini");
     REQUIRE_MESSAGE(error.empty(), error);
     bool protectedHero = false;
+    bool usePlayerUpgrade = false;
     SUBCASE("unprotected") { protectedHero = false; }
-    SUBCASE("protected before delivery") { protectedHero = true; }
+    SUBCASE("object protection before delivery") { protectedHero = true; }
+    SUBCASE("player protection before delivery") { protectedHero = true; usePlayerUpgrade = true; }
     Object *bearer = w.unit("P238ArveduiBase", 'A', 300, 300);
     Object *carrier = w.unit("P238Carrier", 'A', 300, 300);
     Object *ring = w.unit("P238Ring", 'A', 300, 300);
@@ -1619,7 +1632,17 @@ End
     const ObjectID ringId = ring->getID();
     auto *contain = dynamic_cast<CitadelSlaughterHordeContain *>(bearer->getContain());
     REQUIRE(contain != nullptr);
-    if (protectedHero) bearer->giveUpgrade("Upgrade_P238ArveduiProtected");
+    if (usePlayerUpgrade)
+    {
+        // RW 0x8B8281 / 0x8B8464: the PLAYER flag queues a delayed
+        // ObjectCreationUpgrade grant to the hero before ring delivery.
+        const UpgradeTemplate *playerUpgrade = Player::resolveUpgrade("Upgrade_P238ArveduiPlayerRing", true);
+        REQUIRE(playerUpgrade != nullptr);
+        w.playerOf('A')->addUpgrade(playerUpgrade, Player::UPGRADE_STATUS_COMPLETE);
+        w.frames(3);
+        REQUIRE(bearer->hasUpgrade("Upgrade_P238ArveduiProtected"));
+    }
+    else if (protectedHero) bearer->giveUpgrade("Upgrade_P238ArveduiProtected");
     // RW 0x8840FC -> 0x8D26F3 / 0x8B8E2E -> 0x8B1690.
     deliver(*contain, *carrier);
     CHECK(bearer->hasUpgrade("Upgrade_P238ArveduiRing"));
