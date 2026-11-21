@@ -27,8 +27,8 @@
 #include "GameLogic/Module/WallUpgradeUpdate.h"
 #include "GameLogic/Object/Object.h"
 
-#include "LogicTestUtil.h"
 #include "doctest.h"
+#include "LogicTestUtil.h"
 
 #include <cmath>
 #include <vector>
