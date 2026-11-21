@@ -556,6 +556,7 @@ include(cmake/Port237.cmake)    # PORT-237: OCL nuggets/fields, CreateObjectDie,
 include(cmake/Port284.cmake)    # PORT-284: save closed-set audit, logic snapshots
 include(cmake/Port220.cmake)    # PORT-220: the single-use command flag, Object + 0x45B (issue #529; OPENBFME_PORT220_TESTS)
 include(cmake/Port257.cmake)    # PORT-257: GiantBirdAIUpdate onCollide/collision push/states 0x3FD-0x3FE & cmd 0x41, FellBeastSwoopPower vslot 0x1D0 (issue #605; OPENBFME_PORT257_TESTS)
+include(cmake/Port251.cmake)    # PORT-251: SpecialPowerModule requirements pause, target id, update-disabled slots 0x44/0x4C, isPaused, xfer v2 (issue #599; OPENBFME_PORT251_TESTS)
 include(cmake/Port261.cmake)    # PORT-261: the player-side powers PlayerHealSpecialPower and StoreObjectsSpecialPower (issue #609; OPENBFME_PORT261_TESTS)
 include(cmake/Local80.cmake)    # LOCAL-80: script library rank actions and PLAYER_COMPARE_RANK (issue #704; OPENBFME_LOCAL80_TESTS)
 include(cmake/Local94.cmake)    # LOCAL-94: the last 8 condition / action types of the script map (issue #720; OPENBFME_LOCAL94_TESTS)
@@ -1378,6 +1379,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT284_TESTS}
     ${OPENBFME_PORT220_TESTS}
     ${OPENBFME_PORT257_TESTS}
+    ${OPENBFME_PORT251_TESTS}
     ${OPENBFME_PORT261_TESTS}
     ${OPENBFME_LOCAL80_TESTS}
     ${OPENBFME_LOCAL94_TESTS}
