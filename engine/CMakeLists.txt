@@ -259,6 +259,7 @@ include(cmake/Port151.cmake) # PORT-151: the enter-state unit voices of the AI o
 include(cmake/Port4.cmake) # OPENBFME_PORT4_TESTS
 include(cmake/Port109.cmake) # OPENBFME_PORT109_TESTS
 include(cmake/Port47.cmake) # OPENBFME_PORT47_TESTS
+include(cmake/Port266.cmake) # OPENBFME_PORT266_TESTS
 include(cmake/Play2.cmake) # OPENBFME_PLAY2_TESTS (lane PLAY-2)
 include(cmake/Port300.cmake) # OPENBFME_PORT300_TESTS (lane PORT-300, issue #692)
 include(cmake/Port302.cmake) # PORT-302: InactiveBody's armor-set flags and its damage answers (fork issue 694)
@@ -1369,6 +1370,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT237_TESTS}
     ${OPENBFME_PORT284_TESTS}
     ${OPENBFME_PORT220_TESTS}
+    ${OPENBFME_PORT266_TESTS}
     ${OPENBFME_PORT257_TESTS}
     ${OPENBFME_PORT261_TESTS}
     ${OPENBFME_LOCAL80_TESTS}
