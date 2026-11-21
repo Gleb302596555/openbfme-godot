@@ -28,6 +28,10 @@ A dash means no direct declaration found, not the absence of inherited command s
 | `Theoden_OneRing` | — | `RohanTheodenringCommandSetEnd` | `goodfaction/units/men/theoden.ini:1653` |
 | `WildSmaug_mod_RingHero` | `WildSmaug_mod` | — | `evilfaction/units/wild/wildsmaug.ini:1686` |
 
+## Additional named forms outside suffix scan
+
+`ArnorArveduiEvilRing` and `ArnorArveduiGoodRing` are separate Objects explicitly selected by `ArnorArveduiNew` in `evil` and `good` replacement modules (`goodfaction/units/arnor/new/arnorarveduinew.ini:1473,1503,1839,2963`). Their direct command sets and bounded hand-over test are in `PORT238_ARVEDUI_TRACE.md`. This discovery does not make the candidate inventory exhaustive.
+
 ## Direct `UpgradeForRingEntry` declarations
 
 These are lexical hits, not all effective recipients; includes, default values, multiple definitions and ChildObject inheritance are unresolved. A same-file match does not establish that the object is an available hero or that its ring path works.

@@ -1483,3 +1483,165 @@ End
     CHECK(marker->getPosition()->x == ringForm->getPosition()->x);
     CHECK_FALSE(marker->wasTeleportGatheredAt(w.logic->getFrame()));
 }
+
+TEST_CASE("PORT-238 Arvedui-style ring delivery chooses a form from the protection upgrade")
+{
+    HealHudWorld w;
+    // arnor/new/arnorarveduinew.ini:1460..1548: the two OBJECT ring
+    // upgrades arrive via contain; protection conflicts with the evil command,
+    // and both protection and ring are required to enable the good command.
+    const char *data = R"ini(
+Upgrade Upgrade_P238ArveduiRing
+  Type = OBJECT
+End
+Upgrade Upgrade_P238ArveduiFortress
+  Type = OBJECT
+End
+Upgrade Upgrade_P238ArveduiProtected
+  Type = OBJECT
+End
+SpecialPower P238ArveduiEvilPower
+  Enum = SPECIAL_TOGGLE_MOUNTED
+  ReloadTime = 1000
+End
+SpecialPower P238ArveduiGoodPower
+  Enum = SPECIAL_TOGGLE_MOUNTED
+  ReloadTime = 1000
+End
+CommandButton P238ArveduiEvilButton
+  Command = SPECIAL_POWER
+  SpecialPower = P238ArveduiEvilPower
+  InPalantir = No
+End
+CommandButton P238ArveduiGoodButton
+  Command = SPECIAL_POWER
+  SpecialPower = P238ArveduiGoodPower
+  InPalantir = No
+End
+Object P238ArveduiBase
+  KindOf = INFANTRY HERO SELECTABLE COMMANDCENTER CAN_ATTACK
+  Geometry = CYLINDER
+  GeometryMajorRadius = 8
+  GeometryHeight = 20
+  Body = ActiveBody Body
+    MaxHealth = 100
+  End
+  Behavior = AIUpdateInterface AI
+  End
+  Behavior = UnpauseSpecialPowerUpgrade EnableEvil
+    SpecialPowerTemplate = P238ArveduiEvilPower
+    TriggeredBy = Upgrade_P238ArveduiRing
+  End
+  Behavior = SpecialPowerModule EvilPower
+    SpecialPowerTemplate = P238ArveduiEvilPower
+    UpdateModuleStartsAttack = Yes
+    StartsPaused = Yes
+  End
+  Behavior = ToggleMountedSpecialAbilityUpdate EvilToggle
+    SpecialPowerTemplate = P238ArveduiEvilPower
+    MountedTemplate = P238ArveduiEvil
+    UnpackTime = 2000
+    PreparationTime = 0
+    PackTime = 0
+    IgnoreFacingCheck = Yes
+  End
+  Behavior = DoCommandUpgrade EvilCommand
+    TriggeredBy = Upgrade_P238ArveduiRing
+    ConflictsWith = Upgrade_P238ArveduiProtected
+    GetUpgradeCommandButtonName = P238ArveduiEvilButton
+  End
+  Behavior = UnpauseSpecialPowerUpgrade EnableGood
+    SpecialPowerTemplate = P238ArveduiGoodPower
+    TriggeredBy = Upgrade_P238ArveduiRing Upgrade_P238ArveduiProtected
+    RequiresAllTriggers = Yes
+  End
+  Behavior = SpecialPowerModule GoodPower
+    SpecialPowerTemplate = P238ArveduiGoodPower
+    UpdateModuleStartsAttack = Yes
+    StartsPaused = Yes
+  End
+  Behavior = ToggleMountedSpecialAbilityUpdate GoodToggle
+    SpecialPowerTemplate = P238ArveduiGoodPower
+    MountedTemplate = P238ArveduiGood
+    UnpackTime = 2000
+    PreparationTime = 0
+    PackTime = 0
+    IgnoreFacingCheck = Yes
+  End
+  Behavior = DoCommandUpgrade GoodCommand
+    TriggeredBy = Upgrade_P238ArveduiRing Upgrade_P238ArveduiProtected
+    RequiresAllTriggers = Yes
+    GetUpgradeCommandButtonName = P238ArveduiGoodButton
+  End
+  Behavior = CitadelSlaughterHordeContain RingEntry
+    PassengerFilter = NONE +P238Ring
+    ObjectStatusOfContained = UNSELECTABLE ENCLOSED
+    ContainMax = 1
+    StatusForRingEntry = HOLDING_THE_RING
+    UpgradeForRingEntry = Upgrade_P238ArveduiRing Upgrade_P238ArveduiFortress
+    ObjectToDestroyForRingEntry = NONE +P238Ring
+  End
+  LocomotorSet
+    Locomotor = WalkerLoco
+    Condition = SET_NORMAL
+    Speed = 55
+  End
+End
+Object P238ArveduiEvil
+  KindOf = INFANTRY HERO SELECTABLE CAN_ATTACK
+  Body = ActiveBody Body
+    MaxHealth = 100
+  End
+  Behavior = AIUpdateInterface AI
+  End
+End
+Object P238ArveduiGood
+  KindOf = INFANTRY HERO SELECTABLE CAN_ATTACK
+  Body = ActiveBody Body
+    MaxHealth = 100
+  End
+  Behavior = AIUpdateInterface AI
+  End
+End
+)ini";
+    const std::string error = w.w.load(data, INI_LOAD_OVERWRITE, "port238_arvedui.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    bool protectedHero = false;
+    SUBCASE("unprotected") { protectedHero = false; }
+    SUBCASE("protected before delivery") { protectedHero = true; }
+    Object *bearer = w.unit("P238ArveduiBase", 'A', 300, 300);
+    Object *carrier = w.unit("P238Carrier", 'A', 300, 300);
+    Object *ring = w.unit("P238Ring", 'A', 300, 300);
+    REQUIRE(bearer != nullptr);
+    REQUIRE(carrier != nullptr);
+    REQUIRE(ring != nullptr);
+    const ObjectID original = bearer->getID();
+    const ObjectID ringId = ring->getID();
+    auto *contain = dynamic_cast<CitadelSlaughterHordeContain *>(bearer->getContain());
+    REQUIRE(contain != nullptr);
+    if (protectedHero) bearer->giveUpgrade("Upgrade_P238ArveduiProtected");
+    // RW 0x8840FC -> 0x8D26F3 / 0x8B8E2E -> 0x8B1690.
+    deliver(*contain, *carrier);
+    CHECK(bearer->hasUpgrade("Upgrade_P238ArveduiRing"));
+    CHECK(bearer->hasUpgrade("Upgrade_P238ArveduiFortress"));
+    REQUIRE(w.byId(ringId) != nullptr);
+    CHECK(w.byId(ringId)->isDestroyed());
+    Object *selected = nullptr;
+    Object *other = nullptr;
+    for (int i = 0; i < 50 && !selected; ++i)
+    {
+        w.frames(1);
+        for (Object *o = w.logic->getFirstObject(); o; o = o->getNextObject())
+        {
+            if (!o->getTemplate()) continue;
+            const std::string &name = o->getTemplate()->getName();
+            if (name == (protectedHero ? "P238ArveduiGood" : "P238ArveduiEvil")) selected = o;
+            if (name == (protectedHero ? "P238ArveduiEvil" : "P238ArveduiGood")) other = o;
+        }
+    }
+    REQUIRE(selected != nullptr);
+    CHECK(other == nullptr);
+    CHECK(selected->getControllingPlayer() == w.playerOf('A'));
+    w.frames(3);
+    CHECK(w.byId(original) == nullptr);
+}
