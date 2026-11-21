@@ -1391,7 +1391,7 @@ End
     REQUIRE(list != nullptr);
     REQUIRE(list->m_upgrade.get() != nullptr);
     REQUIRE(list->m_upgrade->upgrade != nullptr);
-    CHECK(list->m_upgrade->delayFrames == 0); // RW 0x805163 compares the entire token to "Delay"
+    CHECK(list->m_upgrade->delayFrames == 1); // RW 0x805154 uses colon separators; ceil(103 ms * 0.005)
     Object *infantry = w.unit("P238IsildurInfantry", 'A', 320, 300);
     Object *archer = w.unit("P238IsildurArcher", 'A', 325, 300);
     Object *otherHero = w.unit("P238IsildurHeroTarget", 'A', 330, 300);
@@ -1409,6 +1409,8 @@ End
     REQUIRE(fire != nullptr);
     for (int i = 0; i < 10 && fire->shots() == 0; ++i) w.frames(1);
     REQUIRE(fire->shots() == 1);
+    CHECK_FALSE(infantry->hasUpgrade("Upgrade_P238IsildurForged")); // delayed, not granted at impact
+    w.frames(1);
     CHECK(infantry->hasUpgrade("Upgrade_P238IsildurForged"));
     CHECK_FALSE(archer->hasUpgrade("Upgrade_P238IsildurForged"));
     CHECK_FALSE(otherHero->hasUpgrade("Upgrade_P238IsildurForged"));
