@@ -114,6 +114,7 @@ void AIStateMachine::defineState(unsigned id, std::unique_ptr<AIState> state, un
 	}
 }
 
+// RW 0x008DB9F4 (StateMachine::internalGetState)
 AIState *AIStateMachine::findState(unsigned id) const
 {
 	auto it = m_states.find(id);

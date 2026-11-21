@@ -781,6 +781,15 @@ public:
 	// and GameData UseBehindBuildingMarker are set (RW 0x47074D). Not hashed and not saved (no GameLogic xfer reads it): presentation only
 	void setShowBehindBuildingMarkers(bool on) { m_showBehindBuildingMarkers = on; }
 	bool getShowBehindBuildingMarkers() const { return m_showBehindBuildingMarkers; }
+	// PORT-301: TheGameLogic + 0x9F, the hero-experience-sharing switch: the GameLogic constructor sets it to 1 (RW 0x62D299: mov byte ptr [esi + 0x9F], 1), script
+	// action 538 SET_HERO_EXPERIENCE_SHARING writes it (RW 0x7CDF99 -> RW 0x7BD3D1: the parameter's int (+ 8) != 0), and ShareExperienceBehavior::share reads it
+	// (RW 0x883428: cmp byte ptr [eax + 0x9F], 0) to skip a HERO candidate when it is clear. GameLogic's init / reset / startNewGame leave the byte alone (their
+	// default stores RW 0x62D1CB .. 0x62D1E0 / RW 0x62D3CF .. 0x62D3E4 / RW 0x62A22F .. 0x62A23D write + 0x98 .. + 0x9B only), so it survives between
+	// games. Not hashed and not saved: the GameLogic + 0x9F accesses are RW 0x62D299 the constructor, RW 0x7BB038 the member setter, RW 0x7BD3DB the script
+	// writer, RW 0x883054 the member getter and RW 0x883428 the reader (every other .text + 0x9F displacement is foreign or non-code: RW 0x5F079D a data-table
+	// byte, RW 0x5F1563 a Player byte, RW 0x630146 another class's constructor), and GameLogic's xfer (RW 0x630D6F .. 0x630D78) reads none of them
+	void setHeroExperienceSharing(bool on) { m_heroExperienceSharing = on; }
+	bool getHeroExperienceSharing() const { return m_heroExperienceSharing; }
 	// LOCAL-94 (issue #720): TheGameLogic + 0x9A (OPTIONS_SET_DRAWICON_UI_MODE, action 300, RW 0x7CE222 -> RW 0x7BD55C, DONOR BFME2 0x003BCA7B;
 	// init / reset / startNewGame RW 0x62D1D9 / 0x62D3DD / 0x62A236; read by Drawable::drawIconUI RW 0x679134) and TheGameLogic + 0x9B
 	// (OPTIONS_SET_PARTICLE_CAP_MODE, action 301, RW 0x7CE2B6 -> RW 0x7BD56F, DONOR BFME2 0x003BCA8E; init / reset / startNewGame RW 0x62D1E0 /
@@ -1322,6 +1331,7 @@ private:
 	UnsignedInt m_frame = 0;
 	int m_gameDifficulty = 1;     ///< lane CAMP-1H: RW GameLogic + 0xA4
 	bool m_showBehindBuildingMarkers = true; ///< lane OCCLUDE-1: RW GameLogic + 0x99
+	bool m_heroExperienceSharing = true; ///< PORT-301: RW GameLogic + 0x9F (the constructor sets it to 1, RW 0x62D299)
 	bool m_showDrawableIconUI = true;        ///< LOCAL-94: RW GameLogic + 0x9A
 	bool m_particleCapMode = true;           ///< LOCAL-94: RW GameLogic + 0x9B
 	int m_rankLevelLimit = kDefaultRankLevelLimit; ///< PORT-43: RW GameLogic + 0x118 (m_rankLevelLimit)

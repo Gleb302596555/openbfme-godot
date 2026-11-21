@@ -1,4 +1,4 @@
-// OpenBFME. GPL-3.0. See DrawableWallMeshes.h (lane WALL-1).
+// OpenBFME. GPL-3.0. See DrawableWallMeshes.h (lane WALL-1; wall/ramp sub-object mesh extraction RW 0x004B9696).
 
 #include "GameClient/DrawableWallMeshes.h"
 

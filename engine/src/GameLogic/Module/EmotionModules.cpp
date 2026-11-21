@@ -1042,6 +1042,7 @@ void bind(ModuleFactory &modules, const char *name)
 void EmotionModules::registerAll(ModuleFactory &modules)
 {
 	bind<EmotionTrackerUpdate, EmotionTrackerUpdateModuleData>(modules, "EmotionTrackerUpdate");
+	// getModuleName RW 0x0089F761, getModuleNameKey RW 0x0089F767
 	bind<RadiateFearUpdate, RadiateFearUpdateModuleData>(modules, "RadiateFearUpdate");
 }
 
