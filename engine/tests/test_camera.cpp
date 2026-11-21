@@ -8,6 +8,7 @@
 #include "PeImage.h"
 
 #include "Common/Dict.h"
+#include "Common/ModEngineFeatures.h"
 #include "GameClient/CameraSettings.h"
 #include "GameClient/DrawablePick.h"
 #include "GameClient/HudObjects.h"
@@ -711,6 +712,54 @@ TEST_CASE("camera: the middle button rotates, a middle click resets the view")
 	r.frame(6);
 	r.button(HudInput::Button::Middle, false, 500, 400);
 	CHECK(c.getHeightAboveGround() < c.maxHeight());
+}
+
+TEST_CASE("camera: ennorath.middle-click-camera: a middle click is up to 350 ms by the clock and never moved beyond 5 pixels (PYSAGE 1.9.8.5 .camfix); retail 2.01 counts 5 client frames and the release point")
+{
+	if (!haveWorld("camera middle click ennorath"))
+	{
+		return;
+	}
+	struct Retail
+	{
+		~Retail() { ModEngineFeatures::reset(); }
+	} retail;
+	CamRig r(shared());
+	TacticalCamera &c = *r.cam;
+	// a gesture from the default view zoomed in twice; true when the release reset it (the height back at its maximum)
+	auto gesture = [&](int framesHeld, std::initializer_list<ICoord2D> moves) {
+		c.resetCamera();
+		c.zoomIn();
+		c.zoomIn();
+		REQUIRE(c.getHeightAboveGround() < c.maxHeight()); // tolerance: a precondition only, the zoomed view must differ from the reset height
+		r.move(500, 400);
+		r.button(HudInput::Button::Middle, true, 500, 400);
+		ICoord2D last{ 500, 400 };
+		for (const ICoord2D &m : moves)
+		{
+			r.move(m.x, m.y);
+			last = m;
+		}
+		r.frame(framesHeld);
+		r.button(HudInput::Button::Middle, false, last.x, last.y);
+		return c.getHeightAboveGround() == c.maxHeight();
+	};
+	// retail (RW 0x83AD3D .. 0x83AD73): the release point within 5 pixels, y compared unsigned, and fewer than 5 client frames since the press
+	ModEngineFeatures::reset();
+	CHECK(gesture(1, {}));
+	CHECK_FALSE(gesture(1, { { 500, 399 } }));             // one pixel up: no click (the unsigned y difference)
+	CHECK_FALSE(gesture(6, {}));                           // 6 client frames (198 ms)
+	CHECK(gesture(1, { { 520, 400 }, { 500, 400 } }));     // away and back: only the release point counts
+	// Ennorath 1.9.8.5 (.camfix 0xF37000 / 0xF37029, timeGetTime at the press RW 0x83ADE6)
+	std::string error;
+	REQUIRE_MESSAGE(ModEngineFeatures::activate({ "fc32e4c4142b5c607b90972eaf448400" }, &error), error);
+	CHECK(gesture(1, {}));
+	CHECK(gesture(1, { { 500, 399 } }));                   // a small move up is a click now
+	CHECK(gesture(1, { { 505, 395 } }));                   // 5 pixels on each axis: still a click
+	CHECK(gesture(10, {}));                                // 330 ms by the clock
+	CHECK_FALSE(gesture(11, {}));                          // 363 ms: above 350
+	CHECK_FALSE(gesture(1, { { 506, 400 }, { 500, 400 } })); // beyond 5 pixels once while held: no click, though released at the press point
+	CHECK_FALSE(gesture(1, { { 500, 406 } }));
 }
 
 TEST_CASE("camera: the map's playable area limits the camera (border clamping)")

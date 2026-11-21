@@ -353,7 +353,7 @@ class SymbioticStructuresBody : public ActiveBody
 public:
 	OBFME_MODULE_XFER(SymbioticStructuresBody) // lane SAVE-4b (RW 0x008C4C07)
 	SymbioticStructuresBody(Thing *thing, const SymbioticStructuresBodyModuleData *data) : ActiveBody(thing, data), m_symbioticData(data) {}
-	~SymbioticStructuresBody() override = default; // RW 0x008C4CD5
+	~SymbioticStructuresBody() override = default; // RW 0x008C4BE8 / RW 0x008C4CD5
 	// RW + 0x104: the object whose body this one answers with (INVALID_ID until something links them: stop S-343, S-7408)
 	void setSymbiote(ObjectID id) { m_symbioteId = id; }
 	ObjectID symbioteId() const { return m_symbioteId; }

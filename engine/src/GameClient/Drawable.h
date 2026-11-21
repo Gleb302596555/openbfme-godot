@@ -294,6 +294,14 @@ public:
 	bool modelConditionsDirty() const { return m_flagsDirty; }
 	// the weapon cycle the last flush carried (-1: the object had no current weapon), what UseWeaponTiming animations divide by
 	int weaponTimingFrames() const { return m_hasWeaponTiming ? m_weaponTimingFrames : -1; }
+	// LOCAL-106: Drawable::getShouldAnimate (RW 0x00675655; called from W3DScriptedModelDraw::doDrawModule RW 0x004BF615).
+	// Also RW 0x006712E8 (template/object geometry info): the drawable holds its object id and snapshot state.
+	bool getShouldAnimate(bool animationsRequirePower) const;
+	void setDisabledState(DisabledMaskType disabledMask, std::uint8_t scriptStatus)
+	{
+		m_disabledMask = disabledMask;
+		m_scriptStatus = scriptStatus;
+	}
 	// incremented whenever the model condition flags are set: the device layer re-reads the draw frames of a drawable whose count changed
 	unsigned getChangeCount() const { return m_changeCount; }
 
@@ -700,6 +708,8 @@ private:
 	bool m_buildingEntries = false;                                     ///< lane BUILD-4: the constructor is making the draw modules
 	std::vector<std::pair<std::string, bool>> m_pendingModuleRequests; ///< lane BUILD-4: script module requests made meanwhile
 	float m_moveSpeed = 0.0f; ///< lane SMOOTH-3: the presented record's moveSpeed (the Distance animations' speed sync)
+	DisabledMaskType m_disabledMask = DISABLEDMASK_NONE; ///< LOCAL-106 (RW 0x00675670): Object +0x1C8
+	std::uint8_t m_scriptStatus = 0;                     ///< LOCAL-106 (RW 0x00675667): Object +0x457
 	DrawableScriptTarget m_scriptTarget; ///< lane FX-3
 	// lane PERF-3: the angle whose rotation basis syncFromSnapshot last set and that basis; a render frame that presents the same angle (bit for bit) on that
 	// basis skips setOrientation's trigonometry (its result would be these same values)

@@ -2259,6 +2259,7 @@ bool Object::hasAnyWeapon() const
 	return m_weapons && m_weapons->hasAnyWeapon();
 }
 
+// RW 0x0068C842: relationship via controlling player (default NEUTRAL when no team/player)
 Relationship Object::getRelationship(const Object &other) const
 {
 	if (!m_team || !other.m_team || m_undetectable || other.m_undetectable)

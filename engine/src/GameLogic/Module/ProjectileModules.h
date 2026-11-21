@@ -131,6 +131,7 @@ class BezierProjectileBehavior : public UpdateModule, public ProjectileUpdateInt
 public:
 	OBFME_MODULE_XFER(BezierProjectileBehavior) // lane SAVE-4b
 	BezierProjectileBehavior(Thing *thing, const BezierProjectileBehaviorModuleData *data);
+	~BezierProjectileBehavior() override = default; // RW 0x0085EFD2 (~BezierProjectileBehavior), RW 0x0085F9A2 (scalar deleting dtor)
 	UpdateSleepTime update() override;
 	void crc(StateHasher &hasher) const override;
 
@@ -175,7 +176,7 @@ private:
 	void calcLaunchTransform(const Object &launcher, int wslot, int barrel, Coord3D &pos, float basis[9]); // RW 0x6CAB85
 	Coord3D aimPosition(const Object &victim);                       // RW 0x6CB85A with flag 1
 	UpdateSleepTime sleepTime() const;                               // RW 0x85EBAF
-	bool alreadyHit(ObjectID id) const;
+	bool alreadyHit(ObjectID id) const; // RW 0x0085EBCC (inverted: notAlreadyHit)
 	void backOff(const Object &other); // RW 0x85EA5F (lane FLANK-1)
 
 	const BezierProjectileBehaviorModuleData *m_data;

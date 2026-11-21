@@ -142,7 +142,7 @@ void OCLUpdate::registerClass(ModuleFactory &modules)
 	});
 }
 
-// RW 0x89EC00 is (1, 2): UpdateModule, the two frames, from version 2 the count. OpenBFME native layout (S-4190): one version with all three
+// RW 0x0089EBE8 (version block RW 0x89EC00 is (1, 2)): UpdateModule, the two frames, from version 2 the count. OpenBFME native layout (S-4190): one version with all three
 void OCLUpdate::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

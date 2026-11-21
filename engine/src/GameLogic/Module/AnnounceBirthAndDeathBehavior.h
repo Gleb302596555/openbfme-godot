@@ -60,7 +60,8 @@ public:
 	AnnounceBirthAndDeathBehavior(Thing *thing, const AnnounceBirthAndDeathBehaviorModuleData *data);
 
 	CreateModuleInterface *getCreate() override { return this; }
-	DieModuleInterface *getDie() override { return this; }
+	~AnnounceBirthAndDeathBehavior() override = default; // RW 0x00888434 / RW 0x0065470B
+	DieModuleInterface *getDie() override { return this; } // RW 0x00863C00
 
 	void onCreate() override; // RW 0x888439 / BFME2 0x8851AD
 	void onBuildComplete() override; // RW 0x6507E3 / BFME2 0x650A49
@@ -78,7 +79,7 @@ public:
 	// InGameUI::announceHeroEvent gate: true when the object is KindOf HERO and controlled by localPlayer.
 	static bool shouldAnnounceHeroEvent(const Object &obj, const Player *localPlayer);
 
-	static void registerClass(ModuleFactory &factory);
+	static void registerClass(ModuleFactory &factory); // getModuleName RW 0x008883E9, getModuleNameKey RW 0x008883EF
 	static const char *stopLine();
 
 private:

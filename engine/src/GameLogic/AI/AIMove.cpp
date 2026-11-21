@@ -279,7 +279,7 @@ void AIMover::requestPath(const Coord3D &dest, bool isFinalGoal)
 	m_attackRequest = false; // lane PHYS-1: an ordinary request replaces an attack or melee approach request
 	m_safeRequest = false;   // lane MODULES-3: RW 0x667F6B, + 0x3B5
 	m_meleeApproachRequest = false;
-	if ((info.validSurfaces & LOCOMOTORSURFACE_AIR) && !isDoingGroundMovement())
+	if ((info.validSurfaces & LOCOMOTORSURFACE_AIR) && !isDoingGroundMovement()) // RW 0x00662745
 	{
 		computeQuickPath(dest);
 		return;
@@ -681,6 +681,7 @@ bool AIMover::computePath(const Coord3D &destIn)
 		// RW 0x66617F .. 0x6661DC: not for a unit on a bridge layer (RW 0x5E2F24: layers 2 .. 15)
 		const Coord3D pos = obj.getPosition();
 		const bool specialLayer = (int)obj.getLayer() >= 2 && (int)obj.getLayer() <= 15;
+		// RW 0x00662834 / RW 0x0066285B (isLinePassable wrapper around RW 0x6F5BB0)
 		if (!m_isFinalGoal && !specialLayer && m_pf.isLinePassable(&obj, info.validSurfaces, obj.getLayer(), pos, orig, false, true))
 		{
 			return computeQuickPath(dest);
@@ -991,6 +992,7 @@ void AIMover::moveThroughPortal(Locomotor &loco, const PathfindWaypoint &portal,
 	m_doFinalPosition = false;
 }
 
+// RW 0x00669932 (doLocomotor; BitFlags mask init helper RW 0x00665186)
 unsigned AIMover::doLocomotor()
 {
 	PathfindObject &obj = m_host.pathfindObject();

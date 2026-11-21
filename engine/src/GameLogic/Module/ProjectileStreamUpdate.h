@@ -7,11 +7,12 @@
 //     - friend_newModuleInstance: RW 0x0064F9F3
 //     - friend_newModuleData:     RW 0x00654AD2
 //     - ProjectileStreamUpdate:   RW 0x00890AE0, vtable RW 0x00C07A30
-//     - ~ProjectileStreamUpdate:  RW 0x00890B30
-//     - update:                   RW 0x00890B60
-//     - addProjectile:            RW 0x00890B90
-//     - cullFrontOfList:          RW 0x00890C50
-//     - considerDying:            RW 0x00890CA0
+//     - getModuleName / NameKey:  RW 0x00740844, RW 0x0074084A
+//     - ~ProjectileStreamUpdate:  RW 0x0074088F (scalar deleting dtor RW 0x007409DD)
+//     - update:                   RW 0x00740AE5
+//     - addProjectile:            RW 0x007408A8
+//     - cullFrontOfList:          RW 0x007409F9
+//     - considerDying:            RW 0x00740A31
 //     - getAllPoints:             RW 0x00740A56 (DONOR BFME2 ProjectileStreamUpdate::getAllPoints)
 //     - xfer:                     RW 0x00740954
 //   BFME2 1.06:
@@ -47,7 +48,7 @@ public:
 	static constexpr int MAX_PROJECTILE_STREAM = 20;
 
 	ProjectileStreamUpdate(Thing *thing, const ModuleData *moduleData);
-	~ProjectileStreamUpdate() override = default;
+	~ProjectileStreamUpdate() override = default; // RW 0x0074088F (~ProjectileStreamUpdate), RW 0x007409DD (scalar deleting dtor)
 
 	UpdateSleepTime update() override;
 

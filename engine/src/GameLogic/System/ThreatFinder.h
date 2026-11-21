@@ -78,7 +78,7 @@ private:
 class ThreatFinderManager
 {
 public:
-	~ThreatFinderManager() = default; // RW 0x007EE2D1 (~ThreatFinderManager), RW 0x007EE31E (scalar deleting dtor)
+	~ThreatFinderManager() = default; // RW 0x007EE2D1 (~ThreatFinderManager), RW 0x007EE31E (scalar deleting dtor), RW 0x007EE293 (~list<ThreatFinder*>), RW 0x005B468A (~SubsystemInterface)
 	void reset();                     // RW 0x007EE258 (hash_map::clear RW 0x008E3EA1)
 	// INFERENCE BFME2 0x003ED265: registered only when the name's key is not there yet (a second finder of the same name stays unregistered)
 	void add(GameLogic &logic, const std::string &name, ThreatFinder &finder);
