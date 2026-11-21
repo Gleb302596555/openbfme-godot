@@ -71,5 +71,6 @@ public:
 private:
 	UnsignedInt m_startFrame = 0;  // + 0x20
 	UnsignedInt m_expireFrame = 0; // + 0x24
+	float m_flashPhase = 0.0f;    // + 0x28, RW 0x8E3A38
 	bool m_flash = false;          // + 0x2C
 };

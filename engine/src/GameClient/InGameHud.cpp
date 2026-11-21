@@ -140,17 +140,18 @@ InGameHud::InGameHud(Config config)
 		return DrawablePick::rayTest(*d, origin, dir, t);
 	};
 	m_bar = std::make_unique<ControlBar>(m_input->context());
-	auto voiceHandler = [this](const std::string &sound) {
+	auto voiceHandler = [this](const std::string &sound, bool toggleStance) {
 		if (const Player *local = m_input->context().localPlayer())
 		{
 			m_voice->setLocalPlayerIndex(local->getPlayerIndex());
 		}
 		UnitVoiceResponse::Info info;
 		info.commandSound = sound;
+		info.toggleStanceButton = toggleStance;
 		m_voice->pickAndPlay(m_input->ui().selected(), UnitVoiceResponse::VOICE_EVENT_STANCE, &info);
 	};
 	m_bar->setStanceVoiceHandler(voiceHandler);
-	m_bar->setCommandVoiceHandler(voiceHandler);
+	m_bar->setCommandVoiceHandler([voiceHandler](const std::string &sound) { voiceHandler(sound, false); });
 	m_radar = std::make_unique<Radar>(m_input->context());
 	m_input->commandTranslator().setRadar(m_radar.get()); // lane HUD-4: Space (VIEW_LAST_RADAR_EVENT)
 	// lane INPUT-1: a hotkey presses its command button as a click on it would (ControlBar::processCommandUI through pressButton)
@@ -245,6 +246,7 @@ InGameHud::~InGameHud()
 	{
 		m_palantirRef->releaseHandlers(); // the shell-hosted screen outlives this HUD (a failed install left a handler on a freed HUD)
 	}
+	m_config.game.drawables().setRevealMessageHandler(nullptr);
 	m_config.game.drawables().setHeroAttackedHandler(nullptr);
 	m_config.game.drawables().setDeselectHandler(nullptr);
 	m_config.game.drawables().setHeroFlashHandler(nullptr);
@@ -379,6 +381,7 @@ bool InGameHud::boot(std::string *error)
 	}
 	// lane UI-4: the hero bar (InGameHeroSelect.h): AptPalantir::OnHeroSelectLoaded hands the movie's clip path (InGameHeroSelectInterface ctor RW 0x92DDE7)
 	m_heroSelect = std::make_unique<InGameHeroSelect>(m_input->context(), builderCycleTimeoutMs);
+	m_config.game.drawables().setRevealMessageHandler([this](const char *label) { showMessageLabel(label, nullptr); });
 	m_config.game.drawables().setHeroAttackedHandler([this](ObjectID id) { m_heroSelect->onHeroAttacked(id); });
 	m_config.game.drawables().setDeselectHandler([this](ObjectID id) { m_input->ui().deselectObject(id); }); // TOP20 rampage (RW 0x6257E5)
 	m_input->ui().setSelectHandler([this](ObjectID id) { m_config.game.drawables().flashAsSelected(id); }); // LOCAL-3: RW 0x81DC79 / 0x81E0A7

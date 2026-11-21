@@ -5,6 +5,7 @@
 #include "GameLogic/ConstructionSite.h"
 
 #include "Common/BuildAssistant.h"
+#include "Common/Audio/AudioRequests.h"
 #include "Common/Player.h"
 #include "Common/PlayerList.h"
 #include "Common/Thing/ThingFactory.h"
@@ -25,6 +26,15 @@ namespace
 bool kindOfName(const Object &obj, const char *name)
 {
 	return obj.isKindOfName(name);
+}
+
+// RW 0x6AAA2E: this *dispatcher* gate is a signed comparison after a 32-bit add. The
+// price is for the player, without a producer. Only the dozer case passes nonzero credit.
+// Do not substitute the UI / production prerequisite and maximum checks here.
+bool canAffordPlacement(const Player &owner, const ThingTemplate &what, int credit = 0)
+{
+	const auto funds = owner.getMoney()->countMoney() + static_cast<std::uint32_t>(credit);
+	return BuildAssistant::calcCostToBuild(what, &owner, nullptr, -1) <= static_cast<std::int32_t>(funds);
 }
 
 struct ConstructArgs
@@ -101,14 +111,10 @@ bool BuildCommands::foundationConstruct(GameLogic &logic, const GameMessage &m)
 		refuse(m, "the plot is not the issuing player's");
 		return true;
 	}
-	// RW 0x77A91B: Player::canBuild (RW 0x6AAA2E) must accept. PORT-212 (fork issue 502): the case asks Player::canBuild and not
-	// BuildAssistant::canMakeUnit, so the maximum of the template (MaxSimultaneousOfType, canMakeUnit RW 0x794054), its queue and the
-	// command points do not gate a plot's construction; the plot pays in constructOnPlot (RW 0x858AB3, a withdraw that stops at the
-	// money there is, RW 0x7B1809). RotWK therefore builds any number of a plot structure whose INI limit is 1 — Ennorath's
-	// LothlorienEntMoot among them.
-	if (!BuildAssistant::playerCanBuild(*owner, a.tmpl, logic))
+	// RW 0x779A3D: 0x77A9AA -> 0x6AAA2E checks the cost without a producer against cash (+ zero credit).
+	if (!canAffordPlacement(*owner, *a.tmpl))
 	{
-		refuse(m, "Player::canBuild (RW 0x6AAA2E) refuses the template");
+		refuse(m, "the plot owner cannot afford the template");
 		return true;
 	}
 	FoundationAIUpdate *foundation = nullptr;
@@ -122,13 +128,17 @@ bool BuildCommands::foundationConstruct(GameLogic &logic, const GameMessage &m)
 	}
 	// lane BACKLOG2: the dispatcher's BuildAssistant slot 0x38 (RW 0x77AA00 -> buildObjectNow RW 0x797796) clears the site and moves the units off it
 	// (RW 0x7977F3 / 0x797807) before the plot's construct (slot 7, RW 0x797873)
-	if (foundation)
+	const ObjectID plotId = plot->getID();
+	const bool canBuild = foundation && BuildAssistant::playerCanBuild(*owner, a.tmpl, logic);
+	if (canBuild)
 	{
 		ConstructionSite::prepareSite(logic, *plot, *a.tmpl, a.loc, a.angle, *owner);
 	}
-	if (!foundation || !foundation->construct(*a.tmpl, a.loc, a.angle, *owner, false))
+	const bool built = canBuild && foundation->construct(*a.tmpl, a.loc, a.angle, *owner, false);
+	AudioApi::playMiscAudioForObject("BuildingPlacementSound", plotId, owner->getPlayerIndex()); // RW 0x77AA0C, no result test
+	if (!built)
 	{
-		refuse(m, "the plot did not build it");
+		refuse(m, foundation && !canBuild ? "Player::canBuild refuses the template" : "the plot did not build it");
 		return true;
 	}
 	++m_stats.foundations;
@@ -168,30 +178,42 @@ bool BuildCommands::dozerConstruct(GameLogic &logic, const GameMessage &m)
 		refuse(m, "the builder is not the issuing player's");
 		return true;
 	}
+	DozerAIUpdate *dozer = dynamic_cast<DozerAIUpdate *>(builder->getAIUpdateInterface());
+	Object *unplaced = dozer ? logic.findObjectByID(dozer->unplacedStructure()) : nullptr;
+	const int credit = unplaced ? SimMath::truncToInt32(unplaced->getBuildCostPaid()) : 0; // RW 0x88BF1A, slot +78
+	if (owner->orderMode() != 0 || !canAffordPlacement(*owner, *a.tmpl, credit))
+	{
+		refuse(m, "dozer: not in immediate order mode or cannot afford the template"); // RW 0x77B078 / 0x77B0C5
+		return true;
+	}
+	// The dispatcher plays once AFTER buildObjectNow, not inside construct() (also called by rebuilds).
+	const ObjectID builderId = builder->getID();
 	const CanMakeType can = BuildAssistant::canMakeUnit(*builder, a.tmpl, -1);
 	if (can != CANMAKE_OK)
 	{
 		refuse(m, "canMakeUnit " + std::to_string((int)can));
-		return true;
 	}
-	DozerAIUpdate *dozer = dynamic_cast<DozerAIUpdate *>(builder->getAIUpdateInterface());
-	if (!dozer)
+	else if (!dozer)
 	{
 		refuse(m, "the builder has no DozerAIUpdate in this game (no AI world)");
-		return true;
 	}
-	if (!dozer->siteIsLegal(*a.tmpl, a.loc, a.angle, *owner)) // RW 0x88C2A5: before the builder's state, the object or the money change
+	else if (!dozer->siteIsLegal(*a.tmpl, a.loc, a.angle, *owner))
 	{
 		refuse(m, "the site is not legal to build on");
-		return true;
 	}
-	dozer->aiIdle(CMD_FROM_AI); // ZH buildObjectNow: stop any current behavior
-	if (!dozer->construct(*a.tmpl, a.loc, a.angle, *owner))
+	else
 	{
-		refuse(m, "the dozer did not start it");
-		return true;
+		dozer->aiIdle(CMD_FROM_AI);
+		if (dozer->construct(*a.tmpl, a.loc, a.angle, *owner))
+		{
+			++m_stats.dozerBuilds;
+		}
+		else
+		{
+			refuse(m, "the dozer did not start it");
+		}
 	}
-	++m_stats.dozerBuilds;
+	AudioApi::playMiscAudioForObject("BuildingPlacementSound", builderId, owner->getPlayerIndex()); // RW 0x77B152 / 0x77B174
 	return true;
 }
 
@@ -325,12 +347,13 @@ bool BuildCommands::wallSpan(GameLogic &logic, const GameMessage &m)
 		return true;
 	}
 	// RW 0x77C529 -> 0x6AAA2E(template, 0): the owner can afford the template (calcCostToBuild(owner, no producer) <= money + 0; BUILD-1's S-305 calls this function
-	// Player::canBuild), then RW + 0x770 must be 0 (not identified: taken as 0)
-	if ((std::uint32_t)BuildAssistant::calcCostToBuild(*tmpl, owner, nullptr, -1) > owner->getMoney()->countMoney())
+	// Player::canBuild), then RW 0x77C536 requires immediate order mode.
+	if (owner->orderMode() != 0 || !canAffordPlacement(*owner, *tmpl))
 	{
-		refuse(m, "wall span: the owner cannot afford the template");
+		refuse(m, "wall span: not in immediate order mode or cannot afford the template");
 		return true;
 	}
+	const ObjectID hubId = hub->getID();
 	if (WallSpan::build(logic, *hub, a1->location, a2->location, *owner, (unsigned)a3->integer, nullptr))
 	{
 		++m_stats.wallSpans;
@@ -339,6 +362,7 @@ bool BuildCommands::wallSpan(GameLogic &logic, const GameMessage &m)
 	{
 		refuse(m, "wall span: the plan was refused (an illegal tile, the price, or fewer than two tiles)");
 	}
+	AudioApi::playMiscAudioForObject("WallPlacementSound", hubId, owner->getPlayerIndex()); // RW 0x77C5BC: one per order, not per segment
 	return true;
 }
 
@@ -346,6 +370,6 @@ std::vector<std::string> BuildCommands::acceptanceStops()
 {
 	return {
 		"[S-305] build commands: MSG_FOUNDATION_CONSTRUCT / MSG_DOZER_CONSTRUCT / MSG_DOZER_CANCEL_CONSTRUCT / MSG_RESUME_CONSTRUCTION follow the dispatcher cases read at RW 0x77A91B / 0x77B011 / 0x77B1A0 / "
-		"0x77AE9F; Player::canBuild (RW 0x6AAA2E) is stood for by BuildAssistant::playerCanBuild (allowedToBuild RW 0x6AC856, Buildable, the prerequisites), and in the MSG_DOZER_CONSTRUCT case by BuildAssistant::canMakeUnit (S-305) the Dozer construct body's legality gate (RW 0x88C2A5, flags 0x49F) is ported (DozerAIUpdate::siteIsLegal); MSG_DO_REPAIR sends the selected dozers to repair (DozerAIUpdate::repair; the dispatcher case of MSG_DO_REPAIR was not read: S-656)",
+		"0x77AE9F; the dispatcher checks cost against cash plus dozer credit (RW 0x6AAA2E). The port separately retains its plot prerequisites and dozer canMakeUnit guards (S-305); the Dozer construct body's legality gate (RW 0x88C2A5, flags 0x49F) is ported (DozerAIUpdate::siteIsLegal); MSG_DO_REPAIR sends the selected dozers to repair (DozerAIUpdate::repair; the dispatcher case of MSG_DO_REPAIR was not read: S-656)",
 	};
 }

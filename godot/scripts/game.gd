@@ -7155,7 +7155,7 @@ func _begin_replay(path: String) -> void:
 	if not String(choice.get("error", "")).is_empty():
 		_fail("load screen: " + String(choice.error))
 		return
-	var shown: Dictionary = _shell.show_still_load_screen(String(choice.picture))
+	var shown: Dictionary = _shell.show_still_load_screen(String(choice.picture), bool(choice.film_still))
 	if not shown.ok:
 		_fail("load screen: " + str(shown.error))
 		return

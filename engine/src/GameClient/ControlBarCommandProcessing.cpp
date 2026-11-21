@@ -81,11 +81,12 @@ void ControlBar::playStanceVoice(int stance)
 	if (m_stanceVoice)
 	{
 		std::string toggleSound, setSound;
+		bool hasToggle = false;
 		for (const std::vector<ControlBarButton> *list : { &m_palantir, &m_side, &m_offBar })
 		{
 			for (const ControlBarButton &cb : *list)
 			{
-				if (!cb.button || cb.button->m_unitSpecificSound.empty())
+				if (!cb.button)
 				{
 					continue;
 				}
@@ -95,21 +96,22 @@ void ControlBar::playStanceVoice(int stance)
 				{
 					continue;
 				}
-				if (b.m_command == GUI_COMMAND_TOGGLE_STANCE && toggleSound.empty())
+				if (b.m_command == GUI_COMMAND_TOGGLE_STANCE && !hasToggle)
 				{
+					hasToggle = true;
 					const size_t k = (size_t)(at - b.m_stances.begin());
 					toggleSound = k < b.m_unitSpecificSound.size() ? b.m_unitSpecificSound[k] : std::string();
 				}
-				else if (b.m_command == GUI_COMMAND_SET_STANCE && setSound.empty())
+				else if (b.m_command == GUI_COMMAND_SET_STANCE && !b.m_unitSpecificSound.empty() && setSound.empty())
 				{
 					setSound = b.m_unitSpecificSound.front();
 				}
 			}
 		}
-		const std::string &sound = !toggleSound.empty() ? toggleSound : setSound;
-		if (!sound.empty())
+		const std::string &sound = hasToggle ? toggleSound : setSound;
+		if (hasToggle || !sound.empty())
 		{
-			m_stanceVoice(sound);
+			m_stanceVoice(sound, hasToggle);
 		}
 	}
 }
@@ -171,7 +173,11 @@ bool ControlBar::pressButton(int slot, bool inPalantir, bool shift)
 	}
 	// RW 0x9407D9 -> 0x8DEDBB(0x7E3) -> CommandButton::getUnitSpecificSound (RW 0x75D0B9):
 	// play UnitSpecificSound[m_toggleIndex] BEFORE the command switch updates +0xFC; out-of-range stays silent ("").
-	if (m_commandVoice && b.m_command != GUI_COMMAND_SET_STANCE)
+	if (b.m_command == GUI_COMMAND_TOGGLE_STANCE && m_stanceVoice)
+	{
+		m_stanceVoice(b.getUnitSpecificSound(), true);
+	}
+	else if (m_commandVoice && b.m_command != GUI_COMMAND_SET_STANCE)
 	{
 		const std::string &sound = b.getUnitSpecificSound();
 		if (!sound.empty())

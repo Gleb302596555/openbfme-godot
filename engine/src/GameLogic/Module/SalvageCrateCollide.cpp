@@ -161,7 +161,7 @@ bool CrateCollide::isValidToExecute(const Object *other) const
 	{
 		return false;
 	}
-	return true; // RW 0x8C0915: not an undetected defector (+ 0x458 bit 1, never set here: S-1020)
+	return !crate->isUndetectable(); // RW 0x8C0915: [ebp+8] is the module's object (crate), not the collector in edi
 }
 
 void CrateCollide::crc(StateHasher &hasher) const

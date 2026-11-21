@@ -97,6 +97,7 @@ struct AudioReport
 	std::uint64_t culledMuted = 0;
 	std::uint64_t culledDistance = 0;
 	std::uint64_t culledShroud = 0;
+	std::uint64_t culledUnresolved = 0; ///< RW 0x45CB92: the owner could not be resolved (a dead object/drawable)
 	std::uint64_t culledVoice = 0;
 	std::uint64_t culledLimit = 0;
 	std::uint64_t culledNoChannel = 0;
@@ -311,6 +312,8 @@ private:
 		RequestType type = RQ_Play;
 		std::unique_ptr<AudioEventRTS> pending;
 		AudioHandle handle = 0;
+		// RW 0x461B18: keep the sample (not a second voice) alive until the request runs or is cancelled.
+		std::shared_ptr<const AudioDecode::DecodedAudio> sample;
 		bool requiresCheckForSample = false;
 		bool deferred = false;  ///< queued while the request list was being processed: waits for the next tick
 		bool cancelled = false; ///< cancelled while the request list was being processed: the pass erases it
@@ -331,8 +334,9 @@ private:
 	bool isObjectPlayingVoice(std::uint32_t objectId) const;
 	AudioEventRTS *findLowestPrioritySound(const AudioEventRTS &event);
 	bool killLowestPrioritySoundImmediately(const AudioEventRTS &event);
+	bool preloadSample(Request &req);
 	void processRequestList();
-	void processRequest(Request &req);
+	void processRequest(Request &req, bool sampleRefused);
 	bool shouldProcessRequestThisFrame(const Request &req) const;
 	void playAudioEvent(std::unique_ptr<AudioEventRTS> event);
 	// playing

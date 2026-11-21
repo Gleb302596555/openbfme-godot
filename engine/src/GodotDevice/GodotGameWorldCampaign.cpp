@@ -300,6 +300,7 @@ Dictionary GameWorld::start_tutorial(const Dictionary &options)
 	rec["map"] = g(map);
 	rec["load_screen_image"] = g(record->loadScreenStillImage);
 	rec["load_screen_music"] = g(record->loadScreenMusicTrack);
+	rec["load_screen_voice"] = g(record->loadScreenVoiceTrack);
 	rec["load_movie"] = g(record->loadMovie);
 	rec["fade_up_frames"] = (int64_t)record->fadeUpFrames;
 	if (boolOpt(options, "describe_only", false))

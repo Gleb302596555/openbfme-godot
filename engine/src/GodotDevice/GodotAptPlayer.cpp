@@ -897,6 +897,7 @@ struct AptMenuPlayer::Impl
 	// lane MENU-1: the picture loading screen (GameClient/GUI/StillImageLoadScreen.h) while it is up
 	bool stillLoadOn = false;
 	StillImageLoadScreenLayout stillLoad;
+	StillImageLoadAudio stillAudio;
 	std::uint64_t stillLoadStartUs = 0;
 	double stillProgress = -1.0;   ///< lane SAVE-4e: an old save's catch-up (set_still_load_progress); < 0: none
 	std::string stillProgressText; ///< lane SAVE-4e
@@ -1308,7 +1309,7 @@ void AptMenuPlayer::_bind_methods()
 	ClassDB::bind_method(D_METHOD("get_backdrop_state"), &AptMenuPlayer::get_backdrop_state); // lane CAMP-2
 	ClassDB::bind_method(D_METHOD("get_layering_report"), &AptMenuPlayer::get_layering_report); // lane MENU-1
 	ClassDB::bind_method(D_METHOD("choose_load_screen", "spec"), &AptMenuPlayer::choose_load_screen); // lane MENU-1
-	ClassDB::bind_method(D_METHOD("show_still_load_screen", "picture"), &AptMenuPlayer::show_still_load_screen); // lane MENU-1
+	ClassDB::bind_method(D_METHOD("show_still_load_screen", "picture", "film_still", "voice", "music"), &AptMenuPlayer::show_still_load_screen, DEFVAL(false), DEFVAL(String()), DEFVAL(String())); // lane MENU-1
 	ClassDB::bind_method(D_METHOD("hide_still_load_screen"), &AptMenuPlayer::hide_still_load_screen); // lane MENU-1
 	ClassDB::bind_method(D_METHOD("set_still_load_progress", "percent", "text"), &AptMenuPlayer::set_still_load_progress); // lane SAVE-4e
 	ClassDB::bind_method(D_METHOD("get_still_load_screen"), &AptMenuPlayer::get_still_load_screen); // lane MENU-1
@@ -2204,11 +2205,12 @@ Dictionary AptMenuPlayer::choose_load_screen(const Dictionary &spec)
 	Dictionary d;
 	d["kind"] = c.kind == LoadScreenKind::StillImage ? "still" : (c.kind == LoadScreenKind::Players ? "players" : "other");
 	d["picture"] = toGodot(c.picture);
+	d["film_still"] = c.filmStill;
 	d["error"] = toGodot(c.error);
 	return d;
 }
 
-Dictionary AptMenuPlayer::show_still_load_screen(const String &picture)
+Dictionary AptMenuPlayer::show_still_load_screen(const String &picture, bool filmStill, const String &voice, const String &music)
 {
 	Dictionary d;
 	d["ok"] = false;
@@ -2218,6 +2220,7 @@ Dictionary AptMenuPlayer::show_still_load_screen(const String &picture)
 		return d;
 	}
 	std::string error;
+	m->stillAudio.stop();
 	if (!layoutStillImageLoadScreen(m->shell->skins.images, toNative(picture), m->stillLoad, &error))
 	{
 		d["error"] = toGodot(error);
@@ -2226,6 +2229,7 @@ Dictionary AptMenuPlayer::show_still_load_screen(const String &picture)
 	}
 	m->shell->deviceUnverified.insert(m->stillLoad.unverified);
 	m->stillLoadOn = true;
+	m->stillAudio.start(filmStill, toNative(voice), toNative(music));
 	m->stillLoadStartUs = Time::get_singleton()->get_ticks_usec();
 	m->stillProgress = -1.0; // lane SAVE-4e: a new screen has no catch-up line
 	m->stillProgressText.clear();
@@ -2247,6 +2251,7 @@ void AptMenuPlayer::hide_still_load_screen()
 {
 	if (m->stillLoadOn)
 	{
+		m->stillAudio.stop();
 		m->stillLoadOn = false;
 		m->dirty = true;
 		m->drawnValid = false;

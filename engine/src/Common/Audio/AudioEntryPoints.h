@@ -62,6 +62,7 @@ Eva *currentEva();
 bool reportEva(const std::string &eventName, const Coord3D *position, const Coord3D *position2);
 bool reportEva(int eventIndex, const Coord3D *position, const Coord3D *position2);
 std::uint64_t callsWithoutEva();
+std::uint64_t deathReports(); // per installed manager, read on the audio owner
 // lane LOCAL-13: EnemySightedMaxVoicePositionScanRange from MiscEvaData (RW 0x672DFB / TheEva +0x80)
 float enemySightedMaxVoicePositionScanRange();
 // lane EVADAMAGE-1 (RW 0x67B644 .. 0x67B6A4, the end of the drawable's damage notice): `second` (when not "") instead of `event` when `farFrameDue` (the

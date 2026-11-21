@@ -170,7 +170,7 @@ public:
 	// Called from the HUD's message observer for every MSG_CHANGE_STANCE. INFERENCE: the D / F / G hotkeys too: RW's meta case RW 0x8201F5 has no voice, but RW 0x96F890
 	// registers the same keys on the radial's items, whose press is SetStance; that route is not ported (S-280)
 	void playStanceVoice(int stance);
-	void setStanceVoiceHandler(std::function<void(const std::string &)> handler) { m_stanceVoice = std::move(handler); }
+	void setStanceVoiceHandler(std::function<void(const std::string &, bool)> handler) { m_stanceVoice = std::move(handler); }
 	// RW 0x9407D9, BFME2 0x00539DCB: command button voice handler (pickAndPlayUnitVoiceResponse 0x7E3 / 0x7E4 / 0x7E5)
 	void setCommandVoiceHandler(std::function<void(const std::string &)> handler) { m_commandVoice = std::move(handler); }
 	// right press on a build button: cancels one queued unit, or all with Shift and no MaxSimultaneousOfType (RW 0x940CD0); on a REVIVE button the hero record by
@@ -277,7 +277,7 @@ private:
 	std::vector<ControlBarButton> m_palantir, m_side, m_offBar;
 	std::map<const CommandButton *, PendingToggle> m_pendingToggles;
 	std::vector<ObjectID> m_pendingSelection;
-	std::function<void(const std::string &)> m_stanceVoice;
+	std::function<void(const std::string &, bool)> m_stanceVoice; // sound and whether the source was command 0x39
 	std::function<void(const std::string &)> m_commandVoice;
 	std::vector<ControlBarQueueEntry> m_queue;
 	std::uint32_t m_money = 0;

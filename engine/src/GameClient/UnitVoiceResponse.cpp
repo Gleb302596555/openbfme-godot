@@ -25,6 +25,7 @@
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/Object/ExperienceTracker.h"
 #include "GameLogic/Object/Object.h"
+#include "GameLogic/Object/ExperienceTracker.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameLogic/System/InvisibilityManager.h"
 #include "GameLogic/System/ShroudManager.h"
@@ -1384,8 +1385,14 @@ bool UnitVoiceResponse::pickAndPlay(const std::vector<ObjectID> &selection, int 
 				break;
 			}
 			case VOICE_EVENT_STANCE:
-				// RW 0x8DFAE9: the button's sound. Not ported: a SET_STANCE (0x39) button with Player + 0x770 == 2 takes MiscAudio + 0xE0 (RW 0x8DFAFF .. 0x8DFB5F; S-703)
-				if (info && !info->commandSound.empty())
+				// RW 0x8DEDBB: 0x8DFAFF compares 0x39 (TOGGLE_STANCE, not SET_STANCE = 0x3A).
+				if (info && info->toggleStanceButton && obj.getControllingPlayer() && obj.getControllingPlayer()->orderMode() == 2)
+				{
+					Voice v;
+					v.sound = m_sink.planningModeOrderSound(); // RW 0x8DFB34..0x8DFB5F, even an empty slot replaces the button
+					fill(c, v);
+				}
+				else if (info && !info->commandSound.empty())
 				{
 					Voice v;
 					v.sound = info->commandSound;
@@ -1415,7 +1422,7 @@ bool UnitVoiceResponse::pickAndPlay(const std::vector<ObjectID> &selection, int 
 				break;
 			case VOICE_EVENT_START_CHARGING:
 				// RW 0x8DFD0D .. 0x8DFD2B: the literal VoiceStartCharging through the name lookup RW 0x8DDB2A (UnitSpecificSounds, tt + 0x388).
-				// The post of 0x7EA is not ported: stop S-7226 (docs/ennorath/PORT87_RW_ANALYSIS.md)
+				// The charge state posts 0x7EA at RW 0x7549A2 (AIChargeTargetState::onEnter); no second post here.
 				fillName(c, obj, "VoiceStartCharging");
 				break;
 			case VOICE_EVENT_NO_BUILD:
@@ -1616,8 +1623,8 @@ std::vector<std::string> UnitVoiceResponse::acceptanceStops()
 		"[S-702] unit voice: the enemy-near query of the battle voices (RW 0x701443 -> 0x7006D7 with filter 0x6E and the object's vision range RW 0x68E43B, which "
 		"scales obj + 0x1B0 by a module bonus) is approximated by `a living object of an ENEMIES relationship within the template's VisionRange (2D)`",
 		"[S-703] unit voice: message types of RW 0x8DEDBB not answered here: weapon modes (0x43A), "
-		"the planned action queue (0x46A), the Ring voices (0x7E4, 0x7E5); combine hordes (0x423, RW 0x8DF2EB) is answered (PORT-84); 0x7DB .. 0x7DD are answered (PORT-86); "
-		"0x7EA (RW 0x8DFD0D) and 0x7EB (RW 0x8DFE7B) are answered (PORT-87), the post of 0x7EA is stop S-7226",
+		"the planned action queue (0x46A); 0x7E4 / 0x7E5 are auto-ability button sounds in ControlBar::rightPressButton; combine hordes (0x423, RW 0x8DF2EB) is answered (PORT-84); 0x7DB .. 0x7DD are answered (PORT-86); "
+		"0x7EA (RW 0x8DFD0D) and 0x7EB (RW 0x8DFE7B) are answered (PORT-87), AIAttackCharge posts 0x7EA (RW 0x7549A2)",
 		"[S-704] unit voice: VoiceCrush (InGameUI + 0x8B9, crushable target) is not ported; planning and waypoint movement gates are ported (PORT-462)",
 		"[S-705] unit voice: the candidate order is selection then member order (retail iterates a hash map keyed by Object pointers) and a count tie between "
 		"two sounds goes to the lower-case name order (retail: the lower audio info POINTER, RW 0x8DE522's unsigned compare): which sound wins a tie and "

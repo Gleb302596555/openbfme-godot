@@ -4,6 +4,7 @@
 #include "GameClient/GUI/StillImageLoadScreen.h"
 
 #include "GameClient/GUI/Image.h"
+#include "Common/Audio/AudioEntryPoints.h"
 
 #include <cstdio>
 
@@ -23,6 +24,7 @@ LoadScreenChoice chooseLoadScreen(int gameMode, int screenKind, bool loadingSave
 			c.error = "a film still (StillImage_Film01 .. 21) needs the client random source, and none was given";
 			return;
 		}
+		c.filmStill = true;
 		int v = clientRandom(1, 21);
 		v = v < 1 ? 1 : (v > 21 ? 21 : v);
 		char buf[32];
@@ -53,6 +55,39 @@ LoadScreenChoice chooseLoadScreen(int gameMode, int screenKind, bool loadingSave
 			break;
 	}
 	return c;
+}
+
+// RW 0x757DC7. RW 0x91B825 -> 0x626A0D: tutorial record +0C (voice) -> logic +88 -> picture +14;
+// record +10 (music) -> logic +8C -> picture +18. RW 0x626B5F / 0x626C4C / 0x626D22 supply just music.
+void StillImageLoadAudio::start(bool filmStill, const std::string &voice, const std::string &music)
+{
+	stop();
+	m_manager = AudioApi::current();
+	if (!m_manager) return;
+	m_lifetime = m_manager->lifetimeToken();
+	const std::string &track = filmStill ? m_manager->miscAudio("SaveFileLoadMusic") : music;
+	const bool hasVoice = !filmStill && !voice.empty() && m_manager->isValidAudioEvent(voice);
+	const bool hasMusic = !track.empty() && m_manager->isValidAudioEvent(track);
+	if (hasVoice) m_voice = m_manager->addAudioEvent(AudioEventRTS(voice, VIEW_ANY));
+	if (hasMusic)
+	{
+		if (auto *shell = AudioApi::currentShellMusic(); shell && shell != m_manager) shell->stopMusic(true);
+		m_manager->stopMusic(true); // RW 0x757E4C, only for a nonempty second slot
+		m_music = m_manager->addAudioEvent(AudioEventRTS(track, VIEW_ANY));
+	}
+	if (hasVoice || hasMusic) m_manager->update(m_manager->nowMs() + AudioManager::tickIntervalMs()); // RW 0x757E99, once
+}
+
+void StillImageLoadAudio::stop()
+{
+	if (m_manager && !m_lifetime.expired())
+	{
+		if (m_voice >= AHSV_FirstHandle) m_manager->removeAudioEvent(m_voice);
+		if (m_music >= AHSV_FirstHandle) m_manager->removeAudioEvent(m_music);
+	}
+	m_voice = m_music = 0;
+	m_manager = nullptr;
+	m_lifetime.reset();
 }
 
 bool layoutStillImageLoadScreen(const MappedImageCollection &images, const std::string &picture, StillImageLoadScreenLayout &out, std::string *error)
