@@ -642,6 +642,7 @@ UpdateSleepTime DeployStyleAIUpdate::update()
 	return (UpdateSleepTime)((int)sleep < (int)base ? sleep : base); // RW 0x8929C8: cmovl
 }
 
+// RW 0x00891D88 (DeployStyleAIUpdate::xfer)
 void DeployStyleAIUpdate::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

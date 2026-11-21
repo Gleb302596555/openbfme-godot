@@ -27,8 +27,9 @@
 //     MSG_DO_SPECIAL_POWER and the spell book, 2 for _AT_LOCATION with a source object and 0 from the selection, 0 for _AT_OBJECT. A null template still
 //     runs the bookkeeping (no case tests it before the group call). The Edain mod gate (multiExecuteGateAllows) wraps only the member loops' tests.
 //     OpenBFME divergence (Sol review r1, as DEVPORT-7e): a named source object the issuing player does not control drops the message (foreignSources()).
-//     NOT PORTED (S-531): the ActionManager's unit cost, range, terrain, shroud and forbidden-object tests (RW 0x82E0BE .. 0x82E128), the toggled object of
-//     MSG_DO_SPECIAL_POWER (status 0x64), and the special team-id location case of _AT_OBJECT (RW 0x77A640).
+//     RW 0x76F881 -> 0x82DFB7 is now applied to each location-targeted member before its cast (PORT-273); the separately unported per-type predicates
+//     retain the counted allow-through policy. NOT PORTED (S-531): the toggled object of MSG_DO_SPECIAL_POWER (status 0x64), and the special team-id
+//     location case of _AT_OBJECT (RW 0x77A640).
 
 #pragma once
 

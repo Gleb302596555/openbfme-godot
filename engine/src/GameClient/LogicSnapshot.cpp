@@ -257,6 +257,7 @@ std::shared_ptr<const LogicSnapshot> LogicSnapshot::build(GameLogic &logic, cons
 	{
 		// lane VISUAL-2: the breeze as the tree buffer reads it each client frame (RW 0x4ED566: TheScriptEngine + 0x1A5A8)
 		const ScriptEngine::BreezeInfo &b = logic.scriptEngine().getBreezeInfo();
+		snap->breeze.direction = b.direction;
 		snap->breeze.directionX = b.directionX;
 		snap->breeze.directionY = b.directionY;
 		snap->breeze.intensity = b.intensity;
@@ -431,6 +432,8 @@ std::shared_ptr<const LogicSnapshot> LogicSnapshot::build(GameLogic &logic, cons
 			s.drawableHidden = true; // RW 0x88D3B2 .. 0x88D3DB: not the local player's phantom (RW 0x6AA7B2; the owner's + 0x35A byte, RW 0x6AAC44, is not ported)
 		}
 		s.effectivelyDead = o->isEffectivelyDead(); // lane VISUAL-2
+		static const int kBurned = ObjectTemplateInfoBuilder::objectStatusIndex("BURNED");
+		s.burned = kBurned >= 0 && o->testStatus((unsigned)kBurned); // LOCAL-103: RW 0x008CD921
 		s.occlusion = RTS3DSceneOcclusion::eligibility(RTS3DSceneOcclusion::factsOf(*o), occlusionFrame); // lane OCCLUDE-1 (RW 0x470DD2 .. 0x470EC5)
 		s.containedBy = o->getContainedBy() ? o->getContainedBy()->getID() : (ObjectID)INVALID_ID; // lane COMBAT-4
 		if (const Object *outer = o->getContainedBy()) // lane PORT-91 (issue #239): RW 0x4C7848's contain answer (RW 0x9188EB / 0x86C737)

@@ -11,6 +11,7 @@
 #include "GameClient/ModelConditionAudioLoopClientBehavior.h"
 #include "GameClient/RenderInterpolation.h"
 #include "GameClient/StealthLook.h"
+#include "GameClient/SwayClientUpdate.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DTreeDraw.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDrawVariants.h"
@@ -1721,6 +1722,29 @@ bool Drawable::entryTransform(const DrawEntry &e, Matrix3D &outMatrix) const
 		pos.z += basis[8] * k;
 	}
 	const float scale = getInstanceScale();
+	if (m_hasInstanceMatrix)
+	{
+		Matrix3D world;
+		for (int r = 0; r < 3; ++r)
+		{
+			for (int c = 0; c < 3; ++c)
+			{
+				world.Row[r][c] = basis[r * 3 + c];
+			}
+		}
+		world.Row[0][3] = pos.x;
+		world.Row[1][3] = pos.y;
+		world.Row[2][3] = pos.z;
+		Matrix3D::Multiply(world, m_instanceMatrix, &outMatrix);
+		for (int r = 0; r < 3; ++r)
+		{
+			for (int c = 0; c < 3; ++c)
+			{
+				outMatrix.Row[r][c] *= scale;
+			}
+		}
+		return false;
+	}
 	for (int r = 0; r < 3; ++r)
 	{
 		for (int c = 0; c < 3; ++c)
@@ -1732,6 +1756,29 @@ bool Drawable::entryTransform(const DrawEntry &e, Matrix3D &outMatrix) const
 	outMatrix.Row[1][3] = pos.y;
 	outMatrix.Row[2][3] = pos.z;
 	return false;
+}
+
+void Drawable::setInstanceMatrix(const Matrix3D &xfrm)
+{
+	m_instanceMatrix = xfrm;
+	m_hasInstanceMatrix = true;
+}
+
+float Drawable::getZRotation() const
+{
+	const float *b = getBasis();
+	return std::atan2(b[3], b[0]);
+}
+
+void Drawable::updateSway(const W3DVegetationSway::Breeze &breeze, bool visible, bool burnedOrDead)
+{
+	for (const auto &m : m_clientModules)
+	{
+		if (auto *sway = dynamic_cast<SwayClientUpdate *>(m.get()))
+		{
+			sway->clientUpdate(breeze, m_services.random, visible, burnedOrDead);
+		}
+	}
 }
 
 // ------------------------------------------------------------------------------------------------

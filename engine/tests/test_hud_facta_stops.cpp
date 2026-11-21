@@ -84,13 +84,13 @@ TEST_CASE("FACT-A stops: S-1980 .. S-1986 are reported where they apply")
 		r.frames(3);
 		CHECK(reported(r.logic(), "[S-1980]"));
 
-		// S-1981: SellPercentage not loaded
+		// S-1981 closed (PORT-231): GlobalData ctor default is 1.0f (RW 0x643160 / 0x643222), so an unloaded SellPercentage notes no stop
 		r.logic().settings().sellPercentageLoaded = false;
 		Object *farm = r.make("GondorFarm", r.spot(2600.0f, 1500.0f, 300.0f));
 		r.frames(2);
 		r.logic().sellList().sellObject(farm);
 		r.frames(3);
-		CHECK(reported(r.logic(), "[S-1981]"));
+		CHECK_FALSE(reported(r.logic(), "[S-1981]"));
 		r.logic().settings().sellPercentageLoaded = true;
 
 		// S-1982: a fire-weapon order on the ground; S-1983: the hold-fire toggle

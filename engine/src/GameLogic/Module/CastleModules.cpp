@@ -11,6 +11,7 @@
 #include "GameLogic/Map/TerrainTaintClear.h"
 #include "GameLogic/Object/PartitionManager.h"
 
+#include "Common/AsciiString.h"
 #include "Common/Audio/AudioRequests.h"
 #include "Common/BuildAssistant.h"
 #include "Common/CommandPoints.h"
@@ -399,8 +400,8 @@ void CastleBehavior::onCreate()
 	initiateUnpack(false, nullptr); // lane BACKLOG2: RW 0x79C17D(0, null): state 1 and the side's price (none for a retail summoned castle); the constructor's wake runs it
 }
 
-// RW 0x799F0F: the keep (+ 0x38) and the members (+ 0x5C) clear one model condition and set another (Object RW 0x68D607); their CastleMemberBehavior's own
-// sub-object call (RW 0x798057) is not ported (S-951)
+// RW 0x799F0F: the keep (+ 0x38) and the members (+ 0x5C) clear one model condition and set another (Object RW 0x68D607) and notify their
+// CastleMemberBehavior (RW 0x00798057) for BeingBuiltSound (PORT-231)
 void CastleBehavior::setMembersModelCondition(int clear, int set)
 {
 	GameLogic &logic = getObject()->logic();
@@ -416,6 +417,10 @@ void CastleBehavior::setMembersModelCondition(int clear, int set)
 		if (set >= 0)
 		{
 			o->setModelConditionState(set, true);
+		}
+		if (CastleMemberBehavior *cm = CastleMemberBehavior::of(*o))
+		{
+			cm->onParentModelConditionChanged(clear, set); // RW 0x00798057
 		}
 	};
 	apply(m_keepId != INVALID_ID ? logic.findObjectByID(m_keepId) : nullptr);
@@ -1608,6 +1613,53 @@ CastleMemberBehavior::CastleMemberBehavior(Thing *thing, const CastleMemberBehav
 	: BehaviorModule(thing, data)
 	, m_data(data)
 {
+}
+
+// PORT-231: RW 0x00797C40 (destructor stops held BeingBuiltSound handle at +0x20 when active)
+CastleMemberBehavior::~CastleMemberBehavior()
+{
+	if (m_beingBuiltSoundActive && getObject())
+	{
+		AudioApi::stopHeldSound(AudioApi::HELD_CASTLE_BEING_BUILT, getObject()->getID());
+		m_beingBuiltSoundActive = false;
+	}
+}
+
+void CastleMemberBehavior::onDelete()
+{
+	if (m_beingBuiltSoundActive && getObject())
+	{
+		AudioApi::stopHeldSound(AudioApi::HELD_CASTLE_BEING_BUILT, getObject()->getID());
+		m_beingBuiltSoundActive = false;
+	}
+}
+
+// PORT-231: RW 0x00798057 (BeingBuiltSound on BASE_BUILD model condition bit 219)
+void CastleMemberBehavior::onParentModelConditionChanged(int clear, int set)
+{
+	Object *obj = getObject();
+	if (!obj)
+	{
+		return;
+	}
+	const int baseBuild = castleNames().baseBuild;
+	if (baseBuild < 0)
+	{
+		return;
+	}
+	if (set == baseBuild)
+	{
+		if (!m_data->m_beingBuiltSound.empty() && AsciiStringUtil::compareNoCase(m_data->m_beingBuiltSound, "NoSound") != 0)
+		{
+			AudioApi::resumeHeldSound(AudioApi::HELD_CASTLE_BEING_BUILT, m_data->m_beingBuiltSound, obj->getID(), obj->getID());
+			m_beingBuiltSoundActive = true;
+		}
+	}
+	else if (clear == baseBuild && m_beingBuiltSoundActive)
+	{
+		AudioApi::stopHeldSound(AudioApi::HELD_CASTLE_BEING_BUILT, obj->getID());
+		m_beingBuiltSoundActive = false;
+	}
 }
 
 bool CastleMemberBehavior::plotIsTaken() const

@@ -50,6 +50,7 @@
 
 class ModuleFactory;
 
+// RW 0x008BBFDB / RW 0x008BBD6A (AudioLoopUpgradeModuleData dtor)
 class AudioLoopUpgradeModuleData : public UpgradeModuleData
 {
 public:
@@ -70,8 +71,10 @@ public:
 	UpgradeMux *getUpgrade() override { return this; }
 	DieModuleInterface *getDie() override { return this; }
 	void onDie(const DieModuleInterface::Event &event) override;  // RW 0x8BBF5A
+	// RW 0x008BBCB0 (getModuleName), RW 0x008BBCD9 (getModuleNameKey);
+	// mux slots 11..15: RW 0x008BBF2C -> RW 0x0086232E (masks), RW 0x008BBF37 (requiresAll), RW 0x008BBF41 (startsActive), RW 0x008BBF4B (FX)
 	UpdateSleepTime update() override;                             // RW 0x8BBCB6
-	DisabledMaskType getDisabledTypesToProcess() const override     // RW 0x8BBFF7
+	DisabledMaskType getDisabledTypesToProcess() const override     // RW 0x8BBFF7 (copies mask via RW 0x007B3CE0)
 	{
 		return (DisabledMaskType) ~((1u << DISABLED_EMP) | (1u << DISABLED_UNMANNED));
 	}

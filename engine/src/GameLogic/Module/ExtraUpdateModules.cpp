@@ -121,6 +121,7 @@ void MonitorConditionUpdate::swapTo(const std::string &target, const std::string
 		m_saved = current;
 	}
 	obj->setCommandSetOverride(target); // RW 0x693B94
+	// RW 0x008E3D1E (S-982): skirmish AI notification from Object::setCommandSetOverride (RW 0x693B94 -> RW 0x693BE7)
 	obj->logic().noteStop("[S-982] MonitorConditionUpdate: the command set override's skirmish AI notification (RW 0x693B94 -> 0x8E3D1E) is not ported");
 }
 

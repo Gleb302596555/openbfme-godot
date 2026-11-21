@@ -784,6 +784,7 @@ void SupplyWarehouseDockUpdate::xfer(Xfer &x)
 	SnapshotXfer::version(x, 1, 1); // RW 0x8AB451: version 1 (RW 0x404F15), the dock base (RW 0x99248C), then the boxes (+ 0x88)
 	xferDockUpdate(x);
 	x.xferInt(&m_boxesStored);
+	SnapshotXfer::checkRange(m_boxesStored, 0, 0x7FFFFFFF, "SupplyWarehouseDockUpdate m_boxesStored");
 }
 
 void SupplyCenterDockUpdate::xfer(Xfer &x)

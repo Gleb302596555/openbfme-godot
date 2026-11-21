@@ -271,19 +271,21 @@ const char *meleeReachStopLine()
 class ObjectWeapons::RangeHost : public WeaponRangeHost
 {
 public:
-	explicit RangeHost(ObjectWeapons &w) : m_w(w) {}
-	ObjectWeapons &m_w;
+	explicit RangeHost(ObjectWeapons &w) : RangeHost(w.owner(), &w) {}
+	RangeHost(Object &owner, ObjectWeapons *set) : m_owner(owner), m_set(set) {}
+	Object &m_owner;
+	ObjectWeapons *m_set;
 	// RW 0x6CA61F (WeaponRangeScale) -> RW 0x6CA641: source->getAttributeModifierSum(7, &sum, nullptr) (RW 0x68C818).
 	// Pure const read on the owner's pool (safe on the PERF-WS logic job pool).
-	bool rangeAttributeSum(float &sum) override { return m_w.owner().attributeModifierSum(ATTRIBUTE_RANGE, nullptr, sum); }
+	bool rangeAttributeSum(float &sum) override { return m_owner.attributeModifierSum(ATTRIBUTE_RANGE, nullptr, sum); }
 	// lane GARRISON-1: GameData GarrisonedRangeMultiplier (RW + 0x1224; RW 0x6CA61F applies it when >= 0 and the source is INSIDE_GARRISON)
-	float garrisonRangeScale() override { return m_w.owner().logic().settings().garrisonedRangeMultiplier; }
+	float garrisonRangeScale() override { return m_owner.logic().settings().garrisonedRangeMultiplier; }
 	// lane GARRISON-1: RW 0x6FF412(source, 3): with an AI, the bounding radius plus the vision range (RW 0x68E43B: Object + 0x1B0, the template's VisionRange; its
 	// VISION attribute modifier and height bonus terms RW 0x68E459 .. 0x68E4DC are not ported, as STEALTH-1's detector range); the AI mood's AIData multipliers
 	// (RW 0x6FF44A .. 0x6FF47E: + 0x4C / + 0x50 for the guard moods) are not ported (S-1103)
 	float garrisonRangeCap(const RangeSubject &source) override
 	{
-		const Object &o = m_w.owner();
+		const Object &o = m_owner;
 		if (!o.getAIUpdateInterface())
 		{
 			return 0.0f; // RW 0x6FF431: [0xC1B594] = 0
@@ -316,8 +318,8 @@ public:
 		{
 			return CircleDistanceSquared(sourcePos, source.boundingCircleRadius, victim.position, victim.boundingCircleRadius) <= SimMath::mulf32(m_meleeReach, m_meleeReach);
 		}
-		Object &self = m_w.owner();
-		const Weapon *cur = m_w.currentWeapon();
+		Object &self = m_owner;
+		const Weapon *cur = m_set ? m_set->currentWeapon() : nullptr;
 		if (!cur || !cur->getTemplate() || !cur->getTemplate()->m_meleeWeapon)
 		{
 			return false;
@@ -349,7 +351,7 @@ public:
 		static const int canClimbWalls = CombatNames::kindOf("CAN_CLIMB_WALLS");
 		if (victim.object->isKindOf((unsigned)canClimbWalls) && objectIsOnWall(*victim.object))
 		{
-			const Object &self = source.object ? *source.object : m_w.owner();
+			const Object &self = source.object ? *source.object : m_owner;
 			const float d2 = CircleDistanceSquared(*self.getPosition(), source.boundingCircleRadius, *victim.object->getPosition(), victim.boundingCircleRadius);
 			return (double)d2 < 5.0;
 		}
@@ -368,7 +370,7 @@ public:
 		return false;
 	}
 	// lane AIDATA-1: RW 0x6CC07C reads [TheAI + 0x18] + 0xD0, AIData ChaseFromBehindLimit (retail aidata.ini 50.0; the constructor's 50.0 RW 0xBD88C4)
-	float meleeRunDownLimit() override { return m_w.owner().logic().settings().chaseFromBehindLimit; }
+	float meleeRunDownLimit() override { return m_owner.logic().settings().chaseFromBehindLimit; }
 	// lane WALLMELEE-1, RW 0x6CC07C's layer rule (RW 0x6CC137 .. 0x6CC17E): a WALL_UPGRADE victim (template + 0x11A & 0x40) keeps the reach test's answer; else a source
 	// on the ground cannot hit a victim on a wall top (>= 0x11), and a source on a wall top a victim on the ground only through the victim's created
 	// DynamicPortalBehaviour (RW 0x863983, + 0x3C)
@@ -379,7 +381,7 @@ public:
 	}
 	int layerOf(const RangeSubject &subject, bool victim) override // RW 0x68BBE0
 	{
-		const Object *o = subject.object ? subject.object : (victim ? nullptr : &m_w.owner());
+		const Object *o = subject.object ? subject.object : (victim ? nullptr : &m_owner);
 		return o ? (int)AIWorld::objectLayer(*o) : (int)LAYER_GROUND;
 	}
 	bool victimLayerException(const RangeSubject &victim) override
@@ -1566,7 +1568,7 @@ CanAttackResult ObjectWeapons::getAbleToUseWeaponAgainstTarget(int attackType, c
 // ---------------------------------------------------------------------------------------------------------------------------------
 // range
 // ---------------------------------------------------------------------------------------------------------------------------------
-RangeSubject ObjectWeapons::subjectOf(const Object &obj) const
+RangeSubject ObjectWeapons::subjectOf(const Object &obj)
 {
 	const CombatNames::Kind &k = CombatNames::kinds();
 	const CombatNames::Status &st = CombatNames::statuses();
@@ -1863,6 +1865,16 @@ float ObjectWeapons::attackRangeNoTargetFor(const Weapon &weapon, const Object &
 	return WeaponGetAttackRangeNoTarget(*weapon.getTemplate(), bonus, sw ? sw->rangeHost() : *self->m_rangeHost, subjectOf(source));
 }
 
+// RW 0x6CA935: the source supplies the bonus even when it has no ordinary WeaponSet.
+// A targeting query must not construct/load any weapons (or advance the logic RNG).
+float ObjectWeapons::abilityWeaponRange(const WeaponTemplate &weapon, Object &source)
+{
+	WeaponBonus bonus;
+	ComputeWeaponBonus(source.weaponBonusConditionMask(), 0, source.logic().settings().globalWeaponBonusSet.get(), weapon, bonus);
+	RangeHost range(source, source.getWeapons());
+	return WeaponGetAttackRangeNoTarget(weapon, bonus, range, subjectOf(source));
+}
+
 bool ObjectWeapons::isTooClose(const Object &victim) const
 {
 	const Weapon *w = weaponInSlot(m_curSlot);
@@ -2106,6 +2118,11 @@ void ObjectWeapons::setFiringConditionForCurrentWeapon()
 	{
 		applySlotCondition(m_curSlot, 1);
 	}
+}
+
+void ObjectWeapons::trackAbilityShot(const Weapon &weapon, ObjectID victim, const Coord3D &pos)
+{
+	m_tracker.shotFired(*m_trackerHost, weapon, victim, pos, true); // RW 0x8961F7 -> RW 0x8E326D(..., 1)
 }
 
 void ObjectWeapons::resetFiringTracker(bool hard)

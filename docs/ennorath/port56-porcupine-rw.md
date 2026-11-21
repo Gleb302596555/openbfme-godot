@@ -21,7 +21,7 @@ Body-interface vtable `0xC72E58` compared with ActiveBody's `0xC720F0` (the vtab
 | `+0x00` | `0x8C3FA3` | `0x8C63C4` | `attemptDamage` |
 | `+0x9C` | `0x9B501B` (`mov al, 1; ret 4`) | `0x8C62BB` | crush-allow check |
 
-Primary-vtable slots that differ from ActiveBody are the destructor thunk RW `0x8C6228`, the name-key thunk RW `0x8C60BF` (`jmp 0x8C35AF`), the name getter RW `0x8C61C4`, and the xfer thunk RW `0x8C5524`. None of them read `+0x64` / `+0x68` / `+0x6C`.
+Primary-vtable slots that differ from ActiveBody are the scalar deleting destructor RW `0x8C6228`, the `loadPostProcess` thunk RW `0x8C60BF` (`jmp 0x8C35AF`, the shared ActiveBody routine), the snapshot-name getter RW `0x8C61C4`, xfer RW `0x8C5524`, and `getModuleNameKey` RW `0x8C61E3`. The module `loadPostProcess` dispatch is the shared mechanism in S-7408; it is not a pike-crush reader. None of these slots read `+0x64` / `+0x68` / `+0x6C`.
 
 ## Parser rows (table `0xC72E18`)
 

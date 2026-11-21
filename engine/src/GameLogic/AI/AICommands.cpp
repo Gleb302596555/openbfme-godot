@@ -57,8 +57,23 @@ void AICommands::recordAttackOrderAccepted()
 	}
 }
 
+const FormationAssistant *GameLogic::formationAssistant() const
+{
+	if (m_formationAssistant) return m_formationAssistant;
+	const auto *world = RetailObjectWorld::currentContext();
+	return world ? &world->formations() : nullptr;
+}
+
+void AICommands::setFormationAssistant(const FormationAssistant *assistant)
+{
+	m_formations = assistant;
+	if (m_registeredLogic) m_registeredLogic->setFormationAssistant(assistant);
+}
+
 void AICommands::registerHandlers(GameLogicDispatch &d)
 {
+	m_registeredLogic = &d.logic();
+	m_registeredLogic->setFormationAssistant(m_formations);
 	s_activeCommands = this;
 	for (int t : { (int)MSG_DO_MOVETO, (int)MSG_DO_FORCEMOVETO, (int)MSG_DO_ATTACKMOVETO, (int)MSG_ADD_WAYPOINT })
 	{
@@ -302,17 +317,14 @@ bool AICommands::formationMove(GameLogic &logic, const GameMessage &m)
 	}
 	const auto *type=arg(m,2,ARGUMENTDATATYPE_INTEGER);
 	const auto *attack=arg(m,3,ARGUMENTDATATYPE_BOOLEAN);
-	const auto *world=RetailObjectWorld::currentContext();
+	const auto *assistant = logic.formationAssistant();
 	// PR #88 review fix 5: a NaN / infinite angle or location from a malformed peer message is rejected; it reached the per-slot moves and
 	// crashed (or, on the old whole-group path, hung) the simulation. The angle must also lie in [-2 pi, 2 pi] (the client sends an atan2
 	// result): a huge finite facing (1e20) never leaves the final-turn wrap loop (AIMove, RW 0x748E46), whose 2 pi steps vanish at that magnitude
 	const float twoPi = 6.2831855f;
-	if (!type || !attack || (!world && !m_formations) || !finiteLocation(dest->location) || !(angle->real >= -twoPi && angle->real <= twoPi)) { ++m_stats.rejected; return false; }
+	if (!type || !attack || !assistant || !finiteLocation(dest->location) || !(angle->real >= -twoPi && angle->real <= twoPi)) { ++m_stats.rejected; return false; }
 	const auto ids = selection(logic, m.getPlayerIndex());
-	// An assistant set explicitly (setFormationAssistant: the unit tests' synthetic worlds) wins over the registered world's, so a retail
-	// world left registered by another test cannot replace it; the game sets none and uses the world's FormationAssistant.ini
-	const auto &assistant = m_formations ? *m_formations : world->formations();
-	const auto slots = assistant.layout(logic, ids, type->integer, dest->location);
+	const auto slots = assistant->layout(logic, ids, type->integer, dest->location);
 	if (slots.empty()) { ++m_stats.rejected; return false; }
 	const float c = SimMath::cosDet(SimMath::addf32(angle->real, 1.5707964f)), s = SimMath::sinDet(SimMath::addf32(angle->real, 1.5707964f));
 	std::map<ObjectID, Coord3D> computedPositions;

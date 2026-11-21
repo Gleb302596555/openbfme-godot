@@ -924,13 +924,15 @@ int FiringTracker::getShotsAtTarget(bool hasVictim, unsigned victimID, const Coo
 // RW 0x8E326D
 void FiringTracker::shotFired(FiringTrackerHost &host, const Weapon &weapon, unsigned victimID, const Coord3D &victimPos, bool hard)
 {
+	const std::uint32_t now = host.currentFrame();
+	m_lastShotFrame = now; // RW 0x8E326D: +0x44 is stamped even on the hard-reset branch
+	m_lastOwnerPosition = host.ownerPosition();
 	if (hard)
 	{
 		m_count = 1;
 		reset(host, true);
 		return;
 	}
-	const std::uint32_t now = host.currentFrame();
 	const bool idShot = victimID != 0;
 	if (idShot)
 	{
@@ -973,8 +975,6 @@ void FiringTracker::shotFired(FiringTrackerHost &host, const Weapon &weapon, uns
 		m_autoReloadDeadline = now + t.m_autoReloadWhenIdle;
 	}
 	m_coastEnd = t.m_continuousFireCoastFrames != 0 ? weapon.whenWeCanFireAgain() + t.m_continuousFireCoastFrames : 0;
-	m_lastShotFrame = now;
-	m_lastOwnerPosition = host.ownerPosition();
 	const int one = t.m_continuousFireOneShotsNeeded;
 	const int two = t.m_continuousFireTwoShotsNeeded;
 	const std::uint32_t mask = host.weaponBonusConditionMask();
