@@ -543,7 +543,9 @@ void SkirmishAIManager::xferState(Xfer &x, bool hooksInstalled)
 			}
 		}
 	}
-	// lane PORT-196: the ARMY_BREAKER list or a draw bound other than its start value needs version 10
+	// The reader's ceiling is this game's current list: a game that already holds an army
+	// breaker timer accepts v10, a fresh game refuses it (RW 0xA1F5B9 compares the loaded
+	// version with the reader's ceiling). Only the writer selects a lower version for an empty list.
 	armyBreaker = !m_armyBreakerTimers.empty();
 	// a task list needs the enemy-cache fields too: version 7 always carries version 6's bytes
 	const int written = armyBreaker ? 10 : (gatherers ? 9 : (forfeitTactic ? 8 : (hasTasks ? 7 : (enemyCache ? 6 : 5))));
@@ -929,16 +931,22 @@ void SkirmishAIManager::checkLoaded() const
 			AIXfer::inRange(tac.targetIndex, -1, (long long)owner->second->brain.targets.size() - 1, "skirmish ai: a tactic's target");
 		}
 	}
-	// the assist timers: one per player, each a player of the game (RW 0x9E880B appends a player once)
-	std::set<int> assisted;
-	for (const auto &t : m_assistTimers)
-	{
-		player(t.first, "skirmish ai: the player of a spell book assist timer");
-		if (!assisted.insert(t.first).second)
+	// RW 0x9E880B (assist) and RW 0x9E9222 (army breaker, 0x9E9244 / 0x9E9270):
+	// find the casting player, append only on a miss. Each list has its own timers.
+	auto checkTimers = [&](const auto &timers, const std::string &kind) {
+		std::set<int> seen;
+		const std::string what = "skirmish ai: the player of a " + kind + " timer";
+		for (const auto &t : timers)
 		{
-			throw XferException("skirmish ai: player " + std::to_string(t.first) + " has two spell book assist timers");
+			player(t.first, what.c_str());
+			if (!seen.insert(t.first).second)
+			{
+				throw XferException("skirmish ai: player " + std::to_string(t.first) + " has two " + kind + " timers");
+			}
 		}
-	}
+	};
+	checkTimers(m_assistTimers, "spell book assist");
+	checkTimers(m_armyBreakerTimers, "spell book army breaker");
 	// objects the AI keeps up to date with the object events (RW 0x6A9D9C / 0x6A99CB): a request's producer, the free dozers, the dozer and unit
 	// factories, the player info records' lists. They must be objects of the loaded game
 	auto object = [&](ObjectID id, const char *what) {
@@ -1196,6 +1204,7 @@ void SkirmishAIManager::xfer(Xfer &x)
 	}
 	SkirmishAIManager loaded(m_logic);
 	loaded.m_store = m_store;
+	loaded.m_armyBreakerTimers = m_armyBreakerTimers; // the reader's ceiling is this game's current list
 	loaded.xferState(x, m_worldHooks != 0);
 	AIXfer::blockReadToEnd(x, "skirmish ai"); // before the commit below (GameState's endBlock check comes after this xfer)
 	loaded.checkLoaded();
@@ -1204,6 +1213,7 @@ void SkirmishAIManager::xfer(Xfer &x)
 	m_attackedAtIds = loaded.m_attackedAtIds;
 	m_expansionHeuristicFrames = loaded.m_expansionHeuristicFrames;
 	m_assistTimers = std::move(loaded.m_assistTimers);
+	m_armyBreakerTimers = std::move(loaded.m_armyBreakerTimers);
 	m_groups = std::move(loaded.m_groups);
 	m_infoPlayers = std::move(loaded.m_infoPlayers);
 	m_captureFlags = std::move(loaded.m_captureFlags);

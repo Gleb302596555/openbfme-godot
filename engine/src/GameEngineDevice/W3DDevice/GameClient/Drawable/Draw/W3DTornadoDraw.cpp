@@ -271,6 +271,7 @@ void W3DTornadoDraw::xfer(Xfer &x)
 		x.xferReal(&m_decals[i].angle);
 		x.xferUnsignedInt(&m_decals[i].color);
 		x.xferInt(&m_decals[i].opacity);
+		SnapshotXfer::checkRange(m_decals[i].opacity, 0, 255, "W3DTornadoDraw decal opacity"); // a byte's share, as the draw sets it
 		x.xferBool(&m_decals[i].hasShadow);
 	}
 }

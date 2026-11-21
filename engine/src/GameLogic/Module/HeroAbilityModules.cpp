@@ -2493,8 +2493,8 @@ void HeroAbilityModules::registerAll(ModuleFactory &modules)
 	bindRuntime<DamageFilteredCreateObjectDie, DamageFilteredCreateObjectDieModuleData>(modules, "DamageFilteredCreateObjectDie");
 	bindRuntime<AutoAbilityBehavior, AutoAbilityBehaviorModuleData>(modules, "AutoAbilityBehavior");
 	bindRuntime<WeaponModeSpecialPowerUpdate, WeaponModeSpecialPowerUpdateModuleData>(modules, "WeaponModeSpecialPowerUpdate");
-	bindRuntime<DualWeaponBehavior, DualWeaponBehaviorModuleData>(modules, "DualWeaponBehavior");
-	bindRuntime<TemporarilyDefectUpdate, TemporarilyDefectUpdateModuleData>(modules, "TemporarilyDefectUpdate");
+	bindRuntime<DualWeaponBehavior, DualWeaponBehaviorModuleData>(modules, "DualWeaponBehavior"); // RW 0x0085DE48, RW 0x0085DE54, RW 0x0085DE2F, RW 0x0085DF21
+	bindRuntime<TemporarilyDefectUpdate, TemporarilyDefectUpdateModuleData>(modules, "TemporarilyDefectUpdate"); // RW 0x008D0AB1, RW 0x008D0AB7, RW 0x008D0A98, RW 0x008D0B6E
 	bindRuntime<DominateEnemySpecialPower, DominateEnemySpecialPowerModuleData>(modules, "DominateEnemySpecialPower"); // RW 0x00652C4B, RW 0x008D0E17, RW 0x008D0E3D
 	bindRuntime<ActivateModuleSpecialPower, ActivateModuleSpecialPowerModuleData>(modules, "ActivateModuleSpecialPower");
 	bindRuntime<ArrowStormUpdate, ArrowStormUpdateModuleData>(modules, "ArrowStormUpdate");
@@ -2678,6 +2678,7 @@ void WeaponModeSpecialPowerUpdate::xfer(Xfer &x)
 	x.xferBool(&m_active);
 }
 
+// RW 0x0085DF3D (DualWeaponBehavior::xfer: version (1,2), UpdateModule::xfer RW 0x850C60, m_closeRequest +0x20, m_lastSwitch +0x24)
 void DualWeaponBehavior::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);
@@ -2687,6 +2688,7 @@ void DualWeaponBehavior::xfer(Xfer &x)
 	x.xferUnsignedInt(&m_switches);
 }
 
+// RW 0x008D0B8A (TemporarilyDefectUpdate::xfer: version (1,3), UpdateModule::xfer RW 0x850C60, m_endFrame +0x20, m_startFrame +0x24, m_dominator +0x28)
 void TemporarilyDefectUpdate::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

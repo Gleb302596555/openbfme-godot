@@ -17,6 +17,7 @@
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/PartitionManager.h"
 #include "GameLogic/System/InvisibilityManager.h"
+#include <cstdlib>
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDraw.h"
 
 namespace
@@ -448,7 +449,23 @@ LiveScripting::Stats LiveScripting::stats() const
 		for (size_t i = 0; i < alerts.size(); ++i)
 		{
 			const std::string &from = i < m_alertSources.size() ? m_alertSources[i] : std::string();
-			s.errors.push_back(from.empty() ? "Lua alert: " + alerts[i] : "OnCreated handler failed (" + from + "): " + alerts[i]);
+			const std::vector<std::string> &ctx = m_engine->logic()->alertSources();
+			std::string where = i < ctx.size() ? ctx[i] : std::string();
+			if (!where.empty())
+			{
+				// the handler's object, by its id, while it lives
+				const size_t at = where.find(" of object ");
+				if (at != std::string::npos)
+				{
+					const int id = std::atoi(where.c_str() + at + 11);
+					if (const Object *o = m_logic.findObjectByID((ObjectID)id); o && o->getTemplate())
+					{
+						where += " " + o->getTemplate()->getName();
+					}
+				}
+			}
+			s.errors.push_back(!from.empty() ? "OnCreated handler failed (" + from + "): " + alerts[i]
+				: !where.empty() ? "Lua alert (" + where + "): " + alerts[i] : "Lua alert: " + alerts[i]);
 		}
 	}
 	return s;

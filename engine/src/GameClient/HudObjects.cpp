@@ -469,9 +469,38 @@ Object *pickObject(const HudContext &ctx, const ICoord2D &pixel)
 	return pickObject(ctx, pixel, pickTypesForContext(ctx));
 }
 
+namespace
+{
+// RW 0x7108F2 (addDrawableToList), DONOR BFME2 0x70F14C (GameClient/Rva0030F14CSelect.cpp):
+// point and box selection replace the picked soldier with its HORDE producer, even while the
+// soldier is out of containment (RW 0x7109CE–0x710A09, Object + 0x78). Leave order/hover picks alone.
+Object *selectionListObject(const HudContext &ctx, Object &picked, bool dragSelecting)
+{
+	const ObjectID producerId = picked.getProducerID();
+	Object *producer = producerId != INVALID_ID ? ctx.logic.findObjectByID(producerId) : nullptr;
+	if (producer && producer->isKindOfName("HORDE"))
+	{
+		static const int unselectable = ObjectTemplateInfoBuilder::objectStatusIndex("UNSELECTABLE");
+		if (!isSelectable(picked, ctx.ui.getGUICommand()) || producer->testStatus((unsigned)unselectable)) // RW 0x710964, 0x7109F7
+		{
+			return nullptr; // reject the hit, not a fallback to the member's command set
+		}
+		return producer;
+	}
+	if (const Object *container = picked.getContainedBy(); container && !container->isKindOfName("HORDE"))
+	{
+		// Keep the port's non-horde container handling (S-288).
+		return dragSelecting ? nullptr : selectionRepresentative(picked);
+	}
+	return &picked; // absent or non-horde producer: the picked object's own drawable (RW 0x710A0C)
+}
+} // namespace
+
 Object *pickForSelection(const HudContext &ctx, const ICoord2D &pixel)
 {
-	return pickObject(ctx, pixel, pickTypesForContext(ctx) | PICK_TYPE_OWN); // RW 0x485CB1 .. 0x485CB8: `or ah, 1`
+	// RW 0x485CB1 .. 0x485CB8: `or ah, 1`. Use the raw drawable before the selection callback (RW 0x485D6F).
+	Object *picked = pickObject(ctx, pixel, pickTypesForContext(ctx) | PICK_TYPE_OWN, false);
+	return picked ? selectionListObject(ctx, *picked, false) : nullptr;
 }
 
 Object *pickForHover(const HudContext &ctx, const ICoord2D &pixel)
@@ -591,7 +620,6 @@ std::vector<Object *> objectsInRegion(const HudContext &ctx, const IRegion2D &re
 		}
 		return out;
 	}
-	static const int unselectable = ObjectTemplateInfoBuilder::objectStatusIndex("UNSELECTABLE");
 	static const int clickThrough = ObjectTemplateInfoBuilder::kindOfIndex("CLICK_THROUGH");
 	static const int baseFoundation = ObjectTemplateInfoBuilder::kindOfIndex("BASE_FOUNDATION");
 	int bestPriority = -1; // RW 0x7108A9: SelectionInfo::m_bestPriority = -1
@@ -615,20 +643,6 @@ std::vector<Object *> objectsInRegion(const HudContext &ctx, const IRegion2D &re
 		{
 			continue;
 		}
-		// lane SELECT-1: RotWK addDrawableToList (RW 0x7108F2, the callback of the drag's iterateDrawablesInRegion at RW 0x83C44C) visits the soldiers'
-		// drawables too: a selectable soldier (RW 0x710964: Object RW 0x68DE58) whose producer (Object + 0x78, RW 0x7109CE) is a HORDE (template + 0x115
-		// bit 5) stands for that horde unless the horde is UNSELECTABLE (status 3, RW 0x7109F7: skipped). So a box over any soldier takes the battalion, not
-		// only a box over the horde's centre; any other contained object stays out (an enclosing container hides it: S-288)
-		Object *stand = obj;
-		if (obj->getContainedBy())
-		{
-			Object *producer = ctx.logic.findObjectByID(obj->getProducerID());
-			if (!producer || !producer->isKindOfName("HORDE") || producer->testStatus(unselectable))
-			{
-				continue;
-			}
-			stand = producer;
-		}
 		ICoord2D px;
 		if (!ctx.view.worldToScreen(*obj->getPosition(), px))
 		{
@@ -636,6 +650,11 @@ std::vector<Object *> objectsInRegion(const HudContext &ctx, const IRegion2D &re
 		}
 		if (px.x >= region.lo.x && px.x <= region.hi.x && px.y >= region.lo.y && px.y <= region.hi.y)
 		{
+			Object *stand = selectionListObject(ctx, *obj, true);
+			if (!stand)
+			{
+				continue;
+			}
 			const int priority = selectionPriorityOf(*stand); // RW 0x710A0C..0x710A41
 			if (priority < -1) // RW 0x710A47..0x710A4F: return 2
 			{

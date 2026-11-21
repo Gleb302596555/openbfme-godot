@@ -1392,8 +1392,8 @@ science	SCIENCE_Undermine	PLAYER_PURCHASE_SCIENCE	libraries\ai_spell_execution\a
 science	SCIENCE_Undermine	PLAYER_PURCHASE_SCIENCE	libraries\ai_spell_execution\ai_spell_execution.map	Dwarves Spell List 02 - Norm - Purchase Undermine	no	SCIENCE_Undermine	yes
 science	SCIENCE_Undermine	PLAYER_PURCHASE_SCIENCE	libraries\ai_spell_execution\ai_spell_execution.map	Dwarves Spell List 03 - Hard - Purchase Undermine	no	SCIENCE_Undermine	yes
 science	SCIENCE_Undermine	PLAYER_PURCHASE_SCIENCE	libraries\ai_spell_execution\ai_spell_execution.map	Dwarves Spell List 03 - Norm - Purchase Undermine	no	SCIENCE_Undermine	yes
-science	SCIENCE_UNIT_VIEW	PLAYER_GRANT_SCIENCE	libraries\multiplayer_human\multiplayer_human.map	Grant Powers	yes		yes
 science	SCIENCE_UNIT_VIEW	PLAYER_SCIENCE_AVAILABILITY	libraries\multiplayer_human\multiplayer_human.map	Grant Powers	yes		yes
+science	SCIENCE_UNIT_VIEW	PLAYER_GRANT_SCIENCE	libraries\multiplayer_human\multiplayer_human.map	Grant Powers	yes		yes
 science	SCIENCE_UntamedAllegiance	PLAYER_PURCHASE_SCIENCE	libraries\ai_men of the west\ai_men of the west.map	Angmar Spell List 01 - Norm - Purchase Untamed Allegiance	no	SCIENCE_UntamedAllegiance	yes
 science	SCIENCE_UntamedAllegiance	PLAYER_PURCHASE_SCIENCE	libraries\ai_men of the west\ai_men of the west.map	Angmar Spell List 02 - Norm - Purchase Untamed Allegiance	no	SCIENCE_UntamedAllegiance	yes
 science	SCIENCE_UntamedAllegiance	PLAYER_PURCHASE_SCIENCE	libraries\ai_men of the west\ai_men of the west.map	Angmar Spell List 03 - Norm - Purchase Untamed Allegiance	no	SCIENCE_UntamedAllegiance	yes
@@ -1588,9 +1588,9 @@ upgrade	Upgrade_AngmarStructureWightlairBuild	GIVE_PLAYER_UPGRADE	libraries\mult
 upgrade	Upgrade_AngmarStructureWitcherBuild	GIVE_PLAYER_UPGRADE	libraries\ai_men of the west\ai_men of the west.map	5 ofen	no	IsengardFurnacePlayer	yes
 upgrade	Upgrade_ArnorCardolanUpgrade	GIVE_PLAYER_UPGRADE	libraries\multiplayer_human\multiplayer_human.map	Hobbit_hero	no	SCIENCE_HealingOfTheOld	yes
 upgrade	Upgrade_ArnorhoobitsUpgrade	GIVE_PLAYER_UPGRADE	libraries\multiplayer_human\multiplayer_human.map	NumenorMastery	yes	SCIENCE_NumenorMastery	yes
-upgrade	Upgrade_ClanBreitschultern	GIVE_PLAYER_UPGRADE	libraries\ai_men of the west\ai_men of the west.map	EredLuin?	no		yes
-upgrade	Upgrade_ClanBreitschultern	TEAM_UPGRADE	libraries\ai_men of the west\ai_men of the west.map	EredLuin?	no		yes
 upgrade	Upgrade_ClanBreitschultern	AI_PLAYER_BUILD_UPGRADE	libraries\ai_men of the west\ai_men of the west.map	EredLuin?	no		yes
+upgrade	Upgrade_ClanBreitschultern	TEAM_UPGRADE	libraries\ai_men of the west\ai_men of the west.map	EredLuin?	no		yes
+upgrade	Upgrade_ClanBreitschultern	GIVE_PLAYER_UPGRADE	libraries\ai_men of the west\ai_men of the west.map	EredLuin?	no		yes
 upgrade	Upgrade_DurbutzKrone	GIVE_PLAYER_UPGRADE	libraries\ai_men of the west\ai_men of the west.map	Azog_check	yes	WildAzogGundabad WildFortressCitadel	yes
 upgrade	Upgrade_DwarvenBasicTraining	TEAM_UPGRADE	libraries\ai_men of the west\ai_men of the west.map	Upgrades0.	yes		yes
 upgrade	Upgrade_DwarvenFireArrows	TEAM_UPGRADE	libraries\ai_men of the west\ai_men of the west.map	Upgrades2.	yes		yes

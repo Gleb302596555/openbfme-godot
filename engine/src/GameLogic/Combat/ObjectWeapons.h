@@ -183,6 +183,7 @@ public:
 	float currentAttackRange() const;
 	// lane ARCHER-1: RW 0x6CA935(source): the current weapon's attack range with no target (the scale applied twice, WeaponGetAttackRangeNoTarget); 0 without one
 	float currentAttackRangeNoTarget() const;
+	static float abilityWeaponRange(const WeaponTemplate &weapon, Object &source);
 	// RW 0x6CA935(source) on `weapon` (one of this object's): its attack range with no target for another source object, the bonus and the
 	// range host taken from that source as RW 0x6ED8AB's call does (ObjectWeapons.cpp); 0 for a weapon without a template
 	float attackRangeNoTargetFor(const Weapon &weapon, const Object &source) const;
@@ -210,6 +211,8 @@ public:
 	Weapon *crushRevengeWeapon() const { return m_crushRevengeWeapon.get(); }
 	// RW 0x6CF328 Weapon::fireWeapon(source, victim): privateFireWeapon at an object, no lock, no tracker
 	void fireExtraWeapon(Weapon &w, Object &victim);
+	// LOCAL-97: RW 0x006CF407 Weapon::forceFireWeapon(source, victim): privateFireWeapon RW 0x6CEF6D with ignoreRanges = true (arg 6 = 1)
+	void forceFireExtraWeapon(Weapon &w, Object &victim);
 	// lane SPELL-2 / HERO-1: RW 0x6CF3D2 Weapon::forceFireWeapon(source, pos): privateFireWeapon at a position (ZH: no victim, ranges ignored), no lock, no tracker
 	void fireExtraWeaponAt(Weapon &w, const Coord3D &pos);
 	// lane HERO-1: a weapon of its own (WeaponFireSpecialAbilityUpdate RW 0x895E1A: RW 0x68B150(template, slot 0), owner 0, RW 0x6CEE0F loadAmmoNow)
@@ -263,6 +266,7 @@ public:
 	FiringTracker &firingTracker() { return m_tracker; }
 	// lane HUD-4: RW 0x8E302A on the object's FiringTracker (Object + 0x248) with this set as its host
 	void resetFiringTracker(bool hard);
+	void trackAbilityShot(const Weapon &weapon, ObjectID victim, const Coord3D &pos);
 	const FiringTracker &firingTracker() const { return m_tracker; }
 
 	// ---- the projectile hook (PROJ-1) and the report -------------------------------------------------------------------------------
@@ -297,7 +301,7 @@ private:
 	WeaponHost &host();
 	WeaponRangeHost &rangeHost();
 	static void fireTempWeapon(const WeaponTemplate *t, Object *source, const WeaponShotTarget &target); // lane DECOMP-1
-	RangeSubject subjectOf(const Object &obj) const;
+	static RangeSubject subjectOf(const Object &obj);
 
 	Object *m_owner;
 	WeaponSetFlags m_flags{};

@@ -13,7 +13,7 @@ not find them). Example: `Multiplayer_Human` / `ImladrisTechManve` grants `SCIEN
 
 Files: 10, scripts: 2483, grants: 1613.
 
-Library scripts: 2468; with a condition or action the port has no case for: 6.
+Library scripts: 2468; with a condition or action the port has no case for: 0.
 (A script whose every type has a case is counted as executed: the case may still differ from RotWK, as a matrix PASS is checked
 behaviour and this is not.)
 
@@ -23,11 +23,3 @@ behaviour and this is not.)
 
 | type | uses | files |
 |---|---|---|
-| `IS_NUM_OF_UNITS_BELONGING_TO_PLAYER_NEAR_EVA_EVENT_LAST_PLAYED_LOCATION_COMPARISON_INT` | 4 | libraries\music_musicscripts_single\music_musicscripts_single.map |
-| `RESIZE_VIEW_GUARDBAND` | 2 | maps\camera_demo\1shotcinematicstripts.scb, maps\camera_demo\defaultcinematicscripts.scb |
-| `OPTIONS_SET_PARTICLE_CAP_MODE` | 2 | maps\camera_demo\1shotcinematicstripts.scb, maps\camera_demo\defaultcinematicscripts.scb |
-| `OPTIONS_SET_DRAWICON_UI_MODE` | 2 | maps\camera_demo\1shotcinematicstripts.scb, maps\camera_demo\defaultcinematicscripts.scb |
-| `PLAYER_REPAIR_NAMED_STRUCTURE` | 1 | libraries\ai_men of the west\ai_men of the west.map |
-| `SKIRMISH_FIRE_SPECIAL_POWER_AT_MOST_COST` | 1 | libraries\multiplayer_human\multiplayer_human.map |
-| `PLAYER_LOST_OBJECT_TYPE` | 1 | libraries\multiplayer_human\multiplayer_human.map |
-| `DEBUG_MESSAGE_BOX` | 1 | libraries\multiplayer_human\multiplayer_human.map |

@@ -150,4 +150,5 @@ void OCLUpdate::xfer(Xfer &x)
 	x.xferUnsignedInt(&m_nextFrame);
 	x.xferUnsignedInt(&m_scheduledAt);
 	x.xferInt(&m_created);
+	SnapshotXfer::checkRange(m_created, 0, 0x7FFFFFFF, "OCLUpdate m_created");
 }

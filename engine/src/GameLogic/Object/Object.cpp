@@ -6,6 +6,7 @@
 #include "Common/ModEngineFeatures.h"
 #include "GameClient/ControlBarCommands.h"
 #include "GameLogic/Object/Object.h"
+#include "GameLogic/Module/StructureToppleUpdate.h"
 #include "GameLogic/ScriptEngine/AttackPriority.h"
 #include "GameLogic/ScriptEngine/ScriptEngine.h"
 #include "GameLogic/Map/TerrainLogic.h"
@@ -1396,6 +1397,12 @@ void Object::friend_onDie(const DieModuleInterface::Event &event)
 		{
 			d->onDie(event);
 		}
+		// RW 0x00698FA3 .. 0x00698FB5: after DieModuleInterface::onDie, Object::onDie calls AIUpdateInterface vslot +0x24C
+		// (DozerAIUpdate RW 0x0088BF7A removes an unplaced phantom structure on builder death).
+		if (AIUpdateInterface *ai = m_modules[i]->getAIUpdateInterface())
+		{
+			ai->onOwnerDie();
+		}
 	}
 	removeFromPlayerCommandPoints(); // RW 0x698FD9
 	m_logic.emotions().objectDied(*this); // RW 0x6990AC .. 0x6990C8 (lane MODULES-2): a SCARY or HERO object leaves TheEmotionSystem's list
@@ -1445,15 +1452,15 @@ CanAttackResult Object::getAbleToAttackSpecificObject(AbleToAttackType type, con
 	ObjectWeapons *weapons = m_weapons.get();
 	if (!weapons)
 	{
-		// a SPAWNS_ARE_THE_WEAPONS object would ask its riders here (RW 0x68D722 .. 0x68D78B): not ported
-		if (isKindOf((unsigned)CombatNames::kinds().spawnsAreTheWeapons))
+		// a HORDE (template + 0x115 bit 0x20, kind 109, RW 0x68D722) asks its contain for a rider's weapon set (RW 0x68D722 .. 0x68D78B): not ported
+		if (isKindOf((unsigned)CombatNames::kinds().horde))
 		{
-			m_logic.noteStop("[S-7429] Object::getAbleToAttackSpecificObject RW 0x68D6A6: the container / rider branch of a SPAWNS_ARE_THE_WEAPONS "
+			m_logic.noteStop("[S-7429] Object::getAbleToAttackSpecificObject RW 0x68D6A6: the container / rider branch of a HORDE "
 			                 "object (contain slots 0x7C, 0x50, 0x114) is not ported");
 		}
 		return ATTACKRESULT_NOT_POSSIBLE; // no weapon set: RW's set is empty, so nothing can be shot
 	}
-	// RW 0x68D719: the 0x10 type and every object but a SPAWNS_ARE_THE_WEAPONS one take their own set (RW 0x68D791)
+	// RW 0x68D719: the 0x10 type and every object but a HORDE take their own set (RW 0x68D791)
 	return weapons->getAbleToAttackSpecificObject(type, *this, victim, commandSource);
 }
 
@@ -2482,8 +2489,7 @@ void Object::updateShroudNow()
 	}
 }
 
-// RW 0x690584 (see Object.h). The tail of RW (template byte + 0x642: clear the RUBBLE model condition, and for a dead object set REALLYDAMAGED and revive it,
-// RW 0x6905F8 ff) is not ported: the field's name is not read (stop S-652); no retail template reaches it through this lane's callers while alive
+// PORT-231 (S-652): RW 0x00690584 (see Object.h), including the KeepSelectableWhenDead (+0x642) tail (RW 0x690626 .. 0x690672): clear RUBBLE, and when effectively dead set REALLYDAMAGED and revive.
 bool Object::attemptHealingFromSoleBenefactor(float amount, const Object *source, UnsignedInt duration)
 {
 	if (!source)
@@ -2509,6 +2515,34 @@ bool Object::attemptHealingFromSoleBenefactor(float amount, const Object *source
 		info.m_input.m_deathType = DEATH_NONE;
 		info.m_input.m_amount = amount;
 		m_body->attemptHealing(info);
+	}
+	bool keepSelectableWhenDead = false;
+	if (m_template)
+	{
+		if (const FieldValue *v = static_cast<const ThingTemplate *>(m_template)->getFinalOverride()->findField("KeepSelectableWhenDead"))
+		{
+			if (const bool *b = std::get_if<bool>(v))
+			{
+				keepSelectableWhenDead = *b;
+			}
+		}
+	}
+	if (keepSelectableWhenDead)
+	{
+		static const int kRubble = CombatNames::modelCondition("RUBBLE");
+		static const int kReallyDamaged = CombatNames::modelCondition("REALLYDAMAGED");
+		if (kRubble >= 0 && testModelCondition(kRubble))
+		{
+			setModelConditionState(kRubble, false);
+		}
+		if (m_effectivelyDead)
+		{
+			if (kReallyDamaged >= 0 && !testModelCondition(kReallyDamaged))
+			{
+				setModelConditionState(kReallyDamaged, true);
+			}
+			friend_setEffectivelyDead(false);
+		}
 	}
 	return true;
 }
@@ -3523,4 +3557,16 @@ void Object::xfer(Xfer &x)
 void Object::setFireWeaponDeadline()
 {
 	m_fireWeaponDeadline = m_logic.getFrame() + 10u * (UnsignedInt)LOGICFRAMES_PER_SECOND;
+}
+
+// RW 0x0068D58C (DONOR BFME2 0x0068CEBC)
+void Object::topple(const Coord3D *toppleDirection, float toppleSpeed, unsigned options)
+{
+	if (ToppleUpdate *t = dynamic_cast<ToppleUpdate *>(findModule("ToppleUpdate")))
+	{
+		if (t->isAbleToBeToppled())
+		{
+			t->applyTopplingForce(toppleDirection, toppleSpeed, options);
+		}
+	}
 }

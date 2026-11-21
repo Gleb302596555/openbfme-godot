@@ -7,6 +7,7 @@
 #include "Common/INI.h"
 #include "Common/Thing/ModuleFactory.h"
 #include "Common/Xfer.h"
+#include "GameLogic/Construction.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/SnapshotXfer.h"
@@ -53,7 +54,7 @@ void WallUpgradeUpdate::onBodyDamageStateChange(const DamageInfo *, BodyDamageTy
 	if (newState > oldState && newState == BODY_RUBBLE)
 	{
 		m_countdown = kRubbleCountdownFrames;
-		friend_setNextCallFrame((UnsignedInt)UPDATE_SLEEP_NONE);
+		setWakeFrame(getObject(), UPDATE_SLEEP_NONE); // RW 0x8AEB08 -> RW 0x850C32
 	}
 }
 
@@ -98,24 +99,21 @@ void WallUpgradeUpdate::scanForBuildingAndPossess()
 	m_attachedObjectID = bestId;
 }
 
-// RW 0x8AEC79 / BFME2 0x4AB4AB
+// RW 0x008AEBA6 / DONOR BFME2 0x4AB4AB: findObjectByID(+0x28), !isEffectivelyDead (+0x458 bit 0),
+// !testModelCondition(0x45 = ACTIVELY_BEING_CONSTRUCTED, RW 0x46E918).
 bool WallUpgradeUpdate::canResetUpgrades() const
 {
 	if (m_attachedObjectID == 0 || !getObject())
 	{
 		return false;
 	}
-	Object *att = getObject()->logic().findObjectByID(m_attachedObjectID);
-	if (!att || att->isDestroyed())
+	Object *att = getObject()->logic().findObjectByID(m_attachedObjectID); // RW 0x8AEBAF -> RW 0x449681
+	if (!att || att->isEffectivelyDead())                                  // RW 0x8AEBB4 .. 0x8AEBBF: Object + 0x458 bit 0
 	{
 		return false;
 	}
-	static const int wallUpgradeKind = ObjectTemplateInfoBuilder::kindOfIndex("WALL_UPGRADE");
-	if (wallUpgradeKind >= 0 && att->isKindOf((unsigned)wallUpgradeKind))
-	{
-		return false;
-	}
-	return true;
+	static const int kActivelyConstructed = Construction::modelConditionIndex("ACTIVELY_BEING_CONSTRUCTED"); // 0x45
+	return !(kActivelyConstructed >= 0 && att->testModelCondition(kActivelyConstructed)); // RW 0x8AEBC1 -> RW 0x46E918(0x45)
 }
 
 // RW 0x8AEBD3 / BFME2 0x4AB4D8
@@ -165,6 +163,7 @@ UpdateSleepTime WallUpgradeUpdate::update()
 	return ret;
 }
 
+// RW 0x008AE96E: version (1, 1), UpdateModule::xfer (0x850C60), m_attachedObjectID (+0x28), m_countdown (+0x2C), m_firstScan (+0x30), m_postCountdown (+0x31)
 void WallUpgradeUpdate::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);
@@ -175,6 +174,7 @@ void WallUpgradeUpdate::xfer(Xfer &x)
 	x.xferBool(&m_postCountdown);
 }
 
+// RW 0x008AE968 (getModuleName), RW 0x008AE9CD (getModuleNameKey), RW 0x008AEA8D / RW 0x008AE941 (dtor)
 void WallUpgradeUpdate::registerClass(ModuleFactory &modules)
 {
 	modules.bindTypedData<WallUpgradeUpdateModuleData>("WallUpgradeUpdate", MODULETYPE_BEHAVIOR);

@@ -347,6 +347,7 @@ void CreateObjectDie::xfer(Xfer &x)
 }
 
 // the stored death (the event the delayed shot fires for) whole, then the counters
+// RW 0x00885E47 (OpenBFME native snapshot order, S-4190)
 void FireWeaponWhenDeadBehavior::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

@@ -6,6 +6,7 @@
 
 #include "Common/StateHash.h"
 #include "Common/Xfer.h"
+#include "GameLogic/AI/AIXfer.h"
 #include "GameLogic/SimMath.h"
 
 #include <string>
@@ -286,7 +287,7 @@ void TaintManager::notifyAll() const
 }
 
 // RW 0xAD4B80 (version 1) -> RW 0xAD50B0 (version 1) -> RW 0xAD57E0 (version 2 per cell)
-void TaintManager::xfer(Xfer &x)
+void TaintManager::xfer(Xfer &x, std::uint32_t nextObjectID)
 {
 	const bool loading = x.isLoading();
 	XferVersion v{ 1, 1 };
@@ -331,9 +332,17 @@ void TaintManager::xfer(Xfer &x)
 		x.xferVersion(cv); // RW 0xAD57FC
 		x.xferUnsignedByte(&c.value); // RW 0xAD5804 (Xfer slot 0x88)
 		x.xferUser(&c.state, 4);      // RW 0xAD5814
+		if (loading) // RW 0xAD5740 (0xAD577B..579E): neutral, elven wood or taint
+		{
+			AIXfer::inRange(c.state, STATE_NONE, STATE_TAINT, "taint manager: cell state");
+		}
 		if (cv.current >= 2)
 		{
 			x.xferInt(&c.owner); // RW 0xAD5826
+			if (loading && c.owner != -1) // RW 0x8C8E67 (0x8C8F2F / 0x8C8F50): no owner, or the area object's ID
+			{
+				AIXfer::inRange(static_cast<std::uint32_t>(c.owner), 1, static_cast<std::int64_t>(nextObjectID) - 1, "taint manager: cell owner");
+			}
 		}
 	}
 	if (loading)

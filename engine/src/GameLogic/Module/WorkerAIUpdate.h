@@ -87,17 +87,17 @@ public:
 	// player's legality flags 6, else BuildAssistant slot 0x64 and flags 0x17) and price: a player's / AI's worker order still runs DozerAIUpdate::construct
 	// (lane FBSIM-1's phantom; stop S-1427); RW 0x684CBA (TerrainLogic over the footprint, S-304)
 	Object *constructForRebuild(const ThingTemplate &what, const Coord3D &pos, float angle, Player &owner);
-	bool isRebuildConstructWorker() const { return m_rebuildConstruct581; }
+	bool isRebuildConstructWorker() const { return m_rebuildConstruct581; } // dozer_if slot 0x2C, RW 0x008AD27F
 
 	UpdateSleepTime update() override; // RW 0x8AE020
 
-	SupplyTruckAIInterface *getSupplyTruckAIInterface() override { return this; }
+	SupplyTruckAIInterface *getSupplyTruckAIInterface() override { return this; } // main slot 0x178, RW 0x008AD261
 
-	// lane PORT-282: RW 0x8AD2D3, the worker's own repair order (the dozer interface's slot 0xB0; DozerAIUpdate's is RW 0x88BD8D). The ActionManager's test,
+	// lane PORT-282: RW 0x008AD2D3, the worker's own repair order (the dozer interface's slot 0xB0; DozerAIUpdate's is RW 0x88BD8D). The ActionManager's test,
 	// then - unless the worker is a SWARM_DOZER - the slot 0x50 test and the structure's sole healer; then a REPAIR task on the ordered structure.
 	bool repair(Object &structure) override;
-	const SupplyTruckAIInterface *getSupplyTruckAIInterface() const override { return this; }
-	WorkerAIInterface *getWorkerAIInterface() override { return this; }
+	const SupplyTruckAIInterface *getSupplyTruckAIInterface() const override { return this; } // main slot 0x17C, RW 0x008AD261
+	WorkerAIInterface *getWorkerAIInterface() override { return this; } // main slot 0x18C/0x190, RW 0x008AD270
 
 	// ---- SupplyTruckAIInterface (RW vtable 0xC6ABC8) ----
 	int getNumberBoxes() const override { return m_numberBoxes; }
@@ -141,6 +141,10 @@ protected:
 	void privateHarvest(const Coord3D &pos, CommandSourceType source) override;  // RW 0x8ACE75
 	void privateDock(Object *dock, CommandSourceType source) override;           // RW 0x8ACE4A
 	void xferSupplyBody(Xfer &x) override;                                         // the supply half of RW 0x8AD8D0
+	void newTask(int task, Object &target) override;                               // dozer_if slot 0x30, RW 0x008AE4A9
+	void cancelTaskInternal(int task) override;                                    // dozer_if slot 0x34, RW 0x008ACEE3
+	void internalCancelTask(int task) override;                                    // dozer_if slot 0x3C, RW 0x008AE74B
+	void internalTaskCompleteOrCancelled(int task) override;                       // dozer_if slot 0x40, RW 0x008AE17C
 
 private:
 	void createMachines(); // RW 0x8AD5CA

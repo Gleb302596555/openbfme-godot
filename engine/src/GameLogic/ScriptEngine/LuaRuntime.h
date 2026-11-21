@@ -36,14 +36,26 @@ public:
 
 	// the swallowed _ALERT messages, oldest first (the retail text is "LUA Alert: " + message)
 	const std::vector<std::string> &alerts() const { return m_alerts; }
-	void recordAlert(const std::string &text) { m_alerts.push_back(text); }
+	void recordAlert(const std::string &text)
+	{
+		m_alerts.push_back(text);
+		m_alertSources.push_back(m_alertContext);
+	}
+	// map sweep 2026-11-20: what the state was running when an alert came (set around a call by its caller, e.g. the event dispatch: the
+	// handler, the object, whether the object was registered); a diagnostic of the report only, retail drops the alert (RW 0x734E41)
+	void setAlertContext(std::string context) { m_alertContext = std::move(context); }
+	const std::vector<std::string> &alertSources() const { return m_alertSources; }
 	// Compatibility faults: places where retail faults (an access violation) and the retail-compatible profile aborts the running chunk instead
 	// (S-120 / S-041). Each is also reported. A non-zero count means a script did NOT complete compatibly.
 	const std::vector<std::string> &faults() const { return m_faults; }
 	void recordFault(const std::string &text) { m_faults.push_back(text); }
 	// LUA_EA_PROFILE_ENHANCED answers the repaired behaviour instead of faulting; explicit, never a default
 	void setEnhancedProfile(bool enhanced);
-	void clearAlerts() { m_alerts.clear(); }
+	void clearAlerts()
+	{
+		m_alerts.clear();
+		m_alertSources.clear();
+	}
 	// what print() sent to the logger while the gate (retail: an options byte) was open
 	const std::string &printed() const { return m_printed; }
 	void clearPrinted() { m_printed.clear(); }
@@ -68,6 +80,8 @@ private:
 	LuaReportSink &m_sink;
 	std::string m_name;
 	std::vector<std::string> m_alerts;
+	std::vector<std::string> m_alertSources; ///< per alert, the context set when it came (same index)
+	std::string m_alertContext;
 	std::vector<std::string> m_faults;
 	std::string m_printed;
 	bool m_printEnabled = false;

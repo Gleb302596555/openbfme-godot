@@ -199,6 +199,85 @@ const char kPort218[] =
 	"    DeathType = NORMAL\n"
 	"  End\n"
 	"End\n"
+	// RW 0x6C889F's two KindOf bits: SPAWNS_ARE_THE_WEAPONS (84, word 2 bit 20) is the SOURCE that does not walk into reach, HORDE (109, word 3 bit
+	// 0x20, template + 0x115) is the CONTAINER that lets its member walk with it. PORT218Orc carries the short sword of PORT218Soldier.
+	"Object PORT218Orc\n"
+	"  KindOf = INFANTRY SELECTABLE CAN_ATTACK SCORE\n"
+	"  VisionRange = 300\n"
+	"  Geometry = CYLINDER\n"
+	"  GeometryMajorRadius = 8\n"
+	"  GeometryMinorRadius = 8\n"
+	"  GeometryHeight = 20\n"
+	"  ArmorSet\n"
+	"    Conditions = None\n"
+	"    Armor = PlainArmor\n"
+	"  End\n"
+	"  WeaponSet\n"
+	"    Conditions = None\n"
+	"    Weapon = PRIMARY PORT218Sword\n"
+	"  End\n"
+	"  Body = ActiveBody ModuleTag_Body\n"
+	"    MaxHealth = 100\n"
+	"  End\n"
+	"  Behavior = AIUpdateInterface ModuleTag_AI\n"
+	"    AutoAcquireEnemiesWhenIdle = No\n"
+	"  End\n"
+	"  LocomotorSet\n"
+	"    Locomotor = WalkerLoco\n"
+	"    Condition = SET_NORMAL\n"
+	"    Speed = 55\n"
+	"  End\n"
+	"End\n"
+	"Object PORT218Horde\n"
+	"  KindOf = HORDE SELECTABLE CAN_ATTACK\n"
+	"  VisionRange = 300\n"
+	"  Geometry = BOX\n"
+	"  GeometryMajorRadius = 30\n"
+	"  GeometryMinorRadius = 45\n"
+	"  GeometryHeight = 20\n"
+	"  WeaponSet\n"
+	"    Conditions = None\n"
+	"    Weapon = PRIMARY PORT218Sword\n"
+	"  End\n"
+	"  Body = ImmortalBody ModuleTag_Body\n"
+	"    MaxHealth = 1\n"
+	"  End\n"
+	"  Behavior = HordeAIUpdate ModuleTag_AI\n"
+	"  End\n"
+	"  Behavior = HordeContain ModuleTag_Contain\n"
+	"    RankInfo = RankNumber:1 UnitType:PORT218Orc Position:X:50 Y:0 Position:X:50 Y:20 Position:X:50 Y:-20\n"
+	"    InitialPayload = PORT218Orc 3\n"
+	"  End\n"
+	"  LocomotorSet\n"
+	"    Locomotor = HordeLoco\n"
+	"    Condition = SET_NORMAL\n"
+	"    Speed = 50\n"
+	"  End\n"
+	"End\n"
+	"Object PORT218Spawner\n"
+	"  KindOf = SPAWNS_ARE_THE_WEAPONS SELECTABLE CAN_ATTACK\n"
+	"  VisionRange = 300\n"
+	"  Geometry = CYLINDER\n"
+	"  GeometryMajorRadius = 12\n"
+	"  GeometryMinorRadius = 12\n"
+	"  GeometryHeight = 30\n"
+	"  ArmorSet\n"
+	"    Conditions = None\n"
+	"    Armor = PlainArmor\n"
+	"  End\n"
+	"  WeaponSet\n"
+	"    Conditions = None\n"
+	"    Weapon = PRIMARY PORT218Sword\n"
+	"  End\n"
+	"  Body = ActiveBody ModuleTag_Body\n"
+	"    MaxHealth = 500\n"
+	"  End\n"
+	"  LocomotorSet\n"
+	"    Locomotor = WalkerLoco\n"
+	"    Condition = SET_NORMAL\n"
+	"    Speed = 55\n"
+	"  End\n"
+	"End\n"
 	"Object PORT218MixedHero\n"
 	"  KindOf = INFANTRY SELECTABLE CAN_ATTACK SCORE\n"
 	"  Body = ActiveBody BodyTag\n"
@@ -383,4 +462,34 @@ TEST_CASE("PORT-218 the set-level anti mask of RW 0x6C8724 / 0x6C88F2: the OR of
 	Object *projectile = w.unit("Arrow", 'B', 320, 300);
 	CHECK(hero->getWeapons()->getAbleToAttackSpecificObject(ATTACK_NEW_TARGET, *hero, *projectile, CMD_FROM_AI) == ATTACKRESULT_INVALID_SHOT);
 	CHECK_FALSE(hero->getWeapons()->canAttackObject(*projectile, CMD_FROM_AI, false));
+}
+
+// RW 0x6C8880 .. 0x6C88D8 decided the skirmish AI-vs-AI pins: the first cut of this port read the two KindOf bits of RW 0x6C888C and RW 0x6C889F
+// with the other object's name swapped (IMMUNE_TO_CAPTURE 81 for the source, SPAWNS_ARE_THE_WEAPONS 84 for the container), so every horde member
+// whose victim stood outside its own reach answered INVALID_SHOT instead of POSSIBLE_AFTER_MOVING. The bits, from the binary's own name table
+// (GameLogic/BitFlagNames.cpp): SPAWNS_ARE_THE_WEAPONS = 84 = word 2 bit 20 = `test byte [eax+0x112], 0x10`; HORDE = 109 = word 3 bit 13 =
+// `test byte [eax+0x115], 0x20`.
+TEST_CASE("PORT-218 RW 0x6C8880: a horde member still walks into reach, a spawner that cannot walk answers INVALID_SHOT")
+{
+	Port218World w;
+	Object *horde = w.unit("PORT218Horde", 'A', 300, 300);
+	Object *far = w.unit("Dummy", 'B', 900, 900);
+	w.frames(12);
+	const auto members = w.membersOf(horde);
+	REQUIRE(members.size() == 3);
+	Object *member = members.front();
+	REQUIRE(member->getContainedBy() == horde); // the container is a HORDE: RW 0x6C889F keeps cannotWalk false
+	REQUIRE(member->getWeapons() != nullptr);
+	CHECK(member->getWeapons()->getAbleToAttackSpecificObject(ATTACK_NEW_TARGET, *member, *far, CMD_FROM_AI) ==
+	      ATTACKRESULT_POSSIBLE_AFTER_MOVING);
+	CHECK(member->getWeapons()->canAttackObject(*far, CMD_FROM_AI, false));
+
+	// the same weapon on an object that does not walk (RW 0x6C888C, SPAWNS_ARE_THE_WEAPONS): a victim out of reach can never be reached
+	Object *spawner = w.unit("PORT218Spawner", 'A', 100, 100);
+	w.frames(2);
+	CHECK(spawner->getWeapons()->getAbleToAttackSpecificObject(ATTACK_NEW_TARGET, *spawner, *far, CMD_FROM_AI) == ATTACKRESULT_INVALID_SHOT);
+	// and a victim inside the reach is still a shot it can take
+	Object *near = w.unit("Dummy", 'B', 105, 100);
+	w.frames(2);
+	CHECK(spawner->getWeapons()->getAbleToAttackSpecificObject(ATTACK_NEW_TARGET, *spawner, *near, CMD_FROM_AI) == ATTACKRESULT_POSSIBLE);
 }

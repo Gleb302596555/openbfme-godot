@@ -323,6 +323,7 @@ public:
 	bool removeCostModifier(const ObjectFilter *filter, const std::vector<float> &percents, ObjectID source);
 	const std::vector<CostModifier> &costModifiers() const { return m_costModifiers; }
 	// RW Player + 0x3D0: the UpgradeDiscount entries (RW 0x6B2C67 add / 0x6B1992 remove, reference counted by (source template name, percents, ApplyToTheseUpgrades))
+	// RW 0x006B0060 (ctor), RW 0x006AFCE3 (dtor)
 	struct UpgradeDiscount
 	{
 		std::string sourceName;

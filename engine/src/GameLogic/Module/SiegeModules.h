@@ -126,8 +126,11 @@ public:
 		Coord3D direction{};      // + 0x14 (the bone's X axis negated: away from the wall)
 		ObjectID reservedBy = INVALID_ID; // + 0x20
 	};
+	// RW 0x85C9C4 (ctor), RW 0x0085CE0A (~SiegeDockingBehavior), RW 0x0085D1DD (scalar deleting dtor),
+	// RW 0x0085CC87 (clearDockPoints), RW 0x0085CA37 (getModuleName), RW 0x0085CA45 (getModuleNameKey)
 	SiegeDockingBehavior(Thing *thing, const SiegeDockingBehaviorModuleData *data); // RW 0x85C9C4
-	OBFME_MODULE_XFER(SiegeDockingBehavior) // the save (SAVE-4b): UpdateModule's, the dock entries and the made flag
+	OBFME_MODULE_XFER(SiegeDockingBehavior) // RW 0x0085D08F: UpdateModule's, the dock entries and the made flag
+	void loadPostProcess();                                                         // RW 0x0085D1CD
 	UpdateSleepTime update() override;                                              // RW 0x85D216
 	void crc(StateHasher &h) const override;
 

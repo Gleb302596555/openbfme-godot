@@ -340,6 +340,8 @@ public:
 	OBFME_MODULE_XFER(WeaponFireSpecialAbilityUpdate) // lane SAVE-4b
 	WeaponFireSpecialAbilityUpdate(Thing *thing, const WeaponFireSpecialAbilityUpdateModuleData *data); // RW 0x895D98
 	~WeaponFireSpecialAbilityUpdate() override;
+	bool allowsSpecialPowerUse(const Coord3D *loc = nullptr) const override;
+	UpdateSleepTime update() override;
 	void finishAbility(bool ownerDying, bool aborted) override; // RW 0x896033
 	unsigned shotsFired() const { return m_shots; }
 	Weapon *ownedWeapon() { return m_weapon.get(); } // RW +0x88: made and loaded in the constructor (RW 0x895DE1 .. 0x895E22)
@@ -347,6 +349,7 @@ public:
 	void crc(StateHasher &h) const override;
 
 protected:
+	void startPacking(bool success) override;
 	bool continuePreparation() override; // RW 0x895E60
 	void startUnpacking() override;      // RW 0x895ECE
 	void triggerAbilityEffect() override; // RW 0x8961F7

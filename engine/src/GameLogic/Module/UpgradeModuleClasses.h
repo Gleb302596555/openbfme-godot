@@ -150,6 +150,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008B7B85 (getModuleName), RW 0x008B7BB4 (getModuleNameKey), RW 0x008B7C4C / RW 0x008B7B65 (dtor)
 class CommandSetUpgrade : public UpgradeModule
 {
 public:

@@ -228,7 +228,7 @@ void StrafeAreaUpdate::xfer(Xfer &x)
 		SnapshotXfer::coord3D(x, m_strafeTarget);
 		SnapshotXfer::coord3D(x, m_strafeStart);
 		x.xferReal(&m_sweepPhase);
-		x.xferInt(&m_state);
+		SnapshotXfer::enumIn(x, m_state, 0, 2, "StrafeAreaUpdate m_state"); // +0x3C: 0 approach, 1 strafe / fire, 2 exit / kill
 	}
 	if (v.current >= 3)
 	{

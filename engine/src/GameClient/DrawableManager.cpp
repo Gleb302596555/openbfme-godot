@@ -420,6 +420,18 @@ void DrawableManager::applyEvents(const std::vector<ClientEvent> &events)
 				d->setFXTrigger(ev.fxTrigger);
 			}
 			break;
+		case ClientEvent::SET_TINT_STATUS: // LOCAL-97 (RW 0x008862E0)
+			if (Drawable *d = findByObject(ev.object))
+			{
+				d->setTintStatus(ev.tintStatusBits);
+			}
+			break;
+		case ClientEvent::CLEAR_TINT_STATUS: // LOCAL-97 (RW 0x00670913)
+			if (Drawable *d = findByObject(ev.object))
+			{
+				d->clearTintStatus(ev.tintStatusBits);
+			}
+			break;
 		case ClientEvent::SHOW_MODULE:
 			if (Drawable *d = findByObject(ev.object))
 			{
@@ -817,6 +829,7 @@ void DrawableManager::syncTransforms(const LogicSnapshot &snapshot, double alpha
 		updateEvaAnnounces(snapshot);
 		EvaSighting::update(*this, snapshot, m_logic, m_evaSighting);
 		syncTracks(snapshot);
+		syncSway(snapshot);
 		return;
 	}
 	if (m_syncScratch.size() < slots)
@@ -882,6 +895,24 @@ void DrawableManager::syncTransforms(const LogicSnapshot &snapshot, double alpha
 	updateEvaAnnounces(snapshot);
 	EvaSighting::update(*this, snapshot, m_logic, m_evaSighting);
 	syncTracks(snapshot);
+	syncSway(snapshot);
+}
+
+void DrawableManager::syncSway(const LogicSnapshot &snapshot)
+{
+	const size_t slots = m_slots.size();
+	for (size_t i = 1; i < slots; ++i)
+	{
+		Drawable *d = m_slots[i].get();
+		if (!d || d->clientModules().empty())
+		{
+			continue;
+		}
+		const ObjectSnapshot *rec = snapshot.find(d->getObjectID());
+		const Drawable::PresentedLook look = d->presentedLook(&snapshot, m_shroudDrawn);
+		const bool burnedOrDead = rec && (rec->burned || rec->effectivelyDead);
+		d->updateSway(snapshot.breeze, !look.hidden, burnedOrDead);
+	}
 }
 
 // PORT-146 (issue #363): an object that stands on a bone of its container takes the container's presentation pose times its own place in the

@@ -594,6 +594,52 @@ Object *WorkerAIUpdate::constructForRebuild(const ThingTemplate &what, const Coo
 	return obj;
 }
 
+// RW 0x008AE4A9 (WorkerAIUpdate::newTask, dozer_if slot 0x30): delegates task/dock setup to DozerAIUpdate::newTask,
+// sets OBJECT_STATUS_WORKER_REPAIRING (0x61, RW 0x008AE6BE..0x008AE6CF) for BUILD/REPAIR, and if m_workerMachine is
+// in AS_SUPPLY_TRUCK (1, RW 0x008AE6FF..0x008AE741) switches out to AS_DOZER (0) via aiIdle + setState(AS_DOZER).
+void WorkerAIUpdate::newTask(int task, Object &target)
+{
+	DozerAIUpdate::newTask(task, target);
+	if (task == DOZER_TASK_BUILD || task == DOZER_TASK_REPAIR)
+	{
+		static const int kWorkerRepairing = ObjectTemplateInfoBuilder::objectStatusIndex("WORKER_REPAIRING"); // RW 0x61
+		if (kWorkerRepairing >= 0 && isTaskPending(task))
+		{
+			getObject()->setStatus((unsigned)kWorkerRepairing, true); // RW 0x008AE6BE..0x008AE6CF
+		}
+	}
+	if (m_workerMachine && m_workerMachine->currentStateId() == (unsigned)AS_SUPPLY_TRUCK)
+	{
+		exitingSupplyTruckState(); // RW 0x008AE716..0x008AE741
+	}
+}
+
+// RW 0x008AE17C (WorkerAIUpdate::internalTaskCompleteOrCancelled, dozer_if slot 0x40): clears ACTIVELY_CONSTRUCTING
+// for BUILD/REPAIR and clears OBJECT_STATUS_WORKER_REPAIRING (0x61, RW 0x008AE1E9..0x008AE1F3).
+void WorkerAIUpdate::internalTaskCompleteOrCancelled(int task)
+{
+	DozerAIUpdate::internalTaskCompleteOrCancelled(task);
+	static const int kWorkerRepairing = ObjectTemplateInfoBuilder::objectStatusIndex("WORKER_REPAIRING"); // RW 0x61
+	if (kWorkerRepairing >= 0)
+	{
+		getObject()->setStatus((unsigned)kWorkerRepairing, false); // RW 0x008AE1E9..0x008AE1F3
+	}
+}
+
+// RW 0x008AE74B (WorkerAIUpdate::internalCancelTask, dozer_if slot 0x3C): calls internalTaskCompleteOrCancelled,
+// clears m_task[task] and dock points, and idles the AI (RW 0x008AE775..0x008AE78E).
+void WorkerAIUpdate::internalCancelTask(int task)
+{
+	DozerAIUpdate::internalCancelTask(task);
+}
+
+// RW 0x008ACEE3 (WorkerAIUpdate::cancelTask, dozer_if slot 0x34): calls internalCancelTask (slot 0x3C) and resets
+// the dozer primary machine.
+void WorkerAIUpdate::cancelTaskInternal(int task)
+{
+	DozerAIUpdate::cancelTaskInternal(task);
+}
+
 // RW 0x8AE461
 void WorkerAIUpdate::exitingSupplyTruckState()
 {

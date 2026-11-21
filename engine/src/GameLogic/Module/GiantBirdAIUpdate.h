@@ -111,7 +111,11 @@ public:
 	// the path masks (AerialPathfinder::MASK_*)
 
 	GiantBirdAIUpdate(Thing *thing, const ModuleData *data);
+	// RW 0x0076D5DE (~GiantBirdAIUpdate) / RW 0x0076E3AF (scalar deleting destructor)
 	~GiantBirdAIUpdate() override;
+	// RW 0x0076D5D8 (getModuleName), RW 0x0076D593 (getModuleNameKey),
+	// RW 0x00769F95 (thunk -> AIUpdateInterface::chooseLocomotorSet RW 0x006680B2),
+	// RW 0x00769F9A (thunk -> AIUpdateInterface::setLocomotorGoalNone RW 0x00662997)
 	static void registerClass(ModuleFactory &modules);
 	static GiantBirdAIUpdateData parseData(const ModuleData *data);
 

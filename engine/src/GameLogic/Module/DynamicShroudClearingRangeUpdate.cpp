@@ -178,6 +178,7 @@ void DynamicShroudClearingRangeUpdate::xfer(Xfer &x)
 	xferUpdateModule(x);
 	x.xferInt(&m_stateCountDown);
 	x.xferInt(&m_totalFrames);
+	SnapshotXfer::checkRange(m_totalFrames, 1, 0x7FFFFFFF, "DynamicShroudClearingRangeUpdate m_totalFrames");
 	x.xferUnsignedInt(&m_growStartDeadline);
 	x.xferUnsignedInt(&m_sustainDeadline);
 	x.xferUnsignedInt(&m_shrinkStartDeadline);

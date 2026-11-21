@@ -142,7 +142,7 @@ void W3DDebrisDraw::xfer(Xfer &x)
 	{
 		setAnimNames(loadedInitial, loadedFlying, loadedFinal);
 	}
-	x.xferInt(&m_state);
+	SnapshotXfer::enumIn(x, m_state, INITIAL, STATECOUNT - 1, "a debris draw's state"); // INITIAL, FLYING, FINAL (enumIn transfers it)
 	x.xferInt(&m_frames);
 	x.xferBool(&m_finalStop);
 }

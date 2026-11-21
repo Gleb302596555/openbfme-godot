@@ -133,6 +133,7 @@ void AimWeaponBehavior::crc(StateHasher &h) const
 	h.addBool(m_aiming);
 }
 
+// RW 0x0085E1C7 (AimWeaponBehavior::xfer: version (1,1), UpdateModule::xfer RW 0x850C60, m_aiming +0x20 skipped on CRC)
 void AimWeaponBehavior::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);
@@ -140,6 +141,8 @@ void AimWeaponBehavior::xfer(Xfer &x)
 	x.xferBool(&m_aiming);
 }
 
+// RW 0x0085E1C1 (getModuleName -> "AimWeaponBehavior"), RW 0x0085E20C (getModuleNameKey lazy cache),
+// RW 0x0085E1A8 (~AimWeaponBehavior), RW 0x0085E2EF (scalar deleting destructor)
 void AimWeaponBehavior::registerClass(ModuleFactory &modules)
 {
 	modules.bindTypedData<Data>("AimWeaponBehavior", MODULETYPE_BEHAVIOR);
