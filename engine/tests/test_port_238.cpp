@@ -1965,3 +1965,124 @@ End
     w.frames(3);
     CHECK(w.byId(sourceId) == nullptr);
 }
+
+TEST_CASE("PORT-238 Radagast-style eagle toggle resolves distinct crow power names")
+{
+    HealHudWorld w;
+    // rohanradagast.ini:1695,3055 lists Ravens for take-off but Krhenruf
+    // for landing. RW 0x8B12BF -> 0x69C146 / 0x68C26D -> 0x897368.
+    bool fromEagle = false;
+    SUBCASE("take-off lists Ravens") { fromEagle = false; }
+    SUBCASE("landing lists Krhenruf") { fromEagle = true; }
+    std::string data = R"ini(
+SpecialPower P238RadaToggle
+  Enum = SPECIAL_TOGGLE_MOUNTED
+  ReloadTime = 1000
+End
+SpecialPower SpecialAbilityRadagastRavens
+  Enum = SPECIAL_SPELL_BOOK_DRAGON_STRIKE
+  ReloadTime = 120000
+End
+SpecialPower SpecialAbilityRadagastKrhenruf
+  Enum = SPECIAL_SPELL_BOOK_DRAGON_STRIKE
+  ReloadTime = 60000
+End
+SpecialPower SpecialAbilityRadagastDornengestrpp
+  Enum = SPECIAL_GENERAL_TARGETLESS
+  ReloadTime = 120000
+End
+SpecialPower SpecialAbilityRadagastFreunde
+  Enum = SPECIAL_GENERAL_TARGETLESS_TWO
+  ReloadTime = 120000
+End
+SpecialPower SpecialAbilityRadagastWordOfPoultry
+  Enum = SPECIAL_HERO_MODE
+  ReloadTime = 120000
+End
+SpecialPower SpecialAbilityNatursanktum
+  Enum = SPECIAL_ATHELAS
+  ReloadTime = 120000
+End
+)ini";
+    const std::vector<std::string> names = {"SpecialAbilityRadagastDornengestrpp", "SpecialAbilityRadagastFreunde", "SpecialAbilityRadagastWordOfPoultry", "SpecialAbilityNatursanktum", "SpecialAbilityRadagastRavens"};
+    for (int eagle = 0; eagle < 2; ++eagle)
+    {
+        data += std::string("Object ") + (eagle ? "P238RadaEagle" : "P238RadaGround") + R"ini(
+  KindOf = INFANTRY HERO SELECTABLE CAN_ATTACK
+  Geometry = CYLINDER
+  GeometryMajorRadius = 8
+  GeometryHeight = 20
+  Body = ActiveBody Body
+    MaxHealth = 500
+  End
+  Behavior = AIUpdateInterface AI
+  End
+  Behavior = SpecialPowerModule TogglePower
+    SpecialPowerTemplate = P238RadaToggle
+    UpdateModuleStartsAttack = Yes
+  End
+  Behavior = ToggleMountedSpecialAbilityUpdate Toggle
+    SpecialPowerTemplate = P238RadaToggle
+)ini";
+        data += std::string("    MountedTemplate = ") + (eagle ? "P238RadaGround\n" : "P238RadaEagle\n");
+        data += "    SynchronizeTimerOnSpecialPower = SpecialAbilityRadagastDornengestrpp SpecialAbilityRadagastFreunde SpecialAbilityRadagastWordOfPoultry SpecialAbilityNatursanktum ";
+        data += eagle ? "SpecialAbilityRadagastKrhenruf\n" : "SpecialAbilityRadagastRavens\n";
+        data += eagle ? R"ini(
+    StartAbilityRange = 50
+    UnpackTime = 0
+    PreparationTime = 1
+    PackTime = 0
+    IgnoreFacingCheck = Yes
+  End
+)ini" : R"ini(
+    UnpackTime = 2000
+    PreparationTime = 0
+    PackTime = 0
+    IgnoreFacingCheck = Yes
+  End
+)ini";
+        for (std::size_t i = 0; i < names.size(); ++i)
+            data += "  Behavior = SpecialPowerModule Timer" + std::to_string(i) + "\n    SpecialPowerTemplate = " + names[i] + "\n    AvailableAtStart = Yes\n  End\n";
+        data += "End\n";
+    }
+    const std::string error = w.w.load(data, INI_LOAD_OVERWRITE, "port238_radagast_timers.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    const auto *ravens = w.powers.findSpecialPowerTemplate("SpecialAbilityRadagastRavens");
+    const auto *krhenruf = w.powers.findSpecialPowerTemplate("SpecialAbilityRadagastKrhenruf");
+    REQUIRE(ravens != nullptr);
+    REQUIRE(krhenruf != nullptr);
+    CHECK(ravens != krhenruf); // same Enum, distinct named templates
+    Object *source = w.unit(fromEagle ? "P238RadaEagle" : "P238RadaGround", 'A', 300, 300);
+    REQUIRE(source != nullptr);
+    CHECK(SpecialPowerModules::findModule(*source, krhenruf) == nullptr);
+    const auto power = [&](Object &obj, const std::string &name) {
+        const auto *t = w.powers.findSpecialPowerTemplate(name);
+        return t ? dynamic_cast<SpecialPowerModule *>(SpecialPowerModules::findModule(obj, t)) : nullptr;
+    };
+    for (std::size_t i = 0; i < names.size(); ++i)
+    {
+        auto *timer = power(*source, names[i]);
+        REQUIRE(timer != nullptr);
+        timer->setReadyFrame(500 + (unsigned)i * 100);
+    }
+    auto *toggle = dynamic_cast<ToggleMountedSpecialAbilityUpdate *>(source->findModule("ToggleMountedSpecialAbilityUpdate"));
+    REQUIRE(toggle != nullptr);
+    const Coord3D landing{310.0f, 300.0f, 0.0f};
+    toggle->initiateIntentToDoSpecialPower(toggle->abilityData()->m_specialPowerTemplate, nullptr, fromEagle ? &landing : nullptr, 0, 0);
+    Object *replacement = nullptr;
+    for (int frame = 0; frame < 50 && !replacement; ++frame)
+    {
+        w.frames(1);
+        for (Object *obj = w.logic->getFirstObject(); obj; obj = obj->getNextObject())
+            if (obj->getTemplate() && obj->getTemplate()->getName() == (fromEagle ? "P238RadaGround" : "P238RadaEagle")) replacement = obj;
+    }
+    REQUIRE(replacement != nullptr);
+    CHECK(SpecialPowerModules::findModule(*replacement, krhenruf) == nullptr);
+    for (std::size_t i = 0; i < names.size(); ++i)
+    {
+        auto *timer = power(*replacement, names[i]);
+        REQUIRE(timer != nullptr);
+        if (i < 4 || !fromEagle) CHECK(timer->getReadyFrame() == 500 + (unsigned)i * 100);
+        else CHECK(timer->getReadyFrame() == w.logic->getFrame()); // synthetic AvailableAtStart
+    }
+}
