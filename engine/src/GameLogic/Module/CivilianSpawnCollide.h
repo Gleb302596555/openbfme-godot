@@ -24,6 +24,7 @@ class CivilianSpawnCollideModuleData : public ModuleData
 {
 public:
 	ObjectFilter m_deleteObjectFilter; ///< +0x8 DeleteObjectFilter
+	~CivilianSpawnCollideModuleData() override = default; // RW 0x008C1873 / RW 0x008C1857
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
@@ -32,6 +33,7 @@ class CivilianSpawnCollide : public BehaviorModule, public CollideModuleInterfac
 public:
 	OBFME_MODULE_XFER(CivilianSpawnCollide)
 	CivilianSpawnCollide(Thing *thing, const CivilianSpawnCollideModuleData *data);
+	~CivilianSpawnCollide() override = default; // RW 0x008C1736 / RW 0x008C1807
 
 	CollideModuleInterface *getCollide() override { return this; }
 	bool wouldLikeToCollideWith(const Object &other) const override { (void)other; return false; } // RW 0x63F3BF
@@ -39,7 +41,7 @@ public:
 
 	void crc(StateHasher &hasher) const override;
 
-	static void registerClass(ModuleFactory &modules);
+	static void registerClass(ModuleFactory &modules); // getModuleName RW 0x008C174F, getModuleNameKey RW 0x008C1755
 
 private:
 	const CivilianSpawnCollideModuleData *m_data = nullptr;

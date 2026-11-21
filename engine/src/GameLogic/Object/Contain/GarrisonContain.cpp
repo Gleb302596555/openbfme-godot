@@ -6,6 +6,7 @@
 #include "GameLogic/Object/Contain/GarrisonContainRuntime.h"
 #include "GameLogic/SnapshotXfer.h"
 
+#include "Common/ModEngineFeatures.h"
 #include "Common/NumericState.h"
 #include "GameLogic/AI/AIPathfind.h"
 #include "Common/Player.h"
@@ -1391,8 +1392,10 @@ void GarrisonContain::orderAllPassengersToExit(int source)
 		{
 			h->exitContainer(getObject(), source);
 		}
-		else if (r->getContain())
+		else if (r->getContain() && !ModEngineFeatures::has(ModEngineFeature::EnnorathEvacuateContainers))
 		{
+			// RW 0x99106B .. 0x991072: a rider whose contain is no horde (vslot 0x7C null) stays. ennorath.evacuate-containers (PYSAGE 1.9.8.5 .keydef 0xF39580,
+			// hooked at RW 0x99106B): it goes on to RW 0x991086 and gets aiExit like a rider without a contain (war wagons, the Angmar Witch-king)
 			continue;
 		}
 		else if (AIUpdateInterface *ai = r->getAIUpdateInterface())

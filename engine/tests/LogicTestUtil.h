@@ -6,6 +6,11 @@
 
 #pragma once
 
+// the fixture uses doctest's REQUIRE_MESSAGE (line ~232): include doctest here instead of relying on the including TU putting
+// `#include "doctest.h"` first — main's test_modgap2_env_heavens_radar.cpp (batch 21d, b2dd53ed6) includes this header first and the whole
+// openbfme_tests target stopped building with "REQUIRE_MESSAGE was not declared in this scope"
+#include "doctest.h"
+
 #include "HordeCompleteTestUtil.h"
 #include "Common/Upgrade.h"
 #include "ObjectTestUtil.h"

@@ -43,7 +43,7 @@ std::vector<std::string> SpellStops::lines()
 		"[S-530] ObjectCreationList: the block (RW 0x5F0462) and its five nugget tables parse; CreateObject, ApplyRandomForce, FireWeapon, Attack, "
 		"SkipIfSignificantlyAirborne, OffsetInLocalSpace, WaypointSpawnPoints, InvulnerableTime, and OCL::create(primary, secondary) run (PORT-237); "
 		"not run (counted, noted once each as '[S-530] ObjectCreationList: not run: ...'): CreateDebris, PutInContainer, ClearRemovables, TREE / SHRUB / "
-		"OPTIMIZED_PROP templates, MoveUsesStrafeUpdate, the FloatUpdate / FadeAndDieOrnamentUpdate / SpawnedModelConditionCreate dispositions; OCLSpecialPower "
+		"OPTIMIZED_PROP templates, MoveUsesStrafeUpdate, the FloatUpdate / SpawnedModelConditionCreate dispositions; OCLSpecialPower "
 		"runs CREATE_AT_LOCATION, USE_OWNER_OBJECT, CREATE_ABOVE_LOCATION, USE_SECONDARY_OBJECT_LOCATION (with secondary position) and UpgradeName; "
 		"the map edge cases (0, 1, 2, 6) and the army spawn points (7) are counted",
 		"[S-531] casting: the ActionManager test (RW 0x82DFB7) keeps only the module / percent-ready / requirements parts (unit cost, range, terrain, shroud and forbidden objects "

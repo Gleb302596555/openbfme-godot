@@ -424,12 +424,13 @@ TEST_CASE("LOCAL-95 ENNORATH scenario W3DScriptedModelDraw and W3DHordeModelDraw
 	CHECK(animStr.find("frames(") != std::string::npos);
 	CHECK(stateStr == "(ModelState and AnimState info not available in release)");
 
-	// Pause freezes track 0 frame on real Ennorath hero drawable (RW 0x004B304E / RW 0x004BF62A).
-	const float frameBefore = heroDraw->track(0).frame;
+	// The pause flag on a real Ennorath hero drawable (RW 0x004B304E), then the draw's own gate: every advance sets it from Drawable::getShouldAnimate
+	// (RW 0x004BF615 -> RW 0x00675655 -> RW 0x004B304E, wired by Local 106), so an enabled hero animates again and a manual pause does not hold
+	// (before Local 106 the gate was not wired and this case expected the pause to stay; the freeze itself is tested on a disabled building in LOCAL-106*)
 	heroDraw->setPauseAnimation(true);
-	heroDraw->advance(100.0);
 	CHECK(heroDraw->isAnimationPaused());
-	CHECK(heroDraw->track(0).frame == frameBefore);
+	heroDraw->advance(100.0);
+	CHECK_FALSE(heroDraw->isAnimationPaused());
 	heroDraw->setPauseAnimation(false);
 	CHECK_FALSE(heroDraw->isAnimationPaused());
 }

@@ -67,6 +67,7 @@
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DDrawServices.h"
 #include "Common/GameEdition.h"
 #include "Common/NameKeyGenerator.h"
+#include "GameClient/RadiusCursor.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDraw.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDrawBones.h"
 #include "GameEngineDevice/W3DDevice/GameClient/HouseColor.h"
@@ -386,12 +387,62 @@ public:
 	bool shadowRenderEnabled() const { return m_shadowRenderEnabled; }
 	bool hasShadow() const { return m_hasShadow; }
 	bool isHidden() const { return m_hidden; }             ///< RW 0x004B26E0 (primary +0x44): +0x4C
-	void setHidden(bool hidden) { m_hidden = hidden; }
+	void setHidden(bool hidden);                           ///< RW 0x004B3752 / DONOR W3DModelDraw_setHidden.cpp (respects +0x4D hide override)
 	void setWallBoundsMeshOverload(const std::string &name); ///< RW 0x004B5809 (primary +0xD4): +0x260
 	void setRampMeshOverload(const std::string &name, int index); ///< RW 0x004B5814 (primary +0xD8): +0x264[index]
 	bool hasWallBoundsMeshOverload() const;                ///< RW 0x004B582B (primary +0xDC): !(+0x260).empty()
 	const std::string &wallBoundsMeshOverload() const { return m_wallBoundsMeshOverload; }
 	const std::string &rampMeshOverload(int index) const;
+
+	// LOCAL-106 (issue #784): remaining own W3DScriptedModelDraw & RadiusDecal methods
+	// RW 0x007B2EFE (vslot 18): sets hide override (+0x4D); while set, setModelHidden(false) is ignored (DONOR W3DModelDraw_setHidden.cpp)
+	void setHideOverride(bool overrideHide);
+	bool isHideOverride() const { return m_hideOverride; }
+
+	// RW 0x0047836C (vslot 60): forwards to ModuleData vslot +0x78 (RW 0x00464A02, +0x15E)
+	bool allowsUnhideWhileInHorde() const;
+	// RW 0x004B7A22 (ObjectDrawInterface slot 44): copies EmbedPortal entry i (+0x11C) if in bounds
+	bool getEmbedPortal(int index, W3DModelDrawModuleData::W3DEmbedPortalInfo &out) const;
+	// RW 0x004B86BA (slot 17), RW 0x004B30DC (slot 18), RW 0x004BC171 (slot 16), RW 0x004BB86C (slot 19):
+	// sub-object override state (+0xA0 dirty flag, +0xA4 value, +0xA8 tracked key set, +0xB4 name)
+	void setSubObjectOverride(int value, const std::string &name);
+	void markSubObjectOverrideDirty();
+	void insertTrackedSubObjectKey(int key);
+	void eraseTrackedSubObjectKey(int key);
+	bool isSubObjectOverrideDirty() const { return m_subObjectOverrideDirty; }
+	int subObjectOverrideValue() const { return m_subObjectOverrideValue; }
+	const std::string &subObjectOverrideName() const { return m_subObjectOverrideName; }
+	const std::set<int> &trackedSubObjectKeys() const { return m_trackedSubObjectKeys; }
+	// RW 0x004B3338: returns true when both track 0 and track 1 carry active animations
+	bool isBlending() const { return m_tracks[0].anim != nullptr && m_tracks[1].anim != nullptr; }
+
+	// LOCAL-106: RadiusDecal slots on W3DScriptedModelDraw (RW 0x004B2A5D..0x004B2C0D -> RW 0x0073266B..0x00732CBB)
+	struct DrawRadiusDecal
+	{
+		bool active = false;
+		Coord3D position{ 0.0f, 0.0f, 0.0f };
+		Coord3D offset{ 0.0f, 0.0f, 0.0f };
+		float radius = 0.0f;
+		float opacity = 1.0f;
+		std::uint32_t color = 0xFFFFFFFFu;
+		void clear()
+		{
+			active = false;
+			radius = 0.0f;
+		}
+	};
+	void setTerrainDecalRadius(float radius);                                       // RW 0x004B2A5D -> 0x00732858
+	void clearTerrainDecal();                                                       // RW 0x004B2B36 -> 0x007327E5
+	void setSelectionDecalTemplate(const RadiusDecalTemplate *tmpl);                // RW 0x004B2B41 -> 0x0073266B
+	void setSelectionDecalPosition(const Coord3D *pos);                             // RW 0x004B2B92 -> 0x00732828
+	void setSelectionDecalOffset(const Coord3D *offset);                            // RW 0x00732840
+	void setSelectionDecalOpacity(float opacity);                                   // RW 0x004B2BA7
+	void setSelectionDecalColor(std::uint32_t color);                               // RW 0x004B2BBF
+	bool createSelectionDecal(const Coord3D &pos, float radius, bool hasPlayer);    // RW 0x004B2BDC -> 0x00732CBB
+	void clearSelectionDecal();                                                     // RW 0x004B2C0D -> 0x007327E5
+	const DrawRadiusDecal &terrainRadiusDecal() const { return m_terrainRadiusDecal; }
+	const DrawRadiusDecal &selectionRadiusDecal() const { return m_selectionRadiusDecal; }
+	const RadiusDecalTemplate &selectionDecalTemplate() const { return m_selectionDecalTemplate; }
 
 	// Introspection for tests and tools.
 	const ModelConditionInfo *currentModelState() const { return m_curModelInfo; }
@@ -449,7 +500,7 @@ protected:
 
 	// vtable slot 0x108 (RW 0x4C0917 returns 100000; the horde draw returns its LOD row's MaxRandomAnimations, RW 0x478A6C)
 	virtual int maxRandomAnimations() const { return 100000; }
-	// RW 0x4C48A1 passes 0xFF as the RandomTexture limit; the horde draw passes its LOD row's MaxRandomTextures and picks none when it is not
+	// RW 0x4C48A1 passes 0xFF as the RandomTexture limit; the horde draw passes its LOD row's MaxRandomTextures (RW 0x004789F6) and picks none when it is not
 	// positive (RW 0x47A356 .. 0x47A38B)
 	virtual int maxRandomTextures() const { return 0xFF; }
 	// vtable slot 0x10C (RW 0x4B3766: GameClientRandomValue(0, frames - 1); the horde draw scales it, RW 0x478A74)
@@ -558,6 +609,14 @@ private:
 	bool m_shadowEnabled = true;             // RW +0x4A (setShadowsEnabled RW 0x004B26F9)
 	bool m_fullyObscuredByShroud = false;    // RW +0x4B
 	bool m_hidden = false;                   // RW +0x4C (isHidden RW 0x004B26E0)
+	bool m_hideOverride = false;             // RW +0x4D (setHideOverride RW 0x007B2EFE)
+	bool m_subObjectOverrideDirty = false;   // RW +0xA0 (RW 0x004B30DC / 0x004B86BA)
+	int m_subObjectOverrideValue = 0;        // RW +0xA4 (RW 0x004B86BA)
+	std::set<int> m_trackedSubObjectKeys;    // RW +0xA8 (RW 0x004BC171 / 0x004BB86C)
+	std::string m_subObjectOverrideName;     // RW +0xB4 (RW 0x004B86BA)
+	DrawRadiusDecal m_terrainRadiusDecal;    // RW +0x1D0 (RW 0x004B2A5D / 0x004B2B36)
+	DrawRadiusDecal m_selectionRadiusDecal;  // RW +0x218 (RW 0x004B2B92..0x004B2C0D)
+	RadiusDecalTemplate m_selectionDecalTemplate; // RW +0x228 (RW 0x004B2B41 / 0x004B2BDC)
 	bool m_hasShadow = false;                // RW +0x58 != nullptr
 	bool m_shadowRenderEnabled = false;      // RW (+0x58)->+0x04
 	bool m_portraitImageDirty = true;        // RW +0x2D9 (getPortraitImage RW 0x004B6789)

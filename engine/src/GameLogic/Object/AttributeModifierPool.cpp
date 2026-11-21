@@ -205,6 +205,7 @@ UpdateSleepTime AttributeModifierPool::update()
 	const GameLogicSettings &settings = obj.logic().settings();
 	const Object::ModelConditionBits none{};
 	unsigned next = 0x3FFFFFFFu;
+	// Retail update (RW 0x0080585F) uses a local std::deque for delayed grants (RW 0x006EFE24 / 0x007B4A72 ctor, RW 0x006F4BAB / 0x007B7C37 push_back, RW 0x006EFD6A / 0x0078B354 pop_front, RW 0x006EC8CA / 0x0078B12F dtor).
 	std::vector<int> grants;
 	for (auto it = m_entries.begin(); it != m_entries.end();)
 	{

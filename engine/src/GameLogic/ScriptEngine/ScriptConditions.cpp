@@ -795,6 +795,7 @@ void triggerBounds(const TriggerArea &t, float &loX, float &loY, float &hiX, flo
 }
 } // namespace
 
+// RW 0x006E4C20 (PolygonTrigger::getCenterPoint wrapper around RW 0x70CE93)
 Coord3D ScriptConditions::triggerCenter(GameLogic &logic, const TriggerArea &t)
 {
 	float loX, loY, hiX, hiY;

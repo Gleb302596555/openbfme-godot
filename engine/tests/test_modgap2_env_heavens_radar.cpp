@@ -26,6 +26,8 @@
 #include "GameLogic/Module/RunOffMapBehavior.h"
 #include "GameLogic/Module/WallUpgradeUpdate.h"
 #include "GameLogic/Object/Object.h"
+
+#include "LogicTestUtil.h"
 #include "doctest.h"
 
 #include <cmath>
@@ -232,8 +234,22 @@ TEST_CASE("modgap2: WallUpgradeUpdate rubble countdown, upgrade reset and body r
 	{
 		CAPTURE(gameEditionName(edition));
 
+		// the module on a real object (its INI block): since Local 100 the rubble state wakes the module through its object (RW 0x8AEB08 -> RW 0x850C32,
+		// setWakeFrame(getObject(), ...)), so a module without an object crashed here (P-171)
+		logictest::LogicWorld world;
+		WallUpgradeUpdate::registerClass(world.w.modules);
+		const std::string err = world.w.load("Object ModgapWallSegment\n Behavior = WallUpgradeUpdate WallTag\n End\nEnd\n");
+		REQUIRE_MESSAGE(err.empty(), err);
+		Object *segment = world.make("ModgapWallSegment");
+		REQUIRE(segment != nullptr);
+		WallUpgradeUpdate *found = nullptr;
+		for (const auto &m : segment->modules())
+		{
+			found = found ? found : dynamic_cast<WallUpgradeUpdate *>(m.get());
+		}
+		REQUIRE(found != nullptr);
+		WallUpgradeUpdate &wuu = *found;
 		WallUpgradeUpdateModuleData data;
-		WallUpgradeUpdate wuu(nullptr, &data);
 
 		CHECK(wuu.countdown() == 0);
 
@@ -257,7 +273,7 @@ TEST_CASE("modgap2: WallUpgradeUpdate rubble countdown, upgrade reset and body r
 		wuu.xfer(save);
 		CHECK_FALSE(save.data().empty());
 
-		WallUpgradeUpdate restored(nullptr, &data);
+		WallUpgradeUpdate restored(segment, &data);
 		XferLoad load(save.data());
 		restored.xfer(load);
 		CHECK(restored.countdown() == wuu.countdown());

@@ -37,7 +37,7 @@ void DamageFieldUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 	p.add(kDamageFieldUpdateFieldParse);
 }
 
-// RW 0x894935 / DONOR BFME2 0x491220
+// RW 0x894935 / DONOR BFME2 0x491220 (retail m_victims std::list<ObjectID> helpers: ctor RW 0x006A057C, _M_create_node RW 0x006A05C1, insert RW 0x006A1D75, erase RW 0x006AC552, remove RW 0x006AC9F9)
 DamageFieldUpdate::DamageFieldUpdate(Thing *thing, const DamageFieldUpdateModuleData *data)
 	: FireWeaponUpdate(thing, data)
 	, m_data(data)

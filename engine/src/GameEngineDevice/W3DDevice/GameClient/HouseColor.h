@@ -52,6 +52,7 @@ TextureResolution Resolve_House_Texture(const std::string &name, const std::func
 
 // Donor W3DModelDrawRva000B8FA1.cpp: player colour is kind 1. Custom hero
 // palettes take precedence; owner == 0 retains the existing no-colour sentinel.
+// LOCAL-106: Render_House_Color_Params copy (RW 0x00478389) and indexed color lookup (RW 0x004B1C7B / 0x004B3E9E)
 HouseColorParams Render_House_Color_Params(std::uint32_t owner, int customKind, const std::uint32_t *customColors);
 // Donor MeshClassRecolorPrototype.cpp, BFME2 0x54B8C0: the name after
 // the first dot (or the complete name) begins with HOUSECOLOR, case-insensitive.

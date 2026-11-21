@@ -4,7 +4,7 @@
 
 ## 1. Цель
 
-Ennorath 1.9.8.4 (база с 2026-11-20, до этого 1.9.8.3 с 2026-11-15, 1.9.8.2 с 2026-11-04 и 1.9.8.1 с 2026-11-03; см. [README.md](README.md)) на движке OpenBFME ведёт себя так же, как на RotWK 2.01. Порт читает файлы мода без изменений, мод не правится, игровые данные в Git не попадают. Чиним общий механизм движка, без списков конкретных объектов и фракций. Каждую правку подтверждаем адресом RW (ванильный бинарник 2.01, md5 `daed3668…`: `workspace/games-en/Vanilla_(2.01)/install/game.dat`; `RotWK/game.dat` с Эннората 1.9.8.4 пропатчен pySAGE и эталоном не служит; оговорка S-001) или файлом декомпиляции BFME2 (`workspace/reference/open-bfme-2`). Вывод без такого подтверждения помечаем `INFERENCE`.
+Ennorath 1.9.8.5 (база с 2026-11-21, до этого 1.9.8.4 с 2026-11-20, 1.9.8.3 с 2026-11-15, 1.9.8.2 с 2026-11-04 и 1.9.8.1 с 2026-11-03; см. [README.md](README.md)) на движке OpenBFME ведёт себя так же, как на RotWK 2.01. Порт читает файлы мода без изменений, мод не правится, игровые данные в Git не попадают. Чиним общий механизм движка, без списков конкретных объектов и фракций. Каждую правку подтверждаем адресом RW (ванильный бинарник 2.01, md5 `daed3668…`: `workspace/games-en/Vanilla_(2.01)/install/game.dat`; `RotWK/game.dat` Эннората пропатчен pySAGE (1.9.8.5: md5 `fc32e4c4…`) и эталоном не служит; оговорка S-001) или файлом декомпиляции BFME2 (`workspace/reference/open-bfme-2`). Вывод без такого подтверждения помечаем `INFERENCE`.
 
 **Всё должно быть как в Ennorath (решение владельца 2026-11-02).** Агент не выбирает «улучшения» сам, даже если поведение оригинала кажется хуже. Если есть причина отойти от него, агент объясняет её владельцу простыми словами и ждёт ответа. Принятый отход записывается стопом и в этот список.
 
@@ -12,6 +12,7 @@ Ennorath 1.9.8.4 (база с 2026-11-20, до этого 1.9.8.3 с 2026-11-15,
 
 - Смена строя, когда кнопку жмёт логика (ИИ, улучшение): прямой вызов вместо сообщения 0x453 (RW 0x697204 / 0x77BE83), строй меняется примерно на кадр раньше. Стоп S-5307. Решение владельца 2026-11-02.
 - Косметика и удобство: раздел «Not retail» в [../MODS.md](../MODS.md).
+- Правки пропатченного `game.dat` Эннората 1.9.8.5 (pySAGE), только с профилем «Ennorath 1.9.8.5 game.dat» (`--mod-engine=fc32e4c4…`, lane MODS-3): `ennorath.stance-keeps-moving` — «Удерживать позицию» не останавливает идущий отряд; `ennorath.middle-click-camera` — щелчок средней кнопкой 350 мс по часам, сдвиг дальше 5 пикселей отменяет; `ennorath.evacuate-containers` — «Высадить все» из туннеля (туннели гномов, крипты Ангмара) выпускает и боевые повозки, и ангмарского Короля-чародея. Разбор — [ENNORATH_EXE.md](ENNORATH_EXE.md), стоп S-5304. Решение владельца 2026-11-21 (PR #792).
 
 ## 2. Где что лежит
 
@@ -142,7 +143,7 @@ $env:ROTWK_INSTALL = (Resolve-Path 'workspace\games-en\Vanilla_(2.01)\install').
 $env:BFME2_INSTALL = 'C:\Program Files (x86)\BFME2'
 $env:OPENBFME_MOD_CORPUS = (Resolve-Path 'workspace\mods-en').Path          # корпус Ennorath
 $env:OPENBFME_ENNORATH_INSTALL = (Resolve-Path 'workspace\mods-en\Ennorath\install').Path
-$env:RW_GAME_DAT = (Resolve-Path 'workspace\games-en\Vanilla_(2.01)\install\game.dat').Path   # ванильный daed3668; RotWK\game.dat пропатчен (1.9.8.4)
+$env:RW_GAME_DAT = (Resolve-Path 'workspace\games-en\Vanilla_(2.01)\install\game.dat').Path   # ванильный daed3668; RotWK\game.dat пропатчен (1.9.8.5)
 ```
 
 - Тесты гонять из копии (`Copy-Item engine\build\openbfme_tests.exe workspace\tests_xx.exe`), по одному набору: `-tc="modgap*"`, `module coverage*`, `save*`, `MOD-4*`, `MODS-1 mod corpus*`, `ENNORATH*`, `factb*`, `move*`, `combat*`, `proj*`, `horde*`, `hud6*`. Не запускать `*save*` и другие длинные наборы во время чужой сборки.

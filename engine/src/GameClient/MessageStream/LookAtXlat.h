@@ -115,6 +115,10 @@ private:
 	int m_scrollType = SCROLL_NONE;
 	unsigned m_scrollStartMs = 0, m_nowMs = 0;
 	unsigned m_frame = 0, m_middleFrame = 0, m_lastMoveFrame = 0;
+	// ennorath.middle-click-camera (PYSAGE 1.9.8.5 .camfix): the press time by the clock (+ 0x40 holds timeGetTime, RW 0x83ADE6) and bit 2 of + 0x39
+	// (the pointer went beyond 5 pixels of the press point while the button was held, 0xF3704A)
+	unsigned m_middlePressMs = 0;
+	bool m_middleMoved = false;
 	bool m_rotateLeft = false, m_rotateRight = false, m_zoomIn = false, m_zoomOut = false;
 	bool m_scrollKey[4] = { false, false, false, false }; // up, down, left, right (RW 0xDE8CB4 ..)
 	bool m_edgeScrollEnabled = true;

@@ -471,6 +471,13 @@ void ScriptActions::execute(ScriptEngine &engine, const ScriptActionRec &a)
 		logic.setShowBehindBuildingMarkers(param(a, 0).intValue != 0);
 		return;
 	}
+	if (name == "SET_HERO_EXPERIENCE_SHARING")
+	{
+		// PORT-301: case 538 (RW 0x7CDF99): TheGameLogic + 0x9F = (param 0's int (+ 8) != 0) through RW 0x7BD3D1; ShareExperienceBehavior::share reads it
+		// (RW 0x883428) and skips a HERO candidate while it is clear
+		logic.setHeroExperienceSharing(param(a, 0).intValue != 0);
+		return;
+	}
 	if (name == "OPTIONS_SET_DRAWICON_UI_MODE")
 	{
 		// LOCAL-94 (issue #720): case 300 (RW 0x7CE222) -> RW 0x7BD55C (DONOR BFME2 0x003BCA7B): TheGameLogic + 0x9A = (param 0's int != 0),

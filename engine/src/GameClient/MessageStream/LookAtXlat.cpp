@@ -4,6 +4,8 @@
 
 #include "GameClient/MessageStream/LookAtXlat.h"
 
+#include "Common/ModEngineFeatures.h"
+
 #include <cmath>
 #include <cstdlib>
 
@@ -14,6 +16,10 @@ constexpr float kRotatePerPixel = 0.004999999888241291f; // RW 0xC53B04
 constexpr int kKeyUp = 0xC8, kKeyDown = 0xD0, kKeyLeft = 0xCB, kKeyRight = 0xCD, kKeyStateUp = 0x0001;
 constexpr int kEdge = 3;                                 // RW 0x83AF8D: the 3 pixel border
 constexpr float kKeyScroll = 100.0f;                     // RW 0xBD88D8
+// ennorath.middle-click-camera (PYSAGE 1.9.8.5 .camfix): a click is a release within 350 ms of the press (0xF37018: cmp eax, 0x15E; ja) that never
+// went beyond 5 pixels of the press point on either axis (0xF37034 .. 0xF37048: d + 5 above 10 unsigned)
+constexpr unsigned kMiddleClickMs = 350;
+constexpr int kMiddleClickPixels = 5;
 } // namespace
 
 LookAtTranslator::LookAtTranslator(HudContext &context, TacticalCamera &camera)
@@ -167,13 +173,28 @@ MessageDisposition LookAtTranslator::translate(const ClientMessage &msg)
 			m_midOrigin = p;
 			m_midCur = p;
 			m_middleFrame = m_frame;
+			m_middlePressMs = m_nowMs; // ennorath.middle-click-camera: RW 0x83ADE6 calls timeGetTime there (retail reads the frame, RW 0x83AD6A)
+			m_middleMoved = false;     // the press writes + 0x39 = 1 (RW 0x83ADAC): bit 2 clear
 			break;
 		}
 		case CMSG_RAW_MOUSE_MIDDLE_BUTTON_UP:
 		{
 			// RW 0x83AD16
 			m_lastMoveFrame = m_frame;
+			const bool wasRotating = m_rotating;
 			m_rotating = false;
+			if (ModEngineFeatures::has(ModEngineFeature::EnnorathMiddleClickCamera))
+			{
+				// PYSAGE 1.9.8.5 .camfix 0xF37000 (hooked at RW 0x83AD3D, in place of the release point and frame tests below): + 0x39 must be exactly 1
+				// (pressed, never moved: 0xF37006), + 0x38 clear (not scrolling: 0xF3700A), at most 350 ms since the press (0xF3700F .. 0xF3701D)
+				const bool click = wasRotating && !m_middleMoved && !m_scrolling && m_nowMs - m_middlePressMs <= kMiddleClickMs;
+				m_middleMoved = false; // 0xF37003: + 0x39 = 0
+				if (click)
+				{
+					m_camera.resetCamera(); // 0xF3701F -> RW 0x83AD79
+				}
+				break;
+			}
 			const unsigned dx = (unsigned)std::abs(m_midCur.x - m_midOrigin.x);
 			const unsigned dy = (unsigned)(m_midCur.y - m_midOrigin.y); // RW compares the signed difference unsigned: a move upwards is never a click
 			if (dx > 5 || dy > 5)
@@ -218,6 +239,13 @@ MessageDisposition LookAtTranslator::translate(const ClientMessage &msg)
 			{
 				m_anchorMoved = true;
 				m_midCur = p;
+				// ennorath.middle-click-camera: PYSAGE 1.9.8.5 .camfix 0xF37029 (hooked at RW 0x83AEA3): beyond 5 pixels of the press point on either axis
+				// sets bit 2 of + 0x39, and the release is no click any more
+				if (ModEngineFeatures::has(ModEngineFeature::EnnorathMiddleClickCamera) &&
+					(std::abs(p.x - m_midOrigin.x) > kMiddleClickPixels || std::abs(p.y - m_midOrigin.y) > kMiddleClickPixels))
+				{
+					m_middleMoved = true;
+				}
 			}
 			else if (m_anchorMoved && m_scrollType == SCROLL_RMB)
 			{
