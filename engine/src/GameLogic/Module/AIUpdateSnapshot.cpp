@@ -38,6 +38,7 @@ void AIUpdateInterface::xfer(Xfer &x)
 	xferUpdateModule(x);
 }
 
+// RW 0x89DF93 (vtable 0xC66D48 slot 3: version 1, then AIUpdateInterface::xfer)
 void HordeAIUpdate::xfer(Xfer &x)
 {
 	XferVersion v{ 1, 1 };

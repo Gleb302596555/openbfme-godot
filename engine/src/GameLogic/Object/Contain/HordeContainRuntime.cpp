@@ -88,12 +88,13 @@ const char *HordeContain::movementStop()
 
 void HordeContain::registerClasses(ModuleFactory &modules)
 {
-	for (const char *name : { "HordeContain", "HorseHordeContain" })
-	{
-		modules.bindModuleProc(name, MODULETYPE_BEHAVIOR, [](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &) -> std::unique_ptr<Module> {
-			return std::make_unique<HordeContain>(thing, dynamic_cast<const HordeContainBehaviorData *>(data));
-		});
-	}
+	modules.bindModuleProc("HordeContain", MODULETYPE_BEHAVIOR, [](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &) -> std::unique_ptr<Module> {
+		return std::make_unique<HordeContain>(thing, dynamic_cast<const HordeContainBehaviorData *>(data));
+	});
+	// Cavalry horde contain (create RW 0x64B664, createData RW 0x65330B): implemented in HorseHordeContain.cpp (Port 283)
+	modules.bindModuleProc("HorseHordeContain", MODULETYPE_BEHAVIOR, [](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &) -> std::unique_ptr<Module> {
+		return std::make_unique<HorseHordeContain>(thing, dynamic_cast<const HordeContainBehaviorData *>(data));
+	});
 	// The Army of the Dead's contain (create RW 0x64B80A): implemented in AODHordeContain.cpp (Port 26)
 	modules.bindModuleProc("AODHordeContain", MODULETYPE_BEHAVIOR, [](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &) -> std::unique_ptr<Module> {
 		return std::make_unique<AODHordeContain>(thing, dynamic_cast<const HordeContainBehaviorData *>(data));
@@ -199,19 +200,24 @@ UpdateSleepTime HordeContain::update()
 		{
 			m_quarrelB = INVALID_ID; // RW 0x8730F7 .. 0x873107: the quarrel ended
 			m_quarrelDistance.clear();
+			onReformFlagSet(); // RW 0x87310C: [this + 0x121] = 1
 		}
 		const bool work = runMemberPass();
 		if (work)
 		{
 			m_dirty = true; // members still walk, turn or wait: the pass runs again next frame
 		}
-		else if (!ai->isMoving())
+		else
 		{
-			// B1 line 0x898: a parked horde's goal in the pathfinder is the cell it stands on
-			AIWorld &w = ai->world();
-			if (w.mapReady())
+			onPassSettled(); // RW 0x87312D: [this + 0x121] = 0 when [this + 0x120] == 0
+			if (!ai->isMoving())
 			{
-				w.pathfinder().updateGoal(ai->adapter(), horde->getPosition(), ai->adapter().getLayer());
+				// B1 line 0x898: a parked horde's goal in the pathfinder is the cell it stands on
+				AIWorld &w = ai->world();
+				if (w.mapReady())
+				{
+					w.pathfinder().updateGoal(ai->adapter(), horde->getPosition(), ai->adapter().getLayer());
+				}
 			}
 		}
 	}
@@ -1476,6 +1482,43 @@ void HordeContain::crc(StateHasher &h) const
 		h.addU32(mb->m_delayRandomActivateMin);
 		h.addU32(mb->m_delayRandomActivateMax);
 	}
+	if (m_hasPendingRally) // PORT-283: RW interface + 0x1DC / + 0x1E8 (hashed once armed, like crcWallScaling)
+	{
+		h.addBool(true);
+		h.addFloat(m_pendingRally.x);
+		h.addFloat(m_pendingRally.y);
+		h.addFloat(m_pendingRally.z);
+	}
+}
+
+// RW 0x86BD7D (HordeContainInterface slot 0x244): interface + 0x1DC = pos, + 0x1E8 = 1
+void HordeContain::setPendingRallyPoint(const Coord3D &pos)
+{
+	m_pendingRally = pos;
+	m_hasPendingRally = true;
+}
+
+// RW 0x86BD98 (HordeContainInterface slot 0x248): false when + 0x1E8 is 0; else clears + 0x1E8, copies + 0x1DC to `out`, returns true
+bool HordeContain::consumePendingRallyPoint(Coord3D &out)
+{
+	if (!m_hasPendingRally)
+	{
+		return false;
+	}
+	m_hasPendingRally = false;
+	out = m_pendingRally;
+	return true;
+}
+
+// RW 0x872BB8 (HordeContainInterface slot 0xF0): module data + 0x238 (IsPorcupineFormation)
+bool HordeContain::isPorcupineFormation() const
+{
+	return hordeData().m_isPorcupineFormation;
+}
+
+HordeContainInterface *HordeContain::toggleFormationHorde()
+{
+	return toggleFormation();
 }
 
 // ---- lane SAVE-4b: the snapshot (OpenBFME native, S-4190) ---------------------------------------------------------------------------------------------------
@@ -1484,7 +1527,7 @@ void HordeContain::crc(StateHasher &h) const
 // the AI's melee runtime is the AI update's, SAVE-4c). The pass, exit and attack statistics are the report's.
 void HordeContain::xfer(Xfer &x)
 {
-	XferVersion v{ 1, 2 }; // PORT-90: the inherited OpenContain sound state
+	XferVersion v{ 1, 3 }; // v2 PORT-90: OpenContain sound state; v3 PORT-283: pending rally point (+ 0x1DC / + 0x1E8)
 	x.xferVersion(v);
 	xferUpdateModule(x);
 	if (v.current >= 2)
@@ -1571,6 +1614,16 @@ void HordeContain::xfer(Xfer &x)
 	x.xferInt(&m_wallIdlePasses);
 	SnapshotXfer::checkRange(m_wallIdlePasses, 0, 4, "a horde's wall scaling idle passes"); // checkWallScalingDone: the fifth idle pass ends the scaling and resets it
 	x.xferReal(&m_scalingReach);
+	if (v.current >= 3) // PORT-283: RW interface + 0x1DC / + 0x1E8
+	{
+		x.xferBool(&m_hasPendingRally);
+		SnapshotXfer::coord3D(x, m_pendingRally);
+	}
+	else if (x.isLoading())
+	{
+		m_hasPendingRally = false;
+		m_pendingRally = { 0.0f, 0.0f, 0.0f };
+	}
 }
 
 // lane PORT-199 (issue #466): RW 0x86ECAB is HordeContainInterface vslot 0xAC (table RW 0xC5B1F8). Its body walks the
