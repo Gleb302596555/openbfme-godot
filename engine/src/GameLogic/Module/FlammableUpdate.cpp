@@ -429,9 +429,9 @@ void FlammableUpdate::onDamage(const DamageInfo &info)
 			}
 		}
 	}
-	else if (obj->getContain())
+	else if (ContainModuleInterface *contain = obj->getContain())
 	{
-		noteStop(*obj, "FlammableUpdate: the contain module's slot 0x88(2) at ignition (RW 0x890666) is not ported");
+		contain->evacuateCrew(2 /*CMD_FROM_AI*/); // RW 0x00890656 .. 0x00890666: contain slot 0x88(2)
 	}
 }
 

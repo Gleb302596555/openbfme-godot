@@ -1183,6 +1183,17 @@ void HordeTransportContain::onContainerUpgrade(const std::vector<const UpgradeTe
 	}
 }
 
+// RW 0x0087A3A4 (DONOR BFME2 0x00479C0C): contain vslot 0x68 on HordeTransportContain (and subclass HordeSiegeEngineContain):
+// forwards to OpenContain::onContainedAboutToTakeDamage (RW 0x00865631) only when rider->getContain() == nullptr
+void HordeTransportContain::onContainedAboutToTakeDamage(Object *rider, const void *damageSource, DamageInfo *info)
+{
+	if (rider && rider->getContain() != nullptr)
+	{
+		return;
+	}
+	OpenContain::onContainedAboutToTakeDamage(rider, damageSource, info);
+}
+
 void HordeTransportContain::orderAllPassengersToExit(int source)
 {
 	const std::vector<Object *> riders(m_contained.begin(), m_contained.end());
