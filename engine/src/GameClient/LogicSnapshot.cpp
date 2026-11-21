@@ -389,6 +389,8 @@ std::shared_ptr<const LogicSnapshot> LogicSnapshot::build(GameLogic &logic, cons
 		}
 		s.instanceScale = o->getInstanceScale();
 		s.moveSpeed = drawSpeedOf(*o); // lane SMOOTH-3
+		s.disabledMask = o->getDisabledMask(); // LOCAL-106: Object +0x1C8 (RW 0x00675670)
+		s.scriptStatus = o->scriptStatus();    // LOCAL-106: Object +0x457 (RW 0x00675667)
 		if (const AIUpdateInterface *ai = o->getAIUpdateInterface())
 		{
 			if (const Locomotor *l = ai->curLocomotor())

@@ -41,6 +41,7 @@ class OCLUpdate : public UpdateModule
 public:
 	OBFME_MODULE_XFER(OCLUpdate)
 	OCLUpdate(Thing *thing, const OCLUpdateModuleData *data); // RW 0x89EB48
+	~OCLUpdate() override = default; // RW 0x0089EA69 / RW 0x0089EB7D
 	UpdateSleepTime update() override;                        // RW 0x89EC43
 	void crc(StateHasher &h) const override;
 
@@ -48,7 +49,7 @@ public:
 	unsigned scheduledAt() const { return m_scheduledAt; }
 	int created() const { return m_created; }
 	float getCountdownPercent() const; // RW 0x89EA88
-	static void registerClass(ModuleFactory &modules);
+	static void registerClass(ModuleFactory &modules); // getModuleName RW 0x0089EA82, getModuleNameKey RW 0x0089EAD7
 	static const char *stopLine();
 
 private:

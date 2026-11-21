@@ -62,6 +62,8 @@ struct ObjectSnapshot
 	// locomotor's speed (AI +0x260 -> +0x1F0 -> +0x40, world units per logic frame; 0 without AI or locomotor, or when not positive), else when that is 0
 	// the same of the object's horde (RW 0x693A1A(0): the object itself when HORDE, else its container when that is a HORDE)
 	float moveSpeed = 0.0f;
+	DisabledMaskType disabledMask = DISABLEDMASK_NONE; ///< LOCAL-106 (RW 0x00675670): Object +0x1C8 disabled mask for Drawable::getShouldAnimate
+	std::uint8_t scriptStatus = 0;                     ///< LOCAL-106 (RW 0x00675667): Object +0x457 script status byte (bit 1 = SCRIPT_UNPOWERED)
 	const LocomotorTemplate *locomotorTemplate = nullptr; ///< LOCAL-25: current locomotor template for client presentation physics
 	bool giantBirdAI = false;                             ///< LOCAL-47 (RW 0x670E29 / 0x8BD372): AI answers vslot 0x168 (GiantBirdAIUpdate)
 	float giantBirdTurnRate = 0.0f;                       ///< LOCAL-47 (RW 0x670E3D / 0x8CEF91): GiantBirdFlight::turnRate (AI + 0x600)

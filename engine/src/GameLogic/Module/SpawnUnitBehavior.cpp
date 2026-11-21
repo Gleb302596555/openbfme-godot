@@ -102,9 +102,10 @@ UpdateSleepTime SpawnUnitBehavior::update()
 	return UPDATE_SLEEP_NONE;
 }
 
+// RW 0x008BC8E4 (DONOR BFME2 0x4B87A3): version (1, 2), UpdateModule::xfer (v>=2), m_spawned (+0x24)
 void SpawnUnitBehavior::xfer(Xfer &x)
 {
-	XferVersion v{ 1, 2 }; // RW 0x4B87A3
+	XferVersion v{ 1, 2 };
 	x.xferVersion(v);
 	xferUpdateModule(x);
 	x.xferBool(&m_spawned);

@@ -27,6 +27,7 @@ ProjectileStreamUpdate::ProjectileStreamUpdate(Thing *thing, const ModuleData *m
 	m_targetPosition = Coord3D{};
 }
 
+// RW 0x00740AE5 (DONOR BFME2 ProjectileStreamUpdate::update): cullFrontOfList, considerDying -> destroyObject, returns UPDATE_SLEEP_NONE
 UpdateSleepTime ProjectileStreamUpdate::update()
 {
 	cullFrontOfList();
@@ -78,6 +79,7 @@ void ProjectileStreamUpdate::addProjectile(ObjectID sourceID, ObjectID newID, Ob
 	m_nextFreeIndex = (m_nextFreeIndex + 1) % MAX_PROJECTILE_STREAM;
 }
 
+// RW 0x007409F9 (DONOR BFME2 ProjectileStreamUpdate::cullFrontOfList): advances m_firstValidIndex (+0x74) mod 20 while front object is gone
 void ProjectileStreamUpdate::cullFrontOfList()
 {
 	Object *me = getObject();
@@ -98,6 +100,7 @@ void ProjectileStreamUpdate::cullFrontOfList()
 	}
 }
 
+// RW 0x00740A31 (DONOR BFME2 ProjectileStreamUpdate::considerDying): true when buffer empty, m_owningObject (+0x78) != 0 and owner is gone
 bool ProjectileStreamUpdate::considerDying()
 {
 	if (m_firstValidIndex == m_nextFreeIndex && m_owningObject != 0)
@@ -189,6 +192,7 @@ void ProjectileStreamUpdate::crc(StateHasher &hasher) const
 	hasher.addFloat(m_targetPosition.z);
 }
 
+// getModuleName RW 0x00740844, getModuleNameKey RW 0x0074084A
 void ProjectileStreamUpdate::registerClass(ModuleFactory &modules)
 {
 	modules.bindTypedData<ProjectileStreamUpdateModuleData>("ProjectileStreamUpdate", MODULETYPE_BEHAVIOR);

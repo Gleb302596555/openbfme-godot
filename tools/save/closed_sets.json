@@ -183,7 +183,6 @@
  "GameLogic/Module/HeroAbilityModules.cpp::DualWeaponBehavior::xfer::m_switches#1": "open: a statistic counter",
  "GameLogic/Module/HeroAbilityModules.cpp::FellBeastSwoopPower::xfer::m_commands#1": "open: a statistic counter",
  "GameLogic/Module/HeroAbilityModules.cpp::RousingSpeechUpdate::xfer::m_inspired#1": "open: a statistic counter",
- "GameLogic/Module/HeroAbilityModules.cpp::ShareExperienceBehavior::xfer::m_shares#1": "open: a statistic counter",
  "GameLogic/Module/HeroAbilityModules.cpp::SpecialPowerTimerRefreshSpecialPower::xfer::m_refreshed#1": "open: a statistic counter",
  "GameLogic/Module/HeroAbilityModules.cpp::TeleportSpecialAbilityUpdate::xfer::m_teleports#1": "open: a statistic counter",
  "GameLogic/Module/HeroModules.cpp::AttributeModifierAuraUpdate::xfer::m_anti#1": "open: a statistic counter",

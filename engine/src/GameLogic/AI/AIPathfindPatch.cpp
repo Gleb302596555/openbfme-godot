@@ -177,7 +177,7 @@ bool Pathfinder::patchPointIsFree(PathfindObject &obj, const PathfindLocomotorIn
 			}
 		}
 	}
-	PathfindCheckMovement info;
+	PathfindCheckMovement info; // RW 0x006E8419 (PathfindCheckMovement ctor)
 	info.cell = cell;
 	info.layer = layer;
 	info.radius = r;
