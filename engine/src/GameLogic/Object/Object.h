@@ -187,6 +187,9 @@ public:
 	// ---- lane COMBAT-1: weapons, damage, death, the kill credit --------------------------------------------------------------------
 	// the live weapon set (null when the template cannot have any weapon, RW 0x73C191)
 	ObjectWeapons *getWeapons() const { return m_weapons.get(); }
+	// PORT-218: RotWK Object::getAbleToAttackSpecificObject RW 0x68D6A6 (docs/re/rotwk/RW_0x68D6A6.md): the object its own weapon set answers
+	// through, or the rider / slave's set for a SPAWNS_ARE_THE_WEAPONS object whose riders may fire; the result enum is RotWK's.
+	CanAttackResult getAbleToAttackSpecificObject(AbleToAttackType type, const Object &victim, CommandSourceType commandSource) const;
 	// lane HUD-4: the object's weapon set flags (RW Object + 0x38C, kept on EVERY object: a horde without weapons carries WEAPONSET_TOGGLE_1 for its
 	// MonitorConditionUpdate). An object with a weapon set keeps them in ObjectWeapons (the set re-selects on a change); one without keeps them here
 	const WeaponConditionFlags &getWeaponSetFlags() const;

@@ -34,6 +34,11 @@ struct Status
 	int noAttack = status("NO_ATTACK");
 	int noCollisions = status("NO_COLLISIONS");
 	int insideGarrison = status("INSIDE_GARRISON"); // bit 0x3A (RW 0x6CAC0F)
+	// PORT-218: the statuses RW 0x6C9147 reads
+	int destroyed = status("DESTROYED");               // 0, RW 0x6C9182 (+ 0x94 bit 0)
+	int notInWorld = status("NOT_IN_WORLD");           // 0x33, RW 0x6C91A4
+	int contesting = status("CONTESTING_BUILDING");    // 0x25, RW 0x6C91D7 / 0x6C93E0 / 0x6C869E
+	int ignoringStealth = status("IGNORING_STEALTH");  // 0x1B, RW 0x6C922F
 };
 const Status &statuses();
 
@@ -41,7 +46,8 @@ struct Kind
 {
 	int structure = kindOf("STRUCTURE");
 	int infantry = kindOf("INFANTRY");
-	int horde = kindOf("HORDE");
+	int horde = kindOf("HORDE"); // 109 (word 3 bit 13, template + 0x115 bit 0x20): RW 0x68D722 (a horde asks its contain for riders), RW 0x6C8790
+	                           // (its garrison slot is skipped) and RW 0x6C889F (a horde member can still walk into reach)
 	int meleeHorde = kindOf("MELEE_HORDE");
 	int immobile = kindOf("IMMOBILE");
 	int projectile = kindOf("PROJECTILE");
@@ -54,7 +60,12 @@ struct Kind
 	int hero = kindOf("HERO");
 	int tree = kindOf("TREE");                 // PORT-14: RW 0x7512E0 victim template + 0x113 bit 0x40
 	int armyOfDead = kindOf("ARMY_OF_DEAD");   // PORT-14: RW 0x751449 owner template + 0x11A bit 0x80
-	int spawnsAreTheWeapons = kindOf("SPAWNS_ARE_THE_WEAPONS"); // PORT-208: template + 0x112 bit 0x10 (RW 0x6913F5, Object::isAbleToAttack)
+	// PORT-218: the KindOf bits RW 0x6C9147 and RW 0x6C8652 read
+	int spawnsAreTheWeapons = kindOf("SPAWNS_ARE_THE_WEAPONS"); // 84 (word 2 bit 20), RW 0x6C888C: a spawner does not walk into reach
+	int disguiser = kindOf("DISGUISER");                        // 88, RW 0x6C9259 / 0x6C9295
+	int wallUpgrade = kindOf("WALL_UPGRADE");                   // 150, RW 0x68D6FA
+	int passExperienceToContainer = kindOf("PASS_EXPERIENCE_TO_CONTAINER"); // 206 (0xCE), RW 0x6C9422
+	int drawableOnly = kindOf("DRAWABLE_ONLY");                 // 36, RW 0x6C937E (word 1 bit 4)
 };
 const Kind &kinds();
 } // namespace CombatNames

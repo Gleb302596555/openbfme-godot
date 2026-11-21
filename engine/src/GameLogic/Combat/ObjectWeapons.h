@@ -46,24 +46,8 @@ enum WeaponChoiceCriteria
 	PREFER_TEMPLATE_DEFAULT = 5
 };
 
-// ZH AbleToAttackType (RW 0x6C8652 attackType: bit 3 = ATTACK_CONTINUED, 4 = ATTACK_TUNNEL_NETWORK_GUARD)
-enum AbleToAttackType
-{
-	ATTACK_NEW_TARGET = 0,
-	ATTACK_NEW_TARGET_FORCED = 1,
-	ATTACK_TUNNEL_NETWORK_GUARD = 4,
-	ATTACK_CONTINUED = 8,
-	ATTACK_CONTINUED_FORCED = 9
-};
-
-// ZH CanAttackResult (RW 0x68B5FA / RW 0x6C8652)
-enum CanAttackResult
-{
-	ATTACKRESULT_NOT_POSSIBLE = 0,
-	ATTACKRESULT_INVALID_SHOT = 1,
-	ATTACKRESULT_POSSIBLE_AFTER_MOVING = 2,
-	ATTACKRESULT_POSSIBLE = 3
-};
+// PORT-218: AbleToAttackType / CanAttackResult live in GameLogic/ObjectTypes.h (RW 0x6C91C9 / 0x6C88E2 .. 0x6C88F5), so Object.h
+// can name the answer; RotWK's bits are 0 (new target), 1 (forced), 8 (continued), 9 (continued forced), 4 (tunnel network guard).
 
 // ZH WeaponLockType
 enum WeaponLockType
@@ -147,10 +131,27 @@ public:
 	static unsigned victimAntiMask(const Object &victim);
 	// ZH Object::getAbleToAttackSpecificObject, the part that does not depend on the AI: the victim can be shot at by SOME weapon of this set
 	bool canAttackObject(const Object &victim, CommandSourceType source, bool forced) const;
-	// TOP20 #21 r3: canAttackObject without the order's shroud gate (VIS-1, RW 0x82C167: the action helper's, not RW 0x6C9147's): the attack machine's
-	// continue test RW 0x7417E4 .. 0x741807 calls RW 0x68D6A6 -> RW 0x6C9147, which has no shroud test
+	// PORT-218: the same answer without the caller-level shroud gate (VIS-1, RW 0x82C167): RW 0x6C9147 itself has no shroud test, so this is the
+	// exact port, and `canAttackObject` keeps main's shroud gate on top of it for the AI consumers that had one.
 	bool canAttackObjectNoShroud(const Object &victim, CommandSourceType source, bool forced) const;
-	// PORT-208 (issue #490): RW 0x68B5FA Object::getAbleToUseWeaponAgainstTarget -> RW 0x6C8652 WeaponSet::getAbleToUseWeaponAgainstTarget
+	// PORT-218: RotWK WeaponSet::getAbleToAttackSpecificObject RW 0x6C9147 (see docs/re/rotwk/RW_0x68D6A6.md for every branch and its address).
+	// `source` is the object whose set this is. Answer: CanAttackResult.
+	CanAttackResult getAbleToAttackSpecificObject(AbleToAttackType type, const Object &source, const Object &victim, CommandSourceType commandSource) const;
+	// PORT-218: RotWK WeaponSet::getAbleToUseWeaponAgainstTarget RW 0x6C8652, the tail RW 0x6C9147 always reaches: the set anti mask and the range
+	// loop over the six slots, the aim delta, the garrison / firing owner branch, the canDamage / OnlyAgainst loop, a passenger's own answer,
+	// a spawner's slaves. `position` is the victim's position (or an empty ground target).
+	CanAttackResult getAbleToUseWeaponAgainstTarget(AbleToAttackType type, const Object &source, const Object *victim, const Coord3D &position,
+	                                                CommandSourceType commandSource) const;
+	// PORT-218: the slot loop of RW 0x6C891B .. 0x6C8993 alone: true when a weapon that canDamage the victim has an empty OnlyAgainst or one
+	// naming a KindOf of the victim (called back by a passenger's own query, so it must not recurse into the containers again)
+	bool someWeaponCanDamage(const Object &source, const Object &victim) const;
+	// PORT-218: RW 0x6CC653 / RW 0x6CC622 for the weapon in `slot` (the anti / range loop of RW 0x6C8652 walks the slots, not the current one)
+	bool isWithinAttackRangeWithWeapon(const Weapon &weapon, const Object &victim) const;
+	bool isWithinAttackRangeWithWeapon(const Weapon &weapon, const Coord3D &pos) const;
+	// PORT-218: RW 0x6C80A9 isAnyWithinTargetPitch: true when no weapon of the set is pitch-limited; otherwise one weapon must pass RW 0x6CA9BF
+	bool isAnyWithinTargetPitch(const Object &source, const Object &victim) const;
+	// PORT-208 (issue #490): main's entry point, RW 0x68B5FA Object::getAbleToUseWeaponAgainstTarget: its body forwards to the PORT-218 port of
+	// RW 0x6C8652 above, so both forms share one implementation (the copy this lane replaced had the per-slot anti test and the old 8 / 1 bits).
 	CanAttackResult getAbleToUseWeaponAgainstTarget(int attackType, const Object *victim, const Coord3D *pos, CommandSourceType source) const;
 
 	// ---- range ---------------------------------------------------------------------------------------------------------------------

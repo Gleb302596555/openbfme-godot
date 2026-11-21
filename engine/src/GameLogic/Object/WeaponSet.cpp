@@ -125,6 +125,21 @@ const FieldParse *WeaponTemplateSet::getFieldParse()
 }
 
 // RW 0x6C99C6
+// RW 0x6C801C zeroes the WeaponSet's + 0x2C; the value is the OR of the Anti* flags of the set's slot weapons (RW 0x6C8724 and
+// RW 0x6C88F2 test it against the victim's anti class, not one slot weapon's + 0x10C).
+unsigned WeaponTemplateSet::antiMask() const
+{
+	unsigned mask = 0;
+	for (int slot = 0; slot < WEAPONSLOT_COUNT; ++slot)
+	{
+		if (m_template[slot])
+		{
+			mask |= m_template[slot]->m_antiMask;
+		}
+	}
+	return mask;
+}
+
 void WeaponTemplateSet::parseWeaponTemplateSet(INI *ini, const void *owner)
 {
 	ini->initFromINI(this, getFieldParse());

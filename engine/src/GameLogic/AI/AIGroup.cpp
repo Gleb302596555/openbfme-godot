@@ -771,12 +771,12 @@ bool AIGroup::groupAttackObject(Object *victim, bool force, CommandSourceType so
 			}
 			continue;
 		}
-		// RW 0x772219 .. 0x772235: the object's own Object::getAbleToAttackSpecificObject (RW 0x68D6A6), the port's canAttackObject stand-in
-		const ObjectWeapons *weapons = o->getWeapons();
-		if (!weapons || !weapons->canAttackObject(*victim, source, force))
-		{
-			continue;
-		}
+		// RW 0x772219 .. 0x772235: the object's own AI takes the order with NO able-to-attack test — the walk is `cmp byte ptr [ebp+8], 0` (forced),
+		// the three pushes and `call 0x771380` (aiForceAttackObject) / `call 0x66C536` (aiAttackObject); the only RW 0x68D6A6 in this walk is the
+		// passenger test of step 1 (RW 0x772195). Whether the shot is possible is decided inside the machine: its entry picks a weapon (RW 0x74CF4F ->
+		// 0x74D0C9), so a forced order on one's own object that no weapon can damage is ACCEPTED and then ends at once (the play2 force-attack case).
+		// PORT-325 wrote a `canAttackObject` gate here while the port had no able-to-attack function; with the ported one (which now carries the weapon
+		// walk of RW 0x6C891B) that gate would refuse orders RotWK takes.
 		const bool ok = force ? ai->aiForceAttackObject(victim, source) : ai->aiAttackObject(victim, source);
 		took = took || ok;
 		if (ok)
