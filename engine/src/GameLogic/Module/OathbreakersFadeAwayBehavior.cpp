@@ -42,7 +42,7 @@ UpdateSleepTime OathbreakersFadeAwayBehavior::update()
 		{
 			// 0x26 is HORDE_MEMBER in both status tables (BFME2 BitFlags101BodyStateGetSingleBitFromName.cpp);
 			// Rva004B8B0F.cpp calls it FAERIE_FIRE, which the 1.06 table disproves.
-			if (!obj->testStatus(0x26)) // RW 0x8BCC54, BFME2 0x8B8B0F
+			if (!obj->testStatus(0x26)) // RW 0x008BCC50 (0x8BCC54), DONOR BFME2 0x8B8B0F
 			{
 				if (AIUpdateInterface *ai = obj->getAIUpdateInterface())
 				{
@@ -76,6 +76,7 @@ UpdateSleepTime OathbreakersFadeAwayBehavior::update()
 	return obj->testModelCondition(oath) ? UPDATE_SLEEP_NONE : UPDATE_SLEEP(LOGICFRAMES_PER_SECOND); // RW 0x8BCC22
 }
 void OathbreakersFadeAwayBehavior::crc(StateHasher &h) const { UpdateModule::crc(h); h.addBool(m_started); h.addFloat(m_fraction); }
+// RW 0x008BCB69 (DONOR BFME2 0x008B8A23; dtor RW 0x008BCB05 / RW 0x008BCC06, getModuleNameKey RW 0x008BCB1E, name RW 0x008BCB63)
 void OathbreakersFadeAwayBehavior::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1); // OpenBFME native, S-4190

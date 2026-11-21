@@ -95,6 +95,7 @@ struct ObjectSnapshot
 	// an ALWAYS_VISIBLE object and for one without a record (a contained object); FXList::doFXObj asks the cell at the position of the latter (RW 0x5E22C4)
 	bool shroudRecord = false;
 	bool effectivelyDead = false;  ///< lane VISUAL-2: Object::isEffectivelyDead (the drawable's shroud grace is 3 s longer, RW 0x64849E: GameClient/DrawableShroud.h)
+	bool burned = false;           ///< LOCAL-103: OBJECT_STATUS_BURNED (bit 11, RW 0x008CD921 SwayClientUpdate::clientUpdate)
 	// lane OCCLUDE-1: the behind-building roles the object qualifies for at this frame (RTS3DSceneOcclusion::eligibility bits: occluder, occludee)
 	std::uint8_t occlusion = 0;
 	// lane STEALTH-1: the invisibility look for the local player (InvisibilityManager::clientLook, RW 0x81AA03): 0 normal, 1 / 4 the friend's opacity pulse, 3 detected

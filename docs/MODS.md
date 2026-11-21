@@ -249,6 +249,7 @@ rebuilt in OpenBFME as a named feature, off unless that mod is loaded (`Common/M
 |---|---|
 | Edain Unchained 4.4.3 `game.dat` (5c31f503...) | the `edain-unchained.*` features below |
 | Patch 2.02 / 2.02 Delayfix `lotrbfme2ep1.exe` | nothing to do: install checks and EA's frame pacing, no game rule |
+| Ennorath 1.9.8.5 `game.dat` (fc32e4c4...) | known, nothing rebuilt yet: the rules stay retail 2.01 and the S-5304 line names its pySAGE edits; [ennorath/ENNORATH_EXE.md](ennorath/ENNORATH_EXE.md) decodes them, each one the owner takes becomes an `ennorath.*` feature |
 | Edain Völker 1.7 `game.dat` | nothing to do for the game rules: frame pacing and desync reporting |
 | RJ-RotWK launcher and its `file.dat` | nothing: a launcher, not the game |
 

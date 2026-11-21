@@ -12,7 +12,7 @@
 //     - addProjectile:            RW 0x00890B90
 //     - cullFrontOfList:          RW 0x00890C50
 //     - considerDying:            RW 0x00890CA0
-//     - getAllPoints:             RW 0x00890D00
+//     - getAllPoints:             RW 0x00740A56 (DONOR BFME2 ProjectileStreamUpdate::getAllPoints)
 //     - xfer:                     RW 0x00740954
 //   BFME2 1.06:
 //     - friend_newModuleInstance: BFME2 0x0024FC59

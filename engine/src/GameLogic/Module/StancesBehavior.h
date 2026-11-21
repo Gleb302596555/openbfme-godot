@@ -29,7 +29,7 @@
 //     else AIGroup::setStance (RW 0x76FF27): every member's StancesBehavior (found by the class name key, RW 0x861E6E / 0x68BDA5) setStance(stance);
 //   * the state (xfer RW 0x861DDF): the stance, 4 bytes ("StanceEnum").
 // NOT PORTED (stop S-585, counted): RW 0x662A21 (the AI + 0x4C mode with the unit's position / angle at AI + 0x58 / + 0x1A0: the AI side of hold ground), the
-// listener notice RW 0x861F97 (no listener registration identified), the callers of onMoveStart / onMoveEnd (RW 0x66A948 in RW 0x66A61A, RW 0x743882) are not
+// listener notice RW 0x861F97 / RW 0x00861F79 in ~StancesBehavior (RW 0x0086205A: client UI InGameToggleStanceCommandButton, S-585 / S-3803), the callers of onMoveStart / onMoveEnd (RW 0x66A948 in RW 0x66A61A, RW 0x743882) are not
 // identified without the Ghidra server, so a HoldGround unit keeps its stance while it moves; the group manager branch of MSG_CHANGE_STANCE (S-223: the port takes
 // AIGroup::setStance); the scripted stance (RW 0x94D4EB) and the map object's stance (RW 0x695B93).
 // The horde's melee behaviour runtime (RW deletes and rebuilds the behaviour object, RW 0x86C40D) is rebuilt in HordeAIUpdate::resetMeleeRuntime (Sol review).

@@ -92,6 +92,7 @@ std::vector<std::uint8_t> bytesOf(const ObjectSnapshot &s)
 	put(b, s.objectShroud);
 	put(b, s.shroudRecord);
 	put(b, s.effectivelyDead);
+	put(b, s.burned);
 	put(b, s.occlusion);
 	put(b, s.stealthLook);
 	put(b, s.drawableHidden);

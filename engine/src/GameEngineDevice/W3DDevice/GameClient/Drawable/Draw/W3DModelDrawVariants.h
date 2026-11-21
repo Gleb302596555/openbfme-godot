@@ -7,7 +7,7 @@
 //
 // Sources, in PLAN rule 1 priority order (TARGET = RotWK game.dat, caveat S-001):
 //   TARGET registry entries (module-registry.json, createData / table adds), object sizes and constructors:
-//     W3DTruckDraw      tables [0xBE1320, 0xBE22B8] (26 rows), createData RW 0x4642E7, size 0x1F0, constructor RW 0x4CA9B6
+//     W3DTruckDraw      tables [0xBE1320, 0xBE22B8] (26 rows), createData RW 0x4642E7, size 0x1F0, constructor RW 0x4CA9B6, dtor RW 0x004CD660
 //                       (the 21 strings empty; CabRotationMultiplier, TrailerRotationMultiplier, RotationDamping,
 //                       TireRotationMultiplier 1.0; PowerslideRotationAddition 0.0)
 //     W3DSailModelDraw  tables [0xBE1320, 0xBE3B30] (3 rows), createData RW 0x4647CA, size 0x194, constructor RW 0x4CFF2A
