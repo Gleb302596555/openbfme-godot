@@ -1605,6 +1605,35 @@ Object P238ArveduiEvil
   End
   Behavior = AIUpdateInterface AI
   End
+  Behavior = UnpauseSpecialPowerUpgrade EnableGood
+    SpecialPowerTemplate = P238ArveduiGoodPower
+    TriggeredBy = Upgrade_P238ArveduiProtected
+  End
+  Behavior = SpecialPowerModule GoodPower
+    SpecialPowerTemplate = P238ArveduiGoodPower
+    UpdateModuleStartsAttack = Yes
+    StartsPaused = Yes
+  End
+  Behavior = ToggleMountedSpecialAbilityUpdate GoodToggle
+    SpecialPowerTemplate = P238ArveduiGoodPower
+    MountedTemplate = P238ArveduiGood
+    UnpackTime = 2000
+    PreparationTime = 0
+    PackTime = 0
+    IgnoreFacingCheck = Yes
+  End
+  Behavior = DoCommandUpgrade GoodCommand
+    TriggeredBy = Upgrade_P238ArveduiProtected
+    GetUpgradeCommandButtonName = P238ArveduiGoodButton
+  End
+  Behavior = DoCommandUpgrade GoodCommandFromPlayer
+    TriggeredBy = Upgrade_P238ArveduiPlayerRing
+    GetUpgradeCommandButtonName = P238ArveduiGoodButton
+  End
+  Behavior = ObjectCreationUpgrade ProtectionFromPlayer
+    TriggeredBy = Upgrade_P238ArveduiPlayerRing
+    GrantUpgrade = Upgrade_P238ArveduiProtected
+  End
 End
 Object P238ArveduiGood
   KindOf = INFANTRY HERO SELECTABLE CAN_ATTACK
@@ -1619,9 +1648,11 @@ End
     REQUIRE_MESSAGE(error.empty(), error);
     bool protectedHero = false;
     bool usePlayerUpgrade = false;
+    bool playerUpgradeAfterEvil = false;
     SUBCASE("unprotected") { protectedHero = false; }
     SUBCASE("object protection before delivery") { protectedHero = true; }
     SUBCASE("player protection before delivery") { protectedHero = true; usePlayerUpgrade = true; }
+    SUBCASE("player protection after evil replacement") { playerUpgradeAfterEvil = true; }
     Object *bearer = w.unit("P238ArveduiBase", 'A', 300, 300);
     Object *carrier = w.unit("P238Carrier", 'A', 300, 300);
     Object *ring = w.unit("P238Ring", 'A', 300, 300);
@@ -1667,4 +1698,25 @@ End
     CHECK(selected->getControllingPlayer() == w.playerOf('A'));
     w.frames(3);
     CHECK(w.byId(original) == nullptr);
+    if (playerUpgradeAfterEvil)
+    {
+        const ObjectID evilId = selected->getID();
+        const UpgradeTemplate *playerUpgrade = Player::resolveUpgrade("Upgrade_P238ArveduiPlayerRing", true);
+        REQUIRE(playerUpgrade != nullptr);
+        w.playerOf('A')->addUpgrade(playerUpgrade, Player::UPGRADE_STATUS_COMPLETE);
+        w.frames(3);
+        REQUIRE(w.byId(evilId) != nullptr);
+        REQUIRE(w.byId(evilId)->hasUpgrade("Upgrade_P238ArveduiProtected"));
+        Object *good = nullptr;
+        for (int i = 0; i < 50 && !good; ++i)
+        {
+            w.frames(1);
+            for (Object *o = w.logic->getFirstObject(); o; o = o->getNextObject())
+                if (o->getTemplate() && o->getTemplate()->getName() == "P238ArveduiGood") good = o;
+        }
+        REQUIRE(good != nullptr);
+        CHECK(good->getControllingPlayer() == w.playerOf('A'));
+        w.frames(3);
+        CHECK(w.byId(evilId) == nullptr);
+    }
 }
