@@ -38,7 +38,7 @@
 //     0x6C RW 0x88CFFE: the paid price back, truncated, the money spent score taken back, the object destroyed); a legal site: the body's health is changed by
 //     1.0 - health (body vslots 0x10 / 0x84: the structure rises from 1 hit point).
 //   * DozerAIUpdate::update (RW 0x88CAF5): the base AI update, then a current REPAIR task whose target the ActionManager no longer lets it repair is cancelled
-//     (RW 0x82D7F2, S-1282), then the primary machine. The dozer never sleeps (returns 1).
+//     (RW 0x82D7F2, PORT-289), then the primary machine. The dozer never sleeps (returns 1).
 // TARGET (lane BUILD-2, DozerActionDoActionState::update RW 0x88D993, sub task 3): a build task adds 100 / calcTimeToBuild(template, the dozer's owner, the dozer)
 // to the construction percent each frame (SSE, RW 0x88DE72..0x88DE99) and changes the body's health by MaxHealth / that (x87, RW 0x88DEA8..0x88DEB5), sets itself as
 // producer / builder when none is set, and completes the structure when the percent reaches 100 (RW 0x88DEE0 ff); a repair task heals the body by RepairHealthPercentPerSecond
@@ -134,6 +134,10 @@ public:
 	// lane BUILD-2: RW 0x88BD8D (vslot 0xB0, MSG_DO_REPAIR, a worker spawned to repair): the ActionManager's test and a free sole benefactor, then newTask(REPAIR).
 	// lane PORT-282: virtual - the worker's class overrides the slot with its own body (RW 0x8AD2D3, WorkerAIUpdate::repair)
 	virtual bool repair(Object &structure);
+	// PORT-289: source-aware entry used by command paths; it records the source and
+	// dispatches through the virtual one-argument repair slot, preserving the
+	// WorkerAIUpdate override from PORT-282.
+	bool repair(Object &structure, CommandSourceType source);
 	// RW 0x88CB8A (dozer interface slot 0x50): may a repair order for `structure` replace the REPAIR task this builder already has?
 	// FALSE while the ordered target is the structure this builder repairs (the running task keeps it), TRUE otherwise, except for two bridge
 	// towers (RW 0x85B874's bridge module on both sides, their ids equal): an order for the other tower of a bridge is refused

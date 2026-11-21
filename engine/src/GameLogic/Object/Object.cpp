@@ -1657,6 +1657,21 @@ BehaviorModule *Object::findModule(std::string_view className) const
 	return nullptr;
 }
 
+// RW 0x68C3E6 / Object::rva0028BD17: the first module whose +0x80 slot
+// exposes the repair interface.  Keep this scan here so ActionManager and any
+// order path use the same module mechanism, rather than a class-name side path.
+RepairQueryInterface *Object::getRepairQueryInterface() const
+{
+	for (const std::unique_ptr<BehaviorModule> &m : m_modules)
+	{
+		if (RepairQueryInterface *repair = m->getRepairQueryInterface())
+		{
+			return repair;
+		}
+	}
+	return nullptr;
+}
+
 ExitInterface *Object::getObjectExitInterface() const
 {
 	for (const std::unique_ptr<BehaviorModule> &m : m_modules)
