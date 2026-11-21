@@ -53,6 +53,7 @@ UpdateSleepTime SpecialEnemySenseUpdate::update()
 	return UPDATE_SLEEP((int)m_data->m_scanInterval);
 }
 
+// RW 0x0089D7C5
 void SpecialEnemySenseUpdate::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

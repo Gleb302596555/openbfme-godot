@@ -182,6 +182,7 @@ public:
 	float currentAttackRange() const;
 	// lane ARCHER-1: RW 0x6CA935(source): the current weapon's attack range with no target (the scale applied twice, WeaponGetAttackRangeNoTarget); 0 without one
 	float currentAttackRangeNoTarget() const;
+	static float abilityWeaponRange(const WeaponTemplate &weapon, Object &source);
 	// RW 0x6CA935(source) on `weapon` (one of this object's): its attack range with no target for another source object, the bonus and the
 	// range host taken from that source as RW 0x6ED8AB's call does (ObjectWeapons.cpp); 0 for a weapon without a template
 	float attackRangeNoTargetFor(const Weapon &weapon, const Object &source) const;
@@ -264,6 +265,7 @@ public:
 	FiringTracker &firingTracker() { return m_tracker; }
 	// lane HUD-4: RW 0x8E302A on the object's FiringTracker (Object + 0x248) with this set as its host
 	void resetFiringTracker(bool hard);
+	void trackAbilityShot(const Weapon &weapon, ObjectID victim, const Coord3D &pos);
 	const FiringTracker &firingTracker() const { return m_tracker; }
 
 	// ---- the projectile hook (PROJ-1) and the report -------------------------------------------------------------------------------
@@ -298,7 +300,7 @@ private:
 	WeaponHost &host();
 	WeaponRangeHost &rangeHost();
 	static void fireTempWeapon(const WeaponTemplate *t, Object *source, const WeaponShotTarget &target); // lane DECOMP-1
-	RangeSubject subjectOf(const Object &obj) const;
+	static RangeSubject subjectOf(const Object &obj);
 
 	Object *m_owner;
 	WeaponSetFlags m_flags{};

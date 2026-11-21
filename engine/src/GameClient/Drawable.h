@@ -27,6 +27,8 @@
 #include "Common/Module.h"
 #include "Common/ModelState.h"
 #include "Common/Thing/Thing.h"
+#include "GameEngineDevice/W3DDevice/GameClient/W3DVegetationSway.h"
+#include "Libraries/WWVegas/WWMath/matrix3d.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "GameClient/ClientEvents.h"
 #include "GameClient/ContainedPose.h"
@@ -297,6 +299,14 @@ public:
 
 	float getInstanceScale() const { return m_scale; }
 	void setInstanceScale(float scale) { m_scale = scale; }
+	// LOCAL-103 (RW 0x006714C0 / 0x008CD70C): per-drawable instance matrix (e.g. SwayClientUpdate)
+	const Matrix3D &getInstanceMatrix() const { return m_instanceMatrix; }
+	void setInstanceMatrix(const Matrix3D &xfrm);
+	bool hasInstanceMatrix() const { return m_hasInstanceMatrix; }
+	// RW 0x00B261F0 Matrix3D::Get_Z_Rotation on the drawable's world transform
+	float getZRotation() const;
+	// LOCAL-103: step SwayClientUpdate modules on this drawable (RW 0x008CD675)
+	void updateSway(const W3DVegetationSway::Breeze &breeze, bool visible, bool burnedOrDead);
 	// 0xAARRGGBB of the owner's colour for model recolour (RW 0x6712A6: [drawable + 0x3AA] flag, 0 when showsHouseColor is false)
 	std::uint32_t getHouseColor() const { return m_houseColor; }
 	void setHouseColor(std::uint32_t argb);
@@ -656,6 +666,8 @@ private:
 	std::vector<DrawEntry> m_entries;
 	std::vector<std::unique_ptr<DrawableModule>> m_clientModules;
 	std::vector<ModelConditionAudioLoopClientBehavior *> m_audioLoops; ///< those of m_clientModules the flush tells (RW 0x67449C)
+	Matrix3D m_instanceMatrix;
+	bool m_hasInstanceMatrix = false;
 	bool m_evaFirstSighted = false; // RW Drawable +0x114 bit 0x80; sighting consumer S-709 / Local 13
 	bool m_evaEnemySighted = false; // RW Drawable +0x445
 	bool m_evaEnemySightedAfterRespawn = false; // RW Drawable +0x446
