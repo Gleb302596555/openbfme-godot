@@ -2086,3 +2086,254 @@ End
         else CHECK(timer->getReadyFrame() == w.logic->getFrame()); // synthetic AvailableAtStart
     }
 }
+
+TEST_CASE("PORT-238 Witch-king-style delivery creates a player marker and swaps the owner's fortress set")
+{
+    HealHudWorld w;
+    // angwk.ini:1030-1057; projectile.ini:7580-7611; angmarfortress.ini:1093-1110.
+    // RW 0x8840FC grants the ring; 0x8B8281 / 0x8B8464 create the marker;
+    // 0x8BD17B / 0x6AEE22 grant a player upgrade; 0x8B7C68 changes the command set.
+    const char *data = R"ini(
+Upgrade Upgrade_P238WKRing
+  Type = OBJECT
+End
+Upgrade Upgrade_P238WKFortress
+  Type = OBJECT
+End
+Upgrade Upgrade_P238WKMarker
+  Type = PLAYER
+End
+Upgrade Upgrade_P238WKWrongParent
+  Type = PLAYER
+End
+Upgrade Upgrade_P238WKChoiceD
+  Type = PLAYER
+End
+Upgrade Upgrade_P238WKChoiceM
+  Type = PLAYER
+End
+Upgrade Upgrade_P238WKChoiceR
+  Type = PLAYER
+End
+SpecialPower P238WKTransform
+  Enum = SPECIAL_TOGGLE_MOUNTED
+  ReloadTime = 1000
+End
+CommandButton P238WKSwitch
+  Command = SPECIAL_POWER
+  SpecialPower = P238WKTransform
+  InPalantir = No
+End
+CommandButton P238WKStop
+  Command = STOP
+  InPalantir = Yes
+End
+CommandSet P238WKFortBase
+  1 = P238WKStop
+End
+CommandSet P238WKFortChoiceD
+  1 = P238WKStop
+End
+CommandSet P238WKFortChoiceM
+  1 = P238WKStop
+End
+CommandSet P238WKFortChoiceR
+  1 = P238WKStop
+End
+CommandSet P238WKFortRing
+  1 = P238WKStop
+End
+CommandSet P238WKFortRingChoiceD
+  1 = P238WKStop
+End
+CommandSet P238WKFortRingChoiceM
+  1 = P238WKStop
+End
+CommandSet P238WKFortRingChoiceR
+  1 = P238WKStop
+End
+Object P238WKMarkerParent
+  KindOf = INERT IMMOBILE UNATTACKABLE
+  Body = ActiveBody Body
+    MaxHealth = 1
+  End
+  Behavior = LifetimeUpdate Life
+    MinLifetime = 0
+    MaxLifetime = 0
+  End
+  Behavior = GrantUpgradeCreate Grant
+    UpgradeToGrant = Upgrade_P238WKWrongParent
+  End
+  Behavior = SlowDeathBehavior Death
+    DestructionDelay = 0
+  End
+End
+ChildObject P238WKMarker P238WKMarkerParent
+  Behavior = GrantUpgradeCreate Grant
+    UpgradeToGrant = Upgrade_P238WKMarker
+  End
+End
+Object P238WKFort
+  KindOf = STRUCTURE SELECTABLE
+  CommandSet = P238WKFortBase
+  Body = ActiveBody Body
+    MaxHealth = 500
+  End
+  Behavior = CommandSetUpgrade ChoiceD
+    TriggeredBy = Upgrade_P238WKChoiceD
+    CommandSet = P238WKFortChoiceD
+  End
+  Behavior = CommandSetUpgrade ChoiceM
+    TriggeredBy = Upgrade_P238WKChoiceM
+    CommandSet = P238WKFortChoiceM
+  End
+  Behavior = CommandSetUpgrade ChoiceR
+    TriggeredBy = Upgrade_P238WKChoiceR
+    CommandSet = P238WKFortChoiceR
+  End
+  Behavior = CommandSetUpgrade Ring
+    TriggeredBy = Upgrade_P238WKMarker
+    CommandSet = P238WKFortRing
+  End
+  Behavior = CommandSetUpgrade RingChoiceD
+    TriggeredBy = Upgrade_P238WKMarker Upgrade_P238WKChoiceD
+    RequiresAllTriggers = Yes
+    CommandSet = P238WKFortRingChoiceD
+  End
+  Behavior = CommandSetUpgrade RingChoiceM
+    TriggeredBy = Upgrade_P238WKMarker Upgrade_P238WKChoiceM
+    RequiresAllTriggers = Yes
+    CommandSet = P238WKFortRingChoiceM
+  End
+  Behavior = CommandSetUpgrade RingChoiceR
+    TriggeredBy = Upgrade_P238WKMarker Upgrade_P238WKChoiceR
+    RequiresAllTriggers = Yes
+    CommandSet = P238WKFortRingChoiceR
+  End
+End
+Object P238WKBase
+  KindOf = INFANTRY HERO SELECTABLE COMMANDCENTER CAN_ATTACK
+  Geometry = CYLINDER
+  GeometryMajorRadius = 8
+  GeometryHeight = 20
+  Body = ActiveBody Body
+    MaxHealth = 500
+  End
+  Behavior = AIUpdateInterface AI
+  End
+  Behavior = SpecialPowerModule RingGainStarter
+    SpecialPowerTemplate = P238WKTransform
+    UpdateModuleStartsAttack = Yes
+    StartsPaused = No
+  End
+  Behavior = ToggleMountedSpecialAbilityUpdate RingGain
+    SpecialPowerTemplate = P238WKTransform
+    MountedTemplate = P238WKRingForm
+    UnpackTime = 2000
+    PreparationTime = 0
+    PackTime = 0
+    IgnoreFacingCheck = Yes
+  End
+  Behavior = DoCommandUpgrade RingCommand
+    TriggeredBy = Upgrade_P238WKRing
+    GetUpgradeCommandButtonName = P238WKSwitch
+  End
+  Behavior = ObjectCreationUpgrade Marker
+    TriggeredBy = Upgrade_P238WKRing
+    Delay = 0
+    ThingToSpawn = P238WKMarker
+  End
+  Behavior = CitadelSlaughterHordeContain RingEntry
+    PassengerFilter = NONE +P238Ring
+    ObjectStatusOfContained = UNSELECTABLE ENCLOSED
+    ContainMax = 1
+    StatusForRingEntry = HOLDING_THE_RING
+    UpgradeForRingEntry = Upgrade_P238WKRing Upgrade_P238WKFortress
+    ObjectToDestroyForRingEntry = NONE +P238Ring
+  End
+End
+Object P238WKRingForm
+  KindOf = INFANTRY HERO SELECTABLE CAN_ATTACK
+  Body = ActiveBody Body
+    MaxHealth = 500
+  End
+  Behavior = AIUpdateInterface AI
+  End
+End
+)ini";
+    const std::string error = w.w.load(data, INI_LOAD_OVERWRITE, "port238_wk_marker.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    std::string choice;
+    bool choiceLate = false;
+    SUBCASE("no prior subfaction") { choice = ""; }
+    SUBCASE("Dunedain-style choice before hand-over") { choice = "D"; }
+    SUBCASE("Magic-style choice before hand-over") { choice = "M"; }
+    SUBCASE("Rhudaur-style choice before hand-over") { choice = "R"; }
+    SUBCASE("Dunedain-style choice after hand-over") { choice = "D"; choiceLate = true; }
+    SUBCASE("Magic-style choice after hand-over") { choice = "M"; choiceLate = true; }
+    SUBCASE("Rhudaur-style choice after hand-over") { choice = "R"; choiceLate = true; }
+    Object *fort = w.unit("P238WKFort", 'A', 200, 200);
+    Object *otherFort = w.unit("P238WKFort", 'B', 600, 600);
+    Object *hero = w.unit("P238WKBase", 'A', 300, 300);
+    Object *carrier = w.unit("P238Carrier", 'A', 300, 300);
+    Object *ring = w.unit("P238Ring", 'A', 300, 300);
+    REQUIRE(fort != nullptr);
+    REQUIRE(otherFort != nullptr);
+    REQUIRE(hero != nullptr);
+    REQUIRE(carrier != nullptr);
+    REQUIRE(ring != nullptr);
+    if (!choice.empty() && !choiceLate)
+    {
+        const auto *u = Player::resolveUpgrade("Upgrade_P238WKChoice" + choice, true);
+        REQUIRE(u != nullptr);
+        w.playerOf('A')->addUpgrade(u, Player::UPGRADE_STATUS_COMPLETE);
+        w.frames(2);
+    }
+    CHECK(fort->getCommandSetName() == (choice.empty() || choiceLate ? "P238WKFortBase" : "P238WKFortChoice" + choice));
+    CHECK(otherFort->getCommandSetName() == "P238WKFortBase");
+    CHECK_FALSE(w.playerOf('A')->hasUpgradeComplete("Upgrade_P238WKMarker"));
+    const ObjectID heroId = hero->getID();
+    const ObjectID ringId = ring->getID();
+    auto *contain = dynamic_cast<CitadelSlaughterHordeContain *>(hero->getContain());
+    REQUIRE(contain != nullptr);
+    deliver(*contain, *carrier);
+    CHECK(hero->hasUpgrade("Upgrade_P238WKRing"));
+    CHECK(hero->hasUpgrade("Upgrade_P238WKFortress"));
+    REQUIRE(w.byId(ringId) != nullptr);
+    CHECK(w.byId(ringId)->isDestroyed());
+    ObjectID markerId = INVALID_ID;
+    for (int i = 0; i < 15 && !w.playerOf('A')->hasUpgradeComplete("Upgrade_P238WKMarker"); ++i)
+    {
+        w.frames(1);
+        for (Object *o = w.logic->getFirstObject(); o; o = o->getNextObject())
+            if (o->getTemplate() && o->getTemplate()->getName() == "P238WKMarker") markerId = o->getID();
+    }
+    REQUIRE(w.playerOf('A')->hasUpgradeComplete("Upgrade_P238WKMarker"));
+    REQUIRE(markerId != INVALID_ID);
+    CHECK_FALSE(w.playerOf('A')->hasUpgradeComplete("Upgrade_P238WKWrongParent"));
+    CHECK_FALSE(w.playerOf('B')->hasUpgradeComplete("Upgrade_P238WKMarker"));
+    CHECK(fort->getCommandSetName() == (choice.empty() || choiceLate ? "P238WKFortRing" : "P238WKFortRingChoice" + choice));
+    CHECK(otherFort->getCommandSetName() == "P238WKFortBase");
+    if (choiceLate)
+    {
+        const auto *u = Player::resolveUpgrade("Upgrade_P238WKChoice" + choice, true);
+        REQUIRE(u != nullptr);
+        w.playerOf('A')->addUpgrade(u, Player::UPGRADE_STATUS_COMPLETE);
+        w.frames(2);
+        CHECK(fort->getCommandSetName() == "P238WKFortRingChoice" + choice);
+    }
+    Object *replacement = nullptr;
+    for (int i = 0; i < 50 && !replacement; ++i)
+    {
+        w.frames(1);
+        for (Object *o = w.logic->getFirstObject(); o; o = o->getNextObject())
+            if (o->getTemplate() && o->getTemplate()->getName() == "P238WKRingForm") replacement = o;
+    }
+    REQUIRE(replacement != nullptr);
+    CHECK(replacement->getControllingPlayer() == w.playerOf('A'));
+    w.frames(5);
+    CHECK(w.byId(heroId) == nullptr);
+    CHECK(w.byId(markerId) == nullptr);
+    CHECK(w.playerOf('A')->hasUpgradeComplete("Upgrade_P238WKMarker"));
+    CHECK(fort->getCommandSetName() == (choice.empty() ? "P238WKFortRing" : "P238WKFortRingChoice" + choice));
+}
