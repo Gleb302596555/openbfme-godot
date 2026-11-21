@@ -48,6 +48,7 @@ public:
 	float getCrewPowerMultiplier() const override;
 	bool moodScanWhileContained() const override; // RW 0x87EDA9 (contain vslot 0xB8): CrewAllowedToFire
 	void removeAllContained(bool exposeStealthUnits = false) override;
+	void evacuateCrew(int source = 2) override; // RW 0x0087F0CF (SiegeEngineContain) / RW 0x0087FF18 (HordeSiegeEngineContain) contain slot 0x88
 	void onDefect(Object *newOwner, bool permanent) override; // RW 0x0087F1BA / RW 0x008801F7
 	void onDefectionEnded() override; // RW 0x0087F18B / RW 0x008801C8
 	void iterateContained(const std::function<void(Object *)> &fn, unsigned flags = 1) override; // RW 0x0087F10E / RW 0x0088014B

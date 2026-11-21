@@ -1499,7 +1499,7 @@ void damageContained(GameLogic &logic, const DamageContainedNugget &n, ObjectID 
 }
 
 // the dispatch of fireWeaponTemplate for these kinds (see above). false: not one of them (the caller counts it)
-// RW 0x912241 (FireLogicNugget::doEffectPosition, BFME2 0x0050BE34)
+// RW 0x009120E6 (FireLogicNugget::doEffectPosition; ctor RW 0x912241; BFME2 0x0050BE34)
 void fireLogicAt(GameLogic &logic, const FireLogicNugget &n, ObjectID sourceId, const Coord3D &pos)
 {
 	Object *source = sourceId != INVALID_ID ? logic.findObjectByID(sourceId) : nullptr;
@@ -2343,18 +2343,20 @@ void ObjectWeaponDelivery::emitFireFX(int curBarrel, Object *victim, const Coord
 	FXEvent e = FXEventLog::objectEvent(FXEvent::WEAPON_FIRE_FX, flankFX ? "FireFlankFX" : "FireFX", logic.getFrame(), fx, *m_source);
 	e.secondary = victim ? victim->getID() : (ObjectID)INVALID_ID;
 	e.secondaryPosition = aim;
-	e.weaponSlot = m_firing->getSlot();
+	e.weaponSlot = m_firing ? m_firing->getSlot() : PRIMARY_WEAPON;
 	e.barrel = curBarrel;
 	e.weaponSpeed = t.m_weaponSpeed;
 	e.playWhenStealthed = t.m_playFXWhenStealthed;
 	logic.fxEvents().emit(e);
 }
 
-// RW 0x6CB7BD: a projectile detonation delivers the nuggets of the template directly (the warhead path of DeliverNuggets)
+// LOCAL-116 (P-161, both editions): RW 0x6CF4D6 -> 0x6CF38E -> 0x6CEF6D -> 0x6CC915 (FireFX RW 0x6CCB4B .. 0x6CCBF3)
+// delivers the warhead FireFX and nuggets of the detonation template.
 void ObjectWeaponDelivery::fireProjectileDetonation(const WeaponBonus &bonus, const WeaponShotTarget &target)
 {
 	GameLogic &logic = m_source->logic();
 	Object *victim = target.hasVictim ? logic.findObjectByID(target.victimID) : nullptr;
+	emitFireFX(0, victim, target.victimPosition);
 	DeliverNuggets(logic, m_source->getID(), *m_weapon, bonus, victim, &target.victimPosition, true, &logic.combat().counters().unportedNuggets);
 }
 

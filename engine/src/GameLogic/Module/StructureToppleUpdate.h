@@ -74,6 +74,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008A8B26 (getModuleName), RW 0x008A8B6F (getModuleNameKey), RW 0x008A8C6A (scalar deleting dtor -> RW 0x008A8B06)
 class StructureToppleUpdate : public UpdateModule, public DieModuleInterface
 {
 public:

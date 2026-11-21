@@ -2315,6 +2315,7 @@ bool Object::isSignificantlyAboveTerrain() const
 	return above > SimMath::pc24Mul(m_logic.settings().gravity, -9.0f);
 }
 
+// RW 0x008C3AAD (ActiveBody::setArmorSetFlag), RW 0x008C3ACC (ActiveBody::clearArmorSetFlag; DONOR BFME2 0x004BF930)
 void Object::setArmorSetFlag(int bit, bool on)
 {
 	if (bit < 0 || bit >= 32)
@@ -2852,6 +2853,23 @@ void Object::removeAttributeModifier(const std::string &listName)
 	if (counted)
 	{
 		m_logic.economy().objectGained(*player, *this);
+	}
+}
+
+// RW 0x006998D0 (DONOR BFME2 0x00298E6A): if a HORDE, delegates to HordeContain vslot 0x1E0 (RW 0x00879106); otherwise erases AttributeModifierPoolUpdate's entry vector (+0x20)
+void Object::clearAllAttributeModifiers()
+{
+	if (m_contain) // RW 0x6998D3: contain vslot 0x7C
+	{
+		if (HordeContainInterface *h = m_contain->getHordeContainInterface())
+		{
+			h->clearAllAttributeModifiers(); // RW 0x6998EF -> vslot 0x1E0 (RW 0x00879106)
+			return;
+		}
+	}
+	if (AttributeModifierPool *pool = static_cast<AttributeModifierPool *>(attributeModifierPoolModule())) // RW 0x6998F7 -> RW 0x0068C4A6
+	{
+		pool->clearEntries(); // RW 0x699900..0x699908 -> RW 0x00698DC9
 	}
 }
 

@@ -958,6 +958,10 @@ W3DMaterialResult W3DMaterialFactory::Create(const MeshRenderData &mesh, const M
 		key.DepthWrite = false;
 		key.Floor = true;
 	}
+	if (BuffBlend)
+	{
+		W3D_Apply_Buff_Render_State(key);
+	}
 	if (Vegetation && !key.Fx && !key.SimpleFx)
 	{
 		// P-92 / Local 49: RW 0x4E6753 (W3DVegetationBufferBase::allocateBuffers), RW 0x4E699E, RW 0x4E9BD5;

@@ -68,7 +68,7 @@ def dossier(text: str) -> str:
     for c in classes:
         mine = [r for r in fmap if r["module"] == c]
         st = Counter(r["status"] for r in mine)
-        todo = [r for r in mine if r["status"] != "ported" and r["depth"] == "0"]
+        todo = [r for r in mine if r["status"] not in ("ported", "library") and r["depth"] == "0"]
         out.append(f"- `{c}`: {len(mine)} функций, " + ", ".join(f"{k} {v}" for k, v in st.most_common()) +
                    (f"; не перенесены (глубина 0): " + ", ".join(f"`{rw(r['function'])}`" + (f" ({r['status']})" if r["status"] != "none" else "")
                                                              for r in todo[:LIMIT]) + (" …" if len(todo) > LIMIT else "") if todo else ""))

@@ -171,16 +171,22 @@ const ControlBarScheme *ControlBarSchemeStore::findScheme(const std::string &nam
 	return nullptr;
 }
 
+// RW 0x7216B6 (ControlBarSchemeManager::setControlBarSchemeByPlayerTemplate):
+// iterates schemes matching side and keeps the one with the largest ScreenCreationRes.x (RW 0x72174E..0x72175D).
 const ControlBarScheme *ControlBarSchemeStore::findSchemeBySide(const std::string &side) const
 {
+	const ControlBarScheme *best = nullptr;
 	for (const auto &kv : m_schemes)
 	{
 		if (AsciiStringUtil::compareNoCase(kv.second->m_side, side) == 0)
 		{
-			return kv.second.get();
+			if (!best || best->m_screenCreationRes.x < kv.second->m_screenCreationRes.x)
+			{
+				best = kv.second.get();
+			}
 		}
 	}
-	return findScheme("Default");
+	return best ? best : findScheme("Default");
 }
 
 void ControlBarSchemeStore::registerBlock(INIBlockRegistry &registry)

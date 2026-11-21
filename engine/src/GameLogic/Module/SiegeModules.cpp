@@ -239,6 +239,7 @@ public:
 		return true;
 	}
 };
+// RW 0x0089DF93 (v1, AIUpdateInterface::xfer)
 void SiegeAIUpdate::xfer(Xfer &x)
 {
 	XferVersion v{ 1, 1 };

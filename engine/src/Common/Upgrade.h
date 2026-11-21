@@ -212,6 +212,9 @@ public:
 	const UpgradeTemplate *findUpgrade(const std::string &name) const; ///< RW 0x66F5E5, case sensitive; null when unknown
 	const UpgradeTemplate *findUpgrade(const UpgradeMaskType &mask) const; // RW 0x66F468: first matching template in head-first list order
 	const UpgradeTemplate *findUpgradeByMaskBit(int bit) const;       ///< RW 0x66F218
+	// RW 0x66F58E / 0x66F5B6 (UpgradeTemplate::cacheButtonImage -> +0x90) & WoTR readers RW 0x9FFC42 / 0xA08500:
+	// resolves each upgrade name to its non-empty StrategicIcon (+0x8C) in order.
+	std::vector<std::string> strategicIconsForUpgrades(const std::vector<std::string> &upgradeNames) const;
 	const UpgradeTemplate *findVeterancyUpgrade(int level) const;     ///< "Upgrade_Veterancy_" + REGULAR / VETERAN / ELITE / HEROIC
 	size_t size() const { return m_byBit.size(); }
 	int nextMaskBit() const { return m_nextBit; }

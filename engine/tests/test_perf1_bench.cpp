@@ -623,6 +623,12 @@ TEST_CASE("perf1 bench: 4-player skirmish (medium computer players, 20 game minu
 // ground fire in a fresh game, as RotWK's do; re-measured the skirmish (OPENBFME_PERF1_REGEN=1, Windows MSVC, station-1): it moves from frame 1343; the
 // big battle is unchanged. Attributed by the night run of 2026-11-06 on main da6cbfdf (this test passes there on the previous vectors; 7bb69587 between
 // them changes a stop's text and a test only)
+// Local 108 (issue #786, agent/local/sb5-st1, Colab Linux GCC, measured once with OPENBFME_PERF1_REGEN=1): ActiveBody rubble reset (RW 0x8C1BB7)
+// now calls Object::clearAllAttributeModifiers (RW 0x006998D0, DONOR BFME2 0x00298E6A), clearing a dying STRUCTURE's AttributeModifierPool entries;
+// the 4-player skirmish moves from frame 845; the big battle is unchanged.
+// pin: Locals 108, 112, 113, 114, 122-126 landing (2026-11-21, agent/claude/sb5-accept, Colab sb5 Linux GCC, the skirmish re-measured once on the merged
+// tree with OPENBFME_PERF1_REGEN=1): Local 108's RW 0x8C1BB7 -> Object::clearAllAttributeModifiers alone moves it from frame 845. Attributed by one build
+// with that call switched off (every other branch on): the previous vectors hold (perf1 11/11); the big battle and uber1 are unchanged
 // pin: the fork's merge of upstream 3e363ff9 (2026-11-06) re-measured both once on the merged tree (OPENBFME_PERF1_REGEN=1, Windows MSVC, station-1):
 // CASTLEATK-1, ATKSTATE-1a and the banner carrier rule on top of the fork; the vectors differ from both parents
 // pin: merge queue q44 re-measured all three once on the merged tree (OPENBFME_PERF1_REGEN=1), compared at each merge point: AIRBORNE-1 alone (the locomotor
@@ -765,6 +771,7 @@ TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after a
 // archive's, byte for byte), then once on the merged tree: MODCOMPAT-MOD1 and #133 each move it, #166 keeps it. TOP20 S-560 re-measured it: the shroud's
 // channels (RW 0x68EC3B -> 0xB51030) move it from frame 0 (with their fill switched off it matches the previous vector).
 // pin: issue #88 (S-322, S-321): unconditional GameLogicSettings::crc of attributeModifierArmorMaxBonus and damageRadiusMinimumForSplash moves the vector from frame 0 (with the two fields unhashed it matches the previous vector).
+// pin: the landing of Locals 111-120 (2026-11-21) re-measured the battle and skirmish files once on the merged station-0 tree (OPENBFME_PERF1_REGEN=1); causes proven by one build with all three disabled (PROCESS 7 item 5): Local 118 (#802, PR #818: LargeGroupAudioUpdate wakes a disabled object's update, RW 0x008AF0D0 -> RW 0x008AF246), Local 120 (#804, PR #820) P-169 (Locomotor::locomotorMaintainCurrentPosition RW 0x5E7CC7: an idle NO_Z_MOTIVE_FORCE unit off its layer's height is put on it, RW 0x5E7E64 .. 0x5E7E84) and P-168 (ObjectCreationUpgrade::update RW 0x8B8464: the made object is enslaved to its maker, RW 0x8B86DB .. 0x8B8708); with them off the old pins matched (perf1 11/11, uber1 7/7)
 TEST_CASE("perf1: the allied blob (300 frames) hashes as the build before the collision module caches did in every frame")
 {
 	// pin: the fork's merge of upstream 234f5742 (2026-11-13) re-measured the allied blob once on the merged tree (OPENBFME_PERF1_REGEN=1, Linux GCC on Colab, whose hashes

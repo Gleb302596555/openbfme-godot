@@ -110,6 +110,7 @@
 void LogicModules::registerAll(ModuleFactory &modules)
 {
 	SpawnUnitBehavior::registerClass(modules); // both editions: RW 0x8BC9B0 / BFME2 0x89ECC0 (S-207)
+	// ActiveBody: getModuleName RW 0x008C3A2D, getModuleNameKey RW 0x008C39E8 (DONOR BFME2 0x004BF88D / 0x004BE1F0)
 	modules.bindTypedData<ActiveBodyModuleData>("ActiveBody", MODULETYPE_BEHAVIOR);
 	modules.bindModuleProc("ActiveBody", MODULETYPE_BEHAVIOR, [](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &) -> std::unique_ptr<Module> {
 		const ActiveBodyModuleData *typed = dynamic_cast<const ActiveBodyModuleData *>(data);

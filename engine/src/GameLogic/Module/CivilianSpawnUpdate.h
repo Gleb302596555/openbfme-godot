@@ -44,6 +44,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x00882BD5 (getModuleName), RW 0x00882BDB (getModuleNameKey), RW 0x00882C96 (scalar deleting dtor -> RW 0x00882BBC)
 class CivilianSpawnUpdate : public UpdateModule
 {
 public:

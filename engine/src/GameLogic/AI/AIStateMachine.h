@@ -69,6 +69,8 @@ enum AIStateType
 	AI_WAIT = 8,
 	AI_MOVE_OUT_OF_THE_WAY = 26,
 	AI_MOVE_AND_TIGHTEN = 27,
+	AI_MOVE_AND_EVACUATE = 28,           // Local 114: RW 0x753755: AIMoveAndEvacuateState (AICMD 0x03, RW 0x0066B6B8)
+	AI_MOVE_AND_EVACUATE_AND_EXIT = 29,  // Local 114: RW 0x753755: AIMoveAndEvacuateState -> AI_MOVE_AND_DELETE (AICMD 0x04, RW 0x0066B72D)
 	AI_MOVE_AND_DELETE = 30,             // RW 0x753755: AIMoveAndDeleteState (AICMD 0x38, RW 0x0066B7A2)
 	AI_WANDER_IN_PLACE = 41,             // RW 0x753755: AIWanderInPlaceState (AICMD 0x2C, RW 0x0066488A)
 	AI_BUSY = 42,
@@ -324,6 +326,21 @@ private:
 	bool backOff(Coord3D &goal); // RW 0x745C6C
 	unsigned m_waitUntil = 0; // RW state + 0x4C
 	bool m_waiting = false;   // RW state + 0x50
+};
+
+// Local 114: AIMoveAndEvacuateState (states 28 = 0x1C and 29 = 0x1D, ctor RW 0x0074477D, onEnter RW 0x00750512, update RW 0x00755734, onExit RW 0x0074B9BB, xfer RW 0x00742821;
+// DONOR BFME2 0x0034EB7E / 0x00353C27 / 0x00349FD0).
+class AIMoveAndEvacuateState : public AIMoveToMachineState
+{
+public:
+	explicit AIMoveAndEvacuateState(AIStateMachine &m) : AIMoveToMachineState(m, "AIMoveAndEvacuateState") {}
+	StateReturnType onEnter() override;
+	StateReturnType update() override;
+	void onExit(StateExitType status) override;
+	void crc(class StateHasher &hasher) const override;
+	void xfer(class Xfer &x) override;
+private:
+	Coord3D m_origin{ 0.0f, 0.0f, 0.0f }; // RW state + 0x4C..0x54
 };
 
 // Local 84: AIMoveAndDeleteState (state 30 = 0x1E, AICMD 0x38 RW 0x0066B7A2; DONOR BFME2 0x0034A02D AIMoveAndDeleteStateUpdate.cpp).

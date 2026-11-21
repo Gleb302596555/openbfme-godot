@@ -384,6 +384,21 @@ const UpgradeTemplate *UpgradeCenter::findUpgradeByMaskBit(int bit) const
 	return bit >= 0 && (size_t)bit < m_byBit.size() ? m_byBit[(size_t)bit] : nullptr;
 }
 
+// RW 0x66F58E / 0x66F5B6 (cacheButtonImage -> +0x90) and LivingWorld readers RW 0x9FFC42 / 0xA08500
+std::vector<std::string> UpgradeCenter::strategicIconsForUpgrades(const std::vector<std::string> &upgradeNames) const
+{
+	std::vector<std::string> icons;
+	for (const std::string &name : upgradeNames)
+	{
+		const UpgradeTemplate *u = findUpgrade(name);
+		if (u && !u->m_strategicIcon.empty())
+		{
+			icons.push_back(u->m_strategicIcon);
+		}
+	}
+	return icons;
+}
+
 const UpgradeTemplate *UpgradeCenter::findVeterancyUpgrade(int level) const
 {
 	if (level < 0 || level > 3)

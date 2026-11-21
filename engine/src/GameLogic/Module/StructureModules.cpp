@@ -242,6 +242,7 @@ void StructureModules::registerAll(ModuleFactory &modules)
 	// StructureBody: ActiveBody's data (RW tables 0xC71D68 + the empty 0xC84858)
 	modules.bindTypedData<ActiveBodyModuleData>("StructureBody", MODULETYPE_BEHAVIOR);
 	bindRuntime<StructureBody, ActiveBodyModuleData>(modules, "StructureBody");
+	// InactiveBody: getModuleName RW 0x008C18F1, getModuleNameKey RW 0x008C19A6
 	modules.bindTypedData<InactiveBodyModuleData>("InactiveBody", MODULETYPE_BEHAVIOR);
 	bindRuntime<InactiveBody, InactiveBodyModuleData>(modules, "InactiveBody");
 	modules.bindTypedData<RespawnBodyModuleData>("RespawnBody", MODULETYPE_BEHAVIOR);
@@ -1091,6 +1092,7 @@ void StructureBody::xfer(Xfer &x)
 	x.xferObjectID(&m_constructorObjectID);
 }
 
+// RW 0x008C1AEA (primary slot 3 +0x0C): version (1, 1), BodyModule::xfer (RW 0x00993419), m_dieCalled (+0x18)
 void InactiveBody::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

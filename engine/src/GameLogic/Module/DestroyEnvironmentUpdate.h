@@ -48,6 +48,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008AFCEA (getModuleName), RW 0x008AFCF0 (getModuleNameKey), RW 0x008AFE17 (scalar deleting dtor -> RW 0x008AFDD1)
 class DestroyEnvironmentUpdate : public UpdateModule
 {
 public:
