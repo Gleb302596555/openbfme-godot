@@ -426,8 +426,9 @@ bool AIUpdateInterface::aiForceAttackObject(Object *victim, CommandSourceType so
 	m_currentVictim = victim->getID();
 	m_machine->setState(AI_FORCE_ATTACK_OBJECT);
 	// lane ATKRESET-1, RW 0x66C00E .. 0x66C01E (privateForceAttackObject RW 0x66BF4C, BFME2 decomp AIUpdateInterfaceAttackObjectCommands.cpp:152): after the
-	// state's entry, the current weapon's FiringDuration lock (+ 0x20) ends and the command's shot limit goes on it (+ 0x34)
-	if (Weapon *cur = w->currentWeapon())
+	// state's entry, the current weapon's FiringDuration lock (+ 0x20) ends and the command's shot limit goes on it (+ 0x34). An object without a weapon
+	// set (a horde whose template carries none) has no current weapon: RW 0x68B58C answers null there and the two writes are skipped.
+	if (Weapon *cur = w ? w->currentWeapon() : nullptr)
 	{
 		cur->clearWhenFiringEnds();
 		cur->setMaxShotCount(maxShotsToFire);
