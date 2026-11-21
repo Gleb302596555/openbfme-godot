@@ -30,7 +30,7 @@ A dash means no direct declaration found, not the absence of inherited command s
 
 ## Additional named forms outside suffix scan
 
-`ArnorArveduiEvilRing` and `ArnorArveduiGoodRing` are separate Objects explicitly selected by `ArnorArveduiNew` in `evil` and `good` replacement modules (`goodfaction/units/arnor/new/arnorarveduinew.ini:1473,1503,1839,2963`). Their direct command sets and bounded hand-over test are in `PORT238_ARVEDUI_TRACE.md`. This discovery does not make the candidate inventory exhaustive.
+`ArnorArveduiEvilRing` and `ArnorArveduiGoodRing` are separate Objects explicitly selected by `ArnorArveduiNew` in `evil` and `good` replacement modules (`goodfaction/units/arnor/new/arnorarveduinew.ini:1473,1503,1839,2963`). Their direct command sets and bounded hand-over test are in `PORT238_ARVEDUI_TRACE.md`. `WildSmaugNewRing` and `WildSmaugNewRingFly` are separate Objects selected by `WildSmaugNew` and the two-way flight toggle (`evilfaction/units/wild/wildsmaug_new.ini:656,809,1552,1693,2376`); see `PORT238_SMAUG_TRACE.md`. These discoveries do not make the candidate inventory exhaustive.
 
 ## Direct `UpgradeForRingEntry` declarations
 

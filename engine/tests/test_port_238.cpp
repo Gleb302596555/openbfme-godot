@@ -1720,3 +1720,113 @@ End
         CHECK(w.byId(evilId) == nullptr);
     }
 }
+
+TEST_CASE("PORT-238 Smaug-style ring pulse marks only its owner's treasure troves")
+{
+    World w;
+    AttributeModifierStore modifiers;
+    AttributeModifierStore *savedModifiers = TheAttributeModifierStore;
+    struct RestoreModifiers
+    {
+        World &world;
+        AttributeModifierStore *saved;
+        ~RestoreModifiers() { world.logic->reset(); TheAttributeModifierStore = saved; }
+    } restore{w, savedModifiers};
+    TheAttributeModifierStore = &modifiers;
+    modifiers.registerBlock(w.w.fx.env.blocks);
+    SpellEffectModules::registerAll(w.w.modules);
+    w.combat().setAutoAcquireEnabled(false);
+    w.playerOf('A')->setPlayerRelationship(w.playerOf('B'), ALLIES);
+    w.playerOf('B')->setPlayerRelationship(w.playerOf('A'), ALLIES);
+    // includes/weapon.inc:44468 and attributemodifier.inc:8054: RW 0x88F554
+    // fires the pulse; 0x90EAF9 applies the filtered modifier, which sets USER_6.
+    const char *ini = R"ini(
+ModifierList P238SmaugTroveMarker
+  Category = WEAPON
+  Duration = 5000
+  ModelCondition = USER_6
+End
+Weapon P238SmaugPulse
+  RadiusDamageAffects = ALLIES NOT_SIMILAR
+  LeechRangeWeapon = Yes
+  AttackRange = 50
+  MeleeWeapon = No
+  DelayBetweenShots = 5000
+  PreAttackDelay = 0
+  PreAttackType = PER_SHOT
+  FiringDuration = 0
+  AttributeModifierNugget
+    AttributeModifier = P238SmaugTroveMarker
+    Radius = 15000
+    SpecialObjectFilter = NONE +P238Trove +P238TrovePlayer SAME_PLAYER
+  End
+End
+Object P238SmaugPulseHero
+  KindOf = HERO MONSTER SELECTABLE
+  Body = ActiveBody Body
+    MaxHealth = 100
+  End
+  Behavior = FireWeaponUpdate Fire
+    FireWeaponNugget
+      WeaponName = P238SmaugPulse
+      Offset = X:0 Y:0 Z:0
+      FireDelay = 0
+      OneShot = No
+    End
+  End
+End
+Object P238Trove
+  KindOf = STRUCTURE SELECTABLE
+  Body = ActiveBody Body
+    MaxHealth = 100
+  End
+  Behavior = AttributeModifierPoolUpdate Pool
+  End
+End
+Object P238TrovePlayer
+  KindOf = STRUCTURE SELECTABLE
+  Body = ActiveBody Body
+    MaxHealth = 100
+  End
+  Behavior = AttributeModifierPoolUpdate Pool
+  End
+End
+Object P238OtherStructure
+  KindOf = STRUCTURE SELECTABLE
+  Body = ActiveBody Body
+    MaxHealth = 100
+  End
+  Behavior = AttributeModifierPoolUpdate Pool
+  End
+End
+)ini";
+    const std::string error = w.w.load(ini, INI_LOAD_OVERWRITE, "port238_smaug_pulse.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    Object *own = w.unit("P238Trove", 'A', 320, 300);
+    Object *ownVariant = w.unit("P238TrovePlayer", 'A', 325, 300);
+    Object *ally = w.unit("P238Trove", 'B', 330, 300);
+    Object *other = w.unit("P238OtherStructure", 'A', 335, 300);
+    const int user6 = CombatNames::modelCondition("USER_6");
+    REQUIRE(user6 == 458); // RW 0xD9FAD8: USER_6
+    for (Object *o : {own, ownVariant, ally, other})
+    {
+        REQUIRE(o != nullptr);
+        w.logic->partition().registerObject(*o);
+        CHECK_FALSE(o->testModelCondition(user6));
+    }
+    w.frames(1);
+    Object *smaug = w.unit("P238SmaugPulseHero", 'A', 300, 300);
+    REQUIRE(smaug != nullptr);
+    auto *fire = dynamic_cast<FireWeaponUpdate *>(smaug->findModule("FireWeaponUpdate"));
+    REQUIRE(fire != nullptr);
+    for (int i = 0; i < 10 && fire->shots() == 0; ++i) w.frames(1);
+    REQUIRE(fire->shots() == 1);
+    CHECK(own->testModelCondition(user6));
+    CHECK(ownVariant->testModelCondition(user6));
+    CHECK_FALSE(ally->testModelCondition(user6));
+    CHECK_FALSE(other->testModelCondition(user6));
+    w.frames(30);
+    CHECK(fire->shots() == 2);
+    CHECK(own->testModelCondition(user6));
+    CHECK_FALSE(ally->testModelCondition(user6));
+}
