@@ -2103,6 +2103,9 @@ End
 Upgrade Upgrade_P238WKMarker
   Type = PLAYER
 End
+Upgrade Upgrade_P238WKHQ
+  Type = PLAYER
+End
 Upgrade Upgrade_P238WKWrongParent
   Type = PLAYER
 End
@@ -2259,6 +2262,27 @@ Object P238WKRingForm
   End
   Behavior = AIUpdateInterface AI
   End
+  Behavior = GrantUpgradeCreate EnableHQ
+    UpgradeToGrant = Upgrade_P238WKHQ
+    GiveOnBuildComplete = Yes
+  End
+  Behavior = SpecialPowerModule RingGainStarter
+    SpecialPowerTemplate = P238WKTransform
+    UpdateModuleStartsAttack = Yes
+    StartsPaused = No
+  End
+  Behavior = ToggleMountedSpecialAbilityUpdate RingGain
+    SpecialPowerTemplate = P238WKTransform
+    MountedTemplate = P238WKRingForm
+    UnpackTime = 2000
+    PreparationTime = 0
+    PackTime = 0
+    IgnoreFacingCheck = Yes
+  End
+  Behavior = DoCommandUpgrade RingCommand
+    TriggeredBy = Upgrade_P238WKRing
+    GetUpgradeCommandButtonName = P238WKSwitch
+  End
 End
 )ini";
     const std::string error = w.w.load(data, INI_LOAD_OVERWRITE, "port238_wk_marker.ini");
@@ -2330,10 +2354,31 @@ End
             if (o->getTemplate() && o->getTemplate()->getName() == "P238WKRingForm") replacement = o;
     }
     REQUIRE(replacement != nullptr);
+    const ObjectID replacementId = replacement->getID();
     CHECK(replacement->getControllingPlayer() == w.playerOf('A'));
-    w.frames(5);
+    CHECK_FALSE(replacement->hasUpgrade("Upgrade_P238WKRing"));
+    CHECK(w.playerOf('A')->hasUpgradeComplete("Upgrade_P238WKHQ"));
+    CHECK_FALSE(w.playerOf('B')->hasUpgradeComplete("Upgrade_P238WKHQ"));
+    w.frames(15); // longer than the synthetic 2000 ms self-replacement unpack
     CHECK(w.byId(heroId) == nullptr);
     CHECK(w.byId(markerId) == nullptr);
+    REQUIRE(w.byId(replacementId) != nullptr);
     CHECK(w.playerOf('A')->hasUpgradeComplete("Upgrade_P238WKMarker"));
     CHECK(fort->getCommandSetName() == (choice.empty() ? "P238WKFortRing" : "P238WKFortRingChoice" + choice));
+    // An explicit OBJECT upgrade, not actual ring reacquisition, fires the
+    // synthetic ring form's self-targeting command once (angwk.ini:2884-2905).
+    w.byId(replacementId)->giveUpgrade("Upgrade_P238WKRing");
+    Object *selfReplacement = nullptr;
+    for (int i = 0; i < 50 && !selfReplacement; ++i)
+    {
+        w.frames(1);
+        for (Object *o = w.logic->getFirstObject(); o; o = o->getNextObject())
+            if (o->getID() != replacementId && o->getTemplate() && o->getTemplate()->getName() == "P238WKRingForm") selfReplacement = o;
+    }
+    REQUIRE(selfReplacement != nullptr);
+    const ObjectID selfId = selfReplacement->getID();
+    CHECK_FALSE(selfReplacement->hasUpgrade("Upgrade_P238WKRing"));
+    w.frames(15);
+    CHECK(w.byId(replacementId) == nullptr);
+    CHECK(w.byId(selfId) != nullptr);
 }
