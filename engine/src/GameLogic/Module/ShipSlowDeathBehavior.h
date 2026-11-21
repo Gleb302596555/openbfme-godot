@@ -5,6 +5,7 @@
 #include "GameLogic/Module/CombatModules.h"
 
 class ModuleFactory;
+// RW 0x00861A37 (getModuleName), RW 0x00861A3D (getModuleNameKey), RW 0x00861D72 (scalar deleting dtor -> RW 0x00861A82)
 class ShipSlowDeathBehavior : public SlowDeathBehavior {
 public:
     OBFME_MODULE_XFER(ShipSlowDeathBehavior)

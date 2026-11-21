@@ -163,6 +163,7 @@ void DeletionUpdate::xfer(Xfer &x)
 }
 
 // OpenBFME native (S-4190): the command set the monitor saved
+// RW 0x00894C52 (v1, m_saved +0x20, UpdateModule::xfer)
 void MonitorConditionUpdate::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

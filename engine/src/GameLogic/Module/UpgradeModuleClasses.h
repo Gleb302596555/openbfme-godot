@@ -315,6 +315,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008BD0CD (getModuleName), RW 0x008BD0EC (getModuleNameKey), RW 0x008BD142 (scalar deleting dtor -> RW 0x008BD0D3)
 class GrantUpgradeCreate : public BehaviorModule, public CreateModuleInterface
 {
 public:

@@ -67,6 +67,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p); // table RW 0xC653F8
 };
 
+// RW 0x00898ACC (getModuleName), RW 0x00898AD2 (getModuleNameKey), RW 0x00898B60 (scalar deleting dtor -> RW 0x00898B17)
 class CommandButtonHuntUpdate : public UpdateModule
 {
 public:

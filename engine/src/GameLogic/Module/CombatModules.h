@@ -173,6 +173,7 @@ public:
 };
 
 // ZH SlowDeathBehavior: a die module that, when it wins the roulette among the applicable slow deaths, sinks the body after SinkDelay and removes the object after DestructionDelay
+// RW 0x008603F3 (getModuleName), RW 0x00860487 (getModuleNameKey), RW 0x008605EC (scalar deleting dtor -> RW 0x008603CC)
 class SlowDeathBehavior : public UpdateModule, public DieModuleInterface
 {
 public:

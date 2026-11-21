@@ -104,6 +104,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x00885EA5 (loadPostProcess -> RW 0x0063F3BF no-op for base & UpgradeMux), RW 0x00885F81 (getModuleName), RW 0x00885F87 (getModuleNameKey), RW 0x00886129 (scalar deleting dtor -> RW 0x00885FCC)
 class FireWeaponWhenDeadBehavior : public UpdateModule, public UpgradeMux, public DieModuleInterface
 {
 public:
