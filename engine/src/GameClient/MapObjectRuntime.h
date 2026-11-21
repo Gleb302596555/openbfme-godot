@@ -85,8 +85,9 @@ struct MapRuntimeReport
 // How a message of the draw runtime (W3DScriptedModelDraw::errors()) is counted: "sub object X not found in model Y" is a hide / show of a name the
 // model has no sub object of (retail's Get_Sub_Object_By_Name returns NULL and nothing happens), "animation ... is not registered" and "model ... is
 // not available" name assets no mounted archive holds (retail's lookup fails the same way), and retail's "W3DScriptedModelDraw::adjustAnimation: Unable to
-// find transition state named ..." (a script asks for a state the module lacks; retail logs it and goes on, lane FX-3) is a data defect too; everything
-// else is an error. One function for the static
+// find transition state named ..." (a script asks for a state the module lacks; retail logs it and goes on, lane FX-3) is a data defect too, and so is a
+// BeginScript body that does not compile (a Lua syntax error of the mod's text: retail's _ALERT drops it, RW 0x734E41, and the drawable goes on; see
+// isLuaSyntaxAlert); everything else is an error. One function for the static
 // map runtime and LOGIC-1's live drawables.
 struct DrawMessageClass
 {
@@ -94,6 +95,12 @@ struct DrawMessageClass
 	std::string subObject; ///< HIDE_MISS: the lower-cased sub object name
 };
 DrawMessageClass classifyDrawMessage(const std::string &message);
+// True for the message of a Lua 4.0.1 syntax error (llex.c luaX_error: "<msg>;\n  last token read: `<token>' at line <n> in <chunk>"), the only
+// error that format comes from. A BeginScript body is the INI lines joined without separators (RW 0x42D423 .. 0x42D474 on lines whose CR / LF
+// TextFile::ParseFile turned into NULs, RW 0xA159AA), so a `--` comment in a body swallows the rest of it and retail's compile fails the same way
+// (Ennorath's RohanArcherRangeMod idle script); retail drops the alert (RW 0x734E41) and the drawable plays on. A runtime error (a CurDrawable*
+// function the port lacks) is not this format and stays an error.
+bool isLuaSyntaxAlert(const std::string &message);
 
 class MapObjectRuntime
 {

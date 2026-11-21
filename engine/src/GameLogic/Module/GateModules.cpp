@@ -139,6 +139,9 @@ void AIGateUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 
 // ---- GateOpenAndCloseBehavior -------------------------------------------------------------------------------------------------------
 // RW 0x89C04B
+// RW 0x89C006 is the function-local `static const NameKeyType` of the class (RW 0x89C04B's guard at 0x89C010 / 0x89C017: `or byte [0xDE9530], 1`,
+// then RW 0x5487EC nameToKey("GateOpenAndCloseBehavior", RW 0xC0A0A0), the result at 0xDE952C): the constructor asks for the pool key once. The port
+// keys modules by name at registration (ModuleFactory), so there is no call site here; the address is cited because the map counted the function.
 GateOpenAndCloseBehavior::GateOpenAndCloseBehavior(Thing *thing, const GateOpenAndCloseBehaviorModuleData *data)
 	: UpdateModule(thing, data)
 	, m_data(data)
@@ -859,6 +862,13 @@ std::vector<std::string> GateModules::acceptanceStops()
 }
 
 // ---- lane SAVE-4b: the snapshots (OpenBFME native, S-4190; retail's AIGateUpdate::xfer RW 0x8B4A69 (1, 2) holds two more ints) ----------------------
+// RW 0x89C37A (DONOR BFME2 0x00498BCB, GateOpenAndCloseBehaviorXfer.cpp): the gate's snapshot block. The body is slot 3 of the vtable RW 0xC668AC,
+// and its member order is read there: BehaviorModule (RW 0x8CD4AA: the version pair RW 0x404F15, then Module's own), the version pair RW 0x404F15
+// again, UpdateModule's part (RW 0x850C60: the version pair, then BehaviorModule's xfer and the scheduler fields while the version pair RW 0x850C8D
+// says update part) and then the members: the gate-relative id (+0x24, Xfer slot 0x7C), the state (+0x28), the geometry state (+0x2C, through the
+// object's slot 0x90), the request (+0x38 in that interface's view = the state frame here, Xfer slot 0x7C), the audio handle (+0x40, the manager's
+// slot 0x160), the played flag (+0x44, slot 0x90) and, while the version is at least 2, the rate (+0x30 / +0x34, Xfer slot 0x70 pairs).
+// The port's own layout differences are Local 33's (the proxy link is gate-relative +0x24, version 2 added it); the order above is retail's.
 void GateOpenAndCloseBehavior::xfer(Xfer &x)
 {
 	// Local 33: version 2 adds the proxy link (+0x24); version 1 had none

@@ -770,6 +770,10 @@ TEST_CASE("perf1: the allied blob (300 frames) hashes as the build before the co
 	// pin: the fork's merge of upstream 234f5742 (2026-11-13) re-measured the allied blob once on the merged tree (OPENBFME_PERF1_REGEN=1, Linux GCC on Colab, whose hashes
 	// match the MSVC pins frame for frame on main df5f0b41): PORT-13's GameLogicSettings::crc hashes AttackMoveUsesFormations only when it is false (both editions'
 	// aidata.ini set Yes), so every frame's settings hash moves; with the old condition put back the old pins pass, so nothing else moved
+	// pin: the PC landing of 2026-11-20 (Local 93 #740 and Local 94 #741 with batches 2026-11-20c..f) re-measured all three files once on the merged station-0
+	// tree (OPENBFME_PERF1_REGEN=1, Windows MSVC): Local 93's AIData ForceHordesToLowLOD (+0xBB, default true) sets status bit 55 CREATE_DRAWABLE_WITH_LOW_DETAIL
+	// on produced units and horde members (RW 0x8A25DC .. 0x8A25F4, RW 0x86A117 .. 0x86A15E, RW 0x86B24B .. 0x86B28F), and the status is in the object hash;
+	// with those three sites switched off the batch-20f pins pass 11/11, so nothing else moved
 	// pin: batches 2026-11-18l and m (fork PRs 579, 615, 629, 658, 661, 623: Ports 218, 232, 255, 274, 261, 252) merged onto main e3bb171a
 	// (with PR 619, Port 226, landed on its own): the batches and main each re-pinned skirmish4_6000 on its own tree, so the merge re-measured it once on
 	// the merged tree (OPENBFME_PERF1_REGEN=1, Linux GCC on Colab); uber1 did not move; not bisected between the ports (target acquisition of Port 226 meets

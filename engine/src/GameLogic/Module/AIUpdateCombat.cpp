@@ -363,7 +363,7 @@ bool AIUpdateInterface::aiAttackObject(Object *victim, CommandSourceType source,
 	m_machine->setState(AI_ATTACK_OBJECT);
 	// lane PLAY-2 (Sol r1): the command's shot limit goes on the current weapon after the state's entry lifted it (RW 0x74D0FC; ZH privateAttackObject's
 	// setMaxShotCount); privateAttackPosition's ContinueAttackRange redirect passes its limit here (RW 0x66DF02 .. 0x66DF0C)
-	if (Weapon *cur = w->currentWeapon())
+	if (Weapon *cur = w ? w->currentWeapon() : nullptr)
 	{
 		cur->clearWhenFiringEnds(); // lane ATKRESET-1, RW 0x66BE77: the old shot's FiringDuration lock ends; the next shot waits only for its delay (+ 0x18)
 		cur->setMaxShotCount(maxShotsToFire);
@@ -412,11 +412,12 @@ bool AIUpdateInterface::aiForceAttackObject(Object *victim, CommandSourceType so
 	{
 		return false;
 	}
-	// PORT-218: RotWK privateForceAttackObject RW 0x66BF4C has no eligibility gate here: after the dead / not-in-world checks (RW 0x66BF54 .. 0x66BF6A,
-	// AI + 8 -> Object + 0x458 bit 0, the port's isAiDead above) it clears the machine (RW 0x66BF71, vslot 0x14), sets the goal and the source and enters the
-	// state (RW 0x66BFD7, vslot 0x20 0x17); whether the force attack can run at all is decided by the machine's own entry, which chooses a weapon
-	// (RW 0x74CF4F -> 0x74D0C9: no weapon that can be used against the victim leaves the machine with failure). The old canAttackObject gate here stood for
-	// that decision and now that the answer carries the weapon tests (RW 0x6C891B .. 0x6C8993) it would refuse an order RotWK accepts.
+	// PORT-218: RotWK privateForceAttackObject RW 0x66BF4C has NO eligibility gate here: past the dead / not-in-world checks (RW 0x66BF54 .. 0x66BF6A,
+	// AI + 8 -> Object + 0x458 bit 0, the port's isAiDead above) it clears the machine (RW 0x66BF71, vslot 0x14), sets the goal and the source and enters
+	// the state (RW 0x66BFD7, vslot 0x20 0x17); whether the force attack can run at all is the machine entry's decision, which picks a weapon
+	// (RW 0x74CF4F -> 0x74D0C9: none that is usable against the victim leaves the machine with failure). The canAttackObject gate that stood here was a
+	// stand-in for that decision; against the ported answer it refused an order RotWK ACCEPTS — a forced attack on the player's own object that a weapon
+	// can hurt (play2 force attack object, RW 0x6C8BF2's weapon choice) — because the forced answer asks the full weapon walk of RW 0x6C891B.
 	ObjectWeapons *w = obj->getWeapons();
 	m_machine->clear();
 	m_machine->setGoalObject(victim->getID());
@@ -426,10 +427,10 @@ bool AIUpdateInterface::aiForceAttackObject(Object *victim, CommandSourceType so
 	m_machine->setState(AI_FORCE_ATTACK_OBJECT);
 	// lane ATKRESET-1, RW 0x66C00E .. 0x66C01E (privateForceAttackObject RW 0x66BF4C, BFME2 decomp AIUpdateInterfaceAttackObjectCommands.cpp:152): after the
 	// state's entry, the current weapon's FiringDuration lock (+ 0x20) ends and the command's shot limit goes on it (+ 0x34)
-	if (Weapon *cur = w ? w->currentWeapon() : nullptr)
+	if (Weapon *cur = w->currentWeapon())
 	{
 		cur->clearWhenFiringEnds();
-		cur->setMaxShotCount(maxShotsToFire); // RW 0x66C01A
+		cur->setMaxShotCount(maxShotsToFire);
 	}
 	// PORT-151, RW 0x66C021 .. 0x66C02F (helper RW 0x66B1D0, message 0x7E6): the force-attack order answers the unit voice for a PLAYER or SCRIPT order
 	if (source == CMD_FROM_PLAYER || source == CMD_FROM_SCRIPT)

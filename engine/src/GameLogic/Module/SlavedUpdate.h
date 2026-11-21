@@ -7,8 +7,9 @@
 // TARGET FACTS (each read from the disassembly):
 //   * create RW 0x64E865 (size 0x48), constructor RW 0x8A4F67; vtables: module RW 0xC6890C, behaviour interface RW 0xC68850 (slot 0x68 RW 0x8A18E0: the
 //     slaved interface at + 0x20), update interface RW 0xC68844 (update RW 0x8A5D00), slaved interface RW 0xC68820 (slot 1 onEnslave RW 0x8A529F -> 0x8A510B,
-//     slot 2 onSlaverDie RW 0x8A52A7 -> 0x8A51B9, slot 3 onSlaverDamage RW 0x8A52FB, slot 4 RW 0x9188EB (false), slot 5 UseSlaverAsControl... + 0x6D, slot 6 /
-//     slot 7 set / read + 0x44, slot 8 DieOnMastersDeath + 0x55). Fields (xfer RW 0x8A51F6): + 0x24 the slaver, + 0x28 the guard offset (Coord3D), + 0x34 the
+//     slot 2 onSlaverDie RW 0x8A52A7 -> 0x8A51B9, slot 3 onSlaverDamage RW 0x8A52FB, slot 4 RW 0x9188EB (false), slot 5 UseSlaverAsControl... + 0x6D,
+//     slot 6 suspendUpdate RW 0x49D0E9, slot 7 isUpdateSuspended RW 0x49D0F3 (both + 0x44), slot 8 DieOnMastersDeath + 0x55). Fields (xfer RW 0x8A51F6):
+//     + 0x24 the slaver, + 0x28 the guard offset (Coord3D), + 0x34 the
 //     frames to wait, + 0x38 the repair state, + 0x3C repairing, + 0x40 a guard target, + 0x44, + 0x45 faded.
 //   * data (createData RW 0x6550EE, table RW 0xC08420; the ranges are ints, RW 0x42EC5E): LeashRange + 0x08, GuardMaxRange + 0x0C, GuardWanderRange + 0x10,
 //     AttackRange + 0x14, AttackWanderRange + 0x18, ScoutRange + 0x1C, ScoutWanderRange + 0x20, DistToTargetToGrantRangeBonus + 0x24, RepairRange + 0x28,
@@ -23,9 +24,10 @@
 //     constructor 0x8A4F67 -> update-interface vtable 0xC68844 installed at instance + 0x10 (0x8A4F93) -> slot 0 = 0x8A5D00, called by the scheduler at
 //     0x62EA97 .. 0x62EA9C. Data field StayOnSameLayerAsMaster: table 0xC08420 row 0xC08550, bool parser 0x42E558, data + 0x54 (zeroed at 0x6550CB).
 //     Branches in execution order:
-//       - 0x8A5D4F: ebx = the slave Object; 0x8A5D55: edi = module data; 0x8A5D5B: [ebp-4] = slave. 0x8A5D61 no slaver -> 0x8A625B (sleep 1);
-//         0x8A5D6E self-task flag + 0x44 -> 0x8A6265 (sleep forever). 0x8A5D7A DieOnMastersDeath with a missing/dead master -> 0x8A5D95: player's
-//         RW 0x79F486 (+ 0x3DC, not identified), kill RW 0x698EC3(8, 0), sleep forever. 0x8A5DCD no AI / no locomotor (AI + 0x1F0) -> sleep 1.
+//       - 0x8A5D2B no slaver ID -> 0x8A5D30 (sleep 1). 0x8A5D38 calls slaved-interface slot 7 (vtable + 0x1C -> RW 0x49D0F3);
+//         true at 0x8A5D42 returns sleep forever at 0x8A5D44. 0x8A5D4F resolves the slave Object, 0x8A5D55 the module data; 0x8A5D6C checks
+//         DieOnMastersDeath (+ 0x55), and a missing/dead master goes through 0x8A5D8D: player's RW 0x79F486 (+ 0x3DC, not identified), kill RW 0x698EC3(8, 0),
+//         sleep forever. 0x8A5DC6 no AI / no locomotor (AI + 0x1F0) -> sleep 1.
 //       - 0x8A5DE6 a dead guard target clears + 0x40; 0x8A5DFD resolves the master ID and 0x8A5E0B replaces ebx with the MASTER Object. A missing/dead
 //         master calls onSlaverDie (0x8A5E1C) and sleeps 1. The team call is 0x8A5E39 (RW 0x7A3DAD); only result 2 (ALLIES) reaches 0x8A5E66.
 //         Otherwise 0x8A5E43 takes the master's team (RW 0x6996DC(team, 0)), calls onSlaverDie and sleeps forever. Thus the layer branch is after the
@@ -98,7 +100,9 @@ public:
 	virtual void onSlaverDamage(const DamageInfo &info) = 0;               // slot 3
 	virtual bool isSelfTasking() const { return false; }                  // slot 4 (RW 0x9188EB)
 	virtual bool useSlaverAsControlForEvaObjectSightedEvents() const { return false; } // slot 5 (+ 0x6D, RW 0xC68820 vtable +0x14)
-	virtual bool dieOnMastersDeath() const = 0;                             // slot 8 (+ 0x55)
+	virtual void suspendUpdate() = 0;                                      // slot 6 (RW 0xC68820 + 0x18 -> 0x49D0E9)
+	virtual bool isUpdateSuspended() const = 0;                            // slot 7 (RW 0xC68820 + 0x1C -> 0x49D0F3)
+	virtual bool dieOnMastersDeath() const = 0;                            // slot 8 (+ 0x55)
 	// the slaved interface of `obj`'s first module that has one (the loop of RW 0x862865 / 0x862B07 over the behaviour interface's slot 0x68)
 	static SlavedUpdateInterface *of(Object &obj);
 	static const SlavedUpdateInterface *of(const Object &obj);
@@ -134,6 +138,7 @@ public:
 
 class SlavedUpdate : public UpdateModule, public SlavedUpdateInterface
 {
+	// RW 0x8A4FC8 is the deleting destructor; the runtime's unique_ptr ownership calls the implicit destructor and Module base cleanup.
 public:
 	OBFME_MODULE_XFER(SlavedUpdate) // lane SAVE-4b
 	SlavedUpdate(Thing *thing, const SlavedUpdateModuleData *data); // RW 0x8A4F67
@@ -145,8 +150,10 @@ public:
 	void onEnslave(const Object *slaver) override;                  // RW 0x8A510B
 	void onSlaverDie(const DieModuleInterface::Event *info) override; // RW 0x8A51B9
 	void onSlaverDamage(const DamageInfo &info) override;           // RW 0x8A52FB
-	bool useSlaverAsControlForEvaObjectSightedEvents() const override { return m_data->m_useSlaverAsControlForEvaObjectSightedEvents; } // slot 5
-	bool dieOnMastersDeath() const override { return m_data->m_dieOnMastersDeath; }
+	bool useSlaverAsControlForEvaObjectSightedEvents() const override { return m_data->m_useSlaverAsControlForEvaObjectSightedEvents; } // slot 5, RW 0x8A4FE4 reads +0x6D
+	void suspendUpdate() override;                                       // slot 6, RW 0x49D0E9
+	bool isUpdateSuspended() const override;                             // slot 7, RW 0x49D0F3
+	bool dieOnMastersDeath() const override { return m_data->m_dieOnMastersDeath; } // slot 8, RW 0x8A4FEB reads +0x55
 
 	const SlavedUpdateModuleData *data() const { return m_data; }
 	const Coord3D &guardOffset() const { return m_guardOffset; }
@@ -173,6 +180,6 @@ private:
 	int m_repairState = 0;              // + 0x38
 	bool m_repairing = false;           // + 0x3C
 	ObjectID m_guardTargetID = INVALID_ID; // + 0x40
-	bool m_selfTaskFlag = false;        // + 0x44 (slots 6 / 7)
+	bool m_updateSuspended = false;     // + 0x44 (slots 6 / 7, RW 0x49D0E9 / 0x49D0F3)
 	bool m_faded = false;               // + 0x45
 };

@@ -25,6 +25,13 @@
 // Not ported: the transition times' consumers, DodgePercent, the attribute modifiers, the
 // burning death behaviour, CheerRadius: the fields are parsed and kept (the FX names unresolved: the store is the client's, stop S-149);
 // PORT-78 reads the Grab fields on the existing vendor grab path (RW 0x85415C).
+// The body's last-healing timestamp (PORT-293): module + 0xC0, the body interface's slot 0x48 (RW 0x5DC48C `mov eax, [ecx + 0xB0]; ret`). The object's
+// constructor ORs it with -1 (RW 0x8C3897) and attemptHealing stamps the logic frame on every hit it applies (RW 0x8C30A9 .. 0x8C30BA, before the
+// health-up test of RW 0x8C30B1). Its one reader is AutoHealBehavior's NonStackable rule (RW 0x855777 .. 0x8557A2: the stamp plus the module's HealingDelay
+// against the current frame, unsigned). A body class without the writer answers the shared `or eax, -1` stub (InactiveBody RW 0x48DACD).
+// The body's veterancy notify (RW 0x8C261D, module vtable 0xC71B78 slot 0x30) is not ported: stop S-7521 -- its only caller is the experience lane's
+// Object::onVeterancyLevelChanged (RW 0x6957B9, the single `+ 0x25C` site that calls slot 0x30, RW 0x6957FD), and the ratio it stores through body slot 0x5C
+// needs the four GameData rows + 0xAD4 .. 0xAE0 (HealthBonus_Regular / _Veteran / _Elite / _Heroic) the port does not parse.
 // DamageCreationList (PORT-45): the parser RW 0x8C3F1F keeps the three tokens as a 12-byte record {OCL, FXTrigger index, death-side index};
 // doDamageFX creates the record whose FXTrigger matched the hit's and whose death side is 0 (RW 0x8C2F75 .. 0x8C2FB8). The other reader,
 // the structure's damage-side branch (RW 0x8C2EBD .. 0x8C2EEF, death sides 1-4 for FRONT / RIGHT / BACK / LEFT destroyed), has no ported
@@ -91,10 +98,12 @@ public:
 	ActiveBody(Thing *thing, const ActiveBodyModuleData *data);
 
 	BodyModuleInterface *getBody() override { return this; }
-	float getHealth() const override { return m_currentHealth; }
-	float getMaxHealth() const override { return m_maxHealth; }
+	// PORT-293: the interface's getters, each its own RW function (table RW 0xC720F0; the interface `this` is module + 0x10, as RW 0x8C1C51's
+	// `lea ecx, [esi - 0x10]` shows). 41 sites call the health getter, 58 the max-health one, 27 the damage state
+	float getHealth() const override { return m_currentHealth; }        ///< RW 0x5F2D41 (slot 0x10, `fld [ecx + 8]` = module + 0x18)
+	float getMaxHealth() const override { return m_maxHealth; }         ///< RW 0x6AA274 (slot 0x1C, `fld [ecx + 0x10]` = module + 0x20)
 	float getInitialHealth() const override { return m_initialHealth; }
-	float getPreviousHealth() const { return m_previousHealth; }
+	float getPreviousHealth() const { return m_previousHealth; }        ///< RW 0x49449C (slot 0x20, `fld [ecx + 0x1C]` = module + 0x2C)
 	// lane HERO-1 (Sol review): the reference the revive scales (RW 0x8C47DE reads body interface + 0x1C = module + 0x2C; RW 0x8C1CD5 setMaxHealth stores newMax
 	// there). Distinct from the previous health internalChangeHealth keeps (RW 0x8C31A5 writes interface + 0x0C); it starts at the actual initial health
 	float getReviveReference() const { return m_reviveReference; }
@@ -156,6 +165,10 @@ public:
 	// the last frame the body took a damaging hit and from whom (RW + 0xAC, the last damage record); 0xFFFFFFFF / INVALID_ID when never
 	UnsignedInt lastDamageFrame() const override { return m_lastDamageFrame; }
 	ObjectID lastDamager() const { return m_lastDamager; }
+	// PORT-293: body interface vslot 0x48 (RW 0x5DC48C: `mov eax, [ecx + 0xB0]; ret` = module + 0xC0) -- the frame of the last healing hit, -1 while the
+	// body was never healed (the object's constructor ORs the dword with -1, RW 0x8C3897). attemptHealing stamps the current logic frame on every hit it
+	// applies (RW 0x8C30A9 .. 0x8C30BA); AutoHealBehavior's NonStackable rule reads it (RW 0x855797)
+	UnsignedInt getLastHealingFrame() const override { return m_lastHealingFrame; }
 	// lane PLAY-4: body interface vslot 0x4C (RW 0x8C3A33): the last damage record's source once per record (+ 0xB6 set by the first call, cleared by the
 	// next damaging hit, RW 0x8C42FA); INVALID_ID when already taken (ZH getClearableLastAttacker + clearLastAttacker in one call). The guard machine's
 	// "attacked me" condition (RW 0x949994) asks it
@@ -226,6 +239,7 @@ private:
 	BodyDamageType m_curDamageState = BODY_PRISTINE; // RW + 0x30
 	DamageInfo *m_currentInfo = nullptr;
 	UnsignedInt m_lastDamageFrame = 0xFFFFFFFFu; // RW + 0xAC (RW 0x8C3841: -1 = never; BUILD-2)
+	UnsignedInt m_lastHealingFrame = 0xFFFFFFFFu; // PORT-293: RW + 0xB0 (RW 0x8C3897: -1 = never; attemptHealing's stamp RW 0x8C30BA)
 	ObjectID m_lastDamager = INVALID_ID;
 	bool m_lastAttackerTaken = false; // RW + 0xB6 of the body interface (lane PLAY-4)
 	std::uint32_t m_lastDamagerPlayerMask = 0; // lane CAMP-1: the record's + 0xC

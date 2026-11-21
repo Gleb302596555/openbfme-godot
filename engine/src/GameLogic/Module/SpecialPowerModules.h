@@ -133,13 +133,16 @@ public:
 		static const std::string empty;
 		return empty;
 	}
+	// slot 0x50 (RW 0x7B0F25: mov eax, [ecx + 0x1C]; ret; the interface at module + 0x10 for SpecialPowerModule): the target id the module kept when its
+	// initiate ran (SpecialPowerModule: RW 0x897E9E .. 0x897EA3 stores the target's ObjectID; 0 for a module that keeps none)
+	virtual ObjectID getTargetId() const = 0;
 	// slot 0x4C (RW 0x00896751): SpecialAbilityUpdate::finishAbility (RW 0x0085314C) clears m_updateDisabled (+0x28)
 	virtual void clearUpdateDisabled() {}
 };
 
 // SpecialPowerModule (RW module vtable 0xC65058, interface 0xC64FF0; constructor RW 0x8973EE). Module fields: + 0x14 the recharge length,
 // + 0x18 the ready frame, + 0x1C the pause count, + 0x20 the pause frame, + 0x24 the paused percent, + 0x28 a "disabled by the update module"
-// flag, + 0x2C the last target's team. The class itself is the runtime of the 'SpecialPowerModule' INI class (the attribute modifier powers: Rallying Call,
+// flag, + 0x2C the target id initiate kept (the last target's ObjectID, RW 0x897E9E .. 0x897EA3). The class itself is the runtime of the 'SpecialPowerModule' INI class (the attribute modifier powers: Rallying Call,
 // War Chant, Blight, ... through the trigger, lane SPELL-2).
 class SpecialPowerModule : public BehaviorModule, public SpecialPowerModuleInterface
 {
@@ -176,6 +179,7 @@ public:
 		static const std::string empty;
 		return m_spData ? m_spData->m_initiateSound : empty;
 	}
+	ObjectID getTargetId() const override { return m_targetId; } // slot 0x50 (RW 0x7B0F25)
 	void clearUpdateDisabled() override { m_updateDisabled = false; } // slot 0x4C (RW 0x00896751)
 	void setUpdateDisabled(bool disabled) { m_updateDisabled = disabled; }
 	bool isUpdateDisabled() const { return m_updateDisabled; }
@@ -239,6 +243,7 @@ private:
 	unsigned m_pauseFrame = 0;       // + 0x20
 	float m_pausedPercent = 0.0f;    // + 0x24
 	bool m_updateDisabled = false;   // + 0x28
+	ObjectID m_targetId = INVALID_ID; // + 0x2C, RW 0x8973EE (zeroed in the constructor): the target id initiate kept
 	unsigned m_triggers = 0;         // casts (a test counter, hashed)
 	unsigned m_applied = 0;          // lane HERO-1: RW 0x89763B calls (a test counter, hashed)
 };

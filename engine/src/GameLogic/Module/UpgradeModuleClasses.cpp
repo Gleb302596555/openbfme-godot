@@ -443,23 +443,14 @@ void ArmorUpgrade::processUpgradeRemoval()
 void WeaponSetUpgrade::upgradeImplementation()
 {
 	setCustomAnim(true);
-	if (ObjectWeapons *w = getObject()->getWeapons())
-	{
-		w->setWeaponSetFlags(m_data->m_weaponCondition, true); // RW 0x68DECA
-	}
-	else
-	{
-		// INFERENCE: RW 0x68DECA sets the object's flags whether or not it has weapons; here the flags live in ObjectWeapons (made only for a template that
-		// can have weapons, RW 0x73C191), so an object without one has no weapon set to change
-	}
+	// RW 0x68DECA writes the OBJECT's flags (RW 0x68DECA -> 0x68CC53 over Object + 0x38C): the word exists on every object, with or without a weapon set
+	getObject()->setWeaponSetFlags(m_data->m_weaponCondition, true); // RW 0x68DECA
 }
 
 void WeaponSetUpgrade::processUpgradeRemoval()
 {
-	if (ObjectWeapons *w = getObject()->getWeapons())
-	{
-		w->setWeaponSetFlags(m_data->m_weaponCondition, false); // RW 0x6911B7
-	}
+	// RW 0x6911B7 writes the OBJECT's flags and mirrors the named model conditions (RW 0x6911B7's second loop)
+	getObject()->setWeaponSetFlags(m_data->m_weaponCondition, false); // RW 0x6911B7
 	setCustomAnim(false);
 	setUpgradeExecuted(false);
 }

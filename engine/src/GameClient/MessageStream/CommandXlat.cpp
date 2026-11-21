@@ -337,6 +337,21 @@ void CommandTranslator::hint(const char *cursor, bool moveHint)
 			return;
 		}
 	}
+	// P-15 (owner 2026-11-13: with troops selected, own units showed Move): createCommandHint's move / attack move hints (jump table RW 0x6A4099) show
+	// Select (13) when the drawable under the pointer can be selected (RW 0x6A3C86: RW 0x83BCB1 (drawable, 0) into [ebp - 0xE], the object [ebp - 0x20]) and
+	// the local player controls it (RW 0x68B749): the move hint 0xBD unless the object is WALK_ON_TOP_OF_WALL (template + 0x10F & 0x10, RW 0x6A3F8E ..
+	// 0x6A3FA6 -> 0x6A3FFA), the attack move hint 0xBE always (RW 0x6A3FE8 .. 0x6A3FFA). The unreachable hint 0xC9 (GenericInvalid, RW 0x6A3F87) has no
+	// such test. Same selectable test as the mouseover's (SelectionXlat.cpp, RW 0x69FD53)
+	if (moveHint && m_ctx.ui.mouseMode() == 0 && (c == MouseCursorName::Move || c == MouseCursorName::AttackMove))
+	{
+		const Object *over = m_ctx.logic.findObjectByID(m_ctx.ui.mouseoverObject());
+		if (over && HudObjects::canSelect(m_ctx, *over, false) && !over->isKindOfName("SHRUBBERY") && HudObjects::isLocallyControlled(m_ctx, *over)
+			&& (c == MouseCursorName::AttackMove || !over->isKindOfName("WALK_ON_TOP_OF_WALL")))
+		{
+			m_ctx.ui.hintCursor(MouseCursorName::Select);
+			return;
+		}
+	}
 	// RW 0x6A3F63 .. 0x6A3F87 (the default mode's move hint 0xBD, jump table RW 0x6A4099; BFME2 InGameUICreateCommandHint.cpp case 0xb3): nothing selectable under the pointer and a
 	// single selected object that the local player controls and that is a STRUCTURE (template + 0x108 & 0x80): GenericInvalid (12), not Move
 	if (m_ctx.ui.mouseMode() == 0 && c == MouseCursorName::Move && m_ctx.ui.getSelectCount() == 1)

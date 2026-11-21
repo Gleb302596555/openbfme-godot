@@ -1,4 +1,5 @@
-# Pull requests from another account's fork (a trusted person's own agent, owner 2026-11-17): they are built and their own tests run here,
+# Every pull request (owner 2026-11-20; before: only another account's fork, owner 2026-11-17) is built here and its own tests run here;
+# a fork's pull request (a trusted person's own agent) is built and tested ONLY here,
 # on GitHub's runner, never on the owner's machines (tools/colab/pr_checker.py leaves them alone). The trigger is pull_request: a fork's
 # pull request gets no secret and a read-only token. The tests that need the game files skip here; they run in the owner's batch after the
 # code was read (tools/colab/batch_bot.py waits for the owner's "<!-- reviewed <head> -->"). The dashboard (lib/prs.ts) and the batch bot
@@ -21,8 +22,8 @@ concurrency:
 jobs:
   fork-pr:
     name: "Fork PR: build and own tests"
-    # the owner's own agents push to this repository: their pull requests are checked on the owner's sandbox instead
-    if: github.event.pull_request.head.repo.full_name != github.repository
+    # every pull request since 2026-11-20 (owner): this repository's own too. The sandbox checker (tools/colab/pr_checker.py actions_check)
+    # takes a pull request of this repository only when this job is green on its head; it keeps the runs that need the game files
     runs-on: ubuntu-24.04
     # a cold compiler cache took 24 minutes for the Linux tests (pr.yml); main's cache is restored below
     timeout-minutes: 120

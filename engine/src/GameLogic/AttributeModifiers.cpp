@@ -137,12 +137,14 @@ void parseUpgrade(INI *ini, void *instance, void *, const void *)
 	}
 	list->m_upgrade = std::make_unique<ModifierListTemplate::UpgradeGrant>();
 	list->m_upgrade->upgrade = TheUpgradeCenter->findUpgrade(name);
-	const char *delay = ini->getNextTokenOrNull();
+	// RW 0x8050D3 uses INI +0x420 for the tag (Delay:ms), then the default separators for the value.
+	// DONOR BFME2 0x0040351C (Update/AttributeModifierPoolUpdate.cpp).
+	const char *delay = ini->getNextTokenOrNull(ini->getSepsColon());
 	if (delay && std::strcmp(delay, "Delay") == 0) // RW 0x805163: strcmp with "Delay" (RW 0xBF00F4)
 	{
 		if (const char *ms = ini->getNextTokenOrNull())
 		{
-			const unsigned v = (unsigned)ini->scanInt(ms); // fild, + 2^32 when negative
+			const unsigned v = ini->scanUnsignedInt(ms); // fild, + 2^32 when negative
 			list->m_upgrade->delayFrames = NumericState::ceilScaled(v, LOGICFRAMES_PER_MSEC_REAL) & 0xFFFFu; // * 0.005f (RW 0xD9F610), ceil, movzx ax
 		}
 	}

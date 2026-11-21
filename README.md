@@ -1,11 +1,11 @@
 <div align="center">
 
-# OpenBFME — Ennorath 1.9.8.3 Port
+# OpenBFME — Ennorath 1.9.8.4 Port
 
-**The Battle for Middle-earth II: The Rise of the Witch-king 2.01 & the [Ennorath 1.9.8.3](https://ennorathmod.ru/) overhaul mod, rebuilt in Godot 4.7.**[cite: 2, 3]
+**The Battle for Middle-earth II: The Rise of the Witch-king 2.01 & the [Ennorath 1.9.8.4](https://ennorathmod.ru/) overhaul mod, rebuilt in Godot 4.7.**[cite: 2, 3]
 
 [![Upstream Fork](https://img.shields.io/badge/Fork%20of-Gleb302596555%2Fopenbfme--godot-blue?logo=github)](https://github.com/Gleb302596555/openbfme-godot)
-[![Target Mod](https://img.shields.io/badge/Target%20Mod-Ennorath%201.9.8.3-darkred)](https://ennorathmod.ru/)
+[![Target Mod](https://img.shields.io/badge/Target%20Mod-Ennorath%201.9.8.4-darkred)](https://ennorathmod.ru/)
 [![Latest Ennorath build](https://img.shields.io/github/v/release/Gleb302596555/openbfme-godot?include_prereleases&label=Ennorath%20build)](https://github.com/Gleb302596555/openbfme-godot/releases)
 [![Licence: GPL-3.0](https://img.shields.io/github/license/Open-BFME/openbfme-godot)](LICENSE)
 [![Godot 4.7](https://img.shields.io/badge/Godot-4.7-478cbf?logo=godotengine&logoColor=white)](https://godotengine.org)
@@ -13,7 +13,7 @@
 
 <a href="https://github.com/Gleb302596555/openbfme-godot/releases"><img alt="Download the Ennorath build (Windows)" src="https://img.shields.io/badge/Download-the%20Ennorath%20build%20for%20Windows-2ea44f?style=for-the-badge&logo=github"></a>
 
-<sub>The newest Ennorath build is at the top of this fork's releases page: <code>OpenBFME-Ennorath-…-windows-x64.zip</code>. It holds no game or mod files: you need your own Rise of the Witch-king with Ennorath 1.9.8.3 (All In One BFME Launcher) and BFME2 1.06; unpack the zip and start <code>OpenBFME.exe</code>. The upstream vanilla builds are on <a href="https://github.com/Open-BFME/openbfme-godot/releases">Open-BFME's releases page</a>.</sub>
+<sub>The newest Ennorath build is at the top of this fork's releases page: <code>OpenBFME-Ennorath-…-windows-x64.zip</code>. It holds no game or mod files: you need your own Rise of the Witch-king with Ennorath 1.9.8.4 (All In One BFME Launcher) and BFME2 1.06; unpack the zip and start <code>OpenBFME.exe</code>. The upstream vanilla builds are on <a href="https://github.com/Open-BFME/openbfme-godot/releases">Open-BFME's releases page</a>.</sub>
 
 [About this fork](#about-this-fork) · [Ennorath port specification](#ennorath-port-specification) · [What it is](#what-it-is) · [Play it](#play-it) · [Status](#status) · [Where it's going](#where-its-going) · [Build from source](#build-from-source) · [Player guide](docs/PLAYING.md) · [Roadmap](docs/ROADMAP.md)
 
@@ -26,18 +26,18 @@
 This repository is a dedicated fork of **[Gleb302596555/openbfme-godot](https://github.com/Gleb302596555/openbfme-godot)** (built on **[Open-BFME/openbfme-godot](https://github.com/Open-BFME/openbfme-godot)**)[cite: 2].
 
 * **Main upstream repository ([Gleb302596555/openbfme-godot](https://github.com/Gleb302596555/openbfme-godot)):** Focuses on porting vanilla **The Battle for Middle-earth II: The Rise of the Witch-king 2.01** and starting support for several other mods[cite: 2].
-* **This fork:** Specifically targets porting the **[Ennorath 1.9.8.3](https://ennorathmod.ru/)** overhaul mod[cite: 3].
+* **This fork:** Specifically targets porting the **[Ennorath 1.9.8.4](https://ennorathmod.ru/)** overhaul mod[cite: 3].
 
-**Goal:** **Ennorath 1.9.8.3** on the OpenBFME engine behaves the same way it does on **RotWK 2.01**[cite: 3]. The mod itself is not modified; instead, we fix and implement the general mechanisms of the engine[cite: 3].
+**Goal:** **Ennorath 1.9.8.4** on the OpenBFME engine behaves the same way it does on **RotWK 2.01**[cite: 3]. The mod itself is not modified; instead, we fix and implement the general mechanisms of the engine[cite: 3].
 
 ---
 
 ## Ennorath port specification
 
-### Baseline: Ennorath 1.9.8.3
-* **Base version:** **Ennorath 1.9.8.3** as of 2026-11-15 (before: 1.9.8.2 from 2026-11-04, 1.9.8.1 from 2026-11-03; owner decisions).
-* **Mod archives and patch notes:** 1.9.8.3 came out on 2026-11-15; the owner put the updated `____enrth_data.big`, `lang/englishpatch201.big` and the new `############bugfixtextures.big` in `RotWK/` and updated the patch note document `docs/ennorath/Ennorath mod Patch Note.docx` (it has a 1.9.8.3 section). 1.9.8.3 also patches the game's `game.dat` (60 FPS, chat hotkeys Ctrl+C / V / X / A); the RotWK reference for `RW 0x...` addresses stays the vanilla 2.01 `game.dat`. The port keeps its own frame rate; the chat hotkeys are tracked as P-128.
-* **Source of truth:** Test and verification expectations are taken from **1.9.8.3**. The patch note is treated as the truth for how the mod should work: every item in it is verified, and any discrepancy between the port and the patch note is treated as a bug to investigate. However, the final word belongs to the mod's actual files (INI files, scripts, and archive data of the current version) and the RotWK code: if a patch note item conflicts with the mod files, the files are considered correct and the discrepancy is recorded in the report. Within the patch notes, the newest section (currently 1.9.8.3) governs, superseding older descriptions of the same mechanic. Faction registries and tables captured before a base change were made on an older version; when they differ from current mod files, the current files take precedence.
+### Baseline: Ennorath 1.9.8.4
+* **Base version:** **Ennorath 1.9.8.4** as of 2026-11-20 (before: 1.9.8.3 from 2026-11-15, 1.9.8.2 from 2026-11-04, 1.9.8.1 from 2026-11-03; owner decisions).
+* **Mod archives and patch notes:** 1.9.8.4 came out on 2026-11-20: it changes the game's `game.dat` through pySAGE (replays, chat blocking, select all buildings, every resolution, a 30 / 60 FPS option, the building-limit fix, War of the Ring for 8 players; CommandSet 33 → 64 slots and 1152 → 5120 upgrades for modders), adds `############enrth_data_wotr8.big` (three War of the Ring scenarios) and updates `lang/englishpatch201.big`; the mod's INI data (`____enrth_data.big`) and textures did not change. These are exe behaviours of the patched game, not of `game.dat` 2.01: they belong to the fork only (PROCESS 12). 1.9.8.3 came out on 2026-11-15; the owner put the updated `____enrth_data.big`, `lang/englishpatch201.big` and the new `############bugfixtextures.big` in `RotWK/` and updated the patch note document `docs/ennorath/Ennorath mod Patch Note.docx` (it has a 1.9.8.3 section). 1.9.8.3 also patches the game's `game.dat` (60 FPS, chat hotkeys Ctrl+C / V / X / A); the RotWK reference for `RW 0x...` addresses stays the vanilla 2.01 `game.dat` (md5 `daed3668…`, `workspace/games-en/Vanilla_(2.01)/install/game.dat`; `RotWK/game.dat` is the patched one since 1.9.8.4). The port keeps its own frame rate; the chat hotkeys are tracked as P-128.
+* **Source of truth:** Test and verification expectations are taken from **1.9.8.4**. The patch note is treated as the truth for how the mod should work: every item in it is verified, and any discrepancy between the port and the patch note is treated as a bug to investigate. However, the final word belongs to the mod's actual files (INI files, scripts, and archive data of the current version) and the RotWK code: if a patch note item conflicts with the mod files, the files are considered correct and the discrepancy is recorded in the report. Within the patch notes, the newest section (currently 1.9.8.4) governs, superseding older descriptions of the same mechanic. Faction registries and tables captured before a base change were made on an older version; when they differ from current mod files, the current files take precedence.
 * **Git policy:** Neither the mod files nor the patch note are stored in Git, and branches do not carry them; they are never copied or replaced across branches or worktrees[cite: 3].
 
 ### Order of work
@@ -95,7 +95,7 @@ engineered from the game, and some use a stand-in until OpenBFME's RotWK
 decompilation project is complete[cite: 2].
 
 OpenBFME is a faithful, fan-made recreation of **The Rise of the Witch-king
-2.01** (and in this fork, **Ennorath 1.9.8.3**) that runs on the original game files from your own install[cite: 2, 3]. This
+2.01** (and in this fork, **Ennorath 1.9.8.4**) that runs on the original game files from your own install[cite: 2, 3]. This
 repository contains no game assets: you bring your own copy of the game and mod, or
 let the launcher download the base game (see [Play it](#play-it))[cite: 2, 3].
 
@@ -107,7 +107,7 @@ windows[cite: 2]. The previous codebase lives on in this repository's history (t
 
 ```mermaid
 flowchart LR
-    A["Your RotWK 2.01 +<br/>BFME2 1.06 +<br/>Ennorath 1.9.8.3 install"] -->|read only| B["OpenBFME engine<br/>(C++ GDExtension:<br/>the game's rules)"]
+    A["Your RotWK 2.01 +<br/>BFME2 1.06 +<br/>Ennorath 1.9.8.4 install"] -->|read only| B["OpenBFME engine<br/>(C++ GDExtension:<br/>the game's rules)"]
     B --> C["Godot 4.7<br/>(graphics, sound,<br/>input, windows)"]
     L["OpenBFME Launcher"] -->|installs, checks, starts| C
 ```
@@ -129,7 +129,7 @@ for game folders, updates, crashes, logs and online errors on Windows,
 Linux and macOS[cite: 2].
 
 **You need** **The Rise of the Witch-king 2.01**, **The Battle for
-Middle-earth II 1.06** (in any language), and **[Ennorath 1.9.8.3](https://ennorathmod.ru/)** placed in your `RotWK/` folder, on x86-64 Windows 10/11 or x86-64
+Middle-earth II 1.06** (in any language), and **[Ennorath 1.9.8.4](https://ennorathmod.ru/)** placed in your `RotWK/` folder, on x86-64 Windows 10/11 or x86-64
 Linux with GLIBC 2.28 or newer and Vulkan graphics (or Direct3D 12 on Windows)[cite: 2, 3].
 
 1. **Download OpenBFME** from
@@ -185,7 +185,7 @@ the original are still missing[cite: 2].
 | Area | Status | Notes |
 |---|---|---|
 | Finding and checking your game files | ✅ Works | 2.01 / 1.06 installs in any language (the languages the All In One service lists are checked by MD5; others load with an in-game warning and a *Copy details* button so you can send them to us); the launcher's download picks the text and voice language[cite: 2] |
-| Ennorath 1.9.8.3 overhaul mod | 🟡 In Progress | Dedicated target of this fork: button sweep, engine subsystem porting, and 11-faction verification against Ennorath 1.9.8.3[cite: 3] |
+| Ennorath 1.9.8.4 overhaul mod | 🟡 In Progress | Dedicated target of this fork: button sweep, engine subsystem porting, and 11-faction verification against Ennorath 1.9.8.4[cite: 3] |
 | Skirmish, all 7 vanilla factions | ✅ Works | Men, Elves, Dwarves, Isengard, Mordor, Goblins and Angmar; scripted test players played 71 games through the real menus and controls in the latest full sweep, every faction, with no crash or stall[cite: 2] |
 | Combat, hordes, heroes, spell book | ✅ Works | horde formations, cavalry charges, sieges, powers; details are still being matched to the original[cite: 2] |
 | Team colours | 🟡 Partial | units and buildings show their player's colour, but how the colour is blended in is an educated guess, not yet checked against the original[cite: 2] |
@@ -202,13 +202,13 @@ the original are still missing[cite: 2].
 | Save / load | 🟡 Partial | skirmish and campaign missions save and load through the original Save / Load screens (OpenBFME's own save files, not the original game's)[cite: 2] |
 | War of the Ring | ❌ Not yet |[cite: 2] |
 | Online multiplayer | 🟡 Test feature | server browser, rejoin and spectating through an OpenBFME lobby and relay; the launcher's Multiplayer screen supports sign-in, friends and invitations; the lobby is configurable ([player guide](docs/PLAYING.md#online-play-test-feature))[cite: 2] |
-| Mods | 🟡 Active (Ennorath 1.9.8.3) | designed in from the start; this fork is dedicated to porting Ennorath 1.9.8.3 (while upstream targets Edain first)[cite: 2, 3] |
+| Mods | 🟡 Active (Ennorath 1.9.8.4) | designed in from the start; this fork is dedicated to porting Ennorath 1.9.8.4 (while upstream targets Edain first)[cite: 2, 3] |
 
 **Faithful first.** OpenBFME copies the original game's behaviour; it does
 not reinvent it[cite: 2]. Where the evidence runs out and the team has to make an
 educated guess, that guess is not hidden: it is recorded as an *acceptance
 stop* in [docs/STOPS.md](docs/STOPS.md), reported by the game at runtime and
-pinned by a test. There are **971 open stops** today. Some are big
+pinned by a test. There are **974 open stops** today. Some are big
 (retail save files), most are small details waiting for better evidence. The plan to
 get to a 1:1 game is in [docs/ROADMAP.md](docs/ROADMAP.md).
 
@@ -221,9 +221,9 @@ history is in [docs/CHANGELOG.md](docs/CHANGELOG.md)[cite: 2].
 ## Where it's going
 
 ### In this fork
-1. Complete the **Button Sweep** ([`docs/ennorath/BUTTON_SWEEP.md`](docs/ennorath/BUTTON_SWEEP.md)) across every button of all 11 Ennorath 1.9.8.3 factions[cite: 3].
+1. Complete the **Button Sweep** ([`docs/ennorath/BUTTON_SWEEP.md`](docs/ennorath/BUTTON_SWEEP.md)) across every button of all 11 Ennorath 1.9.8.4 factions[cite: 3].
 2. Port all required **Subsystems** ([`docs/ennorath/SUBSYSTEMS.md`](docs/ennorath/SUBSYSTEMS.md)) and resolve symptoms tracked in [`docs/ennorath/PROBLEMS.md`](docs/ennorath/PROBLEMS.md)[cite: 3].
-3. Execute the **A–G Faction Plan** ([`docs/ENNORATH_FACTION_PLAN.md`](docs/ENNORATH_FACTION_PLAN.md)) so Ennorath 1.9.8.3 behaves on OpenBFME just as it does on RotWK 2.01[cite: 3].
+3. Execute the **A–G Faction Plan** ([`docs/ENNORATH_FACTION_PLAN.md`](docs/ENNORATH_FACTION_PLAN.md)) so Ennorath 1.9.8.4 behaves on OpenBFME just as it does on RotWK 2.01[cite: 3].
 
 ### Upstream roadmap
 1. Skirmish and multiplayer parity with the original: every faction, the
@@ -231,7 +231,7 @@ history is in [docs/CHANGELOG.md](docs/CHANGELOG.md)[cite: 2].
 2. The Rise of the Witch-king campaign[cite: 2].
 3. The Battle for Middle-earth II Good and Evil campaigns[cite: 2].
 4. War of the Ring[cite: 2].
-5. Mods, with Edain first in upstream and Ennorath 1.9.8.3 in this fork[cite: 2, 3].
+5. Mods, with Edain first in upstream and Ennorath 1.9.8.4 in this fork[cite: 2, 3].
 
 The full plan, with what is done and what is next, is in
 [docs/ROADMAP.md](docs/ROADMAP.md)[cite: 2].
@@ -360,7 +360,7 @@ Video devlogs on the [OpenBFME YouTube channel](https://www.youtube.com/@OpenBFM
 
 ## Behaviour references
 
-- **[Ennorath Mod 1.9.8.3](https://ennorathmod.ru/)**: INI files, scripts, `.big` archives (`____enrth_data.big`, `_______enrth_textures3.big`, `############bugfixtextures.big`), and `docs/ennorath/Ennorath mod Patch Note.docx`[cite: 3].
+- **[Ennorath Mod 1.9.8.4](https://ennorathmod.ru/)**: INI files, scripts, `.big` archives (`____enrth_data.big`, `_______enrth_textures3.big`, `############bugfixtextures.big`), and `docs/ennorath/Ennorath mod Patch Note.docx`[cite: 3].
 - **Upstream Fork**: [Gleb302596555/openbfme-godot](https://github.com/Gleb302596555/openbfme-godot) & [Open-BFME/openbfme-godot](https://github.com/Open-BFME/openbfme-godot)[cite: 2].
 - RotWK 2.01 INI files: every number in the game[cite: 2].
 - EA's Command & Conquer Generals: Zero Hour source (GPL-3): the SAGE

@@ -529,33 +529,29 @@ void TransportContain::letRidersUpgradeWeaponSet()
 			two = true; // data + 0xCC
 		}
 	}
-	ObjectWeapons *w = getObject()->getWeapons();
-	if (!w)
-	{
-		return;
-	}
-	const auto has = [w](int bit) { return ((w->weaponSetFlags()[(size_t)bit >> 5] >> (bit & 31)) & 1u) != 0; };
+	Object *container = getObject();
+	const auto has = [container](int bit) { return ((container->getWeaponSetFlags()[(size_t)bit >> 5] >> (bit & 31)) & 1u) != 0; };
 	if (one)
 	{
 		if (!has(PASSENGER_TYPE_ONE))
 		{
-			w->setWeaponSetFlag(PASSENGER_TYPE_ONE, true); // RW 0x691059(4)
+			container->setWeaponSetFlag(PASSENGER_TYPE_ONE, true); // RW 0x691059(4) on the OBJECT
 		}
 	}
 	else if (has(PASSENGER_TYPE_ONE))
 	{
-		w->setWeaponSetFlag(PASSENGER_TYPE_ONE, false); // RW 0x691106(4)
+		container->setWeaponSetFlag(PASSENGER_TYPE_ONE, false); // RW 0x691106(4) on the OBJECT
 	}
 	if (two)
 	{
 		if (!has(PASSENGER_TYPE_TWO))
 		{
-			w->setWeaponSetFlag(PASSENGER_TYPE_TWO, true);
+			container->setWeaponSetFlag(PASSENGER_TYPE_TWO, true);
 		}
 	}
 	else if (has(PASSENGER_TYPE_TWO))
 	{
-		w->setWeaponSetFlag(PASSENGER_TYPE_TWO, false);
+		container->setWeaponSetFlag(PASSENGER_TYPE_TWO, false);
 	}
 }
 
@@ -751,13 +747,34 @@ void TransportContain::createPayload()
 	}
 }
 
+namespace
+{
+// RW 0x86A104 -> 0x86A117..0x86A15E and RW 0x86B169 -> 0x86B24B..0x86B28F:
+// when the container is a HordeContain (vslot +0x7C), GlobalData +0xD45 is clear (normal runtime), the payload template is neither
+// HERO (KindOf bit 90, ThingTemplate +0x113 bit 2) nor MONSTER (KindOf bit 10, ThingTemplate +0x109 bit 2), and AIData ForceHordesToLowLOD
+// (+0xBB) is set, the spawned member receives OBJECT_STATUS_CREATE_DRAWABLE_WITH_LOW_DETAIL (bit 55).
+ObjectStatusMaskType hordePayloadInitialStatus(GameLogic &logic, ContainModuleInterface &contain, const ThingTemplate &t)
+{
+	ObjectStatusMaskType status{};
+	if (contain.getHordeContainInterface() && logic.settings().forceHordesToLowLOD)
+	{
+		const auto &ko = logic.templateInfo(t.getFinalOverride()).kindOf;
+		if (!MaskTest(ko, 90u) && !MaskTest(ko, 10u))
+		{
+			MaskSet(status, OBJECT_STATUS_CREATE_DRAWABLE_WITH_LOW_DETAIL, true);
+		}
+	}
+	return status;
+}
+} // namespace
+
 // RW 0x86A104
 Object *TransportContain::createPayloadObject(const ThingTemplate &t, ContainModuleInterface &contain, bool checkCapacity)
 {
 	Object *container = getObject();
 	GameLogic &logic = container->logic();
-	// RW 0x86A118 .. 0x86A15C: CREATE_DRAWABLE_WITH_LOW_DETAIL for a horde payload of a low detail setting (client side): no status
-	Object *o = logic.newObject(&t, container->getTeam(), ObjectStatusMaskType{}); // RW 0x6D165E(t, container + 0x31C)
+	const ObjectStatusMaskType status = hordePayloadInitialStatus(logic, contain, t); // RW 0x86A117 .. 0x86A15E
+	Object *o = logic.newObject(&t, container->getTeam(), status); // RW 0x6D165E(t, container + 0x31C)
 	if (!o)
 	{
 		return nullptr;
@@ -835,7 +852,8 @@ void TransportContain::processUpgradeCreationTriggers()
 			{
 				break;
 			}
-			Object *o = logic.newObject(t, container->getTeam(), ObjectStatusMaskType{});
+			const ObjectStatusMaskType status = hordePayloadInitialStatus(logic, *contain, *t); // RW 0x86B24B .. 0x86B28F
+			Object *o = logic.newObject(t, container->getTeam(), status);
 			if (!o)
 			{
 				break;
@@ -980,7 +998,7 @@ bool HordeTransportContain::addToContain(Object *obj)
 		ObjectWeapons *w = o->getWeapons();
 		if (w && w->hasWeaponSetFor(CONTAINED))
 		{
-			w->setWeaponSetFlag(CONTAINED, true);
+			o->setWeaponSetFlag(CONTAINED, true);
 			return true;
 		}
 		return false;
@@ -1055,10 +1073,7 @@ void HordeTransportContain::removeFromContain(Object *obj, bool exposeStealthUni
 		return;
 	}
 	const auto clearContainedWeaponSet = [](Object *o) {
-		if (ObjectWeapons *w = o->getWeapons())
-		{
-			w->setWeaponSetFlag(CONTAINED, false); // RW 0x691106(0x14)
-		}
+		o->setWeaponSetFlag(CONTAINED, false); // RW 0x691106(0x14) on the OBJECT
 	};
 	// RW 0x87A361: OpenContain's removal (false), CONTAINED cleared, RW 0x990EE6: back into the world, not UNSELECTABLE
 	const auto removeRider = [this, &clearContainedWeaponSet](Object *o) {

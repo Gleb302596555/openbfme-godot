@@ -32,9 +32,6 @@
 
 namespace
 {
-const char *const kStopUpgrade =
-	"[S-1871] ActionManager::canDoSpecialPowerAtLocation (RW 0x75CF21): a FIRE_WEAPON button (RW 0x75CC3E: Object + 0x478, unidentified) is not ported: "
-	"it answers no (lane MODCOMPAT-AI ported the upgrade buttons: the production queue test RW 0x68C327 and RW 0x694914 / 0x691421)";
 const char *const kStopLayer =
 	"[S-1872] ActionManager RW 0x82C366 (an AI moving along its path, AIUpdate + 0x1FC in {1, 4} with a path whose node + 0x20 is set, on a pathfinder cell "
 	"whose bits 4 .. 9 exceed 0x10 refuses every power) is ported (lane WALL-2: walls, portals); the path's waypoint test (RW 0x765522) is not cached at + 0x24";
@@ -149,11 +146,10 @@ bool waterTestPasses(GameLogic &logic, const Coord3D &loc, const SpecialPowerTem
 }
 
 // the default ObjectFilter of a SpecialPowerTemplate (RW 0x7B1F5B -> RW 0x763D11 with the empty KindOf mask RW 0xDE49E4: rule NONE, empty masks, as
-// CostModifierUpgrade's constructor builds it, RW 0x8B9E08)
+// RW 0x8B9D79's CostModifierUpgrade constructor builds it, RW 0x8B9E08); the shared helper lives in ObjectFilter.h (specialPowerFilterOrDefault)
 const ObjectFilter &filterOrDefault(const std::shared_ptr<const ObjectFilter> &f)
 {
-	static const ObjectFilter kDefault = ObjectFilter::none(KindOfMaskType{}, KindOfMaskType{});
-	return f ? *f : kDefault;
+	return specialPowerFilterOrDefault(f.get());
 }
 
 // the shroud status of the location for the controlling player (ShroudManager RW 0xB4D9A0 -> 0xB4FB20 with the player index, Player + 0x54)
@@ -1042,7 +1038,7 @@ bool canDoSpecialPowerAtObject(Object &obj, Object *target, CommandSourceType so
 
 std::vector<std::string> stopLines()
 {
-	return { kStopUpgrade, kStopLayer, kStopRequirements, kStopTypeTest, kStopObjectTypeTest };
+	return { kStopLayer, kStopRequirements, kStopTypeTest, kStopObjectTypeTest };
 }
 
 // PR 284: RW 0x82CEFB (see ActionManager.h)

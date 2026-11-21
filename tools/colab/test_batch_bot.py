@@ -212,5 +212,6 @@ def test_a_local_station_pr_is_left_to_claudes_direct_landing():
 def test_the_batch_loop_checks_a_pr_after_thirty_minutes_without_green_prs_or_batches():
     now = 10_000.0
     assert not bb.helper_due({"finished": now - 600, "loop_started": 0}, now)
-    assert not bb.helper_due({"ready_at": now - 1700}, now)
+    # owner 2026-11-20: green PRs waiting for the third do not hold the help back, only a recent batch does
+    assert bb.helper_due({"finished": now - 4000, "ready_at": now - 60}, now)
     assert bb.helper_due({"finished": now - 4000, "ready_at": now - 1900}, now)

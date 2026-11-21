@@ -74,7 +74,26 @@ bool LiveScripting::start(const std::string &mapFolder, std::string *error)
 		LuaObjectInfo info;
 		const bool dispatch = describe(obj, &info, true);
 		++m_stats.creations;
-		return LuaScriptEngine::sendObjectCreated(m_logic.random(), dispatch ? m_engine.get() : nullptr, dispatch ? &info : nullptr, bindDrawable);
+		const size_t before = m_engine->logic() ? m_engine->logic()->alerts().size() : 0;
+		auto created = LuaScriptEngine::sendObjectCreated(m_logic.random(), dispatch ? m_engine.get() : nullptr, dispatch ? &info : nullptr, bindDrawable);
+		if (m_engine->logic() && m_engine->logic()->alerts().size() > before)
+		{
+			// name the object and its handler in the report (an alert carries neither)
+			std::string source = obj.getTemplate() ? obj.getTemplate()->getName() : std::string("?");
+			if (dispatch && info.luaEvents)
+			{
+				if (const LuaEventHandler *h = info.luaEvents->find(m_engine->events().internalKey(LUAEVENT_OnCreated)))
+				{
+					source += " OnCreated " + h->function;
+				}
+			}
+			m_alertSources.resize(m_engine->logic()->alerts().size());
+			for (size_t i = before; i < m_alertSources.size(); ++i)
+			{
+				m_alertSources[i] = source;
+			}
+		}
+		return created;
 	});
 	m_logic.setWorldHooks(
 		[this](Object &obj) {
@@ -425,9 +444,11 @@ LiveScripting::Stats LiveScripting::stats() const
 		{
 			s.stops.push_back("[" + e.stop + "] " + e.text);
 		}
-		for (const std::string &a : m_engine->logic()->alerts())
+		const std::vector<std::string> &alerts = m_engine->logic()->alerts();
+		for (size_t i = 0; i < alerts.size(); ++i)
 		{
-			s.errors.push_back("OnCreated handler failed: " + a);
+			const std::string &from = i < m_alertSources.size() ? m_alertSources[i] : std::string();
+			s.errors.push_back(from.empty() ? "Lua alert: " + alerts[i] : "OnCreated handler failed (" + from + "): " + alerts[i]);
 		}
 	}
 	return s;

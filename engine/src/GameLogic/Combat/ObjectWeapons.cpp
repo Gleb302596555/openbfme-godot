@@ -91,6 +91,18 @@ void addBit(Object::ModelConditionBits &bits, int bit)
 {
 	bits[(size_t)bit >> 5] |= 1u << (bit & 31);
 }
+
+// RW 0x6C97F9 / 0x6C98E6: the five weapon lock conditions are a single mask, not independent slot state.
+// DONOR BFME2 0x002C8AAE / 0x002C8B9B (WeaponSetSetWeaponLock.cpp).
+void clearWeaponLockConditions(Object &owner)
+{
+	Object::ModelConditionBits clear{};
+	for (int i = 0; i < 5; ++i)
+	{
+		addBit(clear, slotConditions(i).lockBit);
+	}
+	owner.clearAndSetModelConditionFlags(clear, Object::ModelConditionBits{});
+}
 } // namespace
 
 // RW 0x73D89F / 0x73D917 (the same best match as FindArmorTemplateSet over the 128 bit set conditions): the most conditions met first, then the fewest unmet
@@ -568,6 +580,9 @@ WeaponRangeHost &ObjectWeapons::rangeHost()
 // ---------------------------------------------------------------------------------------------------------------------------------
 // the set
 // ---------------------------------------------------------------------------------------------------------------------------------
+// lane ANIM-1: RW 0x68DECA (set) / 0x6911B7 (clear) Object::setWeaponSetFlags / clearWeaponSetFlags: every bit of the mask, then ONE weapon set update (RW
+// 0x6C99E2); the clear, then RW 0x6911B7's second loop: every bit the mask names whose mapped model condition the owner has, cleared one by one (RW 0x68B53C).
+// The set touches no model condition (RW does not there either)
 void ObjectWeapons::setWeaponSetFlags(const WeaponSetFlags &mask, bool on)
 {
 	for (size_t i = 0; i < m_flags.size(); ++i)
@@ -575,6 +590,21 @@ void ObjectWeapons::setWeaponSetFlags(const WeaponSetFlags &mask, bool on)
 		m_flags[i] = on ? (m_flags[i] | mask[i]) : (m_flags[i] & ~mask[i]);
 	}
 	updateWeaponSet();
+	if (on || !m_owner)
+	{
+		return;
+	}
+	for (int bit = 0; bit < 128; ++bit) // RW's loop is bits 0..0x67; WeaponSetModelCondition answers -1 beyond the table
+	{
+		if ((mask[(size_t)bit >> 5] >> (bit & 31)) & 1u)
+		{
+			const int condition = WeaponSetModelCondition(bit);
+			if (condition >= 0 && m_owner->testModelCondition(condition))
+			{
+				m_owner->setModelConditionState(condition, false); // RW 0x6911B7's per-bit mirror
+			}
+		}
+	}
 }
 
 // lane ANIM-1: RW 0x691059 (set) / 0x691106 (clear) Object::setWeaponSetFlag / clearWeaponSetFlag: the flag, the set update (RW 0x6C99E2), then the model
@@ -672,7 +702,7 @@ void ObjectWeapons::rebuildWeapons(const WeaponTemplateSet *set)
 	m_set = set;
 	if (!(old && set && set->m_isWeaponLockSharedAcrossSets))
 	{
-		m_lockType = NOT_LOCKED;
+		releaseWeaponLock(LOCKED_PERMANENTLY); // RW 0x6C99E2, non-shared lock on a weapon set change
 		m_curSlot = PRIMARY_WEAPON;
 	}
 	if (!set)
@@ -811,16 +841,17 @@ bool ObjectWeapons::setWeaponLock(int slot, WeaponLockType type)
 	{
 		return false;
 	}
-	if (m_lockType == LOCKED_PERMANENTLY && type == LOCKED_TEMPORARILY)
+	if (type == LOCKED_PERMANENTLY || (type == LOCKED_TEMPORARILY && m_lockType != LOCKED_PERMANENTLY))
 	{
-		return false; // a temporary lock never overrides a permanent one
+		m_curSlot = slot;
+		m_lockedSlot = slot;
+		m_lockType = type;
 	}
-	m_curSlot = slot;
-	m_lockedSlot = slot;
-	m_lockType = type;
-	if (slot < 5)
+	// A temporary request against a permanent lock succeeds without changing the selected slot (RW 0x6C983E).
+	clearWeaponLockConditions(*m_owner);
+	if (m_curSlot < 5)
 	{
-		m_owner->setModelConditionState(slotConditions(slot).lockBit, true);
+		m_owner->setModelConditionState(slotConditions(m_curSlot).lockBit, true);
 	}
 	return true;
 }
@@ -860,11 +891,8 @@ void ObjectWeapons::releaseWeaponLock(WeaponLockType type)
 	}
 	if (type == LOCKED_PERMANENTLY || (type == LOCKED_TEMPORARILY && m_lockType == LOCKED_TEMPORARILY))
 	{
-		if (m_lockedSlot < 5)
-		{
-			m_owner->setModelConditionState(slotConditions(m_lockedSlot).lockBit, false);
-		}
 		m_lockType = NOT_LOCKED;
+		clearWeaponLockConditions(*m_owner);
 	}
 }
 
@@ -1303,10 +1331,21 @@ bool ObjectWeapons::chooseBestWeaponForTarget(const Object *victimIn, WeaponChoi
 	return false;
 }
 
-// PORT-218: the bool view of RW 0x6C9147 (see getAbleToAttackSpecificObject below), kept as the name main's callers use. It runs the same
-// one path: no second copy of the branches, and no extra shroud gate here — the order translator keeps its own (VIS-1, RW 0x82C167 at its
-// caller) because RW 0x6C9147 has no shroud test, and `canAttackObjectNoShroud` is this function under its old name.
+// PORT-218: the bool view of RW 0x6C9147 (see getAbleToAttackSpecificObject below), kept as the name main's callers use. The answer is the
+// port's exact one (`canAttackObjectNoShroud`, no second copy of the branches); the shroud gate main had on top of it stays where main had it —
+// VIS-1 (RW 0x82C167, the action helper; stop S-565): a human player's order (any source but a script) cannot target an object that is fogged or
+// shrouded for that player. RW 0x6C9147 itself has no shroud test, so the gate is the caller's, not the function's.
 bool ObjectWeapons::canAttackObject(const Object &victim, CommandSourceType source, bool forced) const
+{
+	if (!canAttackObjectNoShroud(victim, source, forced))
+	{
+		return false;
+	}
+	return !(source != CMD_FROM_SCRIPT && ShroudManager::isShroudedForAction(*m_owner, victim));
+}
+
+// PORT-218: RW 0x6C9147 with no shroud gate of any kind (the exact port).
+bool ObjectWeapons::canAttackObjectNoShroud(const Object &victim, CommandSourceType source, bool forced) const
 {
 	const CanAttackResult r = getAbleToAttackSpecificObject(forced ? ATTACK_CONTINUED_TARGET_FORCED : ATTACK_NEW_TARGET, *m_owner, victim, source);
 	return r == ATTACKRESULT_POSSIBLE || r == ATTACKRESULT_POSSIBLE_AFTER_MOVING;
@@ -1624,8 +1663,11 @@ CanAttackResult ObjectWeapons::getAbleToUseWeaponAgainstTarget(AbleToAttackType 
 // PORT-218: the slot loop of RW 0x6C891B .. 0x6C8993 on its own (a passenger's query calls it back, so the containers are not walked again)
 bool ObjectWeapons::someWeaponCanDamage(const Object &source, const Object &victim) const
 {
-	const int first = isCurWeaponLocked() ? curSlot() : WEAPONSLOT_COUNT - 1; // RW 0x6C891B .. 0x6C8930
-	const int last = isCurWeaponLocked() ? curSlot() : PRIMARY_WEAPON;
+	// RW 0x6C891B .. 0x6C8930: the loop starts at the LOCKED slot (m_curWeapon's + 0x20 while + 0x24 is set) or at the last slot, and always
+	// walks DOWN TO PRIMARY (0) — a lock only moves the start, it does not hide the slots below it. Stopping at the locked slot refused a pair
+	// whose locked slot is a NoVictimNeeded / damageless weapon while a lower slot canDamage the victim (PORT-277's dummy).
+	const int first = isCurWeaponLocked() ? curSlot() : WEAPONSLOT_COUNT - 1;
+	const int last = PRIMARY_WEAPON;
 	const WeaponTemplateSet *set = templateSet();
 	for (int slot = first; slot >= last; --slot)
 	{
