@@ -141,6 +141,7 @@ private:
 	std::vector<ObjectID> m_scanIds; ///< update's copy of the scary / hero list, kept for its storage (not state: refilled before each scan)
 };
 
+// ~RadiateFearUpdateModuleData RW 0x0089F978, scalar deleting dtor RW 0x0089F95C
 class RadiateFearUpdateModuleData : public UpgradeModuleData
 {
 public:
@@ -160,6 +161,9 @@ class RadiateFearUpdate : public UpdateModule, public UpgradeMux
 public:
 	OBFME_MODULE_XFER(RadiateFearUpdate) // lane SAVE-4b
 	RadiateFearUpdate(Thing *thing, const RadiateFearUpdateModuleData *data); ///< RW 0x89F890
+	~RadiateFearUpdate() override = default; // RW 0x0089F741 (~RadiateFearUpdate), RW 0x0089F903 (scalar deleting dtor)
+	// UpgradeMux slots via UpgradeModuleData base: getUpgradeActivationMasks RW 0x0089F7AC, performUpgradeFX RW 0x0089F7D3 (empty RW 0x009F3A3C),
+	// requiresAllActivationUpgrades RW 0x0089F7E2 (+0x14C), requiresAllConflictingUpgrades RW 0x0089F7EC (+0x14D).
 	UpgradeMux *getUpgrade() override { return this; }
 	UpdateSleepTime update() override; ///< RW 0x89F9A8
 	void crc(StateHasher &h) const override;

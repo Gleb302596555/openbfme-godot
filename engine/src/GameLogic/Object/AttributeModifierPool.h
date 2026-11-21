@@ -47,7 +47,7 @@ class AttributeModifierPool : public UpdateModule
 public:
 	OBFME_MODULE_XFER(AttributeModifierPool) // lane SAVE-4b
 	AttributeModifierPool(Thing *thing, const ModuleData *data);
-	~AttributeModifierPool() override = default; // RW 0x008055C9 (~AttributeModifierPoolUpdate), RW 0x00805843 (scalar deleting dtor)
+	~AttributeModifierPool() override = default; // RW 0x008055C9 (~AttributeModifierPoolUpdate -> m_entries vector dtor RW 0x00805517), RW 0x00805843 (scalar deleting dtor)
 	static void registerClass(ModuleFactory &modules); // getModuleName RW 0x00805612, getModuleNameKey RW 0x00805618
 
 	UpdateSleepTime update() override; ///< RW 0x80585F

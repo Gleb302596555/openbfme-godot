@@ -24,6 +24,7 @@ class SpawnUnitBehavior : public UpdateModule, public SpawnUnitBehaviorInterface
 {
 public:
 	SpawnUnitBehavior(Thing *thing, const SpawnUnitBehaviorModuleData *data);
+	~SpawnUnitBehavior() override = default; // RW 0x008BC879 / RW 0x008BC965
 
 	UpdateSleepTime update() override;
 
@@ -39,7 +40,7 @@ public:
 	bool spawned() const { return m_spawned; }
 	void setSpawned(bool s) { m_spawned = s; }
 
-	static void registerClass(ModuleFactory &modules);
+	static void registerClass(ModuleFactory &modules); // getModuleName RW 0x008BC8DE, getModuleNameKey RW 0x008BC899
 
 private:
 	const SpawnUnitBehaviorModuleData *m_data = nullptr;

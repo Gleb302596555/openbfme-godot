@@ -108,14 +108,15 @@ public:
 	const AutoPickUpUpdateModuleData *data() const { return m_data; }
 	unsigned countdown() const { return m_countdown; }   ///< + 0x24
 	bool buttonWake() const { return m_buttonWake; }     ///< + 0x28
-	bool buttonWoken() const { return m_buttonWoken; }   ///< + 0x29
+	bool buttonWoken() const { return m_buttonWoken; }   ///< + 0x29, slot 3 RW 0x007017DB
 	// observation only (tests; not state, not hashed): the scans the gate let through
 	unsigned long long scans() const { return m_scans; }
 
 	// RW 0x68C8DE: every AutoPickUpUpdate of `obj` whose RunFromButtonNumber is `number` is woken
 	static void wakeAutoPickUp(Object &obj, int number);
 
-	static void registerModule(ModuleFactory &modules);
+	~AutoPickUpUpdate() override = default; // RW 0x008993D6 / RW 0x00899538
+	static void registerModule(ModuleFactory &modules); // getModuleName RW 0x008993F6, getModuleNameKey RW 0x0089947A
 	static std::vector<std::string> stopLines();
 
 protected:
