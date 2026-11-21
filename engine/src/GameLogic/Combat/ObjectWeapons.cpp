@@ -413,6 +413,12 @@ public:
 	}
 	void reloadAllWeapons() override { m_w.reloadAllAmmo(false); }
 	std::uint32_t ownerObjectID() override { return m_w.owner().getID(); }
+	// PORT-225: DONOR BFME2 0x004DEC88 / 0x004DEDD2 put the CONTINUOUS_FIRE_SLOW / MEAN / FAST model conditions on the owner
+	// through RW 0x68D607 (the flags the draw modules' continuous-fire animation states read).
+	void clearAndSetModelConditions(const ModelConditionBits &clr, const ModelConditionBits &set) override
+	{
+		m_w.owner().clearAndSetModelConditionFlags(clr, set);
+	}
 
 private:
 	ObjectWeapons &m_w;

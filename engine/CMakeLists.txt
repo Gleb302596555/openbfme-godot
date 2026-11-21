@@ -545,6 +545,7 @@ include(cmake/Port250.cmake) # PORT-250: the SPECIAL_POWER availability arm and 
 include(cmake/Port464.cmake)    # PORT-464: the per-frame steering of a summoned helper (issue #464; OPENBFME_PORT464_TESTS)
 include(cmake/Port199.cmake)    # PORT-199: GiveUpgradeUpdate contained targets, producer-linked pairs, deselection and flash (issue #466; OPENBFME_PORT199_TESTS)
 include(cmake/Port203.cmake)    # PORT-203: tunnel nemesis, removeFromContain(exposeStealthUnits), TunnelContain ExitInterface, AITNGuard (issue #470; OPENBFME_PORT203_TESTS)
+include(cmake/Port225.cmake)    # PORT-225: the FiringTracker's frame steps (issue #548; OPENBFME_PORT225_TESTS)
 include(cmake/Port231.cmake)    # PORT-231: building/producing/earning layer: BeingBuiltSound, naming/hordeTarget, S-652/S-1981 (issue #554; OPENBFME_PORT231_TESTS)
 include(cmake/Port230.cmake)    # PORT-230: DynamicPortalBehaviour TopAttackPos uses RotWK's full 3D axis norm (fork issue 553; OPENBFME_PORT230_TESTS)
 include(cmake/Port252.cmake)    # PORT-252: SpecialAbilityUpdate & subclass RotWK 2.01 parity (issue #600; OPENBFME_PORT252_TESTS)
@@ -1362,6 +1363,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT433_TESTS}
     ${OPENBFME_PORT202_TESTS}
     ${OPENBFME_PORT204_TESTS}
+    ${OPENBFME_PORT225_TESTS}
     ${OPENBFME_PORT208_TESTS}
     ${OPENBFME_PORT250_TESTS}
     ${OPENBFME_PORT464_TESTS}
