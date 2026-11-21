@@ -16,6 +16,7 @@
 #include "GameLogic/Combat/CombatState.h"
 #include "GameLogic/Combat/ObjectWeapons.h"
 #include "GameLogic/GameLogic.h"
+#include "GameLogic/Map/FireLogicSystem.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/ActiveBody.h"
 #include "GameLogic/Module/BehaviorModule.h"
@@ -173,6 +174,8 @@ struct HitTracker
 	std::map<unsigned, std::map<ObjectID, UnsignedInt>> disabledFirstSeen;
 	/// the first tracked frame each object entered AI_HARVEST
 	std::map<ObjectID, UnsignedInt> harvestFirstSeen;
+	/// the first tracked frame each non-caster object was contained by a caster (GrabNugget)
+	std::map<ObjectID, UnsignedInt> grabbedFirstSeen;
 	struct Made
 	{
 		UnsignedInt frame;
@@ -224,6 +227,10 @@ struct HitTracker
 			if (const AIUpdateInterface *ai = o->getAIUpdateInterface(); ai && ai->aiStateType() == AI_HARVEST)
 			{
 				harvestFirstSeen.emplace(o->getID(), now);
+			}
+			if (!casters.count(o->getID()) && o->getContainedBy() && casters.count(o->getContainedBy()->getID()))
+			{
+				grabbedFirstSeen.emplace(o->getID(), now);
 			}
 			if (!first && o->getID() > highest && !made.count(o->getID()) && !o->isKindOfName("PROJECTILE"))
 			{
@@ -343,18 +350,39 @@ struct EffectProbe
 		std::set<int> emotions;                      ///< EMOTION: acceptable EmotionType ids (empty = any)
 		std::vector<int> modelConditions;            ///< MODEL_CONDITION: any of these bit indices satisfies
 		Scope scope = SCOPE_ANY;
+		int fireLogicType = -1; ///< FIRE_LOGIC: FireLogicNugget::m_logicType (0..4, RW 0x9120E6)
 	};
 
-	// the CreateObject templates of an ObjectCreationList (its ObjectNames)
-	static void oclTemplates(const std::string &name, std::set<std::string> &out)
+	// the CreateObject templates of an ObjectCreationList (its ObjectNames); when holder is known, respect RequiredUpgrades / ForbiddenUpgrades (RW 0x5F0DC5)
+	static void oclTemplates(const std::string &name, std::set<std::string> &out, const Object *holder = nullptr)
 	{
 		const ObjectCreationList *ocl = TheObjectCreationListStore && !name.empty() ? TheObjectCreationListStore->findObjectCreationList(name) : nullptr;
+		const Player *pl = holder ? holder->getControllingPlayer() : nullptr;
+		auto hasUpg = [&](const std::string &u) { return (holder && holder->hasUpgrade(u)) || (pl && pl->hasUpgradeComplete(u)); };
 		for (size_t i = 0; ocl && i < ocl->nuggets().size(); ++i)
 		{
-			if (ocl->nuggets()[i].kind == OCLNugget::CREATE_OBJECT)
+			const OCLNugget &ng = ocl->nuggets()[i];
+			if (ng.kind != OCLNugget::CREATE_OBJECT)
 			{
-				out.insert(ocl->nuggets()[i].objectNames.begin(), ocl->nuggets()[i].objectNames.end());
+				continue;
 			}
+			if (holder)
+			{
+				bool ok = ng.requiredUpgrades.empty();
+				for (const std::string &u : ng.requiredUpgrades)
+				{
+					ok = ok || hasUpg(u);
+				}
+				for (const std::string &u : ng.forbiddenUpgrades)
+				{
+					ok = ok && !hasUpg(u);
+				}
+				if (!ok)
+				{
+					continue;
+				}
+			}
+			out.insert(ng.objectNames.begin(), ng.objectNames.end());
 		}
 	}
 
@@ -457,6 +485,8 @@ struct EffectProbe
 	float casterDamageMult = 1.0f;
 	float casterDamageAdd = 0.0f;
 	unsigned long long metaImpactHits = 0;
+	long long fireBurnRateSum = 0;
+	int fireBurningCells = 0;
 	std::uint32_t playerMoney = 0;
 	size_t luaEvents = 0;
 
@@ -469,8 +499,9 @@ struct EffectProbe
 			ws.push_back(w);
 			seenWs.insert(w);
 		}
-		bool damage = false, grab = false, ocl = false, hordeAttack = false, metaImpact = false, stealMoney = false, paralyze = false;
+		bool damage = false, heal = false, grab = false, ocl = false, hordeAttack = false, metaImpact = false, stealMoney = false, paralyze = false;
 		bool fireLogic = false;
+		int fireLogicType = -1;
 		std::string hordeProblem;
 		size_t hordeMembers = 1;
 		std::vector<const WeaponTemplate *> damageWeapons;
@@ -506,7 +537,11 @@ struct EffectProbe
 					continue;
 				}
 				const WeaponNuggetKind nk = n->kind();
-				if (nk == NUGGET_DAMAGE || nk == NUGGET_DOT)
+				if (nk == NUGGET_DAMAGE && static_cast<const DamageNugget *>(n.get())->m_damageType == DAMAGE_HEALING)
+				{
+					heal = true;
+				}
+				else if (nk == NUGGET_DAMAGE || nk == NUGGET_DOT)
 				{
 					damage = true;
 					curHasDamage = true;
@@ -514,6 +549,7 @@ struct EffectProbe
 				else if (nk == NUGGET_FIRE_LOGIC)
 				{
 					fireLogic = true;
+					fireLogicType = static_cast<const FireLogicNugget *>(n.get())->m_logicType;
 				}
 				else if (nk == NUGGET_GRAB)
 				{
@@ -521,8 +557,12 @@ struct EffectProbe
 				}
 				else if (const WeaponOCLNugget *on = dynamic_cast<const WeaponOCLNugget *>(n.get()))
 				{
-					ocl = true;
-					oclTemplates(on->m_weaponOCLName, made);
+					const size_t prev = made.size();
+					oclTemplates(on->m_weaponOCLName, made, &holder);
+					if (made.size() > prev)
+					{
+						ocl = true;
+					}
 				}
 				else if (const SpawnAndFadeNugget *sfn = dynamic_cast<const SpawnAndFadeNugget *>(n.get()))
 				{
@@ -668,6 +708,10 @@ struct EffectProbe
 		{
 			p.expects.push_back({ GRAB, cls + " SpecialWeapon " + weaponName + " (GrabNugget)" });
 		}
+		if (heal)
+		{
+			p.expects.push_back({ HEAL, cls + " SpecialWeapon " + weaponName });
+		}
 		if (ocl)
 		{
 			p.expects.push_back(spawnOf(cls + " SpecialWeapon " + weaponName + " (WeaponOCLNugget)", made));
@@ -726,7 +770,9 @@ struct EffectProbe
 		{
 			if (fireLogic)
 			{
-				p.expects.push_back({ FIRE_LOGIC, cls + " SpecialWeapon " + weaponName });
+				Expect fle{ FIRE_LOGIC, cls + " SpecialWeapon " + weaponName };
+				fle.fireLogicType = fireLogicType;
+				p.expects.push_back(std::move(fle));
 			}
 			else if (p.skippedNotes.empty())
 			{
@@ -1041,6 +1087,18 @@ struct EffectProbe
 		p.player = u ? u->getControllingPlayer() : nullptr;
 		p.bounty = p.player ? p.player->getBountyPercent() : 0.0f;
 		p.metaImpactHits = logic.combat().counters().metaImpactHits;
+		p.fireBurningCells = logic.fireLogic().cellsBurningCount();
+		if (logic.fireLogic().hasGrid())
+		{
+			const int rows = logic.fireLogic().numRows(), cols = logic.fireLogic().numCols();
+			for (int x = 0; x < rows; ++x)
+			{
+				for (int y = 0; y < cols; ++y)
+				{
+					p.fireBurnRateSum += logic.fireLogic().getCellBurnRate(x, y);
+				}
+			}
+		}
 		p.playerMoney = p.player ? p.player->getMoney()->countMoney() : 0;
 		p.luaEvents = engineEvents;
 		for (Object *o = logic.getFirstObject(); o; o = o->getNextObject())
@@ -1272,7 +1330,8 @@ struct EffectProbe
 					{
 						auto it = hitNominal.find(x.victim);
 						const float nominal = it == hitNominal.end() ? 0.0f : it->second, sum = it == hitNominal.end() ? 0.0f : hitSum.at(x.victim);
-						if (x.frame == first && nominal > 0.0f && x.amount >= nominal * 0.9f && x.amount <= (sum + dmgAdd) * upperMult)
+						const bool oneShotKill = x.left <= 0.0f && x.amount > 0.0f && nominal >= x.amount;
+						if (x.frame == first && nominal > 0.0f && ((x.amount >= nominal * 0.9f && x.amount <= (sum + dmgAdd) * upperMult) || oneShotKill))
 						{
 							got = str("its first hit after the cast (frame %u) %.0f, the weapon's %.0f (all nuggets %.0f) against the victim's armour; no hit before the cast",
 									  first - frame, (double)x.amount, (double)nominal, (double)sum);
@@ -1304,6 +1363,17 @@ struct EffectProbe
 				}
 				break;
 			case FIRE_LOGIC:
+				if (e.fireLogicType == 1) // DECREASE_BURN_RATE (RW 0x9120E6 -> RW 0x6878D1)
+				{
+					if (after.fireBurnRateSum < fireBurnRateSum || after.fireBurningCells < fireBurningCells)
+					{
+						got = str("fire burn rate %lld -> %lld (cells %d -> %d)", fireBurnRateSum, after.fireBurnRateSum, fireBurningCells, after.fireBurningCells);
+					}
+				}
+				else if (after.fireBurnRateSum > fireBurnRateSum || after.fireBurningCells > fireBurningCells)
+				{
+					got = str("fire burn rate %lld -> %lld (cells %d -> %d)", fireBurnRateSum, after.fireBurnRateSum, fireBurningCells, after.fireBurningCells);
+				}
 				break;
 			case MODIFIER:
 			{
@@ -1543,6 +1613,17 @@ struct EffectProbe
 					{
 						got = str("object %u held by the caster", (unsigned)kv.first);
 						break;
+					}
+				}
+				if (got.empty() && hits)
+				{
+					for (const auto &kv : hits->grabbedFirstSeen)
+					{
+						if (!holders.count(kv.first) && kv.second >= frame)
+						{
+							got = str("object %u grabbed by the caster (frame %u)", (unsigned)kv.first, (unsigned)kv.second);
+							break;
+						}
 					}
 				}
 				break;
@@ -1921,9 +2002,10 @@ struct EffectProbe
 				{
 					continue;
 				}
+				const bool alliesOnly = (wt->m_affectsMask & WEAPON_AFFECTS_ALLIES) != 0 && (wt->m_affectsMask & WEAPON_AFFECTS_ENEMIES) == 0;
 				for (Object *o = logic.getFirstObject(); o; o = o->getNextObject())
 				{
-					if (o->getControllingPlayer() == player || !o->getBodyModule())
+					if ((alliesOnly ? (o->getControllingPlayer() != player || holders.count(o->getID())) : o->getControllingPlayer() == player) || !o->getBodyModule())
 					{
 						continue;
 					}

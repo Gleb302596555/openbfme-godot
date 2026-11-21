@@ -1526,12 +1526,15 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 				const bool targetless = !cb->hasOption(COMMAND_OPTION_NEED_TARGET_ENEMY_OBJECT | COMMAND_OPTION_NEED_TARGET_NEUTRAL_OBJECT
 													   | COMMAND_OPTION_NEED_TARGET_ALLY_OBJECT | COMMAND_OPTION_NEED_TARGET_POS);
 				bool atOwn = false, stageOwn = false, atEnemy = false, closerEnemy = false, needsHeal = false, needsStealMoney = false, needsTimerRefresh = false, needsStore = false;
+				bool needsFireToExtinguish = false, needsMetaImpact = false;
 				for (const EffectProbe::Expect &x : EffectProbe::take(g.logic(), u, t).expects)
 				{
 					closerEnemy = closerEnemy
 								  || (targetless
 									  && (x.kind == EffectProbe::TERROR || x.kind == EffectProbe::EMOTION || x.kind == EffectProbe::LUA_EVENT
-										  || x.kind == EffectProbe::META_IMPACT));
+										  || x.kind == EffectProbe::META_IMPACT || x.kind == EffectProbe::DAMAGE));
+					needsFireToExtinguish = needsFireToExtinguish || (x.kind == EffectProbe::FIRE_LOGIC && x.fireLogicType == 1);
+					needsMetaImpact = needsMetaImpact || x.kind == EffectProbe::META_IMPACT;
 					atOwn = atOwn || x.kind == EffectProbe::LEVEL || x.kind == EffectProbe::HEAL || x.kind == EffectProbe::TIMER_REFRESH
 							|| (x.kind == EffectProbe::MODEL_CONDITION && x.scope == EffectProbe::Expect::SCOPE_PLAYER);
 					stageOwn = stageOwn || atOwn || x.kind == EffectProbe::MODIFIER;
@@ -1545,15 +1548,58 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 					needsTimerRefresh = needsTimerRefresh || x.kind == EffectProbe::TIMER_REFRESH;
 				}
 				// targetless AoEs (screech / emotion / blinding light radius 85) need the enemy soldiers nearby
+				float wfMinRange = 0.0f, wfMaxRange = 0.0f, wfSmallTargetlessRadius = 0.0f;
+				if (t && TheWeaponStore)
+				{
+					for (const std::unique_ptr<BehaviorModule> &m : u->modules())
+					{
+						const WeaponFireSpecialAbilityUpdate *wf = dynamic_cast<const WeaponFireSpecialAbilityUpdate *>(m.get());
+						if (!wf || wf->abilityData()->m_specialPowerTemplateName != t->getName()) continue;
+						const auto *wfd = static_cast<const WeaponFireSpecialAbilityUpdateModuleData *>(wf->getModuleData());
+						const WeaponTemplate *wt = wfd && !wfd->m_specialWeapon.empty() ? TheWeaponStore->findWeaponTemplate(wfd->m_specialWeapon) : nullptr;
+						if (!wt) continue;
+						wfMinRange = std::max(wfMinRange, wt->m_minimumAttackRange);
+						wfMaxRange = std::max(wfMaxRange, wt->m_attackRange);
+						if (targetless)
+						{
+							for (const std::shared_ptr<WeaponNugget> &n : wt->m_nuggets)
+							{
+								if (n->kind() == NUGGET_DAMAGE || n->kind() == NUGGET_DOT)
+								{
+									const float r = static_cast<const DamageNugget *>(n.get())->m_radius;
+									if (r > 0.0f && (wfSmallTargetlessRadius == 0.0f || r < wfSmallTargetlessRadius)) wfSmallTargetlessRadius = r;
+								}
+							}
+						}
+					}
+				}
 				if (closerEnemy)
 				{
 					if (Object *old = g.logic().findObjectByID(enemyUnitId))
 					{
 						g.logic().destroyObject(old);
 					}
-					enemyUnitId = g.rig.make(enemyName, c.x + 80.0f, c.y + 20.0f, enemy)->getID();
+					const float dx = (wfSmallTargetlessRadius > 0.0f && wfSmallTargetlessRadius < 80.0f) ? std::max(15.0f, wfSmallTargetlessRadius * 0.65f) : 80.0f;
+					const float dy = (wfSmallTargetlessRadius > 0.0f && wfSmallTargetlessRadius < 80.0f) ? 0.0f : 20.0f;
+					enemyUnitId = g.rig.make(enemyName, c.x + dx, c.y + dy, enemy)->getID();
 					g.step(5);
 					toughen(g.logic(), enemyUnitId);
+				}
+				else if (wfMinRange > 0.0f && enemyUnitId != INVALID_ID)
+				{
+					// WeaponFireSpecialAbilityUpdate::allowsSpecialPowerUse (RW 0x896156) rejects targets closer than MinimumAttackRange
+					if (Object *eu = g.logic().findObjectByID(enemyUnitId))
+					{
+						const float d = sweep_probe::dist2d(c, *eu->getPosition());
+						if (d < wfMinRange + 30.0f)
+						{
+							const float want = wfMaxRange > wfMinRange + 60.0f ? std::min(wfMinRange + 100.0f, wfMaxRange - 30.0f) : wfMinRange + 80.0f;
+							g.logic().destroyObject(eu);
+							enemyUnitId = g.rig.make(enemyName, c.x + want, c.y + 20.0f, enemy)->getID();
+							g.step(5);
+							toughen(g.logic(), enemyUnitId);
+						}
+					}
 				}
 				// lane PORT-261: an ability that stores units (SPECIAL_STORE_LIST_2) is pointed at the open ground; an allied unit must be in the radius to capture
 				if (needsStore)
@@ -1569,9 +1615,9 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 				{
 					ownHordeId = g.rig.make(ownHordeOf(faction), c.x - 100.0f, c.y + 100.0f)->getID();
 				}
-				auto pickFilteredTemplate = [&](const ObjectFilter &filter, const Player *ownerPlayer) -> const ThingTemplate * {
+				auto pickFilteredTemplate = [&](const ObjectFilter &filter, const Player *ownerPlayer, bool skipStructures = false) -> const ThingTemplate * {
 					auto usable = [&](const ThingTemplate *tt) {
-						return tt && !factb::hasKindOf(*tt, "UNATTACKABLE") && !factb::hasKindOf(*tt, "INERT")
+						return tt && (!skipStructures || !factb::hasKindOf(*tt, "STRUCTURE")) && !factb::hasKindOf(*tt, "UNATTACKABLE") && !factb::hasKindOf(*tt, "INERT")
 							   && !factb::hasKindOf(*tt, "PROJECTILE")
 							   && ObjectFilterMatch::allows(g.logic(), filter, tt, ownerPlayer, g.rig.local);
 					};
@@ -1580,6 +1626,13 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 						if (const ThingTemplate *tt = g.logic().things().findTemplate(inc); usable(tt))
 						{
 							return tt;
+						}
+					}
+					if (skipStructures)
+					{
+						if (const ThingTemplate *hero = g.logic().things().findTemplate("GondorBoromir"); usable(hero))
+						{
+							return hero;
 						}
 					}
 					for (const ThingTemplate *tt : g.logic().things().templates())
@@ -1603,7 +1656,12 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 								g.logic().destroyObject(ally);
 								allyId = INVALID_ID;
 							}
-							tempTarget.id = g.rig.make(tt->getName(), c.x - 120.0f, c.y - 60.0f)->getID();
+							Object *madeAlly = g.rig.make(tt->getName(), c.x - 120.0f, c.y - 60.0f);
+							if (needsHeal && madeAlly->getBodyModule())
+							{
+								madeAlly->getBodyModule()->setInitialHealthPercent(50.0f);
+							}
+							tempTarget.id = madeAlly->getID();
 							g.step(3);
 						}
 					}
@@ -1622,16 +1680,27 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 					Object *eu = g.logic().findObjectByID(enemyUnitId);
 					Object *eb = g.logic().findObjectByID(enemyBuildingId);
 					const bool okU = eu && ObjectFilterMatch::allows(g.logic(), *t->m_objectFilter, *eu, g.rig.local);
-					const bool okB = eb && ObjectFilterMatch::allows(g.logic(), *t->m_objectFilter, *eb, g.rig.local);
+					const bool okB = eb && !needsMetaImpact && ObjectFilterMatch::allows(g.logic(), *t->m_objectFilter, *eb, g.rig.local);
 					if (!okU && !okB)
 					{
-						if (const ThingTemplate *tt = pickFilteredTemplate(*t->m_objectFilter, enemy))
+						if (const ThingTemplate *tt = pickFilteredTemplate(*t->m_objectFilter, enemy, needsMetaImpact))
 						{
 							tempTarget.id = g.rig.make(tt->getName(), c.x + 150.0f, c.y - 50.0f, enemy)->getID();
 							tempEnemyTarget = true;
 							g.step(5);
 							toughen(g.logic(), tempTarget.id);
 						}
+					}
+				}
+				else if (cb->hasOption(COMMAND_OPTION_NEED_TARGET_POS) && !cb->hasOption(COMMAND_OPTION_NEED_TARGET_ENEMY_OBJECT | COMMAND_OPTION_NEED_TARGET_ALLY_OBJECT | COMMAND_OPTION_NEED_TARGET_NEUTRAL_OBJECT)
+						 && t && (t->m_flags & SPF_NEEDS_OBJECT_FILTER) && t->m_objectFilter
+						 && (t->m_objectFilter->relationships & (ObjectFilter::REL_ALLIES | ObjectFilter::REL_SAME_PLAYER))
+						 && !(t->m_objectFilter->relationships & ObjectFilter::REL_ENEMIES))
+				{
+					if (const ThingTemplate *tt = pickFilteredTemplate(*t->m_objectFilter, g.rig.local))
+					{
+						tempTarget.id = g.rig.make(tt->getName(), c.x - 100.0f, c.y + 60.0f)->getID();
+						g.step(5);
 					}
 				}
 				else if (cb->hasOption(COMMAND_OPTION_NEED_TARGET_POS) && !cb->hasOption(COMMAND_OPTION_NEED_TARGET_ENEMY_OBJECT | COMMAND_OPTION_NEED_TARGET_ALLY_OBJECT | COMMAND_OPTION_NEED_TARGET_NEUTRAL_OBJECT)
@@ -1744,6 +1813,50 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 								g.step(5);
 							}
 						}
+					}
+				}
+				if (targetless && t && TheWeaponStore && tempTarget.id == INVALID_ID)
+				{
+					for (const std::unique_ptr<BehaviorModule> &m : u->modules())
+					{
+						const WeaponFireSpecialAbilityUpdate *wf = dynamic_cast<const WeaponFireSpecialAbilityUpdate *>(m.get());
+						if (!wf || wf->abilityData()->m_specialPowerTemplateName != t->getName()) continue;
+						const auto *wfd = static_cast<const WeaponFireSpecialAbilityUpdateModuleData *>(wf->getModuleData());
+						const WeaponTemplate *wt = wfd && !wfd->m_specialWeapon.empty() ? TheWeaponStore->findWeaponTemplate(wfd->m_specialWeapon) : nullptr;
+						if (!wt) continue;
+						for (const std::shared_ptr<WeaponNugget> &n : wt->m_nuggets)
+						{
+							const ObjectFilter &flt = n->m_specialObjectFilter;
+							if (flt.includeNames.empty() && flt.includeKindOf == KindOfMaskType{}) continue;
+							if (!(flt.relationships & (ObjectFilter::REL_ALLIES | ObjectFilter::REL_SAME_PLAYER)) || (flt.relationships & ObjectFilter::REL_ENEMIES)) continue;
+							const AttributeModifierNugget *an = dynamic_cast<const AttributeModifierNugget *>(n.get());
+							bool have = false;
+							for (Object *o = g.logic().getFirstObject(); o; o = o->getNextObject())
+							{
+								if (o == u || o->isEffectivelyDead() || o->getControllingPlayer() != g.rig.local) continue;
+								if (!ObjectFilterMatch::allows(g.logic(), flt, *o, g.rig.local)) continue;
+								if (an && !an->m_attributeModifier.empty())
+								{
+									if (const AttributeModifierPool *pool = static_cast<const AttributeModifierPool *>(o->findModule("AttributeModifierPoolUpdate")))
+									{
+										const auto names = pool->listNames();
+										if (std::find(names.begin(), names.end(), an->m_attributeModifier) != names.end()) continue;
+									}
+								}
+								have = true;
+								break;
+							}
+							if (!have)
+							{
+								if (const ThingTemplate *tt = pickFilteredTemplate(flt, g.rig.local))
+								{
+									tempTarget.id = g.rig.make(tt->getName(), c.x - 100.0f, c.y - 60.0f)->getID();
+									g.step(5);
+									break;
+								}
+							}
+						}
+						if (tempTarget.id != INVALID_ID) break;
 					}
 				}
 				if (needsHeal)
@@ -1934,6 +2047,13 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 					{
 						tgt = g.logic().findObjectByID(enemyBuildingId);
 					}
+					else if (t && (t->m_flags & SPF_NEEDS_OBJECT_FILTER) && t->m_objectFilter
+							 && (t->m_objectFilter->relationships & (ObjectFilter::REL_ALLIES | ObjectFilter::REL_SAME_PLAYER))
+							 && !(t->m_objectFilter->relationships & ObjectFilter::REL_ENEMIES)
+							 && tempTarget.id != INVALID_ID && !tempEnemyTarget)
+					{
+						tgt = g.logic().findObjectByID(tempTarget.id);
+					}
 					else if (atOwn && atEnemy && t && t->m_objectFilter
 							 && (!g.logic().findObjectByID(ownHordeId) || !ObjectFilterMatch::allows(g.logic(), *t->m_objectFilter, *g.logic().findObjectByID(ownHordeId), g.rig.local)))
 					{
@@ -1990,6 +2110,12 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 				};
 				Object *plannedOn = resolveTarget();
 				const ObjectID plannedOnId = plannedOn ? plannedOn->getID() : INVALID_ID;
+				if (needsFireToExtinguish && !plannedOn)
+				{
+					const Coord3D fireSpot{ c.x + 120.0f, c.y + 120.0f, g.logic().getGroundHeight(c.x + 120.0f, c.y + 120.0f) };
+					g.logic().fireLogic().changeFuelInArea(fireSpot, 50.0f, 1000, 100, 1, 0, false);
+					g.logic().fireLogic().changeBurnRateInArea(fireSpot, 50.0f, 100, false);
+				}
 				EffectProbe probeBefore = EffectProbe::take(g.logic(), u, t, g.rig.game->report().scripting.engineEvents, plannedOn);
 				probeBefore.nominals(g.logic());
 				if (!g.select(u) || !g.reveal(u, [&](const CommandButton &x) { return &x == cb; }, b))
@@ -2027,7 +2153,9 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 						const Coord3D onGround{ ground.x, ground.y, g.logic().getGroundHeight(ground.x, ground.y) };
 						if (pw && !ActionManager::canDoSpecialPowerAtLocation(*caster, onGround, pw, cb->m_options))
 						{
-							for (const Coord3D d : { Coord3D{ 70.0f, 70.0f, 0.0f }, Coord3D{ -70.0f, 70.0f, 0.0f }, Coord3D{ 70.0f, -70.0f, 0.0f }, Coord3D{ -70.0f, -70.0f, 0.0f } })
+							for (const Coord3D d : { Coord3D{ 70.0f, 70.0f, 0.0f }, Coord3D{ -70.0f, 70.0f, 0.0f }, Coord3D{ 70.0f, -70.0f, 0.0f }, Coord3D{ -70.0f, -70.0f, 0.0f },
+													 Coord3D{ 220.0f, 220.0f, 0.0f }, Coord3D{ -220.0f, 220.0f, 0.0f }, Coord3D{ 220.0f, -220.0f, 0.0f }, Coord3D{ -220.0f, -220.0f, 0.0f },
+													 Coord3D{ 360.0f, 0.0f, 0.0f }, Coord3D{ -360.0f, 0.0f, 0.0f }, Coord3D{ 0.0f, 360.0f, 0.0f }, Coord3D{ 0.0f, -360.0f, 0.0f } })
 							{
 								const Coord3D nearer{ c.x + d.x, c.y + d.y, g.logic().getGroundHeight(c.x + d.x, c.y + d.y) };
 								if (ActionManager::canDoSpecialPowerAtLocation(*caster, nearer, pw, cb->m_options))
@@ -2072,6 +2200,7 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 							}
 							if (tries++ > 0)
 							{
+								g.hud->input().ui().setGUICommand(nullptr);
 								Object *again = g.logic().findObjectByID(uid);
 								if (!again || !g.select(again) || !g.reveal(again, [&](const CommandButton &x) { return &x == cb; }, b) || !g.press(b))
 								{
@@ -2623,7 +2752,7 @@ TEST_CASE("factb units: every Isengard unit, horde and hero ability and upgrade 
 	unitsOf("FactionIsengard", r);
 	r.print("units FactionIsengard");
 	// the stance radial is pressed now (MATRIX_TODO 3): only the ram, which has no StancesBehavior, keeps a greyed stance button
-	r.check({ { "IsengardBatteringRam Command_ToggleStance", "S-289" }, { "IsengardPorter Command_PorterExtinguishFire", "S-1997" },
+	r.check({ { "IsengardBatteringRam Command_ToggleStance", "S-289" },
 		{ "IsengardBallista Command_BombardEvil", "S-1990" }, { "IsengardSaruman Command_SarumanThunderBolt", "S-180 (the bolt's damage lands; its WeaponOCLNugget makes nothing)" },
 		// ORDER (MATRIX_TODO 11 / 19, 2026-11-19): the blast hits nobody only after the whole Isengard sweep; alone, after either half of the
 		// objects before it, or after the first half plus any one of the second, it passes: a state the run accumulates, no single object's leak
@@ -2640,7 +2769,7 @@ TEST_CASE("factb units: every Mordor unit, horde and hero ability and upgrade bu
 	unitsOf("FactionMordor", r);
 	r.print("units FactionMordor");
 	// lane FLY-1: the fell beasts' dismounts land and fire (GiantBirdAIUpdate, MOVING_TO_DISMOUNT): S-1994's pins went
-	r.check({ { "MordorBatteringRam Command_ToggleStance", "S-289" }, { "MordorPorter Command_PorterExtinguishFire", "S-1997" } });
+	r.check({ { "MordorBatteringRam Command_ToggleStance", "S-289" } });
 }
 
 // The button sweep, its first slice (docs/ennorath/BUTTON_SWEEP.md): the same sweep on a mod's data, one faction per process. A report: it prints what each

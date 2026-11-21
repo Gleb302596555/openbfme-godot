@@ -1499,7 +1499,7 @@ void damageContained(GameLogic &logic, const DamageContainedNugget &n, ObjectID 
 }
 
 // the dispatch of fireWeaponTemplate for these kinds (see above). false: not one of them (the caller counts it)
-// RW 0x912241 (FireLogicNugget::doEffectPosition, BFME2 0x0050BE34)
+// RW 0x009120E6 (FireLogicNugget::doEffectPosition; ctor RW 0x912241; BFME2 0x0050BE34)
 void fireLogicAt(GameLogic &logic, const FireLogicNugget &n, ObjectID sourceId, const Coord3D &pos)
 {
 	Object *source = sourceId != INVALID_ID ? logic.findObjectByID(sourceId) : nullptr;
