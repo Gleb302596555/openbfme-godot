@@ -2382,3 +2382,417 @@ End
     CHECK(w.byId(replacementId) == nullptr);
     CHECK(w.byId(selfId) != nullptr);
 }
+
+TEST_CASE("PORT-238 Galadriel-style ring choice combines player and object upgrades")
+{
+    HealHudWorld w;
+    // lothloriengaladriel.ini:877-970: accept needs the PLAYER choice and
+    // both OBJECT ring upgrades; reject needs only its PLAYER choice.
+    // RW 0x8D26F3 / 0x8B8E2E -> 0x8B1690; command-set mux RW 0x8B7CB9.
+    const char *data = R"ini(
+Upgrade Upgrade_P238GalRing
+  Type = OBJECT
+End
+Upgrade Upgrade_P238GalFortress
+  Type = OBJECT
+End
+Upgrade Upgrade_P238GalAccept
+  Type = PLAYER
+End
+Upgrade Upgrade_P238GalReject
+  Type = PLAYER
+End
+Upgrade Upgrade_P238GalPreviously
+  Type = PLAYER
+End
+SpecialPower P238GalAcceptPower
+  Enum = SPECIAL_TOGGLE_MOUNTED
+  ReloadTime = 1000
+End
+SpecialPower P238GalRejectPower
+  Enum = SPECIAL_TOGGLE_MOUNTED
+  ReloadTime = 1000
+End
+CommandButton P238GalAcceptButton
+  Command = SPECIAL_POWER
+  SpecialPower = P238GalAcceptPower
+  InPalantir = No
+End
+CommandButton P238GalRejectButton
+  Command = SPECIAL_POWER
+  SpecialPower = P238GalRejectPower
+  InPalantir = No
+End
+CommandButton P238GalStop
+  Command = STOP
+  InPalantir = Yes
+End
+CommandSet P238GalBaseSet
+  1 = P238GalStop
+End
+CommandSet P238GalDecisionSet
+  1 = P238GalStop
+End
+CommandSet P238GalPreviouslySet
+  1 = P238GalStop
+End
+Object P238GalBase
+  KindOf = INFANTRY HERO SELECTABLE COMMANDCENTER CAN_ATTACK
+  CommandSet = P238GalBaseSet
+  Geometry = CYLINDER
+  GeometryMajorRadius = 8
+  GeometryHeight = 20
+  Body = ActiveBody Body
+    MaxHealth = 500
+  End
+  Behavior = AIUpdateInterface AI
+  End
+  Behavior = SpecialPowerModule AcceptStarter
+    SpecialPowerTemplate = P238GalAcceptPower
+    UpdateModuleStartsAttack = Yes
+    StartsPaused = No
+  End
+  Behavior = ToggleMountedSpecialAbilityUpdate AcceptToggle
+    SpecialPowerTemplate = P238GalAcceptPower
+    MountedTemplate = P238GalAcceptForm
+    UnpackTime = 2000
+    PreparationTime = 0
+    PackTime = 0
+    IgnoreFacingCheck = Yes
+  End
+  Behavior = DoCommandUpgrade AcceptCommand
+    TriggeredBy = Upgrade_P238GalAccept Upgrade_P238GalRing Upgrade_P238GalFortress
+    RequiresAllTriggers = Yes
+    GetUpgradeCommandButtonName = P238GalAcceptButton
+  End
+  Behavior = SpecialPowerModule RejectStarter
+    SpecialPowerTemplate = P238GalRejectPower
+    UpdateModuleStartsAttack = Yes
+    StartsPaused = No
+  End
+  Behavior = ToggleMountedSpecialAbilityUpdate RejectToggle
+    SpecialPowerTemplate = P238GalRejectPower
+    MountedTemplate = P238GalRejectForm
+    UnpackTime = 2000
+    PreparationTime = 0
+    PackTime = 0
+    IgnoreFacingCheck = Yes
+  End
+  Behavior = DoCommandUpgrade RejectCommand
+    TriggeredBy = Upgrade_P238GalReject
+    GetUpgradeCommandButtonName = P238GalRejectButton
+  End
+  Behavior = CommandSetUpgrade PreviousChoice
+    TriggeredBy = Upgrade_P238GalPreviously
+    CommandSet = P238GalPreviouslySet
+  End
+  Behavior = CitadelSlaughterHordeContain RingEntry
+    PassengerFilter = NONE +P238Ring
+    ObjectStatusOfContained = UNSELECTABLE ENCLOSED
+    ContainMax = 1
+    StatusForRingEntry = HOLDING_THE_RING
+    UpgradeForRingEntry = Upgrade_P238GalRing Upgrade_P238GalFortress
+    ObjectToDestroyForRingEntry = NONE +P238Ring
+  End
+  Behavior = CommandSetUpgrade Decision
+    TriggeredBy = Upgrade_P238GalRing Upgrade_P238GalFortress
+    ConflictsWith = Upgrade_P238GalPreviously
+    CommandSet = P238GalDecisionSet
+  End
+End
+Object P238GalAcceptForm
+  KindOf = INFANTRY HERO SELECTABLE CAN_ATTACK
+  Body = ActiveBody Body
+    MaxHealth = 500
+  End
+  Behavior = AIUpdateInterface AI
+  End
+End
+Object P238GalRejectForm
+  KindOf = INFANTRY HERO SELECTABLE CAN_ATTACK
+  Body = ActiveBody Body
+    MaxHealth = 500
+  End
+  Behavior = AIUpdateInterface AI
+  End
+End
+)ini";
+    const std::string error = w.w.load(data, INI_LOAD_OVERWRITE, "port238_galadriel_choice.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    std::string selected;
+    std::string partial;
+    bool selectBefore = false;
+    bool deliverRing = true;
+    bool previousBefore = false;
+    bool previousAfter = false;
+    SUBCASE("delivery leaves a choice") {}
+    SUBCASE("accept after delivery") { selected = "Accept"; }
+    SUBCASE("accept before delivery") { selected = "Accept"; selectBefore = true; }
+    SUBCASE("accept with only hero ring upgrade") { selected = "Accept"; selectBefore = true; partial = "Upgrade_P238GalRing"; }
+    SUBCASE("accept with only fortress ring upgrade") { selected = "Accept"; selectBefore = true; partial = "Upgrade_P238GalFortress"; }
+    SUBCASE("reject after delivery") { selected = "Reject"; }
+    SUBCASE("reject without delivery") { selected = "Reject"; selectBefore = true; deliverRing = false; }
+    SUBCASE("previous choice before delivery") { previousBefore = true; }
+    SUBCASE("previous choice after delivery") { previousAfter = true; }
+    Object *hero = w.unit("P238GalBase", 'A', 300, 300);
+    Object *other = w.unit("P238GalBase", 'B', 600, 600);
+    Object *carrier = w.unit("P238Carrier", 'A', 300, 300);
+    Object *ring = w.unit("P238Ring", 'A', 300, 300);
+    REQUIRE(hero != nullptr);
+    REQUIRE(other != nullptr);
+    REQUIRE(carrier != nullptr);
+    REQUIRE(ring != nullptr);
+    const ObjectID heroId = hero->getID();
+    const ObjectID otherId = other->getID();
+    const ObjectID ringId = ring->getID();
+    auto givePlayer = [&](const std::string &name) {
+        const auto *upgrade = Player::resolveUpgrade(name, true);
+        REQUIRE(upgrade != nullptr);
+        w.playerOf('A')->addUpgrade(upgrade, Player::UPGRADE_STATUS_COMPLETE);
+    };
+    if (previousBefore) givePlayer("Upgrade_P238GalPreviously");
+    if (selectBefore) givePlayer("Upgrade_P238Gal" + selected);
+    if (!partial.empty())
+    {
+        hero->giveUpgrade(partial);
+        w.frames(20); // one listed OBJECT upgrade and PLAYER choice are not all three
+        REQUIRE(w.byId(heroId) != nullptr);
+        CHECK(w.byId(heroId)->getTemplate()->getName() == "P238GalBase");
+    }
+    if (deliverRing)
+    {
+        auto *contain = dynamic_cast<CitadelSlaughterHordeContain *>(w.byId(heroId)->getContain());
+        REQUIRE(contain != nullptr);
+        deliver(*contain, *carrier);
+        CHECK(w.byId(heroId)->hasUpgrade("Upgrade_P238GalRing"));
+        CHECK(w.byId(heroId)->hasUpgrade("Upgrade_P238GalFortress"));
+        REQUIRE(w.byId(ringId) != nullptr);
+        CHECK(w.byId(ringId)->isDestroyed());
+        CHECK(w.byId(heroId)->getCommandSetName() == (previousBefore ? "P238GalPreviouslySet" : "P238GalDecisionSet"));
+    }
+    if (previousAfter)
+    {
+        givePlayer("Upgrade_P238GalPreviously");
+        CHECK(w.byId(heroId)->getCommandSetName() == "P238GalPreviouslySet");
+    }
+    if (!selected.empty() && !selectBefore) givePlayer("Upgrade_P238Gal" + selected);
+    Object *replacement = nullptr;
+    for (int i = 0; i < 50; ++i)
+    {
+        w.frames(1);
+        for (Object *o = w.logic->getFirstObject(); o; o = o->getNextObject())
+            if (o->getTemplate() && o->getTemplate()->getName() == "P238Gal" + selected + "Form") replacement = o;
+        if (replacement) break;
+    }
+    if (selected.empty())
+    {
+        CHECK(replacement == nullptr);
+        CHECK(w.byId(heroId) != nullptr);
+        REQUIRE(w.byId(heroId) != nullptr);
+        CHECK(w.byId(heroId)->getCommandSetName() == (previousBefore || previousAfter ? "P238GalPreviouslySet" : "P238GalDecisionSet"));
+    }
+    else
+    {
+        REQUIRE(replacement != nullptr);
+        CHECK(replacement->getControllingPlayer() == w.playerOf('A'));
+        w.frames(3);
+        CHECK(w.byId(heroId) == nullptr);
+        if (!deliverRing) CHECK(w.byId(ringId) != nullptr);
+    }
+    REQUIRE(w.byId(otherId) != nullptr);
+    CHECK(w.byId(otherId)->getCommandSetName() == "P238GalBaseSet");
+    CHECK_FALSE(w.playerOf('B')->hasUpgradeComplete("Upgrade_P238GalAccept"));
+    CHECK_FALSE(w.playerOf('B')->hasUpgradeComplete("Upgrade_P238GalReject"));
+}
+
+TEST_CASE("PORT-238 Galadriel-style Telperion weapon sweeps damage modifiers and paralysis")
+{
+    HealWorld w;
+    AttributeModifierStore modifiers;
+    AttributeModifierStore *savedModifiers = TheAttributeModifierStore;
+    struct RestoreModifiers
+    {
+        HealWorld &world;
+        AttributeModifierStore *saved;
+        ~RestoreModifiers() { world.logic->reset(); TheAttributeModifierStore = saved; }
+    } restore{w, savedModifiers};
+    TheAttributeModifierStore = &modifiers;
+    modifiers.registerBlock(w.w.fx.env.blocks);
+    w.combat().setAutoAcquireEnabled(false);
+    // includes/weapon.inc:35206-35256: the damage nugget is 2200 FLAME at
+    // radius 170 with DamageScalar 0% ALL -HERO. RW 0x90E28C fills damage;
+    // Names and troll filter are synthetic; no actual assets or mod are loaded.
+    const char *data = R"ini(
+ModifierList P238GalStone
+  Category = WEAPON
+  Modifier = ARMOR 9999%
+  Modifier = SPEED 0%
+  Duration = 20000
+  ModelCondition = STONED
+End
+ModifierList P238GalHeroDebuff
+  Category = DEBUFF
+  Modifier = SPEED 30%
+  Duration = 13000
+  ReplaceInCategoryIfLongest = Yes
+End
+ModifierList P238GalDebuff
+  Category = DEBUFF
+  Modifier = RESIST_KNOCKBACK 100%
+  Modifier = CRUSHABLE_LEVEL 5
+  Duration = 12000
+  ReplaceInCategoryIfLongest = Yes
+End
+SpecialPower P238GalTelperion
+  Enum = SPECIAL_WORD_OF_POWER
+  ReloadTime = 200000
+End
+Weapon P238GalTelperionWeapon
+  AttackRange = 80
+  RadiusDamageAffects = ENEMIES NEUTRALS NOT_SIMILAR
+  DelayBetweenShots = 5000
+  PreAttackDelay = 2600
+  PreAttackType = PER_ATTACK
+  FiringDuration = 1400
+  AttributeModifierNugget
+    AttributeModifier = P238GalStone
+    Radius = 170
+    SpecialObjectFilter = ANY +P238GalTelperionTroll
+  End
+  AttributeModifierNugget
+    AttributeModifier = P238GalHeroDebuff
+    Radius = 170
+    SpecialObjectFilter = NONE +HERO
+  End
+  AttributeModifierNugget
+    AttributeModifier = P238GalDebuff
+    Radius = 170
+  End
+  ParalyzeNugget
+    Radius = 170
+    Duration = 12000
+    SpecialObjectFilter = ALL -HERO -STRUCTURE -MordorTribute_forHarad -MordorTribute_forHaradSmall
+    FreezeAnimation = No
+    AffectHordeMembers = Yes
+  End
+  DamageNugget
+    Damage = 2200
+    Radius = 170
+    DelayTime = 0
+    DamageType = FLAME
+    DeathType = BURNED
+    DamageScalar = 0% ALL -HERO
+  End
+End
+Object P238GalTelperionCaster
+  KindOf = HERO INFANTRY SELECTABLE CAN_ATTACK
+  Geometry = CYLINDER
+  GeometryMajorRadius = 5
+  GeometryHeight = 10
+  Body = ActiveBody Body
+    MaxHealth = 10000
+  End
+  Behavior = AIUpdateInterface AI
+  End
+  Behavior = SpecialPowerModule Starter
+    SpecialPowerTemplate = P238GalTelperion
+    UpdateModuleStartsAttack = Yes
+  End
+  Behavior = WeaponFireSpecialAbilityUpdate Cast
+    SpecialPowerTemplate = P238GalTelperion
+    SpecialWeapon = P238GalTelperionWeapon
+    WhichSpecialWeapon = 1
+    SkipContinue = Yes
+    UnpackTime = 1700
+    PackTime = 1
+    FreezeAfterTriggerDuration = 2500
+    StartAbilityRange = 80
+    IgnoreFacingCheck = Yes
+  End
+End
+Object P238GalTelperionHero
+  KindOf = HERO INFANTRY SELECTABLE
+  Geometry = CYLINDER
+  GeometryMajorRadius = 5
+  GeometryHeight = 10
+  ArmorSet
+    Conditions = None
+    Armor = NoArmor
+  End
+  Body = ActiveBody Body
+    MaxHealth = 10000
+  End
+  Behavior = AttributeModifierPoolUpdate Pool
+  End
+End
+Object P238GalTelperionInfantry
+  KindOf = INFANTRY SELECTABLE
+  Geometry = CYLINDER
+  GeometryMajorRadius = 5
+  GeometryHeight = 10
+  ArmorSet
+    Conditions = None
+    Armor = NoArmor
+  End
+  Body = ActiveBody Body
+    MaxHealth = 10000
+  End
+  Behavior = AttributeModifierPoolUpdate Pool
+  End
+End
+Object P238GalTelperionTroll
+  KindOf = MONSTER SELECTABLE
+  Geometry = CYLINDER
+  GeometryMajorRadius = 5
+  GeometryHeight = 10
+  ArmorSet
+    Conditions = None
+    Armor = NoArmor
+  End
+  Body = ActiveBody Body
+    MaxHealth = 10000
+  End
+  Behavior = AttributeModifierPoolUpdate Pool
+  End
+End
+)ini";
+    const std::string error = w.w.load(data, INI_LOAD_OVERWRITE, "port238_galadriel_telperion.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    Object *caster = w.unit("P238GalTelperionCaster", 'A', 300, 300);
+    Object *enemyHero = w.unit("P238GalTelperionHero", 'B', 320, 300);
+    Object *enemyInfantry = w.unit("P238GalTelperionInfantry", 'B', 330, 300);
+    Object *troll = w.unit("P238GalTelperionTroll", 'B', 350, 300);
+    Object *allyHero = w.unit("P238GalTelperionHero", 'A', 340, 300);
+    Object *farHero = w.unit("P238GalTelperionHero", 'B', 500, 300);
+    for (Object *o : {caster, enemyHero, enemyInfantry, troll, allyHero, farHero})
+    {
+        REQUIRE(o != nullptr);
+        w.logic->partition().registerObject(*o);
+        CHECK(o->getBodyModule()->getHealth() == 10000.0f);
+    }
+    w.frames(1);
+    auto *ability = dynamic_cast<WeaponFireSpecialAbilityUpdate *>(caster->findModule("WeaponFireSpecialAbilityUpdate"));
+    REQUIRE(ability != nullptr);
+    ability->initiateIntentToDoSpecialPower(ability->abilityData()->m_specialPowerTemplate, nullptr, nullptr, 0, 0);
+    for (int i = 0; i < 100 && ability->shotsFired() == 0; ++i) w.frames(1);
+    REQUIRE(ability->shotsFired() == 1);
+    CHECK(enemyHero->getBodyModule()->getHealth() == 7800.0f);
+    CHECK(enemyInfantry->getBodyModule()->getHealth() == 10000.0f);
+    CHECK(troll->getBodyModule()->getHealth() == 10000.0f);
+    CHECK(allyHero->getBodyModule()->getHealth() == 10000.0f);
+    CHECK(farHero->getBodyModule()->getHealth() == 10000.0f);
+    auto pool = [](Object *o) { return dynamic_cast<AttributeModifierPool *>(o->findModule("AttributeModifierPoolUpdate")); };
+    for (Object *o : {enemyHero, enemyInfantry, troll, allyHero, farHero}) REQUIRE(pool(o) != nullptr);
+    CHECK(pool(enemyHero)->hasList("P238GalHeroDebuff"));
+    CHECK_FALSE(pool(enemyHero)->hasList("P238GalDebuff")); // longer category wins
+    CHECK(pool(enemyInfantry)->hasList("P238GalDebuff"));
+    CHECK(pool(troll)->hasList("P238GalStone"));
+    CHECK(pool(troll)->hasList("P238GalDebuff"));
+    CHECK_FALSE(pool(allyHero)->hasList("P238GalHeroDebuff"));
+    CHECK_FALSE(pool(farHero)->hasList("P238GalHeroDebuff"));
+    CHECK_FALSE(enemyHero->isDisabledByType(DISABLED_USER_PARALYZED));
+    CHECK(enemyInfantry->isDisabledByType(DISABLED_USER_PARALYZED));
+    CHECK(troll->isDisabledByType(DISABLED_USER_PARALYZED));
+    CHECK_FALSE(allyHero->isDisabledByType(DISABLED_USER_PARALYZED));
+    CHECK_FALSE(farHero->isDisabledByType(DISABLED_USER_PARALYZED));
+}
