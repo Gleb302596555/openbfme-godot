@@ -54,6 +54,26 @@ TEST_CASE("MODS-3: a known modified game binary turns its profile's features on;
 	CHECK_FALSE(ModEngineFeatures::has(ModEngineFeature::EdainUnchainedHerobarKindOf));
 }
 
+TEST_CASE("MODS-3: Ennorath 1.9.8.5's game.dat is known: no feature turns on (the rules stay retail 2.01) and the S-5304 line names its pySAGE edits")
+{
+	// the MD5 of Ennorath 1.9.8.5's RotWK\game.dat, which the All In One service's Ennorath package lists as an engine edit (the launcher passes it as
+	// --mod-engine); before this profile the mount refused it as an unknown game binary
+	Retail guard;
+	std::string error;
+	REQUIRE_MESSAGE(ModEngineFeatures::activate({ "fc32e4c4142b5c607b90972eaf448400" }, &error), error);
+	CHECK(ModEngineFeatures::activeProfiles() == std::vector<std::string>{ "Ennorath 1.9.8.5 game.dat" });
+	CHECK(ModEngineFeatures::identityFeatures().empty()); // no rule changes: such a peer plays with a retail one
+	for (size_t i = 0; i < (size_t)ModEngineFeature::Count; ++i)
+	{
+		CHECK_FALSE(ModEngineFeatures::has((ModEngineFeature)i));
+	}
+	const std::vector<std::string> lines = ModEngineFeatures::stopLines();
+	REQUIRE(lines.size() == 1);
+	CHECK(lines[0].rfind("S-5304: Ennorath 1.9.8.5 game.dat: none of its pySAGE edits is rebuilt yet", 0) == 0);
+	CHECK(lines[0].find(".stancem") != std::string::npos);
+	CHECK(lines[0].find(".camfix") != std::string::npos);
+}
+
 TEST_CASE("MODS-3: edain-unchained.herobar-kindof: HEROBAR is KindOf bit 222 and HEROBAR_GROUP bit 223 only with the feature")
 {
 	Retail guard;
