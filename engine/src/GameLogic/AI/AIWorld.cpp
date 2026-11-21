@@ -753,7 +753,7 @@ bool ObjectPathfindAdapter::isStationary() const
 		return true;
 	}
 	const Path *path = a->mover().path();
-	return !(path && path->hasExplicitZ());
+	return !(path && path->hasExplicitZ()); // RW 0x00661E50 (Path::hasSpecialNode: node->portal != 0x7fffffff)
 }
 
 // RW 0x936C57 (the footprint registration RW 0x936B7D, reached through 0x6E85E9): the one status that keeps an object out of the map is 0x58 = PHANTOM_STRUCTURE (the binary's

@@ -1897,7 +1897,7 @@ bool AIUpdateInterface::chooseLocomotorSet(int set)
 	{
 		return true;
 	}
-	const LocomotorSetTemplate::Slot *slot = m_info->locomotorSets.find(set);
+	const LocomotorSetTemplate::Slot *slot = m_info->locomotorSets.find(set); // RW 0x0073DD59 (LocomotorSetTemplate map lookup)
 	if (!slot || slot->locomotors.empty())
 	{
 		return false;
@@ -1909,7 +1909,7 @@ bool AIUpdateInterface::chooseLocomotorSet(int set)
 	{
 		if (lt)
 		{
-			m_locomotors.push_back(std::make_unique<Locomotor>(lt));
+			m_locomotors.push_back(std::make_unique<Locomotor>(lt)); // RW 0x005E80B0 (LocomotorSet::addLocomotor)
 		}
 	}
 	m_curLocomotorSet = set;

@@ -21,6 +21,7 @@ static_assert(kAllMaintainFrameFlags == 0x1d0, "RW 0x4BED8A tests 0x1D0");
 bool anyMaintainFrameFlagSet(int flags) { return (flags & kAllMaintainFrameFlags) != 0; }
 bool commonMaintainFrameFlagSet(int a, int b) { return (a & b & kAllMaintainFrameFlags) != 0; }
 
+// RW 0x004B75EB (DONOR turretNamesDiffer): compares turret bone lists of two ModelConditionInfo states
 bool turretNamesDiffer(const ModelConditionInfo *a, const ModelConditionInfo *b)
 {
 	if (a->turrets.size() != b->turrets.size())
@@ -329,7 +330,7 @@ std::string W3DScriptedModelDraw::resolveLodAndStandardModelNames(const std::str
 	}
 	std::string candidate = baseName;
 
-	// RW 0x4C2576: StaticModelLODMode (+0x135); the suffix number is RW 0x4B24C4 (the static LOD GlobalData + 0x1774: m_options.animationLodNumber,
+	// RW 0x4C2576 / RW 0x004B617F ('M' / 'L' suffix): StaticModelLODMode (+0x135); the suffix number is RW 0x4B24C4 (the static LOD GlobalData + 0x1774: m_options.animationLodNumber,
 	// the same number for the horde draw, whose RW 0x47A20C calls this function too). Not ported: SwitchModelLODMode (+0x134, RW 0x4C2587 .. 0x4C25A4:
 	// the number from RW 0x4B2506 with the draw's own + 0xBC) and the template flag + 0x114 & 0x20 that forces the "L" model with a warning
 	// (RW 0x4B24DC, RW 0x4C25EA .. 0x4C27C3); Ennorath sets no SwitchModelLODMode
@@ -542,6 +543,7 @@ void W3DScriptedModelDraw::applyModelState(const ModelConditionInfo *state)
 	setModelState(state, false);
 }
 
+// RW 0x00478381 (ObjectDrawInterface slot 32 -> RW 0x00478389): copies Render_House_Color_Params into draw +0x28
 void W3DScriptedModelDraw::setBaseHouseColor(const HouseColorParams &params)
 {
 	m_baseHouseColor = params;
@@ -2193,9 +2195,162 @@ const std::string &W3DScriptedModelDraw::rampMeshOverload(int index) const
 	return (index >= 0 && index < 2) ? m_rampMeshOverload[index] : empty;
 }
 
+// RW 0x007B2EFE (vslot 18): sets hide override byte (+0x4D)
+void W3DScriptedModelDraw::setHideOverride(bool overrideHide)
+{
+	m_hideOverride = overrideHide;
+}
+
+// RW 0x004B3752 (renderObj->setHidden) / DONOR W3DModelDraw_setHidden.cpp:
+// an unhide (hidden == false) is ignored while m_hideOverride (+0x4D) is set.
+void W3DScriptedModelDraw::setHidden(bool hidden)
+{
+	if (!hidden && m_hideOverride)
+	{
+		return;
+	}
+	m_hidden = hidden;
+	m_shadowEnabled = !hidden;
+	if (m_hasShadow)
+	{
+		m_shadowRenderEnabled = m_shadowEnabled && !m_fullyObscuredByShroud;
+	}
+}
+
+// RW 0x0047836C (vslot 60): forwards to ModuleData vslot +0x78 (RW 0x00464A02, +0x15E)
+bool W3DScriptedModelDraw::allowsUnhideWhileInHorde() const
+{
+	return m_data.m_allowsUnhideWhileInHorde;
+}
+
+// RW 0x004B7A22 (ObjectDrawInterface slot 44 -> RW 0x0088FCBB): copies EmbedPortal entry i (+0x11C) if in bounds
+bool W3DScriptedModelDraw::getEmbedPortal(int index, W3DModelDrawModuleData::W3DEmbedPortalInfo &out) const
+{
+	if (index < 0 || static_cast<size_t>(index) >= m_data.m_embedPortals.size())
+	{
+		return false;
+	}
+	out = m_data.m_embedPortals[static_cast<size_t>(index)];
+	return true;
+}
+
+// RW 0x004B86BA (ObjectDrawInterface slot 17): sets +0xA4 = value, +0xA0 = 0, +0xB4 = name
+void W3DScriptedModelDraw::setSubObjectOverride(int value, const std::string &name)
+{
+	m_subObjectOverrideValue = value;
+	m_subObjectOverrideDirty = false;
+	m_subObjectOverrideName = name;
+}
+
+// RW 0x004B30DC (ObjectDrawInterface slot 18): sets +0xA0 = 1
+void W3DScriptedModelDraw::markSubObjectOverrideDirty()
+{
+	m_subObjectOverrideDirty = true;
+}
+
+// RW 0x004BC171 (ObjectDrawInterface slot 16): inserts key into std::set at +0xA8
+void W3DScriptedModelDraw::insertTrackedSubObjectKey(int key)
+{
+	m_trackedSubObjectKeys.insert(key);
+}
+
+// RW 0x004BB86C (ObjectDrawInterface slot 19): erases key from std::set at +0xA8
+void W3DScriptedModelDraw::eraseTrackedSubObjectKey(int key)
+{
+	m_trackedSubObjectKeys.erase(key);
+}
+
+// RW 0x004B2A5D -> RW 0x00732858 (RadiusDecal::setRadius): updates active terrain decal radius (+0x1D0)
+void W3DScriptedModelDraw::setTerrainDecalRadius(float radius)
+{
+	if (m_terrainRadiusDecal.active)
+	{
+		m_terrainRadiusDecal.radius = radius;
+	}
+}
+
+// RW 0x004B2B36 -> RW 0x007327E5 (RadiusDecal::clear): clears terrain decal (+0x1D0)
+void W3DScriptedModelDraw::clearTerrainDecal()
+{
+	m_terrainRadiusDecal.clear();
+}
+
+// RW 0x004B2B41 -> RW 0x0073266B (RadiusDecalTemplate::operator=): copies selection decal template (+0x228)
+void W3DScriptedModelDraw::setSelectionDecalTemplate(const RadiusDecalTemplate *tmpl)
+{
+	if (!tmpl)
+	{
+		return;
+	}
+	m_selectionDecalTemplate = *tmpl;
+}
+
+// RW 0x004B2B92 -> RW 0x00732828 (RadiusDecal::setPosition): updates active selection decal position (+0x218)
+void W3DScriptedModelDraw::setSelectionDecalPosition(const Coord3D *pos)
+{
+	if (pos && m_selectionRadiusDecal.active)
+	{
+		m_selectionRadiusDecal.position = *pos;
+	}
+}
+
+// RW 0x00732840 (RadiusDecal::setOffset): updates active selection decal secondary position/offset (+0x14)
+void W3DScriptedModelDraw::setSelectionDecalOffset(const Coord3D *offset)
+{
+	if (offset && m_selectionRadiusDecal.active)
+	{
+		m_selectionRadiusDecal.offset = *offset;
+	}
+}
+
+// RW 0x004B2BA7: sets active selection decal opacity ([+0x21C] + 0x20)
+void W3DScriptedModelDraw::setSelectionDecalOpacity(float opacity)
+{
+	if (m_selectionRadiusDecal.active)
+	{
+		m_selectionRadiusDecal.opacity = opacity;
+	}
+}
+
+// RW 0x004B2BBF: sets active selection decal color ([+0x21C] -> RW 0x0073232B)
+void W3DScriptedModelDraw::setSelectionDecalColor(std::uint32_t color)
+{
+	if (color != 0 && m_selectionRadiusDecal.active)
+	{
+		m_selectionRadiusDecal.color = color;
+	}
+}
+
+// RW 0x004B2BDC -> RW 0x00732CBB (RadiusDecalTemplate::createRadiusDecal):
+// requires non-empty texture, non-null player, and positive min/max opacity (RW 0x00732CCB..0x00732D05).
+bool W3DScriptedModelDraw::createSelectionDecal(const Coord3D &pos, float radius, bool hasPlayer)
+{
+	if (m_selectionDecalTemplate.texture.empty() || !hasPlayer)
+	{
+		return false;
+	}
+	if (m_selectionDecalTemplate.opacityMin <= 0.0f || m_selectionDecalTemplate.opacityMax <= 0.0f)
+	{
+		return false;
+	}
+	m_selectionRadiusDecal.clear();
+	m_selectionRadiusDecal.active = true;
+	m_selectionRadiusDecal.position = pos;
+	m_selectionRadiusDecal.radius = radius;
+	m_selectionRadiusDecal.opacity = m_selectionDecalTemplate.opacityMax;
+	return true;
+}
+
+// RW 0x004B2C0D -> RW 0x007327E5 (RadiusDecal::clear): clears selection decal (+0x218)
+void W3DScriptedModelDraw::clearSelectionDecal()
+{
+	m_selectionRadiusDecal.clear();
+}
+
 // ---------------------------------------------------------------------------------------------------------------------
 // W3DHordeModelDraw
 // ---------------------------------------------------------------------------------------------------------------------
+// RW 0x004789BC: clamped LOD index 0..2 (from GlobalData +0x1788)
 int W3DHordeModelDraw::checkedLevel(int lodLevel)
 {
 	if (lodLevel < 0 || lodLevel > 2)
@@ -2215,14 +2370,14 @@ W3DHordeModelDraw::W3DHordeModelDraw(const W3DHordeModelDrawModuleData &data, in
 	initializeState(); // the first states are selected with this class's overrides in place
 }
 
-// RW 0x478A74: GameClientRandomValue(0, frames - 1) times the row's RandomStartFramePercent, divided by 100
+// RW 0x478A74 -> RW 0x00478A15: GameClientRandomValue(0, frames - 1) times the row's RandomStartFramePercent (+0x198), divided by 100
 int W3DHordeModelDraw::randomStartFrame(int frames)
 {
 	const int v = W3DScriptedModelDraw::randomStartFrame(frames);
 	return (v * m_lod.randomStartFramePercent) / 100;
 }
 
-// RW 0x4789D6 / RW 0x47A1BE: calls isAllowMultipleModels() for current LOD level.
+// RW 0x4789D6 / RW 0x004789E6 / RW 0x47A1BE: calls isAllowMultipleModels() (+0x18C) for current LOD level.
 // If true, calls RW 0x4B430B with variation. If false, calls RW 0x4B42F5 with 0.
 const std::string &W3DHordeModelDraw::resolveBaseModelName(const ModelConditionInfo *state) const
 {

@@ -27,6 +27,7 @@
 #include "GameLogic/Module/HordeDispatchSpecialPower.h"
 #include "GameLogic/Module/ObjectCreationUpgrade.h"
 #include "GameLogic/Module/OCLUpdate.h"
+#include "GameLogic/Module/FadeAndDieOrnamentUpdate.h"
 #include "GameLogic/Module/DeflectSpecialPower.h"
 #include "GameLogic/Module/ReflectDamage.h"
 #include "GameLogic/Module/EvacuateDamage.h"
@@ -146,6 +147,7 @@ void LogicModules::registerAll(ModuleFactory &modules)
 	LocomotorSetUpgrade::registerClass(modules); // MODGAP-2: switch the AI's normal locomotor set
 	ObjectCreationUpgrade::registerClass(modules); // lane FACT-A: the object an upgrade makes (the Crystal Moat)
 	OCLUpdate::registerClass(modules);             // lane MODGAP-1: the wall trebuchet / catapult makers
+	FadeAndDieOrnamentUpdate::registerClass(modules); // both editions: RW 0x007A772B / 0x007A7801
 	DeflectSpecialPower::registerClass(modules);   // lane MODGAP-1: the spear carriers' shield wall (inert in Ennorath, S-5601)
 	ReflectDamage::registerClass(modules);         // lane MODGAP-1: the Witch-king's and the Nazgul's thorns
 	EvacuateDamage::registerClass(modules);        // lane MODGAP-1: the towers' garrison runs out (S-5602)
