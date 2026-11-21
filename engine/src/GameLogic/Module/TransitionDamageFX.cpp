@@ -255,6 +255,43 @@ Coord3D TransitionDamageFX::effectPos(const TransitionDamageFXModuleData::LocInf
 }
 
 // RW 0x8BE077
+// RW 0x008BDCF7: HideSubObject then ShowSubObject (permanent) for the given damage state
+void TransitionDamageFX::applySubObjects(BodyDamageType state)
+{
+	Object *obj = getObject();
+	if (!obj)
+	{
+		return;
+	}
+	if (ObjectClientHooks *hooks = obj->clientHooks())
+	{
+		for (const std::string &n : m_data->m_hideSubObjects[state])
+		{
+			hooks->showSubObject(*obj, n, false, true);
+		}
+		for (const std::string &n : m_data->m_showSubObjects[state])
+		{
+			hooks->showSubObject(*obj, n, true, true);
+		}
+	}
+}
+
+// RW 0x008BDEE5 (vtable 0x00C707A4 slot 6): apply HideSubObject / ShowSubObject for the body's current damage state
+void TransitionDamageFX::onDrawableBoundToObject()
+{
+	Object *obj = getObject();
+	if (!obj)
+	{
+		return;
+	}
+	const BodyModuleInterface *body = obj->getBodyModule();
+	if (!body)
+	{
+		return;
+	}
+	applySubObjects(body->getDamageState());
+}
+
 void TransitionDamageFX::onBodyDamageStateChange(const DamageInfo *info, BodyDamageType oldState, BodyDamageType newState)
 {
 	Object &obj = *getObject();
@@ -279,18 +316,7 @@ void TransitionDamageFX::onBodyDamageStateChange(const DamageInfo *info, BodyDam
 			logic.fxEvents().emit(ev);
 		}
 	}
-	// RW 0x8BDCF7: the new state's sub objects (permanent), Hide then Show
-	if (ObjectClientHooks *hooks = obj.clientHooks())
-	{
-		for (const std::string &n : d.m_hideSubObjects[newState])
-		{
-			hooks->showSubObject(obj, n, false, true);
-		}
-		for (const std::string &n : d.m_showSubObjects[newState])
-		{
-			hooks->showSubObject(obj, n, true, true);
-		}
-	}
+	applySubObjects(newState);
 	if (oldState < newState)
 	{
 		// body interface slot 0x40: the last damage record (ActiveBody + 0x40; its damage type at + 0x10); null for a body without one

@@ -21,8 +21,9 @@ inline std::vector<std::string> lines()
 		"addObjectToPathfindMap RW 0x6E85E9), the physics kick of an airborne exit (RW 0x792DBD), the rally override search (queryRallyOverride RW 0x8A3AB4: no Slaughter "
 		"contain is ported), the rally path validation of RW 0x779544 and the player group condition of releaseLastExit (RW 0x6A950B)",
 		"[S-203] ProductionUpdate does not port (hero / build-index entries are HERO-1's since S-850 .. S-855, upgrade entries UPGRADE-1's, S-486; the producer's experience, "
-		"VeteranUnitsFromVeteranFactory and the PRODUCTION rate are PRODUCTION1's; SetBonusModelConditionOnSpeedBonus / BonusForType / SpeedBonusAudioLoop are PORT-280's): "
-		"audio (voices) and EVA messages, script naming of a produced object, the horde join of entry + 0x3C, the pending template name set (RW +0x130) and the score keeper",
+		"VeteranUnitsFromVeteranFactory and the PRODUCTION rate are PRODUCTION1's; SetBonusModelConditionOnSpeedBonus / BonusForType / SpeedBonusAudioLoop are PORT-280's; "
+		"script naming and entry + 0x3C horde join are PORT-231's): "
+		"audio (voices) and EVA messages, the pending template name set (RW +0x130) and the score keeper",
 		"[S-204] build cost and time use neutral inputs where their sources are not ported: the lobby handicap (RW 0x7B19BF), the energy ratio of calcTimeToBuild (RW 0x8E3503) (the Brutal AI reductions are ported, BRUTALAI-1), "
 		"the MultipleFactory facility count (an APPEARS_AT_RALLY_POINT template with GameData MultipleFactory != 1.0 "
 		"throws), the Create-A-Hero surcharge (the CostModifierUpgrade factor RW 0x6AD8A7 IS applied since UPGRADE-1)",

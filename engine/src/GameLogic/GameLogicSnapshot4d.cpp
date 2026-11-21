@@ -79,7 +79,9 @@ void GameLogic::registerSave4dBlocks(GameState &gs)
 	gs.setLoadPreparation("obfme:CreateAHero", [this](Xfer &x) { m_createAHeroes->prepareLoad(x); },
 		[this]() { m_createAHeroes->clearLoadPreparation(); });
 	add("obfme:TerrainTrees", saveLoad, [this](Xfer &x) { m_trees->xfer(x); }, nullptr, "terrain trees");
-	add("obfme:TaintManager", saveLoad, [this](Xfer &x) { m_taint->xfer(x); }, nullptr, "taint"); // retail's CHUNK_TaintManager layout (RW 0xAD4B80)
+	add("obfme:TaintManager", saveLoad, [this](Xfer &x) {
+		m_taint->xfer(x, getNextObjectID()); // a painted cell may outlive the area object
+	}, nullptr, "taint"); // retail's CHUNK_TaintManager layout (RW 0xAD4B80)
 	add("obfme:LargeGroupAudio", saveLoad, [this](Xfer &x) { m_largeGroupAudio.xfer(x); }, nullptr, "large group audio");
 	// lane CAMPUI-1: retail's own blocks and layouts (MissionObjectiveTracker.h), list 0 only: retail's CRC xfer skips both and no hash section holds them
 	gs.addOwnedSnapshotBlock("CHUNK_ObjectivesMenu", std::make_unique<Save4dSnapshot>(gs, [this](Xfer &x) { m_missionObjectives.xferMenu(x); }, nullptr),

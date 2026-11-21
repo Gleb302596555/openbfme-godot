@@ -554,7 +554,7 @@ void StructureToppleUpdate::beginStructureTopple(const DieModuleInterface::Event
 	setWakeFrame(building, UPDATE_SLEEP_NONE);
 }
 
-// BFME2 0x8A5E5B (no RotWK address in the decomp notes; S-345)
+// RW 0x008A94B9 / DONOR BFME2 0x8A5E5B (DieMux RW 0x008D29A9 -> ai->onDie RW 0x0066264E -> deselect RW 0x00625759 -> beginStructureTopple RW 0x008A92EA)
 void StructureToppleUpdate::onDie(const DieModuleInterface::Event &event)
 {
 	Object *obj = getObject();

@@ -67,6 +67,7 @@ public:
 	}
 	// installs the `commandList` phase row of `logic` (the list must outlive the logic's use of it)
 	void attach(CommandList &list);
+	GameLogic &logic() const { return m_logic; }
 	// one message (RW 0x779A3D)
 	void dispatch(const GameMessage &message);
 

@@ -182,7 +182,7 @@ public:
 	OBFME_MODULE_XFER(DamageFilteredCreateObjectDie) // lane SAVE-4b: retail's layout (RW 0x88927E, (1, 1))
 	DamageFilteredCreateObjectDie(Thing *thing, const DamageFilteredCreateObjectDieModuleData *data) : BehaviorModule(thing, data), m_data(data) {}
 	DieModuleInterface *getDie() override { return this; }
-	DamageModuleInterface *getDamage() override { return this; }
+	DamageModuleInterface *getDamage() override { return this; }            // RW 0x00888C13
 	void onDie(const DieModuleInterface::Event &event) override;            // RW 0x8892B0
 	void onDamage(const DamageInfo &info) override;                         // RW 0x88939A
 	void onHealing(const DamageInfo &) override { m_hitFrame = 0; }        // RW 0x889191

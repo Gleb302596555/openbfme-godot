@@ -59,6 +59,7 @@
 #include "GameLogic/Module/PortalModules.h"
 #include "GameLogic/Module/BaseUpgrade.h"
 #include "GameLogic/Module/DamageFieldUpdate.h"
+#include "GameLogic/Module/PoisonedBehavior.h"
 #include "GameLogic/Module/CivilianSpawnUpdate.h"
 #include "GameLogic/Module/CivilianSpawnCollide.h"
 
@@ -215,6 +216,7 @@ void LogicModules::registerAll(ModuleFactory &modules)
 	StrafeAreaUpdate::registerClass(modules);              // MODGAP-2: both editions (RW 0x008A3950 / BFME2 0x0089F9F0)
 	BaseUpgrade::registerClass(modules);                   // LOCAL-36 (issue #286): both editions (RW 0x65A28A / BFME2 0x659074)
 	DamageFieldUpdate::registerClass(modules);             // LOCAL-36 (issue #286): both editions (RW 0x659082 / BFME2 0x6577D5)
+	PoisonedBehavior::registerClass(modules);              // LOCAL-97 (fork issue 762): both editions (RW 0x00658636 / DONOR BFME2 0x00482F7D)
 	CivilianSpawnUpdate::registerClass(modules);           // LOCAL-36 (issue #286): both editions (RW 0x6593F7 / BFME2 0x65824C)
 	CivilianSpawnCollide::registerClass(modules);          // LOCAL-36 (issue #286): both editions (RW 0x65B091 / BFME2 0x659C97)
 	DynamicShroudClearingRangeUpdate::registerClass(modules); // LOCAL-35 (#285): the map ping's growing/shrinking shroud reveal (RW 0x88E6D8 / 0x88E9B0)

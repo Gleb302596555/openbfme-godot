@@ -255,8 +255,11 @@ TEST_CASE("fx4 runtime: a hit that makes the state worse plays the new state's F
 	CHECK(attach[0]->position.z == 3.0f);
 	const std::uint32_t damagedSlot = attach[0]->slot;
 	CHECK(bySite(ev, FXEvent::DESTROY_PARTICLE_SYSTEM).empty()); // PRISTINE had no systems
-	// the new state's lists: Hide first, then Show, permanent (RW 0x8BDCF7)
-	CHECK(hooks.calls == std::vector<std::string>{ "DOOR hide permanent", "DOOR_D2 hide permanent", "DOOR_D1 show permanent" });
+	// RW 0x008BDEE5 (onDrawableBoundToObject on friend_bindToClient): PRISTINE Hide then Show first;
+	// then RW 0x8BDCF7 on the transition to DAMAGED: DAMAGED Hide then Show, permanent.
+	CHECK(hooks.calls == std::vector<std::string>{
+		"DOOR_D1 hide permanent", "DOOR_D2 hide permanent", "DOOR show permanent",
+		"DOOR hide permanent", "DOOR_D2 hide permanent", "DOOR_D1 show permanent" });
 
 	DamageInfo second = hit(30.0f, DAMAGE_FLAME); // 70 -> 40: REALLYDAMAGED
 	const size_t before = w.events().size();

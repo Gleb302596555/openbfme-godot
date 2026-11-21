@@ -49,7 +49,7 @@ std::atomic<std::uint64_t> g_withoutEva{ 0 };
 std::atomic<std::uint64_t> g_withoutVoice{ 0 };
 Eva *g_eva = nullptr;
 std::uint64_t g_deathReports = 0; // per manager binding, under g_bindMutex
-constexpr const char *kHeldSoundTags[] = { "building loop", "move loop", "upgrade loop", "ability loop", "flammable loop", "production speed bonus loop", "gate loop" };
+constexpr const char *kHeldSoundTags[] = { "building loop", "move loop", "upgrade loop", "ability loop", "flammable loop", "production speed bonus loop", "castle build loop", "gate loop" };
 static_assert(sizeof(kHeldSoundTags) / sizeof(*kHeldSoundTags) == AudioApi::HELD_SOUND_SLOTS);
 struct FireLoop
 {

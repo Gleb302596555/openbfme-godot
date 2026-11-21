@@ -13,10 +13,12 @@
 //     - Scans partition within Radius (2D) for alive, non-self objects passing ObjectFilter
 //       with controlling player (RW 0x894A05..0x894A93);
 //     - Newly entering victims (in range but not in m_victims) are fired upon via
-//       weaponHost().fireExtraWeapon(*w, *other) (RW 0x89483A) and added to m_victims;
+//       weaponHost().forceFireExtraWeapon(*w, *other) (RW 0x89483A -> RW 0x006CF407) and added to m_victims;
 //     - Exited objects are removed from m_victims;
 //     - Returns nextSleep() (RW 0x88F0AA / RW 0x894BF5).
-//   * xfer (RW 0x894C52; DONOR BFME2 0x89157D):
+//   * getModuleName RW 0x008948EA, getModuleNameKey RW 0x008948F0,
+//     dtor RW 0x008948B8 (calls FireWeaponUpdate::~FireWeaponUpdate RW 0x0088F37D) / scalar deleting dtor RW 0x00894986.
+//   * xfer (RW 0x00894C09; DONOR BFME2 0x89157D):
 //     Version (1, 1), xferSTLObjectIDList (m_victims), FireWeaponUpdate::xfer(x).
 
 #pragma once

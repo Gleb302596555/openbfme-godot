@@ -969,7 +969,10 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 	// (Windows MSVC): BUILDCLEAR-1's isLocationClearOfObjects (RW 0x796D37, the options in RotWK's numbering) changes where the computer players place
 	// their structures (upstream's own perf1 pin names the same move); seed 7 still ends with the Men's defeat, now at 4571 (was 4465); seeds 2 and
 	// 1234 keep their results
-	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, -1, -1 }, Game{ "FactionMen", "FactionMordor", 7u, 1, 4571 }, Game{ "FactionMordor", "FactionMen", 1234u, 0, 5359 } })
+	// pin: the PC landing of Locals 96 / 97 / 98 (2026-11-21, MSVC): Local 96's WorkerAIUpdate::newTask sets WORKER_REPAIRING (status 0x61, in the object
+	// hash; RW 0x008AE4A9) and DozerAIUpdate::onDelete (RW 0x0088CF96) moves the workers' repairs: seed 7 still ends with the Men's defeat, now at 4538 (was
+	// 4571), seed 1234 with Mordor's defeat at 5163 (was 5359), seed 2 stays open; with Local 96's changes switched off on its branch the old pins pass. Engine pins.
+	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, -1, -1 }, Game{ "FactionMen", "FactionMordor", 7u, 1, 4538 }, Game{ "FactionMordor", "FactionMen", 1234u, 0, 5163 } })
 	{
 		INFO(g.a << " vs " << g.b << " seed " << g.seed);
 		VersusRun run;

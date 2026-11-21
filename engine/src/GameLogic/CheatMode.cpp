@@ -28,6 +28,7 @@
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/ObjectGeometry.h"
 #include "GameLogic/SimMath.h"
+#include "GameLogic/SnapshotXfer.h"
 #include "GameLogic/System/ShroudManager.h"
 #include "GameLogic/VictoryConditions.h"
 
@@ -584,10 +585,13 @@ void State::xfer(Xfer &x)
 	}
 }
 
-void State::xferSandbox(Xfer &x)
+void State::xferSandbox(Xfer &x, int playerCount)
 {
-	x.xferUnsignedInt(&m_aiPausedMask);
-	x.xferUnsignedInt(&m_instantMask);
+	// OpenBFME commands target game players, not lobby slots. RW 0x6A8788 (0x6A87B0)
+	// checks the player count against the game's before loading its players.
+	const auto players = SnapshotXfer::lowBits(playerCount);
+	SnapshotXfer::maskWithin(x, m_aiPausedMask, players, "cheat sandbox: paused AIs", "this game's players");
+	SnapshotXfer::maskWithin(x, m_instantMask, players, "cheat sandbox: instant builders", "this game's players");
 }
 
 void registerHandlers(GameLogicDispatch &d)

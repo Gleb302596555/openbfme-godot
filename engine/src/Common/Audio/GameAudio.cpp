@@ -103,7 +103,7 @@ std::vector<std::string> AudioManager::unverified()
 		"S-245: Miles specifics (reverb / EAX, occlusion low pass) are not modelled; Godot's MP3 decoder plays the streams",
 		"S-246: Living World owners (OwnerType 3-5), the music script system (AR_PushMusic / AR_PopMusic ...) are not ported",
 		"S-247: the Eva announcer implements the rules EA documents in Eva.ini; the binary's queue code is not decoded",
-		"S-248: LargeGroupAudio, LivingWorldSound and CrowdResponse: the LargeGroupAudio INI and its members (lane AUDIO-4: the LargeGroupAudioUpdate modules' calls and the maps' qualification) are ported; the Sound blocks' per-cell runtime is the INI's documented rules (LiveGameAudio), the other two blocks are recording stubs",
+		"S-248: LargeGroupAudio, LivingWorldSound and CrowdResponse: the LargeGroupAudio INI and its members (lane AUDIO-4: the LargeGroupAudioUpdate modules' calls and the maps' qualification) are ported; the four-grid member runtime is ported but Sound-block ducking is not, the other two blocks are recording stubs",
 		"S-249: the decoded sound cache budget (a multiple of AudioFootprintInBytes) is inferred; retail caches compressed bytes",
 		"S-1930: the stereo image is Miles' Fast 2D provider (a stereo Windows speaker setup); RotWK's Dolby Surround provider (headphone / surround speaker setups on High audio LOD) and its FB pan filter are not modelled",
 		"S-1931: a panned stereo voice mixes its left channel into the right in the Godot device",

@@ -206,6 +206,27 @@ TEST_CASE("PORT-234 placement: after the assistant even on refusal; no cheer for
 	send(MSG_FOUNDATION_CONSTRUCT); send(MSG_DOZER_CONSTRUCT); send(MSG_WALL_HUB_CONSTRUCT_SPAN); CHECK(a.requests().empty()); // RW 0x6AAA2E
 }
 
+TEST_CASE("PORT-234 held sounds: castle and gate loops on the same holder are independent")
+{
+	Audio a({}, "AudioEvent CastleLoop\n Sounds = bell\n Type = world everyone\nEnd\n"
+		"AudioEvent GateLoop\n Sounds = bell\n Type = world everyone\nEnd\n");
+	constexpr std::uint32_t holder = 41;
+	AudioApi::postHeldSound(AudioApi::HELD_CASTLE_BEING_BUILT, "CastleLoop", holder, holder);
+	const auto castle = AudioApi::heldSound(AudioApi::HELD_CASTLE_BEING_BUILT, holder);
+	REQUIRE(castle >= AHSV_FirstHandle);
+	AudioApi::postHeldSound(AudioApi::HELD_GATE_LOOP, "GateLoop", holder, holder);
+	const auto gate = AudioApi::heldSound(AudioApi::HELD_GATE_LOOP, holder);
+	REQUIRE(gate >= AHSV_FirstHandle);
+	CHECK(gate != castle);
+	CHECK(AudioApi::heldSound(AudioApi::HELD_CASTLE_BEING_BUILT, holder) == castle);
+	CHECK(a.mgr->isCurrentlyPlaying(castle));
+	AudioApi::stopHeldSound(AudioApi::HELD_GATE_LOOP, holder);
+	CHECK(AudioApi::heldSound(AudioApi::HELD_GATE_LOOP, holder) == 0);
+	CHECK(AudioApi::heldSound(AudioApi::HELD_CASTLE_BEING_BUILT, holder) == castle);
+	CHECK(a.mgr->isCurrentlyPlaying(castle));
+	AudioApi::stopHeldSound(AudioApi::HELD_CASTLE_BEING_BUILT, holder);
+}
+
 TEST_CASE("PORT-234 gate: one held loop per motion, removal before either endpoint and on death")
 {
 	std::string ini; for (const char *s : { "Opening", "Closing", "Opened", "Closed" }) ini += std::string("AudioEvent ") + s + "\n Sounds = bell\n Type = world everyone\nEnd\n";

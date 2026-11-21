@@ -161,7 +161,7 @@ public:
 	// GameLogic::xferCore (version 2): the seat, the reveals, void and the counts (the log and the announcements are display data)
 	void xfer(Xfer &x);
 	// GameLogic::xferCore (version 5): the paused AIs and the instant builders
-	void xferSandbox(Xfer &x);
+	void xferSandbox(Xfer &x, int playerCount);
 
 private:
 	int m_slot = -1;

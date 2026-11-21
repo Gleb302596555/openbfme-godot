@@ -129,6 +129,7 @@ private:
 	const CommandPointsUpgradeModuleData *m_data;
 };
 
+// RW 0x008B9B0F (non-deleting dtor -> UpgradeModule::~UpgradeModule 0x86393B)
 class CostModifierUpgrade : public UpgradeModule, public CreateModuleInterface
 {
 public:
