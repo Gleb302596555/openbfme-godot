@@ -278,6 +278,41 @@ bool LiveScripting::findObject(int id, LuaObjectInfo *out)
 	return obj && describe(*obj, out, false);
 }
 
+// RW 0x7366FE (luaObjectDescription) -> RW 0x69005F: description fields for ObjectDescription(self)
+bool LiveScripting::objectDescription(int id, ObjectDescription *out)
+{
+	const Object *obj = m_logic.findObjectByID((ObjectID)id);
+	if (!obj || !out)
+	{
+		return false;
+	}
+	out->objectName = obj->getName();
+	out->templateName = obj->getTemplate() ? obj->getTemplate()->getName() : std::string();
+	if (const Player *player = obj->getControllingPlayer())
+	{
+		out->playerIndex = player->getPlayerIndex();
+		const std::string &disp = player->getPlayerDisplayName().empty() ? player->getPlayerName() : player->getPlayerDisplayName();
+		out->playerName.assign(disp.begin(), disp.end());
+	}
+	else
+	{
+		out->playerIndex = 0;
+		out->playerName = L"<unknown>";
+	}
+	return true;
+}
+
+// RW 0x7369AE (luaObjectTestCanSufferFear) -> RW 0x736A09 -> RW 0x68C818 -> RW 0x804F39 (AttributeModifierPool::sum)
+bool LiveScripting::objectAttributeModifier(int id, int type, float *bonus)
+{
+	const Object *obj = m_logic.findObjectByID((ObjectID)id);
+	if (!obj || !bonus)
+	{
+		return false;
+	}
+	return obj->attributeModifierSum(type, nullptr, *bonus);
+}
+
 // LuaBindings.cpp RW 0x7367E3 / 0x73684D: owner side, or the current capturer's side.
 std::string LiveScripting::objectPlayerSide(int id)
 {
@@ -446,10 +481,11 @@ LiveScripting::Stats LiveScripting::stats() const
 			s.stops.push_back("[" + e.stop + "] " + e.text);
 		}
 		const std::vector<std::string> &alerts = m_engine->logic()->alerts();
+		const std::vector<std::string> &ctx = m_engine->logic()->alertSources();
+		const std::vector<bool> &dropped = m_engine->logic()->alertRetailDropped();
 		for (size_t i = 0; i < alerts.size(); ++i)
 		{
 			const std::string &from = i < m_alertSources.size() ? m_alertSources[i] : std::string();
-			const std::vector<std::string> &ctx = m_engine->logic()->alertSources();
 			std::string where = i < ctx.size() ? ctx[i] : std::string();
 			if (!where.empty())
 			{
@@ -464,8 +500,19 @@ LiveScripting::Stats LiveScripting::stats() const
 					}
 				}
 			}
-			s.errors.push_back(!from.empty() ? "OnCreated handler failed (" + from + "): " + alerts[i]
-				: !where.empty() ? "Lua alert (" + where + "): " + alerts[i] : "Lua alert: " + alerts[i]);
+			const std::string msg = !from.empty() ? "OnCreated handler failed (" + from + "): " + alerts[i]
+				: !where.empty() ? "Lua alert (" + where + "): " + alerts[i] : "Lua alert: " + alerts[i];
+			if (i < dropped.size() && dropped[i])
+			{
+				// RW 0x735AE9 (pushObject quirk Q5) -> lua_call RW 0x73611D -> _ALERT RW 0x734E41 (retail builds and drops the alert):
+				// e.g. DozerAIUpdate::hideInStructure RW 0x88C51B -> Object::leaveWorld RW 0x68C18F -> unregisterObject RW 0x735A1D
+				// before OnProducing (+ACTIVELY_CONSTRUCTING) fires via AIUpdateInterface::update RW 0x6695EF -> RW 0x663E32 -> RW 0x7378DA.
+				++s.dataDefects[msg];
+			}
+			else
+			{
+				s.errors.push_back(msg);
+			}
 		}
 	}
 	return s;

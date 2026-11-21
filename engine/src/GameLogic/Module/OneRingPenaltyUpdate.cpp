@@ -238,6 +238,7 @@ void OneRingPenaltyUpdate::crc(StateHasher &h) const
 	h.addU32(m_penaltyFrame);
 }
 
+// RW 0x0089D109 (UpdateModule::xfer, v1, m_eye +0x24, m_ringFrame +0x28, m_angle +0x2C, m_penaltyFrame +0x30)
 void OneRingPenaltyUpdate::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

@@ -115,6 +115,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p); // no field (RW 0x85C939: the base table only)
 };
 
+// RW 0x0085CA3D (this-0x14 getUpdate thunk -> RW 0x008A18E0)
 class SiegeDockingBehavior : public UpdateModule
 {
 public:

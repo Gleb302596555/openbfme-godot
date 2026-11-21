@@ -229,6 +229,8 @@ def func_counts(rev: str | None) -> tuple[str, str]:
         return "", ""
     status: dict[str, bool] = {}
     for r in csv.DictReader(text.splitlines(), delimiter="\t"):
+        if r["status"] == "library":
+            continue  # code the port replaces wholesale (tools/mod/rw_library_functions.tsv, owner 2026-11-21): neither total nor open
         status[r["function"]] = status.get(r["function"], False) or r["status"] == "ported"
     return (str(len(status)), str(sum(1 for v in status.values() if not v))) if status else ("", "")
 

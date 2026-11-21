@@ -1016,6 +1016,25 @@ std::string Generate_W3D_Shader_Code(const W3DShaderKey &k, W3DSamplerPolicy sam
 	return c;
 }
 
+bool W3D_Shadow_Pass_Key(const W3DShaderKey &base, W3DShaderKey &out)
+{
+	if (!base.DepthWrite || base.DepthTestDisabled || base.Floor || base.OcclusionPass != 0)
+	{
+		return false;
+	}
+	if (base.Blend == W3D_GODOT_BLEND_OPAQUE && !base.AlphaOverride)
+	{
+		return false;
+	}
+	out = base;
+	out.Blend = W3D_GODOT_BLEND_OPAQUE;
+	out.AlphaOverride = false;
+	out.SelectionDecals = false;
+	out.Floor = false;
+	out.OcclusionPass = 0;
+	return true;
+}
+
 int W3D_Surface_Render_Priority(int sortLevel, int pass, bool floorBlend)
 {
 	if (floorBlend)
@@ -1035,4 +1054,14 @@ int W3D_Surface_Render_Priority(int sortLevel, int pass, bool floorBlend)
 	const int staticBase = FXParticleSystem::kW3DRenderPriorityMin + kMaxPasses;
 	const int priority = staticBase + (kMaxStaticSort - clampedSort) * kMaxPasses + clampedPass;
 	return std::clamp(priority, FXParticleSystem::kW3DRenderPriorityMin, FXParticleSystem::kW3DRenderPriorityMax);
+}
+
+void W3D_Apply_Buff_Render_State(W3DShaderKey &key)
+{
+	// W3DBuffBuffer::Draw (RW 0x004D20C6): D3DRS_ZWRITEENABLE = 0 (RW 0x004D246C), D3DRS_ALPHATESTENABLE = 0 (RW 0x004D252C),
+	// D3DRS_SRCBLEND = D3DBLEND_ONE (RW 0x004D26D4), D3DRS_DESTBLEND = D3DBLEND_ONE (RW 0x004D2734), D3DRS_FOGENABLE = 0 (RW 0x004D2794).
+	key.Blend = W3D_GODOT_BLEND_ADD;
+	key.DepthWrite = false;
+	key.AlphaTest = false;
+	key.Fog = 0;
 }

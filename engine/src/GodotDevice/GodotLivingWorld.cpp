@@ -194,6 +194,7 @@ Dictionary LivingWorldGame::army_panel(Object *game_world, int64_t army_id) cons
 		int count = 1;
 		int home = 0;
 		int mark = 0; // WOTR2 milestone 5: the entry's upgrade mark (+0xCC)
+		std::vector<std::string> upgrades;
 		UnitInfo info;
 	};
 	// WOTR2 milestone 4: one icon per ArmySummary entry (its key: the member moves name it), its quantity the entry count (x a horde's members)
@@ -208,6 +209,7 @@ Dictionary LivingWorldGame::army_panel(Object *game_world, int64_t army_id) cons
 		e.count = m.quantity;
 		e.home = m.homeArmy;
 		e.mark = m.upgradeBuilding;
+		e.upgrades = m.upgrades;
 		e.info = m_units(m.thingTemplate);
 		entries.push_back(e);
 	}
@@ -233,6 +235,20 @@ Dictionary LivingWorldGame::army_panel(Object *game_world, int64_t army_id) cons
 		d["key"] = e.key;
 		d["home"] = e.home;
 		d["upgrade_marked"] = e.mark != 0;
+		// RW 0x66F58E / 0x66F5B6 & RW 0x9FFC42 / 0xA08500: War of the Ring StrategicIcon (+0x8C -> +0x90)
+		{
+			GameWorld *gw = Object::cast_to<GameWorld>(game_world);
+			RetailObjectWorld *world = gw ? gw->object_world() : nullptr;
+			PackedStringArray iconArr;
+			if (world)
+			{
+				for (const std::string &ic : world->upgrades().strategicIconsForUpgrades(e.upgrades))
+				{
+					iconArr.push_back(s(ic));
+				}
+			}
+			d["upgrade_icons"] = iconArr;
+		}
 		const int rank = e.info.levelForExperience(e.experience);
 		d["rank"] = rank;
 		float progress = -1.0f;

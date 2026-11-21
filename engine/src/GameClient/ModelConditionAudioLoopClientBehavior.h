@@ -5,7 +5,9 @@
 // ModelConditionAudioLoopClientBehavior: a ClientBehavior module (ModuleFactory name string RW 0xC0A5CC, registered at RW 0x65BBF2 with the create procs
 // RW 0x652B03 / data RW 0x652B3B, type 3, interface mask 0x1000; module vtable RW 0xC76088) that keeps one sound playing while its drawable's model condition
 // flags select it: the units' taunts, cheers and pointing voices (EMOTION_TAUNTING / EMOTION_CELEBRATING / EMOTION_POINTING / RAISING_FLAG), a structure's
-// collapse sound (RUBBLE). Client presentation: no simulation state, nothing in the hash or the save (the vtable's crc / xfer / loadPostProcess are RW 0x63F3BF).
+// collapse sound (RUBBLE). Client presentation: no simulation state, nothing in the hash or the save (the vtable's crc / loadPostProcess are RW 0x63F3BF;
+// slot +0x0C is the shared empty ClientBehavior::xfer RW 0x008CE37F: DrawableModule::xfer 0x7082E2 + xferVersion(1) 0x404F15, no own fields; getModuleName
+// RW 0x008D0380, getModuleNameKey RW 0x008D0386, scalar deleting dtor RW 0x008D05D7 -> ~ModelConditionAudioLoopClientBehavior RW 0x008D055C).
 //
 // TARGET FACTS (RotWK game.dat, caveat S-001):
 //   * data (size 0x14, ctor RW 0x8D0668, vtable RW 0xC760D8, field table RW 0xC761A4): ModelCondition (RW 0x8D07CF) appends an entry to the vector at + 8.

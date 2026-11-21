@@ -108,6 +108,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x0064DFEB (this-0x0C adjuster thunk, vtable RW 0xC668A0 slot 1), RW 0x009E35EF (vtable RW 0xC668E0 slot 12, fld +0x38 percent rate)
 class GateOpenAndCloseBehavior : public UpdateModule, public CollideModuleInterface
 {
 public:

@@ -110,6 +110,7 @@ public:
 	bool getEntryPosition(Coord3D &out) const override;
 	bool getEntryOffset(Coord3D &out) const override;
 	bool getExitOffset(Coord3D &out) const override;
+	void onContainedAboutToTakeDamage(Object *rider, const void *damageSource, struct DamageInfo *info) override; // RW 0x0087A3A4
 	void orderAllPassengersToExit(int source) override;
 	void orderAllPassengersToIdle(int source) override;
 	Player *getApparentControllingPlayer(const Player *observingPlayer) const override; // RW 0x0087B392

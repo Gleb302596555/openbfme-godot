@@ -812,6 +812,17 @@ void GarrisonContain::onBodyDamageStateChange(const DamageInfo *, BodyDamageType
 	}
 }
 
+// RW 0x0087A3A4 (DONOR BFME2 0x00479C0C): contain vslot 0x68 on HordeGarrisonContain (and subclasses TunnelContain, SlaughterHordeContain,
+// CitadelSlaughterHordeContain): forwards to OpenContain::onContainedAboutToTakeDamage (RW 0x00865631) only when rider->getContain() == nullptr
+void GarrisonContain::onContainedAboutToTakeDamage(Object *rider, const void *damageSource, DamageInfo *info)
+{
+	if (isHordeGarrison() && rider && rider->getContain() != nullptr)
+	{
+		return;
+	}
+	OpenContain::onContainedAboutToTakeDamage(rider, damageSource, info);
+}
+
 void GarrisonContain::orderAllPassengersToIdle(int source)
 {
 	const std::vector<Object *> riders(m_contained.begin(), m_contained.end());

@@ -276,6 +276,7 @@ void CombatModules::registerAll(ModuleFactory &modules)
 	bindRuntime<ImmortalBody, ActiveBodyModuleData>(modules, "ImmortalBody");
 	modules.bindTypedData<ActiveBodyModuleData>("HighlanderBody", MODULETYPE_BEHAVIOR);
 	bindRuntime<HighlanderBody, ActiveBodyModuleData>(modules, "HighlanderBody");
+	// PorcupineFormationBodyModule: getModuleName RW 0x008C61C4, getModuleNameKey RW 0x008C61E3 (DONOR BFME2 0x004C2010 / 0x004C2034)
 	modules.bindTypedData<PorcupineFormationBodyModuleData>("PorcupineFormationBodyModule", MODULETYPE_BEHAVIOR);
 	bindRuntime<PorcupineFormationBody, PorcupineFormationBodyModuleData>(modules, "PorcupineFormationBodyModule");
 	modules.bindTypedData<DestroyDieModuleData>("DestroyDie", MODULETYPE_BEHAVIOR);

@@ -121,6 +121,9 @@ public:
 	// of a dead object's floor on, FloorFadeRateOnObjectDeath). Off by default.
 	void Set_Floor_Blend(bool on) { FloorBlend = on; }
 	bool Floor_Blend() const { return FloorBlend; }
+	// W3DBuffDraw (W3DBuffBuffer::Draw RW 0x004D20C6): additive, no depth write, no alpha test, no fog.
+	void Set_Buff_Blend(bool on) { BuffBlend = on; }
+	bool Buff_Blend() const { return BuffBlend; }
 	// P-92 / Local 49: Vegetation.fx (W3DTreeBuffer / W3DShrubBuffer) lights both sides with abs(N.L) and ignores VertexMaterial colours
 	void Set_Vegetation(bool on) { Vegetation = on; }
 	bool Is_Vegetation() const { return Vegetation; }
@@ -177,6 +180,7 @@ private:
 	bool AlphaOverride = false;
 	bool ParticleColor = false;
 	bool FloorBlend = false;
+	bool BuffBlend = false;
 	bool SelectionDecals = false; // lane SELWALL-1
 	bool Vegetation = false; // P-92 / Local 49
 	// Shared entries live while a requesting factory owns them; the process lookup

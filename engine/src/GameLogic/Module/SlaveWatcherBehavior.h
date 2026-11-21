@@ -53,6 +53,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008878B4 (getModuleName), RW 0x0088796A (ModuleData scalar deleting dtor -> RW 0x00887986), RW 0x00887B56 (scalar deleting dtor -> RW 0x008879C5)
 class SlaveWatcherBehavior : public UpdateModule
 {
 public:

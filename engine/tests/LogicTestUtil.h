@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "doctest.h"
+
 #include "HordeCompleteTestUtil.h"
 #include "Common/Upgrade.h"
 #include "ObjectTestUtil.h"

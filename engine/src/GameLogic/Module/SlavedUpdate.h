@@ -136,6 +136,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p); // RW 0xC08420
 };
 
+// RW 0x008A4F61 (getModuleName)
 class SlavedUpdate : public UpdateModule, public SlavedUpdateInterface
 {
 	// RW 0x8A4FC8 is the deleting destructor; the runtime's unique_ptr ownership calls the implicit destructor and Module base cleanup.

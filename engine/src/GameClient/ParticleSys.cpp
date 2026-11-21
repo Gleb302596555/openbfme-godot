@@ -1518,8 +1518,10 @@ bool ParticleSystem::updateParticle(int index)
 		}
 		else
 		{
-			// RW 0x96af99
+			// RW 0x0096AF99 (DefaultUpdate::update); DefaultUpdate's getSizeX / getSizeY / getSizeZ (vtable RW 0x00C32BD0 / 0x00C333C4
+			// slots +0x14..+0x1C) all call RW 0x006AA274 (fld [ecx+0x10]), so all three axes grow with m_size (read by RenderObjectDraw RW 0x00964C00).
 			u.size[0] += u.sizeRate[0];
+			u.size[1] = u.size[2] = u.size[0];
 			u.sizeRate[0] = u.sizeDamping[0] * u.sizeRate[0];
 			u.angleZ += u.angularRateZ;
 			u.angularRateZ = u.angularDamping * u.angularRateZ;

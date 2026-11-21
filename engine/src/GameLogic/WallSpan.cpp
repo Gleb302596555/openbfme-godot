@@ -142,6 +142,7 @@ WallHubBehavior::WallHubBehavior(Thing *thing, const WallHubBehaviorModuleData *
 	setWakeFrame(getObject(), UPDATE_SLEEP_NONE);
 }
 
+// RW 0x005F2D3D (WallHubInterface slot 11 +0x2C)
 float WallHubBehavior::builderRadius() const
 {
 	// module + 0x24, set by the constructor; the bounding circle (a function of the template's geometry, fixed for the object) is asked when needed, so a logic without an
@@ -154,6 +155,7 @@ const ThingTemplate *WallHubBehavior::byName(const std::string &name) const
 	return name.empty() ? nullptr : getObject()->logic().things().findTemplate(name);
 }
 
+// RW 0x0085601C (WallHubInterface slot 1 +0x04; epilogue RW 0x0085603C)
 const ThingTemplate *WallHubBehavior::patternTemplate(unsigned index) const
 {
 	// RW 0x855FF1: an empty list answers the empty string (no template)
@@ -163,9 +165,9 @@ const ThingTemplate *WallHubBehavior::patternTemplate(unsigned index) const
 	}
 	return byName(m_data->m_segmentTemplateNames[index % m_data->m_segmentTemplateNames.size()]);
 }
-const ThingTemplate *WallHubBehavior::hubCapTemplate() const { return byName(m_data->m_hubCapTemplateName); }
-const ThingTemplate *WallHubBehavior::defaultSegmentTemplate() const { return byName(m_data->m_defaultSegmentTemplateName); }
-const ThingTemplate *WallHubBehavior::cliffCapTemplate() const { return byName(m_data->m_cliffCapTemplateName); }
+const ThingTemplate *WallHubBehavior::hubCapTemplate() const { return byName(m_data->m_hubCapTemplateName); } // RW 0x00855F7D
+const ThingTemplate *WallHubBehavior::defaultSegmentTemplate() const { return byName(m_data->m_defaultSegmentTemplateName); } // RW 0x00855F95
+const ThingTemplate *WallHubBehavior::cliffCapTemplate() const { return byName(m_data->m_cliffCapTemplateName); } // RW 0x00855FAD
 
 bool WallHubBehavior::maxBuildoutDistance(float &out) const
 {

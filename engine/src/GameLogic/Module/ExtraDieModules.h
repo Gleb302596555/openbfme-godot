@@ -76,6 +76,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x00888BC7 (getModuleName), RW 0x00888C68 (getModuleNameKey), RW 0x00888D3E / RW 0x00888BAE (dtor)
 class CreateObjectDie : public BehaviorModule, public DieModuleInterface
 {
 public:
@@ -104,6 +105,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x00885EA5 (loadPostProcess -> RW 0x0063F3BF no-op for base & UpgradeMux), RW 0x00885F81 (getModuleName), RW 0x00885F87 (getModuleNameKey), RW 0x00886129 (scalar deleting dtor -> RW 0x00885FCC)
 class FireWeaponWhenDeadBehavior : public UpdateModule, public UpgradeMux, public DieModuleInterface
 {
 public:
@@ -137,6 +139,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x00889E20 (getModuleName), RW 0x00889E26 (getModuleNameKey), RW 0x00889E95 / RW 0x00889E07 (dtor)
 class UpgradeDie : public BehaviorModule, public DieModuleInterface
 {
 public:
@@ -160,6 +163,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008C6427 (getModuleName), RW 0x008C645D (getModuleNameKey), RW 0x008C64E2 / RW 0x008C640E (dtor)
 class HeroDie : public BehaviorModule, public DieModuleInterface
 {
 public:

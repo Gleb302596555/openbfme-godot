@@ -77,13 +77,13 @@ public:
 	void crc(StateHasher &hasher) const override;
 	const WallHubBehaviorModuleData *data() const { return m_data; }
 	// the interface (RW 0xC565A8); a template name the store lacks answers null (as RW 0x6D1305)
-	const ThingTemplate *patternTemplate(unsigned index) const; // slot 1
-	const ThingTemplate *hubCapTemplate() const;                // slot 2
-	const ThingTemplate *defaultSegmentTemplate() const;        // slot 3
-	const ThingTemplate *cliffCapTemplate() const;              // slot 4
-	float builderRadius() const;                                 // slot 11
-	bool maxBuildoutDistance(float &out) const;                 // slot 12
-	int staggeredBuildFactor() const { return m_data->m_staggeredBuildFactor; } // slot 14
+	const ThingTemplate *patternTemplate(unsigned index) const; // slot 1 (RW 0x0085601C, epilogue RW 0x0085603C)
+	const ThingTemplate *hubCapTemplate() const;                // slot 2 (RW 0x00855F7D)
+	const ThingTemplate *defaultSegmentTemplate() const;        // slot 3 (RW 0x00855F95)
+	const ThingTemplate *cliffCapTemplate() const;              // slot 4 (RW 0x00855FAD)
+	float builderRadius() const;                                 // slot 11 (RW 0x005F2D3D)
+	bool maxBuildoutDistance(float &out) const;                 // slot 12 (RW 0x00855EA0)
+	int staggeredBuildFactor() const { return m_data->m_staggeredBuildFactor; } // slot 14 (RW 0x00855E88)
 
 	// RW 0x693B55: the hub module of `obj` whose Options are `options` (0: the first one)
 	static WallHubBehavior *find(const Object &obj, unsigned options);

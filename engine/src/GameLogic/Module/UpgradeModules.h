@@ -112,6 +112,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008BC73B (getModuleName), RW 0x008BC741 (getModuleNameKey), RW 0x008BC7D9 / RW 0x008BC71B (dtor)
 class CommandPointsUpgrade : public UpgradeModule
 {
 public:

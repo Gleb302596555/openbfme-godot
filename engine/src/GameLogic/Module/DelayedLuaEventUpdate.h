@@ -38,6 +38,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p); // RW 0xC84858: empty
 };
 
+// RW 0x008AC5C5 (scalar deleting dtor -> RW 0x008AC420)
 class DelayedLuaEventUpdate : public UpdateModule
 {
 public:
