@@ -158,6 +158,15 @@ void AIFollowPathState::xfer(Xfer &x)
 	xferMove(x, ai().mover(), m_move);
 }
 
+// RW 0x00742821 (AIMoveAndEvacuateState::xfer)
+void AIMoveAndEvacuateState::xfer(Xfer &x)
+{
+	XferVersion v{ 1, 1 };
+	x.xferVersion(v);
+	AIMoveToMachineState::xfer(x);
+	AIXfer::coord(x, m_origin);
+}
+
 void AIWanderInPlaceState::xfer(Xfer &x)
 {
 	XferVersion v{ 1, 1 };

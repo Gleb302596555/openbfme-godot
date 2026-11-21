@@ -570,7 +570,9 @@ include(cmake/Local96.cmake)    # LOCAL-96: DozerAIUpdate and WorkerAIUpdate bui
 include(cmake/Local99.cmake)    # LOCAL-99: unit behaviour modules uncited own functions (issue #764; OPENBFME_LOCAL99_TESTS)
 include(cmake/Local101.cmake)   # LOCAL-101: special AI modules SiegeDockingBehavior & HordeWorkerAIUpdate (fork issue 771; OPENBFME_LOCAL101_TESTS)
 include(cmake/Local103.cmake)   # LOCAL-103: client draw modules (issue #773; OPENBFME_LOCAL103_TESTS)
+include(cmake/Local109.cmake)   # LOCAL-109: builders and walls second pass (fork issue 787; OPENBFME_LOCAL109_TESTS)
 include(cmake/Local110.cmake)   # LOCAL-110: projectiles and fields uncited functions (issue #788; OPENBFME_LOCAL110_TESTS)
+include(cmake/Local114.cmake)   # LOCAL-114: AIUpdateInterface third pass (fork issue 798; OPENBFME_LOCAL114_TESTS)
 include(cmake/Port224.cmake)    # PORT-224: destroying a creep lair or worker-rebuilt structure mid-rebuild fades the hole without money or treasure (issue #534; OPENBFME_PORT224_TESTS)
 include(cmake/Port222.cmake)    # PORT-222: a LevelGrantSpecialPower fills a horde's experience pool (fork issue 532; OPENBFME_PORT222_TESTS)
 include(cmake/Port301.cmake)    # PORT-301: ShareExperienceBehavior — the shared experience of a hero (fork issue 693; OPENBFME_PORT301_TESTS)
@@ -1392,7 +1394,9 @@ add_executable(openbfme_tests
     ${OPENBFME_LOCAL99_TESTS}
     ${OPENBFME_LOCAL101_TESTS}
     ${OPENBFME_LOCAL103_TESTS}
+    ${OPENBFME_LOCAL109_TESTS}
     ${OPENBFME_LOCAL110_TESTS}
+    ${OPENBFME_LOCAL114_TESTS}
     ${OPENBFME_PORT224_TESTS}
     ${OPENBFME_PORT222_TESTS}
     ${OPENBFME_PORT206_TESTS}

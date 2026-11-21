@@ -1861,6 +1861,8 @@ void ManTheWallsSpecialPower::manTheWalls()
 	static const int kHorde = ObjectTemplateInfoBuilder::kindOfIndex("HORDE");
 
 	// Step 1: Query for allied TACTICAL_MARKER objects (RW 0x8CBCCE, DONOR BFME2 0x004C78AF)
+	// MarkerEntry ctor RW 0x008CB742, copy ctor RW 0x008CB758 (vector<Object*> copy RW 0x005F1920),
+	// vector<MarkerEntry> push_back RW 0x008CBC97, range destroy RW 0x008CBA27, dtor RW 0x008CBB86.
 	struct MarkerEntry
 	{
 		Object *marker;
@@ -1891,7 +1893,7 @@ void ManTheWallsSpecialPower::manTheWalls()
 		}
 	}
 
-	// Step 3: Assign hordes to markers (RW 0x8CBB53, DONOR BFME2 0x004C7734 / 0x004C76AC)
+	// Step 3: Assign hordes to markers (RW 0x8CBB53 -> balanced marker selector RW 0x008CBACB, DONOR BFME2 0x004C7734 / 0x004C76AC)
 	for (Object *horde : hordes)
 	{
 		const Coord3D &hordePos = *horde->getPosition();
@@ -1934,7 +1936,8 @@ void ManTheWallsSpecialPower::manTheWalls()
 		markers[chosenIndex].members.push_back(horde);
 	}
 
-	// Step 4: Issue group move order for each marker with members (RW 0x8CBEC3 -> 0x8CB5A6, DONOR BFME2 0x004C7167)
+	// Step 4: Issue group move order for each marker with members (RW 0x008CB5A6, group-add loop RW 0x008CB4F1, DONOR BFME2 0x004C7167)
+	// RW 0x008CB5E1 pushes 0 (CMD_FROM_PLAYER) to AIGroup::groupMoveToPosition (RW 0x00774897).
 	for (const MarkerEntry &entry : markers)
 	{
 		if (entry.members.empty())
@@ -1948,7 +1951,7 @@ void ManTheWallsSpecialPower::manTheWalls()
 			ids.push_back(member->getID());
 		}
 		AIGroup group(logic, ids);
-		group.groupMoveToPosition(*entry.marker->getPosition(), false, CMD_FROM_AI);
+		group.groupMoveToPosition(*entry.marker->getPosition(), false, CMD_FROM_PLAYER);
 	}
 }
 

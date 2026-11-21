@@ -165,6 +165,7 @@ DozerAIUpdate::DozerAIUpdate(Thing *thing, const ModuleData *data)
 	}
 }
 
+// RW 0x0088C8CA (getModuleNameKey) / RW 0x0088C90F (getModuleName): "DozerAIUpdate" (0xC0B1E8)
 void DozerAIUpdate::registerClass(ModuleFactory &modules)
 {
 	modules.bindModuleProc("DozerAIUpdate", MODULETYPE_BEHAVIOR, [](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &info) -> std::unique_ptr<Module> {
@@ -182,9 +183,40 @@ void DozerAIUpdate::registerWorkerClass(ModuleFactory &modules)
 	WorkerAIUpdate::registerClass(modules); // lane LUMBER1: the dozer half here, the supply half in WorkerAIUpdate
 }
 
+// RW 0x0088D1AC (dtor) / RW 0x0088D692 (scalar deleting dtor)
 DozerAIUpdate::~DozerAIUpdate()
 {
 	finishBuildingSound(); // RW 0x88D1F6
+}
+
+// RW 0x0088D186 (DozerAIUpdate::loadPostProcess; DONOR BFME2 DozerAIUpdateCtor.cpp:494):
+// calls AIUpdateInterface::loadPostProcess (RW 0x00667BEF), then if m_unplacedStructure (+0x568) != 0
+// tail-calls makePhantomStructureInert (RW 0x0088D0D8): clears dangling id if missing, else sets
+// effectively dead (RW 0x0068D950(1)) and removes from world if inWorld (RW 0x0068C18F).
+void DozerAIUpdate::loadPostProcess()
+{
+	AIUpdateInterface::loadPostProcess();
+	if (m_unplacedStructure == INVALID_ID)
+	{
+		return;
+	}
+	Object *self = getObject();
+	if (!self)
+	{
+		return;
+	}
+	GameLogic &logic = self->logic();
+	Object *phantom = logic.findObjectByID(m_unplacedStructure); // RW 0x0088D0ED
+	if (!phantom || phantom->isDestroyed())
+	{
+		m_unplacedStructure = INVALID_ID; // RW 0x0088D0F8
+		return;
+	}
+	phantom->friend_setEffectivelyDead(true); // RW 0x0088D104 -> 0x0068D950(1)
+	if (phantom->isInWorld()) // RW 0x0088D109
+	{
+		logic.friend_containLeaveWorld(*phantom); // RW 0x0088D114 -> 0x0068C18F
+	}
 }
 
 void DozerAIUpdate::onOwnerDie()
@@ -201,7 +233,8 @@ void DozerAIUpdate::onOwnerDie()
 
 void DozerAIUpdate::onDelete()
 {
-	// RW 0x0088CF96 (DozerAIUpdate::onDelete, main vslot +0x20; WorkerAIUpdate::onDelete RW 0x008AE203 has the same body):
+	// RW 0x0088CF96 (DozerAIUpdate::onDelete, main vslot +0x20; DozerAIInterface adjustor thunk RW 0x0088D1A1;
+	// WorkerAIUpdate::onDelete RW 0x008AE203, adjustor thunk RW 0x008AE456, has the same body):
 	// cancel every pending task (0..2), clear ACTIVELY_BEING_CONSTRUCTED (+0x114 bit 0x20) on any remaining task target,
 	// then stop the held building sound (finishBuildingSound, interface slot +0x60).
 	for (int t = 0; t < DOZER_NUM_TASKS; ++t)
@@ -601,7 +634,7 @@ bool DozerAIUpdate::siteIsLegal(const ThingTemplate &what, const Coord3D &pos, f
 
 Object *DozerAIUpdate::construct(const ThingTemplate &what, const Coord3D &pos, float angle, Player &owner, bool isRebuild)
 {
-	// RW 0x88C217: + 0x4D0 = the rebuild flag first (lane BFME2CAMP1); the machine made, nothing is created, paid or changed when the site is not legal
+	// RW 0x0088C217 (DozerAIInterface adjustor thunk RW 0x0088C931): + 0x4D0 = the rebuild flag first (lane BFME2CAMP1); the machine made, nothing is created, paid or changed when the site is not legal
 	m_isRebuild = isRebuild;
 	if (m_primaryState < 0)
 	{
