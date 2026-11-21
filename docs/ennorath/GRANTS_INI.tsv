@@ -315,12 +315,12 @@ upgrade	Upgrade_AngmarBasicTraining	Upgrades	ExperienceLevel DarkDunedainNew2		d
 upgrade	Upgrade_AngmarCorpseRain	UpgradeToGrant	Behavior =		data\ini\object\evilfaction\units\angmar\angmarnecroacolyte.ini
 upgrade	Upgrade_AngmarCorpseRain	Upgrade	CommandButton Command_PurchaseUpgradeAngmarCorpseRain		data\ini\commandbutton.ini
 upgrade	Upgrade_AngmarCorpseRain	Upgrade	CommandButton Command_UpgradeNecromantFrost		data\ini\commandbutton.ini
-upgrade	Upgrade_AngmarDarkIronArmor	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\evilfaction\units\angmar\angmarsnowtroll.ini
 upgrade	Upgrade_AngmarDarkIronArmor	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\evilfaction\units\angmar\angmarhilltroll.ini
+upgrade	Upgrade_AngmarDarkIronArmor	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\evilfaction\units\angmar\angmarsnowtroll.ini
 upgrade	Upgrade_AngmarDarkIronArmor	Upgrade	CommandButton Command_PurchaseUpgradeAngmarDarkIronArmor		data\ini\commandbutton.ini
 upgrade	Upgrade_AngmarDarkIronArmor	Upgrade	ModifierList ElegostBonus2		data\ini\includes\attributemodifier.inc
-upgrade	Upgrade_AngmarDarkIronBlades	UpgradeToGrant	Behavior =		data\ini\object\evilfaction\units\angmar\angmarsnowtroll.ini
 upgrade	Upgrade_AngmarDarkIronBlades	UpgradeToGrant	Behavior =		data\ini\object\evilfaction\units\angmar\angmarhilltroll.ini
+upgrade	Upgrade_AngmarDarkIronBlades	UpgradeToGrant	Behavior =		data\ini\object\evilfaction\units\angmar\angmarsnowtroll.ini
 upgrade	Upgrade_AngmarDarkIronBlades	UpgradeToGrant	ChildObject AngmarCarnDumOrc_ThreeGlobe	GrantUpgradeCreate	data\ini\object\evilfaction\units\angmar\new\carndumorcs.ini
 upgrade	Upgrade_AngmarDarkIronBlades	Upgrade	CommandButton Command_PurchaseUpgradeAngmarDarkIronBlades		data\ini\commandbutton.ini
 upgrade	Upgrade_AngmarDarkIronBlades	Upgrade	ModifierList ElegostBonus1		data\ini\includes\attributemodifier.inc
@@ -338,8 +338,8 @@ upgrade	Upgrade_AngmarFortressHouseOfLamentation	Upgrade	Behavior =	CastleUpgrad
 upgrade	Upgrade_AngmarFortressHouseOfLamentation	Upgrade	CommandButton Command_PurchaseUpgradeAngmarFortressHouseOfLamentation		data\ini\commandbutton.ini
 upgrade	Upgrade_AngmarFortressIceMunitions	Upgrade	Behavior =	CastleUpgrade	data\ini\object\evilfaction\structures\angmar\angmarfortress.ini
 upgrade	Upgrade_AngmarFortressIceMunitionsTrigger	Upgrade	CommandButton Command_PurchaseUpgradeAngmarFortressIceMunitions		data\ini\commandbutton.ini
-upgrade	Upgrade_AngmarFortressIceWalls	Upgrade	Behavior =	CastleUpgrade	data\ini\object\evilfaction\structures\angmar\angmarfortress.ini
 upgrade	Upgrade_AngmarFortressIceWalls	Upgrade	Behavior =	InheritUpgradeCreate	data\ini\object\evilfaction\structures\angmar\angmarcastlewalls.ini
+upgrade	Upgrade_AngmarFortressIceWalls	Upgrade	Behavior =	CastleUpgrade	data\ini\object\evilfaction\structures\angmar\angmarfortress.ini
 upgrade	Upgrade_AngmarFortressIceWalls	Upgrade	Object AngmarWallGateSmall	InheritUpgradeCreate	data\ini\object\evilfaction\structures\angmar\angmarcastlewalls.ini
 upgrade	Upgrade_AngmarFortressIceWallsTrigger	Upgrade	CommandButton Command_PurchaseUpgradeAngmarFortressIceWalls		data\ini\commandbutton.ini
 upgrade	Upgrade_AngmarFortressSanctum	Upgrade	CommandButton Command_PurchaseUpgradeAngmarFortressSanctum		data\ini\commandbutton.ini
@@ -361,17 +361,17 @@ upgrade	Upgrade_AngmarHexerdesZwielichtsTrigger	UpgradeToGrant	Object DarkMagicC
 upgrade	Upgrade_AngmarIceArrows	Upgrade	CommandButton Command_PurchaseUpgradeAngmarIceArrows		data\ini\commandbutton.ini
 upgrade	Upgrade_AngmarIceArrows	Upgrade	ModifierList ElegostBonus3		data\ini\includes\attributemodifier.inc
 upgrade	Upgrade_AngmarIceShot	Upgrade	CommandButton Command_PurchaseUpgradeAngmarIceShot		data\ini\commandbutton.ini
-upgrade	Upgrade_AngmarSchwarzeGarde	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\rivendellbuildings.ini
-upgrade	Upgrade_AngmarSchwarzeGarde	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\helmsdeepbuildings.ini
-upgrade	Upgrade_AngmarSchwarzeGarde	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\minasmorgulbuildings.ini
-upgrade	Upgrade_AngmarSchwarzeGarde	Upgrade	Behavior =	CastleUpgrade	data\ini\object\goodfaction\structures\men\campsandcastles.ini
-upgrade	Upgrade_AngmarSchwarzeGarde	Upgrade	Behavior =	CastleUpgrade	data\ini\object\evilfaction\structures\isengard\campsandcastles.ini
-upgrade	Upgrade_AngmarSchwarzeGarde	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\amonsulbuildings.ini
-upgrade	Upgrade_AngmarSchwarzeGarde	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\angfornostbuildings.ini
-upgrade	Upgrade_AngmarSchwarzeGarde	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\ereborbuildings.ini
-upgrade	Upgrade_AngmarSchwarzeGarde	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\carndumbuildings.ini
-upgrade	Upgrade_AngmarSchwarzeGarde	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\bluemountains.ini
 upgrade	Upgrade_AngmarSchwarzeGarde	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\civilianbuildings.ini
+upgrade	Upgrade_AngmarSchwarzeGarde	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\rivendellbuildings.ini
+upgrade	Upgrade_AngmarSchwarzeGarde	Upgrade	Behavior =	CastleUpgrade	data\ini\object\goodfaction\structures\men\campsandcastles.ini
+upgrade	Upgrade_AngmarSchwarzeGarde	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\angfornostbuildings.ini
+upgrade	Upgrade_AngmarSchwarzeGarde	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\bluemountains.ini
+upgrade	Upgrade_AngmarSchwarzeGarde	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\minasmorgulbuildings.ini
+upgrade	Upgrade_AngmarSchwarzeGarde	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\ereborbuildings.ini
+upgrade	Upgrade_AngmarSchwarzeGarde	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\helmsdeepbuildings.ini
+upgrade	Upgrade_AngmarSchwarzeGarde	Upgrade	Behavior =	CastleUpgrade	data\ini\object\evilfaction\structures\isengard\campsandcastles.ini
+upgrade	Upgrade_AngmarSchwarzeGarde	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\carndumbuildings.ini
+upgrade	Upgrade_AngmarSchwarzeGarde	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\amonsulbuildings.ini
 upgrade	Upgrade_AngmarSchwarzeGarde	Upgrade	Object MBMMTower	CastleUpgrade	data\ini\object\civilian\minasmorgulbuildings.ini
 upgrade	Upgrade_AngmarSchwarzeGarde	Upgrade	Object MordorCirithUngolTowerA_Edain	CastleUpgrade	data\ini\object\civilian\civilianbuildings.ini
 upgrade	Upgrade_AngmarSchwarzeGarde	Upgrade	Object RohanGoldeneHalleForEdoras	CastleUpgrade	data\ini\object\goodfaction\structures\rohan\goldenhall.ini
@@ -463,8 +463,8 @@ upgrade	Upgrade_ArnorFortressImladrisAlly	Upgrade	CommandButton Command_Purchase
 upgrade	Upgrade_ArnorFortressImladrisAlly	UpgradeToGrant	Object AICardolanChoicePing	GrantUpgradeCreate	data\ini\object\goodfaction\structures\arnor\new\cardolancamp.ini
 upgrade	Upgrade_ArnorFortressIvoryTower	Upgrade	CommandButton Command_PurchaseUpgradeArnorFortressIvoryTower		data\ini\commandbutton.ini
 upgrade	Upgrade_ArnorFortressIvoryTower	Upgrade	CommandButton Command_PurchaseUpgradeArnorFortressIvoryTowerMod		data\ini\includes\commandbutton.inc
-upgrade	Upgrade_ArnorFortressNumenorStonework	Upgrade	Behavior =	CastleUpgrade	data\ini\object\goodfaction\structures\arnor\arnorfortress.ini
 upgrade	Upgrade_ArnorFortressNumenorStonework	Upgrade	Behavior =	InheritUpgradeCreate	data\ini\object\goodfaction\structures\arnor\arnorcampsandcastles.ini
+upgrade	Upgrade_ArnorFortressNumenorStonework	Upgrade	Behavior =	CastleUpgrade	data\ini\object\goodfaction\structures\arnor\arnorfortress.ini
 upgrade	Upgrade_ArnorFortressNumenorStonework	Upgrade	Object ArnorWallCliffCap	InheritUpgradeCreate	data\ini\object\goodfaction\structures\arnor\arnorcampsandcastles.ini
 upgrade	Upgrade_ArnorFortressNumenorStonework	Upgrade	Object ArnorWallGateSmall	InheritUpgradeCreate	data\ini\object\goodfaction\structures\arnor\arnorcampsandcastles.ini
 upgrade	Upgrade_ArnorFortressNumenorStonework	Upgrade	Object ArnorWallHubSmallUpgradeable	InheritUpgradeCreate	data\ini\object\goodfaction\structures\arnor\arnorcampsandcastles.ini
@@ -527,16 +527,16 @@ upgrade	Upgrade_BelfalasMessage	Upgrade	CommandButton Command_PurchaseMithlondMe
 upgrade	Upgrade_BelfalasMessage	Upgrade	CommandButton Command_PurchaseMordorMessage		data\ini\includes\commandbutton.inc
 upgrade	Upgrade_BelfalasMessage	Upgrade	CommandButton Command_PurchaseRhunMessage		data\ini\commandbutton.ini
 upgrade	Upgrade_BelfalasMessage	UpgradeToGrant	Object WorTavernPing	GrantUpgradeCreate	data\ini\object\goodfaction\units\arnor\new\lossothhero.ini
-upgrade	Upgrade_BndnisWaldelben	Upgrade	Behavior =	CastleUpgrade	data\ini\object\evilfaction\structures\isengard\campsandcastles.ini
-upgrade	Upgrade_BndnisWaldelben	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\amonsulbuildings.ini
 upgrade	Upgrade_BndnisWaldelben	Upgrade	Behavior =	CastleUpgrade	data\ini\object\goodfaction\structures\men\campsandcastles.ini
-upgrade	Upgrade_BndnisWaldelben	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\minasmorgulbuildings.ini
-upgrade	Upgrade_BndnisWaldelben	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\carndumbuildings.ini
 upgrade	Upgrade_BndnisWaldelben	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\bluemountains.ini
-upgrade	Upgrade_BndnisWaldelben	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\civilianbuildings.ini
-upgrade	Upgrade_BndnisWaldelben	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\rivendellbuildings.ini
+upgrade	Upgrade_BndnisWaldelben	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\minasmorgulbuildings.ini
+upgrade	Upgrade_BndnisWaldelben	Upgrade	Behavior =	CastleUpgrade	data\ini\object\evilfaction\structures\isengard\campsandcastles.ini
+upgrade	Upgrade_BndnisWaldelben	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\carndumbuildings.ini
 upgrade	Upgrade_BndnisWaldelben	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\helmsdeepbuildings.ini
+upgrade	Upgrade_BndnisWaldelben	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\rivendellbuildings.ini
 upgrade	Upgrade_BndnisWaldelben	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\angfornostbuildings.ini
+upgrade	Upgrade_BndnisWaldelben	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\amonsulbuildings.ini
+upgrade	Upgrade_BndnisWaldelben	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\civilianbuildings.ini
 upgrade	Upgrade_BndnisWaldelben	Upgrade	CommandButton Command_PurchaseUpgradeBndnisWaldelben_Done		data\ini\includes\commandbutton.inc
 upgrade	Upgrade_BndnisWaldelben	Upgrade	Object ImladrisCitadel	CastleUpgrade	data\ini\object\goodfaction\structures\imladris\imladrisfortress.ini
 upgrade	Upgrade_BndnisWaldelben	Upgrade	Object LothlorienYavannasBeistand	CastleUpgrade	data\ini\object\goodfaction\structures\lothlorien\yavannasbeistand.ini
@@ -546,8 +546,8 @@ upgrade	Upgrade_BndnisWaldelben	Upgrade	Object WOR_IsengardCastleBaseKeep_Edain	
 upgrade	Upgrade_BndnisWaldelben	Upgrade	SelectPortrait =	CastleUpgrade	data\ini\object\evilfaction\structures\isengard\toweroforthanc.ini
 upgrade	Upgrade_BndnisWaldelbenTrigger	Upgrade	CommandButton Command_PurchaseUpgradeBndnisWaldelben		data\ini\includes\commandbutton.inc
 upgrade	Upgrade_BndnisWaldelbenTrigger	Upgrade	CommandButton Command_PurchaseUpgradeBndnisWaldelben_New		data\ini\includes\commandbutton.inc
-upgrade	Upgrade_BruchtalBasicTraining	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\goodfaction\hordes\imladris\imladrishordes.ini
 upgrade	Upgrade_BruchtalBasicTraining	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\goodfaction\units\elven\elvenrivendelllancer.ini
+upgrade	Upgrade_BruchtalBasicTraining	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\goodfaction\hordes\imladris\imladrishordes.ini
 upgrade	Upgrade_BruchtalBasicTraining	Upgrade	CommandButton Command_PurchaseUpgradeBruchtalBasicTraining		data\ini\includes\commandbutton.inc
 upgrade	Upgrade_BruchtalBasicTraining	Upgrade	CommandButton Command_PurchaseUpgradeBruchtalBasicTrainingDun		data\ini\includes\commandbutton.inc
 upgrade	Upgrade_BruchtalBasicTraining	Upgrade	CommandButton Command_PurchaseUpgradeLindonBasicTraining		data\ini\includes\commandbutton.inc
@@ -558,8 +558,8 @@ upgrade	Upgrade_BruchtalFireArrows	Upgrade	CommandButton Command_PurchaseUpgrade
 upgrade	Upgrade_BruchtalFireArrows	Upgrade	CommandButton Command_PurchaseUpgradeLindonFireArrowsNew		data\ini\includes\commandbutton.inc
 upgrade	Upgrade_BruchtalFireArrowsLindon	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\goodfaction\units\imladris\lindonwchter.ini
 upgrade	Upgrade_BruchtalFireArrowsLindon	Upgrade	CommandButton Command_PurchaseUpgradeBruchtalFireArrows_forLindonUnits		data\ini\includes\commandbutton.inc
-upgrade	Upgrade_BruchtalForgedBlades	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\goodfaction\hordes\imladris\imladrishordes.ini
 upgrade	Upgrade_BruchtalForgedBlades	UpgradeToGrant	Behavior =		data\ini\object\goodfaction\units\elven\elvenrivendelllancer.ini
+upgrade	Upgrade_BruchtalForgedBlades	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\goodfaction\hordes\imladris\imladrishordes.ini
 upgrade	Upgrade_BruchtalForgedBlades	Upgrade	CommandButton Command_PurchaseUpgradeBruchtalForgedBlades		data\ini\includes\commandbutton.inc
 upgrade	Upgrade_BruchtalForgedBlades	Upgrade	CommandButton Command_PurchaseUpgradeBruchtalForgedBladesAlone		data\ini\includes\commandbutton.inc
 upgrade	Upgrade_BruchtalForgedBlades	Upgrade	CommandButton Command_PurchaseUpgradeLindonForgedBlades		data\ini\includes\commandbutton.inc
@@ -570,8 +570,8 @@ upgrade	Upgrade_BruchtalHeavyArmor	UpgradeToGrant	Behavior =	GrantUpgradeCreate	
 upgrade	Upgrade_BruchtalHeavyArmor	UpgradeToGrant	Behavior =		data\ini\object\goodfaction\units\elven\elvenrivendelllancer.ini
 upgrade	Upgrade_BruchtalHeavyArmor	UpgradeToGrant	Behavior =		data\ini\object\goodfaction\hordes\imladris\imladrishordes.ini
 upgrade	Upgrade_BruchtalHeavyArmor	Upgrade	CommandButton Command_PurchaseUpgradeBruchtalHeavyArmor		data\ini\includes\commandbutton.inc
-upgrade	Upgrade_BruchtalKnightShield	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\goodfaction\units\elven\elvenrivendelllancer.ini
 upgrade	Upgrade_BruchtalKnightShield	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\goodfaction\hordes\imladris\imladrishordes.ini
+upgrade	Upgrade_BruchtalKnightShield	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\goodfaction\units\elven\elvenrivendelllancer.ini
 upgrade	Upgrade_BruchtalKnightShield	Upgrade	CommandButton Command_PurchaseUpgradeBruchtalKnightSchild		data\ini\includes\commandbutton.inc
 upgrade	Upgrade_CAPG_CHBOD01	BlingUpgradeName	CreateAHeroBling		data\ini\createaherosystemappearancebling.inc
 upgrade	Upgrade_CAPG_CHBOD01	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemmenofthewest.inc
@@ -749,20 +749,20 @@ upgrade	Upgrade_CreateAHero_ClassHeroOfTheWest	UpgradeName	CreateAHeroClass		dat
 upgrade	Upgrade_CreateAHero_ClassIstariWizard	UpgradeName	CreateAHeroClass		data\ini\createaherosystemwizard.inc
 upgrade	Upgrade_CreateAHero_ClassOlogHai	UpgradeName	CreateAHeroClass		data\ini\createaherosystemologhai.inc
 upgrade	Upgrade_CreateAHero_ClassServantsOfSauron	UpgradeName	CreateAHeroClass		data\ini\createaherosystemservantsofsauron.inc
-upgrade	Upgrade_CreateAHero_SubClass_0	UpgradeName	CreateAHeroClass		data\ini\createaherosystemmenofthewest.inc
-upgrade	Upgrade_CreateAHero_SubClass_0	UpgradeName	CreateAHeroClass		data\ini\createaherosystemwizard.inc
-upgrade	Upgrade_CreateAHero_SubClass_0	UpgradeName	CreateAHeroClass		data\ini\createaherosystemcorruptedman.inc
-upgrade	Upgrade_CreateAHero_SubClass_0	UpgradeName	CreateAHeroClass		data\ini\createaherosystemarcher.inc
-upgrade	Upgrade_CreateAHero_SubClass_0	UpgradeName	CreateAHeroClass		data\ini\createaherosystemdwarf.inc
 upgrade	Upgrade_CreateAHero_SubClass_0	UpgradeName	CreateAHeroClass		data\ini\createaherosystemologhai.inc
+upgrade	Upgrade_CreateAHero_SubClass_0	UpgradeName	CreateAHeroClass		data\ini\createaherosystemarcher.inc
+upgrade	Upgrade_CreateAHero_SubClass_0	UpgradeName	CreateAHeroClass		data\ini\createaherosystemcorruptedman.inc
+upgrade	Upgrade_CreateAHero_SubClass_0	UpgradeName	CreateAHeroClass		data\ini\createaherosystemdwarf.inc
+upgrade	Upgrade_CreateAHero_SubClass_0	UpgradeName	CreateAHeroClass		data\ini\createaherosystemwizard.inc
+upgrade	Upgrade_CreateAHero_SubClass_0	UpgradeName	CreateAHeroClass		data\ini\createaherosystemmenofthewest.inc
 upgrade	Upgrade_CreateAHero_SubClass_1	UpgradeName	CreateAHeroClass		data\ini\createaherosystemarcher.inc
-upgrade	Upgrade_CreateAHero_SubClass_1	UpgradeName	CreateAHeroClass		data\ini\createaherosystemdwarf.inc
-upgrade	Upgrade_CreateAHero_SubClass_1	UpgradeName	CreateAHeroClass		data\ini\createaherosystemologhai.inc
-upgrade	Upgrade_CreateAHero_SubClass_1	UpgradeName	CreateAHeroClass		data\ini\createaherosystemmenofthewest.inc
-upgrade	Upgrade_CreateAHero_SubClass_1	UpgradeName	CreateAHeroClass		data\ini\createaherosystemwizard.inc
 upgrade	Upgrade_CreateAHero_SubClass_1	UpgradeName	CreateAHeroClass		data\ini\createaherosystemcorruptedman.inc
-upgrade	Upgrade_CreateAHero_SubClass_2	UpgradeName	CreateAHeroClass		data\ini\createaherosystemservantsofsauron.inc
+upgrade	Upgrade_CreateAHero_SubClass_1	UpgradeName	CreateAHeroClass		data\ini\createaherosystemdwarf.inc
+upgrade	Upgrade_CreateAHero_SubClass_1	UpgradeName	CreateAHeroClass		data\ini\createaherosystemwizard.inc
+upgrade	Upgrade_CreateAHero_SubClass_1	UpgradeName	CreateAHeroClass		data\ini\createaherosystemmenofthewest.inc
+upgrade	Upgrade_CreateAHero_SubClass_1	UpgradeName	CreateAHeroClass		data\ini\createaherosystemologhai.inc
 upgrade	Upgrade_CreateAHero_SubClass_2	UpgradeName	CreateAHeroClass		data\ini\createaherosystemologhai.inc
+upgrade	Upgrade_CreateAHero_SubClass_2	UpgradeName	CreateAHeroClass		data\ini\createaherosystemservantsofsauron.inc
 upgrade	Upgrade_CreateAHero_SubClass_2	UpgradeName	CreateAHeroClass		data\ini\createaherosystemwizard.inc
 upgrade	Upgrade_CreateAHero_SubClass_3	UpgradeName	CreateAHeroClass		data\ini\createaherosystemservantsofsauron.inc
 upgrade	Upgrade_CreateAHeroGameMode	BlingUpgradeName	CreateAHeroBling		data\ini\createaherosystemattributes.inc
@@ -1047,14 +1047,14 @@ upgrade	Upgrade_ErestorLevel4	Upgrade	CommandButton Command_ErestorLevel4		data\
 upgrade	Upgrade_ErestorLevel5	Upgrade	CommandButton Command_ErestorLevel5		data\ini\includes\commandbutton.inc
 upgrade	Upgrade_ErestorWisdomFarmDone	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\goodfaction\structures\imladris\imladrisfarm.ini
 upgrade	Upgrade_ErestorWisdomNoLvl2	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\goodfaction\structures\elven\elvengreenpasture.ini
-upgrade	Upgrade_ErestorWisdomNoLvl2	UpgradeToGrant	Draw =	GrantUpgradeCreate	data\ini\object\goodfaction\structures\imladris\barracks.ini
 upgrade	Upgrade_ErestorWisdomNoLvl2	UpgradeToGrant	Draw =	GrantUpgradeCreate	data\ini\object\goodfaction\structures\elven\eregionforge.ini
+upgrade	Upgrade_ErestorWisdomNoLvl2	UpgradeToGrant	Draw =	GrantUpgradeCreate	data\ini\object\goodfaction\structures\imladris\barracks.ini
 upgrade	Upgrade_ErestorWisdomOriginalMode	InitialUpgrades	PlayerTemplate FactionImladris		data\ini\playertemplate.ini
 upgrade	Upgrade_ErestorWisdomToken	Upgrade	ModifierList ErestorWisdomLevelModifier		data\ini\includes\attributemodifier.inc
 upgrade	Upgrade_EvilDualEconomyChoice	UpgradeToGrant	Object UrukPitPing01	GrantUpgradeCreate	data\ini\object\evilfaction\structures\isengard\urukpit.ini
+upgrade	Upgrade_EvilFortressFlamingMunitions	Upgrade	Behavior =	CastleUpgrade	data\ini\object\evilfaction\structures\isengard\isengardfortress.ini
 upgrade	Upgrade_EvilFortressFlamingMunitions	Upgrade	Behavior =	CastleUpgrade	data\ini\object\evilfaction\structures\wild\wildfortress.ini
 upgrade	Upgrade_EvilFortressFlamingMunitions	Upgrade	Behavior =	CastleUpgrade	data\ini\object\evilfaction\structures\mordor\mordorfortress.ini
-upgrade	Upgrade_EvilFortressFlamingMunitions	Upgrade	Behavior =	CastleUpgrade	data\ini\object\evilfaction\structures\isengard\isengardfortress.ini
 upgrade	Upgrade_EvilFortressFlamingMunitions	Upgrade	ModifierList SummonedStructureFlamingMunitionsEvil		data\ini\attributemodifier.ini
 upgrade	Upgrade_EvilFortressFlamingMunitions	Upgrade	Object EvilmenFortressCitadel	CastleUpgrade	data\ini\object\evilfaction\structures\evilmen\evilmenfortress.ini
 upgrade	Upgrade_EvilFortressFlamingMunitions	Upgrade	Object HaradFortressCitadel	CastleUpgrade	data\ini\object\evilfaction\structures\harad\haradfortress.ini
@@ -1064,13 +1064,13 @@ upgrade	Upgrade_EvilmenStachelpfeile	Upgrade	CommandButton Command_PurchaseUpgra
 upgrade	Upgrade_ExorcismofTheoden	UpgradeToGrant	ChildObject GondorGandalf_forEdoras_Summoned	GrantUpgradeCreate	data\ini\object\goodfaction\units\gondor\gondorgandalf.ini
 upgrade	Upgrade_ExorcismofTheoden	Upgrade	ModifierList ExorcismofTheodenModifier		data\ini\includes\attributemodifier.inc
 upgrade	Upgrade_ExorcismofTheoden	Upgrade	ModifierList ExorcismofTheodenModifier2		data\ini\includes\attributemodifier.inc
-upgrade	Upgrade_FarmSetNew	GrantUpgrade	Behavior =		data\ini\object\neutral\warglair.ini
 upgrade	Upgrade_FarmSetNew	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\imladris\imladrisgwaihir.ini
+upgrade	Upgrade_FarmSetNew	GrantUpgrade	Behavior =		data\ini\object\neutral\warglair.ini
 upgrade	Upgrade_FarmSetNew	GrantUpgrade	CampnessValue =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\angmar\darkfortress.ini
-upgrade	Upgrade_FarmSetNew	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\goodfaction\structures\imladris\lichtaltar.ini
-upgrade	Upgrade_FarmSetNew	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\goodfaction\structures\arnor\new\arthedaincamp.ini
-upgrade	Upgrade_FarmSetNew	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\evilfaction\units\angmar\new\carndumcatapult.ini
 upgrade	Upgrade_FarmSetNew	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\evilfaction\units\angmar\angmardarkdunedain.ini
+upgrade	Upgrade_FarmSetNew	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\evilfaction\units\angmar\new\carndumcatapult.ini
+upgrade	Upgrade_FarmSetNew	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\goodfaction\structures\arnor\new\arthedaincamp.ini
+upgrade	Upgrade_FarmSetNew	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\goodfaction\structures\imladris\lichtaltar.ini
 upgrade	Upgrade_FarmSetNew	Upgrade	ModifierList ElfFactionAura		data\ini\includes\attributemodifier.inc
 upgrade	Upgrade_FarmSetNew	Upgrade	ModifierList FornostGuardDismount		data\ini\attributemodifier.ini
 upgrade	Upgrade_FarmSetNew	Upgrade	ModifierList SpellBookEinzugsbefehlModifier		data\ini\includes\attributemodifier.inc
@@ -1126,15 +1126,15 @@ upgrade	Upgrade_FireArrows	UpgradeToGrant	ChildObject GondorFireArrowPorterForGo
 upgrade	Upgrade_FireArrows	UpgradeToGrant	ChildObject RohanFireArrowPorter	GrantUpgradeCreate	data\ini\object\modcinematic\cinematicobjects.ini
 upgrade	Upgrade_FireArrows	Upgrade	CommandButton Command_UpgradeFireArrows		data\ini\commandbutton.ini
 upgrade	Upgrade_FlinkbaumTreeRush	Upgrade	ModifierList FlinkbaumTreeRush		data\ini\includes\attributemodifier.inc
-upgrade	Upgrade_FortressRingHero	UpgradeForRingEntry	Behavior =	CitadelSlaughterHordeContain	data\ini\object\civilian\ereborbuildings.ini
-upgrade	Upgrade_FortressRingHero	UpgradeForRingEntry	Behavior =	CitadelSlaughterHordeContain	data\ini\object\goodfaction\units\rohan\rohanradagast.ini
-upgrade	Upgrade_FortressRingHero	UpgradeForRingEntry	Behavior =	CitadelSlaughterHordeContain	data\ini\object\goodfaction\units\lothlorien\lothloriengaladriel.ini
-upgrade	Upgrade_FortressRingHero	UpgradeForRingEntry	Behavior =		data\ini\object\evilfaction\units\angmar\new\angwk.ini
-upgrade	Upgrade_FortressRingHero	UpgradeForRingEntry	Behavior =	CitadelSlaughterHordeContain	data\ini\object\goodfaction\units\arnor\arnorarvedui.ini
 upgrade	Upgrade_FortressRingHero	UpgradeForRingEntry	Behavior =	CitadelSlaughterHordeContain	data\ini\object\goodfaction\units\men\theoden.ini
 upgrade	Upgrade_FortressRingHero	UpgradeForRingEntry	Behavior =	CitadelSlaughterHordeContain	data\ini\object\goodfaction\units\imladris\imladriselrond.ini
 upgrade	Upgrade_FortressRingHero	UpgradeForRingEntry	Behavior =	CitadelSlaughterHordeContain	data\ini\object\goodfaction\units\arnor\new\arnorarveduinew.ini
+upgrade	Upgrade_FortressRingHero	UpgradeForRingEntry	Behavior =	CitadelSlaughterHordeContain	data\ini\object\goodfaction\units\rohan\rohanradagast.ini
+upgrade	Upgrade_FortressRingHero	UpgradeForRingEntry	Behavior =	CitadelSlaughterHordeContain	data\ini\object\goodfaction\units\arnor\arnorarvedui.ini
+upgrade	Upgrade_FortressRingHero	UpgradeForRingEntry	Behavior =		data\ini\object\evilfaction\units\angmar\new\angwk.ini
 upgrade	Upgrade_FortressRingHero	UpgradeForRingEntry	Behavior =	CitadelSlaughterHordeContain	data\ini\object\goodfaction\units\arnor\arnorisildur.ini
+upgrade	Upgrade_FortressRingHero	UpgradeForRingEntry	Behavior =	CitadelSlaughterHordeContain	data\ini\object\goodfaction\units\lothlorien\lothloriengaladriel.ini
+upgrade	Upgrade_FortressRingHero	UpgradeForRingEntry	Behavior =	CitadelSlaughterHordeContain	data\ini\object\civilian\ereborbuildings.ini
 upgrade	Upgrade_FortressRingHero	UpgradeForRingEntry	BountyValue =	CitadelSlaughterHordeContain	data\ini\object\evilfaction\units\angmar\angmarwitchking.ini
 upgrade	Upgrade_FortressRingHero	UpgradeToGrant	ChildObject GaladrielRohanFrodo_mod	GrantUpgradeCreate	data\ini\object\goodfaction\units\men\frodo.ini
 upgrade	Upgrade_FortressRingHero	UpgradeForRingEntry	Draw =	CitadelSlaughterHordeContain	data\ini\object\goodfaction\structures\arnor\arnorcampsandcastles.ini
@@ -1189,11 +1189,11 @@ upgrade	Upgrade_GondorBarracksLevel2	Upgrades	ExperienceLevel GondorBarracksLeve
 upgrade	Upgrade_GondorBarracksLevel3	Upgrade	CommandButton Command_PurchaseUpgradeGondorBarracksLevel3		data\ini\commandbutton.ini
 upgrade	Upgrade_GondorBarracksLevel3	Upgrade	CommandButton Command_PurchaseUpgradeGondorBarracksLevel3_forFornost		data\ini\includes\commandbutton.inc
 upgrade	Upgrade_GondorBarracksLevel3	Upgrades	ExperienceLevel GondorBarracksLevel3		data\ini\experiencelevels.ini
-upgrade	Upgrade_GondorBasicTraining	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\arnor\new\arthedainsword.ini
-upgrade	Upgrade_GondorBasicTraining	GrantUpgrade	Behavior =		data\ini\object\goodfaction\units\arnor\new\arthedaincrossbow.ini
-upgrade	Upgrade_GondorBasicTraining	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\hordes\men\menhordes.ini
-upgrade	Upgrade_GondorBasicTraining	GrantUpgrade	Behavior =		data\ini\object\goodfaction\units\arnor\new\arthedainsword.ini
 upgrade	Upgrade_GondorBasicTraining	GrantUpgrade	Behavior =		data\ini\object\goodfaction\units\arnor\new\breeguard.ini
+upgrade	Upgrade_GondorBasicTraining	GrantUpgrade	Behavior =		data\ini\object\goodfaction\units\arnor\new\arthedainsword.ini
+upgrade	Upgrade_GondorBasicTraining	GrantUpgrade	Behavior =		data\ini\object\goodfaction\units\arnor\new\arthedaincrossbow.ini
+upgrade	Upgrade_GondorBasicTraining	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\arnor\new\arthedainsword.ini
+upgrade	Upgrade_GondorBasicTraining	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\hordes\men\menhordes.ini
 upgrade	Upgrade_GondorBasicTraining	UpgradeToGrant	ChildObject ArnorArcherHorde_SummonedUpgraded	GrantUpgradeCreate	data\ini\object\goodfaction\hordes\arnor\arnorhordes.ini
 upgrade	Upgrade_GondorBasicTraining	UpgradeToGrant	ChildObject ArnorFighterHorde_SummonedUpgraded	GrantUpgradeCreate	data\ini\object\goodfaction\hordes\arnor\arnorhordes.ini
 upgrade	Upgrade_GondorBasicTraining	UpgradeToGrant	ChildObject ArnorKnightHorde_SummonedUpgraded	GrantUpgradeCreate	data\ini\object\goodfaction\hordes\arnor\arnorhordes.ini
@@ -1225,8 +1225,8 @@ upgrade	Upgrade_GondorFighterFearless	Upgrades	ExperienceLevel DwarvenTroopsAule
 upgrade	Upgrade_GondorFireArrows	UpgradeToGrant	AnimationSound =	GrantUpgradeCreate	data\ini\object\goodfaction\units\arnor\new\gondorarcherforarnor.ini
 upgrade	Upgrade_GondorFireArrows	GrantUpgrade	Behavior =		data\ini\object\goodfaction\units\arnor\new\cardolanranger.ini
 upgrade	Upgrade_GondorFireArrows	UpgradeToGrant	Behavior =		data\ini\object\goodfaction\units\gondor\gondorgraueschar.ini
-upgrade	Upgrade_GondorFireArrows	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\evilfaction\units\mordor\morgularchernew.ini
 upgrade	Upgrade_GondorFireArrows	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\goodfaction\units\gondor\gondorgraueschar.ini
+upgrade	Upgrade_GondorFireArrows	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\evilfaction\units\mordor\morgularchernew.ini
 upgrade	Upgrade_GondorFireArrows	UpgradeToGrant	ChildObject ArnorArcherHorde_SummonedUpgraded	GrantUpgradeCreate	data\ini\object\goodfaction\hordes\arnor\arnorhordes.ini
 upgrade	Upgrade_GondorFireArrows	GrantUpgrade	ChildObject ArnorHobbitBow_Summoned	ObjectCreationUpgrade	data\ini\object\goodfaction\generic\hobbitbow.ini
 upgrade	Upgrade_GondorFireArrows	UpgradeToGrant	ChildObject GondorArcherBoromirRing_Summoned	GrantUpgradeCreate	data\ini\object\goodfaction\units\men\gondorarcher.ini
@@ -1241,12 +1241,12 @@ upgrade	Upgrade_GondorFireArrows	GrantUpgrade	VoiceAttack =	ObjectCreationUpgrad
 upgrade	Upgrade_GondorFireStones	UpgradeToGrant	ChildObject GondorFireStonePorter	GrantUpgradeCreate	data\ini\object\modcinematic\cinematicobjects.ini
 upgrade	Upgrade_GondorFireStones	Upgrade	CommandButton Command_PurchaseUpgradeGondorFireStones		data\ini\commandbutton.ini
 upgrade	Upgrade_GondorForgedBlades	UpgradeToGrant	AnimationState =	GrantUpgradeCreate	data\ini\object\goodfaction\units\gondor\gondorpikeman.ini
-upgrade	Upgrade_GondorForgedBlades	UpgradeToGrant	Behavior =		data\ini\object\goodfaction\units\gondor\gondorgraueschar.ini
-upgrade	Upgrade_GondorForgedBlades	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\goodfaction\units\arnor\new\arthedainsword.ini
 upgrade	Upgrade_GondorForgedBlades	UpgradeToGrant	Behavior =		data\ini\object\goodfaction\units\arnor\new\breeguard.ini
-upgrade	Upgrade_GondorForgedBlades	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\goodfaction\units\arnor\new\breeguard.ini
-upgrade	Upgrade_GondorForgedBlades	UpgradeToGrant	Behavior =		data\ini\object\goodfaction\units\arnor\new\arthedainsword.ini
+upgrade	Upgrade_GondorForgedBlades	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\goodfaction\units\arnor\new\arthedainsword.ini
 upgrade	Upgrade_GondorForgedBlades	UpgradeToGrant	Behavior =		data\ini\object\goodfaction\units\arnor\arnorhueter.ini
+upgrade	Upgrade_GondorForgedBlades	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\goodfaction\units\arnor\new\breeguard.ini
+upgrade	Upgrade_GondorForgedBlades	UpgradeToGrant	Behavior =		data\ini\object\goodfaction\units\gondor\gondorgraueschar.ini
+upgrade	Upgrade_GondorForgedBlades	UpgradeToGrant	Behavior =		data\ini\object\goodfaction\units\arnor\new\arthedainsword.ini
 upgrade	Upgrade_GondorForgedBlades	UpgradeToGrant	ChildObject ArnorFighterHorde_SummonedUpgraded	GrantUpgradeCreate	data\ini\object\goodfaction\hordes\arnor\arnorhordes.ini
 upgrade	Upgrade_GondorForgedBlades	UpgradeToGrant	ChildObject ArnorKnightHorde_SummonedUpgraded	GrantUpgradeCreate	data\ini\object\goodfaction\hordes\arnor\arnorhordes.ini
 upgrade	Upgrade_GondorForgedBlades	UpgradeToGrant	ChildObject ArnorPalantirwatcherModBattletower	GrantUpgradeCreate	data\ini\object\goodfaction\units\arnor\new\palantirwatcher.ini
@@ -1288,11 +1288,11 @@ upgrade	Upgrade_GondorForgeLevel3	Upgrade	CommandButton Command_PurchaseUpgradeH
 upgrade	Upgrade_GondorForgeLevel3	Upgrades	ExperienceLevel ArnorArmoryLevel3		data\ini\includes\experiencelevels_arnor.inc
 upgrade	Upgrade_GondorForgeLevel3	Upgrades	ExperienceLevel HaradArmoryLevel3		data\ini\includes\experiencelevels.inc
 upgrade	Upgrade_GondorHeavyArmor	UpgradeToGrant	AnimationState =	GrantUpgradeCreate	data\ini\object\goodfaction\units\gondor\gondorpikeman.ini
-upgrade	Upgrade_GondorHeavyArmor	UpgradeToGrant	Behavior =		data\ini\object\goodfaction\units\arnor\new\arthedainsword.ini
-upgrade	Upgrade_GondorHeavyArmor	UpgradeToGrant	Behavior =		data\ini\object\goodfaction\units\arnor\new\breeguard.ini
-upgrade	Upgrade_GondorHeavyArmor	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\goodfaction\units\arnor\arnorhueter.ini
 upgrade	Upgrade_GondorHeavyArmor	UpgradeToGrant	Behavior =		data\ini\object\goodfaction\units\arnor\new\arthedaincrossbow.ini
+upgrade	Upgrade_GondorHeavyArmor	UpgradeToGrant	Behavior =		data\ini\object\goodfaction\units\arnor\new\breeguard.ini
 upgrade	Upgrade_GondorHeavyArmor	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\goodfaction\units\arnor\new\breeguard.ini
+upgrade	Upgrade_GondorHeavyArmor	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\goodfaction\units\arnor\arnorhueter.ini
+upgrade	Upgrade_GondorHeavyArmor	UpgradeToGrant	Behavior =		data\ini\object\goodfaction\units\arnor\new\arthedainsword.ini
 upgrade	Upgrade_GondorHeavyArmor	UpgradeToGrant	ChildObject ArnorArcherHorde_SummonedUpgraded	GrantUpgradeCreate	data\ini\object\goodfaction\hordes\arnor\arnorhordes.ini
 upgrade	Upgrade_GondorHeavyArmor	UpgradeToGrant	ChildObject ArnorFighterHorde_SummonedUpgraded	GrantUpgradeCreate	data\ini\object\goodfaction\hordes\arnor\arnorhordes.ini
 upgrade	Upgrade_GondorHeavyArmor	UpgradeToGrant	ChildObject ArnorKnightHorde_SummonedUpgraded	GrantUpgradeCreate	data\ini\object\goodfaction\hordes\arnor\arnorhordes.ini
@@ -1342,10 +1342,10 @@ upgrade	Upgrade_GondorWorkshopLevel2	GrantUpgrade	Draw =	ObjectCreationUpgrade	d
 upgrade	Upgrade_GondorWorkshopLevel2	Upgrades	ExperienceLevel GondorWorkshopLevel2		data\ini\experiencelevels.ini
 upgrade	Upgrade_GondorWorkshopLevel3	Upgrade	CommandButton Command_PurchaseUpgradeGondorWorkshopLevel3		data\ini\commandbutton.ini
 upgrade	Upgrade_GondorWorkshopLevel3	Upgrades	ExperienceLevel GondorWorkshopLevel3		data\ini\experiencelevels.ini
-upgrade	Upgrade_GoodFortressFlamingMunitions	Upgrade	Behavior =	CastleUpgrade	data\ini\object\goodfaction\structures\rohan\rohanfortress.ini
-upgrade	Upgrade_GoodFortressFlamingMunitions	Upgrade	Behavior =	CastleUpgrade	data\ini\object\goodfaction\structures\arnor\arnorfortress.ini
 upgrade	Upgrade_GoodFortressFlamingMunitions	Upgrade	Behavior =	CastleUpgrade	data\ini\object\goodfaction\structures\men\fortress.ini
+upgrade	Upgrade_GoodFortressFlamingMunitions	Upgrade	Behavior =	CastleUpgrade	data\ini\object\goodfaction\structures\arnor\arnorfortress.ini
 upgrade	Upgrade_GoodFortressFlamingMunitions	Upgrade	Behavior =	CastleUpgrade	data\ini\object\goodfaction\structures\elven\elvenfortress.ini
+upgrade	Upgrade_GoodFortressFlamingMunitions	Upgrade	Behavior =	CastleUpgrade	data\ini\object\goodfaction\structures\rohan\rohanfortress.ini
 upgrade	Upgrade_GoodFortressFlamingMunitions	Upgrade	ModifierList RohanFortressArcherModifier		data\ini\includes\attributemodifier.inc
 upgrade	Upgrade_GoodFortressFlamingMunitions	Upgrade	ModifierList SpellBookGondorRepairLoneTowerFire		data\ini\attributemodifier.ini
 upgrade	Upgrade_GoodFortressFlamingMunitions	Upgrade	ModifierList SummonedStructureFlamingMunitionsGood		data\ini\includes\attributemodifier.inc
@@ -1511,18 +1511,18 @@ upgrade	Upgrade_InsignienMorgulfrst	Upgrade	CommandButton Command_PurchaseUpgrad
 upgrade	Upgrade_InsignienStatthalter	Upgrade	CommandButton Command_PurchaseUpgradeInsignienStatthalter		data\ini\includes\commandbutton.inc
 upgrade	Upgrade_IsengardArmoryLevel2	Upgrade	CommandButton Command_PurchaseUpgradeIsengardArmoryLevel2		data\ini\commandbutton.ini
 upgrade	Upgrade_IsengardArmoryLevel3	Upgrade	CommandButton Command_PurchaseUpgradeIsengardArmoryLevel3		data\ini\commandbutton.ini
-upgrade	Upgrade_IsengardAufmarsch	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\bluemountains.ini
-upgrade	Upgrade_IsengardAufmarsch	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\civilianbuildings.ini
-upgrade	Upgrade_IsengardAufmarsch	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\rivendellbuildings.ini
 upgrade	Upgrade_IsengardAufmarsch	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\ereborbuildings.ini
-upgrade	Upgrade_IsengardAufmarsch	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\helmsdeepbuildings.ini
 upgrade	Upgrade_IsengardAufmarsch	Upgrade	Behavior =	CastleUpgrade	data\ini\object\evilfaction\structures\isengard\isengardfortress.ini
-upgrade	Upgrade_IsengardAufmarsch	Upgrade	Behavior =	CastleUpgrade	data\ini\object\evilfaction\structures\isengard\campsandcastles.ini
-upgrade	Upgrade_IsengardAufmarsch	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\amonsulbuildings.ini
-upgrade	Upgrade_IsengardAufmarsch	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\angfornostbuildings.ini
-upgrade	Upgrade_IsengardAufmarsch	Upgrade	Behavior =	CastleUpgrade	data\ini\object\goodfaction\structures\men\campsandcastles.ini
+upgrade	Upgrade_IsengardAufmarsch	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\bluemountains.ini
 upgrade	Upgrade_IsengardAufmarsch	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\minasmorgulbuildings.ini
+upgrade	Upgrade_IsengardAufmarsch	Upgrade	Behavior =	CastleUpgrade	data\ini\object\evilfaction\structures\isengard\campsandcastles.ini
 upgrade	Upgrade_IsengardAufmarsch	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\carndumbuildings.ini
+upgrade	Upgrade_IsengardAufmarsch	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\amonsulbuildings.ini
+upgrade	Upgrade_IsengardAufmarsch	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\helmsdeepbuildings.ini
+upgrade	Upgrade_IsengardAufmarsch	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\rivendellbuildings.ini
+upgrade	Upgrade_IsengardAufmarsch	Upgrade	Behavior =	CastleUpgrade	data\ini\object\goodfaction\structures\men\campsandcastles.ini
+upgrade	Upgrade_IsengardAufmarsch	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\angfornostbuildings.ini
+upgrade	Upgrade_IsengardAufmarsch	Upgrade	Behavior =	CastleUpgrade	data\ini\object\civilian\civilianbuildings.ini
 upgrade	Upgrade_IsengardAufmarsch	Upgrade	Object MBMMTower	CastleUpgrade	data\ini\object\civilian\minasmorgulbuildings.ini
 upgrade	Upgrade_IsengardAufmarsch	Upgrade	Object MordorCirithUngolTowerA_Edain	CastleUpgrade	data\ini\object\civilian\civilianbuildings.ini
 upgrade	Upgrade_IsengardAufmarsch	Upgrade	Object RohanGoldeneHalleForEdoras	CastleUpgrade	data\ini\object\goodfaction\structures\rohan\goldenhall.ini
@@ -1635,8 +1635,8 @@ upgrade	Upgrade_Level_1	Upgrades	ExperienceLevel ArcherHeroEvilLevel1		data\ini\
 upgrade	Upgrade_Level_1	Upgrades	ExperienceLevel ArcherHeroGoodLevel1		data\ini\includes\experiencelevels.inc
 upgrade	Upgrade_Level_1	Upgrades	ExperienceLevel ArnorAranarthLevel1		data\ini\includes\experiencelevels_arnor.inc
 upgrade	Upgrade_Level_1	Upgrades	ExperienceLevel ArnorBandobrasLevel10		data\ini\includes\experiencelevels.inc
-upgrade	Upgrade_Level_1	Upgrades	ExperienceLevel ArnorMalbethLevel1		data\ini\includes\experiencelevels.inc
 upgrade	Upgrade_Level_1	Upgrades	ExperienceLevel ArnorMalbethLevel1		data\ini\includes\experiencelevels_arnor.inc
+upgrade	Upgrade_Level_1	Upgrades	ExperienceLevel ArnorMalbethLevel1		data\ini\includes\experiencelevels.inc
 upgrade	Upgrade_Level_1	Upgrades	ExperienceLevel AronrArveduiModLevel1		data\ini\includes\experiencelevels_arnor.inc
 upgrade	Upgrade_Level_1	Upgrades	ExperienceLevel AronrGlorfindelSummonedLevel1		data\ini\includes\experiencelevels_arnor.inc
 upgrade	Upgrade_Level_1	Upgrades	ExperienceLevel AronrHeroSummonedLevel1		data\ini\includes\experiencelevels_arnor.inc
@@ -2611,8 +2611,8 @@ upgrade	Upgrade_MenFortressHouseOfHealing	Upgrade	Behavior =	CastleUpgrade	data\
 upgrade	Upgrade_MenFortressHouseOfHealing	Upgrade	CommandButton Command_PurchaseUpgradeMenFortressHouseOfHealing		data\ini\commandbutton.ini
 upgrade	Upgrade_MenFortressIvoryTower	Upgrade	CommandButton Command_PurchaseUpgradeMenFortressIvoryTower		data\ini\commandbutton.ini
 upgrade	Upgrade_MenFortressIvoryTower	Upgrade	CommandButton Command_PurchaseUpgradeMenFortressIvoryTower_forFornost		data\ini\includes\commandbutton.inc
-upgrade	Upgrade_MenFortressNumenorStonework	Upgrade	Behavior =	InheritUpgradeCreate	data\ini\object\goodfaction\structures\men\campsandcastles.ini
 upgrade	Upgrade_MenFortressNumenorStonework	Upgrade	Behavior =	CastleUpgrade	data\ini\object\goodfaction\structures\men\fortress.ini
+upgrade	Upgrade_MenFortressNumenorStonework	Upgrade	Behavior =	InheritUpgradeCreate	data\ini\object\goodfaction\structures\men\campsandcastles.ini
 upgrade	Upgrade_MenFortressNumenorStonework	Upgrade	ModifierList MenTowerArmorEnabler		data\ini\includes\attributemodifier.inc
 upgrade	Upgrade_MenFortressNumenorStonework	Upgrade	Object MenWallCliffCap	InheritUpgradeCreate	data\ini\object\goodfaction\structures\men\campsandcastles.ini
 upgrade	Upgrade_MenFortressNumenorStonework	Upgrade	Object MenWallGateSmall	InheritUpgradeCreate	data\ini\object\goodfaction\structures\men\campsandcastles.ini
@@ -2861,8 +2861,8 @@ upgrade	Upgrade_MirkwoodBarracksLevel2	Upgrades	ExperienceLevel MirkwoodBarracks
 upgrade	Upgrade_MirkwoodBarracksLevel3	Upgrade	CommandButton Command_PurchaseUpgradeMirkwoodBarracksLevel3		data\ini\includes\commandbutton.inc
 upgrade	Upgrade_MirkwoodBarracksLevel3	Upgrades	ExperienceLevel MirkwoodBarracksLevel3		data\ini\includes\experiencelevels.inc
 upgrade	Upgrade_MirkwoodRangersTech	UpgradeToGrant	Object MirkwoodRangersTechHelper	GrantUpgradeCreate	data\ini\object\system\system.ini
-upgrade	Upgrade_MordorBasicTraining	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\evilfaction\units\harad\haradcorsairsofumbar.ini
 upgrade	Upgrade_MordorBasicTraining	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\evilfaction\units\harad\haradcorsairarcher.ini
+upgrade	Upgrade_MordorBasicTraining	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\evilfaction\units\harad\haradcorsairsofumbar.ini
 upgrade	Upgrade_MordorBasicTraining	Upgrade	CommandButton Command_PurchaseUpgradeHaradBasicTraining		data\ini\includes\commandbutton.inc
 upgrade	Upgrade_MordorBasicTraining	Upgrade	CommandButton Command_PurchaseUpgradeMordorBasicTraining		data\ini\commandbutton.ini
 upgrade	Upgrade_MordorBasicTraining	Upgrade	CommandButton Command_PurchaseUpgradeMordorOrkSchnffler		data\ini\includes\commandbutton.inc
@@ -2976,32 +2976,32 @@ upgrade	Upgrade_MumakilWarPaint	Upgrade	CommandButton Command_PurchaseUpgradeMum
 upgrade	Upgrade_MyHour	UpgradeName		PlayerUpgradeSpecialPower	data\ini\object\system\includes\systemevil.inc
 upgrade	Upgrade_MyHour	UpgradeToGrant	Object AraKingPing	GrantUpgradeCreate	data\ini\object\goodfaction\units\gondor\gondoraragorn.ini
 upgrade	Upgrade_NoBoots	BlingUpgradeName	CreateAHeroBling		data\ini\createaherosystemappearancebling.inc
-upgrade	Upgrade_NoBoots	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemdwarf.inc
 upgrade	Upgrade_NoBoots	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemologhai.inc
-upgrade	Upgrade_NoBoots	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemwizard.inc
-upgrade	Upgrade_NoBoots	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemcorruptedman.inc
-upgrade	Upgrade_NoBoots	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemmenofthewest.inc
 upgrade	Upgrade_NoBoots	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemservantsofsauron.inc
+upgrade	Upgrade_NoBoots	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemwizard.inc
 upgrade	Upgrade_NoBoots	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemarcher.inc
+upgrade	Upgrade_NoBoots	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemcorruptedman.inc
+upgrade	Upgrade_NoBoots	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemdwarf.inc
+upgrade	Upgrade_NoBoots	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemmenofthewest.inc
 upgrade	Upgrade_NoGauntlets	BlingUpgradeName	CreateAHeroBling		data\ini\createaherosystemappearancebling.inc
-upgrade	Upgrade_NoGauntlets	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemologhai.inc
-upgrade	Upgrade_NoGauntlets	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemwizard.inc
-upgrade	Upgrade_NoGauntlets	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemmenofthewest.inc
-upgrade	Upgrade_NoGauntlets	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemcorruptedman.inc
 upgrade	Upgrade_NoGauntlets	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemservantsofsauron.inc
 upgrade	Upgrade_NoGauntlets	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemarcher.inc
+upgrade	Upgrade_NoGauntlets	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemcorruptedman.inc
 upgrade	Upgrade_NoGauntlets	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemdwarf.inc
+upgrade	Upgrade_NoGauntlets	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemwizard.inc
+upgrade	Upgrade_NoGauntlets	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemmenofthewest.inc
+upgrade	Upgrade_NoGauntlets	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemologhai.inc
 upgrade	Upgrade_NoHelmet	BlingUpgradeName	CreateAHeroBling		data\ini\createaherosystemappearancebling.inc
-upgrade	Upgrade_NoHelmet	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemservantsofsauron.inc
-upgrade	Upgrade_NoHelmet	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemdwarf.inc
-upgrade	Upgrade_NoHelmet	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemologhai.inc
-upgrade	Upgrade_NoHelmet	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemwizard.inc
-upgrade	Upgrade_NoHelmet	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemcorruptedman.inc
-upgrade	Upgrade_NoHelmet	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemmenofthewest.inc
 upgrade	Upgrade_NoHelmet	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemarcher.inc
+upgrade	Upgrade_NoHelmet	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemcorruptedman.inc
+upgrade	Upgrade_NoHelmet	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemdwarf.inc
+upgrade	Upgrade_NoHelmet	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemmenofthewest.inc
+upgrade	Upgrade_NoHelmet	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemologhai.inc
+upgrade	Upgrade_NoHelmet	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemservantsofsauron.inc
+upgrade	Upgrade_NoHelmet	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemwizard.inc
+upgrade	Upgrade_NoMoreMalberth	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\arnor\new\arnorarveduinew.ini
 upgrade	Upgrade_NoMoreMalberth	GrantUpgrade	Behavior =		data\ini\object\goodfaction\units\arnor\new\arnorarveduinew.ini
 upgrade	Upgrade_NoMoreMalberth	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\arnor\new\arnoraranarthnew.ini
-upgrade	Upgrade_NoMoreMalberth	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\arnor\new\arnorarveduinew.ini
 upgrade	Upgrade_NoMoreMalberth	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\arnor\new\arnorarveduinew.ini
 upgrade	Upgrade_NoMoreMalberth	Upgrade	ModifierList HaradFactionAura		data\ini\includes\attributemodifier.inc
 upgrade	Upgrade_NoMoreMalberth	Upgrade	ModifierList MalbethProphecyBonusAraphant		data\ini\includes\attributemodifier.inc
@@ -3012,45 +3012,45 @@ upgrade	Upgrade_NormalTaint	UpgradeToGrant	Object LothlorienAloneWorker	GrantUpg
 upgrade	Upgrade_NormalTaint	UpgradeToGrant	Object MenPorter	GrantUpgradeCreate	data\ini\object\goodfaction\units\men\porter.ini
 upgrade	Upgrade_NormalTaint	UpgradeToGrant	Object MenPorterRepair	GrantUpgradeCreate	data\ini\object\goodfaction\units\men\porter.ini
 upgrade	Upgrade_NoShield	BlingUpgradeName	CreateAHeroBling		data\ini\createaherosystemappearancebling.inc
-upgrade	Upgrade_NoShield	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemwizard.inc
-upgrade	Upgrade_NoShield	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemcorruptedman.inc
-upgrade	Upgrade_NoShield	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemmenofthewest.inc
-upgrade	Upgrade_NoShield	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemservantsofsauron.inc
 upgrade	Upgrade_NoShield	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemarcher.inc
-upgrade	Upgrade_NoShield	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemdwarf.inc
+upgrade	Upgrade_NoShield	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemcorruptedman.inc
 upgrade	Upgrade_NoShield	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemologhai.inc
+upgrade	Upgrade_NoShield	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemservantsofsauron.inc
+upgrade	Upgrade_NoShield	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemwizard.inc
+upgrade	Upgrade_NoShield	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemmenofthewest.inc
+upgrade	Upgrade_NoShield	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemdwarf.inc
 upgrade	Upgrade_NoShoulderPlates	BlingUpgradeName	CreateAHeroBling		data\ini\createaherosystemappearancebling.inc
-upgrade	Upgrade_NoShoulderPlates	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemcorruptedman.inc
-upgrade	Upgrade_NoShoulderPlates	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemmenofthewest.inc
 upgrade	Upgrade_NoShoulderPlates	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemarcher.inc
-upgrade	Upgrade_NoShoulderPlates	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemservantsofsauron.inc
+upgrade	Upgrade_NoShoulderPlates	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemcorruptedman.inc
 upgrade	Upgrade_NoShoulderPlates	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemdwarf.inc
-upgrade	Upgrade_NoShoulderPlates	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemologhai.inc
+upgrade	Upgrade_NoShoulderPlates	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemservantsofsauron.inc
 upgrade	Upgrade_NoShoulderPlates	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemwizard.inc
+upgrade	Upgrade_NoShoulderPlates	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemmenofthewest.inc
+upgrade	Upgrade_NoShoulderPlates	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemologhai.inc
 upgrade	Upgrade_NumenorStonework	Upgrade	CommandButton Command_UpgradeArnorNumenorStonework		data\ini\commandbutton.ini
 upgrade	Upgrade_NumenorStonework	Upgrade	CommandButton Command_UpgradeNumenorStonework		data\ini\commandbutton.ini
 upgrade	Upgrade_NumenorStonework	Upgrade	Object ArnorStoneMaker	CastleUpgrade	data\ini\object\goodfaction\structures\arnor\arnorstonemaker.ini
+upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\evilfaction\units\angmar\new\angmaricetomb.ini
+upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Behavior =		data\ini\object\evilfaction\structures\angmar\angmarbattletowerexpansion.ini
+upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Behavior =		data\ini\object\evilfaction\structures\angmar\angmarcastlewalls.ini
+upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Behavior =		data\ini\object\evilfaction\structures\angmar\angmarforgeworks.ini
 upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Behavior =		data\ini\object\evilfaction\structures\angmar\angmarcatapultexpansion.ini
 upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Behavior =		data\ini\object\evilfaction\structures\isengard\armory.ini
-upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Behavior =		data\ini\object\evilfaction\structures\angmar\angmartombexpansion.ini
-upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Behavior =		data\ini\object\evilfaction\structures\angmar\angmarbattletowerexpansion.ini
-upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Behavior =		data\ini\object\evilfaction\structures\angmar\angmarforgeworks.ini
-upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\evilfaction\structures\angmar\angmarbarracks.ini
-upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Behavior =		data\ini\object\evilfaction\structures\angmar\angmarcastlewalls.ini
-upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Behavior =		data\ini\object\evilfaction\structures\angmar\angmarkennelexpansion.ini
-upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\evilfaction\units\angmar\new\angmaricetomb.ini
-upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Behavior =		data\ini\object\goodfaction\units\men\faramirscout.ini
-upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Behavior =		data\ini\object\evilfaction\units\angmar\new\angmarrogashnew.ini
-upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Behavior =		data\ini\object\evilfaction\structures\isengard\urukpit.ini
-upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Behavior =		data\ini\object\evilfaction\structures\angmar\angmarfortress.ini
-upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\custom\mobagondorsiege.ini
 upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\evilfaction\structures\isengard\wargpit.ini
+upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Behavior =		data\ini\object\evilfaction\structures\isengard\urukpit.ini
+upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Behavior =		data\ini\object\goodfaction\units\men\faramirscout.ini
+upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\evilfaction\structures\angmar\angmarbarracks.ini
+upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Behavior =		data\ini\object\evilfaction\structures\angmar\angmarfortress.ini
+upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Behavior =		data\ini\object\evilfaction\units\angmar\new\angmarrogashnew.ini
+upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Behavior =		data\ini\object\evilfaction\structures\angmar\angmarkennelexpansion.ini
 upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\custom\mobagondorstable.ini
-upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Draw =	GrantUpgradeCreate	data\ini\object\evilfaction\structures\angmar\rhudaurhub.ini
-upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Draw =	GrantUpgradeCreate	data\ini\object\evilfaction\structures\angmar\angmarmill.ini
-upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Draw =	GrantUpgradeCreate	data\ini\object\evilfaction\structures\angmar\angmarcrypt.ini
+upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\custom\mobagondorsiege.ini
+upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Behavior =		data\ini\object\evilfaction\structures\angmar\angmartombexpansion.ini
 upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Draw =	GrantUpgradeCreate	data\ini\object\evilfaction\structures\angmar\angmarden.ini
+upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Draw =	GrantUpgradeCreate	data\ini\object\evilfaction\structures\angmar\angmarmill.ini
 upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Draw =	GrantUpgradeCreate	data\ini\object\evilfaction\structures\harad\haradlumbermill.ini
+upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Draw =	GrantUpgradeCreate	data\ini\object\evilfaction\structures\angmar\angmarcrypt.ini
+upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Draw =	GrantUpgradeCreate	data\ini\object\evilfaction\structures\angmar\rhudaurhub.ini
 upgrade	Upgrade_ObjectLevel1	Upgrades	ExperienceAwardOwnGuysDie =		data\ini\includes\experiencelevels.inc
 upgrade	Upgrade_ObjectLevel1	Upgrades	ExperienceLevel AngmarCarnDumOrks1		data\ini\includes\experiencelevels_angmar.inc
 upgrade	Upgrade_ObjectLevel1	Upgrades	ExperienceLevel AngmarKnightsLevel1		data\ini\includes\experiencelevels_angmar.inc
@@ -3198,8 +3198,8 @@ upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Object MorgomirForeverDiscountCreato
 upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Object TestWallPosternGate	GrantUpgradeCreate	data\ini\object\goodfaction\structures\arnor\arnorcampsandcastles.ini
 upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Object WildBurrowsExpansion	GrantUpgradeCreate	data\ini\object\evilfaction\structures\wild\wildburrowsexpansion.ini
 upgrade	Upgrade_ObjectLevel1	Upgrades	RequiredExperience =		data\ini\includes\experiencelevels.inc
-upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Scale =	GrantUpgradeCreate	data\ini\object\evilfaction\structures\angmar\angmarstatueexpansion.ini
 upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Scale =	GrantUpgradeCreate	data\ini\object\evilfaction\structures\angmar\angmartombexpansion.ini
+upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Scale =	GrantUpgradeCreate	data\ini\object\evilfaction\structures\angmar\angmarstatueexpansion.ini
 upgrade	Upgrade_ObjectLevel1	UpgradeToGrant	Scale =	GrantUpgradeCreate	data\ini\object\evilfaction\structures\angmar\angmarkennelexpansion.ini
 upgrade	Upgrade_ObjectLevel10	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\structures\men\fortress.ini
 upgrade	Upgrade_ObjectLevel10	Upgrades	ExperienceLevel FlinkbaumHeroGoodLevel10		data\ini\includes\experiencelevels.inc
@@ -3615,43 +3615,43 @@ upgrade	Upgrade_OrthancAufmarschTrigger	UpgradeToGrant	Object BaraddurMod	GrantU
 upgrade	Upgrade_OrthancAufmarschTrigger	UpgradeToGrant	Object IsengardOrthancModCitadel	GrantUpgradeCreate	data\ini\object\evilfaction\structures\isengard\orthanc.ini
 upgrade	Upgrade_PirateFlag	Upgrade	CommandButton Command_PurchaseUpgradePirateFlag		data\ini\commandbutton.ini
 upgrade	Upgrade_PlantShield	GrantUpgrade	AnimationState =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\imladris\imladrislichtbringerluft.ini
-upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\men\faramirscout.ini
-upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\gondor\gondorfaramir.ini
-upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\structures\men\campsandcastles.ini
-upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =		data\ini\object\evilfaction\structures\mordor\mordordarkcastle.ini
-upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\mordor\mordordarkcastle.ini
-upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\isengard\campsandcastles.ini
-upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\gondor\gondoraragorn.ini
-upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\civilian\amonsulbuildings.ini
-upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\civilian\angfornostbuildings.ini
-upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\civilian\ereborbuildings.ini
 upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\civilian\minasmorgulbuildings.ini
-upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\civilian\carndumbuildings.ini
-upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\gondor\gondorberegond.ini
-upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =		data\ini\object\goodfaction\units\imladris\imladrisarwen.ini
-upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\civilian\civilianbuildings.ini
-upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\imladris\imladrisgwaihir.ini
-upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\gondor\gondoraragornsentwicklung.ini
-upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\civilian\rivendellbuildings.ini
+upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\gondor\gondoraragorn.ini
+upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\civilian\ereborbuildings.ini
+upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\men\faramirscout.ini
 upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\civilian\helmsdeepbuildings.ini
+upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\isengard\campsandcastles.ini
+upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =		data\ini\object\evilfaction\structures\mordor\mordordarkcastle.ini
+upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\civilian\carndumbuildings.ini
+upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\civilian\amonsulbuildings.ini
+upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\gondor\gondorberegond.ini
+upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\imladris\imladrisgwaihir.ini
+upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =		data\ini\object\goodfaction\units\imladris\imladrisarwen.ini
+upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\civilian\rivendellbuildings.ini
+upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\structures\men\campsandcastles.ini
+upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\civilian\angfornostbuildings.ini
+upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\mordor\mordordarkcastle.ini
+upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\civilian\civilianbuildings.ini
+upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\gondor\gondoraragornsentwicklung.ini
+upgrade	Upgrade_PlantShield	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\gondor\gondorfaramir.ini
+upgrade	Upgrade_PlantShield	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\goodfaction\structures\men\marketplace.ini
 upgrade	Upgrade_PlantShield	UpgradeToGrant	Behavior =		data\ini\object\goodfaction\structures\men\forge.ini
 upgrade	Upgrade_PlantShield	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\goodfaction\structures\men\barracks.ini
-upgrade	Upgrade_PlantShield	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\goodfaction\structures\men\marketplace.ini
 upgrade	Upgrade_PlantShield	GrantUpgrade	ChildObject DwarfBarracks_Breitschultern_Summoned	ObjectCreationUpgrade	data\ini\object\goodfaction\structures\dwarven\dwarfbarracks.ini
 upgrade	Upgrade_PlantShield	GrantUpgrade	ChildObject DwarfBarracks_Dain_Summoned	ObjectCreationUpgrade	data\ini\object\goodfaction\structures\dwarven\dwarfbarracks.ini
 upgrade	Upgrade_PlantShield	GrantUpgrade	ChildObject DwarfBarracks_Feuerbrte_Summoned	ObjectCreationUpgrade	data\ini\object\goodfaction\structures\dwarven\dwarfbarracks.ini
 upgrade	Upgrade_PlantShield	GrantUpgrade	ChildObject DwarfBarracks_Kampagne_Summoned	ObjectCreationUpgrade	data\ini\object\goodfaction\structures\dwarven\dwarfbarracks.ini
 upgrade	Upgrade_PlantShield	GrantUpgrade	ChildObject DwarfBarracks_Langbrte_Summoned	ObjectCreationUpgrade	data\ini\object\goodfaction\structures\dwarven\dwarfbarracks.ini
+upgrade	Upgrade_PlantShield	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\goodfaction\structures\arnor\new\arthedaincamp.ini
 upgrade	Upgrade_PlantShield	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\gondor\gondorboromir.ini
 upgrade	Upgrade_PlantShield	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\goodfaction\structures\imladris\lichtaltar.ini
-upgrade	Upgrade_PlantShield	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\goodfaction\structures\arnor\new\arthedaincamp.ini
-upgrade	Upgrade_PlantShield	UpgradeToGrant	Draw =	GrantUpgradeCreate	data\ini\object\goodfaction\structures\men\statue.ini
+upgrade	Upgrade_PlantShield	UpgradeToGrant	Draw =	GrantUpgradeCreate	data\ini\object\goodfaction\structures\men\farm.ini
+upgrade	Upgrade_PlantShield	UpgradeToGrant	Draw =	GrantUpgradeCreate	data\ini\object\goodfaction\structures\men\battletower.ini
 upgrade	Upgrade_PlantShield	UpgradeToGrant	Draw =	GrantUpgradeCreate	data\ini\object\goodfaction\structures\men\stable.ini
 upgrade	Upgrade_PlantShield	UpgradeToGrant	Draw =	GrantUpgradeCreate	data\ini\object\evilfaction\structures\wild\wildtreasuretrove.ini
-upgrade	Upgrade_PlantShield	UpgradeToGrant	Draw =	GrantUpgradeCreate	data\ini\object\goodfaction\structures\men\farm.ini
 upgrade	Upgrade_PlantShield	UpgradeToGrant	Draw =	GrantUpgradeCreate	data\ini\object\goodfaction\structures\men\well.ini
 upgrade	Upgrade_PlantShield	UpgradeToGrant	Draw =	GrantUpgradeCreate	data\ini\object\goodfaction\structures\men\workshop.ini
-upgrade	Upgrade_PlantShield	UpgradeToGrant	Draw =	GrantUpgradeCreate	data\ini\object\goodfaction\structures\men\battletower.ini
+upgrade	Upgrade_PlantShield	UpgradeToGrant	Draw =	GrantUpgradeCreate	data\ini\object\goodfaction\structures\men\statue.ini
 upgrade	Upgrade_PlantShield	Upgrade	ModifierList AraphantSelfModifierArcher		data\ini\includes\attributemodifier.inc
 upgrade	Upgrade_PlantShield	Upgrade	ModifierList AufseherMeleeComboHorde		data\ini\includes\attributemodifier.inc
 upgrade	Upgrade_PlantShield	Upgrade	ModifierList AufseherMeleeMorgulComboHorde		data\ini\includes\attributemodifier.inc
@@ -3731,16 +3731,16 @@ upgrade	Upgrade_RaiseShield	Upgrade	ModifierList SklavenModifierHK		data\ini\inc
 upgrade	Upgrade_RaiseShield	Upgrade	ModifierList VerbannungExilModifier		data\ini\includes\attributemodifier.inc
 upgrade	Upgrade_ReinforcedGate	Upgrade	Object ArnorStoneMaker	CastleUpgrade	data\ini\object\goodfaction\structures\arnor\arnorstonemaker.ini
 upgrade	Upgrade_RhudaurHubGarmInn	Upgrade	ModifierList GolfimbulGarmInnModifier		data\ini\includes\attributemodifier.inc
-upgrade	Upgrade_RingHero	UpgradeForRingEntry	Behavior =	CitadelSlaughterHordeContain	data\ini\object\goodfaction\units\arnor\new\arnorarveduinew.ini
-upgrade	Upgrade_RingHero	UpgradeForRingEntry	Behavior =	CitadelSlaughterHordeContain	data\ini\object\goodfaction\units\imladris\imladriselrond.ini
-upgrade	Upgrade_RingHero	UpgradeForRingEntry	Behavior =	CitadelSlaughterHordeContain	data\ini\object\goodfaction\units\rohan\rohanradagast.ini
-upgrade	Upgrade_RingHero	UpgradeForRingEntry	Behavior =	CitadelSlaughterHordeContain	data\ini\object\goodfaction\units\arnor\arnorisildur.ini
-upgrade	Upgrade_RingHero	UpgradeForRingEntry	Behavior =	CitadelSlaughterHordeContain	data\ini\object\goodfaction\units\lothlorien\lothloriengaladriel.ini
-upgrade	Upgrade_RingHero	UpgradeForRingEntry	Behavior =	CitadelSlaughterHordeContain	data\ini\object\civilian\ereborbuildings.ini
-upgrade	Upgrade_RingHero	UpgradeForRingEntry	Behavior =		data\ini\object\evilfaction\units\angmar\new\angwk.ini
 upgrade	Upgrade_RingHero	UpgradeForRingEntry	Behavior =	CitadelSlaughterHordeContain	data\ini\object\goodfaction\units\arnor\arnorarvedui.ini
+upgrade	Upgrade_RingHero	UpgradeForRingEntry	Behavior =	CitadelSlaughterHordeContain	data\ini\object\goodfaction\units\arnor\arnorisildur.ini
+upgrade	Upgrade_RingHero	UpgradeForRingEntry	Behavior =	CitadelSlaughterHordeContain	data\ini\object\civilian\ereborbuildings.ini
 upgrade	Upgrade_RingHero	UpgradeForRingEntry	Behavior =	CitadelSlaughterHordeContain	data\ini\object\goodfaction\units\gondor\gondorboromir.ini
+upgrade	Upgrade_RingHero	UpgradeForRingEntry	Behavior =	CitadelSlaughterHordeContain	data\ini\object\goodfaction\units\imladris\imladriselrond.ini
+upgrade	Upgrade_RingHero	UpgradeForRingEntry	Behavior =		data\ini\object\evilfaction\units\angmar\new\angwk.ini
 upgrade	Upgrade_RingHero	UpgradeForRingEntry	Behavior =	CitadelSlaughterHordeContain	data\ini\object\goodfaction\units\men\theoden.ini
+upgrade	Upgrade_RingHero	UpgradeForRingEntry	Behavior =	CitadelSlaughterHordeContain	data\ini\object\goodfaction\units\arnor\new\arnorarveduinew.ini
+upgrade	Upgrade_RingHero	UpgradeForRingEntry	Behavior =	CitadelSlaughterHordeContain	data\ini\object\goodfaction\units\rohan\rohanradagast.ini
+upgrade	Upgrade_RingHero	UpgradeForRingEntry	Behavior =	CitadelSlaughterHordeContain	data\ini\object\goodfaction\units\lothlorien\lothloriengaladriel.ini
 upgrade	Upgrade_RingHero	UpgradeForRingEntry	BountyValue =	CitadelSlaughterHordeContain	data\ini\object\evilfaction\units\angmar\angmarwitchking.ini
 upgrade	Upgrade_RingHero	UpgradeToGrant	ChildObject GaladrielRohanFrodo_mod	GrantUpgradeCreate	data\ini\object\goodfaction\units\men\frodo.ini
 upgrade	Upgrade_RingHero	UpgradeForRingEntry	Draw =	CitadelSlaughterHordeContain	data\ini\object\goodfaction\structures\arnor\arnorcampsandcastles.ini
@@ -3801,8 +3801,8 @@ upgrade	Upgrade_RohanForgedBladesForRohirrim	Upgrade	CommandButton Command_Purch
 upgrade	Upgrade_RohanForgedBladesForRohirrim	UpgradeToGrant	ConflictsWith =	GrantUpgradeCreate	data\ini\object\goodfaction\units\rohan\rohanheerlagerrohirrim.ini
 upgrade	Upgrade_RohanFortressHelmsHorn	Upgrade	CommandButton Command_PurchaseUpgradeRohanFortressRuhmeshalle		data\ini\includes\commandbutton.inc
 upgrade	Upgrade_RohanFortressMilizen	Upgrade	CommandButton Command_PurchaseUpgradeRohanFortressMilizen		data\ini\includes\commandbutton.inc
-upgrade	Upgrade_RohanFortressStonework	Upgrade	Behavior =	InheritUpgradeCreate	data\ini\object\goodfaction\structures\rohan\rohancastlewalls.ini
 upgrade	Upgrade_RohanFortressStonework	Upgrade	Behavior =	CastleUpgrade	data\ini\object\goodfaction\structures\rohan\rohanfortress.ini
+upgrade	Upgrade_RohanFortressStonework	Upgrade	Behavior =	InheritUpgradeCreate	data\ini\object\goodfaction\structures\rohan\rohancastlewalls.ini
 upgrade	Upgrade_RohanFortressStonework	Upgrade	Object HaradFortressCitadel	CastleUpgrade	data\ini\object\evilfaction\structures\harad\haradfortress.ini
 upgrade	Upgrade_RohanFortressStonework	Upgrade	Object RohanCastleWallBanner	InheritUpgradeCreate	data\ini\object\goodfaction\structures\rohan\rohancastlewalls.ini
 upgrade	Upgrade_RohanFortressStonework	Upgrade	Object RohanCastleWallCatapult	InheritUpgradeCreate	data\ini\object\goodfaction\structures\rohan\rohancastlewalls.ini
@@ -4252,11 +4252,11 @@ upgrade	Upgrade_TechnologyGulzarDunklesRitual	Upgrade	CommandButton Command_Purc
 upgrade	Upgrade_TechnologyGulzarFlammendeVergeltung	Upgrade	CommandButton Command_PurchaseTechnologyGulzarFlammendeVergeltung		data\ini\includes\commandbutton.inc
 upgrade	Upgrade_TechnologyGulzarFluchdesHexenmeisters	Upgrade	CommandButton Command_PurchaseTechnologyFluchesHexenmeisters		data\ini\includes\commandbutton.inc
 upgrade	Upgrade_TechnologyGulzarLebensschild	Upgrade	CommandButton Command_PurchaseTechnologyGulzarLebensschild		data\ini\includes\commandbutton.inc
-upgrade	Upgrade_TechnologyGulzarMorgulseuche	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\units\angmar\new\angmarrogashnew.ini
-upgrade	Upgrade_TechnologyGulzarMorgulseuche	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\units\angmar\new\angmargulmataur.ini
-upgrade	Upgrade_TechnologyGulzarMorgulseuche	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\units\angmar\new\angmarkarshnew.ini
 upgrade	Upgrade_TechnologyGulzarMorgulseuche	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\units\angmar\new\angmargolfimbul.ini
+upgrade	Upgrade_TechnologyGulzarMorgulseuche	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\units\angmar\new\angmargulmataur.ini
 upgrade	Upgrade_TechnologyGulzarMorgulseuche	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\units\angmar\new\angagandaur.ini
+upgrade	Upgrade_TechnologyGulzarMorgulseuche	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\units\angmar\new\angmarkarshnew.ini
+upgrade	Upgrade_TechnologyGulzarMorgulseuche	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\units\angmar\new\angmarrogashnew.ini
 upgrade	Upgrade_TechnologyGulzarMorgulseuche	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\evilfaction\units\angmar\new\angmarhassall.ini
 upgrade	Upgrade_TechnologyGulzarMorgulseuche	Upgrade	CommandButton Command_PurchaseTechnologyGulzarMorgulseuche		data\ini\includes\commandbutton.inc
 upgrade	Upgrade_TechnologyGulzarMorgulseuche	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\evilfaction\units\angmar\angmarhwaldir.ini
@@ -4360,28 +4360,28 @@ upgrade	Upgrade_TechnologyWildGundabadFireArrows	UpgradeToGrant	Object GundabadE
 upgrade	Upgrade_TechnologyWildHeavyArmor	Upgrade	CommandButton Command_PurchaseTechnologyWildHeavyArmor		data\ini\commandbutton.ini
 upgrade	Upgrade_TestBuilding	UpgradeToGrant	AnimationState =	GrantUpgradeCreate	data\ini\object\evilfaction\units\wild\shelob.ini
 upgrade	Upgrade_TestBuilding	UpgradeToGrant	AnimationState =	GrantUpgradeCreate	data\ini\object\goodfaction\units\imladris\imladrisalatarknight.ini
-upgrade	Upgrade_TestBuilding	GrantUpgrade	Behavior =		data\ini\object\civilian\rivendellbuildings.ini
-upgrade	Upgrade_TestBuilding	GrantUpgrade	Behavior =		data\ini\object\evilfaction\structures\harad\haradfortress.ini
-upgrade	Upgrade_TestBuilding	GrantUpgrade	Behavior =		data\ini\object\civilian\helmsdeepbuildings.ini
-upgrade	Upgrade_TestBuilding	GrantUpgrade	Behavior =		data\ini\object\evilfaction\structures\angmar\angmartombstone.ini
-upgrade	Upgrade_TestBuilding	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\isengard\isengardfurnace.ini
-upgrade	Upgrade_TestBuilding	GrantUpgrade	Behavior =		data\ini\object\goodfaction\structures\men\campsandcastles.ini
-upgrade	Upgrade_TestBuilding	GrantUpgrade	Behavior =		data\ini\object\evilfaction\structures\isengard\campsandcastles.ini
-upgrade	Upgrade_TestBuilding	GrantUpgrade	Behavior =		data\ini\object\civilian\amonsulbuildings.ini
-upgrade	Upgrade_TestBuilding	GrantUpgrade	Behavior =		data\ini\object\civilian\angfornostbuildings.ini
-upgrade	Upgrade_TestBuilding	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\isengard\urukpit.ini
-upgrade	Upgrade_TestBuilding	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\angmar\angmarfortress.ini
-upgrade	Upgrade_TestBuilding	GrantUpgrade	Behavior =		data\ini\object\civilian\ereborbuildings.ini
+upgrade	Upgrade_TestBuilding	GrantUpgrade	Behavior =		data\ini\object\civilian\civilianbuildings.ini
 upgrade	Upgrade_TestBuilding	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\units\wild\wildgrobork.ini
+upgrade	Upgrade_TestBuilding	GrantUpgrade	Behavior =		data\ini\object\goodfaction\structures\men\campsandcastles.ini
+upgrade	Upgrade_TestBuilding	GrantUpgrade	Behavior =		data\ini\object\civilian\ereborbuildings.ini
+upgrade	Upgrade_TestBuilding	GrantUpgrade	Behavior =		data\ini\object\evilfaction\structures\harad\haradfortress.ini
 upgrade	Upgrade_TestBuilding	GrantUpgrade	Behavior =		data\ini\object\civilian\minasmorgulbuildings.ini
 upgrade	Upgrade_TestBuilding	GrantUpgrade	Behavior =		data\ini\object\civilian\carndumbuildings.ini
+upgrade	Upgrade_TestBuilding	GrantUpgrade	Behavior =		data\ini\object\evilfaction\structures\angmar\angmartombstone.ini
 upgrade	Upgrade_TestBuilding	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\mordor\mordordarkcastle.ini
-upgrade	Upgrade_TestBuilding	GrantUpgrade	Behavior =		data\ini\object\civilian\civilianbuildings.ini
-upgrade	Upgrade_TestBuilding	UpgradeToGrant	Behavior =		data\ini\object\evilfaction\structures\angmar\angmarcastlewalls.ini
-upgrade	Upgrade_TestBuilding	UpgradeToGrant	Behavior =		data\ini\object\goodfaction\structures\men\campsandcastles.ini
+upgrade	Upgrade_TestBuilding	GrantUpgrade	Behavior =		data\ini\object\civilian\helmsdeepbuildings.ini
+upgrade	Upgrade_TestBuilding	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\isengard\urukpit.ini
+upgrade	Upgrade_TestBuilding	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\isengard\isengardfurnace.ini
+upgrade	Upgrade_TestBuilding	GrantUpgrade	Behavior =		data\ini\object\civilian\rivendellbuildings.ini
+upgrade	Upgrade_TestBuilding	GrantUpgrade	Behavior =		data\ini\object\civilian\angfornostbuildings.ini
+upgrade	Upgrade_TestBuilding	GrantUpgrade	Behavior =		data\ini\object\evilfaction\structures\isengard\campsandcastles.ini
+upgrade	Upgrade_TestBuilding	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\angmar\angmarfortress.ini
+upgrade	Upgrade_TestBuilding	GrantUpgrade	Behavior =		data\ini\object\civilian\amonsulbuildings.ini
 upgrade	Upgrade_TestBuilding	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\evilfaction\structures\mordor\mordorwarcamp.ini
+upgrade	Upgrade_TestBuilding	UpgradeToGrant	Behavior =		data\ini\object\goodfaction\structures\men\campsandcastles.ini
 upgrade	Upgrade_TestBuilding	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\evilfaction\units\wild\wildsmaug_new.ini
 upgrade	Upgrade_TestBuilding	UpgradeToGrant	Behavior =		data\ini\object\goodfaction\structures\elven\elvencastlewalls.ini
+upgrade	Upgrade_TestBuilding	UpgradeToGrant	Behavior =		data\ini\object\evilfaction\structures\angmar\angmarcastlewalls.ini
 upgrade	Upgrade_TestBuilding	GrantUpgrade	CampnessValue =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\angmar\darkfortress.ini
 upgrade	Upgrade_TestBuilding	GrantUpgrade	ChildObject MinisWallAUpgradeNoGate	ObjectCreationUpgrade	data\ini\object\civilian\ministirithbuildings.ini
 upgrade	Upgrade_TestBuilding	GrantUpgrade	ChildObject MordorTribute_forHaradSmall	ObjectCreationUpgrade	data\ini\object\evilfaction\units\harad\haradtribute.ini
@@ -4389,15 +4389,15 @@ upgrade	Upgrade_TestBuilding	UpgradeToGrant	ChildObject RohanZeltlager_Independa
 upgrade	Upgrade_TestBuilding	UpgradeToGrant	ChildObject WildFortressFireDrake	GrantUpgradeCreate	data\ini\object\evilfaction\units\wild\firedrake.ini
 upgrade	Upgrade_TestBuilding	GrantUpgrade	ChildObject WildZuchtdracheBabyCreep_Slaved	ObjectCreationUpgrade	data\ini\object\evilfaction\units\wild\wildzuchtdrache.ini
 upgrade	Upgrade_TestBuilding	Upgrade	CommandButton Command_UpgradeTest		data\ini\commandbutton.ini
-upgrade	Upgrade_TestBuilding	UpgradeToGrant	CommandSet =	GrantUpgradeCreate	data\ini\object\evilfaction\structures\angmar\angmarcastlewalls.ini
 upgrade	Upgrade_TestBuilding	UpgradeToGrant	CommandSet =	GrantUpgradeCreate	data\ini\object\evilfaction\structures\mordor\mordorwallsnew.ini
+upgrade	Upgrade_TestBuilding	UpgradeToGrant	CommandSet =	GrantUpgradeCreate	data\ini\object\evilfaction\structures\angmar\angmarcastlewalls.ini
 upgrade	Upgrade_TestBuilding	UpgradeToGrant	CommandSet =	GrantUpgradeCreate	data\ini\object\goodfaction\structures\arnor\arnorcampsandcastles.ini
 upgrade	Upgrade_TestBuilding	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\isengard\siegeworks.ini
 upgrade	Upgrade_TestBuilding	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\isengard\urukpit.ini
-upgrade	Upgrade_TestBuilding	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\isengard\wargpit.ini
 upgrade	Upgrade_TestBuilding	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\isengard\armory.ini
-upgrade	Upgrade_TestBuilding	UpgradeToGrant	Draw =	GrantUpgradeCreate	data\ini\object\goodfaction\structures\imladris\imladrisfarm.ini
+upgrade	Upgrade_TestBuilding	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\isengard\wargpit.ini
 upgrade	Upgrade_TestBuilding	UpgradeToGrant	Draw =	GrantUpgradeCreate	data\ini\object\goodfaction\structures\imladris\imladriswell.ini
+upgrade	Upgrade_TestBuilding	UpgradeToGrant	Draw =	GrantUpgradeCreate	data\ini\object\goodfaction\structures\imladris\imladrisfarm.ini
 upgrade	Upgrade_TestBuilding	GrantUpgrade	FrameForPristineBonePositions =	ObjectCreationUpgrade	data\ini\object\evilfaction\units\wild\goblinking.ini
 upgrade	Upgrade_TestBuilding	Upgrade	ModifierList AraphantSelfModifierSoldier		data\ini\includes\attributemodifier.inc
 upgrade	Upgrade_TestBuilding	Upgrade	ModifierList ArnorHobbitTransModifier		data\ini\includes\attributemodifier.inc
@@ -4465,15 +4465,15 @@ upgrade	Upgrade_TestBuilding	GrantUpgrade	Scale =	ObjectCreationUpgrade	data\ini
 upgrade	Upgrade_TestBuilding	UpgradeToGrant	Scale =	GrantUpgradeCreate	data\ini\object\goodfaction\structures\elven\galadrielswell.ini
 upgrade	Upgrade_TestBuilding	GrantUpgrade	SelectPortrait =	ObjectCreationUpgrade	data\ini\object\evilfaction\units\harad\haradbigscorpion.ini
 upgrade	Upgrade_TestBuilding	GrantUpgrade	WeaponSet	ObjectCreationUpgrade	data\ini\object\evilfaction\units\wild\gundabadazog.ini
-upgrade	Upgrade_TestBuilding_2	GrantUpgrade	AnimationState =	ObjectCreationUpgrade	data\ini\object\evilfaction\units\wild\shelob.ini
 upgrade	Upgrade_TestBuilding_2	GrantUpgrade	AnimationState =	ObjectCreationUpgrade	data\ini\object\evilfaction\units\angmar\new\angmarnecromancer.ini
-upgrade	Upgrade_TestBuilding_2	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\mordor\mordordarkcastle.ini
+upgrade	Upgrade_TestBuilding_2	GrantUpgrade	AnimationState =	ObjectCreationUpgrade	data\ini\object\evilfaction\units\wild\shelob.ini
 upgrade	Upgrade_TestBuilding_2	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\angmar\angmarcrypt.ini
 upgrade	Upgrade_TestBuilding_2	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\isengard\isengardfurnace.ini
+upgrade	Upgrade_TestBuilding_2	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\angmar\angmarfortress.ini
+upgrade	Upgrade_TestBuilding_2	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\mordor\mordordarkcastle.ini
 upgrade	Upgrade_TestBuilding_2	GrantUpgrade	Behavior =		data\ini\object\evilfaction\structures\harad\haradfortress.ini
 upgrade	Upgrade_TestBuilding_2	GrantUpgrade	Behavior =		data\ini\object\evilfaction\units\wild\cavetroll.ini
 upgrade	Upgrade_TestBuilding_2	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\angmar\angmartombstone.ini
-upgrade	Upgrade_TestBuilding_2	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\angmar\angmarfortress.ini
 upgrade	Upgrade_TestBuilding_2	GrantUpgrade	CampnessValue =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\angmar\darkfortress.ini
 upgrade	Upgrade_TestBuilding_2	GrantUpgrade	ChildObject AngmarNecromancerBannerPlague	ObjectCreationUpgrade	data\ini\object\evilfaction\units\angmar\angmarnecromancerbanner.ini
 upgrade	Upgrade_TestBuilding_2	Upgrade	CommandButton Command_UpgradeTest_2		data\ini\commandbutton.ini
@@ -4498,50 +4498,50 @@ upgrade	Upgrade_TestBuilding_2	GrantUpgrade	Object RhudaurBarbarianSwordHorde	Ob
 upgrade	Upgrade_TestBuilding_2	GrantUpgrade	Object RhudaurWarlordWolfBanner	ObjectCreationUpgrade	data\ini\object\evilfaction\units\angmar\new\rhudaurwarlordbanner.ini
 upgrade	Upgrade_TestBuilding_2	GrantUpgrade	Object RhudaurWolfRiderHorde	ObjectCreationUpgrade	data\ini\object\evilfaction\units\angmar\new\rhudaurrider.ini
 upgrade	Upgrade_TestBuilding_2	GrantUpgrade	Object WargLair	ObjectCreationUpgrade	data\ini\object\neutral\warglair.ini
-upgrade	Upgrade_TestBuilding_2	GrantUpgrade	Scale =	ObjectCreationUpgrade	data\ini\object\evilfaction\units\angmar\new\rhudaurwarlord.ini
 upgrade	Upgrade_TestBuilding_2	GrantUpgrade	Scale =	ObjectCreationUpgrade	data\ini\object\evilfaction\units\angmar\new\rhudaurwarlordbanner.ini
+upgrade	Upgrade_TestBuilding_2	GrantUpgrade	Scale =	ObjectCreationUpgrade	data\ini\object\evilfaction\units\angmar\new\rhudaurwarlord.ini
 upgrade	Upgrade_TestBuilding_2	GrantUpgrade	WeaponSet	ObjectCreationUpgrade	data\ini\object\evilfaction\units\angmar\angmarnecromancerbanner.ini
-upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	AnimationState =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\arnor\new\arnorcavalrybannernew.ini
 upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	AnimationState =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\imladris\imladrislichtbringerfeuer.ini
+upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	AnimationState =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\arnor\new\arnorcavalrybannernew.ini
 upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	AutoResolveUnitType =	ObjectCreationUpgrade	data\ini\object\evilfaction\units\mordor\mordorkhamulnew.ini
-upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\civilian\amonsulbuildings.ini
-upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\arnor\new\cardolanmountedranger.ini
-upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =		data\ini\object\evilfaction\structures\angmar\angmarcrypt.ini
-upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\civilian\ereborbuildings.ini
-upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\civilian\minasmorgulbuildings.ini
-upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\civilian\civilianbuildings.ini
-upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\imladris\imladriscirdan.ini
-upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\civilian\rivendellbuildings.ini
-upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\imladris\imladrislichtbringerwasser.ini
-upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\arnor\new\cardolanranger.ini
-upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\harad\haradfortress.ini
-upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\civilian\helmsdeepbuildings.ini
-upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\imladris\imladrislichtbringererde.ini
-upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\angmar\angmartombstone.ini
-upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\structures\elven\elvenfortress.ini
-upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\angmar\angmarfortress.ini
-upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\civilian\angfornostbuildings.ini
 upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\structures\men\campsandcastles.ini
-upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\civilian\carndumbuildings.ini
+upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\civilian\angfornostbuildings.ini
+upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\imladris\imladrislichtbringerwasser.ini
+upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\imladris\imladrislichtbringererde.ini
+upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\civilian\minasmorgulbuildings.ini
+upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\angmar\angmarfortress.ini
+upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\structures\elven\elvenfortress.ini
+upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\imladris\imladriscirdan.ini
+upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\civilian\ereborbuildings.ini
+upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\harad\haradfortress.ini
+upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\angmar\angmartombstone.ini
+upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\arnor\new\cardolanranger.ini
+upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\civilian\helmsdeepbuildings.ini
+upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\arnor\new\cardolanmountedranger.ini
+upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\civilian\rivendellbuildings.ini
+upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =		data\ini\object\evilfaction\structures\angmar\angmarcrypt.ini
 upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\isengard\campsandcastles.ini
+upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\civilian\carndumbuildings.ini
+upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\civilian\amonsulbuildings.ini
+upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Behavior =	ObjectCreationUpgrade	data\ini\object\civilian\civilianbuildings.ini
 upgrade	Upgrade_TestBuilding_arnor	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\goodfaction\structures\arnor\new\arnorfarmnew.ini
 upgrade	Upgrade_TestBuilding_arnor	UpgradeToGrant	Behavior =	GrantUpgradeCreate	data\ini\object\evilfaction\structures\mordor\mordordarkcastle.ini
 upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	CampnessValue =	ObjectCreationUpgrade	data\ini\object\evilfaction\structures\angmar\darkfortress.ini
-upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	ClientBehavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\units\mordor\mordorwitchkingnew.ini
 upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	ClientBehavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\units\mordor\mordorkhamulnew.ini
+upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	ClientBehavior =	ObjectCreationUpgrade	data\ini\object\evilfaction\units\mordor\mordorwitchkingnew.ini
 upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	CommandSet =	ObjectCreationUpgrade	data\ini\object\evilfaction\hordes\angmar\angmarhordes.ini
 upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	CrowdResponseKey =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\arnor\new\lossothlance.ini
 upgrade	Upgrade_TestBuilding_arnor	UpgradeToGrant	CrushableLevel =	GrantUpgradeCreate	data\ini\object\evilfaction\units\evilmen\porter.ini
+upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\evilfaction\units\angmar\new\carndumcatapult.ini
+upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\arnor\new\arnorfighternew.ini
+upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\goodfaction\structures\imladris\imladriswell.ini
 upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\arnor\new\arthedaincrossbow.ini
+upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\arnor\new\arnortowershieldguardnew.ini
+upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\arnor\new\arnorcavalrynew.ini
 upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\goodfaction\structures\imladris\imladrisfarm.ini
 upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\evilfaction\units\angmar\angmardarkdunedain.ini
-upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\arnor\new\arnorfighternew.ini
-upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\arnor\new\arnorcavalrynew.ini
-upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\arnor\new\arnortowershieldguardnew.ini
-upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\goodfaction\structures\imladris\imladriswell.ini
-upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\goodfaction\structures\imladris\lichtaltar.ini
-upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\evilfaction\units\angmar\new\carndumcatapult.ini
 upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\goodfaction\units\imladris\dunedainpikemen.ini
+upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Draw =	ObjectCreationUpgrade	data\ini\object\goodfaction\structures\imladris\lichtaltar.ini
 upgrade	Upgrade_TestBuilding_arnor	UpgradeToGrant	Flammability	GrantUpgradeCreate	data\ini\object\goodfaction\structures\arnor\arnorelvenlibrary.ini
 upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	IdleAnimationState	ObjectCreationUpgrade	data\ini\object\goodfaction\units\arnor\new\breeguard.ini
 upgrade	Upgrade_TestBuilding_arnor	Upgrade	ModifierList DwarfFactionAura		data\ini\includes\attributemodifier.inc
@@ -4576,9 +4576,9 @@ upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Object RhudaurBarbarianSpearHord
 upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Object RhudaurBarbarianSwordHorde	ObjectCreationUpgrade	data\ini\object\evilfaction\units\angmar\new\rhudaursword.ini
 upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Object RhudaurWolfRiderHorde	ObjectCreationUpgrade	data\ini\object\evilfaction\units\angmar\new\rhudaurrider.ini
 upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Object SpiderLair	ObjectCreationUpgrade	data\ini\object\neutral\spiderlair.ini
-upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Scale =	ObjectCreationUpgrade	data\ini\object\evilfaction\units\mordor\greatsauron.ini
-upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Scale =	ObjectCreationUpgrade	data\ini\object\evilfaction\units\angmar\angmardunedainpike.ini
 upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Scale =	ObjectCreationUpgrade	data\ini\object\evilfaction\units\angmar\angmarbanner.ini
+upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Scale =	ObjectCreationUpgrade	data\ini\object\evilfaction\units\angmar\angmardunedainpike.ini
+upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	Scale =	ObjectCreationUpgrade	data\ini\object\evilfaction\units\mordor\greatsauron.ini
 upgrade	Upgrade_TestBuilding_arnor	GrantUpgrade	WeaponSet	ObjectCreationUpgrade	data\ini\object\evilfaction\units\mordor\mordornecromantwotr.ini
 upgrade	Upgrade_ThalKaserneLevel2	Upgrade	CommandButton Command_PurchaseUpgradeThalKaserneLevel2		data\ini\includes\commandbutton.inc
 upgrade	Upgrade_ThalKaserneLevel2	Upgrades	ExperienceLevel ThalKaserneLevel2		data\ini\includes\experiencelevels.inc
@@ -4712,8 +4712,8 @@ upgrade	Upgrade_Uruk_CHB02	BlingUpgrades	CreateAHeroClass		data\ini\createaheros
 upgrade	Upgrade_Uruk_CHB03	BlingUpgradeName	CreateAHeroBling		data\ini\createaherosystemappearancebling.inc
 upgrade	Upgrade_Uruk_CHB03	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemservantsofsauron.inc
 upgrade	Upgrade_URUK_CHBOD01	BlingUpgradeName	CreateAHeroBling		data\ini\createaherosystemappearancebling.inc
-upgrade	Upgrade_URUK_CHBOD01	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemservantsofsauron.inc
 upgrade	Upgrade_URUK_CHBOD01	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemologhai.inc
+upgrade	Upgrade_URUK_CHBOD01	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemservantsofsauron.inc
 upgrade	Upgrade_URUK_CHBOD02	BlingUpgradeName	CreateAHeroBling		data\ini\createaherosystemappearancebling.inc
 upgrade	Upgrade_URUK_CHBOD02	BlingUpgrades	CreateAHeroClass		data\ini\createaherosystemservantsofsauron.inc
 upgrade	Upgrade_URUK_CHBOD03	BlingUpgradeName	CreateAHeroBling		data\ini\createaherosystemappearancebling.inc

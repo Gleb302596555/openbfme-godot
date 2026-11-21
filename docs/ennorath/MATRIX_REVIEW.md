@@ -7,7 +7,7 @@ Layer 2 (lint) flags verdicts the mod's own data contradicts; layer 3 lists ever
 By rule: L1 66, L4 3
 
 
-## Changes since f76ffc2d: 6 buttons moved, 6 turned red
+## Changes since d4a29087: 6 buttons moved, 6 turned red
 
 - Angmar `AngmarTrollSling` `Command_SpecialAbilityAngmarCatapultPoisonBarrels`: PASS -> NO-FIRE — SpecialAbilityAngmarCatapultPlagueBarrels (target GondorFighterHorde at 940,3367,100, owner Player_2 [pixel 512,384, collision 0x14, model p
 - Angmar `AngmarTrollSlingFortress` `Command_SpecialAbilityAngmarCatapultPoisonBarrels`: PASS -> NO-FIRE — SpecialAbilityAngmarCatapultPlagueBarrels (target GondorFighterHorde at 1847,1817,50, owner Player_2 [pixel 512,384, collision 0x14, model p
