@@ -139,7 +139,9 @@ UpdateSleepTime AODCrushCollide::update()
 	return UPDATE_SLEEP_NONE;
 }
 void AODCrushCollide::crc(StateHasher &h) const { UpdateModule::crc(h); h.addU32(m_clearFrame); h.addU32(m_lastTarget); h.addBool(m_firing); }
+// RW 0x008C004C (DONOR BFME2 0x004BBF03): AODCrushCollide::xfer (version 1, UpdateModule::xfer, m_clearFrame +0x24, m_lastTarget +0x28, m_firing +0x2C)
 void AODCrushCollide::xfer(Xfer &x) { SnapshotXfer::version(x, 1, 1); xferUpdateModule(x); x.xferUnsignedInt(&m_clearFrame); x.xferObjectID(&m_lastTarget); x.xferBool(&m_firing); }
+// RW 0x008C0046 (getModuleName), RW 0x008C008D (getModuleNameKey, DONOR BFME2 0x004BBF44), RW 0x008C0199 (scalar deleting dtor -> ~AODCrushCollide RW 0x008C0026)
 void AODCrushCollide::registerClass(ModuleFactory &modules)
 {
 	modules.bindTypedData<Data>("AODCrushCollide", MODULETYPE_BEHAVIOR);

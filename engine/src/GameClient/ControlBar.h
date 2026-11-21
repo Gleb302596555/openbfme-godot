@@ -228,6 +228,11 @@ public:
 	Color borderSystemColor() const { return m_borderSystemColor; }
 	Color borderAlteredColor() const { return m_borderAlteredColor; }
 	Color commandBarBorderColor() const { return m_commandBarBorderColor; }
+	Color buildUpClockColor() const { return m_buildUpClockColor; } ///< RW 0x8DBE7E (+0x210), set by ControlBarScheme::init RW 0x720704
+	void setBuildUpClockColor(Color color) { m_buildUpClockColor = color; } ///< RW 0x8DBE7E
+	void setDisplaySize(int width, int height); ///< updates scheme resolution multiplier (RW 0x720796 / 0x72176B)
+	float schemeMultiplierX() const { return m_schemeMultiplierX; } ///< RW 0x7207B1 / 0x721786 (TheDisplay->getWidth() / ScreenCreationRes.x)
+	float schemeMultiplierY() const { return m_schemeMultiplierY; } ///< RW 0x7207C1 / 0x7217A7 (TheDisplay->getHeight() / ScreenCreationRes.y)
 	const std::string &schemeName() const { return m_schemeName; }
 
 	static std::vector<std::string> acceptanceStops();
@@ -298,5 +303,11 @@ private:
 	Color m_borderSystemColor = 0x00FFFFFF;
 	Color m_borderAlteredColor = 0x00FFFFFF;
 	Color m_commandBarBorderColor = 0x00FFFFFF;
+	Color m_buildUpClockColor = 0x80000000; ///< RW 0x8DBE7E (+0x210); ctor default GameMakeColor(0,0,0,128) (DONOR BFME2 ControlBarScheme_ControlBarScheme_Ctor.cpp:119)
+	int m_displayWidth = 800;
+	int m_displayHeight = 600;
+	ICoord2D m_schemeCreationRes{ 0, 0 };
+	float m_schemeMultiplierX = 1.0f;
+	float m_schemeMultiplierY = 1.0f;
 	std::string m_schemeName;
 };

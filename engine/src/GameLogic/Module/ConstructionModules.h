@@ -185,6 +185,7 @@ public:
 // night map (and again when a burning building's fire goes out at night); the glow window list (GlowWindowName) is shown while the building is on fire (status AFLAME, 0xA).
 // Lane Port 29 (issue #101) added the other two lists of the same loop: FireWindowName (+0x14) is shown while the building burns, and FireName (+0x2C - the field's only
 // reader in RotWK is RW 0x85944B in this update) is shown while it burns at night only.
+// RW 0x0085921F (getModuleName), RW 0x00859225 (getModuleNameKey), RW 0x008592D4 (scalar deleting dtor -> RW 0x00859206)
 class BuildingBehavior : public UpdateModule
 {
 public:

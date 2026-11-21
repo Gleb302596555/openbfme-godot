@@ -171,14 +171,40 @@ BodyDamageType ActiveBody::calcDamageState() const
 }
 
 // ZH ActiveBody::setInitialHealth (ActiveBody.cpp): the initial health is a percent of the max health; the current and previous health follow
-// RW 0x8C1BF9 / BFME2 slot 9: slot 0x28 of body interface
+// RW 0x008C1BF9 (DONOR BFME2 0x004BDAA9): body interface slot 10 (+0x28) ActiveBody::setDamageState
 void ActiveBody::resetDamageState(int state)
 {
-	if (state == 0)
+	float target = m_currentHealth;
+	bool valid = true;
+	switch (state)
 	{
-		m_currentHealth = m_maxHealth;
-		m_curDamageState = BODY_PRISTINE;
+	case BODY_PRISTINE:
+		target = m_maxHealth;
+		break;
+	case BODY_DAMAGED:
+		target = SimMath::mulf32(m_damagedFraction, m_maxHealth);
+		break;
+	case BODY_REALLYDAMAGED:
+		target = SimMath::mulf32(m_reallyDamagedFraction, m_maxHealth);
+		break;
+	case BODY_RUBBLE:
+		target = 0.0f;
+		break;
+	default:
+		valid = false;
+		break;
 	}
+	if (valid)
+	{
+		internalChangeHealth(SimMath::subf32(target, m_currentHealth)); // RW 0x8C1C2D..0x8C1C3D
+	}
+	updateDamageState(false); // RW 0x8C1C43..0x8C1C49
+}
+
+// RW 0x008C1C75 (DONOR BFME2 0x004BDB25): body interface slot 3 (+0x0C), calls setDamageState(getDamageState())
+void ActiveBody::resetHealthToDamageState()
+{
+	resetDamageState((int)m_curDamageState);
 }
 
 void ActiveBody::setInitialHealth(int initialPercent)
@@ -325,12 +351,13 @@ void ActiveBody::updateDamageState(bool initial)
 			world->removeObjectFromPathfindMap(obj);
 			world->addObjectToPathfindMap(obj);
 		}
-		// RW 0x8C1BB7: the experience reset, then the command points; RemoveUpgradesOnDeath and the attribute pool clear are S-342's
+		// RW 0x8C1BB7: experience reset (RW 0x79DA66), command points (RW 0x68E114), and attribute modifier pool clear (RW 0x006998D0); RemoveUpgradesOnDeath is S-342's
 		if (ExperienceTracker *xp = obj.getExperienceTracker())
 		{
 			xp->reset(); // RW 0x79DA66 on object + 0x26C (BFME2 decomp ActiveBodyDamageState.cpp:54-59, B2 0x4BDA67)
 		}
 		obj.removeFromPlayerCommandPoints(); // RW 0x8C1BB7 -> 0x68E114
+		obj.clearAllAttributeModifiers();    // RW 0x8C1BB7 -> RW 0x006998D0 (DONOR BFME2 0x00298E6A)
 		obj.setStatus((unsigned)CombatNames::statuses().noCollisions, true); // RW 0x8C2E3B: after the rubble reset
 		++obj.logic().combat().counters().rubbleEntered;
 	}
@@ -420,6 +447,7 @@ const ArmorTemplate *ActiveBody::currentArmor() const
 	{
 		throw std::logic_error("ActiveBody: no ArmorStore is installed (the damage pipeline runs outside a world context)");
 	}
+	// RW 0x005D8808 (ArmorStore::makeArmor, DONOR BFME2 0x001D9001): resolves the matched ArmorTemplateSet's armor name via TheArmorStore
 	const ArmorTemplate *armor = TheArmorStore->findArmorTemplate(set->m_armorName);
 	if (!armor && !m_armorReported)
 	{
@@ -427,6 +455,13 @@ const ArmorTemplate *ActiveBody::currentArmor() const
 		obj.logic().reportError("ActiveBody of " + tt->getName() + ": the armor '" + set->m_armorName + "' is not in the ArmorStore (RW looks the name up per hit and takes no armour)");
 	}
 	return armor;
+}
+
+// RW 0x008C3A48 (DONOR BFME2 0x004BF8AC -> RW 0x005D891E ArmorStore::isOverridden)
+bool ActiveBody::isArmorOverridden() const
+{
+	const ArmorTemplate *armor = currentArmor();
+	return armor && TheArmorStore && TheArmorStore->isOverridden(armor->m_name);
 }
 
 float ActiveBody::estimateDamage(const DamageInfoInput &input) const
@@ -666,6 +701,19 @@ void ActiveBody::attemptDamage(DamageInfo &info)
 		{
 			notifyDamageStateChange(&info, stateBefore, m_curDamageState);
 			playDamageStateSound(obj, m_curDamageState);
+		}
+		// LOCAL-116 (P-159, both editions): RW 0x8C44F6 .. 0x8C4585 (DONOR BFME2 ActiveBody.cpp:2220):
+		// when health crosses below 35% (previous/max >= 0.35f && current/max < 0.35f && current > 0.0f),
+		// post VOICE_EVENT_FEAR (0x7E0 -> VoiceFear, e.g. hero *VoiceHelpMe) through pickAndPlayUnitVoiceResponse (RW 0x8DEDBB).
+		if (m_maxHealth > 0.0f && m_currentHealth > 0.0f)
+		{
+			const float invMax = SimMath::divf32(1.0f, m_maxHealth);
+			const float prevRatio = SimMath::mulf32(m_previousHealth, invMax);
+			const float curRatio = SimMath::mulf32(m_currentHealth, invMax);
+			if (prevRatio >= 0.35f && curRatio < 0.35f && obj.clientHooks())
+			{
+				AudioApi::postUnitVoice(0x7E0, obj.getID());
+			}
 		}
 		// (18) death: health <= 0 and the hit took health; TOP20 #21, RW 0x8C458A .. 0x8C45C0: a capped hit scores the kill too (RW 0x6955BC(obj, 1)) and
 		// skips the death (the unit dies when its burning death ends)
@@ -1122,7 +1170,7 @@ void ActiveBody::xfer(Xfer &x)
 {
 	XferVersion v{ 1, 4 }; // 2: lane FX-4's last damage type, 3: Local 30's last damage no-effect, 4: PORT-293's last-healing frame
 	x.xferVersion(v);
-	xferBehaviorModule(x);
+	xferBehaviorModule(x); // BodyModule::xfer RW 0x00993419 (DONOR BFME2 0x0058B043) transfers BehaviorModule + m_damageScalar (+0x14)
 	x.xferReal(&m_currentHealth);
 	x.xferReal(&m_previousHealth);
 	x.xferReal(&m_reviveReference);

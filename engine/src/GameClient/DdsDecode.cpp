@@ -12,7 +12,7 @@ namespace
 constexpr std::uint32_t kFourCC_DXT1 = 0x31545844, kFourCC_DXT2 = 0x32545844, kFourCC_DXT3 = 0x33545844, kFourCC_DXT4 = 0x34545844,
                         kFourCC_DXT5 = 0x35545844, kFourCC_DX10 = 0x30315844;
 constexpr std::uint32_t kPfAlphaPixels = 0x1, kPfFourCC = 0x4, kPfRgb = 0x40;
-constexpr std::uint32_t kFlagMipCount = 0x20000;
+constexpr std::uint32_t kFlagPitch = 0x8, kFlagMipCount = 0x20000, kFlagLinearSize = 0x80000;
 constexpr std::uint32_t kCaps2Cube = 0x200, kCaps2Volume = 0x200000;
 constexpr size_t kHeaderSize = 128;
 
@@ -26,6 +26,8 @@ struct Header
 	int width = 0;
 	int height = 0;
 	int mips = 1;
+	std::uint32_t flags = 0;
+	std::uint32_t pitchOrLinearSize = 0;
 	bool block = false;
 	size_t blockBytes = 0;
 	std::uint32_t fourCC = 0;
@@ -48,8 +50,10 @@ bool parse(const std::uint8_t *data, size_t size, Header &h, std::string *error)
 		return fail("DDS: not a DDS header");
 	}
 	const std::uint32_t flags = rd32(data + 8);
+	h.flags = flags;
 	h.height = (int)rd32(data + 12);
 	h.width = (int)rd32(data + 16);
+	h.pitchOrLinearSize = rd32(data + 20);
 	h.mips = (flags & kFlagMipCount) && rd32(data + 28) > 0 ? (int)rd32(data + 28) : 1;
 	const std::uint32_t pfFlags = rd32(data + 80), caps2 = rd32(data + 112);
 	if (caps2 & (kCaps2Cube | kCaps2Volume))
@@ -192,6 +196,15 @@ bool DdsDecode::inspect(const std::uint8_t *data, size_t size, bool &needsFallba
 		return false;
 	}
 	if (h.block && ((h.width & 3) || (h.height & 3)))
+	{
+		needsFallback = true;
+		return true;
+	}
+	// Godot 4.7 (modules/dds/texture_loader_dds.cpp) rejects DDS files whose dwPitchOrLinearSize is non-zero without
+	// DDSD_LINEARSIZE (compressed) or DDSD_PITCH (uncompressed), e.g. Ennorath's sccbeaconground.dds (flags=0x1007, pitch=131072).
+	// Retail's D3D loader accepts them.
+	if ((h.block && h.pitchOrLinearSize != 0 && !(h.flags & kFlagLinearSize)) ||
+	    (!h.block && h.pitchOrLinearSize != 0 && !(h.flags & kFlagPitch)))
 	{
 		needsFallback = true;
 		return true;

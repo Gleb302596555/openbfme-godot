@@ -8,6 +8,7 @@
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DSailModelDraw.h"
 
 #include <chrono>
+#include <cstdlib>
 #include <set>
 
 // The game host of the creation hooks: the objects of the map are its object table (id = drawable index + 1), and a hide / show of a
@@ -446,9 +447,34 @@ void MapObjectRuntime::build(const MapObjectDrawables &drawables, bool createDra
 	if (m_lua)
 	{
 		addReports(m_lua->reports());
-		for (const std::string &a : m_lua->logic()->alerts())
+		const std::vector<std::string> &alerts = m_lua->logic()->alerts();
+		const std::vector<std::string> &ctx = m_lua->logic()->alertSources();
+		const std::vector<bool> &dropped = m_lua->logic()->alertRetailDropped();
+		for (size_t i = 0; i < alerts.size(); ++i)
 		{
-			m_report.errors.push_back("OnCreated handler failed: " + a);
+			std::string where = i < ctx.size() ? ctx[i] : std::string();
+			if (!where.empty())
+			{
+				const size_t at = where.find(" of object ");
+				if (at != std::string::npos)
+				{
+					const int id = std::atoi(where.c_str() + at + 11);
+					if (id >= 1 && (size_t)id <= drawables.drawables.size() && drawables.drawables[(size_t)id - 1].info)
+					{
+						where += " " + drawables.drawables[(size_t)id - 1].info->name;
+					}
+				}
+			}
+			const std::string msg = !where.empty() ? "OnCreated handler failed (" + where + "): " + alerts[i]
+				: "OnCreated handler failed: " + alerts[i];
+			if (i < dropped.size() && dropped[i])
+			{
+				++m_report.dataDefects[msg];
+			}
+			else
+			{
+				m_report.errors.push_back(msg);
+			}
 		}
 		if (m_report.creationHookTemplatesWithSeveralLists > 0)
 		{

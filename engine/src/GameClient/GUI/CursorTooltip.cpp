@@ -145,6 +145,33 @@ bool CursorTooltipSettings::scan(const std::string &mouseIni, const std::string 
 			s.textColor = ((std::uint32_t)(c[3] & 0xFF) << 24) | ((std::uint32_t)(c[0] & 0xFF) << 16) | ((std::uint32_t)(c[1] & 0xFF) << 8) | (std::uint32_t)(c[2] & 0xFF);
 			seen |= 16;
 		}
+		else if (key == "TooltipBackgroundColor") // RW 0xBF6198 (+0x12BC, parseRGBAColorInt RW 0x42F03F)
+		{
+			int c[4] = { 0, 0, 0, 255 };
+			for (const std::string &t : v)
+			{
+				const char k = (char)std::toupper((unsigned char)t[0]);
+				const int idx = k == 'R' ? 0 : k == 'G' ? 1 : k == 'B' ? 2 : k == 'A' ? 3 : -1;
+				const size_t colon = t.find(':');
+				if (idx >= 0 && colon != std::string::npos)
+				{
+					c[idx] = std::atoi(t.c_str() + colon + 1);
+				}
+			}
+			s.backgroundColor = ((std::uint32_t)(c[3] & 0xFF) << 24) | ((std::uint32_t)(c[0] & 0xFF) << 16) | ((std::uint32_t)(c[1] & 0xFF) << 8) | (std::uint32_t)(c[2] & 0xFF);
+		}
+		else if (key == "UseTooltipAltTextColor") // RW 0xBF61C8 (+0x12E0, parseBool RW 0x42E558)
+		{
+			s.useAltTextColor = lowerEquals(v.front(), "yes") || lowerEquals(v.front(), "true");
+		}
+		else if (key == "UseTooltipAltBackColor") // RW 0xBF61D8 (+0x12E1, parseBool RW 0x42E558)
+		{
+			s.useAltBackColor = lowerEquals(v.front(), "yes") || lowerEquals(v.front(), "true");
+		}
+		else if (key == "AdjustTooltipAltColor") // RW 0xBF61E8 (+0x12E2, parseBool RW 0x42E558)
+		{
+			s.adjustAltColor = lowerEquals(v.front(), "yes") || lowerEquals(v.front(), "true");
+		}
 	}
 	if (seen != 31)
 	{
@@ -272,6 +299,35 @@ void CursorTooltip::setTooltip(const UnicodeString &text, int delayMs)
 {
 	m_delayOverride = delayMs; // RW 0x5EE1A6: + 0x4FCC, the request + 0x12FC (the colour: the default, no colour is passed)
 	m_request = text;
+	m_hasExplicitColor = false;
+}
+
+// RW 0x5EE1A6 .. 0x5EE30C (Mouse::setCursorTooltip): computes m_tooltipTextColor (+0x4FDC) and m_tooltipBackColor (+0x4FEC)
+// from UseTooltipAltTextColor (+0x12E0), UseTooltipAltBackColor (+0x12E1), AdjustTooltipAltColor (+0x12E2) and TooltipBackgroundColor (+0x12BC).
+void CursorTooltip::setTooltipWithAltColor(const UnicodeString &text, int delayMs, float altR, float altG, float altB, const CursorTooltipSettings &settings)
+{
+	m_delayOverride = delayMs;
+	m_request = text;
+	m_color = settings.textColor;
+	m_backColor = settings.backgroundColor;
+	if (settings.useAltTextColor) // RW 0x5EE1DB
+	{
+		const int r = settings.adjustAltColor ? (int)((altR + 1.0f) * 127.5f) : (int)(altR * 255.0f); // RW 0x5EE1F7 / 0x5EE230
+		const int g = settings.adjustAltColor ? (int)((altG + 1.0f) * 127.5f) : (int)(altG * 255.0f);
+		const int b = settings.adjustAltColor ? (int)((altB + 1.0f) * 127.5f) : (int)(altB * 255.0f);
+		const std::uint32_t a = settings.textColor & 0xFF000000u; // RW 0x5EE26B
+		m_color = a | ((std::uint32_t)(r & 0xFF) << 16) | ((std::uint32_t)(g & 0xFF) << 8) | (std::uint32_t)(b & 0xFF);
+	}
+	if (settings.useAltBackColor) // RW 0x5EE277
+	{
+		const float scale = settings.adjustAltColor ? 127.5f : 255.0f; // RW 0x5EE280 / 0x5EE28B
+		const int r = (int)(altR * scale);
+		const int g = (int)(altG * scale);
+		const int b = (int)(altB * scale);
+		const std::uint32_t a = settings.backgroundColor & 0xFF000000u; // RW 0x5EE2C0
+		m_backColor = a | ((std::uint32_t)(r & 0xFF) << 16) | ((std::uint32_t)(g & 0xFF) << 8) | (std::uint32_t)(b & 0xFF);
+	}
+	m_hasExplicitColor = true;
 }
 
 void CursorTooltip::update(std::uint32_t nowMs, float stageX, float stageY, const CursorTooltipSettings &settings, float scaleX, float scaleY,
@@ -299,7 +355,11 @@ void CursorTooltip::update(std::uint32_t nowMs, float stageX, float stageY, cons
 			// the stage measure times min(scale), so the box the movie draws and the text the device draws agree (INFERENCE, S-4610)
 			const float minScale = scaleX < scaleY ? scaleX : scaleY;
 			m_font = settings.font;
-			m_color = settings.textColor;
+			if (!m_hasExplicitColor)
+			{
+				m_color = settings.textColor;
+				m_backColor = settings.backgroundColor; // RW 0x5EE2FB..0x5EE30A
+			}
 			m_lines.clear();
 			size_t start = 0;
 			for (;;)

@@ -28,7 +28,7 @@ The ring form's command set is `AngmarWitchKingEnnorathRingCommandSet` (`angwk.i
 | Curse | Level 6 `CurseSpecialPower` uses `SpecialAbilityCurseEnemy`, 100% curse (`:2766–2799`); the candidate button after `;;` in slot 5 is commented out. | Effective reachability, targets, cooldown modification and effects are not inferred from the declaration. |
 | Aura / combat | Five `AttributeModifierAuraUpdate`s (`:2575–2625`) include allied non-hero leadership, a named eight-hero filter, and two enemy debuffs at levels 1 and 5; the second names `AntiCategory = LEADERSHIP`. `ReflectDamage` says 30% except structural (`:2497–2500`). Matrix observes one target for each aura. | Overlap/anti-category, all names, upgrade gates, ranges, fear, reflect combat and actual stat outcomes need independent tests; S-856 remains. |
 
-The current `MATRIX.tsv` entries for `FactionAngmar` / `AngmarWitchkingNewRing` are synthetic sweep observations, not a full gameplay or visual audit. Main `ennorath.evacuate-containers` concerns `AngmarWitchking_mod`, not proof that this distinct New object follows the same in-game route; plain garrison exit S-7715 is a different stop from this branch's StealthUpdate-selection S-7749.
+The current `MATRIX.tsv` entries for `FactionAngmar` / `AngmarWitchkingNewRing` are synthetic sweep observations, not a full gameplay or visual audit. Main `ennorath.evacuate-containers` concerns `AngmarWitchking_mod`, not proof that this distinct New object follows the same in-game route; plain garrison exit S-7715 is a different stop from this branch's StealthUpdate-selection S-7773.
 
 ## Appearance
 

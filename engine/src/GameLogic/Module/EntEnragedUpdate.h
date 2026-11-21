@@ -49,6 +49,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008B6499 (getModuleName), RW 0x008B655D (getModuleNameKey), RW 0x008B6698 (scalar deleting dtor -> RW 0x008B6480)
 class EntEnragedUpdate : public UpdateModule
 {
 public:

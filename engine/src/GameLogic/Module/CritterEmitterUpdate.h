@@ -59,6 +59,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008CD14F (getModuleName), RW 0x008CD155 (getModuleNameKey), RW 0x008CD1DA (scalar deleting dtor -> RW 0x008CD12F)
 class CritterEmitterUpdate : public UpdateModule, public CollideModuleInterface
 {
 public:

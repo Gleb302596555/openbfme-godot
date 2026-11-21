@@ -532,6 +532,8 @@ bool SoundSelectors::any(const ThingTemplate &tt)
 	return false;
 }
 
+// RandomSoundSelectorClientBehavior: RW 0x008D00E2 (getModuleName), RW 0x008D00E8 (getModuleNameKey, DONOR BFME2 0x004CBCAD),
+// RW 0x008D01C2 (client DrawableModule xfer, DONOR BFME2 0x004CBD7C; client-only, S-4190)
 void SoundSelectorClientBehavior::registerClasses(ModuleFactory &modules)
 {
 	modules.bindTypedData<MCData>("ModelConditionSoundSelectorClientBehavior", MODULETYPE_CLIENT_BEHAVIOR);

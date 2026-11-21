@@ -542,6 +542,7 @@ std::function<bool(const PathfindObject &)> DynamicPortalBehaviour::waypointFilt
 	};
 }
 
+// RW 0x00863A5F (UpgradeModule::xfer, v1..2, 6 portal waypoints, m_created +0x3C, m_disabled +0x3D)
 void DynamicPortalBehaviour::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);
@@ -747,6 +748,8 @@ UpdateSleepTime FakePathfindPortalBehaviour::update()
 	return UPDATE_SLEEP(1);
 }
 
+// RW 0x00864BFE: UpdateModule::xfer, v1..2, two portal waypoint ids, m_created, m_dead, m_registered;
+// RW 0x00864CC8 .. 0x00864CDB: when m_registered is true on XFER_LOAD, call doRegister() (RW 0x0086498E).
 void FakePathfindPortalBehaviour::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);
@@ -759,6 +762,10 @@ void FakePathfindPortalBehaviour::xfer(Xfer &x)
 	x.xferBool(&m_dead);
 	x.xferBool(&m_registered);
 	x.xferBool(&m_gateFound);
+	if (m_registered && x.isLoading())
+	{
+		doRegister(); // RW 0x00864CDB -> RW 0x0086498E
+	}
 }
 
 void FakePathfindPortalBehaviour::crc(StateHasher &hasher) const

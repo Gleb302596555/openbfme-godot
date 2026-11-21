@@ -129,6 +129,7 @@ void PhysicsBehaviorModuleData::buildFieldParse(MultiIniFieldParse &p)
 	p.add(kPhysicsParse);
 }
 
+// getModuleName RW 0x00792C64 ("PhysicsBehavior"), getModuleNameKey RW 0x00792C1F
 void PhysicsBehavior::registerClass(ModuleFactory &modules)
 {
 	modules.bindTypedData<PhysicsBehaviorModuleData>("PhysicsBehavior", MODULETYPE_BEHAVIOR);
@@ -968,7 +969,7 @@ bool ObjectKnockback::shockWave(Object &obj, const DamageInfo &info)
 	return true;
 }
 
-// ---- lane SAVE-4b: the snapshot (OpenBFME native, S-4190: the crc's fields, in declaration order) ---------------------------------------------------
+// ---- lane SAVE-4b: the snapshot (OpenBFME native, S-4190: the crc's fields, in declaration order; retail RW 0x00793113, DONOR BFME2 0x00390D50) ----
 void PhysicsBehavior::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

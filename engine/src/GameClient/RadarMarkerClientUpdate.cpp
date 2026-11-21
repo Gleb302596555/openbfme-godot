@@ -36,7 +36,7 @@ RadarMarkerClientUpdate::RadarMarkerClientUpdate(Thing *thing, const RadarMarker
 {
 }
 
-// RW 0x8CE071 / BFME2 0x4C9C38
+// RW 0x008CE072 / BFME2 0x4C9C38 (~RadarMarkerClientUpdate), RW 0x008CE0FA (scalar deleting dtor)
 RadarMarkerClientUpdate::~RadarMarkerClientUpdate()
 {
 	if (m_marker)
@@ -75,6 +75,7 @@ void RadarMarkerClientUpdate::clientUpdate()
 	}
 }
 
+// RW 0x008CE027 (getModuleName), RW 0x008CE02D (getModuleNameKey)
 void RadarMarkerClientUpdate::registerClass(ModuleFactory &modules)
 {
 	modules.bindTypedData<RadarMarkerClientUpdateModuleData>("RadarMarkerClientUpdate", MODULETYPE_CLIENT_UPDATE);

@@ -67,6 +67,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x00895478 (getModuleName), RW 0x0089547E (getModuleNameKey), RW 0x00895556 (scalar deleting dtor -> RW 0x0089545F)
 class PickupStuffUpdate : public UpdateModule
 {
 public:

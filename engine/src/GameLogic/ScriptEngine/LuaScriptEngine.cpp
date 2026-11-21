@@ -508,20 +508,33 @@ void LuaScriptEngine::dispatch(const LuaEventRef &event, const LuaObjectInfo &se
 	{
 		m_debugStep = L;
 	}
-	// map sweep 2026-11-20: name the alert a failed handler raises (the alert text names neither the handler nor the object); whether self
-	// is registered decides quirk Q5 (pushObject: an unregistered object leaves a second nil, so lua_call calls nil)
+	// map sweep 2026-11-20 / Local 111: name the alert a failed handler raises (the alert text names neither the handler nor the object);
+	// whether self or any OBJECT argument is unregistered decides quirk Q5 (pushObject RW 0x735AE9: an unregistered object leaves a second nil,
+	// so lua_gettop(L) != top + 1 + nargs and lua_call RW 0x73611D fails before entering Lua; retail _ALERT RW 0x734E41 drops the alert)
 	{
+		const bool quirkQ5 = lua_gettop(L) != top + 1 + nargs;
 		std::string ctx = "handler " + handler->function + " of object " + std::to_string(self.id);
 		lua_getglobal(L, objectGlobalName(self.id).c_str());
 		const bool registered = lua_type(L, -1) != LUA_TNIL && lua_toobjid(L, -1) == self.id;
 		lua_settop(L, -2);
-		ctx += registered ? " (registered)" : " (NOT registered: quirk Q5)";
-		m_logic->setAlertContext(ctx);
+		if (!registered)
+		{
+			ctx += " (NOT registered: quirk Q5)";
+		}
+		else if (quirkQ5)
+		{
+			ctx += " (arg NOT registered: quirk Q5)";
+		}
+		else
+		{
+			ctx += " (registered)";
+		}
+		m_logic->setAlertContext(ctx, quirkQ5);
 	}
 	++m_depth;
 	lua_call(L, nargs, 0); // protected; the status is ignored
 	--m_depth;
-	m_logic->setAlertContext(std::string());
+	m_logic->setAlertContext(std::string(), false);
 	if (m_debugStep && m_depth == 0)
 	{
 		m_debugStep = nullptr; // "Stepping out of LUA function - step disabled." (the console is inert)

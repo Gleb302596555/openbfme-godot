@@ -104,6 +104,7 @@ void HordeTransportContainDamage::xfer(Xfer &x)
 	xferBehaviorModule(x);
 }
 
+// RW 0x008BF22E (getModuleName), RW 0x008BF234 (getModuleNameKey), RW 0x008BF2A3 (scalar deleting dtor -> ~HordeTransportContainDamage RW 0x008BF215)
 void HordeTransportContainDamage::registerClass(ModuleFactory &modules)
 {
 	modules.bindTypedData<HordeTransportContainDamageModuleData>("HordeTransportContainDamage", MODULETYPE_BEHAVIOR);
