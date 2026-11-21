@@ -90,6 +90,18 @@ void addBit(Object::ModelConditionBits &bits, int bit)
 {
 	bits[(size_t)bit >> 5] |= 1u << (bit & 31);
 }
+
+// RW 0x6C97F9 / 0x6C98E6: the five weapon lock conditions are a single mask, not independent slot state.
+// DONOR BFME2 0x002C8AAE / 0x002C8B9B (WeaponSetSetWeaponLock.cpp).
+void clearWeaponLockConditions(Object &owner)
+{
+	Object::ModelConditionBits clear{};
+	for (int i = 0; i < 5; ++i)
+	{
+		addBit(clear, slotConditions(i).lockBit);
+	}
+	owner.clearAndSetModelConditionFlags(clear, Object::ModelConditionBits{});
+}
 } // namespace
 
 // RW 0x73D89F / 0x73D917 (the same best match as FindArmorTemplateSet over the 128 bit set conditions): the most conditions met first, then the fewest unmet
@@ -449,6 +461,22 @@ void ObjectWeapons::fireExtraWeapon(Weapon &w, Object &victim)
 }
 
 // lane MODS-3: RW 0x6CF3AE -> privateFireWeapon RW 0x6CEF6D (source, source position, victim, victim id, no position, 1, 1, 0, 0)
+// LOCAL-97: RW 0x006CF407 Weapon::forceFireWeapon(source, victim) -> privateFireWeapon RW 0x6CEF6D with ignoreRanges = true (arg 6 = 1)
+void ObjectWeapons::forceFireExtraWeapon(Weapon &w, Object &victim)
+{
+	if (!w.getTemplate())
+	{
+		return;
+	}
+	Weapon::FireArgs args;
+	args.target.hasVictim = true;
+	args.target.victimID = victim.getID();
+	args.target.victimPosition = *victim.getPosition();
+	args.ignoreRanges = true; // RW 0x006CF413: push 1
+	ObjectWeaponDelivery delivery(*m_owner, *this, *w.getTemplate(), w);
+	w.privateFireWeapon(host(), delivery, args);
+}
+
 void ObjectWeapons::fireExtraWeaponDetonationAt(Weapon &w, Object &victim)
 {
 	if (!w.getTemplate())
@@ -567,6 +595,9 @@ WeaponRangeHost &ObjectWeapons::rangeHost()
 // ---------------------------------------------------------------------------------------------------------------------------------
 // the set
 // ---------------------------------------------------------------------------------------------------------------------------------
+// lane ANIM-1: RW 0x68DECA (set) / 0x6911B7 (clear) Object::setWeaponSetFlags / clearWeaponSetFlags: every bit of the mask, then ONE weapon set update (RW
+// 0x6C99E2); the clear, then RW 0x6911B7's second loop: every bit the mask names whose mapped model condition the owner has, cleared one by one (RW 0x68B53C).
+// The set touches no model condition (RW does not there either)
 void ObjectWeapons::setWeaponSetFlags(const WeaponSetFlags &mask, bool on)
 {
 	for (size_t i = 0; i < m_flags.size(); ++i)
@@ -574,6 +605,21 @@ void ObjectWeapons::setWeaponSetFlags(const WeaponSetFlags &mask, bool on)
 		m_flags[i] = on ? (m_flags[i] | mask[i]) : (m_flags[i] & ~mask[i]);
 	}
 	updateWeaponSet();
+	if (on || !m_owner)
+	{
+		return;
+	}
+	for (int bit = 0; bit < 128; ++bit) // RW's loop is bits 0..0x67; WeaponSetModelCondition answers -1 beyond the table
+	{
+		if ((mask[(size_t)bit >> 5] >> (bit & 31)) & 1u)
+		{
+			const int condition = WeaponSetModelCondition(bit);
+			if (condition >= 0 && m_owner->testModelCondition(condition))
+			{
+				m_owner->setModelConditionState(condition, false); // RW 0x6911B7's per-bit mirror
+			}
+		}
+	}
 }
 
 // lane ANIM-1: RW 0x691059 (set) / 0x691106 (clear) Object::setWeaponSetFlag / clearWeaponSetFlag: the flag, the set update (RW 0x6C99E2), then the model
@@ -671,7 +717,7 @@ void ObjectWeapons::rebuildWeapons(const WeaponTemplateSet *set)
 	m_set = set;
 	if (!(old && set && set->m_isWeaponLockSharedAcrossSets))
 	{
-		m_lockType = NOT_LOCKED;
+		releaseWeaponLock(LOCKED_PERMANENTLY); // RW 0x6C99E2, non-shared lock on a weapon set change
 		m_curSlot = PRIMARY_WEAPON;
 	}
 	if (!set)
@@ -810,16 +856,17 @@ bool ObjectWeapons::setWeaponLock(int slot, WeaponLockType type)
 	{
 		return false;
 	}
-	if (m_lockType == LOCKED_PERMANENTLY && type == LOCKED_TEMPORARILY)
+	if (type == LOCKED_PERMANENTLY || (type == LOCKED_TEMPORARILY && m_lockType != LOCKED_PERMANENTLY))
 	{
-		return false; // a temporary lock never overrides a permanent one
+		m_curSlot = slot;
+		m_lockedSlot = slot;
+		m_lockType = type;
 	}
-	m_curSlot = slot;
-	m_lockedSlot = slot;
-	m_lockType = type;
-	if (slot < 5)
+	// A temporary request against a permanent lock succeeds without changing the selected slot (RW 0x6C983E).
+	clearWeaponLockConditions(*m_owner);
+	if (m_curSlot < 5)
 	{
-		m_owner->setModelConditionState(slotConditions(slot).lockBit, true);
+		m_owner->setModelConditionState(slotConditions(m_curSlot).lockBit, true);
 	}
 	return true;
 }
@@ -859,11 +906,8 @@ void ObjectWeapons::releaseWeaponLock(WeaponLockType type)
 	}
 	if (type == LOCKED_PERMANENTLY || (type == LOCKED_TEMPORARILY && m_lockType == LOCKED_TEMPORARILY))
 	{
-		if (m_lockedSlot < 5)
-		{
-			m_owner->setModelConditionState(slotConditions(m_lockedSlot).lockBit, false);
-		}
 		m_lockType = NOT_LOCKED;
+		clearWeaponLockConditions(*m_owner);
 	}
 }
 

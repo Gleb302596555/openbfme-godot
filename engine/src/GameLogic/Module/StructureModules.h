@@ -125,6 +125,9 @@ public:
 	void attemptDamage(DamageInfo &info) override;
 	void attemptHealing(DamageInfo &info) override;
 	float estimateDamage(const DamageInfoInput &input) const override;
+	// RW 0x8C1AC3: slot 0x3C returns four zero bytes (ArmorSetFlags), while slots 0x34/0x38 are the RW 0x9F3A3C
+	// `ret 4` stubs. An armor upgrade therefore cannot add a condition to an untouchable object's armor set.
+	bool ignoresArmorSetFlagChanges() const override { return true; }
 	bool dieCalled() const { return m_dieCalled; }
 	void crc(StateHasher &hasher) const override;
 
@@ -179,6 +182,8 @@ public:
 	DieModuleInterface *getDie() override { return this; }
 	void onDie(const DieModuleInterface::Event &event) override;
 	UpdateSleepTime update() override;
+	// RW 0x00654FD1 (UpdateInterface vtable 0x00C6902C slot 1): DISABLED_USER_FROZEN (bit 11)
+	DisabledMaskType getDisabledTypesToProcess() const override { return (DisabledMaskType)(1u << DISABLED_USER_FROZEN); }
 	void crc(StateHasher &hasher) const override;
 	const StructureCollapseUpdateModuleData *data() const { return m_data; }
 	StructureCollapseState state() const { return m_state; }

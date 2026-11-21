@@ -143,6 +143,17 @@ TEST_CASE("fx3: retail's unknown-transition log line is a data defect of the dra
 	CHECK(classifyDrawMessage("script asked for the unknown model condition FOO").kind == DrawMessageClass::ERROR);
 }
 
+TEST_CASE("fx3: a BeginScript that does not compile is a data defect (retail drops the alert, RW 0x734E41); a runtime Lua error stays an error")
+{
+	// Lua 4.0.1 llex.c luaX_error: "<msg>;\n  last token read: `<token>' at line <n> in <chunk>" (the parser's only format)
+	const std::string syntax = "LUA Alert: error: `end' expected;\n  last token read: `<eof>' at line 1 in string \"RohanArcherRangeModPlayer\"";
+	const std::string runtime = "LUA Alert: error: attempt to call global `CurDrawableNoSuchFunction' (a nil value)";
+	CHECK(isLuaSyntaxAlert(syntax));
+	CHECK_FALSE(isLuaSyntaxAlert(runtime));
+	CHECK(classifyDrawMessage("script of state STATE_Idle failed: " + syntax).kind == DrawMessageClass::DATA_DEFECT);
+	CHECK(classifyDrawMessage("script of state STATE_Idle failed: " + runtime).kind == DrawMessageClass::ERROR);
+}
+
 TEST_CASE("fx3: the draw scripts' target record: KindOf of the recorded victim (RW 0x73667D) and the bearing of RW 0x4B3D8D / 0x644FD0")
 {
 	DrawableScriptTarget t;

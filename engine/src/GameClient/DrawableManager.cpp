@@ -420,6 +420,18 @@ void DrawableManager::applyEvents(const std::vector<ClientEvent> &events)
 				d->setFXTrigger(ev.fxTrigger);
 			}
 			break;
+		case ClientEvent::SET_TINT_STATUS: // LOCAL-97 (RW 0x008862E0)
+			if (Drawable *d = findByObject(ev.object))
+			{
+				d->setTintStatus(ev.tintStatusBits);
+			}
+			break;
+		case ClientEvent::CLEAR_TINT_STATUS: // LOCAL-97 (RW 0x00670913)
+			if (Drawable *d = findByObject(ev.object))
+			{
+				d->clearTintStatus(ev.tintStatusBits);
+			}
+			break;
 		case ClientEvent::SHOW_MODULE:
 			if (Drawable *d = findByObject(ev.object))
 			{
@@ -1140,6 +1152,11 @@ DrawableManager::Report DrawableManager::report(const LogicSnapshot *presented) 
 	r.scriptsRun = m_services.host.scriptsRun();
 	for (const std::string &f : m_services.host.failures())
 	{
+		if (isLuaSyntaxAlert(f)) // retail drops it (RW 0x734E41): a data defect of the mod's script text, not a failed load
+		{
+			++r.dataDefects["BeginScript does not compile (retail drops the alert, RW 0x734E41): " + f.substr(0, f.find("  in: "))];
+			continue;
+		}
 		r.errors.push_back("BeginScript failed: " + f);
 	}
 	for (const LuaReportSink::Entry &e : m_services.host.reports().entries())

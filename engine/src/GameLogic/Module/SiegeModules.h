@@ -181,6 +181,8 @@ public:
 	bool allowsSpecialPowerUse(const Coord3D *) const override { return true; } // slot 8: RW 0x9B501B
 	// ---- the special power interface (+ 0x24) ----
 	const SpecialPowerTemplate *getSpecialPowerTemplate() const override { return m_baseData->m_specialPowerTemplate; }
+	// RW 0xC650F0 (the base's interface) slot 0x50 = xor eax, eax; ret (0x851E97): this family keeps no target id here (SiegeDeploySpecialPower overrides its interface)
+	ObjectID getTargetId() const override { return INVALID_ID; }
 	bool isReady() const override { return readyImpl(true); }                 // RW 0x99135D
 	float getPercentReady() const override { return percentImpl(true); }      // RW 0x9913BC
 	unsigned getReadyFrame() const override;                                  // RW 0x991473
@@ -263,6 +265,8 @@ public:
 	bool isDeployed() const { return m_phase == PHASE_DEPLOYED; } // RW 0x8C9C01
 	int phase() const { return m_phase; }
 	ObjectID dockId() const { return m_dockId; }           // + 0x40 (the + 0x24 interface's slot 0x50, RW 0x7B0F25)
+	// RW 0xC74878 (this class's interface) slot 0x50 = RW 0x7B0F25 (mov eax, [ecx + 0x1C]; ret; interface at + 0x24) = the dock id
+	ObjectID getTargetId() const override { return m_dockId; }
 	const Coord3D &approachPoint() const { return m_approach; }
 	const Coord3D &dockDirection() const { return m_direction; }
 	const SiegeDeploySpecialPowerModuleData &data() const { return *m_data; }

@@ -28,6 +28,7 @@ const AttributeModifierStore *AttributeModifierPool::store() const
 	return m_store ? m_store : TheAttributeModifierStore;
 }
 
+// getModuleName RW 0x00805612 ("AttributeModifierPoolUpdate"), getModuleNameKey RW 0x00805618
 void AttributeModifierPool::registerClass(ModuleFactory &modules)
 {
 	modules.bindModuleProc("AttributeModifierPoolUpdate", MODULETYPE_BEHAVIOR, [](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &) -> std::unique_ptr<Module> {
@@ -345,9 +346,8 @@ bool AttributeModifierPool::add(const std::string &listName, int duration)
 	{
 		if (list->m_upgrade->delayFrames == 0)
 		{
-			// The grant can run an upgrade module that adds this very list again (Ennorath's MordorBarricade: Upgrade_StructureLevel1 adds
-			// MordorGrondArchersDelay, whose Upgrade is granted at once because the "Delay:2000" token is read whole): that second add finds no entry
-			// yet and would grant again without end. The nested add does not grant; its entry stands and this add refreshes it.
+			// An immediate grant can run an upgrade module that adds this very list again. The second add finds no entry yet and would
+			// grant again without end. The nested add does not grant; its entry stands and this add refreshes it.
 			if (m_grantingIndex != index)
 			{
 				const int outer = m_grantingIndex;

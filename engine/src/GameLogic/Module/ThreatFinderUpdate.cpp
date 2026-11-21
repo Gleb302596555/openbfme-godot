@@ -48,6 +48,7 @@ void ThreatFinderUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 	p.add(kFields);
 }
 
+// RW 0x65A133; getModuleName RW 0x007EDD6B ("ThreatFinderUpdate"), getModuleNameKey RW 0x007EDD71
 void ThreatFinderUpdate::registerModule(ModuleFactory &modules)
 {
 	static const char kName[] = "ThreatFinderUpdate";

@@ -11,6 +11,7 @@
 #include "GameLogic/Module/StoreObjectsSpecialPower.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/PartitionManager.h"
+#include "GameLogic/ObjectFilter.h"
 #include "GameLogic/ObjectFilterMatch.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameLogic/SimMath.h"
@@ -97,12 +98,11 @@ void TeleportToCasterSpecialPower::triggerAbilityEffect() {
         const SpecialPowerModule *power = mySpecialPowerModule(); // RW 0x851362
         const SpecialPowerTemplate *powerTemplate = power ? power->getSpecialPowerTemplate() : nullptr;
         if (!powerTemplate) throw std::logic_error("TeleportToCasterSpecialPower: special power module or template is missing");
-        if (!powerTemplate->m_objectFilter) {
-            logic.noteStop("[S-523] TeleportToCasterSpecialPower: the special power's default ObjectFilter is unverified, so no object is searched");
-        } else {
+        // S-523 (closed, issue #555): an unset filter is RW's default — rule NONE, both masks empty (RW 0x763D11 over the all-zero KindOf mask RW 0xDE49E4): it allows nothing, so the search finds nothing, as in retail
+        const ObjectFilter &allowed = specialPowerFilterOrDefault(powerTemplate->m_objectFilter.get());
+        {
             static const int kStructure = ObjectTemplateInfoBuilder::kindOfIndex("STRUCTURE"), kMoveOnly = ObjectTemplateInfoBuilder::kindOfIndex("MOVE_ONLY");
             static const int kHorde = ObjectTemplateInfoBuilder::kindOfIndex("HORDE");
-            const ObjectFilter &allowed = *powerTemplate->m_objectFilter;
             PartitionFilterFn filter([&](Object &o) {
                 return !o.testStatus(0x26) && ObjectFilterMatch::allows(logic, allowed, o, source->getControllingPlayer())
                     && source->getRelationship(o) == ALLIES && !(o.isKindOf((unsigned)kStructure) && o.isKindOf((unsigned)kMoveOnly))

@@ -20,6 +20,7 @@ void ShipSlowDeathBehavior::beginSlowDeath(const DieModuleInterface::Event &even
     if (rng.getValue(0, 1, "ShipSlowDeathBehavior.cpp", 70) == 1) m_rollRate = SimMath::subf32(0.0f, m_rollRate);
 }
 
+// RW 0x00861B45
 UpdateSleepTime ShipSlowDeathBehavior::update() {
     const UpdateSleepTime sleep = SlowDeathBehavior::update();
     Object *obj = getObject();
@@ -53,6 +54,7 @@ void ShipSlowDeathBehavior::crc(StateHasher &h) const {
     h.addFloat(m_pitchRate);
     h.addFloat(m_rollRate);
 }
+// RW 0x00861D51 (OpenBFME native snapshot order, S-4190)
 void ShipSlowDeathBehavior::xfer(Xfer &x) {
     SnapshotXfer::version(x, 1, 1);
     SlowDeathBehavior::xfer(x);

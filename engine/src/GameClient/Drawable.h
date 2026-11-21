@@ -610,7 +610,7 @@ public:
 		TINT_STATUS_CUSTOM = 0x20u,                 ///< RW 0x675E9A: custom tint envelope (+0x6C..+0x88)
 	};
 	void setTintStatus(UnsignedInt statusBits) { m_tintStatus |= statusBits; }   // RW +0x118
-	void clearTintStatus(UnsignedInt statusBits) { m_tintStatus &= ~statusBits; }
+	void clearTintStatus(UnsignedInt statusBits) { m_tintStatus &= ~statusBits; } // RW 0x00670913
 	bool testTintStatus(UnsignedInt statusBits) const { return (m_tintStatus & statusBits) != 0u; }
 	UnsignedInt tintStatus() const { return m_tintStatus; }
 	// RW 0x671A73 / BFME2 0x671753 (Drawable::setCustomTintEnvelope) + caller `or [drawable+0x118], 0x20` (RW 0x5E0127 / 0x4D1241 / 0x6ED185)

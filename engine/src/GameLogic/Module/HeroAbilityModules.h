@@ -182,7 +182,7 @@ public:
 	OBFME_MODULE_XFER(DamageFilteredCreateObjectDie) // lane SAVE-4b: retail's layout (RW 0x88927E, (1, 1))
 	DamageFilteredCreateObjectDie(Thing *thing, const DamageFilteredCreateObjectDieModuleData *data) : BehaviorModule(thing, data), m_data(data) {}
 	DieModuleInterface *getDie() override { return this; }
-	DamageModuleInterface *getDamage() override { return this; }
+	DamageModuleInterface *getDamage() override { return this; }            // RW 0x00888C13
 	void onDie(const DieModuleInterface::Event &event) override;            // RW 0x8892B0
 	void onDamage(const DamageInfo &info) override;                         // RW 0x88939A
 	void onHealing(const DamageInfo &) override { m_hitFrame = 0; }        // RW 0x889191
@@ -364,6 +364,8 @@ public:
 	bool active() const { return m_active; }
 
 	const SpecialPowerTemplate *getSpecialPowerTemplate() const override { return m_data->m_specialPowerTemplate; }
+	// RW 0xC873E0 (this class's interface) slot 0x50 = 0x43B160, a CRT pure-call stub (this module keeps no target id)
+	ObjectID getTargetId() const override { return INVALID_ID; }
 	bool isReady() const override { return readyImpl(true); }                          // RW 0x99135D
 	float getPercentReady() const override { return percentImpl(true); }               // RW 0x9913BC
 	unsigned getReadyFrame() const override;                                           // RW 0x991473

@@ -47,6 +47,7 @@ void SlaveWatcherBehaviorModuleData::buildFieldParse(MultiIniFieldParse &p)
 
 void SlaveWatcherBehavior::registerModule(ModuleFactory &modules)
 {
+	// RW 0x8878BA initializes the class-name value and 0x8878B4 returns "SlaveWatcherBehavior"; this factory binding is the equivalent key path.
 	static const char kName[] = "SlaveWatcherBehavior"; // registration RW 0x6587AF, create RW 0x64C30E
 	modules.bindTypedData<Data>(kName, MODULETYPE_BEHAVIOR);
 	modules.bindModuleProc(kName, MODULETYPE_BEHAVIOR, [](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &) -> std::unique_ptr<Module> {
@@ -133,7 +134,7 @@ UpdateSleepTime SlaveWatcherBehavior::update()
 	return UPDATE_SLEEP_NONE;
 }
 
-// RW 0x8879C5 (the destructor)
+// RW 0x8879C5 (the teardown reached by the deleting destructor at 0x887B56); GameLogic calls onDelete before unique_ptr destruction.
 void SlaveWatcherBehavior::onDelete()
 {
 	if (m_data->m_letSlaveLive || m_slaveID == INVALID_ID)

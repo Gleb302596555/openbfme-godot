@@ -2389,10 +2389,7 @@ void toggleMount(Object &obj, AIUpdateInterface &ai, bool cancelDisguiseWhenDism
 	{
 		setCondition(obj, kMcMounted, true);           // Object + 0x124 bit 22
 		ai.chooseLocomotorSet(kLocomotorSetMounted);   // AI vslot 0x238(7)
-		if (weapons)
-		{
-			weapons->setWeaponSetFlag(kWeaponSetMounted, true); // RW 0x691059(0x15)
-		}
+		obj.setWeaponSetFlag(kWeaponSetMounted, true); // RW 0x691059(0x15) on the OBJECT
 		obj.setArmorSetFlag(kArmorSetMounted, true);   // RW 0x68BE59(6)
 		return;
 	}
@@ -2405,10 +2402,7 @@ void toggleMount(Object &obj, AIUpdateInterface &ai, bool cancelDisguiseWhenDism
 	}
 	setCondition(obj, kMcMounted, false);
 	ai.chooseLocomotorSet(0);
-	if (weapons)
-	{
-		weapons->setWeaponSetFlag(kWeaponSetMounted, false); // RW 0x691106(0x15)
-	}
+	obj.setWeaponSetFlag(kWeaponSetMounted, false); // RW 0x691106(0x15) on the OBJECT
 	obj.setArmorSetFlag(kArmorSetMounted, false);  // RW 0x68BE6B(6)
 	if (cancelDisguiseWhenDismounting && obj.testModelCondition(300))
 	{
@@ -2710,10 +2704,7 @@ void HeroModeSpecialAbilityUpdate::triggerAbilityEffect()
 void HeroModeSpecialAbilityUpdate::onEffectExpired()
 {
 	m_effectExpiry = 0;
-	if (ObjectWeapons *w = getObject()->getWeapons())
-	{
-		w->setWeaponSetFlag(kWeaponSetHeroMode, false); // RW 0x691106(0x1B)
-	}
+	getObject()->setWeaponSetFlag(kWeaponSetHeroMode, false); // RW 0x691106(0x1B) on the OBJECT
 }
 
 // RW 0x8958BD
@@ -2725,7 +2716,7 @@ void HeroModeSpecialAbilityUpdate::startUnpacking()
 		// RW 0x8958CA: RW 0x691014(0x1B) asks the template for a weapon set with WEAPONSET_HERO_MODE (RW 0x73F6B9) before setting the flag
 		if (w->hasWeaponSetFor(kWeaponSetHeroMode))
 		{
-			w->setWeaponSetFlag(kWeaponSetHeroMode, true);
+			getObject()->setWeaponSetFlag(kWeaponSetHeroMode, true);
 		}
 	}
 	m_effectExpiry = now() + m_hm->m_heroEffectFrames;
@@ -3133,10 +3124,7 @@ void SpecialDisguiseUpdate::applyLook(bool ownLook)
 		{
 			ai->chooseLocomotorSet(kLocomotorSetMounted); // AI vslot 0x238(7)
 		}
-		if (ObjectWeapons *weapons = obj->getWeapons())
-		{
-			weapons->setWeaponSetFlag(kWeaponSetMounted, true); // RW 0x691059(0x15)
-		}
+		obj->setWeaponSetFlag(kWeaponSetMounted, true); // RW 0x691059(0x15) on the OBJECT
 		obj->setArmorSetFlag(kArmorSetMounted, true); // RW 0x68BE59(6)
 	}
 	const ThingTemplate *disguise = m_sd->m_disguiseAsTemplate.empty() ? nullptr : obj->logic().things().findTemplate(m_sd->m_disguiseAsTemplate);
