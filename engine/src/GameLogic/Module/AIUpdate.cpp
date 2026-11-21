@@ -254,6 +254,16 @@ public:
 	bool containerAllowsBackingUp() const override { return false; }
 	// RW 0x5E774A: TheTerrainLogic vslot 0x1C at the object's layer (lane WALL-1: a wall top's or a ramp's height, Pathfinder::getLayerHeight)
 	float groundHeightAt(float x, float y) const override { return m_ai.layerHeightAt(x, y); }
+	float highestLayerHeightAt(float x, float y) const override
+	{
+		// RW 0x5E7A36..0x5E7A6F: on LAYER_GROUND (1), query the highest layer height (RW 0x680B70 -> vslot +0x1C);
+		// on a non-ground layer, use that layer's height.
+		if (m_ai.m_world && m_ai.m_adapter && m_ai.m_world->mapReady() && m_ai.m_adapter->getLayer() == LAYER_GROUND)
+		{
+			return m_ai.m_world->pathfinder().getHighestLayerHeight(x, y);
+		}
+		return m_ai.layerHeightAt(x, y);
+	}
 	bool isOnRampOrRaisedLayer() const override { return m_ai.isOnRampOrRaisedLayer(); }
 	LocomotorPath *getPath() override { return m_ai.m_mover->path(); }
 	bool testObjectStatus(int bit) const override { return bit >= 0 && obj().testStatus((unsigned)bit); }

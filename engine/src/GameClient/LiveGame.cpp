@@ -1541,9 +1541,14 @@ LiveGame::Report LiveGame::report() const
 		r.scripting = m_scripting->stats();
 	}
 	r.errors.insert(r.errors.end(), r.mapIniErrors.begin(), r.mapIniErrors.end());
+	// RW 0x62DCE4 / RW 0x6D1305: map objects whose template name does not exist in ThingFactory are skipped silently without error
+	// (MapObjectDrawables::Report::unresolved and r.classificationErrors still record them for diagnostics and mapobj tests).
 	for (const std::string &e : r.classificationErrors)
 	{
-		r.errors.push_back(e);
+		if (e.find(": no template of that name") == std::string::npos)
+		{
+			r.errors.push_back(e);
+		}
 	}
 	for (const std::string &e : r.loop.errors)
 	{

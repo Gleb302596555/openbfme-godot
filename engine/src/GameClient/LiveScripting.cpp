@@ -278,6 +278,41 @@ bool LiveScripting::findObject(int id, LuaObjectInfo *out)
 	return obj && describe(*obj, out, false);
 }
 
+// RW 0x7366FE (luaObjectDescription) -> RW 0x69005F: description fields for ObjectDescription(self)
+bool LiveScripting::objectDescription(int id, ObjectDescription *out)
+{
+	const Object *obj = m_logic.findObjectByID((ObjectID)id);
+	if (!obj || !out)
+	{
+		return false;
+	}
+	out->objectName = obj->getName();
+	out->templateName = obj->getTemplate() ? obj->getTemplate()->getName() : std::string();
+	if (const Player *player = obj->getControllingPlayer())
+	{
+		out->playerIndex = player->getPlayerIndex();
+		const std::string &disp = player->getPlayerDisplayName().empty() ? player->getPlayerName() : player->getPlayerDisplayName();
+		out->playerName.assign(disp.begin(), disp.end());
+	}
+	else
+	{
+		out->playerIndex = 0;
+		out->playerName = L"<unknown>";
+	}
+	return true;
+}
+
+// RW 0x7369AE (luaObjectTestCanSufferFear) -> RW 0x736A09 -> RW 0x68C818 -> RW 0x804F39 (AttributeModifierPool::sum)
+bool LiveScripting::objectAttributeModifier(int id, int type, float *bonus)
+{
+	const Object *obj = m_logic.findObjectByID((ObjectID)id);
+	if (!obj || !bonus)
+	{
+		return false;
+	}
+	return obj->attributeModifierSum(type, nullptr, *bonus);
+}
+
 // LuaBindings.cpp RW 0x7367E3 / 0x73684D: owner side, or the current capturer's side.
 std::string LiveScripting::objectPlayerSide(int id)
 {

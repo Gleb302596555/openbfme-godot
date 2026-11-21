@@ -568,6 +568,7 @@ include(cmake/Local98.cmake)    # LOCAL-98: death modules (issue #763; OPENBFME_
 include(cmake/Local105.cmake)   # LOCAL-105: FadeAndDieOrnamentUpdate and small object-life modules (fork issue 776; OPENBFME_LOCAL105_TESTS)
 include(cmake/Local96.cmake)    # LOCAL-96: DozerAIUpdate and WorkerAIUpdate builder functions (fork issue 761; OPENBFME_LOCAL96_TESTS)
 include(cmake/Local99.cmake)    # LOCAL-99: unit behaviour modules uncited own functions (issue #764; OPENBFME_LOCAL99_TESTS)
+include(cmake/Local126.cmake)   # LOCAL-126: map sweep errors + DAMAGE_MULT / RESIST_FEAR readers (fork issue 810; OPENBFME_LOCAL126_TESTS)
 include(cmake/Local101.cmake)   # LOCAL-101: special AI modules SiegeDockingBehavior & HordeWorkerAIUpdate (fork issue 771; OPENBFME_LOCAL101_TESTS)
 include(cmake/Local103.cmake)   # LOCAL-103: client draw modules (issue #773; OPENBFME_LOCAL103_TESTS)
 include(cmake/Local110.cmake)   # LOCAL-110: projectiles and fields uncited functions (issue #788; OPENBFME_LOCAL110_TESTS)
@@ -1390,6 +1391,7 @@ add_executable(openbfme_tests
     ${OPENBFME_LOCAL105_TESTS}
     ${OPENBFME_LOCAL96_TESTS}
     ${OPENBFME_LOCAL99_TESTS}
+        ${OPENBFME_LOCAL126_TESTS}
     ${OPENBFME_LOCAL101_TESTS}
     ${OPENBFME_LOCAL103_TESTS}
     ${OPENBFME_LOCAL110_TESTS}

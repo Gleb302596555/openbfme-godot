@@ -62,6 +62,8 @@ public:
 
 	// LuaGameHost
 	bool findObject(int id, LuaObjectInfo *out) override;
+	bool objectDescription(int id, ObjectDescription *out) override;
+	bool objectAttributeModifier(int id, int type, float *bonus) override;
 	std::uint32_t logicFrame() override;
 	std::string objectPlayerSide(int id) override;
 	bool objectCapturingPlayerSide(int id, std::string *out) override;
