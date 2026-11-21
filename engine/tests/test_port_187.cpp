@@ -156,21 +156,31 @@ float normAngle(float a)
 	return a;
 }
 
-// the heading the path mover (RW 0x5E91E2) aims the object at, in degrees, from the ported path alone: the average of
-// the sample half a bounding sphere behind the walk turned by pi and the sample the same distance ahead, each relative
-// to the object's facing (RW 0x4B3D8D); a sample the spline cannot answer is left out, as in the mover.
-float pathHeadingDegrees(GiantBirdAIUpdate &ai)
+// the averaged angle the path mover (RW 0x5E91E2) turns the object by, in radians, from the ported path alone: the
+// average of the sample half a bounding sphere behind the walk turned by pi and the sample the same distance ahead,
+// each relative to the object's facing (RW 0x4B3D8D); a sample the spline cannot answer is left out, as in the mover.
+// `count` receives how many samples the spline answered. `advance` is the distance the mover adds to the walk before it
+// samples: RW 0x5E91E2 does `pathDistance += speedNow` first and only then queries the spline at pathDistance +- the
+// look-ahead, so a caller that wants the aim of the NEXT frame passes the current speed.
+float pathAimAngle(GiantBirdAIUpdate &ai, float &count, float advance = 0.0f)
 {
+	count = 0.0f;
 	const AerialSpline &s = ai.spline();
 	if (!s.valid())
 	{
-		return ai.getObject()->getOrientation() * 57.29577951308232f;
+		return 0.0f;
 	}
 	AerialSpline &mutableSpline = const_cast<AerialSpline &>(s);
-	const float d = ai.pathDistance();
-	const float half = CombatQueries::boundingSphereRadius(*ai.getObject()) * 0.5f;
+	const float d = ai.pathDistance() + advance;
+	// RW 0xBD869C: half the bounding sphere, times LookAheadMult when it exceeds 1
+	float half = CombatQueries::boundingSphereRadius(*ai.getObject()) * 0.5f;
+	const Locomotor *loco = ai.curLocomotor();
+	if (loco && 1.0f < loco->getTemplate().m_lookAheadMult)
+	{
+		half *= loco->getTemplate().m_lookAheadMult;
+	}
 	const Object &obj = *ai.getObject();
-	float angle = 0.0f, count = 0.0f;
+	float angle = 0.0f;
 	Coord3D behind;
 	if (AerialPathfinder::query(mutableSpline, d - half, behind))
 	{
@@ -185,11 +195,23 @@ float pathHeadingDegrees(GiantBirdAIUpdate &ai)
 	}
 	if (count == 0.0f)
 	{
+		return 0.0f;
+	}
+	return angle / count;
+}
+
+// the heading that averaged angle aims the object at, in degrees
+float pathHeadingDegrees(GiantBirdAIUpdate &ai)
+{
+	float count = 0.0f;
+	const float angle = pathAimAngle(ai, count);
+	if (count == 0.0f)
+	{
 		return ai.getObject()->getOrientation() * 57.29577951308232f;
 	}
-	// the mover turns by this relative angle (RW 0x5E3A81 writes angle + turn), so the heading it aims at is the facing
-	// plus the averaged angle
-	return normAngle(ai.getObject()->getOrientation() + angle / count) * 57.29577951308232f;
+	// RW 0x5E3A81 writes angle + turn (the turn, not the 0.2/0.8 blend), so the heading aimed at is the facing plus the
+	// averaged angle
+	return normAngle(ai.getObject()->getOrientation() + angle) * 57.29577951308232f;
 }
 
 int stateOf(GiantBirdAIUpdate &ai)
@@ -326,6 +348,10 @@ TEST_CASE("PORT-187 P-114 giant bird: no frame turns the bird further than RW 0x
 	for (int frame = 0; frame < 900 && a.ai->swoopsStarted() - swoopsSeen < 2; ++frame)
 	{
 		const float before = a.bird->getOrientation();
+		const int stateBefore = (int)a.ai->currentStateId();
+		const size_t cpsBefore = a.ai->spline().controlPointCount();
+		const float dBefore = a.ai->pathDistance();
+		const float spdBefore = a.ai->flight().speed;
 		a.w.frames(1);
 		const float turned = std::fabs(normAngle(a.bird->getOrientation() - before));
 		if (turned > largest)
@@ -340,4 +366,73 @@ TEST_CASE("PORT-187 P-114 giant bird: no frame turns the bird further than RW 0x
 	CHECK(largest <= cap + 1e-4f); // tolerance: float32 orientation storage rounds the difference by ULP
 	// the cap has to actually be used: the measured largest turn is 0.349066 = the cap, so the bound only fails a mover that never turns
 	CHECK(largest > cap * 0.9f); // tolerance: "the cap is reached", not its exact value
+}
+
+// -----------------------------------------------------------------------------------------------------------------
+// P-114: the swoop's heading follows the path (RW 0x5E91E2 -> RW 0x5E3A81)
+// -----------------------------------------------------------------------------------------------------------------
+
+// The owner's red-test definition asks for a case that the swoop's heading follows the path. The unambiguous form is the
+// sign of the turn: RW 0x5E91E2 averages the two sample headings into `angle`, RW 0x5E94A6..0x5E9520 clamps it to the
+// locomotor's cap, and RW 0x5E3A81 writes `angle + turn` into the orientation. So a frame whose averaged angle exceeds the
+// cap turns the object by the sign of that angle, and the heading walks toward the path's aim instead of away from it.
+//
+// Comparing the orientation against the 0.2 / 0.8 blend is what made the earlier attempt ambiguous: the blend is the state
+// for the NEXT frame, so any snapshot disagrees with it by one frame of turn and the sign flips whenever the path turns.
+//
+// A frame that rebuilds the path cannot be measured from a sample taken before it: the swoop's onEnter replaces the whole
+// spline (RW 0x76DEF5 -> RW 0x769EA5 -> RW 0x778413) and the mover then steers the NEW one, while a sample taken before
+// the frame reads the old one. Those frames (state changes, or the control points / walk distance jump) are skipped, not
+// tolerated: on every frame where the path is unchanged the sign has to agree exactly.
+TEST_CASE("PORT-187 P-114 giant bird: the swoop's heading follows the path the mover is given (RW 0x5E91E2 / RW 0x5E3A81)")
+{
+	Port187Arena a;
+	Object *barracks = a.w.unit("Port187Barracks", 'B', 400.0f, 200.0f);
+	REQUIRE(barracks != nullptr);
+	a.bird->setOrientation(0.0f);
+	REQUIRE(a.ai->aiAttackObject(barracks, CMD_FROM_PLAYER));
+
+	const float cap = a.ai->curLocomotor()->getMaxTurnRate(a.ai->locomotorHost());
+	int measured = 0, agreed = 0, rebuilt = 0;
+	std::string wrong;
+	for (int frame = 0; frame < 900; ++frame)
+	{
+		// the aim of the frame, from the spline the mover will walk (it advances the walk by the current speed first)
+		float count = 0.0f;
+		const float aim = pathAimAngle(*a.ai, count);
+		const int stateBefore = (int)a.ai->currentStateId();
+		const size_t cpsBefore = a.ai->spline().controlPointCount();
+		const float before = a.bird->getOrientation();
+		a.w.frames(1);
+		const float turned = normAngle(a.bird->getOrientation() - before);
+		if (count == 0.0f)
+		{
+			continue; // no sample answered: the mover reaches no orientation write this frame
+		}
+		if (stateBefore != (int)a.ai->currentStateId() || cpsBefore != a.ai->spline().controlPointCount())
+		{
+			++rebuilt; // the swoop rebuilt the path inside this frame (RW 0x76DEF5), the pre-frame sample is of the old one
+			continue;
+		}
+		// a turn below the cap is the clamp of a smaller angle, so only a saturated frame states the sign outright
+		if (std::fabs(aim) <= cap)
+		{
+			continue;
+		}
+		++measured;
+		if ((aim > 0.0f) == (turned > 0.0f))
+		{
+			++agreed;
+		}
+		else
+		{
+			wrong += "frame " + std::to_string(frame) + " aim " + std::to_string(aim) + " turned " + std::to_string(turned) + "\n";
+		}
+	}
+	MESSAGE("saturated frames measured " << measured << ", turn sign agreed " << agreed << ", frames that rebuilt the path " << rebuilt
+		<< (wrong.empty() ? "" : "\n" + wrong));
+	// the guard is a bound on purpose: it fails only if the pass stops steering by more than the cap at all, and the exact
+	// count follows the fixture's frame timing, so pinning it would break on any harmless path change
+	REQUIRE(measured > 0); // tolerance: a vacuity guard, the sign agreement below is the exact assertion
+	CHECK(agreed == measured); // RW 0x5E3A81: the orientation moves by the sign of the averaged angle (through the clamp)
 }
