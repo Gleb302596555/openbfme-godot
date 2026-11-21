@@ -196,6 +196,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x0088918B (getModuleName), RW 0x00889198 (getModuleNameKey), RW 0x00889262 / RW 0x0088916B (dtor)
 class DamageFilteredCreateObjectDie : public BehaviorModule, public DieModuleInterface, public DamageModuleInterface
 {
 public:

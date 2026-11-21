@@ -50,6 +50,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x00889774 (getModuleName), RW 0x0088977A (getModuleNameKey), RW 0x008897E9 / RW 0x0088975B (dtor)
 class DestroyDie : public BehaviorModule, public DieModuleInterface
 {
 public:
@@ -92,6 +93,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x00889843 (getModuleName), RW 0x00889849 (getModuleNameKey), RW 0x008898B8 / RW 0x0088982A (dtor)
 class FXListDie : public BehaviorModule, public DieModuleInterface
 {
 public:
