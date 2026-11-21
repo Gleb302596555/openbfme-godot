@@ -101,6 +101,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x00863C8A (getModuleName), RW 0x00863C90 (getModuleNameKey), RW 0x00863E97 (scalar deleting dtor -> RW 0x00863CD5)
 class DynamicPortalBehaviour : public UpgradeModule, public CreateModuleInterface, public DieModuleInterface, public SiegePortalInterface
 {
 public:
@@ -169,6 +170,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x00864A8A (getModuleName), RW 0x00864A90 (getModuleNameKey), RW 0x00864CE6 (scalar deleting dtor -> RW 0x00864AD5)
 class FakePathfindPortalBehaviour : public UpdateModule, public CreateModuleInterface, public DieModuleInterface
 {
 public:

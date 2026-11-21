@@ -51,6 +51,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008BBAFC (getModuleName), RW 0x008BBB18 (getModuleNameKey), RW 0x008BBBB0 / RW 0x008BBADC (dtor)
 class TooltipUpgrade : public UpgradeModule
 {
 public:

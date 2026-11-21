@@ -29,6 +29,20 @@ Error loadDdsFromBuffer(const Ref<Image> &image, const PackedByteArray &buffer)
 		image->generate_mipmaps();
 		return OK;
 	}
-	return image->load_dds_from_buffer(buffer);
+	const Error err = image->load_dds_from_buffer(buffer);
+	if (err != OK)
+	{
+		DdsImage decoded;
+		if (DdsDecode::decodeLevel0(buffer.ptr(), (size_t)buffer.size(), decoded, &why))
+		{
+			PackedByteArray rgba;
+			rgba.resize((int64_t)decoded.rgba.size());
+			std::memcpy(rgba.ptrw(), decoded.rgba.data(), decoded.rgba.size());
+			image->set_data(decoded.width, decoded.height, false, Image::FORMAT_RGBA8, rgba);
+			image->generate_mipmaps();
+			return OK;
+		}
+	}
+	return err;
 }
 }

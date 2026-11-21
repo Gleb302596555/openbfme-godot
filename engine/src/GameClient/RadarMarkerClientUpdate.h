@@ -14,7 +14,8 @@
 //   * MarkerType (INI::parseAsciiString, +0x08, e.g. "PingBeacon", "PingOneRing")
 // - RadarMarkerClientUpdate:
 //   ctor RW 0x8CE007 / BFME2 0x4C9BCD,
-//   dtor RW 0x8CE071 / BFME2 0x4C9C38,
+//   dtor RW 0x008CE072 / BFME2 0x4C9C38 (scalar deleting dtor RW 0x008CE0FA),
+//   getModuleName RW 0x008CE027, getModuleNameKey RW 0x008CE02D,
 //   clientUpdate RW 0x8CE116 / BFME2 0x4C9CF7:
 //   * With a drawable at +0x08: queries TheRadar (vslot 12 / 0x30, RW 0x44F0FA) for a smart marker
 //     matching MarkerType, and forwards the drawable's position to the marker.

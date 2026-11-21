@@ -562,16 +562,28 @@ include(cmake/Local80.cmake)    # LOCAL-80: script library rank actions and PLAY
 include(cmake/Local94.cmake)    # LOCAL-94: the last 8 condition / action types of the script map (issue #720; OPENBFME_LOCAL94_TESTS)
 include(cmake/Local95.cmake)    # LOCAL-95: W3DScriptedModelDraw / W3DHordeModelDraw uncited functions (issue #760; OPENBFME_LOCAL95_TESTS)
 include(cmake/Local106.cmake)   # LOCAL-106: model drawing second pass & shouldAnimate wiring (issue #784; OPENBFME_LOCAL106_TESTS)
+include(cmake/Local123.cmake)   # LOCAL-123: draw, client, collide, contain, body and power modules tail (issue #807; OPENBFME_LOCAL123_TESTS)
 include(cmake/Local97.cmake)    # LOCAL-97: PoisonedBehavior, DamageFieldUpdate forceFireWeapon, ThreatFinderUpdate & AttributeModifierPoolUpdate (fork issue 762; OPENBFME_LOCAL97_TESTS)
 include(cmake/Local100.cmake)   # LOCAL-100: upgrade modules uncited functions (issue #766; OPENBFME_LOCAL100_TESTS)
+include(cmake/Local122.cmake)   # LOCAL-122: upgrade and death modules tail citations (issue #806; OPENBFME_LOCAL122_TESTS)
 include(cmake/Local107.cmake)   # LOCAL-107: AIUpdateInterface, ThreatFinderUpdate, AIGateUpdate (fork issue 785; OPENBFME_LOCAL107_TESTS)
+include(cmake/Local111.cmake)   # LOCAL-111: Lua alert quirk Q5 classification and source naming (fork issue 795; OPENBFME_LOCAL111_TESTS)
 include(cmake/Local98.cmake)    # LOCAL-98: death modules (issue #763; OPENBFME_LOCAL98_TESTS)
 include(cmake/Local105.cmake)   # LOCAL-105: FadeAndDieOrnamentUpdate and small object-life modules (fork issue 776; OPENBFME_LOCAL105_TESTS)
 include(cmake/Local96.cmake)    # LOCAL-96: DozerAIUpdate and WorkerAIUpdate builder functions (fork issue 761; OPENBFME_LOCAL96_TESTS)
 include(cmake/Local99.cmake)    # LOCAL-99: unit behaviour modules uncited own functions (issue #764; OPENBFME_LOCAL99_TESTS)
+include(cmake/Local126.cmake)   # LOCAL-126: map sweep errors + DAMAGE_MULT / RESIST_FEAR readers (fork issue 810; OPENBFME_LOCAL126_TESTS)
 include(cmake/Local101.cmake)   # LOCAL-101: special AI modules SiegeDockingBehavior & HordeWorkerAIUpdate (fork issue 771; OPENBFME_LOCAL101_TESTS)
 include(cmake/Local103.cmake)   # LOCAL-103: client draw modules (issue #773; OPENBFME_LOCAL103_TESTS)
+include(cmake/Local109.cmake)   # LOCAL-109: builders and walls second pass (fork issue 787; OPENBFME_LOCAL109_TESTS)
 include(cmake/Local110.cmake)   # LOCAL-110: projectiles and fields uncited functions (issue #788; OPENBFME_LOCAL110_TESTS)
+include(cmake/Local119.cmake)   # LOCAL-119: effects drawn on objects P-158/P-160/P-167 (issue #803; OPENBFME_LOCAL119_TESTS)
+include(cmake/Local116.cmake)   # LOCAL-116: hero voices and ability sounds (issue #800; OPENBFME_LOCAL116_TESTS)
+include(cmake/Local115.cmake)   # LOCAL-115: shape-change abilities (fork issue 799; OPENBFME_LOCAL115_TESTS)
+include(cmake/Local113.cmake)   # LOCAL-113: AutoAbilityBehavior (issue #797; OPENBFME_LOCAL113_TESTS)
+include(cmake/Local114.cmake)   # LOCAL-114: AIUpdateInterface third pass (fork issue 798; OPENBFME_LOCAL114_TESTS)
+include(cmake/Local112.cmake)   # LOCAL-112: WeaponFireSpecialAbilityUpdate & special-weapon matrix probe/scene fixes (issue #796; OPENBFME_LOCAL112_TESTS)
+include(cmake/Local124.cmake)   # LOCAL-124: tail update/behavior modules (fork issue 808; OPENBFME_LOCAL124_TESTS)
 include(cmake/Port224.cmake)    # PORT-224: destroying a creep lair or worker-rebuilt structure mid-rebuild fades the hole without money or treasure (issue #534; OPENBFME_PORT224_TESTS)
 include(cmake/Port222.cmake)    # PORT-222: a LevelGrantSpecialPower fills a horde's experience pool (fork issue 532; OPENBFME_PORT222_TESTS)
 include(cmake/Port301.cmake)    # PORT-301: ShareExperienceBehavior — the shared experience of a hero (fork issue 693; OPENBFME_PORT301_TESTS)
@@ -1385,16 +1397,28 @@ add_executable(openbfme_tests
     ${OPENBFME_LOCAL94_TESTS}
     ${OPENBFME_LOCAL95_TESTS}
     ${OPENBFME_LOCAL106_TESTS}
+    ${OPENBFME_LOCAL123_TESTS}
     ${OPENBFME_LOCAL97_TESTS}
     ${OPENBFME_LOCAL100_TESTS}
+    ${OPENBFME_LOCAL122_TESTS}
     ${OPENBFME_LOCAL107_TESTS}
+    ${OPENBFME_LOCAL111_TESTS}
     ${OPENBFME_LOCAL98_TESTS}
     ${OPENBFME_LOCAL105_TESTS}
     ${OPENBFME_LOCAL96_TESTS}
     ${OPENBFME_LOCAL99_TESTS}
+        ${OPENBFME_LOCAL126_TESTS}
     ${OPENBFME_LOCAL101_TESTS}
     ${OPENBFME_LOCAL103_TESTS}
+    ${OPENBFME_LOCAL109_TESTS}
     ${OPENBFME_LOCAL110_TESTS}
+    ${OPENBFME_LOCAL119_TESTS}
+    ${OPENBFME_LOCAL116_TESTS}
+    ${OPENBFME_LOCAL115_TESTS}
+    ${OPENBFME_LOCAL113_TESTS}
+    ${OPENBFME_LOCAL114_TESTS}
+    ${OPENBFME_LOCAL112_TESTS}
+    ${OPENBFME_LOCAL124_TESTS}
     ${OPENBFME_PORT224_TESTS}
     ${OPENBFME_PORT222_TESTS}
     ${OPENBFME_PORT206_TESTS}
@@ -1556,6 +1580,8 @@ add_executable(openbfme_tests
     tests/test_local_18.cpp
     # lane LOCAL-19 (object shadows parity: decal box fallback, opacity curve, shadow map casters, issue #146, TOP20 #5)
     tests/test_local_19.cpp
+    # lane LOCAL-117 (shadows on Ultra: trees P-166, Aragorn P-170, mumak body P-83, issue #801)
+    tests/test_local_117.cpp
     # lane LOCAL-20 (retaliation: MaxRetaliateDistance, S-325, S-326, issue #147)
     tests/test_local_20.cpp
     # lane LOCAL-21 (model state lifecycle, forced model replacement, teardown, per-mesh material state, issue #161)
@@ -1633,6 +1659,10 @@ add_executable(openbfme_tests
     tests/test_local_45.cpp
     tests/test_local_83.cpp
     tests/test_local_104.cpp
+    tests/test_local_118.cpp
+    tests/test_local_120.cpp
+    tests/test_local_108.cpp
+    tests/test_local_125.cpp
     # shared numeric facade (WEAPON-1 e75dd8c, imported unchanged: wide PC24 results, SSE binary32 ops, retail integer conversions)
     tests/test_numeric_facade.cpp
     # lane ECON-1: the economy

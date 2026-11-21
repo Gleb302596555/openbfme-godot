@@ -254,6 +254,7 @@ public:
 	bool addAttributeModifier(const std::string &listName, int duration);
 	// RW 0x68F259 (lane INTEG-1): a ModifierList by name leaves the object; a horde passes it to its HordeContain (slot 0x1DC), everything else to its pool
 	void removeAttributeModifier(const std::string &listName);
+	void clearAllAttributeModifiers(); ///< RW 0x006998D0 (DONOR BFME2 0x00298E6A)
 	// RW 0x68C818 / 0x68C82D: the attribute queries of the object's pool (false when it has none or no active list answers)
 	bool attributeModifierSum(int type, const char *name, float &out) const;
 	bool attributeModifierProduct(int type, const char *name, bool innate, float &out) const;

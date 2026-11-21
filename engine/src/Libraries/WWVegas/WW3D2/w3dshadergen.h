@@ -128,6 +128,14 @@ enum class W3DSamplerPolicy { Anisotropic, Metal16 };
 
 std::string Generate_W3D_Shader_Code(const W3DShaderKey &key, W3DSamplerPolicy samplers = W3DSamplerPolicy::Anisotropic);
 
+// Local 117 (P-170, P-83): RotWK 2.01 DX8TextureCategoryClass::Render (RW 0x525E1F -> 0x5284C0..0x5284F7)
+// switches depth-writing meshes to an opaque or alpha-tested shadow shader ([0xdd42ac] when AlphaTest && Texturing,
+// else [0xdd42b0]) during WW3D::IsCurrentlyRenderingShadowMap (0xdd1e44), ignoring SRC_ALPHA / INV_SRC_ALPHA blend.
+// In Godot 4, a ShaderMaterial writing ALPHA (blend_mix / AlphaOverride) goes to the transparent pipeline and is
+// skipped in the directional shadow pass. Returns true and fills `out` with an opaque shadow-pass key when `base`
+// needs a dedicated shadow-only material (depth-writing, non-floor, non-occlusion surface with blend or AlphaOverride).
+bool W3D_Shadow_Pass_Key(const W3DShaderKey &base, W3DShaderKey &out);
+
 // RENDER-2: simple.fxo vs_1_1 (blob 1): oT0.xy = uv * TexCoordTransform_0.xy + Time * TexCoordTransform_0.zw (the preshader's c4 = Time * zw).
 // Rows 0 and 1 of the stage matrix (applied to (u, v, 1, 0)) for `timeSeconds`. INFERENCE (S-023): Time is the effect's seconds clock.
 void W3D_SimpleFx_Uv_Matrix(const float transform[4], float timeSeconds, float row0[4], float row1[4]);
@@ -154,3 +162,8 @@ std::string W3D_FixedFunction_House_Color_Stop(bool converted, bool lit, int sec
 // Transparent-pass render priority for a W3D surface (RW 0x4E2F3A RenderFloors, RW 0x470F5E SortLevel 0,
 // RW 0x47166A -> 0x576240 StaticSortLists descending 32..1). Both W3DMaterialFactory and W3DInstancer call this.
 int W3D_Surface_Render_Priority(int sortLevel, int pass, bool floorBlend);
+
+// W3DBuffBuffer::Draw (RW 0x004D20C6): forces D3DRS_ZWRITEENABLE = 0 (RW 0x004D246C), D3DRS_ALPHATESTENABLE = 0
+// (RW 0x004D252C), D3DRS_SRCBLEND = ONE (RW 0x004D26D4), D3DRS_DESTBLEND = ONE (RW 0x004D2734), D3DRS_FOGENABLE = 0
+// (RW 0x004D2794) for every W3DBuffDraw mesh, overriding any DepthMask = 1 or blend in the .w3d file.
+void W3D_Apply_Buff_Render_State(W3DShaderKey &key);

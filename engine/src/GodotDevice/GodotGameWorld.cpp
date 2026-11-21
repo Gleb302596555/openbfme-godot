@@ -862,10 +862,11 @@ void GameWorld::clear_scene()
 	m_views.clear();
 	m_dynamicModels.clear();
 	m_staticModels.clear();
+	m_buffModels.clear();
 	m_buffInstances.clear(); // lane SPELL-4: the buffs' instances went with the instancer
 	m_trackLayer = ObjectID();
 	m_scorchLayer = ObjectID();
-	m_staticId = m_dynamicId = 0;
+	m_staticId = m_dynamicId = m_buffId = 0;
 	m_textureClock = 0.0;
 	m_animatedDrawables = 0;
 	m_streaks.clear();
@@ -1007,6 +1008,8 @@ void GameWorld::build_static_layer(const Ref<RetailFileSystem> &fs, Dictionary &
 	m_morphTrees.clear();
 	m_morphShrubs.clear();
 	m_footprintViews.clear(); // lane TREES1
+	m_staticShadows.clear();
+	m_staticShadowUseMapping = W3DInstancer::shadow_maps_enabled();
 	m_vegSway.reset(); // lane VISUAL-2
 	m_swayTypeCounts.fill(0);
 	m_treeEventsSeen = 0;
@@ -1066,9 +1069,11 @@ void GameWorld::build_static_layer(const Ref<RetailFileSystem> &fs, Dictionary &
 		if (p.kind != W3D_DRAWKIND_FLOOR)
 		{
 			const auto *module = p.module < d.draws.size() ? dynamic_cast<const W3DModelDrawModuleData *>(d.draws[p.module].data) : nullptr;
-			const bool useShadowMapping = W3DInstancer::shadow_maps_enabled();
-			castShadow = ObjectShadow::castsMap(d.info ? d.info->tmpl : nullptr, module, p.draw ? p.draw->currentModelState() : nullptr, useShadowMapping);
+			const ThingTemplate *tmpl = d.info ? d.info->tmpl : nullptr;
+			const ModelConditionInfo *state = p.draw ? p.draw->currentModelState() : nullptr;
+			castShadow = ObjectShadow::castsMap(tmpl, module, state, m_staticShadowUseMapping, isTree);
 			staticInst->set_instance_cast_shadow(instance, castShadow);
+			m_staticShadows.push_back(StaticShadowEntry{ instance, tmpl, module, state, isTree });
 		}
 		if (d.fate == MAPOBJ_CLIENT_SHRUB || d.fate == MAPOBJ_CLIENT_PROP)
 		{
@@ -1106,6 +1111,7 @@ void GameWorld::build_static_layer(const Ref<RetailFileSystem> &fs, Dictionary &
 				v.scale = d.scale;
 				v.model = p.modelName; // S-921
 				v.texture = p.textureName; // RW 0x4EC9B5
+				v.tmpl = d.info ? d.info->tmpl : nullptr;
 				v.swayType = swayType;
 				v.castShadow = castShadow;
 				m_treeViewOfId[(std::uint32_t)d.objectIndex + 1u] = m_treeViews.size();
@@ -1568,6 +1574,16 @@ Dictionary GameWorld::load_internal(const LiveGame::Options &loIn, const String 
 	dyn->set_playing(false); // time only enters through set_instance_pose
 	dyn->set_pose_culling(m_perf3Client); // PiP supplies an additional frustum when a second camera sees the live objects.
 	dyn->set_draw_culling(m_drawCulling); // lane GPUPERF-2: the same frusta decide what is drawn
+	// W3DBuffBuffer::Draw (RW 0x004D20C6): separate instancer with BuffBlend (additive, no depth write, no alpha test, no fog)
+	W3DInstancer *buffInst = memnew(W3DInstancer);
+	buffInst->set_name("BuffModels");
+	buffInst->set_shadow_receiving(false);
+	buffInst->set_buff_blend(true);
+	add_child(buffInst);
+	m_buffId = buffInst->get_instance_id();
+	buffInst->setup(m_fs);
+	buffInst->set_playing(false);
+	buffInst->set_draw_culling(m_drawCulling);
 	if (m_fxPlayer && m_fxPlayer->playback())
 	{
 		// lane LOCAL-38: the map's objects see the scene's dynamic lights (W3DLightDraw lights, light pulses), each through its own light environment
@@ -2923,6 +2939,10 @@ void GameWorld::advance(double delta)
 		{
 			d->set_global_time(m_textureClock);
 		}
+		if (W3DInstancer *bi = instancerOf(m_buffId))
+		{
+			bi->set_global_time(m_textureClock);
+		}
 	}
 	m_lastLogicMs = timing::spanMs(t1, t0);
 	m_lastSyncMs = timing::spanMs(t2, t1);
@@ -2970,7 +2990,7 @@ void GameWorld::syncBuffs(double dt)
 	// lane SPELL-4 (GameClient/BuffDraw.h): TBuff::UpdateFade once per drawn frame (RotWK draws at 30 a second, S-456), the expiry on the logic frame; each
 	// buff is its W3DBuffDraw model at the drawable's position (RW 0x676711) and instance scale (+ 0x200), not turned (W3DBuffBufferFill: the vertices are
 	// scaled and offset only), faded through the instance opacity (S-4642)
-	W3DInstancer *dyn = instancerOf(m_dynamicId);
+	W3DInstancer *buffInst = instancerOf(m_buffId);
 	ClientBuffs &buffs = m_liveFX->buffs();
 	buffs.advance(dt, m_game->logic().getFrame()); // the fade on the 30 Hz client clock (client code: GameClient/BuffDraw.cpp)
 	static const float kIdentity[9] = { 1, 0, 0, 0, 1, 0, 0, 0, 1 };
@@ -2987,21 +3007,21 @@ void GameWorld::syncBuffs(double dt)
 			continue;
 		}
 		live.insert(b.serial);
-		if (!dyn)
+		if (!buffInst)
 		{
 			continue;
 		}
 		auto inst = m_buffInstances.find(b.serial);
 		if (inst == m_buffInstances.end())
 		{
-			auto it = m_dynamicModels.find(b.model);
-			int64_t mid = it == m_dynamicModels.end() ? -1 : it->second;
-			if (it == m_dynamicModels.end())
+			auto it = m_buffModels.find(b.model);
+			int64_t mid = it == m_buffModels.end() ? -1 : it->second;
+			if (it == m_buffModels.end())
 			{
-				mid = dyn->add_model(toGodot(b.model)); // a model that does not build is in the instancer's report
-				m_dynamicModels[b.model] = mid;
+				mid = buffInst->add_model(toGodot(b.model)); // a model that does not build is in the instancer's report
+				m_buffModels[b.model] = mid;
 			}
-			const int64_t id = mid >= 0 ? dyn->add_instance(mid, toTransform(kIdentity, *d->getPosition(), d->getInstanceScale()), String(), 0.0, 1.0) : -1;
+			const int64_t id = mid >= 0 ? buffInst->add_instance(mid, toTransform(kIdentity, *d->getPosition(), d->getInstanceScale()), String(), 0.0, 1.0) : -1;
 			inst = m_buffInstances.emplace(b.serial, id).first;
 		}
 		if (inst->second >= 0)
@@ -3009,8 +3029,8 @@ void GameWorld::syncBuffs(double dt)
 			// lane VISUAL-2 r2: a TBuff shows only while its drawable is visible (RW 0x4D12FA reads the drawable's visible byte +0x441; INFERENCE, S-4642:
 			// it follows the drawable every frame like the position): a buffed object gone into the shroud, invisible or hidden by its container shows none
 			const bool hidden = d->presentedLook(presented.get(), m_shroudDrawn).hidden;
-			dyn->set_instance_transform(inst->second, toTransform(kIdentity, *d->getPosition(), d->getInstanceScale()));
-			dyn->set_instance_opacity(inst->second, hidden ? 0.0f : b.opacity);
+			buffInst->set_instance_transform(inst->second, toTransform(kIdentity, *d->getPosition(), d->getInstanceScale()));
+			buffInst->set_instance_opacity(inst->second, hidden ? 0.0f : b.opacity);
 			if (!hidden)
 			{
 				++m_buffsDrawn;
@@ -3028,11 +3048,15 @@ void GameWorld::syncBuffs(double dt)
 			++it;
 			continue;
 		}
-		if (dyn && it->second >= 0)
+		if (buffInst && it->second >= 0)
 		{
-			dyn->remove_instance(it->second);
+			buffInst->remove_instance(it->second);
 		}
 		it = m_buffInstances.erase(it);
+	}
+	if (buffInst && !m_buffModels.empty())
+	{
+		buffInst->update_now();
 	}
 }
 
@@ -3105,6 +3129,7 @@ void GameWorld::heldClientWork()
 		m_liveFX->updateAttachedSystems();
 		m_fxPlayer->advance(m_fxPendingDt);
 		syncBuffs(m_fxPendingDt); // lane SPELL-4
+		syncStaticShadows(); // Local 117 (P-166): static layer (trees/shrubs/props) tracks UseShadowMapping changes
 		if (W3DInstancer *st = instancerOf(m_staticId))
 		{
 			st->refresh_object_lights(); // lane LOCAL-38: the static layer updates by hand; its objects' light environments follow the lights every frame
@@ -3252,6 +3277,43 @@ bool sameModel(const std::string &a, const std::string &b)
 	return AsciiStringUtil::lowered(a) == AsciiStringUtil::lowered(b);
 }
 } // namespace
+
+// Local 117 (P-166): loadClientOnly builds static instances before _apply_lighting sets ShadowLOD
+// (and options may toggle UseShadowMapping mid-game, RW 0x601D4C). Re-evaluate cast_shadow when it changes.
+void GameWorld::syncStaticShadows()
+{
+	const bool useShadowMapping = W3DInstancer::shadow_maps_enabled();
+	if (useShadowMapping == m_staticShadowUseMapping)
+	{
+		return;
+	}
+	m_staticShadowUseMapping = useShadowMapping;
+	W3DInstancer *st = instancerOf(m_staticId);
+	if (!st)
+	{
+		return;
+	}
+	for (const StaticShadowEntry &e : m_staticShadows)
+	{
+		st->set_instance_cast_shadow(e.instance, ObjectShadow::castsMap(e.tmpl, e.module, e.state, useShadowMapping, e.isTree));
+	}
+	for (ToppleTreeView &v : m_treeViews)
+	{
+		v.castShadow = ObjectShadow::castsMap(v.tmpl, nullptr, nullptr, useShadowMapping, true);
+		if (v.instance >= 0) st->set_instance_cast_shadow(v.instance, v.castShadow);
+		if (v.morphInstance >= 0) st->set_instance_cast_shadow(v.morphInstance, v.castShadow);
+	}
+	for (FootprintView &f : m_footprintViews)
+	{
+		f.castShadow = ObjectShadow::castsMap(f.drawTmpl, nullptr, nullptr, useShadowMapping, !f.prop);
+		if (!f.removed)
+		{
+			if (f.instance >= 0) st->set_instance_cast_shadow(f.instance, f.castShadow);
+			if (f.morphInstance >= 0) st->set_instance_cast_shadow(f.morphInstance, f.castShadow);
+		}
+	}
+	st->update_now();
+}
 
 // the tree buffer's model of a type at the tree's placement (RW 0x4EC505 .. 0x4EC5F5: W3DAssetManager's render object of the type's ModelName and TextureName)
 int64_t GameWorld::addTreeModelInstance(const std::string &model, const std::string &texture, const float basis[9], const Coord3D &pos, float scale, bool castShadow, int swayType)
@@ -5139,7 +5201,7 @@ void GameWorld::set_perf3_client(bool enabled)
 void GameWorld::set_draw_culling(bool enabled)
 {
 	m_drawCulling = enabled;
-	for (uint64_t id : { m_dynamicId, m_staticId })
+	for (uint64_t id : { m_dynamicId, m_staticId, m_buffId })
 	{
 		if (W3DInstancer *d = instancerOf(id))
 		{

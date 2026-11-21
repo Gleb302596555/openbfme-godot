@@ -49,6 +49,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x0088EC1B (scalar deleting dtor -> RW 0x0088E820)
 class DynamicShroudClearingRangeUpdate : public UpdateModule
 {
 public:

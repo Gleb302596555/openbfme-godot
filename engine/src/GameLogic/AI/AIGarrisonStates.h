@@ -45,9 +45,11 @@ enum AIGarrisonStateType
 {
 	AI_ENTER = 15,
 	AI_EXIT = 38,
+	AI_ENTER_AND_ATTACK = 49, // Local 114: RW 0x753755 -> RW 0x00744901 AIEnterAndAttackState (AICMD 0x3C, RW 0x0066B88C)
 	AI_HORDE_ENTER = 52,
 	AI_HORDE_EXIT = 53,
-	AI_MOVE_TO_POSITION_AND_ENTER = 56
+	AI_MOVE_TO_POSITION_AND_ENTER = 56,
+	AI_COMBINE = 60           // Local 114: RW 0x753755 -> RW 0x007448DE AICombineState (AICMD 0x45, RW 0x00664533)
 };
 
 namespace GarrisonRules
@@ -64,11 +66,19 @@ bool isAboveTerrain(const Object &obj);
 bool canAttackAsNewTarget(Object &obj, Object &victim, CommandSourceType source);
 // AIEnterState's attacks on an enemy container it could not enter (RW 0x7560FB)
 unsigned long long &enemyContainerAttacks();
+// Local 114: RW 0x0082C798 ActionManager::canGetHealedAt(obj, healDepot, source) (DONOR BFME2 0x0042B4F5)
+bool canGetHealedAt(Object &obj, Object *healDepot, CommandSourceType source);
+// Local 114: RW 0x0082C4E9 ActionManager::canGetRepairedAt(obj, repairDepot, source) (DONOR BFME2 0x0042B246)
+bool canGetRepairedAt(Object &obj, Object *repairDepot, CommandSourceType source);
+// Local 114: RW 0x0082C254 ActionManager::canCombineObjects(obj, target, source) (DONOR BFME2 0x000C4080)
+bool canCombineObjects(Object &obj, Object *target, CommandSourceType source);
 } // namespace GarrisonRules
 
-// the five states (the AI module's machine defines them, AIUpdateInterface::makeStateMachine)
+// the garrison/combine states (the AI module's machine defines them, AIUpdateInterface::makeStateMachine)
 std::unique_ptr<AIState> makeMoveToPositionAndEnterState(AIStateMachine &machine);
 std::unique_ptr<AIState> makeEnterState(AIStateMachine &machine);
+std::unique_ptr<AIState> makeEnterAndAttackState(AIStateMachine &machine);
 std::unique_ptr<AIState> makeHordeEnterState(AIStateMachine &machine);
 std::unique_ptr<AIState> makeExitState(AIStateMachine &machine);
 std::unique_ptr<AIState> makeHordeExitState(AIStateMachine &machine);
+std::unique_ptr<AIState> makeCombineState(AIStateMachine &machine);

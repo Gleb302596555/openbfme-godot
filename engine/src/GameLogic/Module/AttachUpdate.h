@@ -53,6 +53,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x00894F32 (getModuleName), RW 0x00894F9E (getModuleNameKey), RW 0x008950F4 (scalar deleting dtor -> RW 0x00894F19)
 class AttachUpdate : public UpdateModule
 {
 public:

@@ -2491,7 +2491,7 @@ void HeroAbilityModules::registerAll(ModuleFactory &modules)
 	bindRuntime<BloodthirstyUpdate, BloodthirstyUpdateModuleData>(modules, "BloodthirstyUpdate");
 	bindRuntime<ShareExperienceBehavior, ShareExperienceBehaviorModuleData>(modules, "ShareExperienceBehavior");
 	bindRuntime<DamageFilteredCreateObjectDie, DamageFilteredCreateObjectDieModuleData>(modules, "DamageFilteredCreateObjectDie");
-	bindRuntime<AutoAbilityBehavior, AutoAbilityBehaviorModuleData>(modules, "AutoAbilityBehavior");
+	bindRuntime<AutoAbilityBehavior, AutoAbilityBehaviorModuleData>(modules, "AutoAbilityBehavior"); // RW 0x0085D436 (getModuleName), RW 0x0085D43C (getModuleNameKey)
 	bindRuntime<WeaponModeSpecialPowerUpdate, WeaponModeSpecialPowerUpdateModuleData>(modules, "WeaponModeSpecialPowerUpdate");
 	bindRuntime<DualWeaponBehavior, DualWeaponBehaviorModuleData>(modules, "DualWeaponBehavior"); // RW 0x0085DE48, RW 0x0085DE54, RW 0x0085DE2F, RW 0x0085DF21
 	bindRuntime<TemporarilyDefectUpdate, TemporarilyDefectUpdateModuleData>(modules, "TemporarilyDefectUpdate"); // RW 0x008D0AB1, RW 0x008D0AB7, RW 0x008D0A98, RW 0x008D0B6E

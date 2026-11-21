@@ -29,7 +29,10 @@
 //     drawable exists and has every required and none of the excluded flags (RW 0x5DF56A), and the object has every required upgrade and none of the excluded ones
 //     (Object::hasUpgrade by bit, RW 0x68E040: a horde answers for its members). Slot 0 / 1 (RW 0x8CF833 / 0x8CF8C5): the first applying entry whose record (by
 //     row; by name: the map's or an empty one) has an audio event; slot 2 (RW 0x8CF957): the first applying entry with VoicePriority set.
-//   * RandomSoundSelectorClientBehavior (create RW 0x652ACB, data RW 0x657640 -> 0x657572, table RW 0xC75F48 plus the audio rows at data + 8): Chance (+ 0x1D4,
+//   * RandomSoundSelectorClientBehavior (create RW 0x652ACB, data RW 0x657640 -> 0x657572, table RW 0xC75F48 plus the audio rows at data + 8;
+//     getModuleName RW 0x008D00E2, getModuleNameKey RW 0x008D00E8 / DONOR BFME2 0x004CBCAD, client xfer RW 0x008D01C2 / DONOR BFME2 0x004CBD7C:
+//     DrawableModule::xfer 0x7082E2 + xferVersion(1) 0x404F15 + m_randomSelection +0x10 + m_lastFrame +0x14, client-only state held in
+//     SoundSelectors::RandomState, S-701 / S-4190): Chance (+ 0x1D4,
 //     parsePercentToReal, default 0.5), RerollOnEveryFrame (+ 0x1DD, default yes), UnitSpecificSounds (+ 0x1C8), VoicePriority (+ 0x1D8, RW 0x8D000E). The module
 //     (ctor RW 0x8D0066) draws GameClientRandomValueReal(0, 1) (RW 0x6D33AB, RandomSoundSelectorClientBehavior.cpp line 0x62) and stores TheGameClient's frame;
 //     before each answer (RW 0x8D0138) it draws again (line 0x74) when RerollOnEveryFrame is set and the client frame changed. The module answers only while
