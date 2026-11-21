@@ -20,6 +20,7 @@ void LocomotorSetUpgradeModuleData::buildFieldParse(MultiIniFieldParse &p) {
 void LocomotorSetUpgrade::upgradeImplementation() {
     if (AIUpdateInterface *ai = getObject()->getAIUpdateInterface()) ai->setLocomotorUpgrade(!m_data->killLocomotorUpgrade);
 }
+// RW 0x008B80F6: clears AI upgraded locomotor flag via RW 0x006624E5
 void LocomotorSetUpgrade::processUpgradeRemoval() {
     if (AIUpdateInterface *ai = getObject()->getAIUpdateInterface()) ai->setLocomotorUpgrade(false);
 }

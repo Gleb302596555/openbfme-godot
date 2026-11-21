@@ -56,7 +56,7 @@ void ExtraModules::registerAll(ModuleFactory &modules)
 	bind<UpgradeDie, UpgradeDieModuleData>(modules, "UpgradeDie");
 	bind<HeroDie, HeroDieModuleData>(modules, "HeroDie");
 	bind<DeletionUpdate, DeletionUpdateModuleData>(modules, "DeletionUpdate");
-	bind<MonitorConditionUpdate, MonitorConditionUpdateModuleData>(modules, "MonitorConditionUpdate");
+	bind<MonitorConditionUpdate, MonitorConditionUpdateModuleData>(modules, "MonitorConditionUpdate"); // RW 0x00894CED, RW 0x00894CF3, RW 0x00894D38, RW 0x00894DDC
 	bind<FlammableUpdate, FlammableUpdateModuleData>(modules, "FlammableUpdate");
 	bind<FireSpreadUpdate, FireSpreadUpdateModuleData>(modules, "FireSpreadUpdate");
 	bind<ExperienceLevelCreate, ExperienceLevelCreateModuleData>(modules, "ExperienceLevelCreate");

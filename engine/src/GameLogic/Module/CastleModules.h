@@ -351,8 +351,12 @@ class CastleMemberBehavior : public BehaviorModule, public DamageModuleInterface
 public:
 	OBFME_MODULE_XFER(CastleMemberBehavior) // lane SAVE-4b
 	CastleMemberBehavior(Thing *thing, const CastleMemberBehaviorModuleData *data);
+	~CastleMemberBehavior() override;
 	const CastleMemberBehaviorModuleData *data() const { return m_data; }
+	void onDelete() override;
 	void crc(StateHasher &hasher) const override;
+	// PORT-231: RW 0x00798057 (called by CastleBehavior::setMembersModelCondition RW 0x00799F0F): starts/stops BeingBuiltSound on BASE_BUILD
+	void onParentModelConditionChanged(int clear, int set);
 	// RW module + 0x18: the object id of the castle this piece belongs to (INVALID_ID: none); RW + 0x14: the occupant of a plot (the structure being built on it)
 	ObjectID castleId() const { return m_castleId; }
 	void setCastleId(ObjectID id) { m_castleId = id; }
@@ -378,6 +382,7 @@ public:
 
 private:
 	bool m_breached = false; // RW + 0x15
+	bool m_beingBuiltSoundActive = false; // PORT-231: audio-side held handle tracking for HELD_CASTLE_BEING_BUILT
 	const CastleMemberBehaviorModuleData *m_data;
 	ObjectID m_castleId = INVALID_ID;
 	ObjectID m_occupantId = INVALID_ID;

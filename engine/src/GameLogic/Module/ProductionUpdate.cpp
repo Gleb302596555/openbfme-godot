@@ -1262,6 +1262,85 @@ void ProductionUpdate::awardProductionExperience(Object *newObj, const Productio
 	}
 }
 
+// PORT-231 (RW 0x008A253B .. 0x008A25D7 / 0x008A2624 .. 0x008A26BC): register script name on a newly produced unit
+namespace
+{
+void applyProducedScriptName(GameLogic &logic, Object &newObj, const std::string &name)
+{
+	if (name.empty())
+	{
+		return;
+	}
+	ScriptEngine &se = logic.scriptEngine();
+	if (se.getUnitNamed(name) != nullptr || se.didUnitExist(name))
+	{
+		se.transferObjectName(name, newObj); // RW 0x00759467 (sets Object + 0x88 name)
+	}
+	else
+	{
+		newObj.friend_setNameUncached(name);
+		se.nameInCache(name, newObj); // RW 0x0060A1D5
+	}
+}
+
+// PORT-231 (RW 0x008A171F -> 0x008A07E0): migrate entry->hordeTarget (and its HORDE members) from its container into the newly built container
+void migrateHordeTarget(GameLogic &logic, const ProductionEntry &entry, Object &newObj)
+{
+	if (entry.hordeTarget == INVALID_ID)
+	{
+		return;
+	}
+	Object *target = logic.findObjectByID(entry.hordeTarget);
+	ContainModuleInterface *dstContain = newObj.getContain();
+	if (!target || !dstContain)
+	{
+		return;
+	}
+	Object *oldContainer = target->getContainedBy();
+	auto moveItem = [&](Object *item) {
+		if (!item)
+		{
+			return;
+		}
+		Object *itemContainer = item->getContainedBy();
+		const bool itemInHorde = itemContainer && itemContainer->isKindOfName("HORDE");
+		if (oldContainer)
+		{
+			if (ContainModuleInterface *oc = oldContainer->getContain())
+			{
+				oc->removeFromContain(item, false); // RW 0x008A07FF / 0x008A082B
+			}
+		}
+		if (itemInHorde)
+		{
+			if (ContainModuleInterface *hc = itemContainer->getContain())
+			{
+				if (HordeContainInterface *hci = hc->getHordeContainInterface())
+				{
+					hci->releaseMemberForGarrison(item); // RW 0x008A0823 -> slot 0xA8 RW 0x0086EBF4
+				}
+			}
+		}
+		dstContain->addToContain(item); // RW 0x008A083D
+	};
+	moveItem(target);
+	if (target->isKindOfName("HORDE"))
+	{
+		if (ContainModuleInterface *tc = target->getContain())
+		{
+			if (const ContainModuleInterface::ContainedItemsList *items = tc->getContainedItemsList())
+			{
+				const std::vector<Object *> members(items->begin(), items->end());
+				for (Object *m : members)
+				{
+					moveItem(m);
+				}
+			}
+		}
+	}
+}
+} // namespace
+
 // RW 0x8A1F8A .. 0x8A2EC4
 void ProductionUpdate::completeUnit(ProductionEntry *entry, Player *player, UnsignedInt now)
 {
@@ -1354,6 +1433,7 @@ void ProductionUpdate::completeUnit(ProductionEntry *entry, Player *player, Unsi
 					removeFromProductionQueue(entry); // RW 0x8A2513 -> 0x8A2EF6
 					return;
 				}
+				applyProducedScriptName(logic, *newObj, entry->name); // RW 0x008A253B .. 0x008A25D7
 				newObj->setProducer(us); // RW 0x8A2788 (RW 0x625E0A, the object's group, is not ported)
 			}
 			else
@@ -1372,6 +1452,7 @@ void ProductionUpdate::completeUnit(ProductionEntry *entry, Player *player, Unsi
 					removeFromProductionQueue(entry);
 					return;
 				}
+				applyProducedScriptName(logic, *newObj, entry->name); // RW 0x008A2624 .. 0x008A26BC
 				// lane MODCOMPAT-MOD1: RW 0x8A26BD .. 0x8A270E: an entry with its + 0x44 flag (ObjectCreationUpgrade's UseBuildingProduction queue) hands the new
 				// object to the producer's SlaveWatcherBehavior (RW 0x68BDA5 by name key, RW 0x887AF5)
 				if (entry->flag44)
@@ -1475,6 +1556,8 @@ void ProductionUpdate::completeUnit(ProductionEntry *entry, Player *player, Unsi
 			{
 				AudioApi::postUnitVoice(0x7DA, newObj->getID(), getObject()->getID());
 			}
+			// PORT-231 (RW 0x008A2A67 -> 0x008A171F): migrate entry->hordeTarget into newObj's contain
+			migrateHordeTarget(logic, *entry, *newObj);
 			// RW 0x8A2A8C: BuildFadeInOnCreateTime (tt + 0x354, read above) times 5 frames delays the exit and holds the unit disabled
 			m_postExitDelay = (unsigned)SimMath::truncToInt32(SimMath::mulf32(fade, (float)LOGICFRAMES_PER_SECOND));
 			newObj->setSpecialModelConditionState(kJustBuilt, m_postExitDelay);

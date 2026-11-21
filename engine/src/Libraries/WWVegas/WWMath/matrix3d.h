@@ -88,6 +88,34 @@ public:
 		}
 	}
 
+	// this = Rotate_X(theta) * this (3x3 part; RW 0x008CD7A9..0x008CD906, DONOR BFME2 WWMath Matrix3D::In_Place_Pre_Rotate_X)
+	void In_Place_Pre_Rotate_X(float theta)
+	{
+		float s = std::sin(theta);
+		float c = std::cos(theta);
+		for (int col = 0; col < 3; ++col)
+		{
+			float r1 = Row[1][col];
+			float r2 = Row[2][col];
+			Row[1][col] = c * r1 - s * r2;
+			Row[2][col] = s * r1 + c * r2;
+		}
+	}
+
+	// this = Rotate_Y(theta) * this (3x3 part; RW 0x008CD8A0..0x008CD906, DONOR BFME2 WWMath Matrix3D::In_Place_Pre_Rotate_Y)
+	void In_Place_Pre_Rotate_Y(float theta)
+	{
+		float s = std::sin(theta);
+		float c = std::cos(theta);
+		for (int col = 0; col < 3; ++col)
+		{
+			float r0 = Row[0][col];
+			float r2 = Row[2][col];
+			Row[0][col] = c * r0 + s * r2;
+			Row[2][col] = -s * r0 + c * r2;
+		}
+	}
+
 	void Set_Translation(const Vector3 &t)
 	{
 		Row[0][3] = t.X;

@@ -15,6 +15,7 @@
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/ObjectGeometry.h"
 #include "GameLogic/ObjectTemplateInfo.h"
+#include "GameLogic/SnapshotXfer.h"
 
 #include <algorithm>
 #include <cmath>
@@ -1059,6 +1060,7 @@ void FireLogicSystem::xfer(Xfer &x)
 			Cell *cell = &m_cells[r][c];
 			std::int32_t type = cell->m_type;
 			x.xferInt(&type);
+			SnapshotXfer::checkRange(type, 0, 3, "FireLogicSystem cell type"); // 0 none, 1 burning, 2 burning out, 3 burnt
 			if (x.isLoading())
 			{
 				cell->m_type = type;
@@ -1106,6 +1108,11 @@ void FireLogicSystem::xfer(Xfer &x)
 				std::int32_t wx = 0, wy = 0;
 				x.xferInt(&wx);
 				x.xferInt(&wy);
+				// cellToWorld: a cell's centre is cell * 10 + 5, so a burning cell of this grid is x % 10 == 5 at a row of 0 .. m_numRows - 1 (and y for the column)
+				if (wx % 10 != 5 || wy % 10 != 5 || (wx - 5) / 10 < 0 || (wy - 5) / 10 < 0 || (wx - 5) / 10 >= m_numRows || (wy - 5) / 10 >= m_numCols)
+				{
+					throw XferException("the snapshot's burning cell " + std::to_string(wx) + ", " + std::to_string(wy) + " is not on this game's fire grid");
+				}
 				m_cellsOnFire.insert({ (int)wx, (int)wy });
 			}
 		}

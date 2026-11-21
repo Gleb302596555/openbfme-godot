@@ -210,6 +210,7 @@ void EvacuateDamage::crc(StateHasher &h) const
 	}
 }
 
+// RW 0x008BEDCC (DONOR BFME2 0x008BAC83; dtor RW 0x008BF011 / RW 0x008BF05A, name RW 0x008BEFC6, getModuleNameKey RW 0x008BEFCC)
 void EvacuateDamage::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

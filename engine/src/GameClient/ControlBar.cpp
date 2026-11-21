@@ -362,7 +362,7 @@ ButtonState ControlBar::evaluate(const CommandButton &b, Object &obj, bool &comm
 			// RW 0x942733, case 39 at 0x94387B: status CAN_STEALTH is
 			// required; an eligible StealthUpdate must also be ready. The
 			// shared StealthUpdate::of lookup is incomplete for multiple modules
-			// (S-7694); do not add a second, ring-only lookup here.
+			// (S-7715); do not add a second, ring-only lookup here.
 			static const int canStealth = ObjectTemplateInfoBuilder::objectStatusIndex("CAN_STEALTH");
 			if (!obj.testStatus((unsigned)canStealth)) return ButtonState::Restricted;
 			const StealthUpdate *stealth = StealthUpdate::of(obj);

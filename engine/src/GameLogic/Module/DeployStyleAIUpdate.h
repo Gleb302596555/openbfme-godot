@@ -50,6 +50,8 @@ class ModuleFactory;
 class DeployStyleAIUpdate : public AIUpdateInterface
 {
 public:
+	// RW 0x00891D88 (xfer), RW 0x00891F81 (getModuleName), RW 0x00891F3C (getModuleNameKey),
+	// RW 0x00891EE2 (~DeployStyleAIUpdate), RW 0x00892083 (scalar deleting destructor)
 	OBFME_MODULE_XFER(DeployStyleAIUpdate) // the save (SAVE-4e): its version and AIUpdateInterface's (its state: xferAIStateBody)
 	void xferAIStateBody(class Xfer &x) override; // the deploy state, the kept command, the attack flags (obfme:AIWorld)
 	enum DeployState
@@ -77,7 +79,7 @@ public:
 	static const char *stopLine(); // [S-4945]
 
 protected:
-	bool routeCommand(const RoutedCommand &command) override; // RW 0x89209F for the routed commands
+	bool routeCommand(const RoutedCommand &command) override; // RW 0x00891F87 (AICommandInterface::aiDoCommand thunk) -> RW 0x89209F for the routed commands
 
 private:
 	void setMyState(int state);     // RW 0x8921E3

@@ -114,14 +114,36 @@ void GiveUpgradeUpdate::onObjectCreated()
 	}
 }
 
+// RW 0x0089FC9D (SP interface slot 0, RW 0xC67B28; DONOR BFME2 0x0049C51A): if searching (+0x89) with a live target
+// (+0x40), do not re-initiate (RW 0x89FCA3 .. 0x89FCB9); otherwise forward to SpecialAbilityUpdate::initiateIntentToDoSpecialPower (RW 0x852E8F).
 void GiveUpgradeUpdate::initiateIntentToDoSpecialPower(const SpecialPowerTemplate *t, Object *targetObj, const Coord3D *loc, unsigned options, int extra)
 {
+	if (target() && m_searching) // RW 0x89FCA3 .. 0x89FCB9: findObjectByID(+0x40) != nullptr && m_searching != 0
+	{
+		return;
+	}
 	// RW 0x8A006C is the approachTarget override (vtable slot 0x38, RW 0xC67B90): the search first (RW 0x8A006F ->
 	// RW 0x89FEBD), then the base approach (RW 0x85393B). An ordered target is already in + 0x40 by then (the base
 	// initiate writes it), and the search leaves at once (RW 0x89FECE); with no ordered target the search picks one —
 	// only while DeliverUpgrade is set (RW 0x89FEDE). The port's state machine starts the ability here.
 	SpecialAbilityUpdate::initiateIntentToDoSpecialPower(t, targetObj, loc, options, extra);
 	findDeliveryTarget(true);
+}
+
+// RW 0x0089FCD6 (SP interface slot 8 / +0x20, RW 0xC67B28; DONOR BFME2 0x0049C553 GiveUpgradeUpdateSlot8.cpp):
+// base RW 0x851B6E first; then true if no target (+0x40 == 0) or the target is missing / effectively dead (+0x458 bit 0).
+bool GiveUpgradeUpdate::allowsSpecialPowerUse(const Coord3D *loc) const
+{
+	if (!SpecialAbilityUpdate::allowsSpecialPowerUse(loc)) // RW 0x89FCDD -> RW 0x851B6E
+	{
+		return false;
+	}
+	if (m_targetID == INVALID_ID) // RW 0x89FCE6
+	{
+		return true;
+	}
+	Object *obj = target(); // RW 0x89FCF1 -> RW 0x449681
+	return !obj || obj->isEffectivelyDead(); // RW 0x89FCFD .. 0x89FD10: Object + 0x458 bit 0
 }
 
 // RW 0x89FEBD: one pass of the automatic search.
@@ -322,7 +344,9 @@ void GiveUpgradeUpdate::finishAbility(bool ownerDying, bool aborted)
 }
 
 void GiveUpgradeUpdate::crc(StateHasher &h) const { SpecialAbilityUpdate::crc(h); h.addBool(m_fading); h.addFloat(m_opacity); h.addBool(m_searching); }
+// RW 0x0089FB9F: base SpecialAbilityUpdate::xfer (0x852782), isLightCRC early-out, v1, m_fading (+0x88), m_opacity (+0x8C), m_searching (+0x89)
 void GiveUpgradeUpdate::xfer(Xfer &x) { SpecialAbilityUpdate::xfer(x); SnapshotXfer::version(x, 1, 1); x.xferBool(&m_fading); x.xferReal(&m_opacity); x.xferBool(&m_searching); }
+// RW 0x0089FB79 (getModuleName), RW 0x0089FBF4 (getModuleNameKey), RW 0x0089FC39 / RW 0x0089FB7F (dtor)
 void GiveUpgradeUpdate::registerClass(ModuleFactory &factory)
 {
 	factory.bindTypedData<Data>("GiveUpgradeUpdate", MODULETYPE_BEHAVIOR);

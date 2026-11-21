@@ -15,7 +15,7 @@
 //   * Size real; MaximumAudioSpeed velocity (units per second * 0.2 = per logic frame, RW 0x73A4B6); StartThreshold / StopThreshold unsigned shorts;
 //     HandOffModeDuration milliseconds converted to frames (RW 0x73B071, 0.005f); Required/ExcludedModelConditionFlags and Required/ExcludedObjectStatusBits
 //     are the shared bit flag lists; IgnoreStealthedUnits bool (the INI documents the default as Yes).
-// The RUNTIME (the per-cell counting of LargeGroupAudioUpdate modules, hand-off, ducking) needs live objects and is a later lane (stop S-248).
+// The client applies member notifications to each Sound block in LargeGroupAudioGrid. Duck playback remains S-248.
 
 #pragma once
 

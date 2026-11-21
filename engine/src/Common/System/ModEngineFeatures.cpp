@@ -74,6 +74,18 @@ const std::vector<ModEngineFeatures::Profile> &ModEngineFeatures::knownBinaries(
 			"install / copy-protection checks (none in OpenBFME); EA's frame pacing restored (presentation timing, not lockstep state)" },
 		{ "a6ce9397ee16376e7c84a72218ffe03a", "2.02 Delayfix Addon lotrbfme2ep1.exe", {},
 			"install checks (none in OpenBFME); the 2.01 frame pacing (OpenBFME's)" },
+		// Ennorath 1.9.8.5's pySAGE-patched game.dat: the MD5 of the mod's RotWK\game.dat and the All In One service's Ennorath 1.9.8.5 package
+		// ("engine_edits": "Ennorath: game.dat md5 fc32e4c4..."). Its sections are named by patch; docs/ennorath/ENNORATH_EXE.md maps each to its hooks
+		// in the retail code. None is rebuilt yet: with this profile the rules stay retail 2.01, the line below names what is left out.
+		{ "fc32e4c4142b5c607b90972eaf448400", "Ennorath 1.9.8.5 game.dat", {},
+			"none of its pySAGE edits is rebuilt yet, the game rules stay retail 2.01 (docs/ennorath/ENNORATH_EXE.md): the defensive stance that "
+			"keeps a moving unit going (.stancem), the middle click camera reset by time (.camfix), war wagons and the Witch-king unloading through "
+			"the common evacuate, the map search in the lobby (.mapfind), the option hotkeys (.hotkeys / .keydef / .keycmd), the online lag fix "
+			"option (.dlyfix / .optfix), replays (.rpchat / .rppause), the chat mute (.chatmut), select all buildings (.bldgrp / .padsel / "
+			".bldext / .bldcan / .bldlvl / .bldcap), every resolution (.optui), the building limit fix, War of the Ring for 8 players (.wotrui / "
+			".wotrobs / .wtrview / .wtrdisp), 64 CommandSet slots (.cmdext) and 5120 upgrades (.upg5k), the text entry clipboard (.txtclip, P-128), "
+			"the observer's command range (.obscmd); the 30 / 60 FPS choice (.fxrate / .fpsvar / .fpsdraw) is left out by decision: OpenBFME keeps "
+			"its own frame rate" },
 		{ "f7ce90438eb50da4ce63804ba2688b6b", "RJ-RotWK launcher (a Qt program that starts the game, not a game binary)", {}, "" },
 		{ "243edd56bb09405626bb455a67b5aa46", "RJ-RotWK file.dat (the launcher's settings)", {}, "" },
 	};

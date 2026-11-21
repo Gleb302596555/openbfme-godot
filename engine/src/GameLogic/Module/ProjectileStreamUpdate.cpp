@@ -115,6 +115,7 @@ bool ProjectileStreamUpdate::considerDying()
 	return false;
 }
 
+// RW 0x00740A56 (DONOR BFME2 ProjectileStreamUpdate::getAllPoints): walks circular buffer m_firstValidIndex..m_nextFreeIndex (mod 20)
 void ProjectileStreamUpdate::getAllPoints(Coord3D *points, int *count) const
 {
 	Object *me = const_cast<ProjectileStreamUpdate *>(this)->getObject();
@@ -160,7 +161,9 @@ void ProjectileStreamUpdate::xfer(Xfer &x)
 		x.xferObjectID(&m_projectileIDs[i]);
 	}
 	x.xferInt(&m_nextFreeIndex);
+	SnapshotXfer::checkRange(m_nextFreeIndex, 0, MAX_PROJECTILE_STREAM - 1, "ProjectileStreamUpdate m_nextFreeIndex");
 	x.xferInt(&m_firstValidIndex);
+	SnapshotXfer::checkRange(m_firstValidIndex, 0, MAX_PROJECTILE_STREAM - 1, "ProjectileStreamUpdate m_firstValidIndex");
 	x.xferObjectID(&m_owningObject);
 
 	if (v.current >= 2)

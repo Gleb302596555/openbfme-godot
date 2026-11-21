@@ -8,6 +8,7 @@
 #include "Common/Thing/ThingFactory.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "Common/Xfer.h"
+#include "GameLogic/SnapshotXfer.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DTreeDraw.h"
 #include "GameLogic/Economy.h"
 #include "GameLogic/GameLogic.h"
@@ -929,6 +930,7 @@ void TerrainTrees::xfer(Xfer &x)
 			x.xferAsciiString(&drawName);
 			x.xferInt(&r.morph);
 			x.xferInt(&r.morphLeft);
+			SnapshotXfer::checkRange(r.morphLeft, 0, 0x7FFFFFFF, "terrain trees: a tree's morph frames left"); // +0x694: a countdown, 0 when the morph is done
 			x.xferBool(&r.morphTarget);
 		}
 		if (!loading)
