@@ -461,6 +461,22 @@ void ObjectWeapons::fireExtraWeapon(Weapon &w, Object &victim)
 }
 
 // lane MODS-3: RW 0x6CF3AE -> privateFireWeapon RW 0x6CEF6D (source, source position, victim, victim id, no position, 1, 1, 0, 0)
+// LOCAL-97: RW 0x006CF407 Weapon::forceFireWeapon(source, victim) -> privateFireWeapon RW 0x6CEF6D with ignoreRanges = true (arg 6 = 1)
+void ObjectWeapons::forceFireExtraWeapon(Weapon &w, Object &victim)
+{
+	if (!w.getTemplate())
+	{
+		return;
+	}
+	Weapon::FireArgs args;
+	args.target.hasVictim = true;
+	args.target.victimID = victim.getID();
+	args.target.victimPosition = *victim.getPosition();
+	args.ignoreRanges = true; // RW 0x006CF413: push 1
+	ObjectWeaponDelivery delivery(*m_owner, *this, *w.getTemplate(), w);
+	w.privateFireWeapon(host(), delivery, args);
+}
+
 void ObjectWeapons::fireExtraWeaponDetonationAt(Weapon &w, Object &victim)
 {
 	if (!w.getTemplate())

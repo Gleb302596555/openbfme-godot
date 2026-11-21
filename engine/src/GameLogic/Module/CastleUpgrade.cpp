@@ -56,7 +56,7 @@ CastleBehavior *castleOf(Object &o)
 	return nullptr;
 }
 
-// RW 0x7972D3 (BFME2): each foundation gets the upgrade; the occupant of a taken one, when it lacks it and is affected, too
+// RW 0x007997E7 (DONOR BFME2 0x7972D3): each foundation gets the upgrade; the occupant of a taken one, when it lacks it and is affected, too
 void giveToFoundations(GameLogic &logic, const std::vector<ObjectID> &ids, const UpgradeTemplate *u)
 {
 	for (ObjectID id : ids)

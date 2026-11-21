@@ -420,6 +420,18 @@ void DrawableManager::applyEvents(const std::vector<ClientEvent> &events)
 				d->setFXTrigger(ev.fxTrigger);
 			}
 			break;
+		case ClientEvent::SET_TINT_STATUS: // LOCAL-97 (RW 0x008862E0)
+			if (Drawable *d = findByObject(ev.object))
+			{
+				d->setTintStatus(ev.tintStatusBits);
+			}
+			break;
+		case ClientEvent::CLEAR_TINT_STATUS: // LOCAL-97 (RW 0x00670913)
+			if (Drawable *d = findByObject(ev.object))
+			{
+				d->clearTintStatus(ev.tintStatusBits);
+			}
+			break;
 		case ClientEvent::SHOW_MODULE:
 			if (Drawable *d = findByObject(ev.object))
 			{

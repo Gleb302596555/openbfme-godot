@@ -291,6 +291,7 @@ void CombatModules::registerAll(ModuleFactory &modules)
 }
 
 // ---- DestroyDie / FXListDie -------------------------------------------------------------------------------------------------------
+// RW 0x00889805 (DieModule::isDieApplicable RW 0x0085FED5 -> TheGameLogic->destroyObject RW 0x0062BBAB)
 void DestroyDie::onDie(const DieModuleInterface::Event &event)
 {
 	Object *obj = getObject();
@@ -337,6 +338,9 @@ void KeepObjectDie::onDie(const DieModuleInterface::Event &event)
 	obj->setStayOnRadarAfterDeath(true); // RW 0x88A00A: nothing while the record is set; RW 0x88A01A: the radar's add
 }
 
+// RW 0x008898D4: DieModule::isDieApplicable (RW 0x0085FED5); when m_deathFX (+0x38) is set,
+// OrientToObject (+0x3C) calls findObjectByID (RW 0x00449681) + FXList::doFXObj (RW 0x004B1B5A),
+// else FXList::doFXPos (RW 0x00494615) with no matrix.
 void FXListDie::onDie(const DieModuleInterface::Event &event)
 {
 	Object *obj = getObject();
@@ -345,8 +349,6 @@ void FXListDie::onDie(const DieModuleInterface::Event &event)
 		return;
 	}
 	++obj->logic().combat().counters().unportedNuggets; // the hashed run counter keeps counting (lane FX-2 changes no hash); the call itself is the event below
-	// lane FX-2. DONOR ZH FXListDie::onDie (the RotWK onDie was not read; its data table has no upgrade mux, so ZH's upgrade gate does not apply): OrientToObject
-	// plays doFXObj(DeathFX, obj, the damage dealer), else doFXPos(DeathFX, obj position) with no matrix
 	GameLogic &logic = obj->logic();
 	FXEvent e = FXEventLog::objectEvent(m_data->m_orientToObject ? FXEvent::OBJECT_FX : FXEvent::POSITION_FX, "FXListDie", logic.getFrame(), m_data->m_deathFX, *obj);
 	if (m_data->m_orientToObject)
@@ -375,6 +377,7 @@ SlowDeathBehavior::SlowDeathBehavior(Thing *thing, const SlowDeathBehaviorModule
 	setWakeFrame(getObject(), UPDATE_SLEEP_FOREVER);
 }
 
+// RW 0x008604CC (SlowDeathBehaviorInterface slot 2 -> DieMuxData::isDieApplicable RW 0x008D29A9)
 bool SlowDeathBehavior::isDieApplicable(const DieModuleInterface::Event &event) const
 {
 	return m_data->m_dieMux.isDieApplicable(*getObject(), event);

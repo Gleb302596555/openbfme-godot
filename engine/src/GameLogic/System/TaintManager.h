@@ -97,7 +97,9 @@ public:
 	// moves with every cell write, region change and load (the client's ground tint rebuilds when it moves; not state: neither hashed nor saved)
 	std::uint64_t version() const { return m_version; }
 
-	void xfer(Xfer &x);
+	// A game supplies its exclusive object ID limit. Standalone grids have no allocator:
+	// all nonzero ObjectIDs except the reserved -1 bit pattern can name a painter.
+	void xfer(Xfer &x, std::uint32_t nextObjectID = UINT32_MAX);
 	void crc(StateHasher &h) const;
 
 private:

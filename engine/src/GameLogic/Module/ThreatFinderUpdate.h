@@ -80,7 +80,7 @@ class ThreatFinderUpdate : public UpdateModule
 public:
 	OBFME_MODULE_XFER(ThreatFinderUpdate)
 	ThreatFinderUpdate(Thing *thing, const ThreatFinderUpdateModuleData *data); ///< RW 0x7EDD3D
-	~ThreatFinderUpdate() override;                                              ///< RW 0x7EDF5B (the finder leaves the manager)
+	~ThreatFinderUpdate() override;                                              ///< RW 0x007EDFFF (~ThreatFinderUpdate), RW 0x007EE14A (scalar deleting dtor), RW 0x7EDF5B (finder leaves manager)
 	UpdateSleepTime update() override;                                           ///< RW 0x7EDDB6
 	// slot 45 of the behaviour interface: RW 0x7EDECE (Object::friend_onMapPlacement, RW 0x694692)
 	void onMapPlacement(const Dict *properties) override;

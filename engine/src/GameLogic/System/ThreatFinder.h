@@ -32,7 +32,8 @@ class Xfer;
 class ThreatFinder
 {
 public:
-	ThreatFinder(std::string name, bool noStructures); ///< RW 0x7EDDFB (INFERENCE BFME2 0x003ECD60: the records zeroed, the radius 0, the frame 0)
+	ThreatFinder(std::string name, bool noStructures);
+	~ThreatFinder() = default; // RW 0x007EDE52 (~ThreatFinder) ///< RW 0x7EDDFB (INFERENCE BFME2 0x003ECD60: the records zeroed, the radius 0, the frame 0)
 
 	// RW 0x7EE1F4 getThreatForPlayer: the records rescanned when 3 s passed (RW 0xBDD42C, as RW 0x7EE166 does), then the element-wise sum over the players whose
 	// relationship to `player` is ENEMIES (mode 0) or ALLIES (mode 1); every other mode is the empty record (retail's switch)
@@ -77,7 +78,8 @@ private:
 class ThreatFinderManager
 {
 public:
-	void reset();
+	~ThreatFinderManager() = default; // RW 0x007EE2D1 (~ThreatFinderManager), RW 0x007EE31E (scalar deleting dtor)
+	void reset();                     // RW 0x007EE258 (hash_map::clear RW 0x008E3EA1)
 	// INFERENCE BFME2 0x003ED265: registered only when the name's key is not there yet (a second finder of the same name stays unregistered)
 	void add(GameLogic &logic, const std::string &name, ThreatFinder &finder);
 	// INFERENCE BFME2 0x003ED2A3: the key is erased when it names this finder

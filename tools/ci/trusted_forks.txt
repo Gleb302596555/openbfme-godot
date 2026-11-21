@@ -1,0 +1,3 @@
+# The GitHub accounts of the owner's trusted participants whose forks the trusted-PR relay walks (tools/ci/trusted_pr_relay.py,
+# .github/workflows/trusted-pr-relay.yml). One login per line; the owner adds a person when the dashboard gives them a task.
+Bolebey

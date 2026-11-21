@@ -1396,6 +1396,12 @@ void Object::friend_onDie(const DieModuleInterface::Event &event)
 		{
 			d->onDie(event);
 		}
+		// RW 0x00698FA3 .. 0x00698FB5: after DieModuleInterface::onDie, Object::onDie calls AIUpdateInterface vslot +0x24C
+		// (DozerAIUpdate RW 0x0088BF7A removes an unplaced phantom structure on builder death).
+		if (AIUpdateInterface *ai = m_modules[i]->getAIUpdateInterface())
+		{
+			ai->onOwnerDie();
+		}
 	}
 	removeFromPlayerCommandPoints(); // RW 0x698FD9
 	m_logic.emotions().objectDied(*this); // RW 0x6990AC .. 0x6990C8 (lane MODULES-2): a SCARY or HERO object leaves TheEmotionSystem's list
@@ -2452,8 +2458,7 @@ void Object::updateShroudNow()
 	}
 }
 
-// RW 0x690584 (see Object.h). The tail of RW (template byte + 0x642: clear the RUBBLE model condition, and for a dead object set REALLYDAMAGED and revive it,
-// RW 0x6905F8 ff) is not ported: the field's name is not read (stop S-652); no retail template reaches it through this lane's callers while alive
+// PORT-231 (S-652): RW 0x00690584 (see Object.h), including the KeepSelectableWhenDead (+0x642) tail (RW 0x690626 .. 0x690672): clear RUBBLE, and when effectively dead set REALLYDAMAGED and revive.
 bool Object::attemptHealingFromSoleBenefactor(float amount, const Object *source, UnsignedInt duration)
 {
 	if (!source)
@@ -2479,6 +2484,34 @@ bool Object::attemptHealingFromSoleBenefactor(float amount, const Object *source
 		info.m_input.m_deathType = DEATH_NONE;
 		info.m_input.m_amount = amount;
 		m_body->attemptHealing(info);
+	}
+	bool keepSelectableWhenDead = false;
+	if (m_template)
+	{
+		if (const FieldValue *v = static_cast<const ThingTemplate *>(m_template)->getFinalOverride()->findField("KeepSelectableWhenDead"))
+		{
+			if (const bool *b = std::get_if<bool>(v))
+			{
+				keepSelectableWhenDead = *b;
+			}
+		}
+	}
+	if (keepSelectableWhenDead)
+	{
+		static const int kRubble = CombatNames::modelCondition("RUBBLE");
+		static const int kReallyDamaged = CombatNames::modelCondition("REALLYDAMAGED");
+		if (kRubble >= 0 && testModelCondition(kRubble))
+		{
+			setModelConditionState(kRubble, false);
+		}
+		if (m_effectivelyDead)
+		{
+			if (kReallyDamaged >= 0 && !testModelCondition(kReallyDamaged))
+			{
+				setModelConditionState(kReallyDamaged, true);
+			}
+			friend_setEffectivelyDead(false);
+		}
 	}
 	return true;
 }

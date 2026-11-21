@@ -113,6 +113,7 @@ void ThreatFinder::removeFromManager(GameLogic &logic)
 }
 
 // ---- TheThreatFinderManager (RW 0xDE8888) --------------------------------------------------------------------------------------------------
+// RW 0x007EE258 (hash_map::clear RW 0x008E3EA1)
 void ThreatFinderManager::reset()
 {
 	m_finders.clear();

@@ -28,6 +28,7 @@ const AttributeModifierStore *AttributeModifierPool::store() const
 	return m_store ? m_store : TheAttributeModifierStore;
 }
 
+// getModuleName RW 0x00805612 ("AttributeModifierPoolUpdate"), getModuleNameKey RW 0x00805618
 void AttributeModifierPool::registerClass(ModuleFactory &modules)
 {
 	modules.bindModuleProc("AttributeModifierPoolUpdate", MODULETYPE_BEHAVIOR, [](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &) -> std::unique_ptr<Module> {

@@ -252,5 +252,11 @@ void AIChargeTargetState::xfer(Xfer &x)
 	x.xferBool(&m_done);
 	x.xferInt(&m_count);
 	x.xferInt(&m_setBeforeCharge);
+	if (x.isLoading())
+	{
+		// RW 0x5E9AB1 (0x5E9B06): indices of the SET_* table. The fork remembers the entry set for
+		// onExit (RW 0x74D892 uses NORMAL); curLocomotorSet() can also be -1 before a set is chosen.
+		AIXfer::inRange(m_setBeforeCharge, -1, LOCOMOTORSET_COUNT - 1, "charge: the locomotor set before charging");
+	}
 	xferMove(x, ai().mover(), m_move);
 }

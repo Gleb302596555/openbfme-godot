@@ -1875,6 +1875,7 @@ Coord3D AIUpdateInterface::machineGoalPosition() const
 // ---------------------------------------------------------------------------------------------------------------------------------
 // locomotors (B1 AIUpdate.cpp:2326-2430)
 // ---------------------------------------------------------------------------------------------------------------------------------
+// RW 0x006624E5: writes m_upgradedLocomotors (+0x3B9); if m_curLocomotorSet (+0x1F4) is 0 or 1, re-chooses set 0 (vslot +0x238)
 void AIUpdateInterface::setLocomotorUpgrade(bool on)
 {
 	m_upgradedLocomotors = on;

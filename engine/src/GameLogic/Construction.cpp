@@ -524,7 +524,7 @@ std::vector<std::string> Construction::stopLines()
 		"unfinished structure is not sent back to it (RW 0x857DEA); the player notification that counts a self-built structure's command points is inferred (BUILD-1's completion); RotWK's "
 		"dozer makes its structure an inert phantom and places it on arrival with 1 hit point (RW 0x88D272 / 0x88D44F, lane FBSIM-1); "
 		"BUILD-1's dozer completion sets CONSTRUCTION_COMPLETE, which RW 0x88DEE0 does not",
-		"[S-652] Object::attemptHealingFromSoleBenefactor (RW 0x690584): the tail behind the template byte + 0x642 (RUBBLE cleared, a dead object revived) is not ported: the field is not identified",
+		"[S-652] closed by PORT-231: Object::attemptHealingFromSoleBenefactor (RW 0x00690584) reads ThingTemplate KeepSelectableWhenDead (+0x642), clearing RUBBLE and reviving effectively dead objects (REALLYDAMAGED)",
 		"[S-653] GettingBuiltBehavior: calls not identified and not ported: Player + 0x3DC's RW 0x79F0E1(object, 1) and Object + 0x456 at a rebuild's start, the body's slot "
 		"0x94 after a heal (RW 0x8C1D53), RW 0x68C3A3's slot 0x28 at a build's end (RW 0x8569C7; the production update's slot 0x60 before it is setFactoryDisabled(false), "
 		"lane PLAY-4): noted at runtime where reached. Lane BACKLOG2 ported BuildAssistant::moveObjectsForConstruction RW 0x797465 (the rebuild's start RW 0x85679D, a "

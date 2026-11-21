@@ -82,6 +82,8 @@ struct ClientEvent
 		SUPPLY_STATUS,   ///< PORT-77: RW 0x8AB623..0x8AB63A dispatches the supply look through RW 0x671948; event delivery is INFERENCE
 		ENSLAVED,        ///< P-87 (RW 0x8A51AE -> RW 0x6713A8): slaver; the slave's drawable copies the slaver drawable's Eva sighting flags
 		HOUSE_RECOLOR,   ///< PORT-47: name = first exclusion (or empty), houseColor = controlling player day colour, kind 1 (RW 0x4B873C / 0x4B872C)
+		SET_TINT_STATUS,   ///< LOCAL-97 (RW 0x008862E0): Drawable::setTintStatus(tintStatusBits)
+		CLEAR_TINT_STATUS, ///< LOCAL-97 (RW 0x00670913): Drawable::clearTintStatus(tintStatusBits)
 	};
 	std::string heroUniqueID;
 	std::vector<std::string> heroStatistics;
@@ -135,7 +137,8 @@ struct ClientEvent
 	float snappyness = 0.0f; ///< RELEASED_FROM_BONE (lane PORT-105): ReleaseSnappyness, TransportContain data + 0x17C
 	bool shadowsOn = true; ///< SET_SHADOWS
 	bool audible = true;   ///< AUDIBLE (lane PORT-21): the drawable's audible flag
-	int fxTrigger = 0;     ///< FX_TRIGGER (PORT-68): Drawable + 0x360 index in TheFXTriggerNames
+	int fxTrigger = 0;
+	UnsignedInt tintStatusBits = 0;     ///< FX_TRIGGER (PORT-68): Drawable + 0x360 index in TheFXTriggerNames
 	int flashFrames = 0;
 	int customKind = 0;                             ///< CUSTOM_COLORS (lane CAH-2)
 	std::uint32_t customColors[3] = { 0u, 0u, 0u }; ///< CUSTOM_COLORS: ARGB
@@ -175,6 +178,8 @@ public:
 	void setShadowsEnabled(Object &obj, bool enabled) override;
 	void setDrawableOpacity(Object &obj, float opacity) override;
 	void setDrawableAudible(Object &obj, bool audible) override; // lane PORT-21
+	void setDrawableTintStatus(Object &obj, UnsignedInt statusBits) override;   // LOCAL-97, RW 0x008862E0
+	void clearDrawableTintStatus(Object &obj, UnsignedInt statusBits) override; // LOCAL-97, RW 0x00670913
 	void setDrawableFXTrigger(Object &obj, int fxTrigger) override; // PORT-68 (RW 0x68B56A)
 	void setCustomColors(Object &obj, int kind, std::uint32_t c0, std::uint32_t c1, std::uint32_t c2) override; // lane CAH-2
 	void createAHeroKill(Object &killer, Object &victim) override;
