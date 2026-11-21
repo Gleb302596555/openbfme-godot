@@ -142,6 +142,7 @@ public:
 	float speed() const { return m_speed; }
 	float apexHeight() const { return m_apex; }
 	int pointCount() const { return m_pointCount; }
+	// RW 0x0079295E (called by SlowDeathBehavior::update RW 0x00860B39 at RW 0x00860D8E)
 	bool isFlying() const { return !m_points.empty(); }
 	// lane FLY-1: + 0x5F, the flight ends in a kill (the rest RW 0x79308D: SPLATTED and Object::kill); GiantBirdAIUpdate's toss sets it (RW 0x76CD76)
 	void setKillOnRest(bool on) { m_killOnRest = on; }

@@ -2,7 +2,7 @@
 
 Command: `tools/mod/matrix_gaps.py --base <ROTWK_INSTALL> --overlay <mod install> --matrix docs/ennorath/MATRIX.tsv --map docs/ennorath/RW_FUNCTION_MAP.tsv --out docs/ennorath/MATRIX_GAPS --inventory <rw_function_blocks.json> --game <game.dat>`
 
-Failing matrix rows: 290; joined rows: 639; module classes reached: 17.
+Failing matrix rows: 263; joined rows: 525; module classes reached: 16.
 
 A link is a name match: the module's fields name the button's SpecialPower or Upgrade. The map's status is exact RW citation in engine/src (a port without a citation reads `none`). The join says where to look first, not which function fails: each row's cause is still traced.
 
@@ -16,59 +16,57 @@ The main class of a button is the class it links to that the fewest failing butt
 
 | class | buttons | results | specific none | first specific none functions | example buttons |
 |---|---:|---|---:|---|---|
-| WeaponFireSpecialAbilityUpdate | 46 | NO-EFFECT 30, NO-TARGET 7, NO-FIRE 5, ORDER 3, LEFT-WORLD 1 | 2 | 0x00896156@0 0x00896370@0 | AngmarAgandaur Command_SpecialAbilityAgandaurLighting, AngmarHwaldar_mod Command_HwaldarVerbrannteErde, AngmarMorgramir_mod Command_SpecialAbilityBetrayer |
-| OCLSpecialPower | 23 | NO-FIRE 9, NO-EFFECT 6, ORDER 4, NOT-ON-BAR 3, GREY-BUG 1 | 0 | - | AngmarGulmataur Command_SpecialAbilityGulmatRunes, AngmarGulmataur Command_SpecialAbilityGulmatRunesPoison, DwarvenDain_mod Command_SpecialAbilityDrarSpeerfeuer |
-| AutoAbilityBehavior | 12 | NO-EFFECT 8, MOD-DATA 1, NO-FIRE 1, NOT-ON-BAR 1, ORDER 1 | 5 | 0x0085D3ED@1 0x006289E7@5 0x0062AB74@5 0x00629BCA@6 0x006A95E6@6 | AngmarDarkRangerHorde Command_AngmarRangersIceArrowAbility, DwarvenAxtschwingerHorde Command_AxtschwingerAxeThrow, GondorGandalfGeprfte Command_SpecialAbilityWizardBlastGeprfte |
-| ToggleMountedSpecialAbilityUpdate | 11 | NO-EFFECT 6, NO-FIRE 3, ORDER 1, STUCK 1 | 0 | - | GasthausKhamulSpell Command_SpecialAbilityKhamulGuldurEmpowered, GasthausKhamulSpellOnFoot Command_SpecialAbilityKhamulGuldurEmpowered, GasthausKhamulonFellBeastSpell Command_SpecialAbilityKhamulGuldurEmpowered |
-| LevelGrantSpecialPower | 8 | NO-FIRE 6, NO-EFFECT 1, ORDER 1 | 0 | - | AngmarGolfimbul Command_SpecialAbilityGolfimbulRaid, ArnorMalbethSeer Command_SpecialAbilityMalbethOnFarm, DwarvenNarin Command_SpecialAbilityNarinExp |
-| SpecialAbilityUpdate | 7 | NO-VALUE 3, ORDER 2, NO-EFFECT 1, NO-SEND 1 | 1 | 0x00852CA2@1 | CarthaenSpy Command_SpecialAbilityLoneRangerSummonFinal, DorwinionNaturmagier Command_SpecialAbilityNaturmagierErntesegen, ElvenThranduil_mod Command_ThranduilKnigDsterwalds |
+| WeaponFireSpecialAbilityUpdate | 40 | NO-EFFECT 24, NO-TARGET 7, NO-FIRE 5, ORDER 3, LEFT-WORLD 1 | 2 | 0x00896156@0 0x00896370@0 | AngmarAgandaur Command_SpecialAbilityAgandaurLighting, AngmarHwaldar_mod Command_HwaldarVerbrannteErde, AngmarMorgramir_mod Command_SpecialAbilityBetrayer |
+| AutoAbilityBehavior | 20 | NO-EFFECT 11, NO-FIRE 4, ORDER 2, GREY-BUG 1, MOD-DATA 1, NOT-ON-BAR 1 | 5 | 0x0085D3ED@1 0x006289E7@5 0x0062AB74@5 0x00629BCA@6 0x006A95E6@6 | AngmarDarkRangerHorde Command_AngmarRangersIceArrowAbility, AngmarGulmataur Command_SpecialAbilityGulmatRunes, AngmarGulmataur Command_SpecialAbilityGulmatRunesPoison |
+| OCLSpecialPower | 16 | NO-FIRE 6, ORDER 4, NO-EFFECT 3, NOT-ON-BAR 3 | 0 | - | DwarvenDain_mod Command_SpecialAbilityDrarSpeerfeuer, DwarvenNarin Command_ramridercaptain, GaladrielDarkMirror Command_GaladrielMirrorWardByMirror |
+| ToggleMountedSpecialAbilityUpdate | 10 | NO-EFFECT 4, NO-FIRE 3, ORDER 2, STUCK 1 | 0 | - | GasthausKhamulSpell Command_SpecialAbilityKhamulGuldurEmpowered, GasthausKhamulSpellOnFoot Command_SpecialAbilityKhamulGuldurEmpowered, GasthausKhamulonFellBeastSpell Command_SpecialAbilityKhamulGuldurEmpowered |
 | ModelConditionSpecialAbilityUpdate | 6 | NO-EFFECT 5, GREY-BUG 1 | 0 | - | GondorAragorn_SummonedHunters Command_SpecialAbilityElendilSummoned, GondorBoromir_OneRing Command_SpecialAbilityBoromirHornRing, GondorBoromir_mod Command_SpecialAbilityBoromirHorn |
-| ArrowStormUpdate | 5 | NO-EFFECT 5 | 6 | 0x00893E4C@1 0x006A057C@2 0x006A1D75@2 0x006A253A@2 0x00852CA2@2 0x006A05C1@3 | GondorGandalfGeprfte Command_GondorGandalfLightningSwordGeprfte, IsengardSarumanKorrumpierte Command_SarumanPower, IsengardSaruman_Mod Command_SarumanPower |
 | HeroModeSpecialAbilityUpdate | 5 | NO-VALUE 3, GREY-BUG 1, NO-EFFECT 1 | 0 | - | GondorBoromir_mod_ElrondsRat Command_SpecialAbilityBoromirTapfererWiderstand, GondorDenethor_forFortress Command_SpecialAbilityDenethorNotstandssituation, LothlorienLegolas Command_LegolasElbenauge |
+| SpecialAbilityUpdate | 4 | NO-EFFECT 2, NO-SEND 1, ORDER 1 | 1 | 0x00852CA2@1 | CarthaenSpy Command_SpecialAbilityLoneRangerSummonFinal, DorwinionNaturmagier Command_SpecialAbilityNaturmagierErntesegen, ElvenThranduil_mod Command_ThranduilKnigDsterwalds |
 | UnpauseSpecialPowerUpgrade | 3 | GREY-BUG 1, NO-EFFECT 1, NO-FIRE 1 | 2 | 0x00697B6E@1 0x008D280A@3 | GondorDenethor_forFortress Command_SpecialAbilityDenethorVerzweiflungsakt, IsengardSarumanVerfluchter Command_IndustriellerWahn, RavenPost Command_RavenPostSecondBonus |
-| ActivateModuleSpecialPower | 2 | NO-EFFECT 2 | 0 | - | DwarvenDurin Command_SpecialAbilityDurinMeisterGestein, MordorMouthOfSauronNew Command_SpecialAbilityWortedesElends |
 | ToggleHiddenSpecialAbilityUpdate | 2 | NO-EFFECT 1, STUCK 1 | 0 | - | GasthausGhanBuriGhan Command_SpecialAbilityGeheimeWege, HaradSpy Command_SpecialAbilityHaradScoutCloak |
 | WeaponModeSpecialPowerUpdate | 2 | NO-EFFECT 1, NO-SEND 1 | 0 | - | WildMarauderSwordHorde Command_HalftrollChargeAttack, WildMarauderSwords Command_AngmarTrollChargeAttack |
+| ActivateModuleSpecialPower | 1 | NO-EFFECT 1 | 0 | - | DwarvenDurin Command_SpecialAbilityDurinMeisterGestein |
 | GrantUpgradeCreate | 1 | GREY-BUG 1 | 0 | - | DwarvenGuardianEreborHorde_Summoned Command_PurchaseUpgradeDwarvenBasicTraining |
-| ProductionSpeedBonus | 1 | NO-EFFECT 1 | 6 | 0x008C726B@1 0x005FD6A5@2 0x006AEFBE@2 0x005FD431@3 0x006AE82A@3 0x0060D23A@4 | IsengardWulfgar Command_SpecialAbilityWulfgarRufderPlnderer |
+| LevelGrantSpecialPower | 1 | ORDER 1 | 0 | - | RohanTheoden_mod Command_SpecialAbilityKingsFavorEdainTheo |
+| ProductionSpeedBonus | 1 | NO-EFFECT 1 | 0 | - | IsengardWulfgar Command_SpecialAbilityWulfgarRufderPlnderer |
 | SpecialPowerModule | 1 | NO-FIRE 1 | 3 | 0x00654F8E@0 0x00896A32@0 0x008981BE@0 | GondorAdvisor_forFortress Command_SpecialAbilityAdvisorDefendIniciative |
 
 ## Module classes by all the failing buttons they touch (shared links included)
 
 | class | buttons | map none | specific none | map partial | first specific none functions |
 |---|---:|---:|---:|---:|---|
-| SpecialPowerModule | 102 | 293 | 3 | 3 | 0x00654F8E@0 0x00896A32@0 0x008981BE@0 |
-| UnpauseSpecialPowerUpgrade | 92 | 17 | 2 | 0 | 0x00697B6E@1 0x008D280A@3 |
-| WeaponFireSpecialAbilityUpdate | 67 | 172 | 2 | 12 | 0x00896156@0 0x00896370@0 |
-| AutoAbilityBehavior | 31 | 314 | 5 | 14 | 0x0085D3ED@1 0x006289E7@5 0x0062AB74@5 0x00629BCA@6 0x006A95E6@6 |
-| OCLSpecialPower | 28 | 254 | 0 | 0 | - |
-| ToggleMountedSpecialAbilityUpdate | 14 | 346 | 0 | 16 | - |
-| LevelGrantSpecialPower | 8 | 35 | 0 | 1 | - |
-| SpecialAbilityUpdate | 7 | 343 | 1 | 16 | 0x00852CA2@1 |
-| ModelConditionSpecialAbilityUpdate | 6 | 166 | 0 | 12 | - |
-| ArrowStormUpdate | 5 | 179 | 6 | 12 | 0x00893E4C@1 0x006A057C@2 0x006A1D75@2 0x006A253A@2 0x00852CA2@2 0x006A05C1@3 |
-| HeroModeSpecialAbilityUpdate | 5 | 91 | 0 | 4 | - |
-| ActivateModuleSpecialPower | 2 | 35 | 0 | 1 | - |
-| ToggleHiddenSpecialAbilityUpdate | 2 | 188 | 0 | 12 | - |
-| WeaponModeSpecialPowerUpdate | 2 | 109 | 0 | 4 | - |
+| SpecialPowerModule | 79 | 290 | 3 | 3 | 0x00654F8E@0 0x00896A32@0 0x008981BE@0 |
+| UnpauseSpecialPowerUpgrade | 70 | 17 | 2 | 0 | 0x00697B6E@1 0x008D280A@3 |
+| WeaponFireSpecialAbilityUpdate | 60 | 164 | 2 | 11 | 0x00896156@0 0x00896370@0 |
+| OCLSpecialPower | 29 | 252 | 0 | 0 | - |
+| AutoAbilityBehavior | 25 | 306 | 5 | 14 | 0x0085D3ED@1 0x006289E7@5 0x0062AB74@5 0x00629BCA@6 0x006A95E6@6 |
+| ToggleMountedSpecialAbilityUpdate | 12 | 337 | 0 | 16 | - |
+| ModelConditionSpecialAbilityUpdate | 6 | 157 | 0 | 11 | - |
+| HeroModeSpecialAbilityUpdate | 5 | 88 | 0 | 4 | - |
+| SpecialAbilityUpdate | 4 | 334 | 1 | 16 | 0x00852CA2@1 |
+| ToggleHiddenSpecialAbilityUpdate | 2 | 180 | 0 | 11 | - |
+| WeaponModeSpecialPowerUpdate | 2 | 108 | 0 | 4 | - |
+| ActivateModuleSpecialPower | 1 | 32 | 0 | 1 | - |
 | GrantUpgradeCreate | 1 | 21 | 0 | 0 | - |
+| LevelGrantSpecialPower | 1 | 32 | 0 | 1 | - |
 | LevelUpUpgrade | 1 | 20 | 0 | 1 | - |
-| ProductionSpeedBonus | 1 | 40 | 6 | 1 | 0x008C726B@1 0x005FD6A5@2 0x006AEFBE@2 0x005FD431@3 0x006AE82A@3 0x0060D23A@4 |
+| ProductionSpeedBonus | 1 | 26 | 0 | 0 | - |
 
 ## Failing rows without a module link, by result
 
 | result | rows |
 |---|---:|
-| MEMBER | 68 |
-| MOD-DATA | 51 |
+| MEMBER | 70 |
+| MOD-DATA | 49 |
 | FAIL | 28 |
 | TEMPORARY | 18 |
 | NO-SEND | 6 |
-| NO-FIRE | 5 |
-| NO-EFFECT | 4 |
 | NOT-ON-BAR | 3 |
 | LEFT-WORLD | 2 |
-| NO-RULE | 2 |
+| NO-EFFECT | 2 |
+| NO-FIRE | 2 |
 | NO-STANCE | 2 |
 | STUCK | 2 |
 | GREY-BUG | 1 |
+| NO-RULE | 1 |

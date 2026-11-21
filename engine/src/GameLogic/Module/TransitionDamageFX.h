@@ -119,6 +119,7 @@ public:
 	DamageModuleInterface *getDamage() override { return this; }
 	void onDamage(const DamageInfo &) override {}  // RW 0x9F3A3C
 	void onHealing(const DamageInfo &) override {} // RW 0x9F3A3C
+	void onDrawableBoundToObject() override; // RW 0x008BDEE5 (vtable 0x00C707A4 slot 6)
 	void onBodyDamageStateChange(const DamageInfo *info, BodyDamageType oldState, BodyDamageType newState) override; // RW 0x8BE077
 
 	// the client key of slot (state, i) of this module: unique per object (the module's index among the object's modules)
@@ -137,6 +138,8 @@ public:
 	static std::vector<std::string> stops();
 
 private:
+	// RW 0x8BDCF7: HideSubObject then ShowSubObject (permanent) for the given state
+	void applySubObjects(BodyDamageType state);
 	// RW 0x8BDDAC getLocalEffectPos then (when `world`) RW 0x70BCE7
 	Coord3D effectPos(const TransitionDamageFXModuleData::LocInfo &loc, bool world);
 	const TransitionDamageFXModuleData *m_data;

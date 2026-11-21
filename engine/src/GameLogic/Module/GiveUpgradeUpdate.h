@@ -1,5 +1,5 @@
 // OpenBFME. GPL-3.0. GiveUpgradeUpdate, RotWK 2.01 (the BFME2 editions' module data has one more field, see the .cpp).
-// The module's vtable is RW 0xC67B58: slot 0x34 finishAbility RW 0x89FD5C, slot 0x38 approachTarget RW 0x8A006C,
+// The module's vtable is RW 0xC67B58 (getModuleName RW 0x0089FB79, getModuleNameKey RW 0x0089FBF4, dtor RW 0x0089FC39 / RW 0x0089FB7F, xfer RW 0x0089FB9F): slot 0x34 finishAbility RW 0x89FD5C, slot 0x38 approachTarget RW 0x8A006C,
 // slot 0x44 triggerAbilityEffect RW 0x8A01B2; update RW 0x8A00C2 is in the UpdateModule table. Its own helpers:
 // releaseTarget RW 0x89FD15, the delivery's closing part RW 0x89FE01, the provider lookup RW 0x89FD77, the search
 // RW 0x89FEBD and the give test RW 0x89FE64. Field table RW 0xC67AE8 (SpawnOutFX + 0xE0, FadeOutSpeed + 0xE4,
@@ -30,7 +30,8 @@ public:
 	GiveUpgradeUpdate(Thing *thing, const GiveUpgradeUpdateModuleData *data);
 	void onObjectCreated() override;
 	bool canGiveUpgradeTo(Object &target) const; // RW 0x89FE64
-	void initiateIntentToDoSpecialPower(const SpecialPowerTemplate *t, Object *targetObj, const Coord3D *loc, unsigned options, int extra) override; // RW 0x8A006C (search RW 0x89FEBD)
+	void initiateIntentToDoSpecialPower(const SpecialPowerTemplate *t, Object *targetObj, const Coord3D *loc, unsigned options, int extra) override; // RW 0x0089FC9D (SP vtable slot 0; search RW 0x8A006C / RW 0x89FEBD)
+	bool allowsSpecialPowerUse(const Coord3D *loc = nullptr) const override; // RW 0x0089FCD6 (SP vtable slot 8 / +0x20; DONOR BFME2 0x0049C553)
 	UpdateSleepTime update() override;                        // RW 0x8A00C2
 	void finishAbility(bool ownerDying, bool aborted) override; // RW 0x89FD5C (vtable slot 0x34)
 	void crc(StateHasher &h) const override;

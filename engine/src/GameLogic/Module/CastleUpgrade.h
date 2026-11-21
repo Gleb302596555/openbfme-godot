@@ -34,6 +34,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008BA932 (getModuleName), RW 0x008BA938 (getModuleNameKey), RW 0x008BA9D0 / RW 0x008BA912 (dtor)
 class CastleUpgrade : public UpgradeModule
 {
 public:

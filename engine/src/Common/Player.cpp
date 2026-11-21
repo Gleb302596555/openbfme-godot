@@ -31,6 +31,7 @@
 #include "GameLogic/ObjectFilterMatch.h"
 #include "GameLogic/SkirmishAI/SkirmishAIManager.h"
 
+#include <algorithm>
 #include <cstring>
 #include <stdexcept>
 
@@ -480,7 +481,7 @@ void Player::addUpgradeDiscount(const std::string &sourceName, const std::vector
 {
 	for (UpgradeDiscount &d : m_upgradeDiscounts) // RW 0x6B2C67
 	{
-		if (d.sourceName == sourceName && d.percents == percents && d.applyTo == applyTo)
+		if (d.sourceName == sourceName && d.percents == percents && d.applyTo == applyTo) // RW 0x006AB681 (vector<float>::operator==)
 		{
 			++d.count;
 			recomputeDiscount(d);
@@ -493,7 +494,7 @@ void Player::addUpgradeDiscount(const std::string &sourceName, const std::vector
 	d.percents = percents;
 	d.applyTo = applyTo;
 	recomputeDiscount(d);
-	m_upgradeDiscounts.push_back(std::move(d));
+	m_upgradeDiscounts.push_back(std::move(d)); // RW 0x006B2028 (vector<UpgradeDiscount>::push_back), ctor RW 0x006B0060
 }
 
 void Player::removeUpgradeDiscount(const std::string &sourceName, const std::vector<float> &percents, const std::vector<std::string> &applyTo)
@@ -752,6 +753,18 @@ void xferFloats(Xfer &x, std::vector<float> &v)
 	}
 }
 
+// RW 0x6B205F (0x6B2AEB / 0x6B2AFA): both KindOf masks go through RW 0x6ACB39, which
+// refuses an unknown name at 0x6ACC31. Player v4 stores the bits as bare words, not a counted mask.
+void xferBattlePlanKinds(Xfer &x, KindOfMaskType &mask, const char *what)
+{
+	const int kinds = SnapshotXfer::kindOfCount();
+	for (size_t i = 0; i < mask.size(); ++i)
+	{
+		const int bits = std::clamp(kinds - static_cast<int>(i) * 32, 0, 32);
+		SnapshotXfer::maskWithin(x, mask[i], SnapshotXfer::lowBits(bits), what, "the KindOf names");
+	}
+}
+
 void xferIds(Xfer &x, std::vector<ObjectID> &v)
 {
 	x.xferVectorSize(v, 4);
@@ -979,14 +992,8 @@ void Player::xfer(Xfer &x, TeamFactory &teams)
 		x.xferInt(&m_battlePlanBonuses.searchAndDestroy);
 		x.xferInt(&m_battlePlanBonuses.holdTheLine);
 		x.xferReal(&m_battlePlanBonuses.sightRangeScalar);
-		for (std::uint32_t &w : m_battlePlanBonuses.validKindOf)
-		{
-			x.xferUnsignedInt(&w);
-		}
-		for (std::uint32_t &w : m_battlePlanBonuses.invalidKindOf)
-		{
-			x.xferUnsignedInt(&w);
-		}
+		xferBattlePlanKinds(x, m_battlePlanBonuses.validKindOf, "battle plan: valid KindOf");
+		xferBattlePlanKinds(x, m_battlePlanBonuses.invalidKindOf, "battle plan: invalid KindOf");
 	}
 	else if (x.isLoading())
 	{

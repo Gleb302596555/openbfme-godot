@@ -28,10 +28,9 @@
 // PORT-280 (fork issue 647): SetBonusModelConditionOnSpeedBonus (data + 0x41 -> UPGRADE_ECONOMY_BONUS bit 332 when Player::getProductionTimeChange(BonusForType)
 // < 0, RW 0x8A1C30 .. 0x8A1C77) and SpeedBonusAudioLoop (data + 0x48, handle module + 0x12C: RW 0x8A1C7C .. 0x8A1D4F starts when bonus < 0 and the producer is
 // neither effectively dead nor UNDER_CONSTRUCTION, else removes; dtor RW 0x8A198B / RW 0x8A1B36 removes at RW 0x8A19FF; xfer RW 0x8A3111 transfers at RW 0x8A35A6).
-// NOT PORTED (stop S-203): audio (voices), the EVA messages, the entry name /
-// script naming (RW +0x40), the BuildFadeInOnCreateList extra objects' drawables, SecondaryQueue selection of the
-// dispatcher is ported but hero queues are not. Entry + 0x3C horde target: the setter (slot 14, RW 0x8A03A0) is ported (LOCAL-23); its reader
-// (the made unit joining that horde) is not ported and was not located in RW (Ennorath's EvilPort has no DestinationTemplate, so it never queues).
+// PORT-231 (#554): script naming of produced objects (RW 0x8A253B / 0x8A2624) and horde join of entry + 0x3C (RW 0x8A2A67 -> 0x8A171F -> 0x8A07E0).
+// NOT PORTED (stop S-203): audio (voices), the EVA messages, the BuildFadeInOnCreateList extra objects' drawables, SecondaryQueue selection of the
+// dispatcher is ported but hero queues are not, the pending template name set (RW +0x130) and the score keeper.
 
 #pragma once
 

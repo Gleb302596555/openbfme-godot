@@ -209,10 +209,7 @@ void BuildAssistantSell::update()
 			}
 			else
 			{
-				if (!m_logic.settings().sellPercentageLoaded)
-				{
-					m_logic.noteStop("[S-1981] sell: GameData SellPercentage (GlobalData + 0xB94) was not loaded: a structure without RefundValue is sold for nothing");
-				}
+				// PORT-231 (S-1981): GlobalData::ctor sets SellPercentage (+ 0xB94) to 1.0f (RW 0x006429AD -> 0x643160 / 0x643222) when GameData does not override it
 				refund = NumericState::ftol2Low32(NumericState::pc24MulW((double)obj->getBuildCostPaid(), (double)m_logic.settings().sellPercentage));
 			}
 			// RW 0x794738 .. 0x79476A: times the body's health fraction (1.0 without a body: RW 0xBD1908), fild with the unsigned fix-up, fmul, ftol
@@ -271,8 +268,8 @@ std::vector<std::string> BuildAssistantSell::acceptanceStops()
 		"fraction) is paid in the next phase 5 and the structure dies (UNRESISTABLE, death type 8), a selected own beacon is destroyed (lane CHAT-1), the contain's slot 0x64 "
 		"onSelling empties it (RW 0x86561F: the kill-on-death byte cleared, then the riders ordered out with CMD_FROM_AI); not ported: the local player's BeaconName (the "
 		"issuing player's is read: every retail faction names MultiplayerBeacon), the client's animation loop and cash text",
-		"[S-1981] sell: GameData SellPercentage (row RW 0xC00690, parsePercentToReal RW 0x42EEFA, GlobalData + 0xB94) must be loaded; without it a structure that has no "
-		"RefundValue is sold for nothing and the stop is noted",
+		"[S-1981] closed: GameData SellPercentage (row RW 0xC00690, parsePercentToReal RW 0x42EEFA, GlobalData + 0xB94) defaults to 1.0f in GlobalData::ctor "
+		"(RW 0x006429AD -> 0x643160 / 0x643222) when not loaded",
 	};
 }
 

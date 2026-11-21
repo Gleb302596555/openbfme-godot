@@ -708,9 +708,25 @@ ACTIONS_CHECK = "Fork PR: build and own tests"
 ACTIONS_FROM = 1795208400   # 2026-11-20 21:00 UTC: heads committed earlier have no run of the job for all PRs
 
 
+RULES_CHECK = "PR rules: description, test sources, citations"   # owner 2026-11-20, .github/workflows/pr-rules.yml (no build, seconds)
+
+
 def actions_check(head: str) -> str:
-    """The job's conclusion on this commit ('success', 'failure', ...), 'running', or '' when it has not run."""
-    name = ACTIONS_CHECK.replace(" ", "%20").replace(":", "%3A")
+    """The build job and the rules job on this commit, together: a red one is red ('failure', ...), a running one 'running', '' when the build
+    job has not run; a head without a rules run (before the rule) counts as the build job alone."""
+    build = check_conclusion(head, ACTIONS_CHECK)
+    rules = check_conclusion(head, RULES_CHECK)
+    for c in (build, rules):
+        if c not in ("", "running", "success", "neutral", "skipped"):
+            return c
+    if "running" in (build, rules):
+        return "running"
+    return build
+
+
+def check_conclusion(head: str, check: str) -> str:
+    """One check's conclusion on this commit ('success', 'failure', ...), 'running', or '' when it has not run."""
+    name = check.replace(" ", "%20").replace(":", "%3A")
     done = subprocess.run(["gh", "api", f"repos/{GH}/commits/{head}/check-runs?check_name={name}"], capture_output=True, text=True,
                           encoding="utf-8", errors="replace", env=dict(os.environ, GH_TOKEN=token()))
     if done.returncode:
@@ -810,7 +826,7 @@ def cycle(args) -> int:
                     print(f"#{n}: GitHub Actions {ci}: not checked here", flush=True)
                     if not args.no_comment:
                         gh("pr", "comment", n, "--body", f"<!-- prcheck {head} -->\n❌ **PR #{n} не проверялся в песочнице** (голова {head[:8]}): "
-                           f"в GitHub Actions красная проверка «{ACTIONS_CHECK}» ({ci}) — сборка или свои тесты. Ошибки — в аннотациях проверки "
+                           f"в GitHub Actions красная проверка «{ACTIONS_CHECK}» или «{RULES_CHECK}» ({ci}) — сборка, свои тесты или правила PR (разделы описания, источник ожиданий тестов). Ошибки — в аннотациях проверки "
                            "на вкладке Checks этого PR. Исправь и запушь: Actions проверит заново, песочница возьмёт PR после зелёного результата.")
                     state["actions_red"][n] = head
                     save_state(state)

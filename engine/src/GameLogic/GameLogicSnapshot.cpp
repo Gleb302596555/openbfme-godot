@@ -335,7 +335,7 @@ void GameLogic::xferCore(Xfer &x)
 	}
 	if (v.current >= 5)
 	{
-		m_cheatMode.xferSandbox(x);
+		m_cheatMode.xferSandbox(x, m_players.getPlayerCount());
 	}
 	else if (x.isLoading())
 	{

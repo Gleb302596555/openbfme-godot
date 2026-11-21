@@ -56,7 +56,7 @@ public:
 	OBFME_MODULE_XFER(DestroyDie) // lane SAVE-4b: BehaviorModule's (no state)
 	DestroyDie(Thing *thing, const DestroyDieModuleData *data) : BehaviorModule(thing, data), m_data(data) {}
 	DieModuleInterface *getDie() override { return this; }
-	void onDie(const DieModuleInterface::Event &event) override;
+	void onDie(const DieModuleInterface::Event &event) override; // RW 0x00889805
 
 private:
 	const DestroyDieModuleData *m_data;
@@ -98,7 +98,7 @@ public:
 	OBFME_MODULE_XFER(FXListDie) // lane SAVE-4b: BehaviorModule's (no state)
 	FXListDie(Thing *thing, const FXListDieModuleData *data) : BehaviorModule(thing, data), m_data(data) {}
 	DieModuleInterface *getDie() override { return this; }
-	void onDie(const DieModuleInterface::Event &event) override;
+	void onDie(const DieModuleInterface::Event &event) override; // RW 0x008898D4
 
 private:
 	const FXListDieModuleData *m_data;
@@ -189,7 +189,7 @@ public:
 	bool isSlowDeathActivated() const { return m_activated; }
 	// ZH SlowDeathBehavior::getProbabilityModifier: ProbabilityModifier + overkill percent * ModifierBonusPerOverkillPercent, at least 1
 	int probabilityModifier(const DieModuleInterface::Event &event) const;
-	bool isDieApplicable(const DieModuleInterface::Event &event) const;
+	bool isDieApplicable(const DieModuleInterface::Event &event) const; // RW 0x008604CC
 	// SlowDeathBehaviorInterface slot 0xC, asked by the roulette (RW 0x861712) before a pick begins: the base answers true (RW 0x8BD372)
 	virtual bool canBeginSlowDeath() { return true; }
 	unsigned sinkFrame() const { return m_sinkFrame; }

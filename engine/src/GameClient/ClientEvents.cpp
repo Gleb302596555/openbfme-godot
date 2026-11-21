@@ -178,6 +178,18 @@ void ClientEventRecorder::setDrawableAudible(Object &obj, bool audible)
 	e.audible = audible;
 }
 
+void ClientEventRecorder::setDrawableTintStatus(Object &obj, UnsignedInt statusBits)
+{
+	ClientEvent &e = push(ClientEvent::SET_TINT_STATUS, obj);
+	e.tintStatusBits = statusBits;
+}
+
+void ClientEventRecorder::clearDrawableTintStatus(Object &obj, UnsignedInt statusBits)
+{
+	ClientEvent &e = push(ClientEvent::CLEAR_TINT_STATUS, obj);
+	e.tintStatusBits = statusBits;
+}
+
 void ClientEventRecorder::setDrawableFXTrigger(Object &obj, int fxTrigger)
 {
 	ClientEvent &e = push(ClientEvent::FX_TRIGGER, obj);

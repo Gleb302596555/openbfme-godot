@@ -68,7 +68,9 @@ void AnnounceBirthAndDeathBehavior::xfer(Xfer &x)
 	xferBehaviorModule(x);
 	x.xferBool(&m_needToRunOnBuildComplete);
 	x.xferInt(&m_birthAnnouncements);
+	SnapshotXfer::checkRange(m_birthAnnouncements, 0, 0x7FFFFFFF, "AnnounceBirthAndDeathBehavior m_birthAnnouncements");
 	x.xferInt(&m_deathAnnouncements);
+	SnapshotXfer::checkRange(m_deathAnnouncements, 0, 0x7FFFFFFF, "AnnounceBirthAndDeathBehavior m_deathAnnouncements");
 	x.xferAsciiString(&m_lastNotificationType);
 }
 

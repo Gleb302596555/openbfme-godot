@@ -160,7 +160,9 @@ void ProjectileStreamUpdate::xfer(Xfer &x)
 		x.xferObjectID(&m_projectileIDs[i]);
 	}
 	x.xferInt(&m_nextFreeIndex);
+	SnapshotXfer::checkRange(m_nextFreeIndex, 0, MAX_PROJECTILE_STREAM - 1, "ProjectileStreamUpdate m_nextFreeIndex");
 	x.xferInt(&m_firstValidIndex);
+	SnapshotXfer::checkRange(m_firstValidIndex, 0, MAX_PROJECTILE_STREAM - 1, "ProjectileStreamUpdate m_firstValidIndex");
 	x.xferObjectID(&m_owningObject);
 
 	if (v.current >= 2)

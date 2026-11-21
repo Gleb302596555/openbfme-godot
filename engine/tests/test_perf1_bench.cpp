@@ -770,6 +770,9 @@ TEST_CASE("perf1: the allied blob (300 frames) hashes as the build before the co
 	// pin: the fork's merge of upstream 234f5742 (2026-11-13) re-measured the allied blob once on the merged tree (OPENBFME_PERF1_REGEN=1, Linux GCC on Colab, whose hashes
 	// match the MSVC pins frame for frame on main df5f0b41): PORT-13's GameLogicSettings::crc hashes AttackMoveUsesFormations only when it is false (both editions'
 	// aidata.ini set Yes), so every frame's settings hash moves; with the old condition put back the old pins pass, so nothing else moved
+	// pin: the PC landing of Locals 96 / 97 / 98 (2026-11-21, MSVC) re-measured the skirmish file (OPENBFME_PERF1_REGEN=1 on the merged station-0 tree): Local 96's
+	// WorkerAIUpdate::newTask sets WORKER_REPAIRING (status 0x61, in the object hash; RW 0x008AE4A9) and DozerAIUpdate::onDelete (RW 0x0088CF96): the skirmish
+	// differs from frame 1296; with Local 96's changes switched off on its branch the old pin passes 12676/12676; Locals 97 / 98 left perf1 unmoved on theirs
 	// pin: the PC landing of 2026-11-20 (Local 93 #740 and Local 94 #741 with batches 2026-11-20c..f) re-measured all three files once on the merged station-0
 	// tree (OPENBFME_PERF1_REGEN=1, Windows MSVC): Local 93's AIData ForceHordesToLowLOD (+0xBB, default true) sets status bit 55 CREATE_DRAWABLE_WITH_LOW_DETAIL
 	// on produced units and horde members (RW 0x8A25DC .. 0x8A25F4, RW 0x86A117 .. 0x86A15E, RW 0x86B24B .. 0x86B28F), and the status is in the object hash;

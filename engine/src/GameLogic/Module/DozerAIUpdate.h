@@ -108,7 +108,9 @@ public:
 	~DozerAIUpdate() override; // RW 0x88D1AC: finishBuildingSound (RW 0x88BFA9) first
 	// lane BFME2CAMP1 (review): RW 0x88D1AC's tail: a dozer that still has an unplaced phantom (+ 0x568) removes it (RW 0x88CFFE: the price back, the phantom
 	// destroyed). The port runs it when the dozer is destroyed in the game (Module::onDelete), not in the destructor, which also runs at the logic's teardown
-	void onDelete() override;
+	void onDelete() override; // RW 0x0088CF96
+	// RW 0x0088BF7A (primary vslot +0x24C, called by Object::onDie RW 0x00698FB5): removes an unplaced phantom structure on builder death.
+	void onOwnerDie() override;
 	// RW 0x88E44F (DozerAIUpdate::aiDoCommand): a PLAYER command other than repair (0x13), resume construction (0x14) and move away (0x34) cancels the current task
 	// before it runs (dozer interface slot 0x34) and resets the primary machine
 	void commandAccepted(CommandSourceType source, int command, Object *target) override;
@@ -146,17 +148,17 @@ public:
 	// the target of the current task, else of the most recently ordered pending one (INVALID_ID: none)
 	ObjectID taskTarget() const;
 	bool working() const { return m_working; }
-	float repairHealthPercentPerSecond() const { return m_repairPercentPerSecond; }
+	float repairHealthPercentPerSecond() const { return m_repairPercentPerSecond; } // slot 0x04, RW 0x0088BEBE
 
-	// ---- the dozer interface (RW vtable 0xC622D8) ----
-	bool isTaskPending(int task) const { return task >= 0 && task < DOZER_NUM_TASKS && m_task[task].target != INVALID_ID; } // slot 0x18
-	bool isAnyTaskPending() const;                                                                                         // slot 0x20
-	int getMostRecentCommand() const;                                                                                       // slot 0x14
+	// ---- the dozer interface (RW vtable 0xC622D8; WorkerAIUpdate vtable 0xC6AC18) ----
+	bool isTaskPending(int task) const { return task >= 0 && task < DOZER_NUM_TASKS && m_task[task].target != INVALID_ID; } // slot 0x18, RW 0x0088BDDE / RW 0x008ACEFE
+	bool isAnyTaskPending() const;                                                                                         // slot 0x20, RW 0x0088BDEE
+	int getMostRecentCommand() const;                                                                                       // slot 0x14, RW 0x0088BE47 / RW 0x008ACF48
 	int getCurrentTask() const { return m_currentTask; }                                                                    // slot 0x24
-	ObjectID getTaskTarget(int task) const { return isTaskPending(task) ? m_task[task].target : INVALID_ID; }              // slot 0x1C
-	const Coord3D *getDockPoint(int task, int point) const;                                                                 // slot 0x44
-	int getBuildSubTask() const { return m_buildSubTask; }                                                                  // slot 0x4C
-	ObjectID unplacedStructure() const { return m_unplacedStructure; }                                                      // + 0xC0
+	ObjectID getTaskTarget(int task) const { return isTaskPending(task) ? m_task[task].target : INVALID_ID; }              // slot 0x1C, RW 0x0088BE0D / RW 0x008ACF0E
+	const Coord3D *getDockPoint(int task, int point) const;                                                                 // slot 0x44, RW 0x0088BE84 / RW 0x008ACF85
+	int getBuildSubTask() const { return m_buildSubTask; }                                                                  // slot 0x4C (setter slot 0x48 RW 0x0088C924 / RW 0x004944E7)
+	ObjectID unplacedStructure() const { return m_unplacedStructure; }                                                      // + 0xC0 (slot 0x70/0x74 RW 0x0088D0C6)
 	int primaryState() const { return m_primaryState; }
 	// the action machine state of the current task (ACTION_NONE without one)
 	int actionState() const { return m_currentTask >= 0 ? m_action[m_currentTask].state : (int)ACTION_NONE; }
@@ -190,10 +192,11 @@ protected:
 		Coord3D location{ 0.0f, 0.0f, 0.0f };
 	};
 
-	void newTask(int task, Object &target);         // slot 0x30, RW 0x88CCFC
-	void cancelTaskInternal(int task);              // slot 0x34, RW 0x88E3CE
-	void internalTaskComplete(int task);            // slot 0x38, RW 0x88BE18
-	void internalCancelTask(int task);              // slot 0x3C, RW 0x88E40A
+	virtual void newTask(int task, Object &target);            // slot 0x30, RW 0x0088CCFC (Worker: RW 0x008AE4A9)
+	virtual void cancelTaskInternal(int task);                 // slot 0x34, RW 0x0088E3CE (Worker: RW 0x008ACEE3)
+	void internalTaskComplete(int task);                       // slot 0x38, RW 0x0088BE18 / RW 0x008ACF19
+	virtual void internalCancelTask(int task);                 // slot 0x3C, RW 0x0088E40A (Worker: RW 0x008AE74B)
+	virtual void internalTaskCompleteOrCancelled(int task);    // slot 0x40, RW 0x0088C93C (Worker: RW 0x008AE17C)
 	void removeUnplacedStructure();                 // slot 0x6C, RW 0x88CFFE
 	bool placeUnplacedStructure();                  // slot 0x68, RW 0x88D44F: false when the site is no longer legal
 	void notifyAIPlayerDozerFree();                 // slot 0x7C, RW 0x88BF4E
@@ -224,10 +227,10 @@ protected:
 
 	TaskInfo m_task[DOZER_NUM_TASKS];
 	DockPoint m_dockPoint[DOZER_NUM_TASKS][DOZER_NUM_DOCK_POINTS];
-	int m_currentTask = DOZER_TASK_INVALID;
-	int m_buildSubTask = DOZER_SELECT_BUILD_DOCK_LOCATION;
-	ObjectID m_unplacedStructure = INVALID_ID;
-	bool m_isRebuild = false; ///< + 0x4D0 (lane BFME2CAMP1): the last construct's rebuild flag (RW 0x88C217)
+	int m_currentTask = DOZER_TASK_INVALID; ///< slot 0x28 setter RW 0x0099474B / RW 0x0097D97C
+	int m_buildSubTask = DOZER_SELECT_BUILD_DOCK_LOCATION; ///< slot 0x48 setter RW 0x0088C924 / RW 0x004944E7
+	ObjectID m_unplacedStructure = INVALID_ID; ///< slot 0x70/0x74 getter RW 0x0088D0C6
+	bool m_isRebuild = false; ///< + 0x4D0 (lane BFME2CAMP1): the last construct's rebuild flag (RW 0x88C217, slot 0x2C getter RW 0x008F114D)
 	// primary machine
 	int m_primaryState = -1;          ///< -1 until the machine is made (RW 0x88C1C1)
 	UnsignedInt m_idleTimestamp = 0;  ///< IDLE + 0x20
@@ -254,6 +257,6 @@ protected:
 	void finishBuildingSound();
 	bool m_isWorker = false;               // a WorkerAIUpdate (RW 0x88B897: the AI has a supply interface, vslot 0x190): it does not hide while it builds
 	float m_repairPercentPerSecond = 0.0f; // +0x64
-	float m_boredTime = 0.0f;              // +0x68 (frames * 1.0: parseDurationReal)
+	float m_boredTime = 0.0f;              // +0x68 (frames * 1.0: parseDurationReal; slot 0x08 getter RW 0x0088BEC8 / RW 0x008ACD22)
 	float m_boredRange = 0.0f;             // +0x6C
 };

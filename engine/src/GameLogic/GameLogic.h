@@ -94,6 +94,7 @@ class TerrainLogic;
 class UpgradeTypeTable;
 class UpgradeTemplate;
 class AIWorld;
+class FormationAssistant;
 class Economy;
 class CombatState;
 class ExperienceWorld;
@@ -179,6 +180,9 @@ public:
 	// drawable's RW 0x674727 and RW 0x690786 its RW 0x67896F, which clear / set the drawable's audible flag (+ 0x44A) and tell every client behaviour
 	// module's second interface (slot 1 RW 0x8CE25E / 0x8D04EB, slot 0 RW 0x8CE249 / 0x8D04D9)
 	virtual void setDrawableAudible(Object &obj, bool audible) { (void)obj; (void)audible; }
+	// LOCAL-97, RW 0x008862E0 (Drawable + 0x118 |= bits) and RW 0x00670913 (Drawable::clearTintStatus)
+	virtual void setDrawableTintStatus(Object &obj, UnsignedInt statusBits) { (void)obj; (void)statusBits; }
+	virtual void clearDrawableTintStatus(Object &obj, UnsignedInt statusBits) { (void)obj; (void)statusBits; }
 	// PORT-68: Object::setDrawableFXTrigger (RW 0x68B56A -> Drawable::setFXTrigger RW 0x44C465, Drawable + 0x360)
 	virtual void setDrawableFXTrigger(Object &obj, int fxTrigger) { (void)obj; (void)fxTrigger; }
 	// RW 0x67B78C -> 0x6D4789: a qualifying hit on a local hero, independently of the EVA gate.
@@ -377,9 +381,9 @@ struct GameLogicSettings
 	// RW GlobalData +0xA88, parseUnsignedInt (seconds).
 	bool repairDamageDelayLoaded = false;
 	unsigned timeAfterDamageUntilRepairAllowed = 0;
-	// lane FACT-A (GameData SellPercentage, RW GlobalData + 0xB94): a sold structure's refund share (BuildAssistant::update RW 0x79468B); loaded when a block read it
+	// lane FACT-A (GameData SellPercentage, RW GlobalData + 0xB94): a sold structure's refund share (BuildAssistant::update RW 0x79468B); GlobalData ctor defaults it to 1.0f (RW 0x006429AD -> 0x643160 / 0x643222)
 	bool sellPercentageLoaded = false;
-	float sellPercentage = 0.0f;
+	float sellPercentage = 1.0f;
 	// lane LOCAL-1 (GameData AttributeModifierArmorMaxBonus, row RW 0xC00490, parsePercentToReal RW 0x42EEFA, GlobalData + 0xAE8): cap on active ARMOR modifiers in AdjustDamage (RW 0x5D893C, asm RW 0x5D8B02..0x5D8B3D); retail 2.01 gamedata.ini sets 75%
 	float attributeModifierArmorMaxBonus = 0.75f;
 	// lane LOCAL-1 (GameData DamageRadiusMinimumForSplash, row RW 0xC00580, parseReal RW 0x42ED00, GlobalData + 0xB40): minimum radius for splash in WeaponDelivery::radiusDamage (RW 0x90DEF0, asm RW 0x90E24F); radius <= threshold hurts only first victim; retail 2.01 sets 4.0
@@ -1033,6 +1037,10 @@ public:
 	// MOVE-1: the pathfinder / AI world of this game (GameLogic/AI/AIWorld.h; TheAI): null until the game that has one installs it
 	void setAIWorld(AIWorld *ai) { m_aiWorld = ai; }
 	AIWorld *aiWorld() const { return m_aiWorld; }
+	// The formation table for commands and their snapshots. An explicit data source (synthetic worlds)
+	// overrides FormationAssistant.ini from the active world. Configuration, not simulation state.
+	void setFormationAssistant(const FormationAssistant *data) { m_formationAssistant = data; }
+	const FormationAssistant *formationAssistant() const;
 	// objects created without the OnCreated dispatch (no ObjectCreatedProc installed): counted and reported (S-147)
 	unsigned long long creationsWithoutDispatch() const { return m_creationsWithoutDispatch; }
 
@@ -1301,6 +1309,7 @@ public:
 private:
 	int m_nextListenerToken = 0;
 	AIWorld *m_aiWorld = nullptr;
+	const FormationAssistant *m_formationAssistant = nullptr;
 	ShroudManager *m_shroud = nullptr;
 	std::unique_ptr<PartitionManager> m_partition; // lane MODULES-2
 	std::unique_ptr<EmotionWorld> m_emotions;      // lane MODULES-2

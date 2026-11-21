@@ -181,6 +181,9 @@ public:
 	ObjectID targetHordeId() const { return m_targetHorde; }
 	// RW 0x698F06 -> the AI part: the unit is dead (its machine goes to AI_DEAD, its movers stop)
 	void onDie();
+	// RW 0x0063F3BF (AIUpdateInterface primary vslot +0x24C, called by Object::onDie RW 0x00698FB5): empty in base;
+	// DozerAIUpdate (RW 0x0088BF7A) removes any unplaced phantom structure on builder death.
+	virtual void onOwnerDie() {}
 	bool isAiInDeadState() const { return m_mover->isAiDead(); }
 	// the AI module's fields the mood scan reads (the module data is raw: S-326)
 	struct CombatSettings
