@@ -6,6 +6,8 @@
 
 #pragma once
 
+// LogicWorld uses REQUIRE_MESSAGE: the fixture must not depend on the including test's header order.
+#include "doctest.h"
 #include "HordeCompleteTestUtil.h"
 #include "Common/Upgrade.h"
 #include "ObjectTestUtil.h"
