@@ -79,7 +79,11 @@ def main() -> int:
         if frag.returncode:
             note("error", "Фрагменты стопов", frag.stdout.strip()[-1500:] or frag.stderr.strip()[-1500:])
     pats = own_tests(diff, title)
-    if not pats:
+    if not any(f.startswith("engine/") for f in files):
+        # a PR without engine code (docs, tables, tools) has nothing of its own to test in openbfme_tests (Local 121, PR 828, 2026-11-21)
+        pats = []
+        note("notice", "Своих тестов не нужно", "PR не меняет engine/: openbfme_tests не запускается")
+    elif not pats:
         note("error", "Своих тестов нет", "PR не добавляет TEST_CASE и в названии нет «Port N»")
     for p in pats:
         try:
