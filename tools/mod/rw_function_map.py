@@ -203,7 +203,7 @@ def write_reports(rows: list[MapRow], tsv: Path, markdown: Path, command: str,
     keys = [(r.module, r.function) for r in rows]
     if len(keys) != len(set(keys)):
         raise ValueError('duplicate module/function row')
-    if any(r.status not in {'none', 'partial', 'ported'} or r.depth < 0 or r.objects < 0 or r.instructions < 0 for r in rows):
+    if any(r.status not in {'none', 'partial', 'ported', 'library'} or r.depth < 0 or r.objects < 0 or r.instructions < 0 for r in rows):
         raise ValueError('invalid map row')
     previous = {}
     if tsv.exists():
@@ -232,7 +232,9 @@ def write_reports(rows: list[MapRow], tsv: Path, markdown: Path, command: str,
                                     for direction, address, status in sorted(r.neighbours)), r.decomp))
     counts = Counter(r.status for r in rows)
     lines = ['# RotWK module function map', '', f'Command: `{command}`', '',
-             f"Rows: {len(rows)}; ported {counts['ported']}, partial {counts['partial']}, none {counts['none']}.",
+             f"Rows: {len(rows)}; ported {counts['ported']}, partial {counts['partial']}, none {counts['none']}, library {counts['library']}.",
+             'library: code the port replaces wholesale (STL, strings, the C runtime, the Lua VM, compiler-generated destructors, the INI / Xfer',
+             'infrastructure): tools/mod/rw_library_functions.tsv, made by tools/mod/rw_library_functions.py; a citation still wins (ported).',
              'Counts are per module/function pair, not unique functions.', '',
              '## Stop list', '', f'Frequency threshold: more than {threshold} call sites.', '',
              'Hand list:']
@@ -937,7 +939,7 @@ def verify_direct_calls(functions: dict[int, Function], text_start: int, text_en
         raise ValueError(f'{len(missing)} direct call targets have no CFG function (first 0x{first:08X})')
 
 
-def build_rows(roots, counts, functions, citations, stops, decomp):
+def build_rows(roots, counts, functions, citations, stops, decomp, library=frozenset()):
     """Index cited reverse neighbours once, rather than once per report row."""
     neighbours = {}
     for caller, function in functions.items():
@@ -956,7 +958,7 @@ def build_rows(roots, counts, functions, citations, stops, decomp):
         depths, incoming = walk_graph(roots[module], functions, stops)
         for address, depth in sorted(depths.items()):
             function = functions.get(address, Function(frozenset(), frozenset(), 0))
-            status = citations.get(address, 'none')
+            status = citations.get(address, 'library' if address in library else 'none')  # owner 2026-11-21: library code is not open work
             rows.append(MapRow(module, depth, address, status, tuple(sorted(incoming.get(address, ()))),
                                tuple(sorted(function.vcalls)), tuple(sorted(neighbours.get(address, ()))) if status == 'none' else (),
                                decomp.get(address), counts[module], function.instructions))
@@ -1013,7 +1015,9 @@ def main(argv=None):
     text_end = text_start + max(text.Misc_VirtualSize, text.SizeOfRawData)
     verify_direct_calls(functions, text_start, text_end)
     citations = scan_citations(args.src)
-    rows = build_rows(roots, counts, functions, citations, set(HAND_STOPS) | set(frequent), DecompLookup(args.decomp))
+    from rw_library_functions import load as load_library
+    rows = build_rows(roots, counts, functions, citations, set(HAND_STOPS) | set(frequent), DecompLookup(args.decomp),
+                      frozenset(load_library()))
     invoked = sys.argv[1:] if argv is None else list(argv)
     command = display_command(invoked)
     tsv, markdown = args.out.with_suffix('.tsv'), args.out.with_suffix('.md')

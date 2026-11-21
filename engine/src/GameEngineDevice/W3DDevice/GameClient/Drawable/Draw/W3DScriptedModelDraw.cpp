@@ -1859,7 +1859,9 @@ void W3DScriptedModelDraw::setSubObjectHidden(const std::string &name, bool hide
 	}
 	if (!m_model)
 	{
-		error("hide/show of sub object " + name + " with no model");
+		// RW 0x4C3B25 records the sub-object op and sets the dirty flag without touching m_renderObject;
+		// RW 0x4BA74F (RW 0x4BA75B..0x4BA76D) returns silently when m_renderObject is null, and the queued op
+		// applies once a model is bound.
 		return;
 	}
 	if (W3DFindSubObjectByName(*m_model, name) < 0)

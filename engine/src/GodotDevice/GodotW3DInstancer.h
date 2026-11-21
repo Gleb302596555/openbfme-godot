@@ -127,6 +127,7 @@ public:
 	// opaque surfaces blend at the instance opacity (W3DShaderKey::AlphaOverride, ZH's translucent pass) instead of the dither
 	void set_alpha_override(bool enabled);
 	void set_particle_color(bool enabled);
+	void set_buff_blend(bool enabled);
 	void set_instance_particle_color(int64_t instance, int shader, float r, float g, float b);
 	bool has_model_file(const std::string &name) const;
 	// lane CAH-2 (stop S-1408): a model whose house colour textures are recoloured for a colour set (RotWK's house colour options, HouseColor.h: kind
@@ -290,6 +291,9 @@ private:
 		bool HasSorted = false;          // a surface with MeshDrawSurface::Sorted that blends: instances need back to front order
 		bool HasOpaque = false;          // an opaque surface: the pivot fade is drawn with a dither (S-029)
 		std::vector<W3DShaderKey> Keys;  // lane OCCLUDE-1: the surfaces' keys, in Materials' order
+		std::vector<uint64_t> SurfaceFlags; // Local 117: ArrayMesh surface format flags (skinning CUSTOM0..2)
+		Ref<ArrayMesh> ShadowMesh;       // Local 117 (P-170, P-83): shadow-only mesh with opaque shadow-pass materials for blended depth-writing surfaces
+		bool ShadowMeshBuilt = false;
 		std::vector<Ref<ShaderMaterial>> MarkPasses, ColorPasses; // lane OCCLUDE-1: by surface; null where none (yet, or a blended surface)
 		bool HasMark = false, HasColor = false;
 	};
@@ -384,7 +388,8 @@ private:
 
 	void warn_stop(const W3DStopHit &hit); // lane PERF-HD: once per stop id
 	void warn(const std::string &message);
-	void ensure_occlusion_passes(MeshGpu &gpu, bool mark, bool color); // lane OCCLUDE-1
+	void ensure_occlusion_passes(MeshGpu &gpu, bool mark, bool color);
+	void ensure_shadow_mesh(MeshGpu &gpu); // lane OCCLUDE-1
 	const HAnimClass *resolve_clip(const Model &m, const std::string &name); // nullptr (and an error recorded) when the clip is not registered
 	std::shared_ptr<MeshGpu> build_mesh(const MeshModelClass &mesh, std::vector<std::string> &errors);
 	int64_t build_model(const String &model_name); // add_model without the pending texture swaps' set-up
@@ -489,6 +494,7 @@ private:
 	bool PresentationUpdates = true;
 	bool HouseColorEnabled = false;
 	bool ParticleColor = false;
+	bool BuffBlend = false;
 
 	// stats
 	double PoseMs = 0.0, UploadMs = 0.0, MapperMs = 0.0;

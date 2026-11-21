@@ -970,6 +970,7 @@ private:
 		// S-921: the Taint / Elven Wood morph (TerrainTrees MORPH / MORPH_END): the model drawn now, the target's instance (model B) fading in
 		std::string model;           ///< the drawn model (W3DTreeDraw ModelName)
 		std::string texture;         ///< the drawn texture (W3DTreeDraw TextureName, RW 0x4EC9B5)
+		const class ThingTemplate *tmpl = nullptr;
 		int swayType = 0;
 		bool castShadow = false;
 		int64_t morphInstance = -1;
@@ -1007,6 +1008,20 @@ private:
 		std::int32_t morphTime = 0;
 	};
 	std::vector<FootprintView> m_footprintViews;
+	// Local 117 (P-166): static layer instances (trees, shrubs, props) whose shadow-map casting tracks
+	// W3DInstancer::shadow_maps_enabled() (loadClientOnly runs before _apply_lighting sets ShadowLOD,
+	// and options may toggle UseShadowMapping mid-game, RW 0x601D4C).
+	struct StaticShadowEntry
+	{
+		int64_t instance = -1;
+		const class ThingTemplate *tmpl = nullptr;
+		const class W3DModelDrawModuleData *module = nullptr;
+		const struct ModelConditionInfo *state = nullptr;
+		bool isTree = false;
+	};
+	std::vector<StaticShadowEntry> m_staticShadows;
+	bool m_staticShadowUseMapping = false;
+	void syncStaticShadows();
 	void clearFootprint(const Coord3D &pos, float angle, const std::vector<ObjectGeometry::Shape> &shapes, bool propsOnly);
 	// S-921: the tree and shrub morph of Taint / Elven Wood (TerrainTrees.h)
 	int64_t addTreeModelInstance(const std::string &model, const std::string &texture, const float basis[9], const Coord3D &pos, float scale, bool castShadow, int swayType);
@@ -1024,7 +1039,7 @@ private:
 	std::unique_ptr<W3DVegetationSway> m_vegSway; ///< lane VISUAL-2: the W3DTreeDraw trees' sway (null: the map has none)
 	std::array<int64_t, 11> m_swayTypeCounts{}; ///< lane VISUAL-2: the trees given each sway type (0: TaintedTree)
 	void updateTreeSway(double dt);
-	uint64_t m_staticId = 0, m_dynamicId = 0;
+	uint64_t m_staticId = 0, m_dynamicId = 0, m_buffId = 0;
 	std::vector<DrawableView> m_views;       ///< index = drawable id
 	std::map<std::string, int64_t> m_dynamicModels, m_staticModels;
 	Dictionary m_report;
@@ -1100,6 +1115,7 @@ private:
 	std::unique_ptr<LiveFX> m_liveFX;          ///< destroyed before m_game (it is the logic's FX sink and the drawables' FX host)
 	std::unique_ptr<GodotWeather> m_weather;   ///< lane WEATHER-1: the map's weather (snow / rain, darkness, lightning, its sound); destroyed before m_game
 	// lane SPELL-4: the BuffNugget buffs (GameClient/BuffDraw.h) as instances of the live objects' instancer, by TBuff serial
+	std::map<std::string, int64_t> m_buffModels;
 	std::map<uint64_t, int64_t> m_buffInstances;
 	unsigned long long m_buffsDrawn = 0;
 	void syncBuffs(double dt);

@@ -249,11 +249,26 @@ public:
 	// lane EXIT-1: obj+0x264, the PhysicsBehavior RW caches at creation (RW 0x69A420); the port's Object keeps it with its collide list (PhysicsBehavior::find)
 	bool hasPhysicsModule() const override { return physics() != nullptr; }
 	PhysicsBehavior *physics() const { return PhysicsBehavior::find(obj()); }
-	bool zMotionSuppressed() const override { return false; }
+	// RW 0x5E774A .. 0x5E7765: DISABLED_HELD (obj + 0x1C8 bit 3) or active PhysicsBehavior flight suppresses ground snap
+	bool zMotionSuppressed() const override
+	{
+		const PhysicsBehavior *p = physics();
+		return (p != nullptr && p->isFlying()) || obj().isDisabledByType(3);
+	}
 	unsigned logicFrame() const override { return obj().logic().getFrame(); }
 	bool containerAllowsBackingUp() const override { return false; }
 	// RW 0x5E774A: TheTerrainLogic vslot 0x1C at the object's layer (lane WALL-1: a wall top's or a ramp's height, Pathfinder::getLayerHeight)
 	float groundHeightAt(float x, float y) const override { return m_ai.layerHeightAt(x, y); }
+	float highestLayerHeightAt(float x, float y) const override
+	{
+		// RW 0x5E7A36..0x5E7A6F: on LAYER_GROUND (1), query the highest layer height (RW 0x680B70 -> vslot +0x1C);
+		// on a non-ground layer, use that layer's height.
+		if (m_ai.m_world && m_ai.m_adapter && m_ai.m_world->mapReady() && m_ai.m_adapter->getLayer() == LAYER_GROUND)
+		{
+			return m_ai.m_world->pathfinder().getHighestLayerHeight(x, y);
+		}
+		return m_ai.layerHeightAt(x, y);
+	}
 	bool isOnRampOrRaisedLayer() const override { return m_ai.isOnRampOrRaisedLayer(); }
 	LocomotorPath *getPath() override { return m_ai.m_mover->path(); }
 	bool testObjectStatus(int bit) const override { return bit >= 0 && obj().testStatus((unsigned)bit); }
@@ -691,8 +706,10 @@ std::unique_ptr<AIStateMachine> AIUpdateInterface::makeStateMachine()
 	m->defineState(AI_WAIT, std::make_unique<AIWaitState>(*m), AI_IDLE, AI_IDLE);
 	m->defineState(AI_BUSY, std::make_unique<AIBusyState>(*m), AI_IDLE, AI_IDLE);
 	m->defineState(AI_MOVE_OUT_OF_THE_WAY, makeMoveOutOfTheWayState(*m), AI_GOING_IDLE, AI_GOING_IDLE); // lane PHYS-1: state 26 (AIUpdateAllies.cpp); PLAY-4: -> 0x4E
-	// Local 84 (RW 0x753755): tighten (27), move-and-delete (30), wander-in-place (41), move-to-position-and-die (55)
+	// Local 84 / Local 114 (RW 0x753755): tighten (27), move-and-evacuate (28), move-and-evacuate-and-exit (29 -> 30), move-and-delete (30), wander-in-place (41), move-to-position-and-die (55)
 	m->defineState(AI_MOVE_AND_TIGHTEN, std::make_unique<AIMoveToMachineState>(*m, "AITightenToPositionState"), AI_IDLE, AI_IDLE);
+	m->defineState(AI_MOVE_AND_EVACUATE, std::make_unique<AIMoveAndEvacuateState>(*m), AI_IDLE, AI_IDLE); // RW 0x753755 (state 28)
+	m->defineState(AI_MOVE_AND_EVACUATE_AND_EXIT, std::make_unique<AIMoveAndEvacuateState>(*m), AI_MOVE_AND_DELETE, AI_MOVE_AND_DELETE); // RW 0x753755 (state 29 -> 30)
 	m->defineState(AI_MOVE_AND_DELETE, std::make_unique<AIMoveAndDeleteState>(*m), AI_IDLE, AI_IDLE);
 	m->defineState(AI_WANDER_IN_PLACE, std::make_unique<AIWanderInPlaceState>(*m), AI_IDLE, AI_IDLE);
 	m->defineState(AI_MOVE_TO_POSITION_AND_DIE, std::make_unique<AIMoveToPositionAndDieState>(*m), AI_IDLE, AI_IDLE);
@@ -705,8 +722,10 @@ std::unique_ptr<AIStateMachine> AIUpdateInterface::makeStateMachine()
 	m->defineState(AI_ENTER, makeEnterState(*m), AI_IDLE, AI_IDLE);
 	m->defineState(AI_EXIT, makeExitState(*m), AI_IDLE, AI_IDLE);
 	m->defineState(AI_HORDE_ENTER, makeHordeEnterState(*m), AI_IDLE, AI_IDLE);
+	m->defineState(AI_ENTER_AND_ATTACK, makeEnterAndAttackState(*m), AI_ATTACK_OBJECT, AI_ATTACK_OBJECT); // Local 114: RW 0x753755 (state 49 -> attack object)
 	m->defineState(AI_HORDE_EXIT, makeHordeExitState(*m), AI_IDLE, AI_IDLE);
 	m->defineState(AI_MOVE_TO_POSITION_AND_ENTER, makeMoveToPositionAndEnterState(*m), AI_IDLE, AI_IDLE);
+	m->defineState(AI_COMBINE, makeCombineState(*m), AI_IDLE, AI_IDLE); // Local 114: RW 0x753755 (state 60)
 	// lane MODULES-3 (RW 0x753755): the emotion states (AIEmotionStates.cpp); the panic state's success goes on to the cower state (as a temporary state it just ends)
 	m->defineState(AI_PANIC, std::make_unique<AIPanicState>(*m, false), AI_PANIC_COWER, AI_IDLE);
 	m->defineState(AI_PANIC_COWER, std::make_unique<AIPanicState>(*m, true), AI_IDLE, AI_IDLE);
@@ -2878,5 +2897,290 @@ void AIUpdateInterface::joinTeam()
 	}
 	setLastCommandSource(CMD_FROM_AI); // RW 0x0066D7B7
 	m_machine->setState(mateAI->currentStateId()); // RW 0x0066D7C1
+	wakeUpNow();
+}
+
+// ---- Local 114: AIUpdateInterface third-pass behaviour functions (both editions, issue #798) ----
+
+// RW 0x0066B6B8 privateMoveToAndEvacuate (AICMD 0x03, AI vslot 19 / +0x4C; DONOR BFME2 0x0026B6B2)
+bool AIUpdateInterface::aiMoveToAndEvacuate(const Coord3D &pos, CommandSourceType source)
+{
+	if (!acceptCommand(source, 0x03))
+	{
+		return false; // RW 0x667174
+	}
+	Object *obj = getObject();
+	if (!obj || !GarrisonRules::isMobile(*obj))
+	{
+		return false; // at 0x0066B6BE -> RW 0x00690E97
+	}
+	if (m_curLocomotor)
+	{
+		m_curLocomotor->setPreferredPoint(*obj->getPosition()); // at 0x0066B6DC -> RW 0x005E39CE
+	}
+	m_machine->clear();
+	Coord3D goal = pos;
+	goalPositionClipped(pos, source, goal); // at 0x0066B6F3 -> RW 0x006654AD
+	m_machine->setGoalPosition(goal);
+	m_mover->clearBlocked(); // at 0x0066B6FF..0x0066B708 (+0x16C = 0, +0x3B8 = 0)
+	setLastCommandSource(source);
+	m_machine->setState(AI_MOVE_AND_EVACUATE); // at 0x0066B70E: push 0x1C
+	wakeUpNow();
+	return true;
+}
+
+// RW 0x0066B72D privateMoveToAndEvacuateAndExit (AICMD 0x04, AI vslot 20 / +0x50; DONOR BFME2 0x0026B720)
+bool AIUpdateInterface::aiMoveToAndEvacuateAndExit(const Coord3D &pos, CommandSourceType source)
+{
+	if (!acceptCommand(source, 0x04))
+	{
+		return false; // RW 0x667174
+	}
+	Object *obj = getObject();
+	if (!obj || !GarrisonRules::isMobile(*obj))
+	{
+		return false; // at 0x0066B733 -> RW 0x00690E97
+	}
+	if (m_curLocomotor)
+	{
+		m_curLocomotor->setPreferredPoint(*obj->getPosition()); // at 0x0066B751 -> RW 0x005E39CE
+	}
+	m_machine->clear();
+	Coord3D goal = pos;
+	goalPositionClipped(pos, source, goal); // at 0x0066B768 -> RW 0x006654AD
+	m_machine->setGoalPosition(goal);
+	m_mover->clearBlocked(); // at 0x0066B774..0x0066B77D (+0x16C = 0, +0x3B8 = 0)
+	setLastCommandSource(source);
+	m_machine->setState(AI_MOVE_AND_EVACUATE_AND_EXIT); // at 0x0066B783: push 0x1D
+	wakeUpNow();
+	return true;
+}
+
+// RW 0x0066E0DC privateEvacuate (AICMD 0x19/0x1B, AI vslot 48 / +0xC0; DONOR BFME2 0x0026DDED)
+bool AIUpdateInterface::aiEvacuate(bool exposeStealthUnits, CommandSourceType source)
+{
+	if (!acceptCommand(source, 0x19))
+	{
+		return false; // RW 0x667174
+	}
+	Object *obj = getObject();
+	ContainModuleInterface *contain = obj ? obj->getContain() : nullptr;
+	if (!contain)
+	{
+		return false; // at 0x0066E0E9
+	}
+	if (exposeStealthUnits) // at 0x0066E0ED..0x0066E0F8: contain vslot +0x90 (OpenContain::markAllPassengersDetected RW 0x0086620E)
+	{
+		static const int kStealthGarrison = ObjectTemplateInfoBuilder::kindOfIndex("STEALTH_GARRISON");
+		if (const ContainModuleInterface::ContainedItemsList *items = contain->getContainedItemsList())
+		{
+			for (Object *rider : *items)
+			{
+				if (rider && hasKind(*rider, kStealthGarrison))
+				{
+					if (StealthUpdate *st = StealthUpdate::of(*rider))
+					{
+						st->markAsDetected(0, 1, nullptr, true);
+					}
+				}
+			}
+		}
+	}
+	aiIdle(source); // at 0x0066E112: call RW 0x005E821A
+	contain->orderAllPassengersToExit((int)source); // at 0x0066E11F: call dword ptr [eax + 0x80]
+	return true;
+}
+
+// RW 0x0066E078 privateGetHealed (AICMD 0x15, AI vslot 46 / +0xB8; DONOR BFME2 0x0026DD89)
+bool AIUpdateInterface::aiGetHealed(Object *healDepot, CommandSourceType source)
+{
+	if (!acceptCommand(source, 0x15))
+	{
+		return false; // RW 0x667174
+	}
+	Object *obj = getObject();
+	if (!obj || !GarrisonRules::canGetHealedAt(*obj, healDepot, source)) // at 0x0066E08D: call RW 0x0082C798
+	{
+		return false;
+	}
+	aiEnterObject(healDepot, source); // at 0x0066E09E: call RW 0x0066C5A4
+	return true;
+}
+
+// RW 0x0066E0AA privateGetRepaired (AICMD 0x16, AI vslot 47 / +0xBC; DONOR BFME2 0x0026DDBB)
+bool AIUpdateInterface::aiGetRepaired(Object *repairDepot, CommandSourceType source)
+{
+	if (!acceptCommand(source, 0x16))
+	{
+		return false; // RW 0x667174
+	}
+	Object *obj = getObject();
+	if (!obj || !GarrisonRules::canGetRepairedAt(*obj, repairDepot, source)) // at 0x0066E0BF: call RW 0x0082C4E9
+	{
+		return false;
+	}
+	aiDock(repairDepot, source); // at 0x0066E0D3: call RW 0x0066C609
+	return true;
+}
+
+// RW 0x00664533 privateMoveToObject / aiCombineObject (AICMD 0x45, AI vslot 50 / +0xC8; DONOR BFME2 0x0026472F)
+bool AIUpdateInterface::aiCombineObject(Object *target, CommandSourceType source)
+{
+	if (!acceptCommand(source, 0x45))
+	{
+		return false; // RW 0x667174
+	}
+	Object *obj = getObject();
+	if (!obj || !GarrisonRules::canCombineObjects(*obj, target, source)) // at 0x00664548: call RW 0x0082C254
+	{
+		return false;
+	}
+	m_machine->clear();
+	m_machine->setGoalObject(target ? target->getID() : INVALID_ID);
+	setLastCommandSource(source);
+	m_machine->setState(AI_COMBINE); // at 0x0066456A: push 0x3C
+	wakeUpNow();
+	return true;
+}
+
+// RW 0x0066B88C bfmePrivateCommand3C / aiEnterAndAttack (AICMD 0x3C, AI vslot 82 / +0x148; DONOR BFME2 0x0026B86A)
+bool AIUpdateInterface::aiEnterAndAttack(Object *container, CommandSourceType source)
+{
+	if (!acceptCommand(source, 0x3C))
+	{
+		return false; // RW 0x667174
+	}
+	Object *obj = getObject();
+	if (!obj || !container || !GarrisonRules::isMobile(*obj)) // at 0x0066B892 -> RW 0x00690E97
+	{
+		return false;
+	}
+	if (m_curLocomotor)
+	{
+		m_curLocomotor->setPreferredPoint(*obj->getPosition()); // at 0x0066B8B0 -> RW 0x005E39CE
+	}
+	m_machine->clear();
+	m_machine->setGoalObject(container->getID());
+	m_mover->clearBlocked(); // at 0x0066B8CC..0x0066B8D5 (+0x16C = 0, +0x3B8 = 0)
+	setLastCommandSource(source);
+	m_machine->setState(AI_ENTER_AND_ATTACK); // at 0x0066B8DB: push 0x31
+	wakeUpNow();
+	return true;
+}
+
+// RW 0x00664952 bfmeGoCSE / aiPanicCower (AICMD 0x2F, AI vslot 83 / +0x14C; DONOR BFME2 0x00264B4E)
+bool AIUpdateInterface::aiPanicCower(Object *sourceObj, CommandSourceType source)
+{
+	if (!acceptCommand(source, 0x2F))
+	{
+		return false; // RW 0x667174
+	}
+	Object *obj = getObject();
+	if (!obj || !GarrisonRules::isMobile(*obj)) // at 0x00664958 -> RW 0x00690E97
+	{
+		return false;
+	}
+	m_machine->clear();
+	setLastCommandSource(source);
+	m_machine->setGoalObject(sourceObj ? sourceObj->getID() : INVALID_ID);
+	m_machine->setState(AI_PANIC_COWER); // at 0x0066497C: push 0x15
+	wakeUpNow();
+	return true;
+}
+
+// RW 0x0066C148 bfmePrivateCommand49 / aiAttackMoveToObject (AICMD 0x49, AI vslot 41 / +0xA4; DONOR BFME2 0x0026C0D6)
+bool AIUpdateInterface::aiAttackMoveToObject(Object *target, CommandSourceType source)
+{
+	if (!acceptCommand(source, 0x49))
+	{
+		return false; // RW 0x667174
+	}
+	Object *obj = getObject();
+	if (!obj || !target || m_mover->isAiDead() || !GarrisonRules::isMobile(*obj)) // at 0x0066C14E..0x0066C166
+	{
+		return false;
+	}
+	if (m_curLocomotor)
+	{
+		m_curLocomotor->setPreferredPoint(*obj->getPosition()); // at 0x0066C178 -> RW 0x005E39CE
+	}
+	const Coord3D goal = *target->getPosition();
+	m_machine->clear();
+	m_machine->setGoalObject(target->getID()); // at 0x0066C18E
+	m_machine->setGoalPosition(goal); // at 0x0066C197
+	m_mover->clearBlocked(); // at 0x0066C19D..0x0066C1A6 (+0x16C = 0, +0x3B8 = 0)
+	setLastCommandSource(source);
+	m_attackMoveActive = true;
+	m_attackMoveGoal = goal;
+	m_machine->setState(AI_MOVE_TO);
+	if (ObjectWeapons *weapons = obj->getWeapons())
+	{
+		if (Weapon *weapon = weapons->currentWeapon())
+		{
+			weapon->clearWhenFiringEnds();
+			weapon->setMaxShotCount(0x7fffffff);
+		}
+	}
+	resetNextMoodCheckTime();
+	postEnterStateAttackMoveVoice(*obj, goal, source); // at 0x0066C1B5: call RW 0x0066B2F5
+	wakeUpNow();
+	return true;
+}
+
+// RW 0x00663EF4 micropathToPosition (AI vslot 139 / +0x22C; DONOR BFME2 0x0026412B)
+bool AIUpdateInterface::micropathToPosition(const Coord3D &pos)
+{
+	Object *obj = getObject();
+	if (!obj)
+	{
+		return false;
+	}
+	if (m_world && m_adapter && m_world->mapReady())
+	{
+		const PathfindLayerEnum layer = m_world->pathfinder().adjustLayer(*m_adapter, m_adapter->getLayer()); // at 0x00663F04 -> RW 0x006F1EB9
+		m_adapter->setLayer(layer); // at 0x00663F0E: [esi + 0x220] = eax
+	}
+	m_mover->destroyPath(); // at 0x00663F14 -> RW 0x0066276B
+	m_mover->setGoalExplicitWithPath(pos); // at 0x00663F40 -> vslot +0x214 (RW 0x00662934)
+	Path *p = m_mover->pathReachingGoal(*obj->getPosition()); // at 0x00663F2F -> RW 0x006F74D0
+	if (!p)
+	{
+		m_mover->setGoalNone();
+		return false;
+	}
+	m_mover->setPath(p); // at 0x00663F34: [esi + 0x160] = eax
+	m_mover->setGoalTypeRaw(AIGOAL_EXPLICIT_WITH_PATH); // at 0x00663F40 -> RW 0x00662934 keeps m_path and m_goalType = 4
+	m_mover->setGoalExplicitWithPath(pos);
+	wakeUpNow();
+	return true;
+}
+
+// RW 0x0066708E appendPositionToLocomotorPath (AI vslot 134 / +0x218; DONOR BFME2 0x00267266)
+void AIUpdateInterface::appendPositionToLocomotorPath(const Coord3D &pos, int portalWaypointID)
+{
+	Object *obj = getObject();
+	if (!obj)
+	{
+		return;
+	}
+	const PathfindLayerEnum layer = m_adapter ? m_adapter->getLayer() : LAYER_GROUND;
+	Path *p = m_mover->path();
+	if (p)
+	{
+		p->appendNode(&pos, layer); // at 0x0066709E -> RW 0x00665429
+	}
+	else
+	{
+		p = new Path(); // at 0x006670BC -> RW 0x007650EA
+		p->appendNode(obj->getPosition(), layer); // at 0x006670EE -> RW 0x00665429
+		p->appendNode(&pos, layer); // at 0x006670FF -> RW 0x00665429
+		if (m_world && m_world->mapReady() && m_adapter)
+		{
+			p->optimize(m_world->pathfinder(), m_adapter, locomotorInfo().validSurfaces, m_mover->isBlocked()); // at 0x00667118 -> RW 0x00767E26
+		}
+		m_mover->setPath(p);
+		m_mover->setGoalOnPath(); // at 0x00667120 -> RW 0x006628F4
+	}
+	p->setLastNodePortal(portalWaypointID); // at 0x00667131 -> RW 0x0076578C
 	wakeUpNow();
 }

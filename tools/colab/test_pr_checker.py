@@ -107,3 +107,26 @@ def test_a_pr_without_its_own_test_shown_passing_is_refused_before_the_build(mon
     ok = dict(new, body="Closes #1\nPORT-289*: [doctest] test cases:  4 |  4 passed | 0 failed | 7020 skipped")
     assert pc.own_test_missing(ok, diff) == []
     assert pc.own_test_missing(dict(new, createdAt="2026-11-18T00:00:00Z"), diff) == []  # opened before the rule
+
+
+def test_base_conflicts_names_the_files_a_fork_pr_conflicts_in(tmp_path, monkeypatch):
+    # PR 774 (2026-11-21): a fork's PR conflicting with main never got GitHub's check and waited unnoticed; the checker now names the files
+    import subprocess
+    import pr_checker
+    run = lambda *a: subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *a], cwd=tmp_path, check=True, capture_output=True)
+    run("init", "-q", "-b", "main")
+    (tmp_path / "a.txt").write_text("base\n")
+    (tmp_path / "b.txt").write_text("base\n")
+    run("add", "."); run("commit", "-q", "-m", "base")
+    run("checkout", "-q", "-b", "pr")
+    (tmp_path / "a.txt").write_text("pr\n")
+    run("commit", "-q", "-am", "pr")
+    run("update-ref", "refs/prcheck/7", "HEAD")
+    run("checkout", "-q", "main")
+    run("update-ref", "refs/remotes/origin/main", "HEAD")
+    monkeypatch.setattr(pr_checker, "REPO", tmp_path)
+    assert pr_checker.base_conflicts("7") == []
+    (tmp_path / "a.txt").write_text("main\n")
+    run("commit", "-q", "-am", "main")
+    run("update-ref", "refs/remotes/origin/main", "HEAD")
+    assert pr_checker.base_conflicts("7") == ["a.txt"]

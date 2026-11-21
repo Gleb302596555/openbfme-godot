@@ -124,6 +124,7 @@ ModelConditionAudioLoopClientBehavior::ModelConditionAudioLoopClientBehavior(Thi
 	}
 }
 
+// RW 0x008D055C (~ModelConditionAudioLoopClientBehavior), RW 0x008D05D7 (scalar deleting dtor)
 ModelConditionAudioLoopClientBehavior::~ModelConditionAudioLoopClientBehavior()
 {
 	clear(); // RW 0x8D055C
@@ -201,6 +202,7 @@ void ModelConditionAudioLoopClientBehavior::audioGone()
 	m_playedOn = nullptr;
 }
 
+// RW 0x008D0380 (getModuleName), RW 0x008D0386 (getModuleNameKey), RW 0x008CE37F (shared empty ClientBehavior::xfer)
 void ModelConditionAudioLoopClientBehavior::registerClass(ModuleFactory &modules)
 {
 	modules.bindTypedData<ModelConditionAudioLoopClientBehaviorModuleData>("ModelConditionAudioLoopClientBehavior", MODULETYPE_CLIENT_BEHAVIOR);

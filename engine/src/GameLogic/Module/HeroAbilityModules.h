@@ -196,6 +196,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x0088918B (getModuleName), RW 0x00889198 (getModuleNameKey), RW 0x00889262 / RW 0x0088916B (dtor)
 class DamageFilteredCreateObjectDie : public BehaviorModule, public DieModuleInterface, public DamageModuleInterface
 {
 public:
@@ -257,7 +258,7 @@ public:
 	};
 	float m_maxScanRange = 0.0f;       // + 0x08
 	float m_minScanRange = 0.0f;       // + 0x0C
-	float m_workingRadius = 0.0f;      // + 0x10 (not read by the update)
+	float m_workingRadius = 0.0f;      // + 0x10 (RW 0xC57EC0 parse, RW 0x85D37D zero-init in ctor RW 0x85D355; never read in RotWK or BFME2 donor)
 	float m_idleTimeSeconds = 0.0f;    // + 0x14
 	std::string m_specialAbility;      // + 0x18
 	ObjectStatusMaskType m_forbiddenStatus{}; // + 0x1C
@@ -274,6 +275,7 @@ class AutoAbilityBehavior : public UpdateModule
 public:
 	OBFME_MODULE_XFER(AutoAbilityBehavior) // lane SAVE-4b
 	AutoAbilityBehavior(Thing *thing, const AutoAbilityBehaviorModuleData *data); // RW 0x85D7FD
+	~AutoAbilityBehavior() override = default; // RW 0x0085D3ED (~AutoAbilityBehavior), RW 0x0085D5CE (scalar deleting dtor)
 	UpdateSleepTime update() override;                                           // RW 0x85D9D1
 	DisabledMaskType getDisabledTypesToProcess() const override { return (DisabledMaskType)(1u << 3); } // RW 0x855830 (vtable RW 0xC57F80 slot 1): DISABLED_HELD
 	void onObjectCreated() override;                                              // the StartsActive part of the constructor (needs the command set)
@@ -344,14 +346,14 @@ private:
 //     voice plays for MSG_DO_SPECIAL_POWER (RW 0x8DF846) — the initiate itself posts no sound of its own;
 //   * update (RW 0x8983B5): the PERMANENT weapon lock is released (RW 0x68DF11(2)), every WeaponSetFlags bit off (RW 0x691106), the modifier removed (RW
 //     0x68F259), not active, the countdown unpaused (slot 0x24(0)); sleeps forever.
-// Port 256 (fork issue 604): the class's own map rows that carried no citation, classified by reading them (RW_FUNCTION_MAP depth 0):
-//   0x898276 / 0x898290  the static type descriptor accessor (returns RW 0xC0B4D0) and its one-shot initializer (the pool object RW 0x5487EC); slots + 0x08 and
-//                       + 0x10 of the primary vtable RW 0xC65188, no game code calls them -- the port has no RTTI descriptor, nothing to port;
-//   0x89833B            the scalar deleting destructor (the destructor RW 0x89822B, then operator delete RW 0x42F6A0 for argument bit 0) -- the port's
-//                       implicit destructor;
-//   0x8E38D8            a thunk chain RW 0x8B88B0 -> RW 0x4D0EAF -> the empty stub RW 0x63F3BF (slot + 0x04 of RW 0xC65188: nothing);
-//   0x9E7051            the getter of + 0x38 ("active"): mov al, [ecx+0x18] on the + 0x20 subobject -- the port's isActive() / active();
-//   0x898357            the xfer override: version (1, 1) RW 0x404F15, the base RW 0x9912DB, then Xfer slot 0x90 on + 0x38 -- the port's xfer().
+// Port 256 (fork issue 604) / Local 123 (issue #807): the class's own map rows, classified by reading them (RW_FUNCTION_MAP depth 0):
+//   RW 0x00898276 / RW 0x00898290 (DONOR BFME2 0x00494AF3) getModuleName (returns RW 0xC0B4D0) and getModuleNameKey (the pool object RW 0x5487EC);
+//                       slots + 0x08 and + 0x10 of the primary vtable RW 0xC65188;
+//   RW 0x0089833B       (DONOR BFME2 0x00494B9E) the scalar deleting destructor (the destructor RW 0x0089822B, then operator delete RW 0x42F6A0 for
+//                       argument bit 0) -- the port's implicit destructor;
+//   RW 0x008E38D8       a thunk chain RW 0x8B88B0 -> RW 0x4D0EAF -> the empty stub RW 0x63F3BF (slot + 0x04 of RW 0xC65188: nothing);
+//   RW 0x009E7051       the getter of + 0x38 ("active"): mov al, [ecx+0x18] on the + 0x20 subobject -- the port's isActive() / active();
+//   RW 0x00898357       the xfer override: version (1, 1) RW 0x404F15, the base RW 0x9912DB, then Xfer slot 0x90 on + 0x38 -- the port's xfer().
 class WeaponModeSpecialPowerUpdateModuleData : public ModuleData
 {
 public:

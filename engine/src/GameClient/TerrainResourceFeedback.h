@@ -165,7 +165,8 @@ struct ResourcePlacementFeedback
 class TerrainResourceFeedback;
 
 // TerrainResourceClientBehavior (both editions: RW 0x6549B1 / BFME2 0x654C56 friend_newModuleInstance, RW 0x708243 / BFME2 0x706A6E friend_newModuleData;
-// ctor RW 0x652B8C / BFME2 0x652DEB, size 0x10, vtable RW 0xC06278 / BFME2 0xBFE710; dtor RW 0x8D0A08 / BFME2 0x8CC55A; slot 17 createSelectionFeedback
+// ctor RW 0x652B8C / BFME2 0x652DEB, size 0x10, vtable RW 0xC06278 / BFME2 0xBFE710; scalar deleting dtor RW 0x00652BF7 -> dtor RW 0x8D0A08 / BFME2 0x8CC55A;
+// getModuleName RW 0x00652BF1, getModuleNameKey RW 0x00652BAC, shared empty ClientBehavior::xfer RW 0x008CE37F; slot 17 createSelectionFeedback
 // RW 0x8D0A58 / BFME2 0x8CC5AA; slot 18 removeSelectionFeedback RW 0x8D0A78 / BFME2 0x8CC5CA).
 class TerrainResourceClientBehavior : public DrawableModule
 {

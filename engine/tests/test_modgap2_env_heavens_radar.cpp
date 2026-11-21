@@ -28,7 +28,7 @@
 #include "GameLogic/Object/Object.h"
 
 #include "doctest.h"
-#include "LogicTestUtil.h"
+#include "LogicTestUtil.h" // after doctest.h: it uses REQUIRE_MESSAGE (GCC refused the other order, maps run 2026-11-21)
 
 #include <cmath>
 #include <vector>

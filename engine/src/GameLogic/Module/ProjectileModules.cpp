@@ -26,6 +26,7 @@
 #include "GameLogic/Module/NotifyCrushModules.h"
 #include "GameLogic/Object/ObjectGeometry.h"
 #include "GameLogic/Object/PartitionManager.h"
+#include "GameLogic/FXEvents.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/SimMath.h"
@@ -1089,8 +1090,21 @@ void BezierProjectileBehavior::detonate()
 		}
 		else
 		{
-			// RW 0x6CF4D6 handleProjectileDetonation(warhead, &origin, source, &position, bonus)
+			// LOCAL-116 (P-161, both editions): RW 0x85F1FE .. 0x85F213 -> RW 0x6CF4D6 handleProjectileDetonation
+			// -> RW 0x6CF38E -> RW 0x6CEF6D -> RW 0x6CC915 fireWeaponTemplate (FireFX block RW 0x6CCB4B .. 0x6CCBF3;
+			// DONOR BFME2 0x002CE8AA -> 0x002CBBF5 WeaponPrivateFireWeapon.cpp:755).
 			Coord3D pos = *obj->getPosition();
+			Object *shooter = producer ? producer : obj;
+			if (FXEventLog::isFXName(m_warhead->m_fireFXs[0]))
+			{
+				FXEvent e = FXEventLog::objectEvent(FXEvent::WEAPON_FIRE_FX, "FireFX", logic.getFrame(), m_warhead->m_fireFXs[0], *shooter);
+				e.secondaryPosition = pos;
+				e.weaponSlot = PRIMARY_WEAPON;
+				e.barrel = 0;
+				e.weaponSpeed = m_warhead->m_weaponSpeed;
+				e.playWhenStealthed = m_warhead->m_playFXWhenStealthed;
+				logic.fxEvents().emit(e);
+			}
 			DeliverNuggets(logic, source, *m_warhead, WeaponBonus(), nullptr, &pos, true, &counters.unportedNuggets);
 		}
 		if (m_data && m_data->m_detonateCallsKill)

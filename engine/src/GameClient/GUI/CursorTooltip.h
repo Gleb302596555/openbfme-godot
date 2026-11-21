@@ -49,6 +49,10 @@ struct CursorTooltipSettings
 	GameFont font;                 ///< the font the tip is drawn with (point size unscaled)
 	int delayMs = 0;               ///< TooltipDelayTime (parseInt RW 0x42EC5E)
 	std::uint32_t textColor = 0;   ///< TooltipTextColor (parseRGBAColorInt RW 0x42F03F) as ARGB
+	std::uint32_t backgroundColor = 0x7F141400u; ///< TooltipBackgroundColor (+0x12BC, ctor RW 0x5EE643: R=20 G=20 B=0 A=127)
+	bool useAltTextColor = false;  ///< UseTooltipAltTextColor (+0x12E0, ctor RW 0x5EE66A)
+	bool useAltBackColor = false;  ///< UseTooltipAltBackColor (+0x12E1, ctor RW 0x5EE670)
+	bool adjustAltColor = false;   ///< AdjustTooltipAltColor (+0x12E2, ctor RW 0x5EE676)
 	// a missing file, block or field is an error (no default)
 	static bool load(ArchiveFileSystem &fs, CursorTooltipSettings &out, std::string *error);
 	static bool scan(const std::string &mouseIni, const std::string &languageIni, CursorTooltipSettings &out, std::string *error);
@@ -72,6 +76,10 @@ public:
 	};
 	// RW 0x5EE1A6: the request (an empty text asks for none); `delayMs` < 0 takes the settings' delay
 	void setTooltip(const UnicodeString &text, int delayMs = -1);
+	// RW 0x5EE1A6 .. 0x5EE30C (Mouse::setCursorTooltip) with optional RGB alt colour (each 0..1)
+	void setTooltipWithAltColor(const UnicodeString &text, int delayMs, float altR, float altG, float altB, const CursorTooltipSettings &settings);
+	std::uint32_t activeTextColor() const { return m_color; } ///< RW 0x5EE927..0x5EE946 (+0x4FDC)
+	std::uint32_t activeBackgroundColor() const { return m_backColor; } ///< RW 0x5EE29A / 0x5EE301 (+0x4FEC)
 	// RW 0x5EE7A8 at `nowMs` with the pointer at (stageX, stageY) (retail: its window position times the stage per pixel); `scaleX` / `scaleY` are window
 	// pixels per stage unit; `metrics` measures a font at the stage's own size (the pixel size is that times min(scale))
 	void update(std::uint32_t nowMs, float stageX, float stageY, const CursorTooltipSettings &settings, float scaleX, float scaleY, FontMetricsSource &metrics,
@@ -96,6 +104,8 @@ private:
 	bool m_haveString = false;
 	GameFont m_font;
 	std::uint32_t m_color = 0;
+	std::uint32_t m_backColor = 0x7F141400u;
+	bool m_hasExplicitColor = false;
 	std::vector<UnicodeString> m_lines;
 	int m_textW = 0, m_textH = 0;
 };

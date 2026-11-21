@@ -105,8 +105,9 @@ struct PhysicsBehaviorModuleData : public ModuleData
 class PhysicsBehavior : public UpdateModule
 {
 public:
-	OBFME_MODULE_XFER(PhysicsBehavior) // lane SAVE-4b
+	OBFME_MODULE_XFER(PhysicsBehavior) // lane SAVE-4b (RW 0x00793113, DONOR BFME2 0x00390D50)
 	PhysicsBehavior(Thing *thing, const PhysicsBehaviorModuleData *data);
+	~PhysicsBehavior() override = default; // RW 0x00792C85 (~PhysicsBehavior, DONOR BFME2 0x003908C2), RW 0x00792DA1 (scalar deleting dtor)
 	static void registerClass(ModuleFactory &modules);
 	// the object's PhysicsBehavior, or null
 	static PhysicsBehavior *find(Object &obj);

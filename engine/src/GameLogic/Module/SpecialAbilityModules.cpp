@@ -2258,7 +2258,7 @@ ObjectWeapons *WeaponFireSpecialAbilityUpdate::weaponHost()
 	return m_ownHost.get();
 }
 
-// RW 0x895BFB (DONOR BFME2 0x0049256B): deletes m_weapon (+0x88) via Weapon::~Weapon (RW 0x6CDB57 -> 0x6CD0BE, destroying any ProjectileStreamName object)
+// RW 0x895BFB (scalar deleting dtor RW 0x00895E44 -> 0x895BFB + operator delete RW 0x42F6A0; DONOR BFME2 0x0049256B): deletes m_weapon (+0x88) via Weapon::~Weapon (RW 0x6CDB57 -> 0x6CD0BE, destroying any ProjectileStreamName object)
 WeaponFireSpecialAbilityUpdate::~WeaponFireSpecialAbilityUpdate()
 {
 	if (m_weapon && getObject())
@@ -3289,6 +3289,7 @@ SpecialPowerUpdateInterface *SpecialAbilityModules::findUpdate(const Object &obj
 void SpecialAbilityModules::registerAll(ModuleFactory &modules)
 {
 	bindRuntime<SpecialAbilityUpdate, SpecialAbilityUpdateModuleData>(modules, "SpecialAbilityUpdate");
+	// getModuleClassName RW 0x00895C65 (returns 0xC0B420), getModuleNameKey RW 0x00895D15 (NameKeyGenerator RW 0x5487EC)
 	bindRuntime<WeaponFireSpecialAbilityUpdate, WeaponFireSpecialAbilityUpdateModuleData>(modules, "WeaponFireSpecialAbilityUpdate");
 	bindRuntime<ToggleMountedSpecialAbilityUpdate, ToggleMountedSpecialAbilityUpdateModuleData>(modules, "ToggleMountedSpecialAbilityUpdate");
 	bindRuntime<HeroModeSpecialAbilityUpdate, HeroModeSpecialAbilityUpdateModuleData>(modules, "HeroModeSpecialAbilityUpdate");
@@ -3437,11 +3438,23 @@ void WeaponFireSpecialAbilityUpdate::xfer(Xfer &x)
 	x.xferUnsignedInt(&m_shots);
 }
 
+// RW 0x008B1054 (slot 3): version window (1, 2), delegates to SpecialAbilityUpdate::xfer (RW 0x00852782), then
+// when version >= 2 transfers m_replaceAfterPacking (+0x8C, RW 0x008B107A .. 0x008B108B).
+// Also cited here: getModuleName RW 0x008B104E ("ToggleMountedSpecialAbilityUpdate"), getModuleNameKey RW 0x008B1097,
+// deleting dtor RW 0x008B1126 -> ~ToggleMountedSpecialAbilityUpdate RW 0x008B1024 -> ~SpecialAbilityUpdate RW 0x00854D9A.
 void ToggleMountedSpecialAbilityUpdate::xfer(Xfer &x)
 {
-	SnapshotXfer::version(x, 1, 1);
+	XferVersion v{ 1, 2 };
+	x.xferVersion(v);
 	SpecialAbilityUpdate::xfer(x);
-	x.xferBool(&m_replaceAfterPacking);
+	if (v.current >= 2)
+	{
+		x.xferBool(&m_replaceAfterPacking);
+	}
+	else if (x.isLoading())
+	{
+		m_replaceAfterPacking = false;
+	}
 	x.xferUnsignedInt(&m_toggles);
 	x.xferObjectID(&m_replacement);
 }

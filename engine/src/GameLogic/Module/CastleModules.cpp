@@ -600,28 +600,27 @@ bool CastleBehavior::unpack(bool instant)
 	}
 	else
 	{
+		// RW 0x79B903 -> RW 0x799021 -> RW 0x798F70: if the owner's side has no entry in CastleToUnpackForFaction,
+		// retail returns nameToKey("kq") (RW 0xC30C08), TheCastleTemplateStore::getEntry (RW 0x72D72F) returns false
+		// on iteration 0 (0 objects created, no error), buildAreas (RW 0x79B881 -> RW 0x72D76E) adds no areas,
+		// and unpack continues cleanly (clearForCastle RW 0x79BF1B, etc.).
 		const std::string base = baseNameFor(*owner);
-		if (base.empty())
+		if (!base.empty())
 		{
-			m_lastError = "CastleToUnpackForFaction names no base for the faction '" + owner->getSide() + "'";
-			return false;
-		}
-		std::string error;
-		const CastleTemplate *layout = logic.castleTemplates().find(base, &error);
-		if (!layout)
-		{
-			m_lastError = error;
-			return false;
-		}
-		for (const CastleTemplateEntry &entry : layout->entries)
-		{
-			if (Object *made = createOwnedObject(entry, *owner, instant)) // RW 0x79B903(instant) -> 0x7987EE
+			std::string error;
+			if (const CastleTemplate *layout = logic.castleTemplates().find(base, &error))
 			{
-				m_owned.push_back(made->getID());
-				registerOwnedObject(*made); // RW 0x79B94E
+				for (const CastleTemplateEntry &entry : layout->entries)
+				{
+					if (Object *made = createOwnedObject(entry, *owner, instant)) // RW 0x79B903(instant) -> 0x7987EE
+					{
+						m_owned.push_back(made->getID());
+						registerOwnedObject(*made); // RW 0x79B94E
+					}
+				}
+				buildAreas(*layout); // lane CASTLEAREA-1: RW 0x79BF0C -> RW 0x79B881 (the template form only)
 			}
 		}
-		buildAreas(*layout); // lane CASTLEAREA-1: RW 0x79BF0C -> RW 0x79B881 (the template form only)
 	}
 	// RW 0x79BF1B .. 0x79BF36 (after either form): TheTerrainLogic's castle clear RW 0x683955 at the castle's position with MaxCastleRadius (RW 0x797ED7:
 	// the data's + 0x2C, 0 without data): the TAINT objects within it and the taint they left go (GameLogic/Map/TerrainTaintClear.h)

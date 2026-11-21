@@ -74,7 +74,7 @@ def main(argv=None) -> int:
         text = i["title"] + "\n" + (i["body"] or "")
         named = {inv.owner(int(x, 16)) for x in CITE.findall(text)} - {None}
         classes = sorted({w for w in re.findall(r"\b[A-Z][A-Za-z0-9]{3,}\b", text) if w in known})
-        open_funcs = [int(r["function"], 16) for r in fmap if r["module"] in classes and r["depth"] == "0" and r["status"] != "ported"]
+        open_funcs = [int(r["function"], 16) for r in fmap if r["module"] in classes and r["depth"] == "0" and r["status"] not in ("ported", "library")]
         funcs = sorted(named) + [f for f in open_funcs if f not in named][:MAX_CLASS_FUNCS]
         if not funcs:
             continue

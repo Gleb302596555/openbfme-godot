@@ -804,6 +804,8 @@ void ControlBar::setScheme(const ControlBarScheme *scheme)
 		return;
 	}
 	m_schemeName = scheme->m_name;
+	// RW 0x720704 .. 0x72070D: passes BuildUpClockColor (+0x18) to setBuildUpClockColor (RW 0x8DBE7E -> TheControlBar +0x210)
+	setBuildUpClockColor(scheme->m_buildUpClockColor);
 	// RW 0x720712 .. 0x720727: passes border colors to setCommandBarBorderColors (RW 0x71C62F)
 	setCommandBarBorderColors(
 		scheme->m_buttonBorderBuildColor,
@@ -813,6 +815,18 @@ void ControlBar::setScheme(const ControlBarScheme *scheme)
 		scheme->m_buttonBorderAlteredColor
 	);
 	m_commandBarBorderColor = scheme->m_commandBarBorderColor; // RW 0x720732 (+0x234)
+	// RW 0x720796 .. 0x7207C6 / RW 0x72176B .. 0x7217A7: resMultiplier = TheDisplay->{width,height} / ScreenCreationRes.{x,y}
+	m_schemeCreationRes = scheme->m_screenCreationRes;
+	m_schemeMultiplierX = (m_schemeCreationRes.x > 0) ? (float)m_displayWidth / (float)m_schemeCreationRes.x : 1.0f;
+	m_schemeMultiplierY = (m_schemeCreationRes.y > 0) ? (float)m_displayHeight / (float)m_schemeCreationRes.y : 1.0f;
+}
+
+void ControlBar::setDisplaySize(int width, int height)
+{
+	m_displayWidth = width;
+	m_displayHeight = height;
+	m_schemeMultiplierX = (m_schemeCreationRes.x > 0) ? (float)m_displayWidth / (float)m_schemeCreationRes.x : 1.0f;
+	m_schemeMultiplierY = (m_schemeCreationRes.y > 0) ? (float)m_displayHeight / (float)m_schemeCreationRes.y : 1.0f;
 }
 
 // RW 0x71D350 / 0x721613
@@ -1739,7 +1753,18 @@ bool ControlBar::structureInventory(Object &obj, Player *local)
 
 bool ControlBar::isUnderConstructionContext(const Object &obj)
 {
-	// RW 0x71EE29 .. 0x71EE61: a WALL_UPGRADE whose Object query RW 0x68C82D(3, ...) reads 0.0 is in this context too: that query is not identified (S-3801)
+	// RW 0x71EBDA (RW 0x71EE29..0x71EE61; DONOR BFME2 ControlBarRva0031D230.cpp:359-365):
+	// a WALL_UPGRADE (KindOf bit 150, [tmpl+0x11A] & 0x40, RW 0xDA0E68) whose DAMAGE_MULT product
+	// (RW 0x71EE48 -> RW 0x68C82D(3, &amount, 0, 1) -> RW 0x804FFF) returns true and equals 0.0f ([0xC1B594])
+	// switches to context 6 (CB_CONTEXT_UNDER_CONSTRUCTION).
+	if (obj.isKindOfName("WALL_UPGRADE"))
+	{
+		float amount = 0.0f;
+		if (obj.attributeModifierProduct(3, nullptr, true, amount) && amount == 0.0f)
+		{
+			return true;
+		}
+	}
 	static const int baseBuild = ModelCondition::indexOf("BASE_BUILD");
 	if (baseBuild >= 0 && obj.testModelCondition(baseBuild))
 	{
@@ -2073,8 +2098,8 @@ std::vector<std::string> ControlBar::acceptanceStops()
 		"a disabled Palantir button's image is drawn in greyscale with the bubbles' luminance weights (RotWK's RenderImage callback not read)",
 		"[S-3801] under-construction context (lane PLAY-4, evaluateContextUI RW 0x71EBDA -> populateUnderConstruction RW 0x944EFB): a structure whose GettingBuiltBehavior "
 		"rebuilds it or has + 0x36 set while UNDER_CONSTRUCTION (+ 0x36 alone when not), or with the model condition BASE_BUILD, shows only Command_CancelConstruction "
-		"(not for DONT_USE_CANCEL_BUILD_BUTTON; enabled for its controller; MSG_DOZER_CANCEL_CONSTRUCT, RW 0x9409A1); not ported: the WALL_UPGRADE whose Object query "
-		"RW 0x68C82D(3, ...) reads 0.0 (unidentified), the overlay windows (ControlBar + 0x29C / + 0x2A0), the radar override; the construction text and the rally "
+		"(not for DONT_USE_CANCEL_BUILD_BUTTON; enabled for its controller; MSG_DOZER_CANCEL_CONSTRUCT, RW 0x9409A1) and WALL_UPGRADE whose DAMAGE_MULT (RW 0x71EE48 -> 0x68C82D) reads 0.0; not ported: "
+		"the overlay windows (ControlBar + 0x29C / + 0x2A0), the radar override; the construction text and the rally "
 		"point are the HUD's (DrawableIconUI)",
 		"[S-3803] stance buttons (lanes PLAY-4, CAMPUI-1): SET_STANCE sends MSG_CHANGE_STANCE with its stance (RW 0x96F53C); TOGGLE_STANCE is available with a "
 		"StancesBehavior (RW 0x942A77) and shows the current stance's image and labels (StanceToButtonSlot); on the Palantir its press opens / closes the radial of "

@@ -446,6 +446,7 @@ WorkerAIUpdate::WorkerAIUpdate(Thing *thing, const ModuleData *data)
 	}
 }
 
+// RW 0x008AD122 (dtor) / RW 0x008AD5AE (scalar deleting dtor)
 WorkerAIUpdate::~WorkerAIUpdate()
 {
 	// RW 0x8AD122 deletes the machines (+ 0x588, + 0x58C, + 0x584): the supply-truck and worker machines go without their states' exits (StateMachine
@@ -460,6 +461,9 @@ WorkerAIUpdate::~WorkerAIUpdate()
 	}
 }
 
+// RW 0x008AD216 (getModuleNameKey) / RW 0x008AD25B (getModuleName): "WorkerAIUpdate" (0xC0B0D4);
+// privateIdle thunk RW 0x008ACE45 -> AIUpdateInterface::privateIdle RW 0x0066D8F5;
+// DozerAIInterface::onDelete adjustor thunk RW 0x008AE456 -> RW 0x008AE203.
 void WorkerAIUpdate::registerClass(ModuleFactory &modules)
 {
 	modules.bindModuleProc("WorkerAIUpdate", MODULETYPE_BEHAVIOR, [](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &info) -> std::unique_ptr<Module> {
@@ -548,7 +552,7 @@ UpdateSleepTime WorkerAIUpdate::update()
 	return UPDATE_SLEEP_NONE;
 }
 
-// RW 0x8AD6A4 with its sixth argument 1 (see WorkerAIUpdate.h)
+// RW 0x008AD6A4 (DozerAIInterface::construct adjustor thunk RW 0x008ADA95; createPhantomStructure slot 25 RW 0x00610A6C is a ret 0x10 no-op because workers create structures directly) with its sixth argument 1 (see WorkerAIUpdate.h)
 Object *WorkerAIUpdate::constructForRebuild(const ThingTemplate &what, const Coord3D &pos, float angle, Player &owner)
 {
 	m_rebuildConstruct581 = true; // + 0x581

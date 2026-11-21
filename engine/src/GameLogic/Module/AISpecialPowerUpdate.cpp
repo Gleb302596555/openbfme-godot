@@ -1009,6 +1009,7 @@ void AISpecialPowerUpdate::crc(StateHasher &h) const
 	}
 }
 
+// RW 0x008B6FDE (getModuleName), RW 0x008B6FE4 (getModuleNameKey), RW 0x008B706F (scalar deleting dtor -> ~AISpecialPowerUpdate RW 0x008B6F89)
 void AISpecialPowerUpdate::registerClass(ModuleFactory &modules)
 {
 	const char *name = "AISpecialPowerUpdate";

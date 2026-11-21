@@ -35,6 +35,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008BD2E6 (getModuleName), RW 0x008BD2EC (getModuleNameKey)
 class ExperienceLevelCreate : public BehaviorModule, public CreateModuleInterface
 {
 public:
@@ -55,6 +56,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008BCD79 (getModuleName), RW 0x008BCD98 (getModuleNameKey), RW 0x008BCDEE (scalar deleting dtor -> RW 0x008BCD7F)
 class LockWeaponCreate : public BehaviorModule, public CreateModuleInterface
 {
 public:

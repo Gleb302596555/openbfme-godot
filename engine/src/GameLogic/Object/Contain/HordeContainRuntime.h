@@ -113,6 +113,7 @@ public:
 	// slot 0x1D8 / 4 (RW 0x870E50): a ModifierList reaches the members (not a LEVEL one) and always the horde's own pool
 	virtual void addAttributeModifier(const std::string &listName, int duration) = 0;
 	virtual void removeAttributeModifier(const std::string &listName) = 0; ///< slot 0x1DC (RW 0x870F75, lane INTEG-1)
+	virtual void clearAllAttributeModifiers() = 0; ///< slot 0x1E0 (RW 0x00879106, DONOR BFME2 0x00475E06)
 	// ---- lane GARRISON-1 (a horde entering a HordeGarrisonContain and leaving it; GameLogic/Object/Contain/HordeGarrisonLink.cpp) ----
 	// slot 0x18 (RW 0x86EE1B): `member` is contained by this horde or is one of its members on the way into a garrison (the map at interface + 0x54)
 	virtual bool isMemberOrEntering(const Object &member) const = 0;
@@ -274,6 +275,8 @@ public:
 	// RW 0x870F75 (slot 0x1DC, name, filter; the stances pass no filter): every member (contain slot 0x118) loses the list (Object::removeAttributeModifier), the
 	// second list's members are not ported (S-486), then the horde's own AttributeModifierPoolUpdate (RW 0x8052FB) (lane INTEG-1)
 	void removeAttributeModifier(const std::string &listName) override;
+	// RW 0x00879106 (slot 0x1E0, DONOR BFME2 0x00475E06): clears attribute modifiers on contained and garrison-entering members (RW 0x006998D0) and erases the horde's own pool entries
+	void clearAllAttributeModifiers() override;
 	// lane GARRISON-1 (HordeGarrisonLink.cpp)
 	bool isMemberOrEntering(const Object &member) const override;
 	bool allMembersEntered() const override { return m_garrisonEntering.empty(); }

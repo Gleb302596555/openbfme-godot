@@ -116,8 +116,10 @@ public:
 	virtual bool ignoresArmorSetFlagChanges() const { return false; }
 	// lane XP-1: RW vt[0x5C] (ActiveBody RW 0x8C1CD5) setMaxHealth(newMax, changeType): 1 keeps the health ratio, 2 adds the difference to the health
 	// (the AttributeModifier HEALTH / HEALTH_MULT bonuses use 1). A body class without the override counts the call (bodyMaxHealthCallsIgnored)
-	// RW 0x8C1BF9 / BFME2 slot 9: slot 0x28 of body interface
+	// RW 0x008C1BF9 / DONOR BFME2 0x004BDAA9 (slot 10 +0x28 of body interface)
 	virtual void resetDamageState(int state = 0) { (void)state; }
+	// RW 0x008C1C75 / DONOR BFME2 0x004BDB25 (slot 3 +0x0C of body interface): setDamageState(getDamageState())
+	virtual void resetHealthToDamageState() { resetDamageState((int)getDamageState()); }
 	virtual void setMaxHealth(float newMax, int changeType)
 	{
 		(void)newMax;
@@ -249,8 +251,19 @@ public:
 	virtual bool getEntryPosition(Coord3D &out) const { (void)out; return false; }
 	virtual bool getEntryOffset(Coord3D &out) const { (void)out; return false; }
 	virtual bool getExitOffset(Coord3D &out) const { (void)out; return false; }
+	// slot 0x68 onContainedAboutToTakeDamage (OpenContain RW 0x00865631; HordeTransportContain, HordeGarrisonContain, HordeSiegeEngineContain,
+	// TunnelContain, SlaughterHordeContain, CitadelSlaughterHordeContain RW 0x0087A3A4)
+	virtual void onContainedAboutToTakeDamage(Object *rider, const void *damageSource, struct DamageInfo *info)
+	{
+		(void)rider;
+		(void)damageSource;
+		(void)info;
+	}
 	// slot 0x80 orderAllPassengersToExit (HordeGarrisonContain RW 0x87CE8F -> 0x991027); `source` is a CommandSourceType
 	virtual void orderAllPassengersToExit(int source) { (void)source; }
+	// slot 0x88 evacuateCrew (OpenContain RW 0x009F3A3C no-op; SiegeEngineContain RW 0x0087F0CF, HordeSiegeEngineContain RW 0x0087FF18;
+	// called by FlammableUpdate::onDamage at ignition RW 0x00890666 with CMD_FROM_AI = 2)
+	virtual void evacuateCrew(int source = 2) { (void)source; }
 	// slot 0x8C orderAllPassengersToIdle; `source` is a CommandSourceType
 	virtual void orderAllPassengersToIdle(int source) { (void)source; }
 	// slot 0x174 onContainerUpgrade (Object::giveUpgrade RW 0x006938B3; HordeTransportContain / HordeSiegeEngineContain RW 0x0087A988)

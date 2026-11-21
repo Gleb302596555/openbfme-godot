@@ -602,6 +602,19 @@ FOREIGN_NOTE = ("🔒 **PR из чужого форка**: на песочниц
                 "пропускаются). Тесты на данных игры пройдут в батче владельца после того, как владелец прочитает код.")
 
 
+FOREIGN_CONFLICT = ("⛔ **PR конфликтует с main** ({main}) в файлах {files}. На PR с конфликтом GitHub не запускает проверку "
+                    "«Fork PR: build and own tests», и батч владельца его не возьмёт. Влейте свежий `origin/main` в ветку PR, разрешите "
+                    "конфликты (обе стороны, ничего из main не теряя), соберите и прогоните свои тесты, запушьте.")
+
+
+def base_conflicts(n: str) -> list[str]:
+    """Files PR n's head (refs/prcheck/<n>, fetched by cycle) conflicts in with origin/main; [] when it merges cleanly or git cannot say."""
+    r = sh(["git", "merge-tree", "--write-tree", "--name-only", "--no-messages", "origin/main", f"refs/prcheck/{n}"], cwd=REPO)
+    if r.returncode != 1:
+        return []
+    return [line for line in r.stdout.splitlines()[1:] if line.strip()]
+
+
 def skip_reason(p: dict) -> str:
     """Why the checker leaves this PR alone now ('' = check it)."""
     head = p["headRefOid"]
@@ -799,6 +812,16 @@ def cycle(args) -> int:
                 if not args.no_comment:
                     gh("pr", "comment", n, "--body", f"<!-- prcheck-foreign {head} -->\n{FOREIGN_NOTE}")
                 state["foreign"][n] = head
+                save_state(state)
+            # A fork's PR that conflicts with main never gets GitHub's check (pull_request runs on the merge commit, which a conflict
+            # does not have) and the batch bot waits for that check forever (PR 774, 2026-11-21): say so to its agent, once per head
+            files = base_conflicts(n)
+            if files and state.setdefault("foreign_conflict", {}).get(n) != head:
+                print(f"#{n}: from another account's fork, conflicts with main in {', '.join(files[:6])}", flush=True)
+                if not args.no_comment:
+                    gh("pr", "comment", n, "--body", f"<!-- returned --><!-- prcheck-foreign-conflict {head} -->\n" + FOREIGN_CONFLICT.format(
+                        main=main_sha[:8], files=", ".join(f"`{f}`" for f in files[:12])))
+                state["foreign_conflict"][n] = head
                 save_state(state)
             continue
         why = skip_reason(p) if args.pr is None else ""

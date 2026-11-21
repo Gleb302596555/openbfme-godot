@@ -41,6 +41,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x0089D103 (getModuleName), RW 0x0089D15B (getModuleNameKey), RW 0x0089D290 (scalar deleting dtor -> RW 0x0089D0E3)
 class OneRingPenaltyUpdate : public UpdateModule, public DieModuleInterface
 {
 public:
