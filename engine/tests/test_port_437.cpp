@@ -4,7 +4,7 @@
 // (RW 0x74879D / RW 0x7487F5). A mobile owner that is not forced gets RW 0xC29DD4, a forced one RW 0xC29E04 (RW 0x74872C / RW 0x748735):
 //   RW 0xC29DD4 = { 0x7457DF -> 0x64, 0 }; { 0x745901 -> 0x64, 0 }; { 0x741798 -> 0x270F, 2 };
 //   RW 0xC29E04 = { 0x7457DF -> 0x64, 0 }; { 0x741798 -> 0x270F, 3 }; { 0x745901 -> 0x64, 0 };
-// The port has no separate Chase state, so both records go to the approach state 0x65, which walks the attack path (see makeGenericAttackMachine).
+// Both records target ATTACK_PURSUE (0x64); non-turreted owners pass immediately through Pursue into Approach (0x65).
 //
 // The predicates read here, instruction by instruction:
 //   * RW 0x7457DF (out of weapon reach): no goal -> true (RW 0x745809 .. 0x7458E5); a leech-range deadline still ahead of the logic clock
@@ -269,8 +269,8 @@ TEST_CASE("PORT-437 forced attack: the forced table RW 0xC29E04 keeps the crush 
 	AIState *aim = att->attackMachine()->findState(ATTACK_AIM);
 	REQUIRE(aim != nullptr);
 	REQUIRE(aim->conditions().size() == 3); // RW 0xC29E04 has three records
-	CHECK(aim->conditions()[0].toId == (unsigned)ATTACK_APPROACH); // 0x7457DF -> 0x64
+	CHECK(aim->conditions()[0].toId == (unsigned)ATTACK_PURSUE); // 0x7457DF -> 0x64
 	CHECK(aim->conditions()[1].toId == (unsigned)MACHINE_DONE_FAILURE); // 0x741798 -> 0x270F
 	CHECK(aim->conditions()[1].userData == 3); // the forced table's userData
-	CHECK(aim->conditions()[2].toId == (unsigned)ATTACK_APPROACH); // 0x745901 -> 0x64
+	CHECK(aim->conditions()[2].toId == (unsigned)ATTACK_PURSUE); // 0x745901 -> 0x64
 }

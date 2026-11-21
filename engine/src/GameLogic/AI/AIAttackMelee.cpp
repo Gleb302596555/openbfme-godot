@@ -51,6 +51,7 @@
 #include "GameLogic/Combat/CombatState.h"
 #include "GameLogic/Combat/ObjectWeapons.h"
 #include "GameLogic/GameLogic.h"
+#include "GameLogic/Locomotor.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/SquishCollide.h"
 #include "GameLogic/Object/Object.h"
@@ -388,6 +389,14 @@ void AIAttackMeleeApproachState::crc(StateHasher &h) const
 // ---------------------------------------------------------------------------------------------------------------------------------
 // 0xE2
 // ---------------------------------------------------------------------------------------------------------------------------------
+AIAttackMeleeEngageState::AIAttackMeleeEngageState(AIStateMachine &m, AIAttackState *parent)
+	: AIState(m, "AIAttackMeleeEngageState")
+	, m_att(parent)
+{
+}
+
+AIAttackMeleeEngageState::~AIAttackMeleeEngageState() = default;
+
 bool AIAttackMeleeEngageState::reserveOwnPosition()
 {
 	// RW 0x68B3BD(own position, layer); the AI + 0x180 / + 0x3B0 writes of RW 0x68B411 are not ported (S-787)
@@ -444,7 +453,7 @@ bool AIAttackMeleeEngageState::computePath()
 		pf.adjustToPossibleDestination(obj, info, &m_dest);
 		m_moveEntered = false;
 		mv.requestPath(m_dest, false);
-		m_pending = mv.isWaitingForPath() && mv.path() == nullptr;
+		m_pending = mv.isWaitingForPath() && mv.path() == nullptr; // RW 0x7473C9 .. 0x7473DF
 		return true;
 	}
 	if (!noPath && a.attackRangeFromTo(m_dest, victim->getID(), m_victimPos, 0.0f))
@@ -488,6 +497,8 @@ StateReturnType AIAttackMeleeEngageState::onEnter()
 	m_wait = false;
 	m_waitUntil = 0;
 	m_pending = false;
+	m_fireStatus = STATE_SUCCESS; // RW 0x74F5B8: + 0x50 = -1
+	m_fireState = std::make_unique<AIAttackFireState>(machine(), m_att); // RW 0x74F599 -> 0x740E39 (+ 0x4C)
 	Object *victim = victimOf(*this);
 	if (victimGone(victim) || self.testStatus((unsigned)CombatNames::status("FLEE_OFF_MAP")) || !hasWeapon(self))
 	{
@@ -544,12 +555,58 @@ StateReturnType AIAttackMeleeEngageState::update()
 		return STATE_FAILURE;
 	}
 	const bool fleeing = AttackTargetFleeing(self, *victim);
-	if (!fleeing)
+	const int runningDown = CombatNames::statuses().runningDownFromBehind;
+	if (fleeing)
+	{
+		// RW 0x74B29C .. 0x74B426 (PORT-223, narrowing S-787): pace the fleeing victim at dist - (srcR + vicR + 10.0f) + vicSpeed (RW 0xBD83D8 = 10.0f),
+		// raise RUNNING_DOWN_FROM_BEHIND when ourMaxSpeed > desiredSpeed (closing), and run m_fireState (+ 0x4C, RW 0x740E39) while moving.
+		const Coord3D *sp = self.getPosition(), *vp = victim->getPosition();
+		const float dx = SimMath::subf32(sp->x, vp->x), dy = SimMath::subf32(sp->y, vp->y);
+		const float dist = SimMath::fstpDword(SimMath::sqrtPC24((double)SimMath::sumSquares3(dx, dy, 0.0f)));
+		const float sumR = SimMath::addf32(CombatQueries::boundingCircleRadius(*victim), SimMath::addf32(CombatQueries::boundingCircleRadius(self), 10.0f));
+		const AIUpdateInterface *vai = victim->getAIUpdateInterface();
+		const Locomotor *vloco = vai ? vai->curLocomotor() : nullptr;
+		const float vicSpeed = vloco && vloco->speed() > 0.0f ? vloco->speed() : 0.0f; // RW 0x68B34C
+		float gap = SimMath::addf32(SimMath::subf32(dist, sumR), vicSpeed);
+		if (0.0f > gap)
+		{
+			gap = 0.0f;
+		}
+		a.mover().setDesiredSpeed(gap); // RW 0x6625DA
+		Locomotor *ourLoco = a.curLocomotor();
+		const float ourMaxSpeed = ourLoco ? ourLoco->getMaxSpeedForCondition(a.locomotorHost()) : AI_FAST_SPEED; // RW 0x5E36F7 / 0x6624C9
+		const bool closing = ourMaxSpeed > gap;
+		self.setStatus((unsigned)runningDown, closing);            // RW 0x62684D
+		self.setStatusAcrossHorde((unsigned)runningDown, closing); // RW 0x748650
+		if (closing && m_fireStatus != STATE_CONTINUE && m_fireState)
+		{
+			m_fireStatus = (int)m_fireState->onEnter(); // RW 0x74B385 .. 0x74B393
+		}
+		if (m_fireStatus == STATE_CONTINUE && m_fireState)
+		{
+			m_fireStatus = (int)m_fireState->update(); // RW 0x74B3AC .. 0x74B3B4
+			if (m_fireStatus != STATE_CONTINUE)
+			{
+				m_fireState->onExit(EXIT_NORMAL); // RW 0x74B3BB .. 0x74B3C2
+			}
+			if (victimGone(victim))
+			{
+				return STATE_FAILURE;
+			}
+		}
+	}
+	else
 	{
 		a.mover().setDesiredSpeed(AI_FAST_SPEED); // RW 0x6625DA(999999)
-		if (self.testStatus((unsigned)CombatNames::statuses().runningDownFromBehind))
+		if (m_fireStatus == STATE_CONTINUE && m_fireState)
 		{
-			self.setStatus((unsigned)CombatNames::statuses().runningDownFromBehind, false);
+			m_fireState->onExit(EXIT_NORMAL); // RW 0x74B43A .. 0x74B44E
+			m_fireStatus = STATE_SUCCESS;
+		}
+		if (self.testStatus((unsigned)runningDown))
+		{
+			self.setStatusAcrossHorde((unsigned)runningDown, false); // RW 0x74B45F -> 0x748650
+			self.setStatus((unsigned)runningDown, false);            // RW 0x74B46A -> 0x62684D
 		}
 		if (self.testStatus((unsigned)CombatNames::statuses().isMeleeAttacking))
 		{
@@ -583,6 +640,10 @@ StateReturnType AIAttackMeleeEngageState::update()
 		m_moveEntered = true;
 	}
 	m_move->setGoal(m_dest);
+	if (m_pending && !a.mover().isWaitingForPath())
+	{
+		m_pending = false;
+	}
 	const StateReturnType r = m_move->update();
 	if (r == STATE_CONTINUE && (fleeing || a.mover().path() != nullptr || m_pending))
 	{
@@ -599,7 +660,7 @@ StateReturnType AIAttackMeleeEngageState::update()
 	return STATE_CONTINUE;
 }
 
-void AIAttackMeleeEngageState::onExit(StateExitType)
+void AIAttackMeleeEngageState::onExit(StateExitType status)
 {
 	// lane ANIM-1, RW 0x74B716 (the 0xE2 vtable's onExit, RW 0xC287C4): nothing for a destroyed owner (+ 0x94 bit 0); else the desired speed back to 999999
 	// (RW 0x6625DA, float RW 0xC27440) when there is an AI, then for an owner that is not HORDE_MEMBER (status 0x26) RW 0x748650(0x4B, 0) and
@@ -609,6 +670,10 @@ void AIAttackMeleeEngageState::onExit(StateExitType)
 	Object &self = owner();
 	if (!self.isDestroyed())
 	{
+		if (m_fireStatus == STATE_CONTINUE && m_fireState)
+		{
+			m_fireState->onExit(status);
+		}
 		ai().mover().setDesiredSpeed(AI_FAST_SPEED);
 		if (!self.testStatus((unsigned)CombatNames::statuses().hordeMember))
 		{
@@ -617,6 +682,8 @@ void AIAttackMeleeEngageState::onExit(StateExitType)
 		}
 		exitMove(ai().mover(), m_move, m_dest);
 	}
+	m_fireStatus = STATE_SUCCESS;
+	m_fireState.reset();
 	m_move.reset();
 	m_pending = false;
 }
@@ -628,6 +695,12 @@ void AIAttackMeleeEngageState::crc(StateHasher &h) const
 	{
 		m_move->crc(h);
 	}
+	h.addBool(m_fireState != nullptr);
+	if (m_fireState)
+	{
+		m_fireState->crc(h);
+	}
+	h.addI32(m_fireStatus);
 	hashCoord(h, m_dest);
 	hashCoord(h, m_victimPos);
 	h.addU32(m_pathFrame);
@@ -684,7 +757,7 @@ std::unique_ptr<AIStateMachine> makeMeleeAttackMachine(AIUpdateInterface &ai, AI
 	auto m = std::make_unique<AIStateMachine>(ai, "AIAttackMeleeMachine");
 	m->defineState(MELEE_APPROACH, std::make_unique<AIAttackMeleeApproachState>(*m), MELEE_ENGAGE, MACHINE_DONE_FAILURE);
 	m->defineState(MELEE_SQUISH, makeMeleeSquishState(*m), MELEE_ENGAGE, MACHINE_DONE_FAILURE);
-	m->defineState(MELEE_ENGAGE, std::make_unique<AIAttackMeleeEngageState>(*m), MELEE_AIM, MELEE_REACQUIRE);
+	m->defineState(MELEE_ENGAGE, std::make_unique<AIAttackMeleeEngageState>(*m, parent), MELEE_AIM, MELEE_REACQUIRE);
 	m->defineState(MELEE_REACQUIRE, std::make_unique<AIMeleeReAcquireState>(*m), MELEE_APPROACH, MACHINE_DONE_FAILURE);
 	m->defineState(MELEE_AIM, std::make_unique<AIAttackAimState>(*m, parent, MELEE_APPROACH), MELEE_FIRE, MELEE_APPROACH);
 	m->defineState(MELEE_FIRE, std::make_unique<AIAttackFireState>(*m, parent), MELEE_WAIT, MELEE_APPROACH);

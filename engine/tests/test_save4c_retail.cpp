@@ -1032,6 +1032,22 @@ TEST_CASE("save4c coverage (review r2): units attacking, moving, guarding, hunti
 		}
 		return false;
 	};
+	auto reachableMover = [](GameLogic &l, Object *o) {
+		if (!GarrisonRules::isMobile(*o))
+		{
+			return false;
+		}
+		AIUpdateInterface *ai = o->getAIUpdateInterface();
+		if (ai->mover().blockedFrames() > 0 || ai->mover().path() != nullptr)
+		{
+			return false;
+		}
+		const Coord3D from = *o->getPosition();
+		Coord3D to = from;
+		to.x += 300.0f;
+		to.z = l.getGroundHeight(to.x, to.y);
+		return ai->world().pathfinder().clientSafeQuickDoesPathExist(ai->locomotorInfo(), &from, &to);
+	};
 	UnsignedInt scene = 0;
 	{
 		Game c;
@@ -1053,6 +1069,16 @@ TEST_CASE("save4c coverage (review r2): units attacking, moving, guarding, hunti
 			auto any = [&](int p, const std::function<bool(Object *)> &ok) {
 				return std::any_of(by[p].begin(), by[p].end(), [&](Object *o) { return ok(o); });
 			};
+			auto firstIn = [&](int p, const std::function<bool(Object *)> &ok) -> Object * {
+				for (Object *o : by[p])
+				{
+					if (ok(o))
+					{
+						return o;
+					}
+				}
+				return nullptr;
+			};
 			int menUnits = 0;
 			for (auto &kv : by)
 			{
@@ -1066,15 +1092,22 @@ TEST_CASE("save4c coverage (review r2): units attacking, moving, guarding, hunti
 			{
 				hunterFound = hunterFound || any(p, [&](Object *o) { return armed(o) && takes(o, 0x12) && GarrisonRules::isMobile(*o) && hasPrey(o); });
 			}
-			// Keep scene discovery in sync with actor selection below: guardHere must start from an idle unit outside an AI tactic team, or the AI may replace it on the next frame.
-			bool guardReady = false;
-			for (int p : ids)
+			Object *candAttacker = firstIn(ids[0], [&](Object *o) { return armed(o) && takes(o, 0xB); });
+			Object *candMover = firstIn(ids[1], [&](Object *o) { return takes(o, 0) && reachableMover(lc, o); });
+			// Keep scene discovery in sync with actor selection below: guardHere must start from an idle unit outside an AI tactic team, distinct from attacker and mover.
+			bool guardReady = any(ids[2], [&](Object *o) {
+				return takes(o, 0) && o->getAIUpdateInterface()->currentStateId() == AI_IDLE && !inAITeam(lc, o);
+			});
+			if (!guardReady)
 			{
-				guardReady = guardReady || any(p, [&](Object *o) {
-					return takes(o, 0) && o->getAIUpdateInterface()->currentStateId() == AI_IDLE && !inAITeam(lc, o);
-				});
+				for (int p : ids)
+				{
+					guardReady = guardReady || any(p, [&](Object *o) {
+						return takes(o, 0) && o != candAttacker && o != candMover && o->getAIUpdateInterface()->currentStateId() == AI_IDLE && !inAITeam(lc, o);
+					});
+				}
 			}
-			if (any(ids[0], [&](Object *o) { return armed(o) && takes(o, 0xB); }) && guardReady && hunterFound && menUnits >= 2)
+			if (candAttacker && guardReady && hunterFound && menUnits >= 2)
 			{
 				scene = t;
 			}
@@ -1179,23 +1212,7 @@ TEST_CASE("save4c coverage (review r2): units attacking, moving, guarding, hunti
 	// 2700 is a porter walking a path, so these rules apply to the first choice too
 	// Port 83 (BuildingBehavior awake every frame, RW 0x8592BE) moved the game's state at frame 2700: the second player's first fit became a
 	// MordorArcherBarricade_Slaved, which has an AI and a reachable spot but never walks (the move order ended at once): the mover must be mobile, as the hunter
-	auto reachableMover = [&](Object *o) {
-		if (!GarrisonRules::isMobile(*o))
-		{
-			return false;
-		}
-		AIUpdateInterface *ai = o->getAIUpdateInterface();
-		if (ai->mover().blockedFrames() > 0 || ai->mover().path() != nullptr)
-		{
-			return false;
-		}
-		const Coord3D from = *o->getPosition();
-		Coord3D to = from;
-		to.x += 300.0f;
-		to.z = la.getGroundHeight(to.x, to.y);
-		return ai->world().pathfinder().clientSafeQuickDoesPathExist(ai->locomotorInfo(), &from, &to);
-	};
-	Object *mover = firstOf(playerIds[1], [&](Object *o) { return takes(o, 0) && reachableMover(o); });
+	Object *mover = firstOf(playerIds[1], [&](Object *o) { return takes(o, 0) && reachableMover(la, o); });
 	// Guard an idle unit outside an AI tactic team: a team member may get its formation's AI order on the next frame instead of holding the guard state.
 	Object *guard = firstOf(playerIds[2], [&](Object *o) {
 		return takes(o, 0) && o->getAIUpdateInterface()->currentStateId() == AI_IDLE && !inAITeam(la, o);
@@ -1228,7 +1245,7 @@ TEST_CASE("save4c coverage (review r2): units attacking, moving, guarding, hunti
 		for (int p : playerIds)
 		{
 			// the move order (300 east of the unit, as below) must be reachable, or it ends at once
-			Object *c = firstOf(p, [&](Object *o) { return takes(o, 0) && o != attacker && o != guard && o != hunter && reachableMover(o); });
+			Object *c = firstOf(p, [&](Object *o) { return takes(o, 0) && o != attacker && o != guard && o != hunter && reachableMover(la, o); });
 			mover = mover ? mover : c;
 		}
 	}

@@ -62,7 +62,8 @@ private:
 class AIAttackMeleeEngageState : public AIState
 {
 public:
-	explicit AIAttackMeleeEngageState(AIStateMachine &m) : AIState(m, "AIAttackMeleeEngageState") {}
+	explicit AIAttackMeleeEngageState(AIStateMachine &m, AIAttackState *parent = nullptr);
+	~AIAttackMeleeEngageState() override;
 	StateReturnType onEnter() override;
 	StateReturnType update() override;
 	void onExit(StateExitType status) override;
@@ -76,6 +77,9 @@ public:
 private:
 	bool reserveOwnPosition();
 	std::unique_ptr<AIMoveToState> m_move;
+	std::unique_ptr<AIAttackFireState> m_fireState; // + 0x4C: RW 0x740E39, fire-during-approach while running down a fleeing victim
+	AIAttackState *m_att = nullptr;
+	int m_fireStatus = STATE_SUCCESS;        // + 0x50: -1 = not running, STATE_CONTINUE = firing on the run
 	Coord3D m_dest{ 0.0f, 0.0f, 0.0f };      // + 0x20
 	Coord3D m_victimPos{ 0.0f, 0.0f, 0.0f }; // + 0x58
 	unsigned m_pathFrame = 0;                // + 0x54

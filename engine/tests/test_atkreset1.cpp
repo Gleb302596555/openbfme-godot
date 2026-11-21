@@ -101,7 +101,7 @@ struct LockWorld : CombatWorld
 	{
 		REQUIRE(archer->getAIUpdateInterface()->aiAttackObject(first, CMD_FROM_PLAYER));
 		runUntil([&] { return bow(archer)->lastFireFrame() != 0; }, 200);
-		REQUIRE(bow(archer)->lastFireFrame() == 5); // the aim takes frames 3 and 4
+		REQUIRE(bow(archer)->lastFireFrame() == 4); // the aim takes frames 2 and 3 (PORT-223: real AIAttackPursueState::onEnter exits at once)
 		frames(1);
 		REQUIRE(status(archer) == WEAPON_FIRING);
 	}
@@ -124,13 +124,13 @@ TEST_CASE("atkreset1 aiAttackObject: a new attack order ends the old shot's Firi
 	w.firstShot(archer, first);
 	Weapon *bow = w.bow(archer);
 	const std::uint32_t lockEnd = bow->whenFiringEnds();
-	REQUIRE(lockEnd == 35); // the shot at frame 5 + FiringDuration 30 frames (6000 ms at the test logic's 5 frames per second)
+	REQUIRE(lockEnd == 34); // the shot at frame 4 + FiringDuration 30 frames (6000 ms at the test logic's 5 frames per second)
 	REQUIRE(archer->getAIUpdateInterface()->aiAttackObject(second, CMD_FROM_PLAYER));
 	CHECK(bow->whenFiringEnds() == 0);
 	CHECK(w.status(archer) == WEAPON_READY_TO_FIRE);
 	// the second shot waits only for the turn and the aim, well before the old lock would have ended
 	w.framesToNextShot(archer);
-	CHECK(bow->lastFireFrame() == 10); // the old rule waited for the lock: frame 37
+	CHECK(bow->lastFireFrame() == 9); // the old rule waited for the lock: frame 36 (1 frame earlier than 10 without PursueStub)
 	CHECK(archer->getAIUpdateInterface()->currentVictimId() == second->getID());
 }
 
@@ -173,14 +173,14 @@ TEST_CASE("atkreset1: a shot delay longer than the FiringDuration still holds af
 	w.frames(2);
 	w.firstShot(archer, first);
 	const std::uint32_t canFireAgain = w.bow(archer)->whenWeCanFireAgain();
-	REQUIRE(canFireAgain == 35); // frame 5 + the 30-frame delay
-	REQUIRE(w.bow(archer)->whenFiringEnds() == 15); // frame 5 + the 10-frame FiringDuration
+	REQUIRE(canFireAgain == 34); // frame 4 + the 30-frame delay
+	REQUIRE(w.bow(archer)->whenFiringEnds() == 14); // frame 4 + the 10-frame FiringDuration
 	REQUIRE(archer->getAIUpdateInterface()->aiAttackObject(second, CMD_FROM_PLAYER));
 	CHECK(w.bow(archer)->whenFiringEnds() == 0);
 	CHECK(w.status(archer) == WEAPON_BETWEEN_FIRING_SHOTS);
 	// the next shot comes when the delay ends, not earlier
 	w.framesToNextShot(archer);
-	CHECK(w.bow(archer)->lastFireFrame() == 36);
+	CHECK(w.bow(archer)->lastFireFrame() == 35);
 }
 
 TEST_CASE("atkreset1 AIAttackFireWeaponState::onExit (RW 0x74C8BE): a cancelled pre-attack ends and the status is written back; the fire statuses are cleared")
@@ -226,15 +226,15 @@ TEST_CASE("TOP20 burning death r3: an attack on a victim that turns UNATTACKABLE
 		AIUpdateInterface *ai = archer->getAIUpdateInterface();
 		REQUIRE((forced ? ai->aiForceAttackObject(foe, CMD_FROM_PLAYER) : ai->aiAttackObject(foe, CMD_FROM_PLAYER)));
 		w.runUntil([&] { return w.bow(archer)->lastFireFrame() != 0; }, 200);
-		REQUIRE(w.bow(archer)->lastFireFrame() == 5);
+		REQUIRE(w.bow(archer)->lastFireFrame() == 4);
 		REQUIRE(ai->currentStateId() == (unsigned)(forced ? AI_FORCE_ATTACK_OBJECT : AI_ATTACK_OBJECT));
 		foe->setStatus((unsigned)CombatNames::status("UNATTACKABLE"), true); // AIBurningDeathState::onEnter, RW 0x751BE5
 		// the inner machine waits out SlowBow's shot delay in AIWaitUntilFinishedFiringState (no exit conditions in RW's lists, only Aim and Fire carry
-		// them); its next Aim leaves with failure, before the shot it could fire at frame 36
+		// them); its next Aim leaves with failure, before the shot it could fire at frame 35
 		w.frames(60);
 		CHECK(ai->currentStateId() != (unsigned)AI_ATTACK_OBJECT);
 		CHECK(ai->currentStateId() != (unsigned)AI_FORCE_ATTACK_OBJECT);
-		CHECK(w.bow(archer)->lastFireFrame() == 5);
+		CHECK(w.bow(archer)->lastFireFrame() == 4);
 		CHECK_FALSE(foe->isEffectivelyDead());
 	}
 }
@@ -247,7 +247,7 @@ TEST_CASE("atkreset1 direct attack move clears the lock and sets unlimited shots
 	w.frames(2);
 	w.firstShot(archer, first);
 	Weapon *bow = w.bow(archer);
-	REQUIRE(bow->whenFiringEnds() == 35);
+	REQUIRE(bow->whenFiringEnds() == 34);
 	bow->setMaxShotCount(2);
 	const Coord3D goal{ 400, 500, 17 };
 	w.logic->random().enableCallLog(true);
