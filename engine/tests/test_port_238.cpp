@@ -1830,3 +1830,138 @@ End
     CHECK(own->testModelCondition(user6));
     CHECK_FALSE(ally->testModelCondition(user6));
 }
+
+TEST_CASE("PORT-238 Smaug-style flight and ground replacement copy only their listed timers")
+{
+    HealHudWorld w;
+    // wildsmaug_new.ini:1549 and :2374: fly lists five powers, ground lists
+    // four. RW 0x8B140D -> 0x8B12BF -> 0x897368 copies listed timers.
+    // The real ground form does not declare the fifth power. A second,
+    // deliberately hypothetical layout with it on both sides checks list sensitivity.
+    bool fromFly = false;
+    bool groundHasDominate = false;
+    SUBCASE("real-layout fly to ground") { fromFly = true; }
+    SUBCASE("real-layout ground to fly") { fromFly = false; }
+    SUBCASE("both-have-fifth fly to ground") { fromFly = true; groundHasDominate = true; }
+    SUBCASE("both-have-fifth ground to fly") { fromFly = false; groundHasDominate = true; }
+    std::string data = R"ini(
+SpecialPower P238SmaugToggle
+  Enum = SPECIAL_TOGGLE_MOUNTED
+  ReloadTime = 1000
+End
+SpecialPower P238SmaugFireball
+  Enum = SPECIAL_GENERAL_TARGETLESS
+  ReloadTime = 120000
+End
+SpecialPower P238SmaugFlight
+  Enum = SPECIAL_GENERAL_TARGETLESS_TWO
+  ReloadTime = 120000
+End
+SpecialPower P238SmaugIncinerate
+  Enum = SPECIAL_HERO_MODE
+  ReloadTime = 120000
+End
+SpecialPower P238SmaugCurse
+  Enum = SPECIAL_ATHELAS
+  ReloadTime = 120000
+End
+SpecialPower P238SmaugDominate
+  Enum = SPECIAL_DOMINATE_ENEMY
+  ReloadTime = 120000
+End
+)ini";
+    const std::vector<std::string> names = {"P238SmaugFireball", "P238SmaugFlight", "P238SmaugIncinerate", "P238SmaugCurse", "P238SmaugDominate"};
+    for (int fly = 0; fly < 2; ++fly)
+    {
+        data += std::string("Object ") + (fly ? "P238SmaugFly" : "P238SmaugGround") + R"ini(
+  KindOf = INFANTRY HERO SELECTABLE CAN_ATTACK
+  Geometry = CYLINDER
+  GeometryMajorRadius = 8
+  GeometryHeight = 20
+  Body = ActiveBody Body
+    MaxHealth = 500
+  End
+  Behavior = AIUpdateInterface AI
+  End
+  Behavior = SpecialPowerModule TogglePower
+    SpecialPowerTemplate = P238SmaugToggle
+    UpdateModuleStartsAttack = Yes
+  End
+  Behavior = ToggleMountedSpecialAbilityUpdate Toggle
+    SpecialPowerTemplate = P238SmaugToggle
+)ini";
+        data += std::string("    MountedTemplate = ") + (fly ? "P238SmaugGround\n" : "P238SmaugFly\n");
+        data += "    SynchronizeTimerOnSpecialPower = P238SmaugFireball P238SmaugFlight P238SmaugIncinerate P238SmaugCurse";
+        if (fly) data += " P238SmaugDominate";
+        data += fly ? R"ini(
+    StartAbilityRange = 50
+    UnpackTime = 0
+    PreparationTime = 1
+    PackTime = 0
+    IgnoreFacingCheck = Yes
+  End
+)ini" : R"ini(
+    UnpackTime = 2000
+    PreparationTime = 0
+    PackTime = 0
+    IgnoreFacingCheck = Yes
+  End
+)ini";
+        for (std::size_t i = 0; i < names.size(); ++i)
+        {
+            if (i == 4 && !fly && !groundHasDominate) continue;
+            data += "  Behavior = SpecialPowerModule Timer" + std::to_string(i) + "\n    SpecialPowerTemplate = " + names[i] + "\n  End\n";
+        }
+        data += "End\n";
+    }
+    const std::string error = w.w.load(data, INI_LOAD_OVERWRITE, "port238_smaug_toggle.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    Object *source = w.unit(fromFly ? "P238SmaugFly" : "P238SmaugGround", 'A', 300, 300);
+    REQUIRE(source != nullptr);
+    source->setName("P238SmaugNamed");
+    const ObjectID sourceId = source->getID();
+    Team *team = source->getTeam();
+    const auto power = [&](Object &obj, const std::string &name) {
+        const SpecialPowerTemplate *t = w.powers.findSpecialPowerTemplate(name);
+        return t ? dynamic_cast<SpecialPowerModule *>(SpecialPowerModules::findModule(obj, t)) : nullptr;
+    };
+    for (std::size_t i = 0; i < names.size(); ++i)
+    {
+        auto *timer = power(*source, names[i]);
+        if (i == 4 && !fromFly && !groundHasDominate)
+        {
+            CHECK(timer == nullptr);
+            continue;
+        }
+        REQUIRE(timer != nullptr);
+        timer->setReadyFrame(500 + (unsigned)i * 100);
+    }
+    auto *toggle = dynamic_cast<ToggleMountedSpecialAbilityUpdate *>(source->findModule("ToggleMountedSpecialAbilityUpdate"));
+    REQUIRE(toggle != nullptr);
+    const Coord3D landing{310.0f, 300.0f, 0.0f};
+    toggle->initiateIntentToDoSpecialPower(toggle->abilityData()->m_specialPowerTemplate, nullptr, fromFly ? &landing : nullptr, 0, 0);
+    Object *replacement = nullptr;
+    for (int frame = 0; frame < 50 && !replacement; ++frame)
+    {
+        w.frames(1);
+        for (Object *obj = w.logic->getFirstObject(); obj; obj = obj->getNextObject())
+            if (obj->getTemplate() && obj->getTemplate()->getName() == (fromFly ? "P238SmaugGround" : "P238SmaugFly")) replacement = obj;
+    }
+    REQUIRE(replacement != nullptr);
+    CHECK(replacement->getTeam() == team);
+    CHECK(replacement->getName() == "P238SmaugNamed");
+    for (std::size_t i = 0; i < names.size(); ++i)
+    {
+        auto *timer = power(*replacement, names[i]);
+        if (i == 4 && fromFly && !groundHasDominate)
+        {
+            CHECK(timer == nullptr);
+            continue;
+        }
+        REQUIRE(timer != nullptr);
+        if (i < 4 || fromFly) CHECK(timer->getReadyFrame() == 500 + (unsigned)i * 100);
+        else CHECK(timer->getReadyFrame() == w.logic->getFrame()); // unlisted timer starts ready
+    }
+    w.frames(3);
+    CHECK(w.byId(sourceId) == nullptr);
+}
