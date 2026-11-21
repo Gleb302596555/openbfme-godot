@@ -50,8 +50,15 @@
 //     MultiPlayMoneyMult[live playable players - 1]) (RW 0x6A8630(0), RW 0x642002: fild, fmul at the game's 24-bit precision, RW 0xA3CFA4). With a
 //     controlling player: the money handicap (RW 0x6AA858), then Money::deposit(amount, the player's ScoreKeeper (+ 0x3DC), sound) (RW 0x7B18B8 on
 //     Player + 0x90). The floating text "GUI:AddCash" with the amount at the CRATE's position + 10 in the other's player colour (RW 0x8C13BB, client).
-//   * xfer: SalvageCrateCollide RW 0x8C1442 = version (1, 1) (RW 0x404F15), then CrateCollide's RW 0x8C0760: version (current 2), BehaviorModule
-//     (RW 0x9933FE), version >= 2: the ever-executed byte (+ 0x14, Xfer slot 0x90 bool).
+//   * xfer: SalvageCrateCollide RW 0x8C1442 = version (1, 1) (RW 0x404F15), then CrateCollide's RW 0x8C0760: version window (1, 2)
+//     (docs/SAVES-RETAIL.md's inventory row; a version-1 snapshot carries no ever-executed byte), BehaviorModule (RW 0x9933FE), and from
+//     version 2: the ever-executed byte (+ 0x14, Xfer slot 0x90 bool).
+//   * the three functions the module map listed as uncited, all answered without code of their own:
+//     RW 0x8C12EC (vtable RW 0xC715C0 slot 2) is `mov eax, 0xC0AA68; ret` — the class-name string "SalvageCrateCollide", ported as
+//     Module::getModuleClassName (Common/Module.h, filled by the ModuleFactory); RW 0x8C130B (slot 4) is the lazy name-key accessor
+//     (RW 0xA3CEF0 guard, RW 0x5487EC hash of the same string into [0xDE9ACC]), ported as Module::getModuleNameKey through
+//     ModuleFactory::friend_setModuleClass; RW 0x8C1350 (slot 0) is the scalar deleting destructor (RW 0x42F6A0), the compiler's.
+//     None of the three is behaviour.
 // WHAT IS INFERENCE (OpenBFME):
 //   * the contacts: RotWK's collision manager registers every object whose KindOf has no NO_COLLIDE and (with GlobalData's flag off) no HORDE (RW 0x68E31F:
 //     template + 0x108 bit 30, + 0x115 bit 5, then RW 0xB6C470) and meets the overlapping pairs both ways (RW 0xB6D060). The port's pairs come from the
@@ -97,7 +104,7 @@ public:
 	static bool isCrate(const Object &obj);
 
 protected:
-	// RW 0x8C0760: version (current 2), BehaviorModule, + 0x14
+	// RW 0x8C0760: version window (1, 2), BehaviorModule, and from version 2 the ever-executed byte + 0x14
 	void xferCrateCollide(Xfer &x);
 	const CrateCollideModuleData *crateData() const { return m_crateData; }
 
