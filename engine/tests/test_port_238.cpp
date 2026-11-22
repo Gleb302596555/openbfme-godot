@@ -4279,3 +4279,190 @@ End
     CHECK(w.playerOf('A')->hasUpgradeComplete(factionName));
     CHECK_FALSE(w.playerOf('B')->hasUpgradeComplete(factionName));
 }
+
+TEST_CASE("PORT-238 Durin-style ungated death drop differs from a summoned fixture")
+{
+    // dwarvendurin.ini:888-899: direct CreateObjectDie with no UpgradeRequired;
+    // the separately declared summoned form has no literal ring-drop module.
+    // No real spawn route, lifetime, FX or actual template loading is tested.
+    struct DurinWorld : World
+    {
+        ObjectCreationListStore lists{ w.keys };
+        ObjectCreationListStore *saved = TheObjectCreationListStore;
+        DurinWorld()
+        {
+            TheObjectCreationListStore = &lists;
+            w.fx.env.blocks.registerBlock("ObjectCreationList", [](INI *ini) { ObjectCreationListStore::parseObjectCreationListDefinitionGlobal(ini); });
+            const std::string error = w.load(R"ini(
+Upgrade Upgrade_P238DurinRing
+ Type = OBJECT
+End
+Upgrade Upgrade_P238DurinFortress
+ Type = OBJECT
+End
+Object P238Durin
+ KindOf = INFANTRY HERO SELECTABLE
+ Body = ActiveBody Body
+  MaxHealth = 500
+ End
+ Behavior = CreateObjectDie Drop
+  CreationList = OCL_P238DurinRing
+ End
+End
+Object P238DurinSummoned
+ KindOf = INFANTRY HERO SELECTABLE SUMMONED
+ Body = ActiveBody Body
+  MaxHealth = 500
+ End
+End
+ObjectCreationList OCL_P238DurinRing
+ CreateObject
+  ObjectNames = P238Ring
+  Count = 1
+ End
+End
+)ini", INI_LOAD_OVERWRITE, "port238_durin.ini");
+            REQUIRE_MESSAGE(error.empty(), error);
+        }
+        ~DurinWorld() { TheObjectCreationListStore = saved; }
+        int ringCount()
+        {
+            int count = 0;
+            for (ObjectID id = 1; id < 64; ++id)
+            {
+                Object *o = byId(id);
+                if (o && o->getTemplate()->getName() == "P238Ring") ++count;
+            }
+            return count;
+        }
+    } w;
+    bool hasUpgrades = false;
+    SUBCASE("no upgrades") {}
+    SUBCASE("both upgrades") { hasUpgrades = true; }
+    Object *durin = w.unit("P238Durin", 'A', 300, 300);
+    Object *summoned = w.unit("P238DurinSummoned", 'A', 350, 300);
+    REQUIRE(durin != nullptr);
+    REQUIRE(summoned != nullptr);
+    if (hasUpgrades)
+    {
+        for (Object *o : {durin, summoned})
+        {
+            o->giveUpgrade("Upgrade_P238DurinRing");
+            o->giveUpgrade("Upgrade_P238DurinFortress");
+        }
+    }
+    CHECK(w.ringCount() == 0);
+    summoned->kill(DAMAGE_UNRESISTABLE, DEATH_NORMAL);
+    CHECK(summoned->isEffectivelyDead());
+    CHECK(w.ringCount() == 0);
+    durin->kill(DAMAGE_UNRESISTABLE, DEATH_NORMAL);
+    CHECK(durin->isEffectivelyDead());
+    CHECK(w.ringCount() == 1);
+}
+
+TEST_CASE("PORT-238 Durin-style pulse marks own and allied mausoleums, not enemy or other structures")
+{
+    World w;
+    AttributeModifierStore modifiers;
+    AttributeModifierStore *savedModifiers = TheAttributeModifierStore;
+    struct RestoreModifiers
+    {
+        World &world;
+        AttributeModifierStore *saved;
+        ~RestoreModifiers() { world.logic->reset(); TheAttributeModifierStore = saved; }
+    } restore{w, savedModifiers};
+    TheAttributeModifierStore = &modifiers;
+    modifiers.registerBlock(w.w.fx.env.blocks);
+    SpellEffectModules::registerAll(w.w.modules);
+    w.combat().setAutoAcquireEnabled(false);
+    bool allied = false;
+    SUBCASE("allied owner") { allied = true; }
+    SUBCASE("enemy owner") { allied = false; }
+    if (allied)
+    {
+        w.playerOf('A')->setPlayerRelationship(w.playerOf('B'), ALLIES);
+        w.playerOf('B')->setPlayerRelationship(w.playerOf('A'), ALLIES);
+    }
+    // dwarvendurin.ini:894-901 -> weapon.inc:44485-44502 ->
+    // attributemodifier.inc:8054-8058; RW 0x88F554 -> 0x90EAF9.
+    const char *ini = R"ini(
+ModifierList P238DurinMarker
+ Category = WEAPON
+ Duration = 5000
+ ModelCondition = USER_6
+End
+Weapon P238DurinPulse
+ RadiusDamageAffects = ALLIES NOT_SIMILAR
+ LeechRangeWeapon = Yes
+ AttackRange = 50
+ MeleeWeapon = No
+ DelayBetweenShots = 5000
+ PreAttackDelay = 0
+ PreAttackType = PER_SHOT
+ FiringDuration = 0
+ AttributeModifierNugget
+  AttributeModifier = P238DurinMarker
+  Radius = 19000
+  SpecialObjectFilter = NONE +P238Mausoleum ALLIES
+ End
+End
+Object P238DurinPulseHero
+ KindOf = HERO INFANTRY SELECTABLE
+ Body = ActiveBody Body
+  MaxHealth = 100
+ End
+ Behavior = FireWeaponUpdate Fire
+  FireWeaponNugget
+   WeaponName = P238DurinPulse
+   Offset = X:0 Y:0 Z:0
+   FireDelay = 0
+   OneShot = No
+  End
+ End
+End
+Object P238Mausoleum
+ KindOf = STRUCTURE SELECTABLE
+ Body = ActiveBody Body
+  MaxHealth = 100
+ End
+ Behavior = AttributeModifierPoolUpdate Pool
+ End
+End
+Object P238DurinOtherStructure
+ KindOf = STRUCTURE SELECTABLE
+ Body = ActiveBody Body
+  MaxHealth = 100
+ End
+ Behavior = AttributeModifierPoolUpdate Pool
+ End
+End
+)ini";
+    const std::string error = w.w.load(ini, INI_LOAD_OVERWRITE, "port238_durin_pulse.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    Object *own = w.unit("P238Mausoleum", 'A', 320, 300);
+    Object *otherPlayer = w.unit("P238Mausoleum", 'B', 330, 300);
+    Object *otherKind = w.unit("P238DurinOtherStructure", 'A', 340, 300);
+    const int user6 = CombatNames::modelCondition("USER_6");
+    REQUIRE(user6 == 458);
+    for (Object *obj : {own, otherPlayer, otherKind})
+    {
+        REQUIRE(obj != nullptr);
+        w.logic->partition().registerObject(*obj);
+        CHECK_FALSE(obj->testModelCondition(user6));
+    }
+    w.frames(1);
+    Object *durin = w.unit("P238DurinPulseHero", 'A', 300, 300);
+    REQUIRE(durin != nullptr);
+    auto *fire = dynamic_cast<FireWeaponUpdate *>(durin->findModule("FireWeaponUpdate"));
+    REQUIRE(fire != nullptr);
+    for (int i = 0; i < 10 && fire->shots() == 0; ++i) w.frames(1);
+    REQUIRE(fire->shots() == 1);
+    CHECK(own->testModelCondition(user6));
+    CHECK(otherPlayer->testModelCondition(user6) == allied);
+    CHECK_FALSE(otherKind->testModelCondition(user6));
+    w.frames(30);
+    CHECK(fire->shots() == 2);
+    CHECK(own->testModelCondition(user6));
+    CHECK(otherPlayer->testModelCondition(user6) == allied);
+    CHECK_FALSE(otherKind->testModelCondition(user6));
+}
