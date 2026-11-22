@@ -2,7 +2,7 @@
 
 Command: `python tools/mod/rw_function_map.py --game /content/game_assets/bfme_assets/RotWK/game.dat --ini /content/drive/MyDrive/for-arena/ennorath-ini-1.9.8.3.zip --inventory workspace/rebuild_inventory.json --decomp workspace/rebuild/xmap/rw_map.csv --out docs/ennorath/RW_FUNCTION_MAP`
 
-Rows: 52638; ported 29455, partial 816, none 16991, library 5376.
+Rows: 52638; ported 29456, partial 816, none 16990, library 5376.
 library: code the port replaces wholesale (STL, strings, the C runtime, the Lua VM, compiler-generated destructors, the INI / Xfer
 infrastructure): tools/mod/rw_library_functions.tsv, made by tools/mod/rw_library_functions.py; a citation still wins (ported).
 Counts are per module/function pair, not unique functions.
@@ -4106,7 +4106,6 @@ calls; their targets are not followed.
 | GettingBuiltBehavior | 834 | 0 | 0x008577FC | 11 | library | GettingBuiltBehavior::`scalar deleting destructor' (tier A) |
 | GettingBuiltBehavior | 834 | 0 | 0x00856C7E | 8 | none |  |
 | GettingBuiltBehavior | 834 | 0 | 0x0085733A | 7 | none |  |
-| GettingBuiltBehavior | 834 | 0 | 0x008564F6 | 3 | none |  |
 | GettingBuiltBehavior | 834 | 0 | 0x00857454 | 3 | none |  |
 | GettingBuiltBehavior | 834 | 0 | 0x00857442 | 2 | none |  |
 | GettingBuiltBehavior | 834 | 0 | 0x0085744C | 2 | none |  |

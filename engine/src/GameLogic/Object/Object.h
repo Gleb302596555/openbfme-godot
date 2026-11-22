@@ -483,6 +483,9 @@ public:
 	BodyModuleInterface *getBodyModule() const { return m_body; }
 	ContainModuleInterface *getContain() const { return m_contain; }
 	AIUpdateInterface *getAIUpdateInterface() const { return m_ai; }
+	// RW 0x68C3E6 / Object::rva0028BD17: one shared typed scan of module slot 32
+	// (+0x80), in module order, for the repair query.
+	RepairQueryInterface *getRepairQueryInterface() const;
 	// lane UBER-2B: the modules whose getCollide answers, in module order (ObjectCollide::onCollide walked every module per contact pair: 4% of a 10k battle)
 	const std::vector<CollideModuleInterface *> &collideModules() const { return m_collideModules; }
 	bool collideModulesKnown() const { return m_collideModulesKnown; } ///< every collide module answers pairFactsKnown (ObjectCollide::PairFacts)
