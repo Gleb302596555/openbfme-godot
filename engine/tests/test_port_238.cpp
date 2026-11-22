@@ -4606,3 +4606,149 @@ End
     w.frames(3);
     CHECK(w.byId(heroId) == nullptr);
 }
+
+TEST_CASE("PORT-238 Necromancer and Gorthaur-style ring delivery copies only listed present timers")
+{
+    HealHudWorld w;
+    // mordorsauron.ini:956-979, 1020-1058; 2231-2254, 2295-2334.
+    // Distinct timer lists, both destination MordorSauron_mod; synthetic
+    // objects and only two common abilities, not actual inherited modules.
+    // RW 0x8840FC -> 0x8B8E2E -> 0x8B1690; timer loop 0x8B12BF.
+    bool gorthaur = false;
+    SUBCASE("Necromancer") { gorthaur = false; }
+    SUBCASE("Gorthaur") { gorthaur = true; }
+    std::string data = R"ini(
+Upgrade Upgrade_P238OldSauronRing
+ Type = OBJECT
+End
+Upgrade Upgrade_P238OldSauronFortress
+ Type = OBJECT
+End
+SpecialPower P238OldSauronTransform
+ Enum = SPECIAL_TOGGLE_MOUNTED
+ ReloadTime = 1000
+End
+)ini";
+    for (const char *name : {"SpecialAbilityDunklerSchleierNekromant", "SpecialAbilityDominateEnemySaruman",
+         "SpecialAbilityMachtderVerdammten", "SpecialAbilityAragornBladeMaster", "SpecialAbilityWaffenstillstandAnnatar",
+         "SpecialAbilityMouthOfSauronDissent", "SpecialAbilityArmeeausHirngespinsten", "SpecialAbilityTolinGaurhoth",
+         "SpecialAbilityEwigeKnechtschaft", "SpecialAbilityVerschlingendeFinsternis", "SpecialAbilityGorthaurFlammenschlag"})
+    {
+        data += std::string("SpecialPower ") + name + "\n Enum = SPECIAL_GENERAL_TARGETLESS\n ReloadTime = 120000\nEnd\n";
+    }
+    data += R"ini(
+CommandButton P238OldSauronSwitch
+ Command = SPECIAL_POWER
+ SpecialPower = P238OldSauronTransform
+ InPalantir = No
+End
+Object P238OldSauronBase
+ KindOf = INFANTRY HERO SELECTABLE COMMANDCENTER CAN_ATTACK
+ Body = ActiveBody Body
+  MaxHealth = 500
+ End
+ Behavior = AIUpdateInterface AI
+ End
+ Behavior = UnpauseSpecialPowerUpgrade Enable
+  SpecialPowerTemplate = P238OldSauronTransform
+  TriggeredBy = Upgrade_P238OldSauronRing
+ End
+ Behavior = SpecialPowerModule Starter
+  SpecialPowerTemplate = P238OldSauronTransform
+  UpdateModuleStartsAttack = Yes
+  StartsPaused = Yes
+ End
+ Behavior = ToggleMountedSpecialAbilityUpdate Transform
+  SpecialPowerTemplate = P238OldSauronTransform
+  MountedTemplate = P238OldSauronRingForm
+  SynchronizeTimerOnSpecialPower = )ini";
+    data += gorthaur
+        ? "SpecialAbilityEwigeKnechtschaft SpecialAbilityVerschlingendeFinsternis SpecialAbilityGorthaurFlammenschlag SpecialAbilityDominateEnemySaruman SpecialAbilityMachtderVerdammten SpecialAbilityAragornBladeMaster SpecialAbilityWaffenstillstandAnnatar SpecialAbilityMouthOfSauronDissent SpecialAbilityArmeeausHirngespinsten SpecialAbilityTolinGaurhoth\n"
+        : "SpecialAbilityDunklerSchleierNekromant SpecialAbilityDominateEnemySaruman SpecialAbilityMachtderVerdammten SpecialAbilityAragornBladeMaster SpecialAbilityWaffenstillstandAnnatar SpecialAbilityMouthOfSauronDissent SpecialAbilityArmeeausHirngespinsten SpecialAbilityTolinGaurhoth\n";
+    data += R"ini(
+  UnpackTime = 2000
+  PreparationTime = 0
+  PackTime = 0
+  IgnoreFacingCheck = Yes
+ End
+ Behavior = DoCommandUpgrade Automatic
+  TriggeredBy = Upgrade_P238OldSauronRing
+  GetUpgradeCommandButtonName = P238OldSauronSwitch
+ End
+ Behavior = CitadelSlaughterHordeContain Entry
+  PassengerFilter = NONE +P238Ring
+  ObjectStatusOfContained = UNSELECTABLE ENCLOSED
+  ContainMax = 1
+  StatusForRingEntry = HOLDING_THE_RING
+  UpgradeForRingEntry = Upgrade_P238OldSauronRing Upgrade_P238OldSauronFortress
+  ObjectToDestroyForRingEntry = NONE +P238Ring
+ End
+ Behavior = SpecialPowerModule Might
+  SpecialPowerTemplate = SpecialAbilityMachtderVerdammten
+ End
+ Behavior = SpecialPowerModule Eternal
+  SpecialPowerTemplate = SpecialAbilityEwigeKnechtschaft
+ End
+End
+Object P238OldSauronRingForm
+ KindOf = INFANTRY HERO SELECTABLE CAN_ATTACK
+ Body = ActiveBody Body
+  MaxHealth = 500
+ End
+ Behavior = AIUpdateInterface AI
+ End
+ Behavior = SpecialPowerModule Might
+  SpecialPowerTemplate = SpecialAbilityMachtderVerdammten
+ End
+ Behavior = SpecialPowerModule Eternal
+  SpecialPowerTemplate = SpecialAbilityEwigeKnechtschaft
+ End
+End
+)ini";
+    const std::string error = w.w.load(data, INI_LOAD_OVERWRITE, "port238_old_sauron.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    Object *hero = w.unit("P238OldSauronBase", 'A', 300, 300);
+    Object *carrier = w.unit("P238Carrier", 'A', 300, 300);
+    Object *ring = w.unit("P238Ring", 'A', 300, 300);
+    REQUIRE(hero != nullptr);
+    REQUIRE(carrier != nullptr);
+    REQUIRE(ring != nullptr);
+    const ObjectID heroId = hero->getID();
+    const ObjectID ringId = ring->getID();
+    Team *team = hero->getTeam();
+    auto power = [&](Object &obj, const char *name) {
+        const auto *t = w.powers.findSpecialPowerTemplate(name);
+        return t ? dynamic_cast<SpecialPowerModule *>(SpecialPowerModules::findModule(obj, t)) : nullptr;
+    };
+    auto *might = power(*hero, "SpecialAbilityMachtderVerdammten");
+    auto *eternal = power(*hero, "SpecialAbilityEwigeKnechtschaft");
+    REQUIRE(might != nullptr);
+    REQUIRE(eternal != nullptr);
+    might->setReadyFrame(300);
+    eternal->setReadyFrame(600);
+    auto *contain = dynamic_cast<CitadelSlaughterHordeContain *>(hero->getContain());
+    REQUIRE(contain != nullptr);
+    deliver(*contain, *carrier);
+    CHECK(hero->hasUpgrade("Upgrade_P238OldSauronRing"));
+    CHECK(hero->hasUpgrade("Upgrade_P238OldSauronFortress"));
+    REQUIRE(w.byId(ringId) != nullptr);
+    CHECK(w.byId(ringId)->isDestroyed());
+    Object *replacement = nullptr;
+    for (int frame = 0; frame < 50 && !replacement; ++frame)
+    {
+        w.frames(1);
+        for (Object *obj = w.logic->getFirstObject(); obj; obj = obj->getNextObject())
+            if (obj->getTemplate() && obj->getTemplate()->getName() == "P238OldSauronRingForm") replacement = obj;
+    }
+    REQUIRE(replacement != nullptr);
+    CHECK(replacement->getTeam() == team);
+    might = power(*replacement, "SpecialAbilityMachtderVerdammten");
+    eternal = power(*replacement, "SpecialAbilityEwigeKnechtschaft");
+    REQUIRE(might != nullptr);
+    REQUIRE(eternal != nullptr);
+    CHECK(might->getReadyFrame() == 300);
+    if (gorthaur) CHECK(eternal->getReadyFrame() == 600);
+    else CHECK(eternal->getReadyFrame() != 600);
+    w.frames(3);
+    CHECK(w.byId(heroId) == nullptr);
+}
