@@ -104,8 +104,7 @@ enum EnterMessage
 };
 EnterMessage getEnterMessage(const Object &target, const std::vector<const Object *> &selection);
 
-// tests: the final test of RW 0x82E913 for a power type (0 no, 1 shroud CLEAR, 2 yes, 3 not SHROUDED, 4 the cliff grid 0x48 .. 0x4A, 5 the range 0x92, 6 the
-// unported 0x27 / 0x57, 7 the plane grid 0x59 / 0x68, 8 the army test 0x63) and whether RW 0x82D6B1 accepts a targetless type
+// tests: the final test of RW 0x82E913 for a power type (0 no, 1 shroud CLEAR, 2 yes, 3 not SHROUDED, 4 the cliff grid 0x48 .. 0x4A, 5 the range 0x92, 6 Rebuild 0x57 / unported 0x27, 7 the plane grid 0x59 / 0x68, 8 the army test 0x63) and whether RW 0x82D6B1 accepts a targetless type
 int finalTestKind(int type);
 bool targetlessTypeAccepted(int type);
 

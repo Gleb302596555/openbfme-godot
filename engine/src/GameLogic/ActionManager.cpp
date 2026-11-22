@@ -41,7 +41,7 @@ const char *const kStopRequirements =
 	"command frame) is not ported (answers no for that type); only SpecialAbilityUpdate answers the special power update interface (vslot 0x64)";
 const char *const kStopTypeTest =
 	"[S-1874] ActionManager RW 0x82DFB7: the per-power-type tests of the building powers (0x52, 0x61, 0x67, 0x6A: RW 0x82E2DE), 0x27 (RW 0x67F52B), 0x38 "
-	"(RW 0x76A247), 0x41 (RW 0x82E252), 0x49 (RW 0x680A75 layer) and 0x57 (the rebuild scan RW 0x82E93C) are not ported, and the summons' spot test (0x55, 0x56, "
+	"(RW 0x76A247), 0x41 (RW 0x82E252) and 0x49 (RW 0x680A75 layer) are not ported; Rebuild 0x57 (RW 0x82E93C) and the summons' spot test (0x55, 0x56, "
 	"0x5B, 0x5D .. 0x5F, 0x73, 0x76, 0x78, 0x7B, 0x7C, 0x7E, 0x96, 0x9A: RW 0x82E586) is ported (lane SUMMONLOC-1: the partition's geometry overlap, distance "
 	"type 4, on the template's shapes, S-1020): the unported types answer no (counted per type)";
 
@@ -243,7 +243,7 @@ enum FinalTest
 	FINAL_NOT_SHROUD,  // RW 0x82ED95: the status is not SHROUDED (2)
 	FINAL_GRID_CLIFF,  // RW 0x82EC27 (0x48 .. 0x4A)
 	FINAL_RANGE,       // RW 0x82ED67 (0x92)
-	FINAL_UNPORTED,    // 0x27, 0x57
+	FINAL_SPECIAL,     // 0x27 unported, 0x57 Rebuild
 	FINAL_GRID_PLANE,  // RW 0x82EA58 (0x59, 0x68)
 	FINAL_ARMY         // RW 0x82EB27 (0x63)
 };
@@ -266,7 +266,7 @@ FinalTest finalTestOf(int type)
 	case 0x92:
 		return FINAL_RANGE;
 	case 0x27: case 0x57:
-		return FINAL_UNPORTED;
+		return FINAL_SPECIAL;
 	case 0x59: case 0x68:
 		return FINAL_GRID_PLANE;
 	case 0x63:
@@ -903,8 +903,40 @@ bool canDoSpecialPowerAtLocation(Object &obj, const Coord3D &loc, const SpecialP
 		const double r2 = SimMath::pc24MulW((double)t.m_viewObjectRange, (double)t.m_viewObjectRange);
 		return !(r2 < d2);
 	}
-	case FINAL_UNPORTED:
-		return unportedAnswer(unported, logic, type);
+	case FINAL_SPECIAL:
+	{
+		if (type != 0x57)
+		{
+			return unportedAnswer(unported, logic, type); // 0x27's earlier test remains unported
+		}
+		// RW 0x82DFB7, 0x82E93C..0x82EA56; DONOR BFME2 0x0041D60B
+		// (ActionManagerCanDoSpecialPowerAtLocation.cpp): live allied STRUCTUREs,
+		// within the integer-truncated radius in 2D, must have a damaged body.
+		const float radius = (float)SimMath::truncToInt32(t.m_radiusCursorRadius);
+		static const int kStructure = kindBit("STRUCTURE");
+		PartitionFilterFn alive([](Object &o) { return !o.isEffectivelyDead(); });
+		PartitionFilterFn structure([](Object &o) { return hasKindBit(o, kStructure); });
+		PartitionFilterFn allied([&](Object &o) { return obj.getRelationship(o) == ALLIES; }); // RW 0x660B85, flag 0
+		for (const PartitionHit &hit : logic.partition().iterateObjectsInRange(loc, radius, FROM_CENTER_2D, { &alive, &structure, &allied }, ITER_FASTEST))
+		{
+			const Object &candidate = *hit.object;
+			const float progress = candidate.getConstructionPercent();
+			if (progress >= 0.0f && progress < 99.0f) // RW 0x82E9F3..0x82EA0F
+			{
+				continue;
+			}
+			const BodyModuleInterface *body = candidate.getBodyModule();
+			if (!body)
+			{
+				throw std::logic_error("ActionManager RW 0x82DFB7: Rebuild candidate has no body");
+			}
+			if (body->getHealth() < body->getMaxHealth()) // RW 0x82EA11..0x82EA33
+			{
+				return true;
+			}
+		}
+		return false;
+	}
 	case FINAL_NO:
 	default:
 		return false;
