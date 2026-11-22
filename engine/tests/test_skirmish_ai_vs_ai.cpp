@@ -972,7 +972,13 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 	// pin: the PC landing of Locals 96 / 97 / 98 (2026-11-21, MSVC): Local 96's WorkerAIUpdate::newTask sets WORKER_REPAIRING (status 0x61, in the object
 	// hash; RW 0x008AE4A9) and DozerAIUpdate::onDelete (RW 0x0088CF96) moves the workers' repairs: seed 7 still ends with the Men's defeat, now at 4538 (was
 	// 4571), seed 1234 with Mordor's defeat at 5163 (was 5359), seed 2 stays open; with Local 96's changes switched off on its branch the old pins pass. Engine pins.
-	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, -1, -1 }, Game{ "FactionMen", "FactionMordor", 7u, 1, 4538 }, Game{ "FactionMordor", "FactionMen", 1234u, 0, 5163 } })
+	// pin: Locals 118 and 120 (landed 2026-11-21 at c0388357, not re-measured then; found 2026-11-22 on Colab sb5, Linux GCC): Local 118's
+	// LargeGroupAudioUpdate::getDisabledTypesToProcess (RW 0x008AF0D0: DISABLEDMASK_ALL, disabled objects run their update) with Local 120's P-169
+	// (the held position's ground snap, RW 0x5E77AF .. 0x70BA76) and P-168 (ObjectCreationUpgrade onEnslave, RW 0x8B8464) move the three games;
+	// attributed by one build with those three switched off (green on c0388357 and on main eb44cdd3; each alone is not enough; the Locals 108-126 batch
+	// and Port 289 #721 do not move them): seed 2 now ends with the Men's defeat (start position 1) at 4483 (was open at 9000), seed 7 with the Men's
+	// defeat at 3173 (was 4538), seed 1234 with Mordor's defeat at 8765 (was 5163). Engine pins.
+	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, 1, 4483 }, Game{ "FactionMen", "FactionMordor", 7u, 1, 3173 }, Game{ "FactionMordor", "FactionMen", 1234u, 0, 8765 } })
 	{
 		INFO(g.a << " vs " << g.b << " seed " << g.seed);
 		VersusRun run;
@@ -1029,16 +1035,12 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 			// pin: batch 2026-11-17a, Port 237 (#596; see above): a new table from the first window on; open at 9000
 			// pin: PR #619 (Port 226, #549) merged onto main 026fbc2f, measured once on the merged tree (Linux GCC on Colab): every fifth idle update of a unit with a StancesBehavior returns FAILURE (RW 0x7553AB -> RW 0x7537C7 / 0x7537E0), the unit goes to AIGoingIdleState -> onMoveEnd -> guardHere (RW 0x743864 -> 0x86228E -> RW 0x662A21): a guard machine main did not run: a new table from the first window on, ending at 8000 (the game ends at 8197)
 			// pin: the PC batch of 2026-11-19 (PORT-459 #653, see above): a new table from the first window on; the game stays open at 9000
+			// pin: Locals 118 and 120 (see the game table above): a new table from the first window on; the game ends at 4483
 			CHECK(run.progress ==
-			"frame 1000: [0 attacks 1 built 71u/7s destroyed 22u/1s] [1 attacks 2 built 75u/8s destroyed 20u/1s]\n"
-			"frame 2000: [0 attacks 2 built 200u/10s destroyed 143u/2s] [1 attacks 4 built 229u/10s destroyed 133u/2s]\n"
-			"frame 3000: [0 attacks 3 built 402u/12s destroyed 263u/2s] [1 attacks 6 built 325u/12s destroyed 303u/4s]\n"
-			"frame 4000: [0 attacks 5 built 553u/15s destroyed 371u/4s] [1 attacks 8 built 429u/15s destroyed 440u/4s]\n"
-			"frame 5000: [0 attacks 8 built 636u/18s destroyed 425u/4s] [1 attacks 10 built 515u/19s destroyed 495u/8s]\n"
-			"frame 6000: [0 attacks 14 built 708u/22s destroyed 544u/4s] [1 attacks 12 built 655u/22s destroyed 622u/9s]\n"
-			"frame 7000: [0 attacks 16 built 809u/24s destroyed 650u/4s] [1 attacks 14 built 808u/24s destroyed 730u/9s]\n"
-			"frame 8000: [0 attacks 18 built 1006u/24s destroyed 822u/4s] [1 attacks 16 built 972u/24s destroyed 945u/9s]\n"
-			"frame 9000: [0 attacks 27 built 1159u/27s destroyed 1005u/4s] [1 attacks 17 built 1108u/24s destroyed 1106u/14s]\n");
+			"frame 1000: [0 attacks 0 built 71u/8s destroyed 23u/1s] [1 attacks 0 built 75u/7s destroyed 11u/1s]\n"
+			"frame 2000: [0 attacks 4 built 221u/11s destroyed 176u/4s] [1 attacks 3 built 198u/10s destroyed 63u/2s]\n"
+			"frame 3000: [0 attacks 4 built 375u/13s destroyed 294u/7s] [1 attacks 4 built 307u/11s destroyed 267u/3s]\n"
+			"frame 4000: [0 attacks 5 built 539u/16s destroyed 339u/11s] [1 attacks 5 built 350u/12s destroyed 426u/3s]\n");
 		}
 	}
 }

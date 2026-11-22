@@ -26,3 +26,18 @@ def test_result_kinds():
     assert f.test_result("x.cpp:3: ERROR: CHECK( a ) is NOT correct!\n[doctest] test cases: 1 | 0 passed | 1 failed", 1) == \
         ("fail", "x.cpp:3: ERROR: CHECK( a ) is NOT correct!")
     assert f.test_result("[doctest] test cases: 0 | 0 passed | 0 failed", 0) == ("none", "")
+
+
+def test_a_pr_without_engine_code_needs_no_own_test(monkeypatch, capsys):
+    # Local 121 (PR 828, 2026-11-21): a docs-only "Local N" PR was red for the missing LOCAL-N test
+    import subprocess
+    monkeypatch.setenv("PR_TITLE", "Local 121: upstream branches")
+    monkeypatch.setenv("PR_BODY", "")
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    monkeypatch.setattr(f, "Path", lambda p: type("P", (), {"exists": lambda self: False})())
+    def fake_sh(cmd, **kw):
+        out = "docs/ennorath/PR_CANDIDATES.md\n" if "--name-only" in cmd else "+| row |\n"
+        return subprocess.CompletedProcess(cmd, 0, out, "")
+    monkeypatch.setattr(f, "sh", fake_sh)
+    assert f.main() == 0
+    assert "Своих тестов не нужно" in capsys.readouterr().out
