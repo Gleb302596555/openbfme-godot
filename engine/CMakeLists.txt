@@ -262,6 +262,7 @@ include(cmake/Port109.cmake) # OPENBFME_PORT109_TESTS
 include(cmake/Port47.cmake) # OPENBFME_PORT47_TESTS
 include(cmake/Play2.cmake) # OPENBFME_PLAY2_TESTS (lane PLAY-2)
 include(cmake/Port300.cmake) # OPENBFME_PORT300_TESTS (lane PORT-300, issue #692)
+include(cmake/Port320.cmake) # OPENBFME_PORT320_TESTS (victory defeat reveal, fork issue 756)
 include(cmake/Port302.cmake) # PORT-302: InactiveBody's armor-set flags and its damage answers (fork issue 694)
 include(cmake/Port287.cmake) # PORT-287: horde producer selection and charge (OPENBFME_PORT287_TESTS)
 include(cmake/Port248.cmake) # OPENBFME_PORT248_TESTS
@@ -1441,6 +1442,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT302_TESTS}
     ${OPENBFME_PORT293_TESTS}
     ${OPENBFME_PORT309_TESTS}
+    ${OPENBFME_PORT320_TESTS}
     tests/test_main.cpp
     tests/test_big_archive.cpp
     tests/test_parser_fuzz_regressions.cpp

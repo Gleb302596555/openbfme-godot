@@ -20,6 +20,7 @@
 #include "GameLogic/ObjectFilter.h"
 #include "GameLogic/ObjectFilterMatch.h"
 #include "GameLogic/SimMath.h"
+#include "GameLogic/System/ShroudManager.h"
 
 #include <stdexcept>
 
@@ -472,6 +473,11 @@ void VictoryConditions::update()
 			p->getScoreKeeper().setEndFrame(frame);
 			if (frame > 1)
 			{
+				// RW 0x808F53's defeat path: after RW 0x8090A4 permits frames > 1, RW 0x8090AA calls the defeated player's reveal thunk RW 0xB4D940, which forwards to ShroudManager::revealMapForPlayerPermanently at RW 0xB4F5D0.
+				if (ShroudManager *shroud = m_logic.shroud())
+				{
+					shroud->revealMapForPlayerPermanently(p->getPlayerIndex());
+				}
 				m_events.push_back(Event{ frame, Event::PLAYER_DEFEATED, p->getPlayerIndex() });
 			}
 			killPlayer(p);
@@ -637,7 +643,7 @@ std::vector<std::string> VictoryConditions::stops()
 		"last attacker the elimination bonus (RW 0x6ABF3C .. 0x6ABFEE); the keep-score switch clears with the single alliance (RW 0x80903F). TheGameInfo's vslot 0x50 is "
 		"GameInfo::isSandbox (RW 0x800C8F, lane GAMEMODES-1: a sandbox game keeps the switch and has no MULTIPLAYER_ALLIED_VICTORY). Not ported: ThePlayerList vslot 0x40 in killPlayer, the rule that kills the remaining computer "
 		"players when no human is left (RW 0x809271 .. 0x80936E: its Living World record RW 0x6B5DE0 + 0x444 is not identified), the shared-AI branch of killPlayer (AISkirmishPlayer "
-		"+ 0x178, RW 0x6C7518), the game slot defeat frames (RW 0x809370 ..) and RW 0x625F7C, the map reveal of a defeated player (RW 0xB4D940). END-2: MSG_SELF_DESTRUCT "
+		"+ 0x178, RW 0x6C7518), the game slot defeat frames (RW 0x809370 ..) and RW 0x625F7C. The defeated player's map reveal is ported (RW 0x8090AA -> 0xB4D940 -> 0xB4F5D0). END-2: MSG_SELF_DESTRUCT "
 		"(RW 0x77CA3D, the quit menu's surrender / exit) kills the sender; the asset transfer to a living ally of the exit (RW 0x6AF598) is MP-2's port (S-1122), and the Living World "
 		"branch of the surrender (RW 0x77CB05 ..) is not ported",
 	};
