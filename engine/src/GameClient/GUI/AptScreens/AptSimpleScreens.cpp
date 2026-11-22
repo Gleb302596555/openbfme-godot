@@ -2,6 +2,8 @@
 // See GameClient/GUI/AptScreens/AptSimpleScreens.h.
 
 #include "GameClient/GUI/AptScreens/AptSimpleScreens.h"
+
+#include "Common/ModEngineFeatures.h"
 #include "GameClient/LocalizedText.h"
 #include "Common/BfmeGame.h"
 
@@ -315,9 +317,96 @@ void AptPlayerTribute::dropStatusPage()
 // border (its right edge two pixels before the border), not over it
 constexpr int kStatusPageBadgeDx = -7;
 
+// ennorath.chat-mute: PYSAGE 1.9.8.5 .chatmut 0x00EDB01C (hook RW 0x915E00, pageKind=0) and 0x00EDB037 (hook RW 0x9162F5, pageKind=1)
+// -> 0x00EDB058: parses "cmq=<0..7>&name=<path>" (query) or "cmt=<0..7>&name=<path>" (toggle), maps the row to its GameSlot 0..7,
+// toggles bit `slot` in the local mute mask (.chatmut 0x00EDB26C) on cmt=, and invokes "<relPath>.ChatMute"->SetMuteState("_audible"|"_muted"|"_disabled").
+bool AptPlayerTribute::handleChatMute(bool isTributePage, const std::string &params)
+{
+	if (!ModEngineFeatures::has(ModEngineFeature::EnnorathChatMute))
+	{
+		return false;
+	}
+	if (params.size() < 4)
+	{
+		return false;
+	}
+	bool isToggle = false;
+	if (params.compare(0, 4, "cmq=") == 0)
+	{
+		isToggle = false;
+	}
+	else if (params.compare(0, 4, "cmt=") == 0)
+	{
+		isToggle = true;
+	}
+	else
+	{
+		return false; // PYSAGE 1.9.8.5 .chatmut 0x00EDB08E -> 0x00EDB205: not a chat-mute command, run vanilla OnRowShown
+	}
+	// PYSAGE 1.9.8.5 .chatmut 0x00EDB09B .. 0x00EDB0E3: single digit 0..7, "&name=", non-empty target with level 0..13
+	if (params.size() <= 11)
+	{
+		return true;
+	}
+	const unsigned rowIndex = (unsigned)(unsigned char)params[4] - (unsigned)'0';
+	if (rowIndex > 7u || params.compare(5, 6, "&name=") != 0)
+	{
+		return true;
+	}
+	const std::string target = params.substr(11);
+	const int targetLevel = levelIndexFromTarget(target); // RW 0x8155D9
+	if (targetLevel < 0 || targetLevel > 13 || !m_env.tribute)
+	{
+		return true;
+	}
+	int slot = -1;
+	bool isLocal = false;
+	if (!isTributePage)
+	{
+		// PYSAGE 1.9.8.5 .chatmut 0x00EDB109 .. 0x00EDB11D: StatusPage row table
+		if (!m_status || !m_env.playerStatus || rowIndex >= m_env.playerStatus->rows.size())
+		{
+			return true;
+		}
+		const PlayerStatusRow &row = m_env.playerStatus->rows[rowIndex];
+		slot = row.slot;
+		isLocal = slot >= 0 && slot == m_env.playerStatus->localSlot;
+	}
+	else
+	{
+		// PYSAGE 1.9.8.5 .chatmut 0x00EDB11F .. 0x00EDB15C: TributePage row table
+		if (rowIndex >= m_rows.size())
+		{
+			return true;
+		}
+		const TRow &row = m_rows[rowIndex];
+		slot = row.slot;
+		isLocal = row.local;
+	}
+	// PYSAGE 1.9.8.5 .chatmut 0x00EDB15E .. 0x00EDB1A3: local player or invalid slot -> "_disabled"; else toggle on cmt= and pick "_muted" / "_audible"
+	const char *state = "_disabled";
+	if (slot >= 0 && slot <= 7 && !isLocal)
+	{
+		if (isToggle)
+		{
+			m_env.tribute->setChatMuted(slot, !m_env.tribute->chatMuted(slot));
+		}
+		state = m_env.tribute->chatMuted(slot) ? "_muted" : "_audible";
+	}
+	// PYSAGE 1.9.8.5 .chatmut 0x00EDB1A8 .. 0x00EDB1F6: "%s.ChatMute" -> SetMuteState(state) (RW 0x62282A)
+	const std::string clipPath = skipLevelN(target) + ".ChatMute";
+	std::string error;
+	windows().invokeASAt(targetLevel, clipPath, "SetMuteState", { state }, nullptr, &error);
+	return true;
+}
+
 // RW 0x915E00 (OnRowShown) -> the row object RW 0x915BF6
 void AptPlayerTribute::rowShown(const std::string &params)
 {
+	if (handleChatMute(false, params))
+	{
+		return;
+	}
 	std::string indexText, name;
 	if (!m_status || !commandParam(params, "index", indexText))
 	{
@@ -449,6 +538,7 @@ void AptPlayerTribute::contentLoaded(const std::string &argument)
 			}
 			TRow r;
 			r.playerIndex = p.playerIndex;
+			r.slot = p.slot;
 			r.name = p.name;
 			r.cash = p.cash;
 			r.local = p.local;
@@ -491,6 +581,10 @@ void AptPlayerTribute::tributeRowHidden(const std::string &argument)
 
 void AptPlayerTribute::tributeRowShown(const std::string &argument)
 {
+	if (handleChatMute(true, argument))
+	{
+		return;
+	}
 	std::string idx, name;
 	if (!commandParam(argument, "index", idx) || !commandParam(argument, "name", name))
 	{
@@ -1444,9 +1538,32 @@ AptOptionsScreen::AptOptionsScreen(WindowManager &windows, Shell &shell, ShellEn
 	registerCommand("AptOptions::RefreshNat", unportedCommand("AptOptions::RefreshNat"));
 	registerCommand("AptOptions::EnterAdvancedSettings", [this](const std::string &) { enterAdvancedSettings(); });
 	registerScreenRef("AptOptions::InitGadgets", [this](const std::string &name, GameWindow *w) { initGadget(name, w); });
+	if (ModEngineFeatures::has(ModEngineFeature::EnnorathOptionsPages))
+	{
+		// PYSAGE 1.9.8.5 .optui 0xF230C7 (hook RW 0x9212BA) -> 0xF237B8: register the 9 AptOptions::ET* commands
+		m_etState.loadFromPreferences(m_env.options);
+		m_etDraft = m_etState.values;
+		for (int p = 0; p <= 4; ++p)
+		{
+			registerCommand("AptOptions::ETPage" + std::to_string(p), [this, p](const std::string &) { etSelectPage(p); });
+		}
+		registerCommand("AptOptions::ETPage9", [this](const std::string &) { etSelectPage(9); });
+		registerCommand("AptOptions::ETBegin", [this](const std::string &) { etBegin(); });
+		registerCommand("AptOptions::ETCancel", [this](const std::string &) { etCancel(); });
+		registerCommand("AptOptions::ETReset", [this](const std::string &) { etReset(); });
+	}
 	for (int i = 0; i < 7; ++i)
 	{
 		registerProvider(kOptionsExterns[i], [this, i](const std::string &, std::string &value, bool setting) { return provide(i, value, setting); });
+	}
+	if (ModEngineFeatures::has(ModEngineFeature::EnnorathOptionsPages))
+	{
+		// Ennorath 1.9.8.5's Options.apt is compiled as Apt Data:7 (SWF 7), where toBoolean("0") is true for strings;
+		// mark the 0/1 flag externs numeric so "0" evaluates as false (as AptCampaignMenu / AptCreateAHero / AptTimeLine).
+		for (int i = 3; i < 7; ++i)
+		{
+			windows.markNumericProvider(kOptionsExterns[i]);
+		}
 	}
 	// lane PLAY-2: RW 0x921325 .. 0x9213F2: the preset templates (0 .. 4, Custom 5) and the advanced options' choice counts
 	for (int i = 0; i <= GameLODManager::kCustomLevel; ++i)
@@ -1658,6 +1775,14 @@ void AptOptionsScreen::initGadget(const std::string &fullName, GameWindow *w)
 	}
 	const std::string name = fullName.substr(prefix.size());
 	m_gadgets[name] = w;
+	if (ModEngineFeatures::has(ModEngineFeature::EnnorathOptionsPages))
+	{
+		// PYSAGE 1.9.8.5 .optui 0xF23000 (hook RW 0x920602) -> .dlyfix 0xF35070 -> .optui 0xF23558
+		if (etInitGadget(name, w))
+		{
+			return;
+		}
+	}
 	const OptionPreferences *prefs = m_env.options;
 	auto yes = [&](const char *key, bool missing) { return prefs && prefs->has(key) ? prefs->get(key) == "yes" : missing; };
 	if (name == "Resolution")
@@ -2257,6 +2382,11 @@ void AptOptionsScreen::save()
 	{
 		if (prefs)
 		{
+			if (ModEngineFeatures::has(ModEngineFeature::EnnorathOptionsPages))
+			{
+				// PYSAGE 1.9.8.5 .optui 0xF23027 (hook RW 0x9204D9) -> .dlyfix 0xF35189 -> .optui 0xF23BF3
+				etSave(*prefs);
+			}
 			writeOptions();
 		}
 		windows().requestShellPop();
@@ -3024,7 +3154,262 @@ std::u16string withReason(const std::u16string &help, const char *reason)
 
 bool AptOptionsScreen::menuMode() const
 {
+	// When Ennorath 1.9.8.5's paged Options.apt profile feature is active, let the mod's own paged movie run
+	// natively instead of replacing its frames with OpenBFME's overlay page.
+	if (ModEngineFeatures::has(ModEngineFeature::EnnorathOptionsPages))
+	{
+		return false;
+	}
 	return kOpenBFMEMenu && m_env.openbfmeOptionsMenu;
+}
+
+bool AptOptionsScreen::etGadgetHidden(const std::string &name) const
+{
+	GameWindow *w = gadget(name);
+	return !w || w->winIsHidden();
+}
+
+void AptOptionsScreen::etBegin()
+{
+	// PYSAGE 1.9.8.5 .optui 0xF2339F -> 0xF2334F -> .dlyfix 0xF350ED
+	m_etPage = 0;
+	m_etHasDraft = false;
+	m_etWindows.fill(nullptr);
+	m_etDelayFixWindow = nullptr;
+	m_etState.loadFromPreferences(m_env.options);
+	m_etDraft = m_etState.values;
+}
+
+void AptOptionsScreen::etCancel()
+{
+	// PYSAGE 1.9.8.5 .optui 0xF233AB -> 0xF2334F
+	m_etPage = 0;
+	m_etHasDraft = false;
+	m_etWindows.fill(nullptr);
+	m_etDelayFixWindow = nullptr;
+}
+
+void AptOptionsScreen::etReset()
+{
+	// PYSAGE 1.9.8.5 .optui 0xF23387 -> .dlyfix 0xF35102 -> .optui 0xF23203
+	const auto &entries = EnnorathOptions::entries();
+	for (int i = 0; i < EnnorathOptions::kEntryCount; ++i)
+	{
+		const EnnorathOptionEntry &e = entries[(std::size_t)i];
+		if (e.kind == EnnorathOptionKind::Retail)
+		{
+			continue;
+		}
+		m_etDraft[(std::size_t)i] = e.defaultValue;
+		if (GameWindow *w = m_etWindows[(std::size_t)i])
+		{
+			const int idx = EnnorathOptions::valueToIndex(e.kind, e.defaultValue);
+			GadgetComboBoxSetSelectedPos(w, idx, false);
+		}
+	}
+	if (m_etDelayFixWindow)
+	{
+		GadgetCheckBoxSetChecked(m_etDelayFixWindow, true); // PYSAGE 1.9.8.5 .dlyfix 0xF35110
+	}
+}
+
+void AptOptionsScreen::etSyncVisibility()
+{
+	// PYSAGE 1.9.8.5 .optui 0xF23467 .. 0xF2348F + .dlyfix 0xF350D0
+	const auto &entries = EnnorathOptions::entries();
+	for (int i = 0; i < EnnorathOptions::kEntryCount; ++i)
+	{
+		if (GameWindow *w = m_etWindows[(std::size_t)i])
+		{
+			w->winHide(entries[(std::size_t)i].page != m_etPage);
+		}
+	}
+	if (m_etDelayFixWindow)
+	{
+		m_etDelayFixWindow->winHide(m_etPage != 4);
+	}
+}
+
+void AptOptionsScreen::etSelectPage(int page)
+{
+	// PYSAGE 1.9.8.5 .optui 0xF233B7 .. 0xF234AF
+	const auto &entries = EnnorathOptions::entries();
+	for (int i = 0; i < EnnorathOptions::kEntryCount; ++i)
+	{
+		GameWindow *w = m_etWindows[(std::size_t)i];
+		if (!w)
+		{
+			continue;
+		}
+		const std::string gname = entries[(std::size_t)i].gadgetName;
+		if (entries[(std::size_t)i].kind != EnnorathOptionKind::Retail || gname == "Detail" || gname == "Resolution" || gname == "OnlineIp")
+		{
+			GadgetComboBoxHideList(w); // RW 0x724411
+		}
+	}
+	if (page == 9 && m_etPage != 9)
+	{
+		// Snapshot current combo values before entering Advanced Settings (.optui 0xF233F4 .. 0xF23455)
+		for (int i = 0; i < EnnorathOptions::kEntryCount; ++i)
+		{
+			const EnnorathOptionEntry &e = entries[(std::size_t)i];
+			if (e.kind == EnnorathOptionKind::Retail || !m_etWindows[(std::size_t)i])
+			{
+				continue;
+			}
+			int sel = -1;
+			GadgetComboBoxGetSelectedPos(m_etWindows[(std::size_t)i], &sel);
+			if (sel >= 0 && sel < EnnorathOptions::choiceCount(e.kind))
+			{
+				m_etDraft[(std::size_t)i] = EnnorathOptions::indexToValue(e.kind, sel);
+			}
+		}
+		m_etHasDraft = true;
+	}
+	m_etPage = page;
+	etSyncVisibility();
+}
+
+bool AptOptionsScreen::etInitGadget(const std::string &shortName, GameWindow *w)
+{
+	if (shortName == "ETDelayFix")
+	{
+		// PYSAGE 1.9.8.5 .dlyfix 0xF35088 .. 0xF350C0
+		m_etDelayFixWindow = w;
+		if (ModEngineFeatures::has(ModEngineFeature::EnnorathOnlineDelayFix))
+		{
+			GadgetCheckBoxSetChecked(w, m_etState.delayFix);
+		}
+		w->winHide(m_etPage != 4);
+		return true;
+	}
+	const int idx = EnnorathOptions::findEntryByGadget(shortName);
+	if (idx < 0)
+	{
+		return false;
+	}
+	const EnnorathOptionEntry &e = EnnorathOptions::entries()[(std::size_t)idx];
+	m_etWindows[(std::size_t)idx] = w;
+	if (e.kind == EnnorathOptionKind::Retail)
+	{
+		// PYSAGE 1.9.8.5 .optui 0xF23721 .. 0xF237A1: hide if not on active page, then let retail InitGadgets populate it
+		if (shortName == "Detail" || shortName == "Resolution" || shortName == "OnlineIp")
+		{
+			GadgetComboBoxSetMaxDisplay(w, 8);
+		}
+		w->winHide(e.page != m_etPage);
+		return false;
+	}
+
+	// PYSAGE 1.9.8.5 .optui 0xF23656 .. 0xF2379F: populate ComboBox for FrameRate / MouseSensitivity / Hotkey
+	GadgetComboBoxReset(w);
+	const int count = EnnorathOptions::choiceCount(e.kind);
+	for (int c = 0; c < count; ++c)
+	{
+		std::u16string label;
+		if (e.kind == EnnorathOptionKind::FrameRate)
+		{
+			const char *key = (c == 0) ? "APT:ETFPS30" : "APT:ETFPS60";
+			if (!m_env.gameText || !m_env.gameText->fetch(key, label) || label.empty())
+			{
+				label = (c == 0) ? u"30 FPS" : u"60 FPS";
+			}
+		}
+		else if (e.kind == EnnorathOptionKind::MouseSensitivity)
+		{
+			const int pct = EnnorathOptions::sensitivityValues()[(std::size_t)c];
+			label = asciiToU16(std::to_string(pct) + "%");
+		}
+		else if (e.kind == EnnorathOptionKind::Hotkey)
+		{
+			if (c == 0)
+			{
+				label = EnnorathOptions::formatDefaultKeyLabel(idx, nullptr, m_env.gameText);
+			}
+			else
+			{
+				const std::string s = EnnorathOptions::keyChoices()[(std::size_t)c].label;
+				for (std::size_t k = 0; k < s.size();)
+				{
+					const unsigned char b = (unsigned char)s[k];
+					if (b < 0x80) { label.push_back((char16_t)b); ++k; }
+					else if ((b & 0xF0) == 0xE0 && k + 2 < s.size())
+					{
+						label.push_back((char16_t)(((b & 0x0Fu) << 12) | (((unsigned char)s[k + 1] & 0x3Fu) << 6) | ((unsigned char)s[k + 2] & 0x3Fu)));
+						k += 3;
+					}
+					else { label.push_back(u'?'); ++k; }
+				}
+			}
+		}
+		GadgetComboBoxAddEntry(w, label, GameMakeColor(255, 255, 255, 255));
+	}
+	const int val = m_etHasDraft ? m_etDraft[(std::size_t)idx] : m_etState.values[(std::size_t)idx];
+	const int sel = EnnorathOptions::valueToIndex(e.kind, val);
+	GadgetComboBoxSetSelectedPos(w, sel >= 0 ? sel : 0, false);
+	GadgetComboBoxSetMaxDisplay(w, e.kind == EnnorathOptionKind::Hotkey ? 4 : (e.kind == EnnorathOptionKind::FrameRate ? 2 : 8));
+	w->winHide(e.page != m_etPage);
+	if (e.kind == EnnorathOptionKind::FrameRate)
+	{
+		w->winEnable(m_allowResolution); // PYSAGE 1.9.8.5 .optui 0xF2378C: main menu only
+	}
+	else if (e.kind == EnnorathOptionKind::Hotkey && !ModEngineFeatures::has(ModEngineFeature::EnnorathOptionHotkeys))
+	{
+		w->winEnable(false);
+	}
+	return true;
+}
+
+void AptOptionsScreen::etSave(OptionPreferences &prefs)
+{
+	// PYSAGE 1.9.8.5 .optui 0xF23BF3 .. 0xF23DD4 + .dlyfix 0xF35189 .. 0xF35206
+	const auto &entries = EnnorathOptions::entries();
+	if (m_etHasDraft)
+	{
+		for (int i = 0; i < EnnorathOptions::kEntryCount; ++i)
+		{
+			if (entries[(std::size_t)i].kind != EnnorathOptionKind::Retail)
+			{
+				m_etState.values[(std::size_t)i] = m_etDraft[(std::size_t)i];
+			}
+		}
+	}
+	for (int i = 0; i < EnnorathOptions::kEntryCount; ++i)
+	{
+		const EnnorathOptionEntry &e = entries[(std::size_t)i];
+		if (e.kind == EnnorathOptionKind::Retail || !m_etWindows[(std::size_t)i])
+		{
+			continue;
+		}
+		int sel = -1;
+		GadgetComboBoxGetSelectedPos(m_etWindows[(std::size_t)i], &sel);
+		if (sel >= 0 && sel < EnnorathOptions::choiceCount(e.kind))
+		{
+			m_etState.values[(std::size_t)i] = EnnorathOptions::indexToValue(e.kind, sel);
+		}
+	}
+	m_etState.resolveDuplicateHotkeys();
+	for (int i = 0; i < EnnorathOptions::kEntryCount; ++i)
+	{
+		if (entries[(std::size_t)i].kind == EnnorathOptionKind::Hotkey && m_etState.values[(std::size_t)i] == 0 && m_etWindows[(std::size_t)i])
+		{
+			GadgetComboBoxSetSelectedPos(m_etWindows[(std::size_t)i], 0, false);
+		}
+	}
+	const bool writeHotkeys = ModEngineFeatures::has(ModEngineFeature::EnnorathOptionHotkeys);
+	const bool writeDelayFix = ModEngineFeatures::has(ModEngineFeature::EnnorathOnlineDelayFix);
+	if (writeDelayFix && m_etDelayFixWindow)
+	{
+		m_etState.delayFix = GadgetCheckBoxIsChecked(m_etDelayFixWindow);
+	}
+	// Note: ETFrameRate is saved for parity with Options.ini, but OpenBFME keeps its own frame rate (owner decision 2026-11-15).
+	m_etState.saveToPreferences(prefs, true, writeHotkeys, writeDelayFix);
+	m_services.applyOption("ETMouseSensitivity", std::to_string(m_etState.values[1]));
+	if (writeDelayFix)
+	{
+		m_services.applyOption("NetworkDelayFix", m_etState.delayFix ? "1" : "0");
+	}
+	m_etHasDraft = false;
 }
 
 const std::vector<AptOptionsScreen::RetailRow> &AptOptionsScreen::retailRowTable()

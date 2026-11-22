@@ -38,3 +38,11 @@ def test_load_reads_the_written_list(tmp_path):
     p.write_text("# header\naddress\tname\treason\n0x00A3D01A\t_strncat\tC runtime / compiler helper\n", encoding="utf-8")
     assert lib.load(p) == {0x00A3D01A: "C runtime / compiler helper"}
     assert lib.load(tmp_path / "missing.tsv") == {}
+
+
+def test_proven_library_entries_in_tsv():
+    loaded = lib.load()
+    assert len(lib.PROVEN_LIBRARY) == 30
+    for addr, (_name, why) in lib.PROVEN_LIBRARY.items():
+        assert addr in loaded, f"missing 0x{addr:08X} in rw_library_functions.tsv"
+        assert loaded[addr] == why

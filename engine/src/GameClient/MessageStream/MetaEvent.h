@@ -124,6 +124,7 @@ public:
 
 	// the records in the order the translator tries them (reverse of first appearance)
 	const std::vector<MetaMapRec> &records() const { return m_records; }
+	std::vector<MetaMapRec> &recordsMutable() { return m_records; }
 	const MetaMapRec *find(int meta) const;
 	// a record of the map (any transition, any UseableIn) takes this key with exactly these modifiers (MOD_*): OpenBFME's own hotkeys stay off it
 	bool isBound(int key, int modState) const;

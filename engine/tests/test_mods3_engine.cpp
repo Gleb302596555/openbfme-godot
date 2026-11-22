@@ -70,12 +70,15 @@ TEST_CASE("MODS-3: Ennorath 1.9.8.5's game.dat turns on ennorath.stance-keeps-mo
 	REQUIRE_MESSAGE(ModEngineFeatures::activate({ "fc32e4c4142b5c607b90972eaf448400" }, &error), error);
 	CHECK(ModEngineFeatures::activeProfiles() == std::vector<std::string>{ "Ennorath 1.9.8.5 game.dat" });
 	CHECK(ModEngineFeatures::identityFeatures() ==
-		std::vector<std::string>{ "mod-engine:ennorath.stance-keeps-moving", "mod-engine:ennorath.middle-click-camera", "mod-engine:ennorath.evacuate-containers" }); // a retail peer is refused
+		std::vector<std::string>{ "mod-engine:ennorath.stance-keeps-moving", "mod-engine:ennorath.middle-click-camera", "mod-engine:ennorath.evacuate-containers", "mod-engine:ennorath.options-pages", "mod-engine:ennorath.option-hotkeys", "mod-engine:ennorath.online-delay-fix", "mod-engine:ennorath.lobby-map-search", "mod-engine:ennorath.chat-mute" }); // a retail peer is refused
 	CHECK_FALSE(ModEngineFeatures::has(ModEngineFeature::EdainUnchainedHerobarKindOf));
 	const std::vector<std::string> lines = ModEngineFeatures::stopLines();
 	REQUIRE(lines.size() == 1);
 	CHECK(lines[0].rfind("S-5304: Ennorath 1.9.8.5 game.dat: rebuilt: ", 0) == 0);
-	CHECK(lines[0].find("not yet (docs/ennorath/ENNORATH_EXE.md): the map search in the lobby") != std::string::npos);
+	CHECK(lines[0].find("the map search in the lobby (.mapfind / .mapsvar)") != std::string::npos);
+	CHECK(lines[0].find("the option hotkeys and mod defaults (.hotkeys / .keydef / .keycmd)") != std::string::npos); // Local 127
+	CHECK(lines[0].find("per-player chat mute on the tribute screen (.chatmut 0xEDB000)") != std::string::npos); // Local 129
+	CHECK(lines[0].find("not yet (docs/ennorath/ENNORATH_EXE.md): replays") != std::string::npos); // Locals 127-129 merged (2026-11-22)
 }
 
 namespace

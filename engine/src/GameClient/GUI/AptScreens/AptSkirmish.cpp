@@ -3,6 +3,7 @@
 
 #include "Common/BfmeGame.h"
 #include "GameClient/GUI/AptScreens/AptSkirmish.h"
+#include "Common/ModEngineFeatures.h"
 #include "GameClient/GUI/Skirmish/LivingWorldSetupText.h" // lane WOTR-2
 
 #include "GameClient/GUI/AptScreens/AptStats.h"
@@ -1673,6 +1674,11 @@ void AptSkirmish::pruneDeadGadgets()
 		}
 	};
 	check(m_mapList);
+	check(m_mapSearch);
+	if (!m_mapSearch)
+	{
+		m_mapSearchQuery.clear(); // PYSAGE 1.9.8.5 .mapfind 0x00F332CE (hooked at RW 0x840879)
+	}
 	check(m_mapCapacityFilter);
 	check(m_mapInfo);
 	check(m_mapDescription);
@@ -1771,6 +1777,33 @@ void AptSkirmish::initMpGameSetupGadget(const std::string &name, GameWindow *win
 			window->winEnable(false);
 			return;
 		}
+	}
+	// PYSAGE 1.9.8.5 .mapfind 0x00F33000 -> 0x00F33110 (hooked at RW 0x840906): register MapSearch on the Ennorath 1.9.8.5 profile
+	if (name == "MapSearch" && ModEngineFeatures::has(ModEngineFeature::EnnorathLobbyMapSearch))
+	{
+		if (m_mapSearch == window)
+		{
+			return;
+		}
+		GadgetTextEntrySetText(window, std::u16string()); // PYSAGE 1.9.8.5 .mapfind 0x00F3317F -> RW 0x6C236B
+		window->winSetEnabledTextColors(0xFFEEEAE1u, 0xFF101419u);      // PYSAGE 1.9.8.5 .mapfind 0x00F3318C -> RW 0x7156B3
+		window->winSetDisabledTextColors(0xFFAEB8BFu, 0xFF101419u);     // PYSAGE 1.9.8.5 .mapfind 0x00F331A2 -> RW 0x7156DB
+		window->winSetHiliteTextColors(0xFFF5F1E9u, 0xFF101419u);       // PYSAGE 1.9.8.5 .mapfind 0x00F331B5 -> RW 0x715703
+		window->winSetIMECompositeTextColors(0xFFB6D8E8u, 0xFF101419u); // PYSAGE 1.9.8.5 .mapfind 0x00F331C6 -> RW 0x71572B
+		std::u16string placeholder;
+		if (m_env.gameText && m_env.gameText->fetch("APT:MapSearch", placeholder) && !placeholder.empty())
+		{
+			// PYSAGE 1.9.8.5 .mapfind 0x00F3320B: placeholder "APT:MapSearch" (.mapfind 0xF33526), colour 0xFFB6CBD3 / shadow 0xFF101419
+			GadgetTextEntrySetPlaceholder(window, placeholder, 0xFFB6CBD3u, 0xFF101419u);
+		}
+		const bool hadQuery = !m_mapSearchQuery.empty();
+		m_mapSearch = window;
+		m_mapSearchQuery.clear();
+		if (hadQuery)
+		{
+			populateMapList(); // PYSAGE 1.9.8.5 .mapfind 0x00F33169..0x00F33179
+		}
+		return;
 	}
 	if (name == "MapList")
 	{
@@ -2053,6 +2086,96 @@ void AptSkirmish::createMapCapacityFilter()
 	GadgetComboBoxSetSelectedPos(m_mapCapacityFilter, m_largeMapsOnly ? 1 : 0, true);
 }
 
+namespace
+{
+// PYSAGE 1.9.8.5 .mapfind 0x00F330BE: case-fold ASCII, Latin-1 (except U+00D7), Cyrillic, and Yo/yo -> ye (U+0435).
+char16_t foldMapSearchChar(char16_t ch)
+{
+	if (ch == 0x0401u || ch == 0x0451u)
+	{
+		return 0x0435u;
+	}
+	if (ch >= 0x0041u && ch <= 0x005Au)
+	{
+		return static_cast<char16_t>(ch + 0x20u);
+	}
+	if (ch >= 0x00C0u && ch <= 0x00DEu && ch != 0x00D7u)
+	{
+		return static_cast<char16_t>(ch + 0x20u);
+	}
+	if (ch >= 0x0410u && ch <= 0x042Fu)
+	{
+		return static_cast<char16_t>(ch + 0x20u);
+	}
+	if (ch >= 0x0400u && ch <= 0x040Fu)
+	{
+		return static_cast<char16_t>(ch + 0x50u);
+	}
+	return ch;
+}
+
+// PYSAGE 1.9.8.5 .mapfind 0x00F3335B..0x00F3339F: leading / trailing ASCII space (0x20), NBSP (0xA0) and tab (0x09).
+bool isMapSearchTrimSpace(char16_t ch)
+{
+	return (ch & 0xFF7Fu) == 0x0020u || ch == 0x0009u;
+}
+
+// PYSAGE 1.9.8.5 .mapfind 0x00F33416: case-folded substring match against the map display name (without player count).
+bool mapMatchesSearchQuery(const std::u16string &displayName, const std::u16string &query)
+{
+	if (query.empty())
+	{
+		return true;
+	}
+	if (displayName.size() < query.size())
+	{
+		return false;
+	}
+	const std::size_t lastStart = displayName.size() - query.size();
+	for (std::size_t pos = 0; pos <= lastStart; ++pos)
+	{
+		std::size_t i = 0;
+		while (i < query.size() && foldMapSearchChar(displayName[pos + i]) == query[i])
+		{
+			++i;
+		}
+		if (i == query.size())
+		{
+			return true;
+		}
+	}
+	return false;
+}
+} // namespace
+
+void AptSkirmish::updateMapSearchQuery(const std::u16string &rawText)
+{
+	// PYSAGE 1.9.8.5 .mapfind 0x00F332EF..0x00F3340B (hooked at GadgetTextEntryInput RW 0x722745):
+	// trim spaces / NBSP / tabs, clamp to 256 UTF-16 units, fold each char, rebuild MapList when changed.
+	std::size_t begin = 0;
+	std::size_t end = rawText.size();
+	while (begin < end && isMapSearchTrimSpace(rawText[begin]))
+	{
+		++begin;
+	}
+	while (begin < end && isMapSearchTrimSpace(rawText[end - 1]))
+	{
+		--end;
+	}
+	const std::size_t len = std::min<std::size_t>(end - begin, 0x100u);
+	std::u16string normalized;
+	normalized.reserve(len);
+	for (std::size_t i = 0; i < len; ++i)
+	{
+		normalized.push_back(foldMapSearchChar(rawText[begin + i]));
+	}
+	if (normalized != m_mapSearchQuery)
+	{
+		m_mapSearchQuery = std::move(normalized);
+		populateMapList();
+	}
+}
+
 void AptSkirmish::populateMapList()
 {
 	// MpGameSetup's map list fill (RW 0x8460B5; the column widths {8, 2, 70, 10, 10} come from MpGameSetup::InitGadgets RW 0x840906):
@@ -2110,6 +2233,14 @@ void AptSkirmish::populateMapList()
 		const MapCacheEntry &m = maps[(std::size_t)index];
 		if (m_largeMapsOnly && (m.numPlayers <= LEGACY_MAX_SLOTS || m.numPlayers > MAX_SLOTS)) continue;
 		if (bfme1 && m.isOfficial != m_bfme1OfficialMaps) continue;
+		// PYSAGE 1.9.8.5 .mapfind 0x00F33088 -> 0x00F33416 (hooked at RW 0x8465EA): filter by display name without player count (RW 0x702453 with 0)
+		if (ModEngineFeatures::has(ModEngineFeature::EnnorathLobbyMapSearch) && !m_mapSearchQuery.empty())
+		{
+			if (!mapMatchesSearchQuery(m_setup->mapDisplayName(m, bfme1), m_mapSearchQuery))
+			{
+				continue;
+			}
+		}
 		int state = RealTimeStatsPreferences::conquestState(stats, m);
 		if (bfme1)
 		{
@@ -2208,7 +2339,8 @@ void AptSkirmish::populateMapList()
 			selection = row;
 		}
 	}
-	// INFERENCE: RW 0x8460B5 does not select; the lobby shows the game's map selected (the map preview names it)
+	// INFERENCE: RW 0x8460B5 does not select; the lobby shows the game's map selected (the map preview names it).
+	// PYSAGE 1.9.8.5 .mapfind 0x00F334C3 (hooked at RW 0x8467A8): when a search filter hides the selected map, leave selection unset without changing the game's map.
 	if (selection >= 0)
 	{
 		GadgetListBoxSetSelected(m_mapList, selection);
@@ -2579,6 +2711,12 @@ WindowMsgHandledType AptSkirmish::gadgetMessage(GameWindow *, std::uint32_t msg,
 			// lane FB7-1: the map window's start spots forward their clicks to the screen (PassSelectedButtonsToParentSystem, RW 0x6C1501)
 			return onStartSpotSelected(gadget, msg == GBM_SELECTED) ? MSG_HANDLED : MSG_IGNORED;
 		case GEM_UPDATE_TEXT:
+			// PYSAGE 1.9.8.5 .mapfind 0x00F33025 -> 0x00F332EF (hooked at GadgetTextEntryInput RW 0x722745): live map list filter on MapSearch edits
+			if (gadget && gadget == m_mapSearch && ModEngineFeatures::has(ModEngineFeature::EnnorathLobbyMapSearch))
+			{
+				updateMapSearchQuery(GadgetTextEntryGetText(m_mapSearch));
+				return MSG_HANDLED;
+			}
 			// RotWK 0x929589: the persona entry's text decides whether the popup's accept button is enabled (raw text, not trimmed, not a duplicate test)
 			if (gadget == m_profileEntry && gadget)
 			{

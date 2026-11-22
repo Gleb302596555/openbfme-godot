@@ -52,6 +52,7 @@
 #include "GameLogic/ArmorSet.h"
 #include "GameLogic/BitFlags.h"
 #include "GameLogic/Damage.h"
+#include "GameLogic/WeaponSet.h"
 #include "Common/Player.h"
 #include "Common/Upgrade.h"
 
@@ -164,6 +165,9 @@ public:
 	bool isUnderConstruction() const { return testStatus(OBJECT_STATUS_UNDER_CONSTRUCTION); }
 	// lane DECOMP-3: RW 0x691269 Object::isAbleToAttack (BFME2 decomp Object_isAbleToAttack.cpp, tier B same-shape: RotWK's offsets); see Object.cpp
 	bool isAbleToAttack() const;
+	// PORT-198 (RW 0x68D6A6 / 0x68B5FA): per-target / per-weapon attack eligibility (CanAttackResult)
+	CanAttackResult getAbleToAttackSpecificObject(AbleToAttackType attackType, const Object *victim, CommandSourceType source) const;
+	CanAttackResult getAbleToUseWeaponAgainstTarget(AbleToAttackType attackType, const Object *victim, const Coord3D *pos, CommandSourceType source) const;
 	// RW + 0x33C: what the owner paid for this object (a float; ProductionUpdate stores the entry's cost, RW 0x8A1B9F); RefundDie refunds a share of it
 	float getBuildCostPaid() const { return m_buildCostPaid; }
 	// lane UPGRADE-1: RW + 0x340, the money queued OBJECT upgrades cost (ProductionUpdate::queueUpgrade RW 0x8A10C8 adds to it)
@@ -558,7 +562,7 @@ public:
 	// ---- the object list (GameLogic keeps it; spec 5.4: append at the tail) -----------------------------------------------
 	Object *getNextObject() const { return m_next; }
 	Object *getPrevObject() const { return m_prev; }
-	// ZH Object::isInList(Object **pListHead)
+	// RW 0x0068BB4B / DONOR BFME2 Object::isInList(Object **pListHead)
 	bool isInList(Object *const *listHead) const { return m_next != nullptr || m_prev != nullptr || *listHead == this; }
 
 	// ---- the recorded transform (client interpolation data) ----------------------------------------------------------------

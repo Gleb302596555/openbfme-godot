@@ -43,6 +43,7 @@ struct PlayerStatusInfo
 {
 	std::vector<PlayerStatusRow> rows;
 	bool inSkirmish = false; ///< TheGameLogic + 0x110 == 2
+	int localSlot = -1;      ///< TheGameInfo's local slot (used by ennorath.chat-mute, PYSAGE 1.9.8.5 .chatmut 0x00EDB167)
 };
 
 // The live facts of one slot (the host reads them from the logic and the network)

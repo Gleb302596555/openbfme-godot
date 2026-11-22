@@ -31,6 +31,7 @@
 
 #pragma once
 
+#include <array>
 #include "Common/INIDataTypes.h"
 #include "Common/RandomValue.h"
 #include "GameLogic/StateReturnType.h"
@@ -361,6 +362,9 @@ bool WeaponIsWithinTargetPitch(const WeaponTemplate &t, bool pitchLimited, float
 // FiringTracker (RW 0x8E326D shotFired / 0x8E302A reset / 0x8E3174 speedUp / 0x8E30DD update / 0x8E2E12 getShotsAtTarget): continuous fire and
 // AutoReloadWhenIdle. The owner's CONTINUOUS_FIRE_MEAN / FAST conditions are bits 2 and 3 of its weapon bonus condition mask.
 // =============================================================================================================================
+// The 19-word model condition bitset (Object.h's Object::ModelConditionBits is this same type: std::array<std::uint32_t, 19>).
+using ModelConditionBits = std::array<std::uint32_t, 19>;
+
 class FiringTrackerHost
 {
 public:
@@ -371,12 +375,23 @@ public:
 	virtual void setWeaponBonusConditionMask(std::uint32_t mask) = 0;
 	virtual void reloadAllWeapons() = 0; ///< RW 0x68B491 -> WeaponSet reloadAmmo on every weapon
 	virtual std::uint32_t ownerObjectID() { return 0; }
+	// PORT-225 (DONOR BFME2 0x004DEC88 coolDown / 0x004DEDD2 speedUp): the owner's CONTINUOUS_FIRE_SLOW / MEAN / FAST model
+	// conditions, cleared first and set second like RW 0x68D607 (Object::clearAndSetModelConditionFlags). A host without an object
+	// (a unit test) ignores them.
+	virtual void clearAndSetModelConditions(const ModelConditionBits &, const ModelConditionBits &) {}
 };
 
 class FiringTracker
 {
 public:
 	enum { CONDITION_CONTINUOUS_FIRE_MEAN = 2, CONDITION_CONTINUOUS_FIRE_FAST = 3, COAST_POLL_FRAMES = 5 };
+	// The model condition bits coolDown / speedUp drive: entries of the binary's model condition name table (BitFlags.h's
+	// TheModelConditionNames, RW 0xD9FAD8), which the PORT-225 test checks by name. DONOR BFME2's ModelConditionFlagType numbers them
+	// 115 / 116 / 117, and the table has the same neighbours (SPECIAL_CHEERING before, RAISING_FLAG after).
+	// Re-read 2026-11-17 from game.dat 2.01 (md5 daed3668…): the 0x4C-byte ModelConditionFlags local that coolDown / speedUp fill and
+	// hand to 0x68D607 carries them in byte 14 as 0x08 / 0x10 / 0x20 — bits 115 / 116 / 117 (0x8E3076, 0x8E308B, 0x8E30A8, 0x8E3211,
+	// 0x8E321F, 0x8E3234), i.e. SLOW 115, MEAN 116, FAST 117, with the same neighbours the name table shows.
+	enum { MODELCOND_CONTINUOUS_FIRE_SLOW = 115, MODELCOND_CONTINUOUS_FIRE_MEAN = 116, MODELCOND_CONTINUOUS_FIRE_FAST = 117 };
 
 	// RW 0x8E326D (hard = the bool argument; the fire path passes false)
 	void shotFired(FiringTrackerHost &host, const Weapon &weapon, unsigned victimID, const Coord3D &victimPos, bool hard);

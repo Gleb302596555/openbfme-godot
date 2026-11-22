@@ -744,7 +744,20 @@ void SkirmishAIManager::structureBuilt(Object &builder, Object &structure)
 	// RW 0x86C1ED: the AI of the structure's controlling player; RW 0x6C77E4: nothing for a disabled AI
 	if (AISkirmishPlayer *ai = eventAI(structure))
 	{
-		AIBaseBuilder::onStructureBuilt(m_logic, *ai, builder, structure, true);
+		AIBaseBuilder::onStructureBuilt(m_logic, *ai, &builder, structure, true);
+	}
+}
+
+void SkirmishAIManager::unitCreated(const Player &player, Object *factory, const Object &unit)
+{
+	// RW 0x6C77C9: the AI of the player; nothing when not started, missing or disabled
+	if (!m_started)
+	{
+		return;
+	}
+	if (AISkirmishPlayer *ai = findAI(player.getPlayerIndex()); ai && !ai->disabled)
+	{
+		AIBaseBuilder::onStructureBuilt(m_logic, *ai, factory, unit, false);
 	}
 }
 
