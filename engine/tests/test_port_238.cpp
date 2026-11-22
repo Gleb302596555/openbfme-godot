@@ -2796,3 +2796,216 @@ End
     CHECK_FALSE(allyHero->isDisabledByType(DISABLED_USER_PARALYZED));
     CHECK_FALSE(farHero->isDisabledByType(DISABLED_USER_PARALYZED));
 }
+
+TEST_CASE("PORT-238 Theoden-style two upgrades gate replacement and two present timers survive")
+{
+    HealHudWorld w;
+    // theoden.ini:1306-1384,2558-2575: six timer names are listed but
+    // this file directly declares only KingsFavor and GloriousCharge modules.
+    // RW 0x8840FC -> 0x8B8E2E -> 0x8B1690; timer loop RW 0x8B12BF.
+    const char *data = R"ini(
+Upgrade Upgrade_P238TheoRing
+  Type = OBJECT
+End
+Upgrade Upgrade_P238TheoFortress
+  Type = OBJECT
+End
+SpecialPower P238TheoTransform
+  Enum = SPECIAL_TOGGLE_MOUNTED
+  ReloadTime = 1000
+End
+SpecialPower SpecialAbilityTheodenGloriousCharge
+  Enum = SPECIAL_GENERAL_TARGETLESS
+  ReloadTime = 120000
+End
+SpecialPower SpecialAbilityKingsFavor
+  Enum = SPECIAL_GENERAL_TARGETLESS_TWO
+  ReloadTime = 120000
+End
+SpecialPower SpecialAbilityHornOfGondor02
+  Enum = SPECIAL_GENERAL_TARGETLESS
+  ReloadTime = 120000
+End
+SpecialPower SpecialAbilityAragornBladeMaster
+  Enum = SPECIAL_GENERAL_TARGETLESS
+  ReloadTime = 120000
+End
+SpecialPower SpecialAbilityBoromirErnennung
+  Enum = SPECIAL_GENERAL_TARGETLESS
+  ReloadTime = 120000
+End
+SpecialPower SpecialAbilityBoromirOsgiliath
+  Enum = SPECIAL_GENERAL_TARGETLESS
+  ReloadTime = 120000
+End
+SpecialPower P238TheoUnlisted
+  Enum = SPECIAL_GENERAL_TARGETLESS_THREE
+  ReloadTime = 120000
+End
+CommandButton P238TheoSwitch
+  Command = SPECIAL_POWER
+  SpecialPower = P238TheoTransform
+  InPalantir = No
+End
+CommandButton P238TheoStop
+  Command = STOP
+  InPalantir = Yes
+End
+CommandSet P238TheoBaseSet
+  1 = P238TheoStop
+End
+CommandSet P238TheoRingSet
+  1 = P238TheoStop
+End
+Object P238Theo
+  KindOf = INFANTRY HERO SELECTABLE COMMANDCENTER CAN_ATTACK
+  CommandSet = P238TheoBaseSet
+  Geometry = CYLINDER
+  GeometryMajorRadius = 8
+  GeometryHeight = 20
+  Body = ActiveBody Body
+    MaxHealth = 500
+  End
+  Behavior = AIUpdateInterface AI
+  End
+  Behavior = UnpauseSpecialPowerUpgrade Enable
+    SpecialPowerTemplate = P238TheoTransform
+    TriggeredBy = Upgrade_P238TheoRing
+  End
+  Behavior = SpecialPowerModule Starter
+    SpecialPowerTemplate = P238TheoTransform
+    StartsPaused = Yes
+    UpdateModuleStartsAttack = Yes
+  End
+  Behavior = ToggleMountedSpecialAbilityUpdate Transform
+    SpecialPowerTemplate = P238TheoTransform
+    MountedTemplate = P238TheoRingForm
+    SynchronizeTimerOnSpecialPower = SpecialAbilityTheodenGloriousCharge SpecialAbilityKingsFavor SpecialAbilityHornOfGondor02 SpecialAbilityAragornBladeMaster SpecialAbilityBoromirErnennung SpecialAbilityBoromirOsgiliath
+    UnpackTime = 2000
+    PreparationTime = 0
+    PackTime = 0
+    IgnoreFacingCheck = Yes
+  End
+  Behavior = DoCommandUpgrade AutoTransform
+    TriggeredBy = Upgrade_P238TheoRing Upgrade_P238TheoFortress
+    RequiresAllTriggers = Yes
+    GetUpgradeCommandButtonName = P238TheoSwitch
+  End
+  Behavior = CommandSetUpgrade RingSet
+    TriggeredBy = Upgrade_P238TheoRing Upgrade_P238TheoFortress
+    RequiresAllTriggers = Yes
+    CommandSet = P238TheoRingSet
+  End
+  Behavior = CitadelSlaughterHordeContain RingEntry
+    PassengerFilter = NONE +P238Ring
+    ObjectStatusOfContained = UNSELECTABLE ENCLOSED
+    ContainMax = 1
+    StatusForRingEntry = HOLDING_THE_RING
+    UpgradeForRingEntry = Upgrade_P238TheoRing Upgrade_P238TheoFortress
+    ObjectToDestroyForRingEntry = NONE +P238Ring
+  End
+  Behavior = SpecialPowerModule Charge
+    SpecialPowerTemplate = SpecialAbilityTheodenGloriousCharge
+  End
+  Behavior = SpecialPowerModule Favor
+    SpecialPowerTemplate = SpecialAbilityKingsFavor
+  End
+  Behavior = SpecialPowerModule Other
+    SpecialPowerTemplate = P238TheoUnlisted
+  End
+End
+Object P238TheoRingForm
+  KindOf = INFANTRY HERO SELECTABLE CAN_ATTACK
+  Geometry = CYLINDER
+  GeometryMajorRadius = 8
+  GeometryHeight = 20
+  Body = ActiveBody Body
+    MaxHealth = 500
+  End
+  Behavior = AIUpdateInterface AI
+  End
+  Behavior = SpecialPowerModule Charge
+    SpecialPowerTemplate = SpecialAbilityTheodenGloriousCharge
+  End
+  Behavior = SpecialPowerModule Favor
+    SpecialPowerTemplate = SpecialAbilityKingsFavor
+  End
+  Behavior = SpecialPowerModule Other
+    SpecialPowerTemplate = P238TheoUnlisted
+  End
+End
+)ini";
+    const std::string error = w.w.load(data, INI_LOAD_OVERWRITE, "port238_theoden.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    std::string partial;
+    SUBCASE("only ring upgrade") { partial = "Upgrade_P238TheoRing"; }
+    SUBCASE("only fortress upgrade") { partial = "Upgrade_P238TheoFortress"; }
+    SUBCASE("deliver both upgrades") {}
+    Object *hero = w.unit("P238Theo", 'A', 300, 300);
+    Object *carrier = w.unit("P238Carrier", 'A', 300, 300);
+    Object *ring = w.unit("P238Ring", 'A', 300, 300);
+    REQUIRE(hero != nullptr);
+    REQUIRE(carrier != nullptr);
+    REQUIRE(ring != nullptr);
+    const ObjectID heroId = hero->getID();
+    const ObjectID ringId = ring->getID();
+    Team *team = hero->getTeam();
+    auto power = [&](Object &obj, const char *name) {
+        const auto *t = w.powers.findSpecialPowerTemplate(name);
+        return t ? dynamic_cast<SpecialPowerModule *>(SpecialPowerModules::findModule(obj, t)) : nullptr;
+    };
+    auto *charge = power(*hero, "SpecialAbilityTheodenGloriousCharge");
+    auto *favor = power(*hero, "SpecialAbilityKingsFavor");
+    auto *other = power(*hero, "P238TheoUnlisted");
+    REQUIRE(charge != nullptr);
+    REQUIRE(favor != nullptr);
+    REQUIRE(other != nullptr);
+    for (const char *name : {"SpecialAbilityHornOfGondor02", "SpecialAbilityAragornBladeMaster", "SpecialAbilityBoromirErnennung", "SpecialAbilityBoromirOsgiliath"})
+    {
+        REQUIRE(w.powers.findSpecialPowerTemplate(name) != nullptr);
+        CHECK(power(*hero, name) == nullptr);
+    }
+    charge->setReadyFrame(300);
+    favor->setReadyFrame(600);
+    other->setReadyFrame(900);
+    if (!partial.empty())
+    {
+        hero->giveUpgrade(partial);
+        w.frames(30);
+        REQUIRE(w.byId(heroId) != nullptr);
+        CHECK(w.byId(heroId)->getTemplate()->getName() == "P238Theo");
+        CHECK(w.byId(heroId)->getCommandSetName() == "P238TheoBaseSet");
+        CHECK(w.byId(ringId) != nullptr);
+        return;
+    }
+    auto *contain = dynamic_cast<CitadelSlaughterHordeContain *>(hero->getContain());
+    REQUIRE(contain != nullptr);
+    deliver(*contain, *carrier);
+    CHECK(hero->hasUpgrade("Upgrade_P238TheoRing"));
+    CHECK(hero->hasUpgrade("Upgrade_P238TheoFortress"));
+    CHECK(hero->getCommandSetName() == "P238TheoRingSet");
+    REQUIRE(w.byId(ringId) != nullptr);
+    CHECK(w.byId(ringId)->isDestroyed());
+    Object *replacement = nullptr;
+    for (int frame = 0; frame < 50 && !replacement; ++frame)
+    {
+        w.frames(1);
+        for (Object *obj = w.logic->getFirstObject(); obj; obj = obj->getNextObject())
+            if (obj->getTemplate() && obj->getTemplate()->getName() == "P238TheoRingForm") replacement = obj;
+    }
+    REQUIRE(replacement != nullptr);
+    CHECK(replacement->getTeam() == team);
+    for (const char *name : {"SpecialAbilityHornOfGondor02", "SpecialAbilityAragornBladeMaster", "SpecialAbilityBoromirErnennung", "SpecialAbilityBoromirOsgiliath"})
+        CHECK(power(*replacement, name) == nullptr);
+    charge = power(*replacement, "SpecialAbilityTheodenGloriousCharge");
+    favor = power(*replacement, "SpecialAbilityKingsFavor");
+    other = power(*replacement, "P238TheoUnlisted");
+    REQUIRE(charge != nullptr);
+    REQUIRE(favor != nullptr);
+    REQUIRE(other != nullptr);
+    CHECK(charge->getReadyFrame() == 300);
+    CHECK(favor->getReadyFrame() == 600);
+    CHECK(other->getReadyFrame() != 900);
+    w.frames(3);
+    CHECK(w.byId(heroId) == nullptr);
+}
