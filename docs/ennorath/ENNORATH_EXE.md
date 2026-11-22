@@ -36,3 +36,11 @@ binary is gone (the owner's `RotWK/` folder was replaced), so an edit's version 
 | `.wotrui`, `.wotrobs`, `.wtrview`, `.wtrdisp`, `.lobfac`; in place the player count 6 -> 8 (RW 0x840A91, 0x84692B), RW 0x6BEBE5 | RW 0x841691, 0x627C41 .., 0x62FE9C, 0x7BAABE .., RW 0x84AB5E .. | War of the Ring for 8 players |
 | `.obscmd` 0xED8000 | call RW 0x941BD2 (processContextSensitiveButtonClick) | an observer may press commands 0x37 / 0x38 (PUSH / POP_VISIBLE_COMMAND_RANGE): the same rule as `edain-unchained.observer-command-range` |
 | `.spstore`, `.ressort` | RW 0x822890, 0x8231CA; RW 0x4451CE (and in place RW 0x4451BB, 0x445229) | INFERENCE: the spell store, a resolution / resource sort |
+
+## Disassembly of the sections for a task (2026-11-22)
+
+The dossier (`refs/arena/dossier/<issue>`) holds vanilla 2.01 functions only. For a task porting a pySAGE edit, Claude runs
+`tools/mod/pysage_dump.py <patched game.dat> <vanilla game.dat> <out> <sections> <hook RW,...> [<.rdata RW,...>] [--ver 1.9.8.5]` on the
+PC (the 1.9.8.5 game.dat is in the owner's Ennorath folder `docs/ennorath/RotWK/`, kept out of git by `.git/info/exclude`) and puts the
+file on the agent's sandbox as `/content/sandbox/work-dossier-<issue>-<name>.txt` and on Drive `openbfme-runs/dossiers/`; never in plain
+text on GitHub. Done: #811 (`.optui .optfix .keycmd .dlyfix .hotkeys .keydef`), #812 (`.mapfind .mapsvar`), #813 (`.chatmut`).

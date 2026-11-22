@@ -17637,7 +17637,7 @@ GettingBuiltBehavior	0	0x008227A4	ported
 GettingBuiltBehavior	0	0x008561EA	ported		vcall +0x30		
 GettingBuiltBehavior	0	0x00856280	none		vcall +0x50		
 GettingBuiltBehavior	0	0x00856434	ported		vcall +0x10, vcall +0x60		
-GettingBuiltBehavior	0	0x008564F6	none			callee 0x00401E64 (ported)	
+GettingBuiltBehavior	0	0x008564F6	ported				
 GettingBuiltBehavior	0	0x00856501	ported		vcall +0x18		
 GettingBuiltBehavior	0	0x0085657E	ported		vcall +0x24		
 GettingBuiltBehavior	0	0x00856644	ported		vcall +0x18		

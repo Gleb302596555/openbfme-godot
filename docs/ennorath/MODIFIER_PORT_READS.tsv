@@ -8,7 +8,7 @@ DAMAGE_MULT	3	src/GameLogic/Object/Damage.cpp	164	sourceMultiplicative	ATTRIBUTE
 RESIST_FEAR	4	src/GameLogic/ScriptEngine/LuaBindings.cpp	528	objectAttributeModifier	4	luaObjectTestCanSufferFear
 RESIST_FEAR	4	src/GameLogic/System/EmotionSystem.cpp	392	attributeModifierSum	t.type == EMOTION_TERROR ? 5 : 4	canApply
 RESIST_TERROR	5	src/GameLogic/System/EmotionSystem.cpp	392	attributeModifierSum	t.type == EMOTION_TERROR ? 5 : 4	canApply
-EXPERIENCE	6	src/GameLogic/Object/Object.cpp	2673	attributeModifierProduct	ATTRIBUTE_EXPERIENCE	grantExperienceForKill
+EXPERIENCE	6	src/GameLogic/Object/Object.cpp	2688	attributeModifierProduct	ATTRIBUTE_EXPERIENCE	grantExperienceForKill
 RANGE	7	src/GameLogic/Combat/ObjectWeapons.cpp	280	attributeModifierSum	ATTRIBUTE_RANGE	rangeAttributeSum
 SPEED	8	src/GameLogic/Module/AIUpdate.cpp	238	attributeModifierProduct	ATTRIBUTE_SPEED	speedAttributeModifier
 CRUSH_DECELERATE	9	src/GameLogic/Object/Collide/SquishCollide.cpp	364	attributeModifierProduct	kCrushDecelerateModifier	onCrush
@@ -46,4 +46,4 @@ CRUSHABLE_LEVEL	25	src/GameLogic/Object/Collide/SquishCollide.cpp	254	attributeM
 CRUSHED_DECELERATE	26	src/GameLogic/Object/Collide/SquishCollide.cpp	369	attributeModifierProduct	kCrushedDecelerateModifier	onCrush
 INVULNERABLE	27	src/GameLogic/Module/ActiveBody.cpp	418	attributeModifierSum	ATTRIBUTE_MODIFIER_INVULNERABLE	invulnerableTo
 #28	28	src/GameLogic/Economy.cpp	594	attributeModifierProduct	28	productionMoneyProduct
-#31	31	src/GameLogic/Module/DozerAIUpdate.cpp	1244	attributeModifierProduct	31	workOnBuild
+#31	31	src/GameLogic/Module/DozerAIUpdate.cpp	1241	attributeModifierProduct	31	workOnBuild

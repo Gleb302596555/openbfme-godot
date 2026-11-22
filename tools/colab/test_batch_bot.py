@@ -215,3 +215,29 @@ def test_the_batch_loop_checks_a_pr_after_thirty_minutes_without_green_prs_or_ba
     # owner 2026-11-20: green PRs waiting for the third do not hold the help back, only a recent batch does
     assert bb.helper_due({"finished": now - 4000, "ready_at": now - 60}, now)
     assert bb.helper_due({"finished": now - 4000, "ready_at": now - 1900}, now)
+
+
+def test_the_batch_fragment_check_takes_no_station_issue(monkeypatch, tmp_path):
+    # batch 2026-11-21f died: tools/fragments.py check took a station agent's issue (#810) and refused another issue's stop (S-7429 of #515)
+    import subprocess
+    monkeypatch.setattr(bb, "_ENV", {"OPENBFME_ISSUE": "810", "PATH": __import__("os").environ["PATH"]})
+    env = bb.no_issue_env()
+    assert "OPENBFME_ISSUE" not in env
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "openbfme.issue", "810"], cwd=tmp_path, check=True)
+    got = subprocess.run(["git", "config", "--get", "openbfme.issue"], cwd=tmp_path, env=env, capture_output=True, text=True).stdout
+    assert got.strip() == ""
+
+
+def test_a_claim_of_a_run_that_died_with_the_runtime_is_found(monkeypatch, tmp_path):
+    # 2026-11-21e / 21h died mid-run when Colab restarted sb2 and held their PRs for CLAIM_HOURS
+    import subprocess
+    runs = tmp_path / "runs"
+    for name, sandbox, report in (("2026-11-21e", "2", False), ("2026-11-21f", "2", True), ("2026-11-21g", "3", False)):
+        (runs / name).mkdir(parents=True)
+        (runs / name / "claim.json").write_text(json.dumps({"prs": [721], "sandbox": sandbox}))
+        if report:
+            (runs / name / "report.md").write_text("done")
+    monkeypatch.setattr(bb, "RUNS", runs)
+    monkeypatch.setattr(bb, "sh", lambda cmd, **kw: subprocess.CompletedProcess(cmd, 1, "", ""))   # no batch branch on origin
+    assert [f.parent.name for f in bb.dead_claims("2")] == ["2026-11-21e"]

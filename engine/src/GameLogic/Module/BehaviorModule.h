@@ -367,6 +367,17 @@ public:
 	virtual void objectBecameAudible() = 0;   ///< slot 1: RW 0x8AF174 -> join, RW 0x8AF005
 };
 
+// RW Object::rva0028BD17 (0x68C3E6 / slot 32 at module + 0x80): the repair query
+// returned by a behavior module.  The retail interface has many unrelated slots;
+// this is the one typed slot used by ActionManager::canRepairObject (slot 9 at
+// interface + 0x24, RW 0x8564F6).
+class RepairQueryInterface
+{
+public:
+	virtual ~RepairQueryInterface() = default;
+	virtual bool canSelfRepair() const = 0;
+};
+
 class BehaviorModule : public ObjectModule
 {
 public:
@@ -411,6 +422,9 @@ public:
 	// RW 0x8AFC5F / BFME2 0x4AC5F5: slot 31 (offset 0x7C) of the +0xC interface
 	virtual EnvironmentActor *slot31() { return nullptr; }
 	EnvironmentActor *getEnvironmentActor() { return slot31(); }
+	// RW Object::rva0028BD17: slot 32 (offset 0x80), the shared repair query.
+	virtual RepairQueryInterface *slot32() { return nullptr; }
+	RepairQueryInterface *getRepairQueryInterface() { return slot32(); }
 
 protected:
 	// lane SAVE-4b: BehaviorModule::xfer, version (1, 1) (RW 0x8CD4AA, the base xfer every UpdateModule / UpgradeModule xfer calls; inference: it is
