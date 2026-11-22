@@ -42,7 +42,7 @@ const char *const kStopRequirements =
 const char *const kStopTypeTest =
 	"[S-1874] ActionManager RW 0x82DFB7: the per-power-type tests of the building powers (0x52, 0x61, 0x67, 0x6A: RW 0x82E2DE), 0x27 (RW 0x67F52B), 0x38 "
 	"(RW 0x76A247), 0x41 (RW 0x82E252) and 0x49 (RW 0x680A75 layer) are not ported; Rebuild 0x57 (RW 0x82E93C) and the summons' spot test (0x55, 0x56, "
-	"0x5B, 0x5D .. 0x5F, 0x73, 0x76, 0x78, 0x7B, 0x7C, 0x7E, 0x96, 0x9A: RW 0x82E586) is ported (lane SUMMONLOC-1: the partition's geometry overlap, distance "
+	"0x5B, 0x5D .. 0x5F, 0x73, 0x76, 0x78, 0x7B, 0x7C, 0x7E, 0x96, 0x9A: RW 0x82E586) are ported (SUMMONLOC-1: the partition's geometry overlap, distance "
 	"type 4, on the template's shapes, S-1020): the unported types answer no (counted per type)";
 
 const char *const kStopObjectTypeTest =
