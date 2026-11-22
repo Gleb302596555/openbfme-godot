@@ -456,6 +456,20 @@ public:
 		{
 			return STATE_SUCCESS;
 		}
+		// RW 0x94A407: keep the pursuit centre at the guarded team's current centre.
+		AIGuardMachine &g = guardOf(*this);
+		Object &guard = owner();
+		if (g.teamToGuard() != 0)
+		{
+			if (const Team *team = guard.logic().players().teams().findTeamByID(g.teamToGuard()))
+			{
+				Coord3D center;
+				if (ScriptConditions::teamCentreAllMembers(*team, center))
+				{
+					m_exit.center = center;
+				}
+			}
+		}
 		const StateReturnType r = m_attack->update();
 		// lane WALLMELEE-1, RW 0x94A407 after the inner update: off the ground layer the attack ends once the victim (the machine's goal, RW 0x8DBACE) is out of
 		// reach from where the owner stands (RW 0x6FF7FA)
@@ -464,6 +478,29 @@ public:
 		if (victim && AIWorld::objectLayer(obj) != LAYER_GROUND && !AI::canAttackFromHere(obj, *victim))
 		{
 			return STATE_SUCCESS; // -1
+		}
+		// RW 0x94A407: a missing/dead goal triggers another inner search and,
+		// if successful, exits and re-enters this state with the new nemesis.
+		if (!victim || victim->isEffectivelyDead())
+		{
+			if (g.lookForInnerTarget())
+			{
+				onExit(EXIT_NORMAL);
+				return onEnter();
+			}
+		}
+		else
+		{
+			const Coord3D &p = *victim->getPosition();
+			const float dx = SimMath::subf32(m_exit.center.x, p.x);
+			const float dy = SimMath::subf32(m_exit.center.y, p.y);
+			const float dz = SimMath::subf32(m_exit.center.z, p.z);
+			const float distance = SimMath::addf32(SimMath::addf32(SimMath::mulf32(dz, dz), SimMath::mulf32(dy, dy)), SimMath::mulf32(dx, dx));
+			const float range = AIGuardMachine::getStdGuardRange(obj);
+			if (distance <= SimMath::mulf32(range, range))
+			{
+				m_exit.attackGiveUpFrame = obj.logic().getFrame() + settingsOf(obj).guardChaseUnitsFrames;
+			}
 		}
 		return r;
 	}
