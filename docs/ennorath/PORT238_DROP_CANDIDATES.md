@@ -32,7 +32,7 @@ Metadata-only lexical scan of Ennorath 1.9.8.3 INI archive (MD5 `c53b6dea885cab0
 | `MordorNekromantReborn` | `OCL_TheOneRing` | `object/evilfaction/units/mordor/necromantreborn.ini:764` |
 | `MordorNekromantSauron` | `OCL_TheOneRing` | `object/evilfaction/units/mordor/mordorsauron.ini:1056` |
 | `MordorNekromantWotr` | `OCL_TheOneRing` | `object/evilfaction/units/mordor/mordornecromantwotr.ini:755` |
-| `MordorSauron_RingHero` | `OCL_TheOneRing` | `object/evilfaction/units/mordor/sauron.ini:1063` |
+| `MordorSauron_RingHero` | `OCL_TheOneRing` | `object/evilfaction/units/mordor/sauron.ini:532` |
 | `MordorSauron_mod` | `OCL_TheOneRing` | `object/evilfaction/units/mordor/mordorsauron.ini:7081` |
 | `MordorSauron_mod_RingHero` | `OCL_TheOneRing` | `object/evilfaction/units/mordor/mordorsauron.ini:7252` |
 | `NeutralGollum_RingHero` | `OCL_TheOneRing` | `object/neutral/neutralunits.ini:1426` |
@@ -64,3 +64,5 @@ Metadata-only lexical scan of Ennorath 1.9.8.3 INI archive (MD5 `c53b6dea885cab0
 ## Carrier selection caveat
 
 `crate.ini:1103` sets `AttachUpdate::ObjectFilter` to `CARRYTHERING_OBJECTFILTER` (`_gamedata.inc:31`). This is a kind-based filter with a long explicit exclusion list, not a closed enumeration of carriers. A hero excluded from automatic attachment can still be a ring recipient via other mechanisms; inclusion in this table does not override the filter. Expansion of macros and other overrides must be verified on the actual loading path. For remaining attachment limits see S-1361; the shared death/OCL object-pair context S-980 was closed by PORT-237 (merged main `2a54572d`), not an end-to-end verdict on these drop routes. For the partial Frodo trace see `PORT238_FRODO_TRACE.md`; the shared fortress dual-upgrade death gate is bounded in `PORT238_FORTRESS_TRACE.md`.
+
+For the partial classic `ElvenGaladriel_RingHero` and `MordorSauron_RingHero` trace, including the two OBJECT upgrade types and bounded cross-owner removal test, see `PORT238_CLASSIC_RING_HERO_TRACE.md`.

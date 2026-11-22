@@ -1,6 +1,6 @@
 # PORT-238: Lothlorien Galadriel ring choice (partial trace)
 
-Literal data: local Ennorath 1.9.8.3 INI archive MD5 `c53b6dea885cab044f80e783565f41f3` and vanilla RW 2.01 `game.dat` MD5 `daed3668006cd90f01c34e5a7da1901f`. Paths are relative to `data/ini`. Main `73be08aa` reports the principal INI unchanged through 1.9.8.5; the current archive is not locally available for independent comparison. This is not the complete Galadriel inventory, loaded-data, visual or gameplay audit. `ElvenGaladriel_RingHero` in `elven/galadriel.ini` is a distinct child object and is not covered here.
+Literal data: local Ennorath 1.9.8.3 INI archive MD5 `c53b6dea885cab044f80e783565f41f3` and vanilla RW 2.01 `game.dat` MD5 `daed3668006cd90f01c34e5a7da1901f`. Paths are relative to `data/ini`. Main `73be08aa` reports the principal INI unchanged through 1.9.8.5; the current archive is not locally available for independent comparison. This is not the complete Galadriel inventory, loaded-data, visual or gameplay audit. `ElvenGaladriel_RingHero` in `elven/galadriel.ini` is a distinct child object; its separate partial trace is `PORT238_CLASSIC_RING_HERO_TRACE.md`.
 
 ## Forms and choice
 

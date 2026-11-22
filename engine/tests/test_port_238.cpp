@@ -4148,3 +4148,134 @@ End
     w.frames(3);
     CHECK(w.byId(heroId) == nullptr);
 }
+
+TEST_CASE("PORT-238 classic ring-hero style faction trigger removes owner's object ring upgrades")
+{
+    HealHudWorld w;
+    // elven/galadriel.ini:467-483 and mordor/sauron.ini:519-538 (LF lines).
+    // Both ring upgrades are OBJECT in Ennorath upgrade.ini:181,198; faction
+    // triggers are PLAYER. RW factory 0x65058C -> ctor 0x8BC0C2 -> secondary
+    // vtable 0xC6FA38 slot +0x28 -> 0x8BC1B3; its OBJECT branch 0x8BC22A
+    // calls Object::removeUpgrade, then Player::removeUpgrade(u, false) when
+    // RemoveFromAllPlayerObjects is set. This uses direct synthetic creation,
+    // not an actual build queue or the real ChildObject/load graph.
+    const char *data = R"ini(
+Upgrade Upgrade_P238ClassicRing
+ Type = OBJECT
+End
+Upgrade Upgrade_P238ClassicFortressRing
+ Type = OBJECT
+End
+Upgrade Upgrade_P238ClassicMen
+ Type = PLAYER
+End
+Upgrade Upgrade_P238ClassicElf
+ Type = PLAYER
+End
+Upgrade Upgrade_P238ClassicDwarf
+ Type = PLAYER
+End
+Upgrade Upgrade_P238ClassicWild
+ Type = PLAYER
+End
+Upgrade Upgrade_P238ClassicIsengard
+ Type = PLAYER
+End
+Upgrade Upgrade_P238ClassicMordor
+ Type = PLAYER
+End
+Upgrade Upgrade_P238ClassicGoblin
+ Type = PLAYER
+End
+Upgrade Upgrade_P238ClassicAngmar
+ Type = PLAYER
+End
+Object P238ClassicHolder
+ KindOf = STRUCTURE SELECTABLE
+ Body = ActiveBody Body
+  MaxHealth = 500
+ End
+End
+Object P238ClassicGaladriel
+ KindOf = INFANTRY HERO SELECTABLE
+ Body = ActiveBody Body
+  MaxHealth = 500
+ End
+ Behavior = RemoveUpgradeUpgrade RemoveRing
+  TriggeredBy = Upgrade_P238ClassicMen Upgrade_P238ClassicElf Upgrade_P238ClassicDwarf
+  UpgradeToRemove = Upgrade_P238ClassicRing Upgrade_P238ClassicFortressRing
+  RemoveFromAllPlayerObjects = Yes
+  SuppressEvaEventForRemoval = Yes
+ End
+End
+Object P238ClassicSauron
+ KindOf = INFANTRY HERO SELECTABLE
+ Body = ActiveBody Body
+  MaxHealth = 500
+ End
+ Behavior = RemoveUpgradeUpgrade RemoveRing
+  TriggeredBy = Upgrade_P238ClassicWild Upgrade_P238ClassicIsengard Upgrade_P238ClassicMordor Upgrade_P238ClassicGoblin Upgrade_P238ClassicAngmar
+  UpgradeToRemove = Upgrade_P238ClassicRing Upgrade_P238ClassicFortressRing
+  RemoveFromAllPlayerObjects = Yes
+  SuppressEvaEventForRemoval = Yes
+ End
+End
+)ini";
+    const std::string error = w.w.load(data, INI_LOAD_OVERWRITE, "port238_classic_heroes.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    const char *heroName = nullptr;
+    const char *factionName = nullptr;
+    bool factionBeforeCreation = false;
+    SUBCASE("Galadriel")
+    {
+        heroName = "P238ClassicGaladriel"; factionName = "Upgrade_P238ClassicElf";
+        SUBCASE("faction already present") { factionBeforeCreation = true; }
+        SUBCASE("faction granted later") { factionBeforeCreation = false; }
+    }
+    SUBCASE("Sauron")
+    {
+        heroName = "P238ClassicSauron"; factionName = "Upgrade_P238ClassicMordor";
+        SUBCASE("faction already present") { factionBeforeCreation = true; }
+        SUBCASE("faction granted later") { factionBeforeCreation = false; }
+    }
+    REQUIRE(heroName != nullptr);
+    REQUIRE(factionName != nullptr);
+    Object *holder = w.unit("P238ClassicHolder", 'A', 300, 300);
+    Object *otherHolder = w.unit("P238ClassicHolder", 'A', 320, 300);
+    Object *enemy = w.unit("P238ClassicHolder", 'B', 600, 600);
+    REQUIRE(holder != nullptr);
+    REQUIRE(otherHolder != nullptr);
+    REQUIRE(enemy != nullptr);
+    for (Object *obj : {holder, otherHolder, enemy})
+    {
+        obj->giveUpgrade("Upgrade_P238ClassicRing");
+        obj->giveUpgrade("Upgrade_P238ClassicFortressRing");
+    }
+    w.frames(2); // let pending holders enter the world's owner scan
+    const UpgradeTemplate *faction = TheUpgradeCenter->findUpgrade(factionName);
+    REQUIRE(faction != nullptr);
+    if (factionBeforeCreation)
+        w.playerOf('A')->addUpgrade(faction, Player::UPGRADE_STATUS_COMPLETE);
+    CHECK(holder->hasUpgrade("Upgrade_P238ClassicRing"));
+    CHECK(holder->hasUpgrade("Upgrade_P238ClassicFortressRing"));
+    CHECK(otherHolder->hasUpgrade("Upgrade_P238ClassicRing"));
+    CHECK(otherHolder->hasUpgrade("Upgrade_P238ClassicFortressRing"));
+    Object *hero = w.unit(heroName, 'A', 350, 300);
+    REQUIRE(hero != nullptr);
+    w.frames(2);
+    if (!factionBeforeCreation)
+    {
+        CHECK(holder->hasUpgrade("Upgrade_P238ClassicRing"));
+        CHECK(otherHolder->hasUpgrade("Upgrade_P238ClassicFortressRing"));
+        w.playerOf('A')->addUpgrade(faction, Player::UPGRADE_STATUS_COMPLETE);
+    }
+    w.frames(2);
+    CHECK_FALSE(holder->hasUpgrade("Upgrade_P238ClassicRing"));
+    CHECK_FALSE(holder->hasUpgrade("Upgrade_P238ClassicFortressRing"));
+    CHECK_FALSE(otherHolder->hasUpgrade("Upgrade_P238ClassicRing"));
+    CHECK_FALSE(otherHolder->hasUpgrade("Upgrade_P238ClassicFortressRing"));
+    CHECK(enemy->hasUpgrade("Upgrade_P238ClassicRing"));
+    CHECK(enemy->hasUpgrade("Upgrade_P238ClassicFortressRing"));
+    CHECK(w.playerOf('A')->hasUpgradeComplete(factionName));
+    CHECK_FALSE(w.playerOf('B')->hasUpgradeComplete(factionName));
+}
