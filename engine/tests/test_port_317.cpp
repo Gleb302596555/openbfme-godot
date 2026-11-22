@@ -13,6 +13,7 @@ TEST_CASE("PORT-317 guard prefers the AI machine's hostile goal to a spatial sea
 	Object *enemy = w.unit("Swordsman", 'B', 800.0f, 800.0f);
 	REQUIRE(guard);
 	REQUIRE(enemy);
+	w.frames(2);
 	AIUpdateInterface *ai = guard->getAIUpdateInterface();
 	REQUIRE(ai);
 	AIGuardMachine machine(*ai);
@@ -28,6 +29,7 @@ TEST_CASE("PORT-317 a friendly machine goal is not an enemy guard target")
 	Object *ally = w.unit("Swordsman", 'A', 800.0f, 800.0f);
 	REQUIRE(guard);
 	REQUIRE(ally);
+	w.frames(2);
 	AIUpdateInterface *ai = guard->getAIUpdateInterface();
 	REQUIRE(ai);
 	AIGuardMachine machine(*ai);
