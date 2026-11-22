@@ -50,9 +50,9 @@ struct Port320AIWorld : CombatWorld
 	Port320AIWorld()
 		: CombatWorld(kPort320Objects)
 	{
-		static const char aiData[] = "SkirmishAIData TheSkirmishAIData\\n DisableWallBuilding = No\\nEnd\\n"
-									  "ArmyDefinition AlphaArmy\\n Side = Alpha\\n ArmyMemberDefinition M\\n  Unit = Soldier\\n  PercentageOfArmyPhase1 = 100\\n End\\nEnd\\n"
-									  "AIDozerAssignment AlphaDozer\\n Side = Alpha\\n Unit = AlphaPorter\\nEnd\\n";
+		static const char aiData[] = "SkirmishAIData TheSkirmishAIData\n DisableWallBuilding = No\nEnd\n"
+									  "ArmyDefinition AlphaArmy\n Side = Alpha\n ArmyMemberDefinition M\n  Unit = Soldier\n  PercentageOfArmyPhase1 = 100\n End\nEnd\n"
+									  "AIDozerAssignment AlphaDozer\n Side = Alpha\n Unit = AlphaPorter\nEnd\n";
 		store.registerBlocks(env.blocks);
 		INI ini(env);
 		const std::string text = aiData;
