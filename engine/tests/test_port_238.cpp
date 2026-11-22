@@ -4824,22 +4824,32 @@ End
     Object *enemy = w.unit("P238SauronOldHealHero", 'B', 305, 300);
     Object *infantry = w.unit("P238SauronOldHealInfantry", 'A', 305, 300);
     Object *far = w.unit("P238SauronOldHealHero", 'A', 325, 300);
-    Object *caster = w.unit("P238SauronOldHealCaster", 'A', 300, 300);
-    for (Object *obj : {ally, enemy, infantry, far, caster})
+    for (Object *obj : {ally, enemy, infantry, far})
     {
         REQUIRE(obj != nullptr);
         w.logic->partition().registerObject(*obj);
     }
-    w.frames(5); // initial automatic single burst occurs with everyone healthy
+    DamageInfo damage;
+    damage.m_input.m_amount = 6000.0f;
+    damage.m_input.m_damageType = DAMAGE_UNRESISTABLE;
+    ally->attemptDamage(damage);
+    REQUIRE(ally->getBodyModule()->getHealth() == 4000.0f);
+    w.frames(1); // publish the nearby wounded ally before creating the healer
+    Object *caster = w.unit("P238SauronOldHealCaster", 'A', 300, 300);
+    REQUIRE(caster != nullptr);
+    w.logic->partition().registerObject(*caster);
+    w.frames(5); // StartsActive / SingleBurst fires without any button use
     auto *heal = dynamic_cast<AutoHealBehavior *>(caster->findModule("AutoHealBehavior"));
     auto *ability = dynamic_cast<SpecialAbilityUpdate *>(caster->findModule("SpecialAbilityUpdate"));
     REQUIRE(heal != nullptr);
     REQUIRE(ability != nullptr);
-    CHECK(heal->heals() == 0);
-    DamageInfo damage;
+    REQUIRE(heal->heals() == 1);
+    REQUIRE(ally->getBodyModule()->getHealth() == 9000.0f);
+    damage.m_input.m_amount = 5000.0f;
+    ally->attemptDamage(damage);
+    REQUIRE(ally->getBodyModule()->getHealth() == 4000.0f);
     damage.m_input.m_amount = 6000.0f;
-    damage.m_input.m_damageType = DAMAGE_UNRESISTABLE;
-    for (Object *obj : {ally, enemy, infantry, far, caster})
+    for (Object *obj : {enemy, infantry, far, caster})
     {
         obj->attemptDamage(damage);
         REQUIRE(obj->getBodyModule()->getHealth() == 4000.0f);
@@ -4848,9 +4858,9 @@ End
     CHECK(caster->getBodyModule()->getHealth() == 4000.0f);
     CHECK(ally->getBodyModule()->getHealth() == 4000.0f);
     ability->initiateIntentToDoSpecialPower(ability->abilityData()->m_specialPowerTemplate, nullptr, nullptr, 0, 0);
-    for (int i = 0; i < 30 && heal->heals() < 2; ++i) w.frames(1);
+    for (int i = 0; i < 30 && heal->heals() < 3; ++i) w.frames(1);
     REQUIRE(ability->abilitiesTriggered() == 1);
-    CHECK(heal->heals() == 2);
+    CHECK(heal->heals() == 3);
     CHECK(caster->getBodyModule()->getHealth() == 9000.0f);
     CHECK(ally->getBodyModule()->getHealth() == 9000.0f);
     CHECK(enemy->getBodyModule()->getHealth() == 4000.0f);
