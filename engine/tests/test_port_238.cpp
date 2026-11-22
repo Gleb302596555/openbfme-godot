@@ -3842,3 +3842,75 @@ End
     w.frames(3);
     CHECK(w.byId(heroId) == nullptr);
 }
+
+TEST_CASE("PORT-238 fortress-style death drop requires both object upgrades")
+{
+    // FortressRingFunc.inc: CreateObjectDie UpgradeRequired and
+    // ModelConditionUpgrade RequiresAllTriggers; RW 0x888F04..0x888F83.
+    struct FortressWorld : World
+    {
+        ObjectCreationListStore lists{ w.keys };
+        ObjectCreationListStore *saved = TheObjectCreationListStore;
+        FortressWorld()
+        {
+            TheObjectCreationListStore = &lists;
+            w.fx.env.blocks.registerBlock("ObjectCreationList", [](INI *ini) { ObjectCreationListStore::parseObjectCreationListDefinitionGlobal(ini); });
+            const std::string err = w.load(R"ini(
+Upgrade Upgrade_P238FortHero
+ Type = OBJECT
+End
+Upgrade Upgrade_P238FortOwner
+ Type = OBJECT
+End
+Object P238Fortress
+ KindOf = STRUCTURE SELECTABLE
+ Body = ActiveBody Body
+  MaxHealth = 500
+ End
+ Behavior = CreateObjectDie Drop
+  CreationList = OCL_P238FortRing
+  UpgradeRequired = Upgrade_P238FortHero Upgrade_P238FortOwner
+ End
+ Behavior = ModelConditionUpgrade Model
+  TriggeredBy = Upgrade_P238FortHero Upgrade_P238FortOwner
+  RequiresAllTriggers = Yes
+  AddConditionFlags = ONE_RING
+ End
+End
+ObjectCreationList OCL_P238FortRing
+ CreateObject
+  ObjectNames = P238Ring
+  Count = 1
+ End
+End
+)ini", INI_LOAD_OVERWRITE, "port238_fortress.ini");
+            REQUIRE_MESSAGE(err.empty(), err);
+        }
+        ~FortressWorld() { TheObjectCreationListStore = saved; }
+        int ringCount()
+        {
+            int count = 0;
+            for (ObjectID id = 1; id < 64; ++id)
+            {
+                Object *o = byId(id);
+                if (o && o->getTemplate()->getName() == "P238Ring") ++count;
+            }
+            return count;
+        }
+    } w;
+    bool heroUpgrade = false, fortressUpgrade = false;
+    SUBCASE("neither") {}
+    SUBCASE("hero only") { heroUpgrade = true; }
+    SUBCASE("fortress only") { fortressUpgrade = true; }
+    SUBCASE("both") { heroUpgrade = true; fortressUpgrade = true; }
+    Object *fort = w.unit("P238Fortress", 'A', 300, 300);
+    REQUIRE(fort != nullptr);
+    if (heroUpgrade) fort->giveUpgrade("Upgrade_P238FortHero");
+    if (fortressUpgrade) fort->giveUpgrade("Upgrade_P238FortOwner");
+    w.frames(3);
+    CHECK(fort->testModelCondition(CombatNames::modelCondition("ONE_RING")) == (heroUpgrade && fortressUpgrade));
+    CHECK(w.ringCount() == 0);
+    fort->kill(DAMAGE_UNRESISTABLE, DEATH_NORMAL);
+    CHECK(fort->isEffectivelyDead());
+    CHECK(w.ringCount() == (heroUpgrade && fortressUpgrade ? 1 : 0));
+}
