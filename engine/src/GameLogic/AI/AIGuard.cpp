@@ -747,9 +747,19 @@ bool AIGuardMachine::lookForInnerTarget()
 	{
 		return false; // RW 0x691269
 	}
+	// RW 0x949CA7: the owner's AI machine (+0x30) goal, if hostile, takes priority
+	// over the common team target and spatial search (RW 0x8DBACE resolves its ID).
+	if (Object *goal = owner().stateMachine().goalObject())
+	{
+		if (goal->getRelationship(obj) == ENEMIES)
+		{
+			m_nemesis = goal->getID();
+			return true;
+		}
+	}
 	if (!logic.combat().autoAcquireEnabled())
 	{
-		return false; // the port's switch for scenes that are not battles (COMBAT-1's sweeps; default on, no retail counterpart): the guard looks for nothing either
+		return false; // the port's switch for scenes that are not battles
 	}
 	Team *team = obj.getTeam();
 	if (attackCommonTarget(team))
