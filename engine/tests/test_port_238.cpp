@@ -26,6 +26,8 @@
 #include "GameLogic/Module/EmotionModules.h"
 #include "GameLogic/Module/HeroAbilityModules.h"
 #include "GameLogic/Module/SpellEffectModules.h"
+#include "GameLogic/Module/StoreObjectsSpecialPower.h"
+#include "GameLogic/Module/TeleportToCasterSpecialPower.h"
 #include "GameLogic/Module/UpgradeModuleClasses.h"
 #include "GameLogic/Module/SpecialAbilityModules.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
@@ -3547,4 +3549,130 @@ End
         CHECK(w.byId(evilId) == nullptr);
     }
     CHECK_FALSE(w.playerOf('B')->hasUpgradeComplete("Upgrade_P238GanWhite"));
+}
+
+TEST_CASE("PORT-238 Alatar-style ring teleport stores enemy and ally then releases them")
+{
+    // evilalatar.ini:2330-2371; specialpower.inc:6609-6628.
+    // Direct worker intents only: not the chained HUD or forbidden-position gate.
+    struct RingTeleportWorld : CombatWorld
+    {
+        SpecialPowerStore powers;
+        SpecialPowerStore *saved = TheSpecialPowerStore;
+        RingTeleportWorld()
+        {
+            logic->partition().setRegion(0, 0, 1000, 1000);
+            TheSpecialPowerStore = &powers;
+            w.fx.env.blocks.registerBlock("SpecialPower", [](INI *ini) { SpecialPowerStore::parseSpecialPowerDefinitionGlobal(ini); });
+            const std::string err = w.load(R"ini(
+SpecialPower P238AlatarStore
+ Enum = SPECIAL_STORE_LIST_2
+ ReloadTime = 220000
+ ObjectFilter = ANY +INFANTRY +CAVALRY +HERO +MONSTER +MACHINE -UNATTACKABLE
+End
+SpecialPower P238AlatarRelease
+ Enum = SPECIAL_TELEPORT_LIST_TO_POSITION
+ ReloadTime = 320000
+End
+Object P238AlatarCaster
+ KindOf = INFANTRY HERO SELECTABLE
+ Body = ActiveBody Body
+  MaxHealth = 100
+ End
+ Behavior = AIUpdateInterface AI
+ End
+ Behavior = SpecialPowerModule StorePower
+  SpecialPowerTemplate = P238AlatarStore
+  UpdateModuleStartsAttack = Yes
+ End
+ Behavior = SpecialPowerModule ReleasePower
+  SpecialPowerTemplate = P238AlatarRelease
+  UpdateModuleStartsAttack = Yes
+ End
+ Behavior = StoreObjectsSpecialPower Store
+  SpecialPowerTemplate = P238AlatarStore
+  Radius = 130
+  StartAbilityRange = 1000000
+  UnpackTime = 0
+  PreparationTime = 1
+  ChainedButton = P238AlatarReleaseButton
+  IgnoreFacingCheck = Yes
+ End
+ Behavior = TeleportToCasterSpecialPower Release
+  SpecialPowerTemplate = P238AlatarRelease
+  Radius = 130
+  MinDestinationRadius = 10
+  MaxDestinationRadius = 100
+  StartAbilityRange = 1000000
+  UnpackTime = 2000
+  PreparationTime = 1
+  IgnoreFacingCheck = Yes
+ End
+End
+Object P238AlatarUnit
+ KindOf = INFANTRY SELECTABLE
+ Body = ActiveBody Body
+  MaxHealth = 100
+ End
+ Behavior = AIUpdateInterface AI
+ End
+End
+Object P238AlatarProtected
+ KindOf = INFANTRY SELECTABLE UNATTACKABLE
+ Body = ActiveBody Body
+  MaxHealth = 100
+ End
+End
+Object P238AlatarBuilding
+ KindOf = STRUCTURE SELECTABLE
+ Body = ActiveBody Body
+  MaxHealth = 100
+ End
+End
+)ini", INI_LOAD_OVERWRITE, "port238_alatar.ini");
+            REQUIRE_MESSAGE(err.empty(), err);
+        }
+        ~RingTeleportWorld() { TheSpecialPowerStore = saved; }
+    } w;
+    Object *caster = w.unit("P238AlatarCaster", 'A', 300, 300);
+    Object *ally = w.unit("P238AlatarUnit", 'A', 320, 300);
+    Object *enemy = w.unit("P238AlatarUnit", 'B', 340, 300);
+    Object *far = w.unit("P238AlatarUnit", 'A', 500, 300);
+    Object *protectedUnit = w.unit("P238AlatarProtected", 'A', 325, 310);
+    Object *building = w.unit("P238AlatarBuilding", 'B', 330, 310);
+    REQUIRE(caster != nullptr);
+    REQUIRE(ally != nullptr);
+    REQUIRE(enemy != nullptr);
+    REQUIRE(far != nullptr);
+    REQUIRE(protectedUnit != nullptr);
+    REQUIRE(building != nullptr);
+    auto *store = dynamic_cast<StoreObjectsSpecialPower *>(caster->findModule("StoreObjectsSpecialPower"));
+    auto *release = dynamic_cast<TeleportToCasterSpecialPower *>(caster->findModule("TeleportToCasterSpecialPower"));
+    REQUIRE(store != nullptr);
+    REQUIRE(release != nullptr);
+    const Coord3D source{300, 300, 0};
+    const Coord3D destination{700, 700, 0};
+    const Coord3D farBefore = *far->getPosition();
+    const Coord3D protectedBefore = *protectedUnit->getPosition();
+    const Coord3D buildingBefore = *building->getPosition();
+    store->initiateIntentToDoSpecialPower(store->abilityData()->m_specialPowerTemplate, nullptr, &source, 0, 0);
+    w.frames(20);
+    REQUIRE(store->storedObjects().size() == 2);
+    CHECK(store->storedObjects()[0] == ally->getID());
+    CHECK(store->storedObjects()[1] == enemy->getID());
+    release->initiateIntentToDoSpecialPower(release->abilityData()->m_specialPowerTemplate, nullptr, &destination, 0, 0);
+    w.frames(80);
+    CHECK(store->storedObjects().empty());
+    auto distSquared = [](const Coord3D &a, const Coord3D &b) {
+        const float x = a.x - b.x, y = a.y - b.y;
+        return x * x + y * y;
+    };
+    CHECK(distSquared(*ally->getPosition(), destination) <= 10000.0f); // tolerance: RW findPositionAround chooses a point within max radius, or falls back to the destination
+    CHECK(distSquared(*enemy->getPosition(), destination) <= 10000.0f); // tolerance: RW findPositionAround chooses a point within max radius, or falls back to the destination
+    CHECK(distSquared(*caster->getPosition(), source) == 0.0f);
+    CHECK(distSquared(*far->getPosition(), farBefore) == 0.0f);
+    CHECK(distSquared(*protectedUnit->getPosition(), protectedBefore) == 0.0f);
+    CHECK(distSquared(*building->getPosition(), buildingBefore) == 0.0f);
+    CHECK(ally->getControllingPlayer() == w.playerOf('A'));
+    CHECK(enemy->getControllingPlayer() == w.playerOf('B'));
 }
