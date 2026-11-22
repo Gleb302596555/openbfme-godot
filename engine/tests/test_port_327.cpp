@@ -84,7 +84,7 @@ TEST_CASE("PORT-327 human fog gate still exempts script orders")
 namespace
 {
 const char kRebuild[] =
-    "SpecialPower Port327Rebuild\n Enum = SPECIAL_SPELL_BOOK_REBUILD\n ReloadTime = 0\n RadiusCursorRadius = 50.9\nEnd\n"
+    "SpecialPower Port327Rebuild\n Enum = SPECIAL_SPELL_BOOK_REBUILD\n Flags = WATER_OK\n ReloadTime = 0\n RadiusCursorRadius = 50.9\nEnd\n"
     "Object Port327Caster\n KindOf = INFANTRY SELECTABLE\n"
     " Geometry = CYLINDER\n GeometryMajorRadius = 5\n GeometryHeight = 10\n"
     " Body = ActiveBody Body\n MaxHealth = 100\n End\n"
