@@ -14,7 +14,7 @@
 //     local slot and no observer, or before that frame. Then (1) while no single alliance remains: if every player that has not been defeated is the ally of the first one (areAllies RW
 //     0x8089F2: two different players that both call the other's team ALLIES) the alliance is single: flag + 0x85, end frame = frame, and the game's flag GameLogic + 0x98 clears unless the
 //     game info says so (client); (2) for every cached player not yet marked: when hasSinglePlayerBeenDefeated: mark it, the start-of-game goFGC hook (RW 0x625F7C), Player + 0x4CC =
-//     frame, for frame > 1 the player's map is revealed for good and the "GUI:PlayerHasBeenDefeated" message goes out (client), the rule for allied computer players of a defeated human
+//     frame, for frame > 1 the player's map is revealed for good (RW 0x8090AA -> 0xB4D940 -> 0xB4F5D0) and the "GUI:PlayerHasBeenDefeated" message goes out (client), the rule for allied computer players of a defeated human
 //     (RW 0x809271 .. 0x80936E, see below), then killPlayer (RW 0x6ABE7C).
 //   * hasSinglePlayerBeenDefeated (RW 0x80953C): false for no player or an observer; true when the flag + 0x90 is set; else RW 0x809404 decides and a true answer increments the counter (+ 0x88):
 //     a player already killed (Player + 0x754) is defeated; the game mode 9 (+ 0x110) and, outside the game kind 3, a Living World veto (RW 0x441E4A) answer "not defeated"; the rule + 0xC picks the test:
@@ -31,7 +31,7 @@
 // DONOR: ZH GameLogic/ScriptEngine/VictoryConditions.cpp (the structure of update / hasAchievedVictory); B1 VictoryConditionsUpdate.cpp (the delay, the BFME additions).
 //
 // INFERENCE / NOT PORTED (stop S-344): the order the killed objects die in (retail's team lists; here the logic's object list), the rule for allied computer players of a defeated human, the
-// script veto (RW 0x441E4A), the rules 0 and 1, the end screens (updateEndGame / showEndGame: the client gets VictoryEvent records), the score screen, map reveal, EVA, chat and the game info /
+// script veto (RW 0x441E4A), the rules 0 and 1, the end screens (updateEndGame / showEndGame: the client gets VictoryEvent records), the score screen, EVA, chat and the game info /
 // AI slot bookkeeping (RW 0x809370 ..), the score keeper multiplier.
 
 #pragma once
