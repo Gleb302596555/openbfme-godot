@@ -232,24 +232,64 @@ public:
 			return STATE_SLEEP(m_nextEnemyScanTime - now);
 		}
 		m_nextEnemyScanTime = now + settingsOf(obj).guardEnemyScanRate;
-		if (guardOf(*this).lookForInnerTarget())
+		AIGuardMachine &g = guardOf(*this);
+		if (g.lookForInnerTarget())
 		{
 			return STATE_SUCCESS; // -> the inner state
+		}
+		// RW 0x94A70A: after a scan, move back when the guarded team's centre
+		// changes by more than 20 on either axis (the squared limit is 400).
+		if (g.teamToGuard() != 0)
+		{
+			if (const Team *team = obj.logic().players().teams().findTeamByID(g.teamToGuard()))
+			{
+				Coord3D pos;
+				if (ScriptConditions::teamCentreAllMembers(*team, pos))
+				{
+					const float dx = SimMath::subf32(m_guardeePos.x, pos.x);
+					const float dy = SimMath::subf32(m_guardeePos.y, pos.y);
+					if (SimMath::mulf32(dx, dx) > 400.0f || SimMath::mulf32(dy, dy) > 400.0f)
+					{
+						m_guardeePos = pos;
+						return STATE_FAILURE; // -> return to guard
+					}
+				}
+			}
 		}
 		return STATE_SLEEP(m_nextEnemyScanTime - now);
 	}
 	bool isIdle() const override { return true; } // RW 0x8BD372
 	unsigned conditionTransition() override { return hasAttackedMeAndICanReturnFire(owner()) ? (unsigned)AI_GUARD_ATTACK_AGGRESSOR : INVALID_STATE_ID; }
-	void crc(StateHasher &h) const override { h.addU32(m_nextEnemyScanTime); }
-	void xfer(Xfer &x) override // lane SAVE-4c
+	void crcPersistent(StateHasher &h) const override
 	{
-		XferVersion v{ 1, 1 };
+		if (m_guardeePos.x != 0.0f || m_guardeePos.y != 0.0f || m_guardeePos.z != 0.0f)
+		{
+			h.addFloat(m_guardeePos.x);
+			h.addFloat(m_guardeePos.y);
+			h.addFloat(m_guardeePos.z);
+		}
+	}
+	bool hasPersistentCrc() const override { return true; }
+	void crc(StateHasher &h) const override { h.addU32(m_nextEnemyScanTime); crcPersistent(h); }
+	void xfer(Xfer &x) override // RW 0x9495F7 / 0x94A70A; OpenBFME layout v2 adds the persistent guardee position
+	{
+		const bool hasPosition = m_guardeePos.x != 0.0f || m_guardeePos.y != 0.0f || m_guardeePos.z != 0.0f;
+		XferVersion v{ 1, (std::uint8_t)(x.isLoading() || hasPosition ? 2 : 1) };
 		x.xferVersion(v);
 		x.xferUnsignedInt(&m_nextEnemyScanTime);
+		if (v.current >= 2)
+		{
+			AIXfer::coord(x, m_guardeePos);
+		}
+		else if (x.isLoading())
+		{
+			m_guardeePos = Coord3D{ 0.0f, 0.0f, 0.0f };
+		}
 	}
 
 private:
 	unsigned m_nextEnemyScanTime = 0; // + 0x20
+	Coord3D m_guardeePos{ 0.0f, 0.0f, 0.0f }; // + 0x24
 };
 
 // the attack the inner, outer and aggressor states run (ZH: new AIAttackState(machine, follow, true, false, &exitConditions))
