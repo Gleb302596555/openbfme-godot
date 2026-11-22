@@ -3676,3 +3676,169 @@ End
     CHECK(ally->getControllingPlayer() == w.playerOf('A'));
     CHECK(enemy->getControllingPlayer() == w.playerOf('B'));
 }
+
+TEST_CASE("PORT-238 Alatar-style single ring delivery copies present named timers")
+{
+    HealHudWorld w;
+    // evilalatar.ini:970-1007,1010-1052,2279-2318. The six names are
+    // literal, but this fixture supplies two common timers and one source-only.
+    // RW 0x8840FC -> 0x8B8E2E -> 0x8B1690; timer loop 0x8B12BF.
+    const char *data = R"ini(
+Upgrade Upgrade_P238AlatarRing
+ Type = OBJECT
+End
+SpecialPower P238AlatarTransform
+ Enum = SPECIAL_TOGGLE_MOUNTED
+ ReloadTime = 1000
+End
+SpecialPower SpecialAbilityTobenderSturm
+ Enum = SPECIAL_GENERAL_TARGETLESS
+ ReloadTime = 220000
+End
+SpecialPower SpecialAbilityLuftstorming
+ Enum = SPECIAL_GENERAL_TARGETLESS_TWO
+ ReloadTime = 220000
+End
+SpecialPower SpecialAbilityAlatarEyeOfStorm
+ Enum = SPECIAL_GENERAL_TARGETLESS_THREE
+ ReloadTime = 220000
+End
+SpecialPower SpecialAbilityAlatarTeleportAlly
+ Enum = SPECIAL_STORE_LIST_2
+ ReloadTime = 220000
+End
+SpecialPower SpecialAbilityAlatarTeleportStoredObjectsNew
+ Enum = SPECIAL_TELEPORT_LIST_TO_POSITION
+ ReloadTime = 320000
+End
+SpecialPower SpecialAbilityAlatarSummonOliphants
+ Enum = SPECIAL_SPELL_BOOK_ARROW_VOLLEY_GOOD
+ ReloadTime = 220000
+End
+SpecialPower P238AlatarUnlisted
+ Enum = SPECIAL_SCREECH
+ ReloadTime = 220000
+End
+CommandButton P238AlatarTransformButton
+ Command = SPECIAL_POWER
+ SpecialPower = P238AlatarTransform
+ InPalantir = No
+End
+Object P238AlatarBase
+ KindOf = INFANTRY HERO SELECTABLE COMMANDCENTER CAN_ATTACK
+ Body = ActiveBody Body
+  MaxHealth = 500
+ End
+ Behavior = AIUpdateInterface AI
+ End
+ Behavior = SpecialPowerModule TransformStarter
+  SpecialPowerTemplate = P238AlatarTransform
+  UpdateModuleStartsAttack = Yes
+  StartsPaused = No
+ End
+ Behavior = ToggleMountedSpecialAbilityUpdate Transform
+  SpecialPowerTemplate = P238AlatarTransform
+  MountedTemplate = P238AlatarRingForm
+  SynchronizeTimerOnSpecialPower = SpecialAbilityTobenderSturm SpecialAbilityLuftstorming SpecialAbilityAlatarEyeOfStorm SpecialAbilityAlatarTeleportAlly SpecialAbilityAlatarTeleportStoredObjectsNew SpecialAbilityAlatarSummonOliphants
+  UnpackTime = 2000
+  PreparationTime = 0
+  PackTime = 0
+  IgnoreFacingCheck = Yes
+ End
+ Behavior = DoCommandUpgrade Automatic
+  TriggeredBy = Upgrade_P238AlatarRing
+  GetUpgradeCommandButtonName = P238AlatarTransformButton
+ End
+ Behavior = CitadelSlaughterHordeContain Entry
+  PassengerFilter = NONE +P238Ring
+  ObjectStatusOfContained = UNSELECTABLE ENCLOSED
+  ContainMax = 1
+  StatusForRingEntry = HOLDING_THE_RING
+  UpgradeForRingEntry = Upgrade_P238AlatarRing
+  ObjectToDestroyForRingEntry = NONE +P238Ring
+ End
+ Behavior = SpecialPowerModule Storm
+  SpecialPowerTemplate = SpecialAbilityTobenderSturm
+ End
+ Behavior = SpecialPowerModule Air
+  SpecialPowerTemplate = SpecialAbilityLuftstorming
+ End
+ Behavior = SpecialPowerModule AllyStore
+  SpecialPowerTemplate = SpecialAbilityAlatarTeleportAlly
+ End
+ Behavior = SpecialPowerModule Other
+  SpecialPowerTemplate = P238AlatarUnlisted
+ End
+End
+Object P238AlatarRingForm
+ KindOf = INFANTRY HERO SELECTABLE CAN_ATTACK
+ Body = ActiveBody Body
+  MaxHealth = 500
+ End
+ Behavior = AIUpdateInterface AI
+ End
+ Behavior = SpecialPowerModule Storm
+  SpecialPowerTemplate = SpecialAbilityTobenderSturm
+ End
+ Behavior = SpecialPowerModule Air
+  SpecialPowerTemplate = SpecialAbilityLuftstorming
+ End
+ Behavior = SpecialPowerModule Other
+  SpecialPowerTemplate = P238AlatarUnlisted
+ End
+End
+)ini";
+    const std::string error = w.w.load(data, INI_LOAD_OVERWRITE, "port238_alatar_delivery.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    Object *hero = w.unit("P238AlatarBase", 'A', 300, 300);
+    Object *carrier = w.unit("P238Carrier", 'A', 300, 300);
+    Object *ring = w.unit("P238Ring", 'A', 300, 300);
+    REQUIRE(hero != nullptr);
+    REQUIRE(carrier != nullptr);
+    REQUIRE(ring != nullptr);
+    const ObjectID heroId = hero->getID();
+    const ObjectID ringId = ring->getID();
+    auto power = [&](Object &obj, const char *name) {
+        const auto *t = w.powers.findSpecialPowerTemplate(name);
+        return t ? dynamic_cast<SpecialPowerModule *>(SpecialPowerModules::findModule(obj, t)) : nullptr;
+    };
+    auto *storm = power(*hero, "SpecialAbilityTobenderSturm");
+    auto *air = power(*hero, "SpecialAbilityLuftstorming");
+    auto *allyStore = power(*hero, "SpecialAbilityAlatarTeleportAlly");
+    auto *other = power(*hero, "P238AlatarUnlisted");
+    REQUIRE(storm != nullptr);
+    REQUIRE(air != nullptr);
+    REQUIRE(allyStore != nullptr);
+    REQUIRE(other != nullptr);
+    storm->setReadyFrame(300);
+    air->setReadyFrame(600);
+    allyStore->setReadyFrame(700);
+    other->setReadyFrame(900);
+    auto *contain = dynamic_cast<CitadelSlaughterHordeContain *>(hero->getContain());
+    REQUIRE(contain != nullptr);
+    deliver(*contain, *carrier);
+    CHECK(hero->hasUpgrade("Upgrade_P238AlatarRing"));
+    REQUIRE(w.byId(ringId) != nullptr);
+    CHECK(w.byId(ringId)->isDestroyed());
+    Object *replacement = nullptr;
+    for (int frame = 0; frame < 50 && !replacement; ++frame)
+    {
+        w.frames(1);
+        for (Object *obj = w.logic->getFirstObject(); obj; obj = obj->getNextObject())
+            if (obj->getTemplate() && obj->getTemplate()->getName() == "P238AlatarRingForm") replacement = obj;
+    }
+    REQUIRE(replacement != nullptr);
+    CHECK(replacement->getControllingPlayer() == w.playerOf('A'));
+    storm = power(*replacement, "SpecialAbilityTobenderSturm");
+    air = power(*replacement, "SpecialAbilityLuftstorming");
+    other = power(*replacement, "P238AlatarUnlisted");
+    REQUIRE(storm != nullptr);
+    REQUIRE(air != nullptr);
+    REQUIRE(other != nullptr);
+    CHECK(storm->getReadyFrame() == 300);
+    CHECK(air->getReadyFrame() == 600);
+    CHECK(other->getReadyFrame() == 11); // replacement creation frame; the unlisted timer is not copied
+    CHECK(power(*replacement, "SpecialAbilityAlatarTeleportAlly") == nullptr);
+    w.frames(3);
+    CHECK(w.byId(heroId) == nullptr);
+}
