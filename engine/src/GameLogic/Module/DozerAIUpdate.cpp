@@ -2,6 +2,7 @@
 // See GameLogic/Module/DozerAIUpdate.h for the sources of every rule.
 
 #include "GameLogic/Module/DozerAIUpdate.h"
+#include "GameLogic/ActionManager.h"
 #include "GameLogic/Module/WorkerAIUpdate.h"
 #include "Common/ModEngineFeatures.h"
 #include "GameLogic/Economy.h"
@@ -136,12 +137,6 @@ bool sameOwnerUnfinished(const Object &dozer, const Object &structure)
 	return !structure.isDestroyed() && structure.isUnderConstruction() && structure.getControllingPlayer() == dozer.getControllingPlayer();
 }
 
-// the stand-in of the ActionManager's canRepairObject (RW 0x82D7F2, not ported: S-1282): the dozer's owner's finished, living structure
-bool canRepair(const Object &dozer, const Object *structure)
-{
-	return structure && !structure->isDestroyed() && !structure->isEffectivelyDead() && !structure->isUnderConstruction() &&
-	       structure->getControllingPlayer() == dozer.getControllingPlayer();
-}
 } // namespace
 
 DozerAIUpdate::DozerAIUpdate(Thing *thing, const ModuleData *data)
@@ -681,19 +676,15 @@ bool DozerAIUpdate::resumeConstruction(Object &structure)
 
 bool DozerAIUpdate::repair(Object &structure)
 {
-	// RW 0x88BD8D: the dozer can repair (slot 0x50) and the ActionManager allows it (RW 0x82D7F2, S-1282), the structure has no other sole healer (RW 0x68B8D3);
-	// the command path RW 0x88E552 idles a dozer without a current task first
+	// RW 0x88BD8D: canAcceptNewRepair is the dozer interface's slot 0x50,
+	// before the shared ActionManager::canRepairObject gate. The existing
+	// repair task remains the healing path.
 	Object *self = getObject();
-	if (!canAcceptNewRepair(&structure)) // RW 0x88BDA2: the dozer interface's slot 0x50, FIRST
+	if (!canAcceptNewRepair(&structure)) // RW 0x88BDA2, FIRST
 	{
 		return false;
 	}
-	if (!canRepair(*self, &structure))
-	{
-		return false;
-	}
-	const ObjectID healer = self->logic().getFrame() > structure.soleHealingBenefactorExpiry() ? (ObjectID)INVALID_ID : structure.soleHealingBenefactor();
-	if (healer != INVALID_ID && healer != self->getID())
+	if (!ActionManager::canRepairObject(self, &structure, lastCommandSource()))
 	{
 		return false;
 	}
@@ -709,6 +700,12 @@ bool DozerAIUpdate::repair(Object &structure)
 	return true;
 }
 
+bool DozerAIUpdate::repair(Object &structure, CommandSourceType source)
+{
+	setLastCommandSource(source); // PORT-289: keep the source for the virtual repair gate and per-frame cancellation
+	return repair(structure);     // PORT-282: dispatch WorkerAIUpdate::repair when the dynamic type is a worker
+}
+
 // lane PORT-282: RW 0x8AD2D3 (the worker's dozer-interface slot 0xB0; WorkerAIUpdate, not the dozer's 0x88BD8D). The ActionManager's test (RW 0x82D7F2) is
 // asked first with the ordered structure, and the order is dropped when it says no; a builder that is not a SWARM_DOZER (the template's KindOf byte + 0x109
 // bit 7) then asks the dozer interface's slot 0x50 (RW 0x88CB8A, canAcceptNewRepair) and the structure's sole healer (RW 0x68B8D3, Object's own accessor):
@@ -717,7 +714,7 @@ bool DozerAIUpdate::repair(Object &structure)
 bool WorkerAIUpdate::repair(Object &structure)
 {
 	Object *self = getObject();
-	if (!canRepair(*self, &structure)) // RW 0x8AD2EB(0x82D7F2): the ActionManager's structure test
+	if (!ActionManager::canRepairObject(self, &structure, lastCommandSource())) // RW 0x8AD2EB(0x82D7F2): the shared ActionManager repair predicate
 	{
 		return false;
 	}
@@ -1336,9 +1333,10 @@ UpdateSleepTime DozerAIUpdate::update()
 void DozerAIUpdate::dozerMachineStep()
 {
 	Object *self = getObject();
-	if (m_currentTask == DOZER_TASK_REPAIR && !canRepair(*self, self->logic().findObjectByID(getTaskTarget(DOZER_TASK_REPAIR))))
+	if (m_currentTask == DOZER_TASK_REPAIR &&
+		!ActionManager::canRepairObject(self, self->logic().findObjectByID(getTaskTarget(DOZER_TASK_REPAIR)), lastCommandSource()))
 	{
-		cancelTaskInternal(DOZER_TASK_REPAIR); // RW 0x88CB6D (the ActionManager's test RW 0x82D7F2: S-1282)
+		cancelTaskInternal(DOZER_TASK_REPAIR); // RW 0x88CB6D -> ActionManager::canRepairObject
 	}
 	// the primary machine (ZH StateMachine::updateStateMachine)
 	const int before = m_primaryState;
