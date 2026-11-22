@@ -2,6 +2,7 @@
 // See UnitHelpSource.h (lane HOVER-1). Client-only: the help reads the logic, it never changes it.
 
 #include "GameClient/UnitHelpSource.h"
+#include "GameClient/Drawable.h"
 #include "GameClient/LocalizedText.h"
 
 #include "Common/Player.h"
@@ -12,6 +13,7 @@
 #include "GameLogic/ExperienceLevels.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Module/BehaviorModule.h"
+#include "GameLogic/Module/TooltipUpgrade.h"
 #include "GameLogic/Object/ExperienceTracker.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/ObjectTemplateInfo.h"
@@ -125,7 +127,7 @@ UnicodeString UnitHelpSource::format(const UnicodeString &fmt, const std::vector
 	return LocalizedText::format(fmt, values);
 }
 
-UnitHelpSource::Text UnitHelpSource::compose(const Object &obj, const GameTextSource *text, GameLogic &logic, const Player *localPlayer)
+UnitHelpSource::Text UnitHelpSource::compose(const Object &obj, const GameTextSource *text, GameLogic &logic, const Player *localPlayer, const Drawable *drawable)
 {
 	(void)localPlayer;
 	Text t;
@@ -140,8 +142,16 @@ UnitHelpSource::Text UnitHelpSource::compose(const Object &obj, const GameTextSo
 	{
 		t.unported.push_back("the Create-a-Hero name and template (RW 0x69194E / 0x68FA0F, S-4612)");
 	}
-	// the title: the object's own name (+ 0x494, not ported: empty), else the template's DisplayName text
-	t.title = CommandButtonHelp::templateText(*tt, "DisplayName", text);
+	// S-6013 (RW 0x8EBCEC -> Drawable::getCustomTooltipDisplayName RW 0x674F88): OverrideTooltip / TooltipUpgrade custom display name (+ 0x348),
+	// else the object's own name (+ 0x494, not ported: empty), else the template's DisplayName text
+	// S-6013 (RW 0x8EBCEC -> Drawable::getCustomTooltipDisplayName RW 0x674F88)
+	// RW 0x8EBCEC / 0x674F88
+	const std::string customDisplayName = drawable && !drawable->customTooltipDisplayName().empty()
+		? drawable->customTooltipDisplayName()
+		: TooltipUpgrade::displayNameOf(obj);
+	t.title = !customDisplayName.empty()
+		? fetchOrMissing(text, customDisplayName)
+		: CommandButtonHelp::templateText(*tt, "DisplayName", text);
 	// a member of a HORDE container whose own name is set: retail formats "TOOLTIP:VerteranHordeMemberName"; the port's objects carry no own name (+ 0x494),
 	// so the horde's name is always empty and the title stays the member's (S-4612)
 	if (!CommandButtonHelp::templateLabel(*tt, "DisplayNameInvisibleForEnemy").empty())
@@ -201,8 +211,16 @@ UnitHelpSource::Text UnitHelpSource::compose(const Object &obj, const GameTextSo
 	}
 	// the battles fought (Object + 0x488): not ported (S-852)
 	t.unported.push_back("TOOLTIP:BattlesFought (Object + 0x488 is not ported, S-852)");
-	// the description (RW 0x8EC09C): the template's Description text
-	const UnicodeString description = CommandButtonHelp::templateText(*tt, "Description", text);
+	// S-6013 (RW 0x8EC0C7 -> Drawable::getCustomTooltipDescription RW 0x674FD8): TooltipUpgrade custom description (+ 0x34C),
+	// else the template's Description text
+	// S-6013 (RW 0x8EC0C7 -> Drawable::getCustomTooltipDescription RW 0x674FD8)
+	// RW 0x8EC0C7 / 0x674FD8
+	const std::string customDescription = drawable && !drawable->customTooltipDescription().empty()
+		? drawable->customTooltipDescription()
+		: TooltipUpgrade::descriptionOf(obj);
+	const UnicodeString description = !customDescription.empty()
+		? fetchOrMissing(text, customDescription)
+		: CommandButtonHelp::templateText(*tt, "Description", text);
 	if (!description.empty())
 	{
 		append(t.text, description);
@@ -215,9 +233,9 @@ std::vector<std::string> UnitHelpSource::acceptanceStops()
 	return {
 		"[S-4612] hover help (HOVER-1): ported the hero bar's help (RW 0x92BF34: the builder slot and the select-all button show their NonCommand button's "
 		"help, a hero its UnitHelpSource RW 0x8EBC61 as an InGameSimpleHelp RW 0x9402E7: name, level, maximum health, damages with the modifiers, upgrades, "
-		"description), the Palantir portrait's (RW 0x93099D: an own or allied object's unit help), the spell book's (RW 0x930DC4: the slot's command button), "
+		"description, plus Drawable +0x348/+0x34C OverrideTooltip / TooltipUpgrade overrides), the Palantir portrait's (RW 0x93099D: an own or allied object's unit help), the spell book's (RW 0x930DC4: the slot's command button), "
 		"RW 0x807A81's revive / castle unpack / unit cost / science-disabled / multi-science / upgrade conflict and prerequisite branches (the repair costs "
-		"and the revive Create-a-Hero name: lane ROTWK-C); not ported: the drawable's script captions, Object + 0x494 names (the veteran horde member name), the disguise "
+		"and the revive Create-a-Hero name: lane ROTWK-C); not ported: Object + 0x494 names (the veteran horde member name), the disguise "
 		"label, the Create-a-Hero names and template, the battles fought (Object + 0x488, S-852); also not ported, named by the inventory of every tool tip "
 		"source (tools/hover/hover_inventory.py, sources.csv): the in-game unit tips (TOOLTIP:AddSpecialAbilityNoPower, ClickToRenameThisUnit, DisbandUnit, "
 		"DisbandUnitDisabled, DisbandUnitDisabledHero, DisbandUnitDisabledLeader, SupplyWarehouse, YouMayNotRenameAHero) and the War of the Ring HUD's 23 "

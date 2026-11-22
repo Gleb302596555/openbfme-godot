@@ -179,6 +179,10 @@ struct W3DScriptedModelDrawOptions
 	// the tag, setModuleVisible changes that module's visibility. Unset: the requests are only recorded here (isModuleHidden)
 	std::function<bool(const std::string &)> hasModule;
 	std::function<void(const std::string &, bool)> setModuleVisible;
+	// S-830: RW 0x73501F -> Drawable::showSubObject (RW 0x672823) reaches every draw module of the drawable; unset keeps standalone local scope
+	std::function<void(const std::string &, bool, bool)> setSubObjectHidden;
+	// S-6013: RW 0x4C455B -> Drawable::setCustomTooltipDisplayName (RW 0x6796DA): ModelConditionState OverrideTooltip
+	std::function<void(const std::string &)> setOverrideTooltip;
 	// The drawable's model variation (drawable + 0x364, RW 0x679FEA): an object's drawable gets its creation draw GetGameLogicRandomValue(1, 999)
 	// (RW 0x6288A5 -> 0x6288D3), the other drawables -1 (placement ghosts RW 0x69C6A6). It picks the RandomTexture swaps (RW 0x4C238A).
 	int variation = -1;
@@ -456,11 +460,14 @@ public:
 	int renderObjectsCreated() const { return m_renderObjectsCreated; }
 	std::uint32_t renderObjectGeneration() const { return m_renderObjectGeneration; }
 	std::uint32_t materialStateGeneration() const { return m_materialStateGeneration; }
+	std::uint32_t hiddenGeneration() const { return m_hiddenGeneration; }
 	const HouseColorParams &baseHouseColor() const { return m_baseHouseColor; }
 	void setBaseHouseColor(const HouseColorParams &params);
 	const std::map<std::string, HouseColorParams> &meshHouseColors() const { return m_meshHouseColors; }
 	// RW 0x4B8701 -> slot +0x1F8 (RW 0x54BDE0): recolours current render object meshes except those matching excludeSubobject
 	void recolorRenderObject(const std::string &excludeSubobject, const HouseColorParams &params);
+	// S-484 (RW 0x672713 -> 0x4B86F2): clears house recolour overrides so meshes revert to base house/custom colors
+	void clearRecolorHouse();
 	const W3DModelBones &bones() const { return m_bones; }
 	const std::vector<W3DStopHit> &stops() const { return m_stops; }
 	const std::vector<std::string> &errors() const { return m_errors; }
@@ -633,6 +640,7 @@ private:
 	const AnimationStateInfo *m_pendingTarget = nullptr; // RW +0x1CC
 	ScriptContext m_ctx;
 	bool m_inScript = false;
+	bool m_forwardingSubObject = false;
 	// lane RENDER-3: RW 0x4C3B25's permanent list (draw + 0x68): one record per name (_strcmpi), kept whether or not the current render object has the
 	// sub object, applied by name to every new render object (a model without it is skipped silently)
 	std::vector<std::pair<std::string, bool>> m_permanentSubObjectOps;

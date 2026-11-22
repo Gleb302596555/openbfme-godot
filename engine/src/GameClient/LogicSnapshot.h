@@ -103,6 +103,8 @@ struct ObjectSnapshot
 	// lane STEALTH-1: the invisibility look for the local player (InvisibilityManager::clientLook, RW 0x81AA03): 0 normal, 1 / 4 the friend's opacity pulse, 3 detected
 	// for an enemy, 5 invisible for an enemy (not drawn, not picked)
 	int stealthLook = 0;
+	// S-1001 (RW 0x85EE1B): InvisibilityManager::invisibilityType == 1 (CAMOUFLAGE), checked on projectile launchers
+	bool camouflaged = false;
 	// lane GARRISON-1: Object::isDrawableHidden (RW 0x6718FB, set by the contains): the device layer draws nothing for it
 	bool drawableHidden = false;
 	// lane FBSIM-1: a dozer's phantom structure (status PHANTOM_STRUCTURE, DozerAIUpdate slot 0x64 RW 0x88D272): its drawable is drawn at 0.4 opacity (RW 0xBE0DE4) when
@@ -163,6 +165,7 @@ struct ShroudView
 struct PlayerView
 {
 	int localIndex = -1;
+	bool localActive = false; ///< RW 0x6AAC52: !local->isObserver() && !local->isDefeated()
 	int count = 0;
 	std::vector<std::int8_t> relationship; ///< Player::getRelationship(owner -> other), [owner * count + other]
 	int relationshipOf(int owner, int other) const

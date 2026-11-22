@@ -2175,7 +2175,11 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 			animated += animatedNow ? 1 : 0;
 			// lane CAH-2: a new colour set (Drawable::setCustomColors, RW 0x6727B0) chooses another model below
 			const bool colorsChanged = d->customColorRevision() != ev.colorsRevision;
-			if (!flagsChanged && !animatedNow && !colorsChanged && ev.posed && !tinted && !ev.animKeyTinted && e.draw->opacity() == 1.0f && !e.draw->hiddenByFade() && !ev.fadeHidden)
+			// S-484 / S-830 (RW 0x8B9247 / 0x73501F): rebuild static/idle pose when material, model, or subobject visibility changed
+			const bool drawGensMatch = e.draw->materialStateGeneration() == ev.animKeyMaterialGen
+				&& e.draw->renderObjectGeneration() == ev.animKeyRenderGen
+				&& e.draw->hiddenGeneration() == ev.hiddenGeneration;
+			if (!flagsChanged && !animatedNow && !colorsChanged && drawGensMatch && ev.posed && !tinted && !ev.animKeyTinted && e.draw->opacity() == 1.0f && !e.draw->hiddenByFade() && !ev.fadeHidden)
 			{
 				if (entryXfChanged && ev.instance >= 0)
 				{

@@ -445,6 +445,11 @@ bool W3DScriptedModelDraw::setModelState(const ModelConditionInfo *state, bool f
 	{
 		return false;
 	}
+	// RW 0x4C455B -> Drawable::setCustomTooltipDisplayName (RW 0x6796DA): OverrideTooltip on the model condition state
+	if (m_options.setOverrideTooltip && !state->overrideTooltip.empty())
+	{
+		m_options.setOverrideTooltip(state->overrideTooltip);
+	}
 	// RW 0x4C45A7 .. 0x4C45B5: the current state again, no index change and no force: nothing happens (return 0 at RW 0x4C4554). Without this a
 	// state with `Texture` pairs (a SNOW building) would rebuild its render object on every flag update. INFERENCE (S-090): the index pair
 	// (+0xBC / +0xC0, RW 0x4C4585 .. 0x4C4598) has no port counterpart and is taken as unchanged.
@@ -594,6 +599,17 @@ void W3DScriptedModelDraw::recolorRenderObject(const std::string &excludeSubobje
 			}
 		}
 	}
+	++m_materialStateGeneration;
+}
+
+// S-484 (RW 0x672713 -> 0x4B86F2): clears per-mesh SubObjectsUpgrade house recolours so surfaces return to base colors
+void W3DScriptedModelDraw::clearRecolorHouse()
+{
+	if (m_meshHouseColors.empty())
+	{
+		return;
+	}
+	m_meshHouseColors.clear();
 	++m_materialStateGeneration;
 }
 
@@ -1815,8 +1831,20 @@ void W3DScriptedModelDraw::setSubObjectHidden(const std::string &name, bool hide
 	stop("S-098", "scripts hide and show sub objects by name; the name match (full name or the part after the container dot) is inferred");
 	if (m_inScript)
 	{
-		stop("S-830", "a state script's CurDrawableHide/ShowSubObject[Permanently] reaches only the draw module running it; retail (RW 0x73501F -> Drawable "
-					  "RW 0x672823) passes it to every draw module of the drawable");
+		// S-830 (RW 0x73501F -> Drawable::showSubObject RW 0x672823): forward script subobject ops to all sibling draw modules
+		if (m_options.setSubObjectHidden && !m_forwardingSubObject)
+		{
+			// RW 0x73501F -> 0x672823: guard against re-entry
+			m_forwardingSubObject = true;
+			m_options.setSubObjectHidden(name, hide, permanent);
+			m_forwardingSubObject = false;
+			return;
+		}
+		if (!m_options.setSubObjectHidden)
+		{
+			stop("S-830", "a state script's CurDrawableHide/ShowSubObject[Permanently] reaches only the draw module running it; retail (RW 0x73501F -> Drawable "
+						  "RW 0x672823) passes it to every draw module of the drawable");
+		}
 	}
 	if (permanent)
 	{

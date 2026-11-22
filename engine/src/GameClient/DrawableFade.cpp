@@ -112,11 +112,16 @@ void Drawable::startProjectileFade(const ObjectSnapshot &rec, const LogicSnapsho
 	{
 		return; // RW 0x85EE8F .. 0x85EEA3: template +0x113 bit 2 / +0x109 bit 2
 	}
+	// RW 0x85EE00 .. 0x85EF31
 	const ShroudView *shroud = snapshot.shroud.get();
 	const bool shroudShown = shroud && shroud->displayed && shroud->localPlayer >= 0;
 	const ObjectSnapshot *launcher = rec.projectileLauncher != INVALID_ID ? snapshot.find(rec.projectileLauncher) : nullptr;
+	// S-1001 (RW 0x85EE0F..0x85EE7A): CAMOUFLAGE (type 1) launcher owned by an enemy is hidden from an active local player (RW 0x6AAC52)
+	const bool localActive = snapshot.players && snapshot.players->localActive;
+	const bool camouflagedEnemy = launcher && launcher->camouflaged && localActive && snapshot.players
+		&& snapshot.players->relationshipOf(launcher->ownerIndex, snapshot.players->localIndex) == (int)ENEMIES;
 	// RW 0x68D8F7 == 1: OBJECTSHROUD_CLEAR (without a displayed shroud every object is seen)
-	const bool launcherSeen = launcher && (!shroudShown || launcher->objectShroud == (int)OBJECTSHROUD_CLEAR);
+	const bool launcherSeen = launcher && (!shroudShown || launcher->objectShroud == (int)OBJECTSHROUD_CLEAR) && !camouflagedEnemy;
 	// RW 0xB4D9A0 == 0: the cell of the flight's end is clear
 	const bool targetSeen = !shroudShown || shroud->statusAt(rec.projectileEnd.x, rec.projectileEnd.y) == CELLSHROUD_CLEAR;
 	const double flightFrames = kClientFramesPerLogicFrame * (double)rec.projectileSegments;

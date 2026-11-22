@@ -19,6 +19,8 @@
 #include "GameClient/Eva.h"
 #include "GameClient/LiveGame.h"
 #include "GameClient/MusicScripts.h"
+#include "GameClient/SoundSelectorClientBehavior.h"
+#include "Common/RandomValue.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/LargeGroupAudioLink.h"
 #include "GameLogic/Module/ActiveBody.h"
@@ -50,7 +52,114 @@ AudioRelationship toAudio(Relationship r)
 {
 	return r == ALLIES ? AR_ALLIES : r == ENEMIES ? AR_ENEMIES : AR_NEUTRAL;
 }
+
+class AmbientRoll : public SoundSelectors::RandomRoll
+{
+public:
+	// S-706 / S-701 (RW 0x676A8A): random roll for RandomSoundSelectorClientBehavior ambient queries
+	explicit AmbientRoll(GameLogicRandom &r) : m_r(r) {}
+	float roll() override { return m_r.getValueReal(0.0f, 1.0f, nullptr, 0); }
+
+private:
+	GameLogicRandom &m_r;
+};
+
+int effectiveAmbientDamageState(const Object &obj)
+{
+	BodyDamageType dt = BODY_PRISTINE;
+	if (const BodyModuleInterface *body = obj.getBodyModule())
+	{
+		dt = body->getDamageState();
+	}
+	int idx = (int)dt;
+	if (idx < 0 || idx >= BODYDAMAGETYPE_COUNT)
+	{
+		idx = BODY_PRISTINE;
+	}
+	// S-706 (RW 0x6778A9 -> 0x6760DA): under-construction objects not at RUBBLE use the pristine ambient slot
+	static const int kAwaiting = ModelCondition::indexOf("AWAITING_CONSTRUCTION");
+	static const int kConstruct = ModelCondition::indexOf("ACTIVELY_BEING_CONSTRUCTED");
+	if (idx != BODY_RUBBLE && ((kAwaiting >= 0 && obj.testModelCondition(kAwaiting)) || (kConstruct >= 0 && obj.testModelCondition(kConstruct))))
+	{
+		idx = BODY_PRISTINE;
+	}
+	return idx;
+}
+
+std::string selectAmbientSound(const Object &obj, int damageState, bool battle,
+	SoundSelectors::RandomStates *rs, GameLogicRandom *rng, unsigned clientFrame)
+{
+	// S-706 (RW 0x676A8A rows 37..41): check SoundSelectors before template fields
+	const ThingTemplate &tt = *obj.getTemplate();
+	const ThingTemplate &fin = *tt.getFinalOverride();
+	if (SoundSelectors::any(fin))
+	{
+		// RW 0x676A8A: query selectors with drawable condition bits and frame
+		SoundSelector::Query q;
+		q.object = &obj;
+		q.drawableFlags = &obj.getModelConditionBits();
+		q.clientFrame = clientFrame;
+		GameLogicRandom fallbackRng(RandomAlgorithm::ZH_CarryChain);
+		if (!rng)
+		{
+			fallbackRng.seedRandom(1);
+			rng = &fallbackRng;
+		}
+		// RW 0x676A8A: fallback state when queried statically
+		SoundSelectors::RandomStates fallbackStates;
+		if (!rs)
+		{
+			rs = &fallbackStates;
+		}
+		// RW 0x676A8A / 0x8D0138: roll for RandomSoundSelectorClientBehavior
+		AmbientRoll rnd(*rng);
+		SoundSelector::Record r;
+		if (battle)
+		{
+			static const int kBattleRow = SoundSelector::rowIndex("SoundAmbientBattle");
+			if (kBattleRow >= 0 && SoundSelectors::row(fin, q, kBattleRow, *rs, rnd, &r) && !r.sound.empty())
+			{
+				return r.sound;
+			}
+		}
+		else
+		{
+			static const int kAmbientRow = SoundSelector::rowIndex("SoundAmbient");
+			if (kAmbientRow >= 0 && SoundSelectors::row(fin, q, kAmbientRow + damageState, *rs, rnd, &r) && !r.sound.empty())
+			{
+				return r.sound;
+			}
+			if (damageState != BODY_PRISTINE && damageState != BODY_RUBBLE
+				&& kAmbientRow >= 0 && SoundSelectors::row(fin, q, kAmbientRow, *rs, rnd, &r) && !r.sound.empty())
+			{
+				return r.sound;
+			}
+		}
+	}
+	if (battle)
+	{
+		// S-706 (RW 0x678816): template SoundAmbientBattle fallback
+		return soundField(tt, "SoundAmbientBattle");
+	}
+	// DONOR ZH Drawable::startAmbientSound: template damage-state row with pristine fallback
+	static const char *const kField[BODYDAMAGETYPE_COUNT] = { "SoundAmbient", "SoundAmbientDamaged", "SoundAmbientReallyDamaged", "SoundAmbientRubble" };
+	std::string s = soundField(tt, kField[damageState]);
+	if (s.empty() && damageState != BODY_PRISTINE && damageState != BODY_RUBBLE)
+	{
+		s = soundField(tt, kField[BODY_PRISTINE]);
+	}
+	return s;
+}
 } // namespace
+
+struct LiveGameAudio::SelectorRandomStore
+{
+	// S-706 (RW 0x676A8A): selector random state per object on LiveGameAudio
+	GameLogicRandom rng{ RandomAlgorithm::ZH_CarryChain };
+	std::unordered_map<ObjectID, SoundSelectors::RandomStates> perObject;
+	SelectorRandomStore() { rng.seedRandom(1); }
+	std::string dynamicResult;
+};
 
 // RW 0x60D5FF / RW 0x60D5CB / RW 0x60D633: capture member state and the gate at notification time.
 // Apply to Sound blocks on the audio owner; they never look up object IDs or write simulation state.
@@ -262,6 +371,7 @@ LiveGameAudio::LiveGameAudio(LiveGame &game, AudioManager &audio)
 	footsteps.audio = [audioPtr]() { return audioPtr; };
 	footsteps.objectPosition = [this](std::uint32_t id, Coord3D *pos) { return objectPosition(id, pos); };
 	// lane AUDIO-4: TheLargeGroupAudio's member calls from the logic
+	m_selectorRandom = std::make_unique<SelectorRandomStore>();
 	m_lga = std::make_unique<LgaRuntime>();
 	m_lga->link = &m_game.logic().largeGroupAudio();
 	m_game.logic().largeGroupAudio().setSink(m_lga.get());
@@ -325,6 +435,10 @@ LiveGameAudio::~LiveGameAudio()
 	{
 		stopAmbient(kv.first, kv.second);
 	}
+	for (auto &kv : m_battleAmbients)
+	{
+		stopBattleAmbient(kv.first, kv.second);
+	}
 	for (auto &kv : m_groups)
 	{
 		m_audio.removeAudioEvent(kv.second.handle);
@@ -371,9 +485,13 @@ std::uint8_t LiveGameAudio::templateAudio(const ThingTemplate &tt)
 		return it->second;
 	}
 	std::uint8_t kinds = 0;
-	for (const char *f : { "SoundAmbient", "SoundAmbientDamaged", "SoundAmbientReallyDamaged", "SoundAmbientRubble" })
+	for (const char *f : { "SoundAmbient", "SoundAmbientDamaged", "SoundAmbientReallyDamaged", "SoundAmbientRubble", "SoundAmbientBattle" })
 	{
 		kinds |= soundField(tt, f).empty() ? 0 : 1;
+	}
+	if (SoundSelectors::any(*tt.getFinalOverride()))
+	{
+		kinds |= 1;
 	}
 	for (const char *f : { "EvaEventDieOwner", "EvaEventDieAlly", "EvaEventDieEnemy", "EvaEventDamagedOwner" })
 	{
@@ -388,14 +506,18 @@ std::uint8_t LiveGameAudio::templateAudio(const ThingTemplate &tt)
 
 const std::string &LiveGameAudio::cachedAmbientSoundFor(const Object &obj)
 {
-	// lane PERF-1 r2: ambientSoundFor reads the template's sound rows (field lookups by name); its result depends on the template and the damage state
-	// alone, so update() asks it once per pair
-	BodyDamageType dt = BODY_PRISTINE;
-	if (const BodyModuleInterface *body = obj.getBodyModule())
+	// S-706 (RW 0x6778A9 / 0x676A8A): resolve effective damage state and selector ambients dynamically
+	const int dt = effectiveAmbientDamageState(obj);
+	const ThingTemplate &fin = *obj.getTemplate()->getFinalOverride();
+	if (SoundSelectors::any(fin))
 	{
-		dt = body->getDamageState();
+		// RW 0x676A8A: per-object selector evaluation
+		m_selectorRandom->dynamicResult = selectAmbientSound(obj, dt, false,
+			&m_selectorRandom->perObject[obj.getID()], &m_selectorRandom->rng, m_game.logic().getFrame());
+		return m_selectorRandom->dynamicResult;
 	}
-	const auto key = std::make_pair(obj.getTemplate(), (int)dt);
+	// lane PERF-1 r2: without sound selectors, ambientSoundFor depends on template and effective damage state alone
+	const auto key = std::make_pair(obj.getTemplate(), dt);
 	auto it = m_ambientByTemplate.find(key);
 	if (it == m_ambientByTemplate.end())
 	{
@@ -406,20 +528,12 @@ const std::string &LiveGameAudio::cachedAmbientSoundFor(const Object &obj)
 
 std::string LiveGameAudio::ambientSoundFor(const Object &obj)
 {
-	// ZH Drawable::startAmbientSound(dt): the sound of the damage state, else for DAMAGED / REALLYDAMAGED the pristine one (RUBBLE has no fallback)
-	const ThingTemplate &tt = *obj.getTemplate();
-	BodyDamageType dt = BODY_PRISTINE;
-	if (const BodyModuleInterface *body = obj.getBodyModule())
-	{
-		dt = body->getDamageState();
-	}
-	static const char *const kField[BODYDAMAGETYPE_COUNT] = { "SoundAmbient", "SoundAmbientDamaged", "SoundAmbientReallyDamaged", "SoundAmbientRubble" };
-	std::string s = soundField(tt, kField[dt]);
-	if (s.empty() && dt != BODY_PRISTINE && dt != BODY_RUBBLE)
-	{
-		s = soundField(tt, kField[BODY_PRISTINE]);
-	}
-	return s;
+	return selectAmbientSound(obj, effectiveAmbientDamageState(obj), false, nullptr, nullptr, 0);
+}
+
+std::string LiveGameAudio::battleAmbientSoundFor(const Object &obj)
+{
+	return selectAmbientSound(obj, BODY_PRISTINE, true, nullptr, nullptr, 0);
 }
 
 void LiveGameAudio::stopAmbient(ObjectID, Ambient &a)
@@ -428,6 +542,17 @@ void LiveGameAudio::stopAmbient(ObjectID, Ambient &a)
 	{
 		m_audio.removeAudioEvent(a.handle);
 		++m_stats.ambientStopped;
+	}
+	a.handle = 0;
+	a.tried = false;
+}
+
+void LiveGameAudio::stopBattleAmbient(ObjectID, Ambient &a)
+{
+	if (a.handle >= AHSV_FirstHandle)
+	{
+		m_audio.removeAudioEvent(a.handle);
+		++m_stats.battleAmbientStopped;
 	}
 	a.handle = 0;
 	a.tried = false;
@@ -736,7 +861,7 @@ void LiveGameAudio::update()
 		m_music->update(m_musicFrame);
 	}
 	// the start of an object's ambient that is not playing yet (ZH Drawable.cpp:4518 and the range retry below)
-	auto tryStart = [&](Object *o, Ambient &a) {
+	auto tryStart = [&](Object *o, Ambient &a, bool battle) {
 		const auto info = m_audio.ini().infos.find(a.event);
 		if (!info)
 		{
@@ -762,11 +887,18 @@ void LiveGameAudio::update()
 		}
 		const Player *owner = o->getControllingPlayer();
 		const Drawable *d = m_game.drawables().findByObject(o->getID()); // SMOOTH-1: the render side's drawable (update runs at a worker-idle point)
-		AudioLog::Scope logScope("ambient");
+		AudioLog::Scope logScope(battle ? "battle ambient" : "ambient");
 		a.handle = d ? m_audio.playSoundForDrawable(a.event, (std::uint32_t)d->getID(), owner ? owner->getPlayerIndex() : -1)
 					 : m_audio.playSoundForObject(a.event, (std::uint32_t)o->getID(), owner ? owner->getPlayerIndex() : -1);
 		a.tried = true;
-		++m_stats.ambientStarted;
+		if (battle)
+		{
+			++m_stats.battleAmbientStarted;
+		}
+		else
+		{
+			++m_stats.ambientStarted;
+		}
 	};
 	// lane PERF-HD: what the scan reads (the objects, their death, construction, damage state and health) changes only with a logic frame; the held
 	// client window runs about twice per logic frame. Between frames only the ambients not started yet are tried again (the listener moves), as the
@@ -783,7 +915,19 @@ void LiveGameAudio::update()
 			}
 			if (Object *o = logic.findObjectByID(kv.first))
 			{
-				tryStart(o, a);
+				tryStart(o, a, false);
+			}
+		}
+		for (auto &kv : m_battleAmbients)
+		{
+			Ambient &a = kv.second;
+			if (a.event.empty() || a.tried)
+			{
+				continue;
+			}
+			if (Object *o = logic.findObjectByID(kv.first))
+			{
+				tryStart(o, a, true);
 			}
 		}
 		m_stats.ambientPlaying = 0;
@@ -791,10 +935,16 @@ void LiveGameAudio::update()
 		{
 			m_stats.ambientPlaying += kv.second.handle >= AHSV_FirstHandle ? 1 : 0;
 		}
+		m_stats.battleAmbientPlaying = 0;
+		for (const auto &kv : m_battleAmbients)
+		{
+			m_stats.battleAmbientPlaying += kv.second.handle >= AHSV_FirstHandle ? 1 : 0;
+		}
 		return;
 	}
 	m_ambientFrame = logic.getFrame();
 	m_ambientNextId = logic.getNextObjectID();
+	static const int kEngaged = ModelCondition::indexOf("ENGAGED");
 	const unsigned pass = ++m_ambientPass; // lane PERF-HD: the objects seen in this pass are stamped on their Ambient (was a std::map per pass)
 	for (Object *o = logic.getFirstObject(); o; o = o->getNextObject())
 	{
@@ -816,32 +966,62 @@ void LiveGameAudio::update()
 			evaWatch(*o);
 		}
 		// ZH: a drawable's ambient sound is enabled once the object is complete (construction keeps it off) and stops when the object dies
+		const bool canSound = (kinds & 1) && !o->isDestroyed() && !o->isUnderConstruction() && !o->isEffectivelyDead();
 		std::string want;
-		if ((kinds & 1) && !o->isDestroyed() && !o->isUnderConstruction() && !o->isEffectivelyDead())
+		if (canSound)
 		{
 			want = cachedAmbientSoundFor(*o);
 		}
-		if (want.empty() && m_ambients.empty())
+		if (!want.empty() || !m_ambients.empty())
 		{
-			continue;
+			// DONOR ZH Drawable::startAmbientSound (S-706): track active object ambient per frame
+			auto found = m_ambients.find(o->getID());
+			if (!want.empty() || found != m_ambients.end())
+			{
+				// DONOR ZH Drawable::startAmbientSound (S-706)
+				Ambient &a = found != m_ambients.end() ? found->second : m_ambients[o->getID()];
+				a.seenPass = pass;
+				if (a.event != want)
+				{
+					stopAmbient(o->getID(), a);
+					a.event = want;
+				}
+				if (!a.event.empty() && !a.tried)
+				{
+					tryStart(o, a, false);
+				}
+			}
 		}
-		auto found = m_ambients.find(o->getID());
-		if (want.empty() && found == m_ambients.end())
+		// S-706 (RW 0x678816 / 0x6717C4): SoundAmbientBattle plays while ENGAGED and visible
+		const Drawable *d = (canSound && kEngaged >= 0 && o->testModelCondition(kEngaged))
+			? m_game.drawables().findByObject(o->getID())
+			: nullptr;
+		std::string wantBattle;
+		if (canSound && kEngaged >= 0 && o->testModelCondition(kEngaged) && (!d || !d->stealthHidden()))
 		{
-			continue;
+			wantBattle = selectAmbientSound(*o, BODY_PRISTINE, true,
+				&m_selectorRandom->perObject[o->getID()], &m_selectorRandom->rng, logic.getFrame());
 		}
-		Ambient &a = found != m_ambients.end() ? found->second : m_ambients[o->getID()];
-		a.seenPass = pass;
-		if (a.event != want)
+		if (!wantBattle.empty() || !m_battleAmbients.empty())
 		{
-			stopAmbient(o->getID(), a);
-			a.event = want;
+			// S-706 (RW 0x678816 / 0x6717C4): manage active ENGAGED battle ambient handle
+			auto foundBattle = m_battleAmbients.find(o->getID());
+			if (!wantBattle.empty() || foundBattle != m_battleAmbients.end())
+			{
+				// RW 0x678816 / 0x6717C4
+				Ambient &ba = foundBattle != m_battleAmbients.end() ? foundBattle->second : m_battleAmbients[o->getID()];
+				ba.seenPass = pass;
+				if (ba.event != wantBattle)
+				{
+					stopBattleAmbient(o->getID(), ba);
+					ba.event = wantBattle;
+				}
+				if (!ba.event.empty() && !ba.tried)
+				{
+					tryStart(o, ba, true);
+				}
+			}
 		}
-		if (a.event.empty() || a.tried)
-		{
-			continue;
-		}
-		tryStart(o, a);
 	}
 	for (auto it = m_ambients.begin(); it != m_ambients.end();)
 	{
@@ -855,10 +1035,27 @@ void LiveGameAudio::update()
 			++it;
 		}
 	}
+	for (auto it = m_battleAmbients.begin(); it != m_battleAmbients.end();)
+	{
+		if (it->second.seenPass != pass)
+		{
+			stopBattleAmbient(it->first, it->second);
+			it = m_battleAmbients.erase(it);
+		}
+		else
+		{
+			++it;
+		}
+	}
 	m_stats.ambientPlaying = 0;
 	for (const auto &kv : m_ambients)
 	{
 		m_stats.ambientPlaying += kv.second.handle >= AHSV_FirstHandle ? 1 : 0;
+	}
+	m_stats.battleAmbientPlaying = 0;
+	for (const auto &kv : m_battleAmbients)
+	{
+		m_stats.battleAmbientPlaying += kv.second.handle >= AHSV_FirstHandle ? 1 : 0;
 	}
 }
 
@@ -973,15 +1170,29 @@ std::map<ObjectID, std::string> LiveGameAudio::playingAmbients() const
 	return out;
 }
 
+std::map<ObjectID, std::string> LiveGameAudio::playingBattleAmbients() const
+{
+	std::map<ObjectID, std::string> out;
+	for (const auto &kv : m_battleAmbients)
+	{
+		if (kv.second.handle >= AHSV_FirstHandle)
+		{
+			out[kv.first] = kv.second.event;
+		}
+	}
+	return out;
+}
+
 std::vector<std::string> LiveGameAudio::acceptanceStops()
 {
 	return {
-		"[S-706] object ambient sounds: the rules are ZH's Drawable::startAmbientSound (damage-state sound with the pristine fallback, MaxRange gate for non global "
-		"non critical sounds) read as donor; RotWK's own drawable ambient code was not read: SoundAmbientBattle, the per-object custom ambient info "
-		"(ZH m_customSoundAmbientInfo), the time of day and the script enable flags are not ported, and an out-of-range ambient is retried every frame",
+		"[S-706] object ambient sounds: ZH Drawable::startAmbientSound rules plus SoundSelectors (RW 0x676A8A rows 37..41), under-construction pristine fallback "
+		"(RW 0x6778A9 -> 0x6760DA for AWAITING_CONSTRUCTION / ACTIVELY_BEING_CONSTRUCTED), and SoundAmbientBattle while ENGAGED (RW 0x678816 / 0x6717C4); "
+		"per-object custom ambient info (m_customSoundAmbientInfo), time-of-day ambient checks (RW 0x679560), script ambient-enable flags, and Drawable +0x144/+0x148 "
+		"handle storage remain unported (out-of-range ambients retry each frame)",
 		"[S-707] object sounds not ported: SoundCreated, SoundEnter / Exit, SoundPromoted*, SoundStealthOn / Off, "
-		"SoundFallingFromPlane, SoundAmbientBattle (the death, impact and FireFX sounds are FX list nuggets: FX-2's lane). Done in AUDIO-2 "
-		"part 2: the weapon FireSound (RW 0x8E3411), SoundMoveStart / Loop (S-712), VoiceFullyCreated at construction completion (RW 0x857D6C .. 0x857DBA: "
+		"SoundFallingFromPlane (the death, impact and FireFX sounds are FX list nuggets: FX-2's lane). Done in AUDIO-2 "
+		"part 2: the weapon FireSound (RW 0x8E3411), SoundMoveStart / Loop (S-712), SoundAmbientBattle (S-706), VoiceFullyCreated at construction completion (RW 0x857D6C .. 0x857DBA: "
 		"GettingBuiltBehavior::checkCompletion posts it right before m_completedOnce = true, guarded by !m_completedOnce && frame >= 5; retail's +0x33 is "
 		"m_completedOnce), LargeGroupAudio (S-248); done by lane SOUND-707 / PORT-89: SoundOnDamaged / ReallyDamaged (RW 0x8C4422 .. 0x8C44C1), SoundImpact / SoundImpactCyclonic "
 		"(RW 0x696947 .. 0x696A0E), and SoundCrushing (RW 0x693231 .. 0x69329C), from the template's rows (not through the draw module's selectors, S-701)",

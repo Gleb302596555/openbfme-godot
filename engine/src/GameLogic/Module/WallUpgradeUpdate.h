@@ -13,7 +13,7 @@
 //   getModuleName RW 0x008AE968, getModuleNameKey RW 0x008AE9CD,
 //   dtor RW 0x008AEA8D / RW 0x008AE941 / BFME2 0x4AB36E,
 //   xfer RW 0x008AE96E,
-//   isWallUpgradeKind RW 0x8AEAA9 / BFME2 0x4AB3AE (UPGRADE_GARRISON, POSTERN_GATE, TREBUCHET),
+//   isWallUpgradeKind RW 0x8AEAA9 / BFME2 0x4AB3AE (ModelCondition UPGRADE_GARRISON 0x107, UPGRADE_POSTERN_GATE 0x108, UPGRADE_TREBUCHET 0x109),
 //   onBodyDamageStateChange RW 0x8AEAE6 / BFME2 0x4AB3EB (BODY_RUBBLE arms 40 frames countdown),
 //   scanForBuildingAndPossess RW 0x8AEB10 / BFME2 0x4AB415 (STRUCTURE + WALK_ON_TOP_OF_WALL within radius 200),
 //   canResetUpgrades RW 0x008AEBA6 / DONOR BFME2 0x4AB4AB (attached object not effectively dead and not model condition 0x45 ACTIVELY_BEING_CONSTRUCTED),

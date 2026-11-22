@@ -24,8 +24,8 @@ inline std::vector<std::string> visual2StopLines()
 		"[S-4973] tree sway: W3DTreeBuffer's vegetation sway (RW 0x4E5D2C, 0x4E61EE, vegetation.fxo) drives every rigid mesh of a W3DTreeDraw map "
 		"tree's instance, advanced by the elapsed retail client frames (fractions included) instead of once per 30 Hz client frame; presentation correction: the final table interval blends back to entry 0 instead of snapping to zero; SwayClientUpdate "
 		"(RW 0x008CD514..0x008CD9CD) is ported (LOCAL-103)",
-		"[S-4974] structure floors: a W3DFloorDraw floor (the fortress's skirt) is lit by the objects' light set and is drawn warmer and brighter than the "
-		"terrain around it on every map captured (Evendim, Tournament Udun, Withered Heath, Harlindon); how retail lights a floor draw (its shader and light "
-		"environment) was not read, and no retail picture of a fortress floor was available to compare",
+		"[S-4974] structure floors: W3DFloorDraw floors light with tod.terrain via terrain.fxo Default RenderingMode 3 (RW 0x4E5631 / 0x4E44FB: "
+		"tod.terrain[0].ambient + tod.terrain[1..2] accent diffuse + tod.terrain[0] sun + overbright + cloud/lightning via w3d_flr_*); INFERENCE / not ported: "
+		"per-vertex normal remains mesh normal instead of fixed (0, 0, 1), cloud/macro textures and terrain-pass blend differences are not applied",
 	};
 }

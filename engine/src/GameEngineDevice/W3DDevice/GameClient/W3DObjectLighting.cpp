@@ -48,6 +48,28 @@ void fillSet(const GlobalLight (&lights)[3], float scale, const float *lightScal
 	}
 }
 
+void fillFloor(const GlobalLight (&terrain)[3], float scale, W3DFloorLighting &out)
+{
+	// S-4974 (RW 0x4E44FB calcFloorVertexColor + RW 0x4E5631 W3DFloorBuffer::Draw via terrain.fxo Default RenderingMode 3)
+	out = W3DFloorLighting();
+	out.colorScale = scale;
+	for (int c = 0; c < 3; ++c)
+	{
+		// RW 0x4E44FB: terrain[0].ambient + terrain[0].diffuse sun
+		out.baseAmbient[c] = terrain[0].ambient[c];
+		out.sunColor[c] = terrain[0].diffuse[c];
+		out.sunDir[c] = -terrain[0].lightPos[c];
+	}
+	for (int i = 1; i < 3; ++i)
+	{
+		const float nz = std::min(std::fabs(-terrain[i].lightPos[2]), 1.0f);
+		for (int c = 0; c < 3; ++c)
+		{
+			out.accentDiffuse[c] += nz * terrain[i].diffuse[c];
+		}
+	}
+}
+
 } // namespace
 
 namespace W3DObjectLightingUtil
@@ -75,6 +97,7 @@ bool fromMap(const GlobalLightingData &lighting, W3DObjectLighting &out, std::st
 	const TimeOfDayLights &tod = lighting.tod[lighting.timeOfDay - 1];
 	fillSet(tod.objects, out.colorScale, lightScale, out.objects);
 	fillSet(tod.infantry, out.colorScale, lightScale, out.infantry);
+	fillFloor(tod.terrain, out.colorScale, out.floor);
 	return true;
 }
 
@@ -105,6 +128,15 @@ void fromLivingWorldMap(const float ambient[3], const float rgb[3][3], const flo
 		++set.count;
 	}
 	out.infantry = set;
+	// S-4974 (RW 0x4E44FB / 0x4E5631): LivingWorld floor light environment follows terrain sun/ambient
+	out.floor.colorScale = out.colorScale;
+	for (int c = 0; c < 3; ++c)
+	{
+		// RW 0x4E44FB / 0x4E5631
+		out.floor.baseAmbient[c] = std::clamp(ambient[c], 0.0f, 1.0f);
+		out.floor.sunColor[c] = set.count > 0 ? rgb[0][c] : 0.0f;
+		out.floor.sunDir[c] = set.count > 0 ? set.toLight[0][c] : (c == 2 ? 1.0f : 0.0f);
+	}
 }
 
 std::vector<std::string> stopLines()
@@ -112,7 +144,8 @@ std::vector<std::string> stopLines()
 	return {
 		"[S-390] object lighting: the light environment is filled like ZH's (scene ambient = the map's objects light 0 ambient clamped to [0, 1], "
 		"the directional lights = the objects lights 0..2 whose diffuse reaches 0.05, direction -lightPos), infantry drawables use the map's "
-		"infantry set; the doubling of both colours (GlobalLighting multiplier > 1, RW 0x4AC97F -> 0x54CF3B) and the effect formulas "
+		"infantry set, and structure floors (W3DFloorDraw / W3DFloorBuffer, RW 0x4E5631 / 0x4E44FB, S-4974) use tod.terrain via terrain.fxo Default RenderingMode 3; "
+		"the doubling of both colours (GlobalLighting multiplier > 1, RW 0x4AC97F -> 0x54CF3B) and the effect formulas "
 		"(normalmapped.fxo, defaultw3d.fxo) are target facts; the cloud shadow texture, point lights, shadows, shroud and fog of the effects are not applied",
 	};
 }

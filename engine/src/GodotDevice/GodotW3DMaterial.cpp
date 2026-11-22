@@ -150,6 +150,29 @@ void setSet(const char *suffix, const W3DLightSet &set)
 	rs->global_shader_parameter_set(StringName(String("w3d_ldir_") + suffix), columns(set.toLight, true));
 }
 
+void setFloorLighting(const W3DFloorLighting &flr)
+{
+	// S-4974 (RW 0x4E5631 / 0x4E44FB): terrain.fxo Default RenderingMode 3 globals
+	RenderingServer *rs = RenderingServer::get_singleton();
+	if (!rs)
+	{
+		return;
+	}
+	float amb[3];
+	for (int c = 0; c < 3; ++c)
+	{
+		const float dark = 1.0f - flr.weatherDark[c];
+		amb[c] = std::clamp(flr.baseAmbient[c] + flr.accentDiffuse[c] * dark, 0.0f, 1.0f) * flr.colorScale;
+	}
+	// RW 0x4E44FB / 0x4E5631
+	rs->global_shader_parameter_set(StringName("w3d_flr_amb"), Vector3(amb[0], amb[1], amb[2]));
+	rs->global_shader_parameter_set(StringName("w3d_flr_sun_dir"), sageToGodot(flr.sunDir));
+	rs->global_shader_parameter_set(StringName("w3d_flr_sun_col"),
+		Vector3(flr.sunColor[0] * flr.colorScale, flr.sunColor[1] * flr.colorScale, flr.sunColor[2] * flr.colorScale));
+	rs->global_shader_parameter_set(StringName("w3d_flr_lightning"),
+		Vector3(flr.lightning[0] * 0.5f * flr.colorScale, flr.lightning[1] * 0.5f * flr.colorScale, flr.lightning[2] * 0.5f * flr.colorScale));
+}
+
 W3DLightSet viewerSet()
 {
 	W3DLightSet s;
@@ -224,6 +247,11 @@ void W3D_Ensure_Light_Globals()
 	rs->global_shader_parameter_add(StringName("radius_cursor_params"), RenderingServer::GLOBAL_VAR_TYPE_VEC4, Vector4());
 	rs->global_shader_parameter_add(StringName("w3d_floor_hm"), RenderingServer::GLOBAL_VAR_TYPE_SAMPLER2D, Variant());
 	rs->global_shader_parameter_add(StringName("w3d_floor_hm_rect"), RenderingServer::GLOBAL_VAR_TYPE_VEC4, Vector4(0.0f, 0.0f, 0.0f, 0.0f));
+	// S-4974 (RW 0x4E5631 / 0x4E44FB): terrain.fxo Default RenderingMode 3 lighting for W3DFloorDraw / W3DFloorBuffer
+	rs->global_shader_parameter_add(StringName("w3d_flr_amb"), RenderingServer::GLOBAL_VAR_TYPE_VEC3, Vector3(0.3f, 0.3f, 0.3f));
+	rs->global_shader_parameter_add(StringName("w3d_flr_sun_dir"), RenderingServer::GLOBAL_VAR_TYPE_VEC3, sageToGodot(v.toLight[0]));
+	rs->global_shader_parameter_add(StringName("w3d_flr_sun_col"), RenderingServer::GLOBAL_VAR_TYPE_VEC3, Vector3(1.0f, 1.0f, 1.0f));
+	rs->global_shader_parameter_add(StringName("w3d_flr_lightning"), RenderingServer::GLOBAL_VAR_TYPE_VEC3, Vector3(0.0f, 0.0f, 0.0f));
 }
 
 namespace {
@@ -364,6 +392,7 @@ void W3D_Apply_Object_Lighting(const W3DObjectLighting &lighting)
 	}
 	setSet("obj", lighting.objects);
 	setSet("inf", lighting.infantry);
+	setFloorLighting(lighting.floor);
 }
 
 void W3D_Apply_Viewer_Lighting()
@@ -377,8 +406,17 @@ void W3D_Apply_Viewer_Lighting()
 	currentLighting().objects = v;
 	currentLighting().infantry = v;
 	currentLighting().colorScale = 1.0f;
+	currentLighting().floor = W3DFloorLighting();
+	// S-4974 (RW 0x4E44FB / 0x4E5631)
+	for (int c = 0; c < 3; ++c)
+	{
+		currentLighting().floor.baseAmbient[c] = v.ambient[c];
+		currentLighting().floor.sunColor[c] = v.color[0][c];
+		currentLighting().floor.sunDir[c] = v.toLight[0][c];
+	}
 	setSet("obj", v);
 	setSet("inf", v);
+	setFloorLighting(currentLighting().floor);
 }
 
 namespace

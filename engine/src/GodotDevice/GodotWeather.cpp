@@ -409,6 +409,14 @@ void GodotWeather::applyLight(const WeatherClientFrame &f)
 				}
 			}
 		}
+		// S-4974 (RW 0x4E44FB / 0x4E5631): update floor lighting for cloud darkening and lightning
+		for (int ch = 0; ch < 3; ++ch)
+		{
+			// RW 0x4E4641 / 0x4E5631
+			env.floor.weatherDark[ch] = f.terrainDarkened ? f.terrainDarkening[ch] : d[ch];
+			env.floor.sunColor[ch] = (env.floor.sunColor[ch] + c.lightColor[ch]) * k[ch];
+			env.floor.lightning[ch] = li;
+		}
 		W3D_Apply_Object_Lighting(env);
 		m_lightApplied = std::any_of(key, key + 4, [](float v) { return v != 0.0f; });
 	}

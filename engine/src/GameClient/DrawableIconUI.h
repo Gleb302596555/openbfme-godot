@@ -129,6 +129,7 @@ struct IconUISettings
 	// lane HUD-5 (TOP20 #17, Local 4): container pips (RW 0x677994)
 	Coord3D containerPipWorldOffset{ 0.0f, 0.0f, 8.0f };
 	Coord2D containerPipScreenOffset{ 1.0f, 0.0f };
+	std::uint32_t captionColor = 0xFFFFFFFFu; ///< S-1951 (RW 0x677CF9 / 0x6A6FA0): InGameUI DrawableCaptionColor
 	float containerPipScaleFactor = 1.5f;
 };
 

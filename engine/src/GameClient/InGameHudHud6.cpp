@@ -494,7 +494,7 @@ void InGameHud::updateHud6(ObjectID context, const std::string &faction, double 
 				{
 					return nullptr;
 				}
-				const UnitHelpSource::Text u = UnitHelpSource::compose(*o, text, logic, local);
+				const UnitHelpSource::Text u = UnitHelpSource::compose(*o, text, logic, local, m_config.game.drawables().findByObject(unit));
 				return std::make_shared<CommandButtonHelp>(CommandButtonHelp::simple(u.title, u.text, u.unported));
 			}
 			if (p.bar == 5)

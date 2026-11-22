@@ -1069,7 +1069,7 @@ void HudDevice::drawPlaceholder(const AptCanvasOp &op, RID item)
 }
 
 // lane HUD-5: the ops of InGameHud::iconOps (GameClient/DrawableIconUI.h) into one canvas item under the Apt player's (drawn first among the node's children).
-// INFERENCE (S-1951): the construction text uses Godot's fallback font at 13 pixels (the in-game UI's drawable caption font is not read)
+// S-1951 (RW 0x677CF9 / 0x6A6FA0..0x6A7192): construction text uses InGameUI/Language DrawableCaptionFont/PointSize/Bold/Color via player->font_for (fallback to Godot fallback font only if unavailable)
 void HudDevice::drawIconOps(RID parent)
 {
 	RenderingServer *rs = RenderingServer::get_singleton();
@@ -1098,10 +1098,25 @@ void HudDevice::drawIconOps(RID parent)
 	{
 		IconUISettings is = hud->iconSettings();
 		is.zoom = cam ? cam->getZoom() : 1.0f;
+		is.captionColor = hud->messageLines().settings().captionColor;
 		hud->setIconUISettings(is);
 	}
 	auto col = [](std::uint32_t argb) { return Color(((argb >> 16) & 0xFF) / 255.0f, ((argb >> 8) & 0xFF) / 255.0f, (argb & 0xFF) / 255.0f, ((argb >> 24) & 0xFF) / 255.0f); };
 	Ref<Font> font = ThemeDB::get_singleton() ? ThemeDB::get_singleton()->get_fallback_font() : Ref<Font>();
+	// S-1951 (RW 0x677CF9 / 0x6A6FA0..0x6A7192): construction caption text uses InGameUI/Language DrawableCaptionFont/PointSize/Bold
+	const InGameUIMessageSettings &capSettings = hud->messageLines().settings();
+	const int capPx = std::max(1, GlobalLanguage::adjustFontSize(capSettings.captionPointSize, std::max(1, hud->windowWidth())));
+	float capDrawSize = (float)capPx;
+	Ref<Font> captionFont = player ? player->font_for(capSettings.captionFont, (float)capPx, &capDrawSize, capSettings.captionBold) : Ref<Font>();
+	if (captionFont.is_valid() && player)
+	{
+		captionFont = player->font_cell(captionFont, (int)std::lround(capDrawSize));
+	}
+	const bool haveCaptionFont = captionFont.is_valid();
+	if (!haveCaptionFont)
+	{
+		captionFont = font;
+	}
 	// lane OPTS-2 (not retail): the UI scale enlarges each object's decorations about the centre of their ops (retail draws them in screen pixels: at
 	// 1.0 nothing moves)
 	const float k = uiScale;
@@ -1127,6 +1142,7 @@ void HudDevice::drawIconOps(RID parent)
 		}
 	}
 	const int fontSize = (int)std::lround(13.0f * k);
+	const int captionFontSize = haveCaptionFont ? std::max(1, (int)std::lround(capDrawSize * k)) : fontSize;
 	const float line = k;
 	iconOpsDrawn = 0;
 	if (iconsCovered)
@@ -1171,7 +1187,10 @@ void HudDevice::drawIconOps(RID parent)
 			}
 			case IconUIOp::TEXT:
 			{
-				if (font.is_null())
+				// S-1951 (RW 0x677CF9 / 0x6A6FA0): construction caption uses InGameUI/Language DrawableCaption*
+				const bool isCaption = op.pixelTextSize <= 0.0f && op.stageTextSize <= 0.0f;
+				const Ref<Font> &textFont = isCaption ? captionFont : font;
+				if (textFont.is_null())
 				{
 					continue;
 				}
@@ -1179,20 +1198,20 @@ void HudDevice::drawIconOps(RID parent)
 				// a stage-sized text (the money texts) grows with the window as the HUD movies do: the window height over the 600 stage rows
 				const float stageScale = op.stageTextSize > 0.0f ? std::max(1.0f, (float)hud->windowHeight() / 600.0f) : 1.0f;
 				const int size_px = op.pixelTextSize > 0.0f ? (int)std::lround(op.pixelTextSize * k)
-					: op.stageTextSize > 0.0f ? (int)std::lround(op.stageTextSize * stageScale * k) : fontSize;
+					: op.stageTextSize > 0.0f ? (int)std::lround(op.stageTextSize * stageScale * k) : captionFontSize;
 				const float dropX = op.dropOffsetX, dropY = op.dropOffsetY;
-				const Vector2 size = font->get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px);
+				const Vector2 size = textFont->get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px);
 				// RW 0x677F1B: x - width / 2, the string's top at y; a bottom-right text (the group number, RW 0x673F6D) ends at x, y
-				const Vector2 at = op.bottomRight ? Vector2(op.x - std::ceil(size.x), op.y - size.y + font->get_ascent(size_px))
-												  : Vector2(op.x - std::floor(size.x / 2.0f), op.y + font->get_ascent(size_px));
+				const Vector2 at = op.bottomRight ? Vector2(op.x - std::ceil(size.x), op.y - size.y + textFont->get_ascent(size_px))
+												  : Vector2(op.x - std::floor(size.x / 2.0f), op.y + textFont->get_ascent(size_px));
 				// a money text's shadow is faint (35%): at full strength it made the small text read bold (the owner asked for a thinner text, PROBLEMS.md P-6)
 				Color dropColor = col(op.dropColor);
 				if (op.stageTextSize > 0.0f)
 				{
 					dropColor.a *= 0.35f;
 				}
-				font->draw_string(iconItem, at + Vector2(dropX, dropY), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, dropColor);
-				font->draw_string(iconItem, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, col(op.color));
+				textFont->draw_string(iconItem, at + Vector2(dropX, dropY), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, dropColor);
+				textFont->draw_string(iconItem, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, col(op.color));
 				break;
 			}
 		}

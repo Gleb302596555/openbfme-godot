@@ -38,12 +38,25 @@ struct W3DLightSet
 	int count = 0;                            // accepted lights (NumDirectionalLights)
 };
 
+// S-4974 (RW 0x4E5631 / 0x4E44FB): W3DFloorBuffer draws floors via terrain.fxo Default (RenderingMode 3) using tod.terrain
+struct W3DFloorLighting
+{
+	float baseAmbient[3] = { 0, 0, 0 };    // tod.terrain[0].ambient (clamped [0, 1] when summed with accent)
+	float accentDiffuse[3] = { 0, 0, 0 };  // sum_{i=1..2} clamp(|(-lightPos_i).z|, 0, 1) * tod.terrain[i].diffuse (RW 0x4E453F..0x4E4628)
+	float sunColor[3] = { 0, 0, 0 };       // tod.terrain[0].diffuse (without colorScale)
+	float sunDir[3] = { 0, 0, 1 };         // -tod.terrain[0].lightPos (SAGE world, toward the sun)
+	float lightning[3] = { 0, 0, 0 };      // cloud lightning intensity (weather)
+	float weatherDark[3] = { 0, 0, 0 };    // cloud darkening fraction (0..1)
+	float colorScale = 1.0f;               // 2.0 when overbright, else 1.0
+};
+
 struct W3DObjectLighting
 {
 	int timeOfDay = 0;        // 1 Morning .. 4 Night
 	float colorScale = 1.0f;  // 2.0 when the map's terrainLightingMultiplier > 1 (RW 0x4AC97F), else 1.0
 	W3DLightSet objects;      // everything but infantry
 	W3DLightSet infantry;     // KINDOF_INFANTRY drawables (inference S-390)
+	W3DFloorLighting floor;   // W3DFloorDraw / W3DFloorBuffer (tod.terrain, RW 0x4E44FB / 0x4E5631, S-4974)
 };
 
 namespace W3DObjectLightingUtil

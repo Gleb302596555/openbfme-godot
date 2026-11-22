@@ -687,6 +687,7 @@ void SubObjectsUpgrade::upgradeImplementation()
 			draw->showModule(*obj, n, true, false);
 			draw->showSubObject(*obj, n, true, true);
 		}
+		draw->clearRecolorHouse(*obj); // RW 0x8B9247 -> Drawable::clearRecolorHouse RW 0x672713
 		if (!m_data->m_upgradeTexture.empty()) // RW 0x8B911E (mode 0): every draw module takes this module's list
 		{
 			draw->upgradeTextures(*obj, upgradeTexturePairs());
@@ -738,6 +739,7 @@ void SubObjectsUpgrade::processUpgradeRemoval()
 				draw->showSubObject(*obj, n, true, true);
 			}
 		}
+		draw->clearRecolorHouse(*obj); // RW 0x8B935D -> Drawable::clearRecolorHouse RW 0x672713
 	}
 	setCustomAnim(false);
 }
@@ -938,7 +940,7 @@ std::vector<std::string> UpgradeModuleClasses::stopLines()
 		"[S-483] closed (lane DECOMP-2): Object::hasUpgrade asks a horde's members first (RW 0x68E040 -> contain slot 0x7C -> RW 0x86EC2D) and "
 		"Object::updateUpgradeModules adds the upgrades of a castle member's keep (RW 0x797BEF, member + 0x14 written at the unpack by RW 0x7990D9)",
 		"[S-484] SubObjectsUpgrade: the fade (FadeTimeInSeconds / WaitBeforeFadeInSeconds, RW 0x8B8F40) is not drawn: " +
-		std::to_string(s.subObjectFadesNotPorted) + " fades shown instantly; texture replacement is Local 21, house recolour with first-name exclusion is PORT-47",
+		std::to_string(s.subObjectFadesNotPorted) + " fades shown instantly; texture replacement is Local 21, house recolour with first-name exclusion is PORT-47, and clearRecolorHouse (RW 0x8B9247 / 0x8B935D -> 0x672713) resets per-mesh recolours on grant/removal",
 		"[S-486] upgrade research details not ported: the sub upgrade cost skip of UpgradeTemplate::calcCostToBuild (RW 0x694BF8 / slot 0xAC), the castle cost "
 		"record of queueUpgrade (RW 0x8A10A0) (the completion's RW 0x79D322 / 0x79D833 are the producer's experience: PRODUCTION1, S-203), the first and third clauses of Object::affectedByUpgrade (RW 0x6939DF / "
 		"0x693A1A, RW 0x6ABDC2), HordeContain's second member list (+0x150) in the upgrade hand-down (RW 0x87566B) and in Object::hasUpgrade (RW 0x86EC2D: module + 0x170) (completion UI messages, radar event and sounds are ported: LOCAL-10)",

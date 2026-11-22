@@ -81,9 +81,11 @@ struct ClientEvent
 		FX_TRIGGER,                ///< PORT-68, RW 0x68B56A -> RW 0x44C465: Drawable + 0x360 FXTrigger index (TheFXTriggerNames)
 		SUPPLY_STATUS,   ///< PORT-77: RW 0x8AB623..0x8AB63A dispatches the supply look through RW 0x671948; event delivery is INFERENCE
 		ENSLAVED,        ///< P-87 (RW 0x8A51AE -> RW 0x6713A8): slaver; the slave's drawable copies the slaver drawable's Eva sighting flags
-		HOUSE_RECOLOR,   ///< PORT-47: name = first exclusion (or empty), houseColor = controlling player day colour, kind 1 (RW 0x4B873C / 0x4B872C)
-		SET_TINT_STATUS,   ///< LOCAL-97 (RW 0x008862E0): Drawable::setTintStatus(tintStatusBits)
-		CLEAR_TINT_STATUS, ///< LOCAL-97 (RW 0x00670913): Drawable::clearTintStatus(tintStatusBits)
+		HOUSE_RECOLOR,       ///< PORT-47: name = first exclusion (or empty), houseColor = controlling player day colour, kind 1 (RW 0x4B873C / 0x4B872C)
+		HOUSE_RECOLOR_CLEAR, ///< S-484 (RW 0x672713): clears per-mesh house recolours across all draw modules
+		SET_CUSTOM_TOOLTIP,  ///< S-6013: RW 0x6796DA / 0x674FAE / 0x8BBBCC / 0x8BBC0A: custom display name / description (clearBoth resets both)
+		SET_TINT_STATUS,     ///< LOCAL-97 (RW 0x008862E0): Drawable::setTintStatus(tintStatusBits)
+		CLEAR_TINT_STATUS,   ///< LOCAL-97 (RW 0x00670913): Drawable::clearTintStatus(tintStatusBits)
 	};
 	std::string heroUniqueID;
 	std::vector<std::string> heroStatistics;
@@ -117,6 +119,7 @@ struct ClientEvent
 	int weaponTimingFrames = 0;        ///< ObjectWeapons::drawWeaponTimingFrames (RW 0x4BEE31 .. 0x4BEE91), what UseWeaponTiming animations divide by
 	bool immediate = false;            ///< MODEL_FLUSH: RW 0x67449C's argument (true from the OCL's CreateObject RW 0x5F13C8, lane PORT-79)
 	std::string name;
+	std::string tooltipDescription; ///< S-6013: SET_CUSTOM_TOOLTIP description (display name carried in `name`)
 	bool visible = false, permanent = false;
 	// Local 64 (P-132, RW 0x4BF1DE -> 0x4BF214): CAPTUREFLAG transition-deferred OnStateEnter sub-objects and capture colour.
 	struct DeferredSubObject
@@ -171,6 +174,8 @@ public:
 	void supplyStatusChanged(Object &obj, int currentBoxes, int startingBoxes) override;
 	void upgradeTextures(Object &obj, const std::vector<std::pair<std::string, std::string>> &swaps) override;
 	void recolorHouse(Object &obj, const std::vector<std::string> &excludeSubobjects) override;
+	void clearRecolorHouse(Object &obj) override;
+	void setCustomTooltip(Object &obj, const std::string &displayName, const std::string &description, bool clearBoth) override;
 	void replaceDrawable(Object &obj, const ThingTemplate *tmpl, bool hasColor, std::uint32_t color) override;
 	void fadeIn(Object &obj, UnsignedInt frames) override;
 	void fadeOut(Object &obj, UnsignedInt frames) override;

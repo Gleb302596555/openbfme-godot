@@ -26,6 +26,7 @@
 #include "GameLogic/System/ShroudManager.h"
 #include "Common/Team.h"
 #include "GameLogic/Module/BehaviorModule.h"
+#include "GameLogic/Module/WallUpgradeUpdate.h"
 #include "GameLogic/Object/Contain/HordeContainCore.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/Object/ExperienceTracker.h"
@@ -289,7 +290,14 @@ bool wantsHealthBar(const Object &obj, const IconUISettings &s, const std::set<O
 	}
 	if (kindOf(obj, WALL_UPGRADE))
 	{
-		return false; // INFERENCE (S-1950): the WallUpgradeUpdate's "upgrade active" test is not ported; a wall upgrade gets no bar
+		// RW 0x67646C..0x67648E -> 0x8AE8F0 -> WallUpgradeUpdate::isWallUpgradeKind (RW 0x8AEAA9):
+		// when WallUpgradeUpdate is present (RW 0x67647D: null jumps past), require ModelCondition
+		// UPGRADE_GARRISON, UPGRADE_POSTERN_GATE, or UPGRADE_TREBUCHET.
+		const auto *wallUpgrade = dynamic_cast<const WallUpgradeUpdate *>(const_cast<Object &>(obj).findModule("WallUpgradeUpdate"));
+		if (wallUpgrade && !wallUpgrade->isWallUpgradeKind())
+		{
+			return false;
+		}
 	}
 	if (kindOf(obj, DEFENSIVE_WALL) && !kindOf(obj, HAS_HEALTH_BAR))
 	{
@@ -653,7 +661,7 @@ void DrawableIconUI::build(GameLogic &logic, const DrawableManager &drawables, c
 				t.x = (float)sp.x;
 				t.y = (float)sp.y;
 				t.text = text;
-				t.color = 0xFFFFFFFFu;
+				t.color = s.captionColor;
 				t.dropColor = 0xFF000000u;
 				out.push_back(t);
 			}
@@ -1002,12 +1010,13 @@ void DrawableIconUI::build(GameLogic &logic, const DrawableManager &drawables, c
 std::vector<std::string> DrawableIconUI::acceptanceStops()
 {
 	return {
-		"[S-1950] the drawable decorations (HUD-5): the health bar (unit, structure and construction looks RW 0x6723C3 / 0x6721CC / 0x671FD5), the construction text, "
+		"[S-1950] the drawable decorations (HUD-5): the health bar (unit, structure and construction looks RW 0x6723C3 / 0x6721CC / 0x671FD5), the WALL_UPGRADE "
+		"WallUpgradeUpdate::isWallUpgradeKind gate (RW 0x67646C / 0x8AEAA9), the construction text, "
 		"the container occupant pips (list 1, RW 0x677994 / 0x866411), the veterancy marks (a horde's on its banner carrier or first member, RW 0x67939F) and "
 		"the group number (list 3, RW 0x673F6D / BFME2 0x00273C47, TheDrawGroupInfo parsed from data/ini/drawgroupinfo.ini) run as "
 		"RW 0x679129 / 0x676346 / 0x677CF9 / 0x677994 / 0x6780DF / 0x673F6D, with the stealth tests (RW 0x4853EB, 0x6763DA); "
-		"not ported: the wall upgrade's \"upgrade active\" test, the caption, list 5",
-		"[S-1951] the drawable decorations' inference: the in-game UI's drawable caption font of the construction text (InGameUI + 0x7A0 / + 0x7A4), the icon toggle "
+		"not ported: the script caption, list 5",
+		"[S-1951] the drawable decorations' inference: the icon toggle "
 		"(TheGameLogic + 0x9A) and the script letterbox (TheScriptEngine + 0x1A238) of the queue, the queue's fog / shroud test (RW 0x68D8F7 <= 2) read from the presented snapshot (one client frame behind the live logic the icons read), the "
 		"horde anchor's H+0x170 set taken as HordeContainCore's registered members (the members on their way into a garrison are kept apart)",
 	};

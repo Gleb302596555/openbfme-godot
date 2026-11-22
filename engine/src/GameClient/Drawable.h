@@ -179,7 +179,7 @@ struct DrawEntry
 	std::string lastModel;            ///< the model last handed to the device layer (the device layer keeps its own handle)
 	bool moduleHidden = false;        ///< a CurDrawableHideModule / ObjectHideModule request of a script hid this module (Drawable::showModule, RW 0x6789B4): not drawn
 	float constructionOffsetZ = 0.0f; ///< RENDER-2: the model's move along its own Z while being built (RW 0x4B686D, ADJUST_HEIGHT_BY_CONSTRUCTION_PERCENT)
-	bool noRotate = false;            ///< the model draw's NoRotate (INFERENCE: drawn at the object's position without its orientation, S-5204)
+	bool noRotate = false;            ///< S-5204: W3DModelDraw NoRotate (RW 0x4B7C33: copies translation onto identity rotation after full drawable matrix)
 	bool conditionHidden = false;     ///< RENDER-2: a W3DFloorDraw whose HideIfModelConditions match the drawable's flags (the foundation floor while being built)
 	std::vector<ModelConditionFlags> hideIf; ///< RENDER-2: that floor draw's HideIfModelConditions (one set per line)
 	// PORT-267 (fork issue 626): this floor draw's record in RotWK's shared W3DFloorBuffer (GameClient/FloorFade.h): its own opacity (+0x84),
@@ -394,6 +394,7 @@ public:
 	// lane BUILD-4: a draw module's state script asked for a module's visibility (RW 0x734EF4 -> 0x6789B4); while the constructor still makes the modules the
 	// request waits until all exist
 	void scriptModuleVisible(const std::string &name, bool visible);
+	void scriptSubObjectHidden(const std::string &name, bool hide, bool permanent);
 	void showSubObject(const std::string &name, bool visible, bool permanent);
 	// PORT-77: Drawable dispatcher RW 0x671948's supply-specific path; applied only to W3DSupplyDraw entries.
 	void setSupplyStatus(int currentBoxes, int startingBoxes);
@@ -401,6 +402,14 @@ public:
 	void setUpgradeTextures(const std::vector<std::pair<std::string, std::string>> &swaps);
 	// RW 0x4B8701 -> slot +0x1F8 (RW 0x54BDE0): recolours current render object meshes except those matching excludeSubobject
 	void recolorRenderObject(const std::string &excludeSubobject, const HouseColorParams &params);
+	// S-484 (RW 0x672713 -> 0x4B86F2): clears per-mesh SubObjectsUpgrade house recolours across all draw modules
+	void clearRecolorHouse();
+	// S-6013: custom tooltip display name / description (Drawable +0x348 / +0x34C, RW 0x6796DA / 0x674FAE / 0x8BBBCC / 0x8BBC0A)
+	void setCustomTooltipDisplayName(const std::string &displayName);
+	void setCustomTooltipDescription(const std::string &description);
+	void clearCustomTooltip();
+	const std::string &customTooltipDisplayName() const { return m_customTooltipDisplayName; }
+	const std::string &customTooltipDescription() const { return m_customTooltipDescription; }
 
 	// The render transform from the object's record in a completed logic frame's snapshot (SMOOTH-1: RenderInterpolation::retailPose, RW 0x6765B9;
 	// `interpolate` false: the record's current transform, the stepped look). Then the construction look (updateConstruction).
@@ -707,6 +716,9 @@ private:
 	ObjectID m_stealthParentId = INVALID_ID; ///< lane STEALTHLOOK-1: the imitated parent's object (ObjectSnapshot::stealthParent)
 	bool m_buildingEntries = false;                                     ///< lane BUILD-4: the constructor is making the draw modules
 	std::vector<std::pair<std::string, bool>> m_pendingModuleRequests; ///< lane BUILD-4: script module requests made meanwhile
+	std::vector<DeferredSubObject> m_pendingSubObjectRequests;         ///< S-830: script sub-object requests made during draw construction
+	std::string m_customTooltipDisplayName;                            ///< S-6013: RW Drawable +0x348 (OverrideTooltip / TooltipUpgrade)
+	std::string m_customTooltipDescription;                            ///< S-6013: RW Drawable +0x34C (TooltipUpgrade)
 	float m_moveSpeed = 0.0f; ///< lane SMOOTH-3: the presented record's moveSpeed (the Distance animations' speed sync)
 	DisabledMaskType m_disabledMask = DISABLEDMASK_NONE; ///< LOCAL-106 (RW 0x00675670): Object +0x1C8
 	std::uint8_t m_scriptStatus = 0;                     ///< LOCAL-106 (RW 0x00675667): Object +0x457

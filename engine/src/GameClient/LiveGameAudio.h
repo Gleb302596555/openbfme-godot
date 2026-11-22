@@ -77,8 +77,10 @@ public:
 	bool objectPosition(std::uint32_t objectId, Coord3D *pos) const;
 	bool drawablePosition(std::uint32_t drawableId, Coord3D *pos) const;
 
-	// the ambient sound the object should have now ("" = none): ZH getAmbientSoundByDamage with the pristine fallback
+	// the ambient sound the object should have now ("" = none): ZH getAmbientSoundByDamage with SoundSelectors (RW 0x676A8A rows 37..40) + under-construction fallback (RW 0x6778A9)
 	static std::string ambientSoundFor(const Object &obj);
+	// S-706: battle ambient sound (SoundSelectors row 41 / template SoundAmbientBattle)
+	static std::string battleAmbientSoundFor(const Object &obj);
 	// the shroud query of the audio manager (RW 0x452003): the presented snapshot's cell status for `playerIndex` at `pos` is CLEAR. Lane VISUAL-2 r2: an
 	// omniscient view (an all-vision observer or a replay, ShroudView::localPlayer -2) sees every cell clear whatever local index the caller asks for
 	static bool shroudClearFor(const LogicSnapshot *snapshot, int playerIndex, const Coord3D &pos);
@@ -103,12 +105,16 @@ public:
 		size_t largeGroupQualified = 0; ///< cells above their thresholds (with or without a sound)
 		std::uint64_t evaDamaged = 0; ///< lane EVADAMAGE-1: the damage notices that picked an event for TheEva (DrawableManager::evaDamageStats().picked)
 		std::uint64_t evaDeaths = 0;  ///< S-709: the death events the watch reported
-		std::uint64_t battleAmbientTemplates = 0; ///< S-706: objects whose template has SoundAmbientBattle (not ported)
+		std::uint64_t battleAmbientTemplates = 0; ///< S-706: objects whose template has SoundAmbientBattle
+		std::uint64_t battleAmbientStarted = 0, battleAmbientStopped = 0;
+		size_t battleAmbientPlaying = 0;
 		size_t ambientPlaying = 0;
 	};
 	const Stats &stats() const { return m_stats; }
 	// object id -> the ambient event playing for it (tests, the viewer)
 	std::map<ObjectID, std::string> playingAmbients() const;
+	// S-706: object id -> battle ambient event playing while ENGAGED
+	std::map<ObjectID, std::string> playingBattleAmbients() const;
 	// AUDIO-3: the manager's request log (AudioManager::enableEventLog) as tab separated lines with the requesting object's template resolved:
 	// eventLogHeader() names the columns
 	void enableEventLog(bool on);
@@ -130,6 +136,7 @@ private:
 		unsigned seenPass = 0; ///< lane PERF-HD: the update pass that last saw its object (update's per-pass set before)
 	};
 	void stopAmbient(ObjectID id, Ambient &a);
+	void stopBattleAmbient(ObjectID id, Ambient &a);
 	struct EvaWatch
 	{
 		bool known = false, dead = false;
@@ -167,6 +174,9 @@ private:
 	LiveGame &m_game;
 	AudioManager &m_audio;
 	std::map<ObjectID, Ambient> m_ambients;
+	std::map<ObjectID, Ambient> m_battleAmbients; // S-706: RW 0x678816 / 0x6717C4 (SoundAmbientBattle while ENGAGED)
+	struct SelectorRandomStore;
+	std::unique_ptr<SelectorRandomStore> m_selectorRandom;
 	std::unordered_set<ObjectID> m_battleCounted; // lane PERF-HD: membership only
 	unsigned m_ambientPass = 0;                  // lane PERF-HD: Ambient::seenPass
 	UnsignedInt m_ambientFrame = 0xffffffffu;    // lane PERF-HD: the logic frame of the last object scan

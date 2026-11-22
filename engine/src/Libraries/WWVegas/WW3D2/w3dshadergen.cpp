@@ -287,6 +287,11 @@ std::string Generate_W3D_Shader_Code(const W3DShaderKey &k, W3DSamplerPolicy sam
 	{
 		line("global uniform sampler2D w3d_floor_hm : filter_linear, repeat_disable;");
 		line("global uniform vec4 w3d_floor_hm_rect; // xy: origin (-border*10), zw: extent in cells; z <= 0 disables");
+		// S-4974 (RW 0x4E5631 / 0x4E44FB): terrain.fxo Default RenderingMode 3 lighting (tod.terrain + weather + overbright)
+		line("global uniform vec3 w3d_flr_amb;");
+		line("global uniform vec3 w3d_flr_sun_dir;");
+		line("global uniform vec3 w3d_flr_sun_col;");
+		line("global uniform vec3 w3d_flr_lightning;");
 	}
 	// Varyings each take a location; Intel Arc (Mesa ANV) offers Forward+ 29 for normal-mapped buildings, Metal 31. The two UV sets
 	// share one vec4 (the same interpolation), and the world position stays a vertex() local: only the vertex lighting reads it.
@@ -603,7 +608,16 @@ std::string Generate_W3D_Shader_Code(const W3DShaderKey &k, W3DSamplerPolicy sam
 		// lane LOCAL-38: defaultw3d.fxo blob 151 / vegetation.fxo blob 6 add PointLight[0] to the directional diffuse sum
 		line("\t\tdsum += w3d_pt;");
 		line(k.HasDCG ? "\t\tvec4 vc = COLOR;" : "\t\tvec4 vc = vec4(1.0);");
-		if (k.Vegetation)
+		if (k.Floor && !k.OcclusionPass)
+		{
+			// S-4974 (RW 0x4E5631 / 0x4E44FB): floor draws shade under terrain.fxo Default RenderingMode 3 (tod.terrain[0..2],
+			// cloud/lightning, overbright), rather than object lighting; v_lit0 * 2 reproduces terrain.fxo's lit result with 0 extra varyings.
+			line("\t\tfloat flr_diff = max(dot(wn, normalize(w3d_flr_sun_dir)), 0.0);");
+			line("\t\tvec3 flr_lit = (w3d_flr_amb + w3d_flr_lightning + w3d_flr_sun_col * flr_diff + w3d_tint) * fogk * vc.rgb * 0.5;");
+			line("\t\tv_lit0 = clamp(vec4(flr_lit, vc.a * w3d_diffuse.a), 0.0, 1.0);");
+			line("\t\tv_lit1 = vec3(0.0);");
+		}
+		else if (k.Vegetation)
 		{
 			// vegetation.fxo has no ColorDiffuse / ColorAmbient / ColorEmissive / ColorSpecular material parameters:
 			// oD0.rgb = clamp((dsum + amb) * vc.rgb * 0.5, 0, 1), oD0.a = vc.a, no specular

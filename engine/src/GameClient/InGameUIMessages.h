@@ -40,6 +40,12 @@ struct InGameUIMessageSettings
 	int pointSize = 10;
 	bool bold = false;
 	int delayMS = 5000;
+	// S-1951 (RW 0x6A6FA0..0x6A7192 / RW 0x69ED62..0x69EDA1): InGameUI DrawableCaptionFont / PointSize / Bold / Color
+	// overridden by Language.ini DrawableCaptionFont (Language + 0x50) when present
+	std::string captionFont = "Arial";
+	int captionPointSize = 10;
+	bool captionBold = false;
+	std::uint32_t captionColor = 0xFFFFFFFFu;
 	bool loaded = false;
 	// data\ini\ingameui.ini's InGameUI rows over the constructor defaults, then language.ini's MessageFont; a missing file or a parse error is an error
 	static bool load(ArchiveFileSystem &fs, InGameUIMessageSettings &out, std::string *error);

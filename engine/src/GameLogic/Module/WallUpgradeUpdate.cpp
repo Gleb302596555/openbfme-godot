@@ -17,6 +17,11 @@
 #include <memory>
 #include <stdexcept>
 
+namespace ModelCondition
+{
+int indexOf(const std::string &name);
+}
+
 namespace
 {
 constexpr int kRubbleCountdownFrames = 40; // 8 * 5 logic fps (RW 0x8AEAE6 / BFME2 0x4AB3EB)
@@ -40,12 +45,13 @@ bool WallUpgradeUpdate::isWallUpgradeKind() const
 	{
 		return false;
 	}
-	static const int k1 = ObjectTemplateInfoBuilder::kindOfIndex("UPGRADE_GARRISON");
-	static const int k2 = ObjectTemplateInfoBuilder::kindOfIndex("POSTERN_GATE");
-	static const int k3 = ObjectTemplateInfoBuilder::kindOfIndex("TREBUCHET");
-	return (k1 >= 0 && getObject()->isKindOf((unsigned)k1)) ||
-	       (k2 >= 0 && getObject()->isKindOf((unsigned)k2)) ||
-	       (k3 >= 0 && getObject()->isKindOf((unsigned)k3));
+	// RW 0x8AEAA9..0x8AEADB: calls Object::testModelCondition (0x46E918) for 0x109, 0x108, 0x107
+	static const int kGarrison = ModelCondition::indexOf("UPGRADE_GARRISON");         // 0x107
+	static const int kPosternGate = ModelCondition::indexOf("UPGRADE_POSTERN_GATE");  // 0x108
+	static const int kTrebuchet = ModelCondition::indexOf("UPGRADE_TREBUCHET");       // 0x109
+	return (kGarrison >= 0 && getObject()->testModelCondition(kGarrison)) ||
+	       (kPosternGate >= 0 && getObject()->testModelCondition(kPosternGate)) ||
+	       (kTrebuchet >= 0 && getObject()->testModelCondition(kTrebuchet));
 }
 
 // RW 0x8AEAE6 / BFME2 0x4AB3EB

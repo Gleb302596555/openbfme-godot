@@ -64,6 +64,11 @@ Drawable::Drawable(DrawServices &services, const ThingTemplate *tt, DrawableID i
 		showModule(r.first, r.second, false);
 	}
 	m_pendingModuleRequests.clear();
+	for (const DeferredSubObject &r : m_pendingSubObjectRequests)
+	{
+		showSubObject(r.name, r.visible, r.permanent);
+	}
+	m_pendingSubObjectRequests.clear();
 	// the ClientUpdate and ClientBehavior modules (after the draw modules, ZH Drawable.cpp); then onObjectCreated on all of them
 	for (const ClientEvent::ClientModule &cm : clientModules)
 	{
@@ -214,6 +219,8 @@ void Drawable::addEntry(DrawServices &services, const ThingTemplate::Nugget &nug
 				// Drawable::showModule (RW 0x6789B4); the template answers which tags exist (the drawable makes every draw module of its template, S-114)
 				o.hasModule = [this](const std::string &tag) { return ClientEventRecorder::templateHasDrawModuleTag(*m_template, tag); };
 				o.setModuleVisible = [this](const std::string &tag, bool visible) { scriptModuleVisible(tag, visible); };
+				o.setSubObjectHidden = [this](const std::string &name, bool hide, bool permanent) { scriptSubObjectHidden(name, hide, permanent); };
+				o.setOverrideTooltip = [this](const std::string &label) { setCustomTooltipDisplayName(label); };
 				// LOCAL-106: Drawable::getShouldAnimate (RW 0x00675655), called from W3DScriptedModelDraw::doDrawModule (RW 0x004BF615)
 				o.shouldAnimate = [this](bool animationsRequirePower) { return getShouldAnimate(animationsRequirePower); };
 				if (const W3DHordeModelDrawModuleData *hd = dynamic_cast<const W3DHordeModelDrawModuleData *>(nugget.data.get()))
@@ -407,6 +414,16 @@ void Drawable::scriptModuleVisible(const std::string &name, bool visible)
 	showModule(name, visible, false);
 }
 
+void Drawable::scriptSubObjectHidden(const std::string &name, bool hide, bool permanent)
+{
+	if (m_buildingEntries)
+	{
+		m_pendingSubObjectRequests.push_back({ name, !hide, permanent });
+		return;
+	}
+	showSubObject(name, !hide, permanent);
+}
+
 bool Drawable::showModule(const std::string &name, bool visible, bool permanent)
 {
 	(void)permanent; // RW 0x736412 passes permanent = 1; nothing here changes a drawable's modules afterwards, so permanent and temporary hides coincide
@@ -460,6 +477,43 @@ void Drawable::recolorRenderObject(const std::string &excludeSubobject, const Ho
 			e.draw->recolorRenderObject(excludeSubobject, params);
 		}
 	}
+}
+
+void Drawable::clearRecolorHouse()
+{
+	for (DrawEntry &e : m_entries)
+	{
+		if (e.draw)
+		{
+			e.draw->clearRecolorHouse();
+		}
+	}
+}
+
+void Drawable::setCustomTooltipDisplayName(const std::string &displayName)
+{
+	// RW 0x6796DA / BFME2 0x6793AF: "ReferenceDisplayName" resets to template DisplayName; empty leaves untouched
+	if (displayName == "ReferenceDisplayName")
+	{
+		m_customTooltipDisplayName.clear();
+	}
+	else if (!displayName.empty())
+	{
+		m_customTooltipDisplayName = displayName;
+	}
+}
+
+void Drawable::setCustomTooltipDescription(const std::string &description)
+{
+	// RW 0x674FAE / BFME2 0x674C88: empty clears custom description; non-empty replaces it
+	m_customTooltipDescription = description;
+}
+
+void Drawable::clearCustomTooltip()
+{
+	// RW 0x8BBC0A / BFME2 0x8B7ADB
+	m_customTooltipDisplayName.clear();
+	m_customTooltipDescription.clear();
 }
 
 void Drawable::showSubObject(const std::string &name, bool visible, bool permanent)
@@ -1777,7 +1831,8 @@ bool Drawable::entryTransform(const DrawEntry &e, Matrix3D &outMatrix) const
 		{
 			for (int c = 0; c < 3; ++c)
 			{
-				outMatrix.Row[r][c] *= scale;
+				// S-5204 (RW 0x4B7C33): NoRotate resets the full drawable rotation to identity after world * instanceMatrix
+				outMatrix.Row[r][c] = e.noRotate ? (r == c ? scale : 0.0f) : outMatrix.Row[r][c] * scale;
 			}
 		}
 		return false;

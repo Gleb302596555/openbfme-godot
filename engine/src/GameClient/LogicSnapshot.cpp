@@ -238,6 +238,7 @@ std::shared_ptr<const LogicSnapshot> LogicSnapshot::build(GameLogic &logic, cons
 		auto pv = std::make_shared<PlayerView>();
 		PlayerList &players = logic.players();
 		pv->localIndex = local ? local->getPlayerIndex() : -1;
+		pv->localActive = local && !local->isObserver() && !local->isDefeated();
 		pv->count = players.getPlayerCount();
 		pv->relationship.assign((size_t)pv->count * (size_t)pv->count, (std::int8_t)NEUTRAL);
 		for (int a = 0; a < pv->count; ++a)
@@ -468,6 +469,7 @@ std::shared_ptr<const LogicSnapshot> LogicSnapshot::build(GameLogic &logic, cons
 			}
 		}
 		s.stealthLook = InvisibilityManager::clientLook(*o, local); // lane STEALTH-1
+		s.camouflaged = InvisibilityManager::invisibilityType(*o) == 1; // S-1001 (RW 0x85EE1B)
 		if (teamVision && s.stealthLook == 5)
 		{
 			for (int p : visionPlayers)

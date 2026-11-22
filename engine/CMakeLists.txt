@@ -237,6 +237,7 @@ include(cmake/Port188.cmake)    # PORT-188: SpecialAbilityUpdate::initiateIntent
 include(cmake/Port189.cmake)    # PORT-189: Palantir button click drops help provider so hovered toggle buttons refresh tooltip (issue #455; OPENBFME_PORT189_TESTS)
 include(cmake/Port213.cmake)    # PORT-213: Multi-select Palantir context picks highest-rank qualifying HERO (issue #503; OPENBFME_PORT213_TESTS)
 include(cmake/Port272.cmake)    # PORT-272: update the text of the visible command help on a toggle
+include(cmake/Port324.cmake)    # PORT-324: client drawing / Drawable / W3D / HUD / audio stop sweep (fork issue #841; OPENBFME_PORT324_TESTS)
 include(cmake/Port221.cmake)    # PORT-221: multi-selected horde abilities, weapon toggles, and mixed-selection HUD/dispatch (issue #531, P-140; OPENBFME_PORT221_TESTS)
 include(cmake/Port270.cmake)    # PORT-270: several units selected, a bought upgrade they all have greys at once (issue #637, P-152; OPENBFME_PORT270_TESTS)
 include(cmake/Port232.cmake)    # PORT-232: HordeDispatchSpecialPower::doSpecialPowerAtObject hands the horde's base call the member's kept target (issue #555; OPENBFME_PORT232_TESTS)
@@ -1238,6 +1239,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT189_TESTS}
     ${OPENBFME_PORT213_TESTS}
     ${OPENBFME_PORT272_TESTS}
+    ${OPENBFME_PORT324_TESTS}
     ${OPENBFME_PORT221_TESTS}
     ${OPENBFME_PORT270_TESTS}
     ${OPENBFME_PORT232_TESTS}

@@ -77,6 +77,10 @@ void TooltipUpgrade::applyTooltip()
 
 	if (Object *obj = getObject())
 	{
+		if (ObjectClientHooks *draw = obj->clientHooks())
+		{
+			draw->setCustomTooltip(*obj, m_data->m_displayName, m_data->m_description, false);
+		}
 		obj->logic().noteStop(stopLine());
 	}
 }
@@ -96,6 +100,10 @@ void TooltipUpgrade::processUpgradeRemoval()
 	setUpgradeExecuted(false);
 	if (Object *obj = getObject())
 	{
+		if (ObjectClientHooks *draw = obj->clientHooks())
+		{
+			draw->setCustomTooltip(*obj, std::string(), std::string(), true);
+		}
 		obj->logic().noteStop(stopLine());
 	}
 }
@@ -151,7 +159,7 @@ std::string TooltipUpgrade::descriptionOf(const Object &obj)
 
 const char *TooltipUpgrade::stopLine()
 {
-	return "[S-6013] TooltipUpgrade: Drawable custom tooltip display and TheControlBar refresh (RW 0x6796DA / 0x674FAE; BFME2 0x6793AF / 0x674C88) are not ported; custom display name and description are held on the object's canonical TooltipUpgrade module";
+	return "[S-6013] TooltipUpgrade: Drawable custom tooltip display name / description (RW 0x6796DA / 0x674FAE; BFME2 0x6793AF / 0x674C88) is synced to Drawable (+0x348 / +0x34C) and read by UnitHelpSource::compose (RW 0x8EBCEC / 0x8EC0C7); TheControlBar dirty refresh (+0x28 = 1) is not ported";
 }
 
 // RW 0x8B88B0 -> 0x63F3BF / BFME2 0x897805 -> 0x4B3FD0

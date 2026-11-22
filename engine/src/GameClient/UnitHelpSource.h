@@ -34,6 +34,7 @@
 #include <string>
 #include <vector>
 
+class Drawable;
 class GameLogic;
 class GameTextSource;
 class Object;
@@ -47,8 +48,8 @@ public:
 		UnicodeString title, text;
 		std::vector<std::string> unported;
 	};
-	// RW 0x8EBC61 for `obj`; `localPlayer` is the local player (RW 0xDE4928 + 0x10)
-	static Text compose(const Object &obj, const GameTextSource *text, GameLogic &logic, const Player *localPlayer);
+	// RW 0x8EBC61 for `obj`; `localPlayer` is the local player (RW 0xDE4928 + 0x10); `drawable` supplies OverrideTooltip / TooltipUpgrade (+0x348 / +0x34C)
+	static Text compose(const Object &obj, const GameTextSource *text, GameLogic &logic, const Player *localPlayer, const Drawable *drawable = nullptr);
 	// printf's %d / %s / %u / %i in order (UnicodeString::format with the retail labels' arguments); '%%' is a percent sign
 	static UnicodeString format(const UnicodeString &fmt, const std::vector<UnicodeString> &args);
 	static std::vector<std::string> acceptanceStops();

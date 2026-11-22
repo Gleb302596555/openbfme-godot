@@ -300,6 +300,7 @@ bool InGameHud::boot(std::string *error)
 			m_errors.push_back("draw group info: " + dgiError);
 		}
 	}
+	m_iconSettings.captionColor = m_messageLines.settings().captionColor;
 	if (m_ownedWindows)
 	{
 		m_ownedWindows->init();

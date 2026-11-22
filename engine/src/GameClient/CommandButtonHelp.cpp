@@ -199,6 +199,11 @@ FieldParse kInGameUiFields[] = {
 	{ "MessagePointSize", INI::parseInt, nullptr, MSG_OFF(pointSize) },
 	{ "MessageBold", INI::parseBool, nullptr, MSG_OFF(bold) },
 	{ "MessageDelayMS", INI::parseInt, nullptr, MSG_OFF(delayMS) },
+	// S-1951 (RW 0xC126E0..0xC12710 / RW 0x6A6FA0..0x6A7192): DrawableCaptionFont / PointSize / Bold / Color
+	{ "DrawableCaptionFont", INI::parseAsciiString, nullptr, MSG_OFF(captionFont) },
+	{ "DrawableCaptionPointSize", INI::parseInt, nullptr, MSG_OFF(captionPointSize) },
+	{ "DrawableCaptionBold", INI::parseBool, nullptr, MSG_OFF(captionBold) },
+	{ "DrawableCaptionColor", INI::parseColorInt, nullptr, MSG_OFF(captionColor) },
 	// lane CAMPUI-1: rows RW 0xC124A0 .. 0xC12530 (InGameUI + 0x83C colour, + 0x84C / + 0x850 position, + 0x854 centred, + 0x858 .. fonts, + 0x870 delay)
 	{ "MilitaryCaptionColor", parseCaptionNoting<INI::parseRGBAColorInt>, SEEN(SEEN_MC_COLOR), MC_OFF(color) },
 	{ "MilitaryCaptionPosition", parseCaptionNoting<INI::parseCoord2D>, SEEN(SEEN_MC_POSITION), MC_OFF(position) },
@@ -426,6 +431,13 @@ bool finishMessages(SettingsLoad &l, InGameUIMessageSettings &out, std::string *
 		out.font = s.language.messageFont.name;
 		out.pointSize = s.language.messageFont.size;
 		out.bold = s.language.messageFont.bold;
+	}
+	// S-1951 (RW 0x69ED62 .. 0x69EDA1): Language's DrawableCaptionFont (+ 0x50) overrides InGameUI's descriptor when present
+	if (!s.language.drawableCaptionFont.name.empty())
+	{
+		out.captionFont = s.language.drawableCaptionFont.name;
+		out.captionPointSize = s.language.drawableCaptionFont.size;
+		out.captionBold = s.language.drawableCaptionFont.bold;
 	}
 	out.loaded = true;
 	return true;

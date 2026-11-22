@@ -156,6 +156,17 @@ public:
 	virtual void upgradeTextures(Object &obj, const std::vector<std::pair<std::string, std::string>> &swaps) { (void)obj; (void)swaps; }
 	// PORT-47: RW 0x67273A -> model draw slot +0x78 (0x4B8701), after upgradeTextures, not another texture-change path.
 	virtual void recolorHouse(Object &obj, const std::vector<std::string> &excludeSubobjects) { (void)obj; (void)excludeSubobjects; }
+	// S-484 (RW 0x672713 -> 0x4B86F2): clears per-mesh SubObjectsUpgrade house recolours on grant/removal
+	virtual void clearRecolorHouse(Object &obj) { (void)obj; }
+	// S-6013 (RW 0x6796DA / 0x674FAE / 0x8BBBCC / 0x8BBC0A): custom tooltip display name & description on Drawable (+0x348 / +0x34C)
+	virtual void setCustomTooltip(Object &obj, const std::string &displayName, const std::string &description, bool clearBoth)
+	{
+		// RW 0x6796DA / 0x674FAE
+		(void)obj;
+		(void)displayName;
+		(void)description;
+		(void)clearBoth;
+	}
 	// lane STEALTH-2, RW 0x776F03 (StealthUpdate's disguise): the object's drawable is destroyed (TheGameClient vslot 0x74) and a new one of `tmpl` made
 	// (RW 0x6CFE8C) and bound (RW 0x625AA4) at the object's position and orientation with its model conditions, in `color` when `hasColor`
 	virtual void replaceDrawable(Object &obj, const ThingTemplate *tmpl, bool hasColor, std::uint32_t color) { (void)obj; (void)tmpl; (void)hasColor; (void)color; }

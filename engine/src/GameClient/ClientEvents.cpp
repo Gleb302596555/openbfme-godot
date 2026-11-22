@@ -546,6 +546,21 @@ void ClientEventRecorder::recolorHouse(Object &obj, const std::vector<std::strin
 	e.houseColor = player->getPlayerColor(); // RW 0x4B872C: player +0x2A0, even at night or with a custom palette.
 }
 
+void ClientEventRecorder::clearRecolorHouse(Object &obj)
+{
+	// S-484 (RW 0x8B9247 / 0x8B935D -> 0x672713)
+	push(ClientEvent::HOUSE_RECOLOR_CLEAR, obj);
+}
+
+void ClientEventRecorder::setCustomTooltip(Object &obj, const std::string &displayName, const std::string &description, bool clearBoth)
+{
+	// S-6013 (RW 0x6796DA / 0x674FAE)
+	ClientEvent &e = push(ClientEvent::SET_CUSTOM_TOOLTIP, obj);
+	e.name = displayName;
+	e.tooltipDescription = description;
+	e.permanent = clearBoth;
+}
+
 void ClientEventRecorder::placement(Object &obj, const MapObjectDrawable &placement)
 {
 	ClientEvent &e = push(ClientEvent::PLACEMENT, obj);

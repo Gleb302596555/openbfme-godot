@@ -69,8 +69,8 @@ W3DLuaDrawScriptHost::Options DrawableManager::hostOptions(const std::uint32_t &
 std::string DrawableManager::fadeStopLine()
 {
 	return "[S-1001] projectile fade (lane PROJ-2): a launched projectile's drawable fades as RW 0x85EE00 / 0x67309D / 0x675AB7 do (hidden for InvisibleFrames ms * 0.03 client "
-		"frames, then faded in over FadeInTime ms * 0.03; a fade over the flight when only the launcher or only the end is seen, hidden when neither), counted in render "
-		"time at 30 client frames per second, the fog fades last 6 client frames per logic segment (RW 0x63CF0F .. 0x63CF27: engine +0x38 = 30 / 5, constants 0xD9F60C / 0xD9F608); not ported: the launcher's stealth branch (RW 0x68FC06 / 0x7A3DAD / 0x6AAC52), the hiding of the drawable's particle systems; the look-ahead point of the update "
+		"frames, then faded in over FadeInTime ms * 0.03; a fade over the flight when only the launcher or only the end is seen, hidden when neither, including "
+		"the launcher CAMOUFLAGE stealth branch RW 0x85EE1B / 0x6AAC52), counted in render time at 30 client frames per second, the fog fades last 6 client frames per logic segment (RW 0x63CF0F .. 0x63CF27: engine +0x38 = 30 / 5, constants 0xD9F60C / 0xD9F608); not ported: the hiding of the drawable's particle systems; the look-ahead point of the update "
 		"(RW 0x85F6E7) is the Catmull-Rom's P3";
 }
 
@@ -457,6 +457,26 @@ void DrawableManager::applyEvents(const std::vector<ClientEvent> &events)
 				params.kind = 1;
 				params.colors[0] = ev.houseColor;
 				d->recolorRenderObject(ev.name, params);
+			}
+			break;
+		case ClientEvent::HOUSE_RECOLOR_CLEAR: // S-484 (RW 0x672713): clears SubObjectsUpgrade house recolour overrides
+			if (Drawable *d = findByObject(ev.object))
+			{
+				d->clearRecolorHouse();
+			}
+			break;
+		case ClientEvent::SET_CUSTOM_TOOLTIP: // S-6013 (RW 0x6796DA / 0x674FAE / 0x8BBBCC / 0x8BBC0A)
+			if (Drawable *d = findByObject(ev.object))
+			{
+				if (ev.permanent)
+				{
+					d->clearCustomTooltip();
+				}
+				else
+				{
+					d->setCustomTooltipDisplayName(ev.name);
+					d->setCustomTooltipDescription(ev.tooltipDescription);
+				}
 			}
 			break;
 		case ClientEvent::PLACEMENT:
