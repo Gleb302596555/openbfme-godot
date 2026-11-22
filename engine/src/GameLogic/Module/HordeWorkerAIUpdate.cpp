@@ -289,7 +289,6 @@ UpdateSleepTime HordeWorkerAIUpdate::update()
 // RW 0x0089E7C1 / BFME2 0x49AFFC
 void HordeWorkerAIUpdate::privateRepair(Object *obj, CommandSourceType cmdSource)
 {
-	(void)cmdSource;
 	Object *me = getObject();
 	if (!me || !obj || !canRepairObject(*me, *obj)) // RW 0x89E7E2 -> RW 0x82D7F2
 	{
@@ -320,7 +319,7 @@ void HordeWorkerAIUpdate::privateRepair(Object *obj, CommandSourceType cmdSource
 		hc->releaseMemberForGarrison(member); // RW 0x89E838 (slot +0xA8, RW 0x0086EBF4)
 		if (DozerAIUpdate *d = dynamic_cast<DozerAIUpdate *>(member->getAIUpdateInterface()))
 		{
-			d->repair(*obj); // RW 0x89E84C -> RW 0x7714C1
+			d->repair(*obj, cmdSource); // RW 0x89E84C -> RW 0x7714C1; preserve the source-aware repair gate
 		}
 		m_activeRepairTarget = obj->getID(); // RW 0x89E85A
 	}

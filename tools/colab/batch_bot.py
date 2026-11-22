@@ -113,6 +113,15 @@ def gh(*args: str) -> str:
 _ENV: dict | None = None
 
 
+def no_issue_env() -> dict:
+    """agent_env without a branch issue: a batch holds the stops of many issues, so tools/fragments.py check must not take the station
+    agent's `git config openbfme.issue` (or $OPENBFME_ISSUE) for the batch's (batch 2026-11-21f died on it: S-7429 of #515 refused for #810)."""
+    env = {k: v for k, v in agent_env().items() if k != "OPENBFME_ISSUE"}
+    n = int(env.get("GIT_CONFIG_COUNT") or 0)
+    env.update({"GIT_CONFIG_COUNT": str(n + 1), f"GIT_CONFIG_KEY_{n}": "openbfme.issue", f"GIT_CONFIG_VALUE_{n}": ""})
+    return env
+
+
 def agent_env() -> dict:
     global _ENV
     if _ENV is None:
@@ -443,7 +452,7 @@ def merge_batch(name: str, prs: list[dict], out: list[int]) -> tuple[list[dict],
             moved = True
     if moved:
         git(*AUTHOR, "commit", "-q", "--no-verify", "-m", f"Batch {name}: stops renumbered whose id main already has")
-    check = sh([sys.executable, "tools/fragments.py", "check"])
+    check = sh([sys.executable, "tools/fragments.py", "check"], env=no_issue_env())
     if check.returncode:
         raise RuntimeError(f"fragments still broken after the merges:\n{check.stdout}")
     return merged, conflicted, renumbered
@@ -800,11 +809,49 @@ def load_loop_state() -> dict:
     return {}
 
 
+def dead_claims(sandbox: str) -> list[Path]:
+    """This sandbox's claims whose run died with the runtime: no report, no batch branch (called only while no run goes here). Colab
+    restarts every runtime about daily; 2026-11-21e and 21h died mid-run and held their PRs for CLAIM_HOURS."""
+    dead = []
+    for f in sorted(RUNS.glob("*/claim.json")) if RUNS.exists() else []:
+        try:
+            d = json.loads(f.read_text())
+        except (OSError, ValueError):
+            continue
+        if d.get("sandbox") != sandbox or (f.parent / "report.md").exists():
+            continue
+        if sh(["git", "rev-parse", "-q", "--verify", f"refs/remotes/origin/batch/{f.parent.name}"], cwd=REPO).returncode == 0:
+            continue
+        dead.append(f)
+    return dead
+
+
+def release_dead_claims(a) -> list[str]:
+    sandbox = Path("/content/sandbox_id").read_text().strip() if Path("/content/sandbox_id").exists() else "?"
+    done = []
+    for f in dead_claims(sandbox):
+        name = f.parent.name
+        (f.parent / "report.md").write_text(f"# Партия {name}: оборвалась\n\nРантайм песочницы {sandbox} перезапустился посреди партии; "
+                                            "её PR вернулись в очередь.\n", encoding="utf-8")
+        for n in json.loads(f.read_text()).get("prs") or []:
+            if not getattr(a, "no_comment", False):
+                try:
+                    p = json.loads(gh("pr", "view", str(n), "--json", "number,headRefOid"))
+                    gh("pr", "comment", str(n), "--body", left_comment(name, p, "партия оборвалась (перезапуск песочницы), не из-за этого PR: снова ждёт партии"))
+                except Exception:  # the PR may be closed meanwhile: the report alone frees the claim
+                    pass
+        done.append(name)
+    return done
+
+
 def loop_round(a, st: dict) -> str:
     """One round; returns the line for the log."""
     sh(["git", "fetch", "-q", "--prune", "origin"], cwd=REPO)
     if run_going():
         return "a batch run is going: waiting"
+    freed = release_dead_claims(a)
+    if freed:
+        return f"released the claims of batches that died with the runtime: {', '.join(freed)}"
     last = st.get("green")
     base, wait_s = stack_base(last, bool(last) and unlanded(last), time.time() - st.get("finished", 0))
     if base is None:

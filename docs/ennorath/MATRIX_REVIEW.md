@@ -7,11 +7,10 @@ Layer 2 (lint) flags verdicts the mod's own data contradicts; layer 3 lists ever
 By rule: L1 66, L4 3
 
 
-## Changes since d4a29087: 6 buttons moved, 6 turned red
+## Changes since 37d9bf28: 5 buttons moved, 2 turned red
 
-- Angmar `AngmarTrollSling` `Command_SpecialAbilityAngmarCatapultPoisonBarrels`: PASS -> NO-FIRE — SpecialAbilityAngmarCatapultPlagueBarrels (target GondorFighterHorde at 940,3367,100, owner Player_2 [pixel 512,384, collision 0x14, model p
-- Angmar `AngmarTrollSlingFortress` `Command_SpecialAbilityAngmarCatapultPoisonBarrels`: PASS -> NO-FIRE — SpecialAbilityAngmarCatapultPlagueBarrels (target GondorFighterHorde at 1847,1817,50, owner Player_2 [pixel 512,384, collision 0x14, model p
-- Angmar `AngmarTrollSlingWall` `Command_SpecialAbilityAngmarCatapultPoisonBarrels`: PASS -> NO-FIRE — SpecialAbilityAngmarCatapultPlagueBarrels (target GondorFighterHorde at 524,2707,150, owner Player_2 [pixel 512,384, collision 0x14, model p
-- Dwarves `DwarvenCatapult` `Command_SpecialAbilityDwarvenIronHillsCatapultOilBarrels`: PASS -> NO-FIRE — SpecialAbilityDwarvenIronHillsCatapultOilBarrels (target GondorFighterHorde at 1045,1092,100, owner Player_2 [pixel 512,384, collision 0x14,
-- Dwarves `DwarvenCatapult_EredLuin` `Command_SpecialAbilityDwarvenIronHillsCatapultOilBarrels`: PASS -> NO-FIRE — SpecialAbilityDwarvenIronHillsCatapultOilBarrels (target GondorFighterHorde at 1059,1165,100, owner Player_2 [pixel 512,384, collision 0x14,
-- Imladris `AngmarTrollSlingWall` `Command_SpecialAbilityAngmarCatapultPoisonBarrels`: PASS -> NO-FIRE — SpecialAbilityAngmarCatapultPlagueBarrels (target GondorFighterHorde at 809,2307,150, owner Player_2 [pixel 512,384, collision 0x14, model p
+- Men `MenPorterRepair` `Command_RepairAI`: PASS -> NO-SEND — SpecialRepairStructure: the click on its target sent nothing (target GondorBarracks at 650,3152,103, owner Player_1 [pixel 512,384, collisio
+- Wild `MordorBalrogAI` `Command_SpecialAbilityBalrogBreathAI`: ORDER -> NO-EFFECT — SpecialAbilityBalrogBreath (target GondorFighterHorde) fired but WeaponFireSpecialAbilityUpdate SpecialWeapon MordorBalrogBreath: no result 
+- Rohan `RohanTheoden_mod` `Command_SpecialAbilityKingsFavorEdainTheo`: ORDER -> PASS
+- Rohan `Theoden_OneRing` `Command_SpecialAbilityKingsFavorEdainTheoRing`: ORDER -> PASS
+- Wild `WildPorterSpecAI` `Command_RepairAI`: PASS -> ORDER
