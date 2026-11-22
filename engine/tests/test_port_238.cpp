@@ -20,6 +20,7 @@
 #include "GameLogic/Object/Contain/GarrisonContainRuntime.h"
 #include "GameLogic/Object/PartitionManager.h"
 #include "GameLogic/ObjectFilterMatch.h"
+#include "GameLogic/ObjectCreationList.h"
 #include "GameLogic/Module/AttachUpdate.h"
 #include "GameLogic/Module/InvisibilityModules.h"
 #include "GameLogic/Module/EmotionModules.h"
@@ -3215,4 +3216,87 @@ End
         CHECK(w.byId(cursedId) == nullptr);
     }
     CHECK_FALSE(w.playerOf('B')->hasUpgradeComplete("Upgrade_P238SarChoice"));
+}
+
+// Synthetic Gollum-style death mux; no real weapons, waypoints, Lua or mod loading.
+TEST_CASE("PORT-238 Gollum-style death types select one creation list")
+{
+    struct RingDeathWorld : CombatWorld
+    {
+        ObjectCreationListStore lists{ w.keys };
+        ObjectCreationListStore *saved = TheObjectCreationListStore;
+        RingDeathWorld() : CombatWorld(R"ini(
+Object P238Thief
+ KindOf = INFANTRY SELECTABLE
+ Body = ActiveBody Body
+  MaxHealth = 100
+ End
+ Behavior = CreateObjectDie OrdinaryDeath
+  DeathTypes = ALL -EXTRA_2 -EXTRA_3
+  CreationList = OCL_P238Thief
+ End
+ Behavior = CreateObjectDie StolenDeath
+  DeathTypes = NONE +EXTRA_2
+  CreationList = OCL_P238Bearer
+ End
+End
+Object P238NewThief
+ KindOf = INFANTRY SELECTABLE
+End
+Object P238NewBearer
+ KindOf = INFANTRY SELECTABLE
+End
+)ini")
+        {
+            TheObjectCreationListStore = &lists;
+            w.fx.env.blocks.registerBlock("ObjectCreationList", [](INI *ini) { ObjectCreationListStore::parseObjectCreationListDefinitionGlobal(ini); });
+            const std::string err = w.load(R"ini(
+ObjectCreationList OCL_P238Thief
+ CreateObject
+  ObjectNames = P238NewThief
+  Count = 1
+ End
+End
+ObjectCreationList OCL_P238Bearer
+ CreateObject
+  ObjectNames = P238NewBearer
+  Count = 1
+ End
+End
+)ini", INI_LOAD_OVERWRITE, "p238-gollum-ocl.ini");
+            REQUIRE_MESSAGE(err.empty(), err);
+        }
+        ~RingDeathWorld() { TheObjectCreationListStore = saved; }
+        int count(const char *name)
+        {
+            int n = 0;
+            for (ObjectID id = 1; id < 64; ++id)
+            {
+                Object *o = byId(id);
+                if (o && o->getTemplate()->getName() == name) ++n;
+            }
+            return n;
+        }
+    } w;
+
+    Object *normal = w.unit("P238Thief", 'A', 50, 50);
+    REQUIRE(normal);
+    normal->kill(DAMAGE_UNRESISTABLE, DEATH_NORMAL);
+    CHECK(normal->isEffectivelyDead());
+    CHECK(w.count("P238NewThief") == 1);
+    CHECK(w.count("P238NewBearer") == 0);
+
+    Object *stolen = w.unit("P238Thief", 'A', 100, 50);
+    REQUIRE(stolen);
+    stolen->kill(DAMAGE_UNRESISTABLE, DEATH_EXTRA_2);
+    CHECK(stolen->isEffectivelyDead());
+    CHECK(w.count("P238NewThief") == 1);
+    CHECK(w.count("P238NewBearer") == 1);
+
+    Object *fortress = w.unit("P238Thief", 'A', 150, 50);
+    REQUIRE(fortress);
+    fortress->kill(DAMAGE_UNRESISTABLE, DEATH_EXTRA_3);
+    CHECK(fortress->isEffectivelyDead());
+    CHECK(w.count("P238NewThief") == 1);
+    CHECK(w.count("P238NewBearer") == 1);
 }
