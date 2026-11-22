@@ -676,8 +676,7 @@ std::vector<std::string> VictoryConditions::stops()
 		"[S-1062] victory (END-1): VictoryConditions::update runs at its binary place (phase 5 after the destroy list, RW 0x62EBCE); killPlayer withdraws the loser's money and gives its "
 		"last attacker the elimination bonus (RW 0x6ABF3C .. 0x6ABFEE); the keep-score switch clears with the single alliance (RW 0x80903F). TheGameInfo's vslot 0x50 is "
 		"GameInfo::isSandbox (RW 0x800C8F, lane GAMEMODES-1: a sandbox game keeps the switch and has no MULTIPLAYER_ALLIED_VICTORY). Not ported: ThePlayerList vslot 0x40 in killPlayer, the rule that kills the remaining computer "
-		"players when no human is left (RW 0x809271 .. 0x80936E: its Living World record RW 0x6B5DE0 + 0x444 is not identified), the shared-AI branch of killPlayer (AISkirmishPlayer "
-		"+ 0x178, RW 0x6C7518), the game slot defeat frames (RW 0x809370 ..) and RW 0x625F7C. The defeated player's map reveal is ported (RW 0x8090AA -> 0xB4D940 -> 0xB4F5D0). END-2: MSG_SELF_DESTRUCT "
+		"players when no human is left (RW 0x809271 .. 0x80936E: its Living World record RW 0x6B5DE0 + 0x444 is not identified), the game slot defeat frames (RW 0x809370 ..) and RW 0x625F7C. killPlayer's shared-AI branch is ported from the linked shared-group predicate (RW 0x6ABE89 -> 0x6C7518); the defeated player's map reveal is ported (RW 0x8090AA -> 0xB4D940 -> 0xB4F5D0). END-2: MSG_SELF_DESTRUCT "
 		"(RW 0x77CA3D, the quit menu's surrender / exit) kills the sender; the asset transfer to a living ally of the exit (RW 0x6AF598) is MP-2's port (S-1122), and the Living World "
 		"branch of the surrender (RW 0x77CB05 ..) is not ported",
 	};
