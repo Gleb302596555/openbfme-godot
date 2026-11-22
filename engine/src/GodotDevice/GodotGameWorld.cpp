@@ -8066,9 +8066,22 @@ public:
 		{
 			return out;
 		}
-		auto row = [](const ::Player &p, bool isLocal) {
+		const LiveGame::Report report = m_w.m_game->report();
+		auto slotOf = [&](const ::Player &p) -> int {
+			// PYSAGE 1.9.8.5 .chatmut 0x00EDB12C .. 0x00EDB15C: resolve the player's GameSlot 0..7
+			for (int i = 0; i < MAX_SLOTS && (size_t)i < report.startSlotPlayers.size(); ++i)
+			{
+				if (!report.startSlotPlayers[(size_t)i].empty() && logic.players().findPlayerWithName(report.startSlotPlayers[(size_t)i]) == &p)
+				{
+					return i;
+				}
+			}
+			return -1;
+		};
+		auto row = [&](const ::Player &p, bool isLocal) {
 			TributePlayerRow r;
 			r.playerIndex = p.getPlayerIndex();
+			r.slot = slotOf(p);
 			r.name = p.getPlayerDisplayName();
 			r.cash = p.getMoney()->countMoney();
 			r.local = isLocal;
@@ -8101,9 +8114,53 @@ public:
 		m.appendIntegerArgument((int)amount);
 		m_w.m_game->commands().append(m); // (waits for the logic worker: a completed frame)
 	}
+	bool chatMuted(int slot) const override
+	{
+		if (slot < 0 || slot > 7)
+		{
+			return false;
+		}
+		if (m_w.m_netSession)
+		{
+			return m_w.m_netSession->network().chatMuted(slot);
+		}
+		// RW 0x62D232 -> PYSAGE 1.9.8.5 .chatmut 0x00EDB257: cleared on game reset
+		if (m_w.m_game.get() != m_mutedForGame)
+		{
+			return false;
+		}
+		return (m_localChatMuted >> slot & 1u) != 0;
+	}
+	void setChatMuted(int slot, bool muted) override
+	{
+		if (slot < 0 || slot > 7)
+		{
+			return;
+		}
+		if (m_w.m_netSession)
+		{
+			m_w.m_netSession->network().setChatMuted(slot, muted);
+			return;
+		}
+		if (m_w.m_game.get() != m_mutedForGame)
+		{
+			m_mutedForGame = m_w.m_game.get();
+			m_localChatMuted = 0;
+		}
+		if (muted)
+		{
+			m_localChatMuted |= 1u << slot;
+		}
+		else
+		{
+			m_localChatMuted &= ~(1u << slot);
+		}
+	}
 
 private:
 	GameWorld &m_w;
+	const LiveGame *m_mutedForGame = nullptr;
+	std::uint32_t m_localChatMuted = 0;
 };
 
 TributeSource *GameWorld::tribute_source()

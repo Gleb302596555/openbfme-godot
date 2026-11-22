@@ -196,6 +196,10 @@ struct EntryData
 	short charPos = 0;
 	short conCharPos = 0;
 	GameWindow *constructList = nullptr; // only for the Korean / Japanese IME of ZH: never created
+	// PYSAGE 1.9.8.5 .mapfind 0x00F3320B (hooked at RW 0x49FC37): optional placeholder drawn when text and sText are empty
+	UnicodeString placeholderText;
+	Color placeholderColor = 0;
+	Color placeholderBorderColor = 0;
 };
 
 // ---- list box (Gadget.h ListboxData) -----------------------------------------------------------------------------------------------

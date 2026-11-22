@@ -39,6 +39,43 @@ DEBUG = re.compile(r"^_bfme_debug|^DebugLog|^DEBUG_")
 COMPILER = re.compile(r"`(scalar|vector) deleting destructor'")
 
 
+
+# RotWK 2.01 addresses proven by disassembly (rw.py dis + IAT) to be CRT, compiler, STLport, allocator,
+# AsciiString/UnicodeString, synchronization or ref-counted smart-pointer infrastructure (Local 130, issue #829).
+PROVEN_LIBRARY: dict[int, tuple[str, str]] = {
+    0x0042C17A: ("STLport::_Construct<AsciiString>", "C++ standard library container (STLport)"),
+    0x0042C1A7: ("STLport::uninitialized_fill_n<AsciiString*>", "C++ standard library container (STLport)"),
+    0x0042C86C: ("STLport::_Destroy<AsciiString*>", "C++ standard library container (STLport)"),
+    0x00430130: ("DynamicMemoryAllocator::rawAlloc(tag=3)", "port infrastructure or library (allocator wrapper [0xDC5E44])"),
+    0x00430170: ("DynamicMemoryAllocator::rawFree(tag=3)", "port infrastructure or library (allocator wrapper [0xDC5E3C])"),
+    0x004355D0: ("AsciiString::staticCriticalSection", "string class (AsciiString / UnicodeString)"),
+    0x00435730: ("UnicodeString::staticCriticalSection", "string class (AsciiString / UnicodeString)"),
+    0x004360C0: ("AsciiString::set(const char*, int)", "string class (AsciiString / UnicodeString)"),
+    0x00436680: ("AsciiString::format_va", "string class (AsciiString / UnicodeString)"),
+    0x004367B0: ("UnicodeString::releaseBuffer", "string class (AsciiString / UnicodeString)"),
+    0x00440B21: ("SimpleCriticalSection::SimpleCriticalSection", "C runtime / compiler helper (InitializeCriticalSection)"),
+    0x0044A2A5: ("BfmeWideResult::~BfmeWideResult", "port infrastructure or library (ref-counted query result handle)"),
+    0x00450762: ("RefCounted::release", "port infrastructure or library (InterlockedDecrement smart-pointer release)"),
+    0x0045486C: ("STLport::hash<AsciiString>::operator()", "C++ standard library container (STLport)"),
+    0x004A86AC: ("Rva0036CA00Str::Rva0036CA00Str", "port infrastructure or library (InterlockedIncrement smart-pointer copy)"),
+    0x004BB149: ("STLport::uninitialized_copy<AsciiString*>", "C++ standard library container (STLport)"),
+    0x005FCBC4: ("AsciiString::releaseBuffer_thunk", "string class (AsciiString / UnicodeString)"),
+    0x00645716: ("Rva002390CB::Rva002390CB", "port infrastructure or library (smart-pointer pair copy ctor)"),
+    0x00671FB0: ("RefPtr<AudioEventInfo>::RefPtr", "port infrastructure or library (InterlockedIncrement smart-pointer ctor)"),
+    0x00688E9D: ("STLport::allocator<void*>::allocate", "C++ standard library container (STLport)"),
+    0x007AEAFD: ("SecondBase005D2111::~SecondBase005D2111", "compiler-generated empty base-interface destructor"),
+    0x00917B0D: ("BfmeWideResultStorage::~BfmeWideResultStorage", "port infrastructure or library (ref-counted query result buffer free)"),
+    0x009A2783: ("STLport::_M_create_node(0x18)", "C++ standard library container (STLport)"),
+    0x00A340B0: ("STLport::__copy_trivial", "C++ standard library container (STLport)"),
+    0x00A3A190: ("BfmeWideResult::BfmeWideResult", "port infrastructure or library (ref-counted query result ctor)"),
+    0x00A3CD70: ("__chkstk", "C runtime / compiler helper"),
+    0x00A3CF10: ("_strlen_thunk", "C runtime / compiler helper"),
+    0x00A3CF22: ("_memcpy_thunk", "C runtime / compiler helper"),
+    0x00A3CF4C: ("_onexit", "C runtime / compiler helper"),
+    0x00A3D936: ("__dllonexit_thunk", "C runtime / compiler helper"),
+}
+
+
 def classify(name: str, address: int = 0, lua_block: tuple[int, int] = (0, 0)) -> str | None:
     n = re.sub(r"\s*\(tier [A-Z]\)\s*$", "", name or "").strip()
     if not n:
@@ -67,6 +104,9 @@ def main(argv=None) -> int:
     rows = {}
     for address, name in HAND_STOPS.items():
         rows[address] = (name, "port infrastructure or library (rw_function_map.HAND_STOPS)")
+    for address, (name, why) in PROVEN_LIBRARY.items():
+        if address not in rows:
+            rows[address] = (name, why)
     with a.map.open(encoding="utf-8") as f:
         table = list(csv.DictReader(f, delimiter="\t"))
     bare = lambda r: re.sub(r"\s*\(tier [A-Z]\)\s*$", "", r.get("decomp") or "").strip()

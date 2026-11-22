@@ -90,7 +90,7 @@ public:
 	bool testForAll(const BitFlags &that) const { return countInverseIntersection(that) == 0; }
 	bool testForNone(const BitFlags &that) const { return !anyIntersectionWith(that); }
 
-	// ZH BitFlags::clear(const BitFlags&) / set(const BitFlags&): remove / add every bit of the argument.
+	// RW 0x0068CC38 (4-word clear mask) / ZH BitFlags::clear(const BitFlags&) / set(const BitFlags&): remove / add every bit of the argument.
 	void clear(const BitFlags &clr)
 	{
 		for (int w = 0; w < NUM_WORDS; ++w)
@@ -106,6 +106,7 @@ public:
 		}
 	}
 
+	// RW 0x0081A76C (16-byte memcmp == 0)
 	bool operator==(const BitFlags &that) const { return std::memcmp(m_words, that.m_words, sizeof(m_words)) == 0; }
 	bool operator!=(const BitFlags &that) const { return !(*this == that); }
 	// A strict total order, only so a BitFlags can key a std::map (the sparse matcher's cache).

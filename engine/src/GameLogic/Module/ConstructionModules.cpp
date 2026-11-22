@@ -35,6 +35,7 @@
 #include "GameLogic/Module/CastleModules.h"
 #include "GameLogic/Module/DozerAIUpdate.h"
 #include "GameLogic/Module/ProductionUpdate.h"
+#include "GameLogic/Module/SpawnBehavior.h"
 #include "GameLogic/ObjectFilter.h"
 #include "GameLogic/ObjectFilterMatch.h"
 #include "GameLogic/ObjectTemplateInfo.h"
@@ -556,10 +557,14 @@ void GettingBuiltBehavior::finishConstruction(Object *other)
 {
 	Object *obj = getObject();
 	// RW 0x8569B1 ff: the production update is enabled again first (RW 0x68C327(0) -> slot 0x60 with 0, lane PLAY-4: setFactoryDisabled, the counterpart of
-	// onObjectCreated's), then the module of RW 0x68C3A3 is told (slot 0x28): not identified (stop S-653)
+	// onObjectCreated's), then the module of RW 0x68C3A3 is told (slot 0x28: SpawnBehaviorInterface::reEnslaveSlaves, RW 0x862E4F, PORT-198)
 	if (ProductionUpdateInterface *pu = obj->getProductionUpdate())
 	{
 		pu->setFactoryDisabled(false);
+	}
+	if (SpawnBehaviorInterface *spawn = SpawnBehaviorInterface::of(*obj))
+	{
+		spawn->reEnslaveSlaves(); // RW 0x8569C7 -> 0x68C3A3 slot 10 (0x28)
 	}
 	if (!m_constructing)
 	{

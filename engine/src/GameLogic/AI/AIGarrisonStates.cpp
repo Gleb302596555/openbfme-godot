@@ -17,6 +17,7 @@
 #include "GameLogic/Locomotor.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/CollideModule.h"
+#include "GameLogic/Module/SpawnBehavior.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/SimMath.h"
@@ -35,8 +36,8 @@ const char *const kStop =
 	"AIEnterState moves to the entry position itself (adjusted for a SHIP container only) and ignores the container as an obstacle (RW 0x751668 .. "
 	"0x751707 / 0x752B31); not ported: AIMoveToPositionAndEnterState's unadjusted goal (RW 0x751AB6) with its goal-following update RW 0x755572 (the port "
 	"adjusts the entry point), the SHIP branches "
-	"(RW 0x82CED4, privateEnter's AI command 0x4F RW 0x66C6E3), behaviour slot 0x48 of the collide branch, getCanAttackObject's STRUCTURE and "
-	"SPAWNS_ARE_THE_WEAPONS parts (reported), the container AI's slot 0x1A8 in the exit states (taken as not 2), the members' AI slot 0x1C4 of RW 0x875C93, "
+	"(RW 0x82CED4, privateEnter's AI command 0x4F RW 0x66C6E3), behaviour slot 0x48 of the collide branch, getCanAttackObject's STRUCTURE part "
+	"(reported; SPAWNS_ARE_THE_WEAPONS is ported by PORT-198 via SpawnBehaviorInterface slot 2), the container AI's slot 0x1A8 in the exit states (taken as not 2), the members' AI slot 0x1C4 of RW 0x875C93, "
 	"the group manager of MSG_ENTER (GameData + 0x11CA); AIEnterState's ignored obstacle (the container, RW 0x7516C8 / 0x752B31) and the locomotor's "
 	"allow-invalid-position flag (RW 0x7516D7 / 0x752B40) are set and cleared as RW does, no reader of the flag is located";
 
@@ -110,13 +111,12 @@ bool GarrisonRules::isAboveTerrain(const Object &obj)
 
 // RW 0x82CFD4 ActionManager::getCanAttackObject(obj, victim, source, ATTACK_NEW_TARGET) (lane BACKLOG-1; BFME2 decomp ActionManager.cpp, tier B
 // same-shape): no for a dead object or victim (+ 0x458 bit 0), the object itself, an object that is not able to attack (Object::isAbleToAttack RW 0x691269) or
-// one with DISABLED bit 4 (+ 0x1C8 & 0x10: ATTACK_NEW_TARGET is refused). A STRUCTURE asks its riders first (RW 0x82C8A7) and a SPAWNS_ARE_THE_WEAPONS object
-// its slave closest to the victim (RW 0x68C3A3 slot 8); neither enters a container (not mobile) and both are reported here. Then the object's own
-// getAbleToAttackSpecificObject (RW 0x68D6A6): INFERENCE (S-325, as the guard and turret machines): ObjectWeapons::canAttackObject, not forced, stands in for it
+// one with DISABLED bit 4 (+ 0x1C8 & 0x10: ATTACK_NEW_TARGET is refused). A STRUCTURE asks its riders first (RW 0x82C8A7, reported) and a SPAWNS_ARE_THE_WEAPONS
+// object its slave closest to the victim (RW 0x68C3A3 slot 2, PORT-198). Then the object's own getAbleToAttackSpecificObject (RW 0x68D6A6)
 bool GarrisonRules::canAttackAsNewTarget(Object &obj, Object &victim, CommandSourceType source)
 {
 	static const int structure = CombatNames::kindOf("STRUCTURE");
-	static const int spawnsAreTheWeapons = CombatNames::kindOf("SPAWNS_ARE_THE_WEAPONS");
+	static const int spawnsAreTheWeapons = CombatNames::kinds().spawnsAreTheWeapons;
 	if (obj.isEffectivelyDead() || victim.isEffectivelyDead() || &obj == &victim || !obj.isAbleToAttack())
 	{
 		return false;
@@ -125,10 +125,25 @@ bool GarrisonRules::canAttackAsNewTarget(Object &obj, Object &victim, CommandSou
 	{
 		return false; // RW 0x82D021 .. 0x82D034
 	}
-	if (obj.isKindOf((unsigned)structure) || obj.isKindOf((unsigned)spawnsAreTheWeapons))
+	if (obj.isKindOf((unsigned)structure) && obj.getContain())
 	{
-		obj.logic().reportError("getCanAttackObject (RW 0x82CFD4): the STRUCTURE / SPAWNS_ARE_THE_WEAPONS branches are not ported (S-1101), " + obj.getTemplate()->getName() +
+		obj.logic().reportError("getCanAttackObject (RW 0x82CFD4): the STRUCTURE passenger branch is not ported (S-1101), " + obj.getTemplate()->getName() +
 			" asks for itself");
+	}
+	if (obj.isKindOf((unsigned)spawnsAreTheWeapons))
+	{
+		// RW 0x82D054..0x82D091 asks the closest slave directly. The action shroud check (RW 0x82C167) is not part of this branch.
+		if (SpawnBehaviorInterface *spawn = SpawnBehaviorInterface::of(obj))
+		{
+			if (Object *slave = spawn->getClosestSlave(victim.getPosition()))
+			{
+				const CanAttackResult res = slave->getAbleToAttackSpecificObject(ATTACK_NEW_TARGET, &victim, source);
+				if (res != ATTACKRESULT_NOT_POSSIBLE)
+				{
+					return res == ATTACKRESULT_POSSIBLE || res == ATTACKRESULT_POSSIBLE_AFTER_MOVING;
+				}
+			}
+		}
 	}
 	ObjectWeapons *w = obj.getWeapons();
 	return w && w->canAttackObject(victim, source, false);
