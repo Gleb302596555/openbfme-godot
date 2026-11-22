@@ -8,8 +8,8 @@ DAMAGE_MULT	3	src/GameLogic/Object/Damage.cpp	164	sourceMultiplicative	ATTRIBUTE
 RESIST_FEAR	4	src/GameLogic/ScriptEngine/LuaBindings.cpp	528	objectAttributeModifier	4	luaObjectTestCanSufferFear
 RESIST_FEAR	4	src/GameLogic/System/EmotionSystem.cpp	392	attributeModifierSum	t.type == EMOTION_TERROR ? 5 : 4	canApply
 RESIST_TERROR	5	src/GameLogic/System/EmotionSystem.cpp	392	attributeModifierSum	t.type == EMOTION_TERROR ? 5 : 4	canApply
-EXPERIENCE	6	src/GameLogic/Object/Object.cpp	2688	attributeModifierProduct	ATTRIBUTE_EXPERIENCE	grantExperienceForKill
-RANGE	7	src/GameLogic/Combat/ObjectWeapons.cpp	280	attributeModifierSum	ATTRIBUTE_RANGE	rangeAttributeSum
+EXPERIENCE	6	src/GameLogic/Object/Object.cpp	2757	attributeModifierProduct	ATTRIBUTE_EXPERIENCE	grantExperienceForKill
+RANGE	7	src/GameLogic/Combat/ObjectWeapons.cpp	281	attributeModifierSum	ATTRIBUTE_RANGE	rangeAttributeSum
 SPEED	8	src/GameLogic/Module/AIUpdate.cpp	238	attributeModifierProduct	ATTRIBUTE_SPEED	speedAttributeModifier
 CRUSH_DECELERATE	9	src/GameLogic/Object/Collide/SquishCollide.cpp	364	attributeModifierProduct	kCrushDecelerateModifier	onCrush
 RESIST_KNOCKBACK	10	src/GameLogic/Combat/WeaponDelivery.cpp	594	attributeModifierSum	10	apply
@@ -19,7 +19,7 @@ RECHARGE_TIME	12	src/GameClient/CommandButtonHelp.cpp	646	attributeModifierProdu
 RECHARGE_TIME	12	src/GameLogic/Module/HeroAbilityModules.cpp	1241	attributeModifierProduct	ATTRIBUTE_RECHARGE_TIME	startPowerRecharge
 RECHARGE_TIME	12	src/GameLogic/Module/SiegeModules.cpp	660	attributeModifierProduct	ATTRIBUTE_RECHARGE_TIME	startPowerRecharge
 RECHARGE_TIME	12	src/GameLogic/Module/SpecialPowerModules.cpp	543	attributeModifierProduct	ATTRIBUTE_RECHARGE_TIME	startPowerRecharge
-PRODUCTION	13	src/GameLogic/Economy.cpp	589	attributeModifierProduct	ATTRIBUTE_MODIFIER_PRODUCTION	productionMoneyProduct
+PRODUCTION	13	src/GameLogic/Economy.cpp	594	attributeModifierProduct	ATTRIBUTE_MODIFIER_PRODUCTION	productionMoneyProduct
 PRODUCTION	13	src/GameLogic/Module/AISpecialPowerDecisions.cpp	843	attributeModifierProduct	0xD	decideDebuffEconomy
 PRODUCTION	13	src/GameLogic/Module/DockUpdate.cpp	625	attributeModifierProduct	Economy::ATTRIBUTE_MODIFIER_PRODUCTION	computeDelivery
 PRODUCTION	13	src/GameLogic/Module/ProductionUpdate.cpp	1186	attributeModifierProduct	ATTRIBUTE_PRODUCTION	update
@@ -38,12 +38,12 @@ AUTO_HEAL	19	src/GameLogic/Module/HeroModules.cpp	1157	attributeModifierSum	ATTR
 SHROUD_CLEARING	20	src/GameLogic/Object/AttributeModifierPool.cpp	192	value	ATTRIBUTE_SHROUD_CLEARING	removeByName
 SHROUD_CLEARING	20	src/GameLogic/Object/AttributeModifierPool.cpp	426	value	ATTRIBUTE_SHROUD_CLEARING	add
 SHROUD_CLEARING	20	src/GameLogic/System/ShroudManager.cpp	1747	attributeModifierSum	20	shroudClearingRange
-RATE_OF_FIRE	21	src/GameLogic/Combat/ObjectWeapons.cpp	154	attributeModifierProduct	ATTRIBUTE_RATE_OF_FIRE	rateOfFireAttributeProduct
+RATE_OF_FIRE	21	src/GameLogic/Combat/ObjectWeapons.cpp	155	attributeModifierProduct	ATTRIBUTE_RATE_OF_FIRE	rateOfFireAttributeProduct
 RATE_OF_FIRE	21	src/GameLogic/Module/SpecialAbilityModules.cpp	2206	attributeModifierProduct	ATTRIBUTE_RATE_OF_FIRE	rateOfFireAttributeProduct
 CRUSHER_LEVEL	23	src/GameLogic/Object/Collide/SquishCollide.cpp	281	attributeModifierSum	kCrusherLevelModifier	crusherLevel
 COMMAND_POINT_BONUS	24	src/GameLogic/Economy.cpp	340	m_attributeSums	ATTRIBUTE_MODIFIER_COMMAND_POINT_BONUS	commandPointBonusOf
 CRUSHABLE_LEVEL	25	src/GameLogic/Object/Collide/SquishCollide.cpp	254	attributeModifierSum	kCrushableLevelModifier	crushableLevel
 CRUSHED_DECELERATE	26	src/GameLogic/Object/Collide/SquishCollide.cpp	369	attributeModifierProduct	kCrushedDecelerateModifier	onCrush
 INVULNERABLE	27	src/GameLogic/Module/ActiveBody.cpp	418	attributeModifierSum	ATTRIBUTE_MODIFIER_INVULNERABLE	invulnerableTo
-#28	28	src/GameLogic/Economy.cpp	594	attributeModifierProduct	28	productionMoneyProduct
+#28	28	src/GameLogic/Economy.cpp	599	attributeModifierProduct	28	productionMoneyProduct
 #31	31	src/GameLogic/Module/DozerAIUpdate.cpp	1241	attributeModifierProduct	31	workOnBuild

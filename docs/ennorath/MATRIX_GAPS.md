@@ -36,23 +36,23 @@ The main class of a button is the class it links to that the fewest failing butt
 
 | class | buttons | map none | specific none | map partial | first specific none functions |
 |---|---:|---:|---:|---:|---|
-| UnpauseSpecialPowerUpgrade | 39 | 13 | 2 | 0 | 0x00697B6E@1 0x008D280A@3 |
-| SpecialPowerModule | 37 | 247 | 3 | 3 | 0x00654F8E@0 0x00896A32@0 0x008981BE@0 |
-| WeaponFireSpecialAbilityUpdate | 16 | 113 | 0 | 11 | - |
-| AutoAbilityBehavior | 14 | 240 | 4 | 14 | 0x006289E7@5 0x0062AB74@5 0x00629BCA@6 0x006A95E6@6 |
-| OCLSpecialPower | 12 | 222 | 0 | 0 | - |
-| ToggleMountedSpecialAbilityUpdate | 9 | 256 | 0 | 16 | - |
-| ModelConditionSpecialAbilityUpdate | 6 | 111 | 0 | 11 | - |
-| SpecialAbilityUpdate | 4 | 258 | 1 | 16 | 0x00852CA2@1 |
-| HeroModeSpecialAbilityUpdate | 2 | 62 | 0 | 4 | - |
-| RepairSpecialPower | 2 | 8 | 0 | 0 | - |
-| ToggleHiddenSpecialAbilityUpdate | 2 | 129 | 0 | 11 | - |
-| WeaponModeSpecialPowerUpdate | 2 | 76 | 0 | 4 | - |
-| ActivateModuleSpecialPower | 1 | 18 | 0 | 1 | - |
-| GrantUpgradeCreate | 1 | 11 | 0 | 0 | - |
-| LevelGrantSpecialPower | 1 | 18 | 0 | 1 | - |
-| LevelUpUpgrade | 1 | 6 | 0 | 1 | - |
-| ProductionSpeedBonus | 1 | 16 | 0 | 0 | - |
+| UnpauseSpecialPowerUpgrade | 39 | 9 | 2 | 0 | 0x00697B6E@1 0x008D280A@3 |
+| SpecialPowerModule | 37 | 221 | 3 | 3 | 0x00654F8E@0 0x00896A32@0 0x008981BE@0 |
+| WeaponFireSpecialAbilityUpdate | 16 | 68 | 0 | 11 | - |
+| AutoAbilityBehavior | 14 | 194 | 4 | 14 | 0x006289E7@5 0x0062AB74@5 0x00629BCA@6 0x006A95E6@6 |
+| OCLSpecialPower | 12 | 202 | 0 | 0 | - |
+| ToggleMountedSpecialAbilityUpdate | 9 | 211 | 0 | 16 | - |
+| ModelConditionSpecialAbilityUpdate | 6 | 66 | 0 | 11 | - |
+| SpecialAbilityUpdate | 4 | 213 | 1 | 16 | 0x00852CA2@1 |
+| HeroModeSpecialAbilityUpdate | 2 | 32 | 0 | 4 | - |
+| RepairSpecialPower | 2 | 7 | 0 | 0 | - |
+| ToggleHiddenSpecialAbilityUpdate | 2 | 84 | 0 | 11 | - |
+| WeaponModeSpecialPowerUpdate | 2 | 42 | 0 | 4 | - |
+| ActivateModuleSpecialPower | 1 | 8 | 0 | 1 | - |
+| GrantUpgradeCreate | 1 | 8 | 0 | 0 | - |
+| LevelGrantSpecialPower | 1 | 8 | 0 | 1 | - |
+| LevelUpUpgrade | 1 | 3 | 0 | 1 | - |
+| ProductionSpeedBonus | 1 | 9 | 0 | 0 | - |
 
 ## Failing rows without a module link, by result
 

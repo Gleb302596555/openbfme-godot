@@ -37,13 +37,13 @@ FactionArnor	ArnorArcherHordeNew	Command_ArcherBombard	PASS	FIRE_WEAPON
 FactionArnor	ArnorArcherHordeNew	Command_PurchaseUpgradeArnorFireArrowsMod	PASS	Upgrade_GondorFireArrows in 53 frames, cost 300, on all 10 members it affects
 FactionArnor	ArnorArcherHordeNew	Command_PurchaseUpgradeArnorHeavyArmorMod	PASS	Upgrade_GondorHeavyArmor in 53 frames, cost 200, on all 10 members it affects
 FactionArnor	ArnorArcherHordeNew	Command_PurchaseUpgradeArnorModBasicTraining	PASS	Upgrade_GondorBasicTraining in 53 frames, cost 100, on all 11 members it affects
-FactionArnor	ArnorArcherHordeNew	Command_ToggleFormationArnorArcherNew	PASS	HORDE_TOGGLE_FORMATION: 0x593a37655c60 -> 0x593a3766e410
+FactionArnor	ArnorArcherHordeNew	Command_ToggleFormationArnorArcherNew	PASS	HORDE_TOGGLE_FORMATION: 0x573a028805b0 -> 0x573a02898d60
 FactionArnor	ArnorArcherHordeNew	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionArnor	ArnorArcherHordeNewAmbush	Command_ArcherBombard	PASS	FIRE_WEAPON
 FactionArnor	ArnorArcherHordeNewAmbush	Command_PurchaseUpgradeArnorFireArrowsMod	PASS	Upgrade_GondorFireArrows in 53 frames, cost 300, on all 10 members it affects
 FactionArnor	ArnorArcherHordeNewAmbush	Command_PurchaseUpgradeArnorHeavyArmorMod	PASS	Upgrade_GondorHeavyArmor in 53 frames, cost 200, on all 10 members it affects
 FactionArnor	ArnorArcherHordeNewAmbush	Command_PurchaseUpgradeArnorModBasicTraining	PASS	Upgrade_GondorBasicTraining in 53 frames, cost 100, on all 10 members it affects
-FactionArnor	ArnorArcherHordeNewAmbush	Command_ToggleFormationArnorArcherNew	PASS	HORDE_TOGGLE_FORMATION: 0x593a3766e410 -> 0x593a37655c60
+FactionArnor	ArnorArcherHordeNewAmbush	Command_ToggleFormationArnorArcherNew	PASS	HORDE_TOGGLE_FORMATION: 0x573a02898d60 -> 0x573a028805b0
 FactionArnor	ArnorArcherHordeNewAmbush	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionArnor	ArnorArcherNew	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
 FactionArnor	ArnorArthedainCamp	Command_ArthedainBarraksPassive	PASS	NONPRESSABLE (option bit 28): a passive ability's indicator, not pressed
@@ -113,13 +113,13 @@ FactionArnor	ArnorKnightHordeNew	Command_PurchaseUpgradeArnorForgedBladesMod	PAS
 FactionArnor	ArnorKnightHordeNew	Command_PurchaseUpgradeArnorHeavyArmorMod	PASS	Upgrade_GondorHeavyArmor in 53 frames, cost 200, on all 10 members it affects
 FactionArnor	ArnorKnightHordeNew	Command_PurchaseUpgradeArnorModBasicTraining	PASS	Upgrade_GondorBasicTraining in 53 frames, cost 100, on all 11 members it affects
 FactionArnor	ArnorKnightHordeNew	Command_PurchaseUpgradeArnorModKnightShield	PASS	Upgrade_GondorKnightShield in 53 frames, cost 150, on all 10 members it affects
-FactionArnor	ArnorKnightHordeNew	Command_ToggleFormationArnKnightBlock	PASS	HORDE_TOGGLE_FORMATION: 0x593a378725a0 -> 0x593a3788b080
+FactionArnor	ArnorKnightHordeNew	Command_ToggleFormationArnKnightBlock	PASS	HORDE_TOGGLE_FORMATION: 0x573a02a9cef0 -> 0x573a02ab59d0
 FactionArnor	ArnorKnightHordeNew	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionArnor	ArnorKnightHordeNewBlockFormation	Command_PurchaseUpgradeArnorForgedBladesMod	PASS	Upgrade_GondorForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionArnor	ArnorKnightHordeNewBlockFormation	Command_PurchaseUpgradeArnorHeavyArmorMod	PASS	Upgrade_GondorHeavyArmor in 53 frames, cost 200, on all 10 members it affects
 FactionArnor	ArnorKnightHordeNewBlockFormation	Command_PurchaseUpgradeArnorModBasicTraining	PASS	Upgrade_GondorBasicTraining in 53 frames, cost 100, on all 11 members it affects
 FactionArnor	ArnorKnightHordeNewBlockFormation	Command_PurchaseUpgradeArnorModKnightShield	PASS	Upgrade_GondorKnightShield in 53 frames, cost 150, on all 10 members it affects
-FactionArnor	ArnorKnightHordeNewBlockFormation	Command_ToggleFormationArnKnightBlock	PASS	HORDE_TOGGLE_FORMATION: 0x593a3788b080 -> 0x593a378725a0
+FactionArnor	ArnorKnightHordeNewBlockFormation	Command_ToggleFormationArnKnightBlock	PASS	HORDE_TOGGLE_FORMATION: 0x573a02ab59d0 -> 0x573a02a9cef0
 FactionArnor	ArnorKnightHordeNewBlockFormation	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionArnor	ArnorMalbethSeer	(aura) ModuleTag_Leadership	PASS	AURA: MalbathLeadershipMod on Azog_CINE (own) at 40 of Range 200
 FactionArnor	ArnorMalbethSeer	Command_MalbethSystem	PASS	NONPRESSABLE (option bit 28): a passive ability's indicator, not pressed
@@ -130,11 +130,11 @@ FactionArnor	ArnorMalbethSeer	Command_SpecialAbilityMalbethTactics	PASS	MalbethT
 FactionArnor	ArnorMalbethSeer	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionArnor	ArnorPalantirwatcherMod	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionArnor	ArnorPalantirwatcherModHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionArnor	ArnorPalantirwatcherModHorde	Command_TowerGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x593a28344fe0 -> 0x593a28359800
+FactionArnor	ArnorPalantirwatcherModHorde	Command_TowerGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x573a12f6e4e0 -> 0x573a12f82d00
 FactionArnor	ArnorPalantirwatcherModHorde_Summoned	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionArnor	ArnorPalantirwatcherModHorde_Summoned	Command_TowerGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x593a28369aa0 -> 0x593a28359800
+FactionArnor	ArnorPalantirwatcherModHorde_Summoned	Command_TowerGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x573a12f92fa0 -> 0x573a12f82d00
 FactionArnor	ArnorPalantirwatcherModPorcupine	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionArnor	ArnorPalantirwatcherModPorcupine	Command_TowerGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x593a28359800 -> 0x593a28344fe0
+FactionArnor	ArnorPalantirwatcherModPorcupine	Command_TowerGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x573a12f82d00 -> 0x573a12f6e4e0
 FactionArnor	ArnorPalantirwatcherMod_garr	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionArnor	ArnorPalantirwatcherMod_summoned	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionArnor	ArnorPalantirwatcherMod_summoned	Command_TowerGuardPorcupineFormation	MEMBER	MEMBER: a horde member made alone has no horde: the formation toggle acts on its horde, swept on its own
@@ -145,13 +145,13 @@ FactionArnor	ArnorTowerShieldGuardHordeNew	(aura) ModuleTag_ForArthedainWarriors
 FactionArnor	ArnorTowerShieldGuardHordeNew	Command_PurchaseUpgradeArnorForgedBladesMod	PASS	Upgrade_GondorForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionArnor	ArnorTowerShieldGuardHordeNew	Command_PurchaseUpgradeArnorHeavyArmorMod	PASS	Upgrade_GondorHeavyArmor in 53 frames, cost 200, on all 10 members it affects
 FactionArnor	ArnorTowerShieldGuardHordeNew	Command_PurchaseUpgradeArnorModBasicTraining	PASS	Upgrade_GondorBasicTraining in 53 frames, cost 100, on all 11 members it affects
-FactionArnor	ArnorTowerShieldGuardHordeNew	Command_ToggleFormationArnorPikeWall	PASS	HORDE_TOGGLE_FORMATION: 0x593a37a05220 -> 0x593a33f80be0
+FactionArnor	ArnorTowerShieldGuardHordeNew	Command_ToggleFormationArnorPikeWall	PASS	HORDE_TOGGLE_FORMATION: 0x5739ff1a5c10 -> 0x5739ff1be190
 FactionArnor	ArnorTowerShieldGuardHordeNew	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionArnor	ArnorTowerShieldGuardHordeShieldWall	(aura) ModuleTag_ForArthedainWarriors	DISABLED	DISABLED: needs a state the fresh object lacks (the aura's RequiredConditions bits 0x1: MOUNTED / TAINT / ELVEN_WOOD)
 FactionArnor	ArnorTowerShieldGuardHordeShieldWall	Command_PurchaseUpgradeArnorForgedBladesMod	PASS	Upgrade_GondorForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionArnor	ArnorTowerShieldGuardHordeShieldWall	Command_PurchaseUpgradeArnorHeavyArmorMod	PASS	Upgrade_GondorHeavyArmor in 53 frames, cost 200, on all 10 members it affects
 FactionArnor	ArnorTowerShieldGuardHordeShieldWall	Command_PurchaseUpgradeArnorModBasicTraining	PASS	Upgrade_GondorBasicTraining in 53 frames, cost 100, on all 11 members it affects
-FactionArnor	ArnorTowerShieldGuardHordeShieldWall	Command_ToggleFormationArnorPikeWall	PASS	HORDE_TOGGLE_FORMATION: 0x593a33f80be0 -> 0x593a37a05220
+FactionArnor	ArnorTowerShieldGuardHordeShieldWall	Command_ToggleFormationArnorPikeWall	PASS	HORDE_TOGGLE_FORMATION: 0x5739ff1be190 -> 0x5739ff1a5c10
 FactionArnor	ArnorTowerShieldGuardHordeShieldWall	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionArnor	ArnorTowerShieldGuardNew	Command_PurchaseUpgradeArnorForgedBladesMod	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyGondorForgedBlades
 FactionArnor	ArnorTowerShieldGuardNew	Command_PurchaseUpgradeArnorHeavyArmorMod	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyGondorHeavyArmor
@@ -220,47 +220,47 @@ FactionArnor	ArthedainWarrior_Armr	Command_ToggleStance	DISABLED	DISABLED: needs
 FactionArnor	ArthedainWarrior_lvl2	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
 FactionArnor	ArthedainWarrior_lvl3	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
 FactionArnor	BreeTownGuard	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
-FactionArnor	BreeTownGuardHorde	Command_BreeGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x593a26a13fe0 -> 0x593a34200fa0
+FactionArnor	BreeTownGuardHorde	Command_BreeGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5739ff4a14c0 -> 0x5739ff4bb130
 FactionArnor	BreeTownGuardHorde	Command_PurchaseUpgradeArnorForgedBladesMod	PASS	Upgrade_GondorForgedBlades in 53 frames, cost 150, on all 15 members it affects
 FactionArnor	BreeTownGuardHorde	Command_PurchaseUpgradeArnorHeavyArmorMod	PASS	Upgrade_GondorHeavyArmor in 53 frames, cost 200, on all 15 members it affects
 FactionArnor	BreeTownGuardHorde	Command_PurchaseUpgradeArthedainCaptains	PASS	Upgrade_ArthedainCaptains in 53 frames, cost 100, on all 16 members it affects
 FactionArnor	BreeTownGuardHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionArnor	BreeTownGuardHordePorcupine	Command_BreeGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x593a34200fa0 -> 0x593a26a13fe0
+FactionArnor	BreeTownGuardHordePorcupine	Command_BreeGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5739ff4bb130 -> 0x5739ff4a14c0
 FactionArnor	BreeTownGuardHordePorcupine	Command_PurchaseUpgradeArnorForgedBladesMod	PASS	Upgrade_GondorForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionArnor	BreeTownGuardHordePorcupine	Command_PurchaseUpgradeArnorHeavyArmorMod	PASS	Upgrade_GondorHeavyArmor in 53 frames, cost 200, on all 10 members it affects
 FactionArnor	BreeTownGuardHordePorcupine	Command_PurchaseUpgradeArthedainCaptains	PASS	Upgrade_ArthedainCaptains in 53 frames, cost 100, on all 11 members it affects
 FactionArnor	BreeTownGuardHordePorcupine	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionArnor	BreeTownGuardHordePorcupine_Armr	Command_BreeGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x593a3424adb0 -> 0x593a34237cd0
+FactionArnor	BreeTownGuardHordePorcupine_Armr	Command_BreeGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x573a0079f550 -> 0x5739ff4f2120
 FactionArnor	BreeTownGuardHordePorcupine_Armr	Command_PurchaseUpgradeArnorForgedBladesMod	PASS	Upgrade_GondorForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionArnor	BreeTownGuardHordePorcupine_Armr	Command_PurchaseUpgradeArnorHeavyArmorMod	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyGondorHeavyArmor
 FactionArnor	BreeTownGuardHordePorcupine_Armr	Command_PurchaseUpgradeArthedainCaptains	PASS	Upgrade_ArthedainCaptains in 53 frames, cost 100, on all 11 members it affects
 FactionArnor	BreeTownGuardHordePorcupine_Armr	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionArnor	BreeTownGuardHordePorcupine_lvl2	Command_BreeGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x593a34225d30 -> 0x593a34212d30
+FactionArnor	BreeTownGuardHordePorcupine_lvl2	Command_BreeGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5739ff4e0180 -> 0x5739ff4cd0a0
 FactionArnor	BreeTownGuardHordePorcupine_lvl2	Command_PurchaseUpgradeArnorForgedBladesMod	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyGondorForgedBlades
 FactionArnor	BreeTownGuardHordePorcupine_lvl2	Command_PurchaseUpgradeArnorHeavyArmorMod	PASS	Upgrade_GondorHeavyArmor in 53 frames, cost 200, on all 10 members it affects
 FactionArnor	BreeTownGuardHordePorcupine_lvl2	Command_PurchaseUpgradeArthedainCaptains	PASS	Upgrade_ArthedainCaptains in 53 frames, cost 100, on all 11 members it affects
 FactionArnor	BreeTownGuardHordePorcupine_lvl2	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionArnor	BreeTownGuardHordePorcupine_lvl3	Command_BreeGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x593a34270030 -> 0x593a3425cd50
+FactionArnor	BreeTownGuardHordePorcupine_lvl3	Command_BreeGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x573a007c47d0 -> 0x573a007b14f0
 FactionArnor	BreeTownGuardHordePorcupine_lvl3	Command_PurchaseUpgradeArnorForgedBladesMod	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyGondorForgedBlades
 FactionArnor	BreeTownGuardHordePorcupine_lvl3	Command_PurchaseUpgradeArnorHeavyArmorMod	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyGondorHeavyArmor
 FactionArnor	BreeTownGuardHordePorcupine_lvl3	Command_PurchaseUpgradeArthedainCaptains	PASS	Upgrade_ArthedainCaptains in 53 frames, cost 100, on all 11 members it affects
 FactionArnor	BreeTownGuardHordePorcupine_lvl3	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionArnor	BreeTownGuardHorde_Armr	Command_BreeGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x593a34237cd0 -> 0x593a3424adb0
+FactionArnor	BreeTownGuardHorde_Armr	Command_BreeGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5739ff4f2120 -> 0x573a0079f550
 FactionArnor	BreeTownGuardHorde_Armr	Command_PurchaseUpgradeArnorForgedBladesMod	PASS	Upgrade_GondorForgedBlades in 53 frames, cost 150, on all 15 members it affects
 FactionArnor	BreeTownGuardHorde_Armr	Command_PurchaseUpgradeArnorHeavyArmorMod	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyGondorHeavyArmor
 FactionArnor	BreeTownGuardHorde_Armr	Command_PurchaseUpgradeArthedainCaptains	PASS	Upgrade_ArthedainCaptains in 53 frames, cost 100, on all 16 members it affects
 FactionArnor	BreeTownGuardHorde_Armr	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionArnor	BreeTownGuardHorde_lvl2	Command_BreeGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x593a34212d30 -> 0x593a34225d30
+FactionArnor	BreeTownGuardHorde_lvl2	Command_BreeGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5739ff4cd0a0 -> 0x5739ff4e0180
 FactionArnor	BreeTownGuardHorde_lvl2	Command_PurchaseUpgradeArnorForgedBladesMod	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyGondorForgedBlades
 FactionArnor	BreeTownGuardHorde_lvl2	Command_PurchaseUpgradeArnorHeavyArmorMod	PASS	Upgrade_GondorHeavyArmor in 53 frames, cost 200, on all 15 members it affects
 FactionArnor	BreeTownGuardHorde_lvl2	Command_PurchaseUpgradeArthedainCaptains	PASS	Upgrade_ArthedainCaptains in 53 frames, cost 100, on all 16 members it affects
 FactionArnor	BreeTownGuardHorde_lvl2	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionArnor	BreeTownGuardHorde_lvl3	Command_BreeGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x593a3425cd50 -> 0x593a34270030
+FactionArnor	BreeTownGuardHorde_lvl3	Command_BreeGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x573a007b14f0 -> 0x573a007c47d0
 FactionArnor	BreeTownGuardHorde_lvl3	Command_PurchaseUpgradeArnorForgedBladesMod	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyGondorForgedBlades
 FactionArnor	BreeTownGuardHorde_lvl3	Command_PurchaseUpgradeArnorHeavyArmorMod	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyGondorHeavyArmor
 FactionArnor	BreeTownGuardHorde_lvl3	Command_PurchaseUpgradeArthedainCaptains	PASS	Upgrade_ArthedainCaptains in 53 frames, cost 100, on all 16 members it affects
 FactionArnor	BreeTownGuardHorde_lvl3	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionArnor	BreeTownGuardHorde_n2	Command_BreeGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x593a26a13fe0 -> 0x593a34200fa0
+FactionArnor	BreeTownGuardHorde_n2	Command_BreeGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5739ff4a14c0 -> 0x5739ff4bb130
 FactionArnor	BreeTownGuardHorde_n2	Command_PurchaseUpgradeArnorForgedBladesMod	PASS	Upgrade_GondorForgedBlades in 53 frames, cost 150, on all 15 members it affects
 FactionArnor	BreeTownGuardHorde_n2	Command_PurchaseUpgradeArnorHeavyArmorMod	PASS	Upgrade_GondorHeavyArmor in 53 frames, cost 200, on all 15 members it affects
 FactionArnor	BreeTownGuardHorde_n2	Command_PurchaseUpgradeArthedainCaptains	PASS	Upgrade_ArthedainCaptains in 53 frames, cost 100, on all 16 members it affects
@@ -307,12 +307,12 @@ FactionArnor	DunedainSpearman	Command_ToggleStance	DISABLED	DISABLED: needs a St
 FactionArnor	DunedainSpearmanHorde	Command_PurchaseUpgradeArnorForgedBladesMod	PASS	Upgrade_GondorForgedBlades in 53 frames, cost 150, on all 15 members it affects
 FactionArnor	DunedainSpearmanHorde	Command_PurchaseUpgradeArnorHeavyArmorMod	PASS	Upgrade_GondorHeavyArmor in 53 frames, cost 200, on all 15 members it affects
 FactionArnor	DunedainSpearmanHorde	Command_PurchaseUpgradeArnorModBasicTraining	PASS	Upgrade_GondorBasicTraining in 53 frames, cost 100, on all 16 members it affects
-FactionArnor	DunedainSpearmanHorde	Command_ToggleFormationDunedainPikeAnbush	PASS	HORDE_TOGGLE_FORMATION: 0x593a26132d70 -> 0x593a2614afa0
+FactionArnor	DunedainSpearmanHorde	Command_ToggleFormationDunedainPikeAnbush	PASS	HORDE_TOGGLE_FORMATION: 0x5739ff8a11a0 -> 0x5739ff8b93d0
 FactionArnor	DunedainSpearmanHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionArnor	DunedainSpearmanHordeShieldWall	Command_PurchaseUpgradeArnorForgedBladesMod	PASS	Upgrade_GondorForgedBlades in 53 frames, cost 150, on all 15 members it affects
 FactionArnor	DunedainSpearmanHordeShieldWall	Command_PurchaseUpgradeArnorHeavyArmorMod	PASS	Upgrade_GondorHeavyArmor in 53 frames, cost 200, on all 15 members it affects
 FactionArnor	DunedainSpearmanHordeShieldWall	Command_PurchaseUpgradeArnorModBasicTraining	PASS	Upgrade_GondorBasicTraining in 53 frames, cost 100, on all 16 members it affects
-FactionArnor	DunedainSpearmanHordeShieldWall	Command_ToggleFormationDunedainPikeAnbush	PASS	HORDE_TOGGLE_FORMATION: 0x593a2614afa0 -> 0x593a26132d70
+FactionArnor	DunedainSpearmanHordeShieldWall	Command_ToggleFormationDunedainPikeAnbush	PASS	HORDE_TOGGLE_FORMATION: 0x5739ff8b93d0 -> 0x5739ff8a11a0
 FactionArnor	DunedainSpearmanHordeShieldWall	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionArnor	ElrondWhirlwind	(aura) ModuleTag_FearMe	PASS	AURA: EyeOfSauronFear on GondorFighterHorde (enemy) at 40 of Range 150
 FactionArnor	ElrondWhirlwindAI	(aura) ModuleTag_FearMe	PASS	AURA: EyeOfSauronFear on GondorFighterHorde (enemy) at 40 of Range 150
@@ -352,17 +352,17 @@ FactionArnor	GondorTowerShieldGuard	Command_ToggleStance	DISABLED	DISABLED: need
 FactionArnor	GondorTowerShieldGuardHorde	Command_PurchaseUpgradeGondorBasicTraining	PASS	Upgrade_GondorBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionArnor	GondorTowerShieldGuardHorde	Command_PurchaseUpgradeGondorForgedBlades	PASS	Upgrade_GondorForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionArnor	GondorTowerShieldGuardHorde	Command_PurchaseUpgradeGondorHeavyArmor	PASS	Upgrade_GondorHeavyArmor in 53 frames, cost 200, on all 10 members it affects
-FactionArnor	GondorTowerShieldGuardHorde	Command_ToggleFormationSchieldwallTurmwachen	PASS	HORDE_TOGGLE_FORMATION: 0x593a348e0020 -> 0x593a3491bb30
+FactionArnor	GondorTowerShieldGuardHorde	Command_ToggleFormationSchieldwallTurmwachen	PASS	HORDE_TOGGLE_FORMATION: 0x5739efd928a0 -> 0x5739efdce3b0
 FactionArnor	GondorTowerShieldGuardHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionArnor	GondorTowerShieldGuardHordePorcupine	Command_PurchaseUpgradeGondorBasicTraining	PASS	Upgrade_GondorBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionArnor	GondorTowerShieldGuardHordePorcupine	Command_PurchaseUpgradeGondorForgedBlades	PASS	Upgrade_GondorForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionArnor	GondorTowerShieldGuardHordePorcupine	Command_PurchaseUpgradeGondorHeavyArmor	PASS	Upgrade_GondorHeavyArmor in 53 frames, cost 200, on all 10 members it affects
-FactionArnor	GondorTowerShieldGuardHordePorcupine	Command_ToggleFormationSchieldwallTurmwachen	PASS	HORDE_TOGGLE_FORMATION: 0x593a3490a390 -> 0x593a348e0020
+FactionArnor	GondorTowerShieldGuardHordePorcupine	Command_ToggleFormationSchieldwallTurmwachen	PASS	HORDE_TOGGLE_FORMATION: 0x5739efdbcc10 -> 0x5739efd928a0
 FactionArnor	GondorTowerShieldGuardHordePorcupine	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionArnor	GondorTowerShieldGuardHordeShieldWall	Command_PurchaseUpgradeGondorBasicTraining	PASS	Upgrade_GondorBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionArnor	GondorTowerShieldGuardHordeShieldWall	Command_PurchaseUpgradeGondorForgedBlades	PASS	Upgrade_GondorForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionArnor	GondorTowerShieldGuardHordeShieldWall	Command_PurchaseUpgradeGondorHeavyArmor	PASS	Upgrade_GondorHeavyArmor in 53 frames, cost 200, on all 10 members it affects
-FactionArnor	GondorTowerShieldGuardHordeShieldWall	Command_ToggleFormationSchieldwallTurmwachen	PASS	HORDE_TOGGLE_FORMATION: 0x593a3491bb30 -> 0x593a348e0020
+FactionArnor	GondorTowerShieldGuardHordeShieldWall	Command_ToggleFormationSchieldwallTurmwachen	PASS	HORDE_TOGGLE_FORMATION: 0x5739efdce3b0 -> 0x5739efd928a0
 FactionArnor	GondorTowerShieldGuardHordeShieldWall	Command_ToggleFormationSchieldwallTurmwachenNo	FAIL	the button left the bar after the fixture
 FactionArnor	GondorTowerShieldGuardHordeShieldWall	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionArnor	GondorTowerShieldGuard_Summoned	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
@@ -426,10 +426,10 @@ FactionArnor	LothlorienCirdan_summ	Command_SpecialAbilityCirdanWhirlpoolBig	PASS
 FactionArnor	LothlorienCirdan_summ	Command_SpecialAbilityKirdanKingsFavor	PASS	SpecialAbilityKingsFavorCirdan fired (target LindonPikemanModHorde) after 68 frames: LevelGrantSpecialPower Experience 100: 1135 experience on 12 own objects (S-920 noted)
 FactionArnor	LothlorienCirdan_summ	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionArnor	MordorEasterling	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
-FactionArnor	MordorEasterlingHorde	Command_MordorEasterlingPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x593a2a919e90 -> 0x593a2a9440f0
+FactionArnor	MordorEasterlingHorde	Command_MordorEasterlingPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x573a074f3740 -> 0x5739e583bd50
 FactionArnor	MordorEasterlingHorde	Command_PurchaseUpgradeMordorBasicTraining	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyMordorBasicTraining [script: Upgrade_TechnologyMordorBasicTraining <- ai_men of the west/WarCampFirstCheck GIVE_PLAYER_UPGRADE]
 FactionArnor	MordorEasterlingHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionArnor	MordorEasterlingHordePorcupine	Command_MordorEasterlingPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x593a2a9440f0 -> 0x593a2a919e90
+FactionArnor	MordorEasterlingHordePorcupine	Command_MordorEasterlingPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5739e583bd50 -> 0x573a074f3740
 FactionArnor	MordorEasterlingHordePorcupine	Command_PurchaseUpgradeMordorBasicTraining	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyMordorBasicTraining [script: Upgrade_TechnologyMordorBasicTraining <- ai_men of the west/WarCampFirstCheck GIVE_PLAYER_UPGRADE]
 FactionArnor	MordorEasterlingHordePorcupine	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionArnor	MordorFellBeast	Command_SpecialAbilityScreech	PASS	SpecialAbilityScreech fired (target none) after 43 frames: SpecialAbilityUpdate (SPECIAL_SCREECH: BeScary -> RadiateTerrorEx -> BeTerrified): object 34772 terrified (EMOTION_TERROR) (S-920 noted)
@@ -495,11 +495,11 @@ FactionArnor	MordorWitchKing_DeathShadow		TEMPORARY	TEMPORARY: a temporary objec
 FactionArnor	NumenorKingsGuardian	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionArnor	NumenorKingsGuardianHorde	(aura) ModuleTag_DeathMask	PASS	AURA: ArnorDeathMaskModifier on Azog_CINE (enemy) at 40 of Range 80
 FactionArnor	NumenorKingsGuardianHorde	Command_NumenorDeathMask	PASS	NONPRESSABLE (option bit 28): a passive ability's indicator, not pressed
-FactionArnor	NumenorKingsGuardianHorde	Command_ToggleFormationNumenorShildWall	PASS	HORDE_TOGGLE_FORMATION: 0x593a282b34e0 -> 0x593a282c8e70
+FactionArnor	NumenorKingsGuardianHorde	Command_ToggleFormationNumenorShildWall	PASS	HORDE_TOGGLE_FORMATION: 0x573a12edc9e0 -> 0x573a12ef2370
 FactionArnor	NumenorKingsGuardianHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionArnor	NumenorKingsGuardianShieldWall	(aura) ModuleTag_DeathMask	PASS	AURA: ArnorDeathMaskModifier on Azog_CINE (enemy) at 40 of Range 80
 FactionArnor	NumenorKingsGuardianShieldWall	Command_NumenorDeathMask	PASS	NONPRESSABLE (option bit 28): a passive ability's indicator, not pressed
-FactionArnor	NumenorKingsGuardianShieldWall	Command_ToggleFormationNumenorShildWall	PASS	HORDE_TOGGLE_FORMATION: 0x593a282c8e70 -> 0x593a282b34e0
+FactionArnor	NumenorKingsGuardianShieldWall	Command_ToggleFormationNumenorShildWall	PASS	HORDE_TOGGLE_FORMATION: 0x573a12ef2370 -> 0x573a12edc9e0
 FactionArnor	NumenorKingsGuardianShieldWall	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionArnor	RohanHobbit	Command_ToggleHobbitRockThrow	PASS	TOGGLE_WEAPONSET: 1  -> 0 
 FactionArnor	RohanHobbit	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
@@ -531,17 +531,17 @@ FactionArnor	TowerShieldGuard_forArnor	Command_PurchaseUpgradeGondorHeavyArmor	D
 FactionArnor	TowerShieldGuard_forArnor	Command_ToggleFormationSchieldwallTurmwachen	MEMBER	MEMBER: a horde member made alone has no horde: the formation toggle acts on its horde, swept on its own
 FactionArnor	TowerShieldGuard_forArnor	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
 FactionArnor	TowerShieldGuardforArnorHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionArnor	spell	SpellBookAdlerArnor	PASS	OCLSpecialPower OCL OCL_GlorfindelUnitsSummonEgg: GlorfindelUnitsSummonEgg 1762 made (frame 1612), enemies lost 1039 health more than without it
+FactionArnor	spell	SpellBookAdlerArnor	PASS	OCLSpecialPower OCL OCL_GlorfindelUnitsSummonEgg: GlorfindelUnitsSummonEgg 1751 made (frame 1612), enemies lost 1178 health more than without it
 FactionArnor	spell	SpellBookArnorHobbitHouse	PASS	OCLSpecialPower OCL OCL_SummonHobbitHouse: Arnorhobhouse_Independed 709 made
 FactionArnor	spell	SpellBookArnorSummonHobbits	PASS	OCLSpecialPower OCL OCL_SpawnArnorHobbitBowEgg: ArnorHobbitBowEgg 1004 made (frame 948), enemies lost 840 health more than without it, the player gained upgrades
 FactionArnor	spell	SpellBookGiftOfTheKingdom	PASS	the player gained upgrades
 FactionArnor	spell	SpellBookHealingOfTheOld	PASS	PlayerHealSpecialPower: object 607 healed 144, own units healed 1176 more than without it
 FactionArnor	spell	SpellBookHornOfArnor	PASS	SpecialPowerModule AttributeModifier SpellBookWarChant: SpellBookWarChant on object 538, enemies lost 1039 health more than without it
-FactionArnor	spell	SpellBookNumenorHealBuilding	PASS	OCLSpecialPower OCL OCL_SpecialPowerNumenorHeal: StructureHealPing 1232 made (frame 1114)
-FactionArnor	spell	SpellBookRunBitchWatersComin	PASS	OCLSpecialPower OCL OCL_SpellBookFornostHammer: ArnorSummonedFornostHammerEgg 1850 made (frame 1778)
-FactionArnor	spell	SpellBookSBLetzteAllianzArnor	PASS	OCLSpecialPower OCL OCL_SpellBookLastHope: LastHopeSummonEgg 1947 made (frame 1944), enemies lost 720 health more than without it
-FactionArnor	spell	SpellBookSchwerterderWesternis	PASS	OCLSpecialPower OCL OCL_CirdanUnitsSummonEgg: CirdanUnitsSummonEgg 1301 made (frame 1280), enemies lost 1500 health more than without it
-FactionArnor	spell	SpellBookStarOfTheNorth	NO-RULE	cast, but no effect seen beyond the control run: no effect of CloudBreakSpecialPower is asserted;  (enemies lost 2161 with the cast, 1742 without; own units healed 0 / 0)
+FactionArnor	spell	SpellBookNumenorHealBuilding	PASS	OCLSpecialPower OCL OCL_SpecialPowerNumenorHeal: StructureHealPing 1231 made (frame 1114)
+FactionArnor	spell	SpellBookRunBitchWatersComin	PASS	OCLSpecialPower OCL OCL_SpellBookFornostHammer: ArnorSummonedFornostHammerEgg 1839 made (frame 1778)
+FactionArnor	spell	SpellBookSBLetzteAllianzArnor	PASS	OCLSpecialPower OCL OCL_SpellBookLastHope: LastHopeSummonEgg 1936 made (frame 1944)
+FactionArnor	spell	SpellBookSchwerterderWesternis	PASS	OCLSpecialPower OCL OCL_CirdanUnitsSummonEgg: CirdanUnitsSummonEgg 1300 made (frame 1280), enemies lost 1500 health more than without it
+FactionArnor	spell	SpellBookStarOfTheNorth	NO-RULE	cast, but no effect seen beyond the control run: no effect of CloudBreakSpecialPower is asserted;  (enemies lost 2081 with the cast, 1843 without; own units healed 0 / 0)
 FactionArnor	spell	SpellBookWlderCardolans	PASS	ElvenWoodSpecialPower area CardolanHill aura ElvenGroveMod: ElvenGroveMod on object 845
 FactionMen	BanneroftheDunedain	(aura) ModuleTag_TotemDebuff	PASS	AURA: HaradTotemDebuff on Azog_CINE (enemy) at 40 of Range 200
 FactionMen	BelfalasMonument_Independant	Command_BelfalasStatuePassive	PASS	NONPRESSABLE (option bit 28): a passive ability's indicator, not pressed
@@ -670,19 +670,19 @@ FactionMen	GondorFighterHorde	(aura) ModuleTag_LeadershipBonus	PASS	AURA: GOndor
 FactionMen	GondorFighterHorde	Command_PurchaseUpgradeGondorBasicTraining	PASS	Upgrade_GondorBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionMen	GondorFighterHorde	Command_PurchaseUpgradeGondorForgedBlades	PASS	Upgrade_GondorForgedBlades in 53 frames, cost 150, on all 15 members it affects
 FactionMen	GondorFighterHorde	Command_PurchaseUpgradeGondorHeavyArmor	PASS	Upgrade_GondorHeavyArmor in 53 frames, cost 200, on all 15 members it affects
-FactionMen	GondorFighterHorde	Command_ToggleFormationGondorFighterNew	PASS	HORDE_TOGGLE_FORMATION: 0x573d1ce2c450 -> 0x573d1ce6ab90
+FactionMen	GondorFighterHorde	Command_ToggleFormationGondorFighterNew	PASS	HORDE_TOGGLE_FORMATION: 0x5c1fc7c20b70 -> 0x5c1fc7c5f2b0
 FactionMen	GondorFighterHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionMen	GondorFighterHordeBlock	(aura) ModuleTag_LeadershipBonus	PASS	AURA: GOndorHauptmannLeadership on MordorWorker (own) at 40 of Range 85, after Upgrade_HerzdesFeuers
 FactionMen	GondorFighterHordeBlock	Command_PurchaseUpgradeGondorBasicTraining	PASS	Upgrade_GondorBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionMen	GondorFighterHordeBlock	Command_PurchaseUpgradeGondorForgedBlades	PASS	Upgrade_GondorForgedBlades in 53 frames, cost 150, on all 15 members it affects
 FactionMen	GondorFighterHordeBlock	Command_PurchaseUpgradeGondorHeavyArmor	PASS	Upgrade_GondorHeavyArmor in 53 frames, cost 200, on all 15 members it affects
-FactionMen	GondorFighterHordeBlock	Command_ToggleFormationGondorFighterNew	PASS	HORDE_TOGGLE_FORMATION: 0x573d1ce6ab90 -> 0x573d1ce2c450
+FactionMen	GondorFighterHordeBlock	Command_ToggleFormationGondorFighterNew	PASS	HORDE_TOGGLE_FORMATION: 0x5c1fc7c5f2b0 -> 0x5c1fc7c20b70
 FactionMen	GondorFighterHordeBlock	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionMen	GondorFighterHordeBlockUpgraded_Summoned	(aura) ModuleTag_LeadershipBonus	PASS	AURA: GOndorHauptmannLeadership on MordorWorker (own) at 22 of Range 45
-FactionMen	GondorFighterHordeBlockUpgraded_Summoned	Command_ToggleFormationGondorFighter	PASS	HORDE_TOGGLE_FORMATION: 0x573d24066370 -> 0x573d24053a10
+FactionMen	GondorFighterHordeBlockUpgraded_Summoned	Command_ToggleFormationGondorFighter	PASS	HORDE_TOGGLE_FORMATION: 0x5c1fb281dde0 -> 0x5c1fb280b480
 FactionMen	GondorFighterHordeBlockUpgraded_Summoned	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionMen	GondorFighterHordeUpgradet_Summoned	(aura) ModuleTag_LeadershipBonus	PASS	AURA: GOndorHauptmannLeadership on MordorWorker (own) at 22 of Range 45
-FactionMen	GondorFighterHordeUpgradet_Summoned	Command_ToggleFormationGondorFighter	PASS	HORDE_TOGGLE_FORMATION: 0x573d24053a10 -> 0x573d24066370
+FactionMen	GondorFighterHordeUpgradet_Summoned	Command_ToggleFormationGondorFighter	PASS	HORDE_TOGGLE_FORMATION: 0x5c1fb280b480 -> 0x5c1fb281dde0
 FactionMen	GondorFighterHordeUpgradet_Summoned	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionMen	GondorFighterHorde_Denethor	(aura) ModuleTag_LeadershipBonus	PASS	AURA: GOndorHauptmannLeadership on MordorWorker (own) at 40 of Range 85, after Upgrade_HerzdesFeuers
 FactionMen	GondorFighterHorde_Denethor	Command_PurchaseUpgradeGondorBasicTraining	PASS	Upgrade_GondorBasicTraining in 53 frames, cost 100, on all 0 members it affects
@@ -735,27 +735,27 @@ FactionMen	GondorKnightAmrthHorde	Command_KnightBannerDolPassive	PASS	NONPRESSAB
 FactionMen	GondorKnightAmrthHorde	Command_KnightShieldDolPassive	PASS	NONPRESSABLE (option bit 28): a passive ability's indicator, not pressed
 FactionMen	GondorKnightAmrthHorde	Command_PurchaseUpgradeGondorForgedBlades	PASS	Upgrade_GondorForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionMen	GondorKnightAmrthHorde	Command_PurchaseUpgradeGondorHeavyArmor	PASS	Upgrade_GondorHeavyArmor in 53 frames, cost 200, on all 10 members it affects
-FactionMen	GondorKnightAmrthHorde	Command_ToggleFormationKnightWedge	PASS	HORDE_TOGGLE_FORMATION: 0x573d078e18b0 -> 0x573d078f9fd0
+FactionMen	GondorKnightAmrthHorde	Command_ToggleFormationKnightWedge	PASS	HORDE_TOGGLE_FORMATION: 0x5c1fd795fda0 -> 0x5c1fd79784c0
 FactionMen	GondorKnightAmrthHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionMen	GondorKnightAmrthHordeWedgeFormation	Command_KnightBannerDolPassive	PASS	NONPRESSABLE (option bit 28): a passive ability's indicator, not pressed
 FactionMen	GondorKnightAmrthHordeWedgeFormation	Command_KnightShieldDolPassive	PASS	NONPRESSABLE (option bit 28): a passive ability's indicator, not pressed
 FactionMen	GondorKnightAmrthHordeWedgeFormation	Command_PurchaseUpgradeGondorForgedBlades	PASS	Upgrade_GondorForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionMen	GondorKnightAmrthHordeWedgeFormation	Command_PurchaseUpgradeGondorHeavyArmor	PASS	Upgrade_GondorHeavyArmor in 53 frames, cost 200, on all 10 members it affects
-FactionMen	GondorKnightAmrthHordeWedgeFormation	Command_ToggleFormationKnightWedge	PASS	HORDE_TOGGLE_FORMATION: 0x573d078f9fd0 -> 0x573d078e18b0
+FactionMen	GondorKnightAmrthHordeWedgeFormation	Command_ToggleFormationKnightWedge	PASS	HORDE_TOGGLE_FORMATION: 0x5c1fd79784c0 -> 0x5c1fd795fda0
 FactionMen	GondorKnightAmrthHordeWedgeFormation	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionMen	GondorKnightHorde	(aura) ModuleTag_LeadershipBonus	PASS	AURA: GOndorHauptmannLeadership on MordorWorker (own) at 22 of Range 45, after Upgrade_HerzdesFeuers
 FactionMen	GondorKnightHorde	Command_PurchaseUpgradeGondorBasicTraining	PASS	Upgrade_GondorBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionMen	GondorKnightHorde	Command_PurchaseUpgradeGondorForgedBlades	PASS	Upgrade_GondorForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionMen	GondorKnightHorde	Command_PurchaseUpgradeGondorHeavyArmor	PASS	Upgrade_GondorHeavyArmor in 53 frames, cost 200, on all 10 members it affects
 FactionMen	GondorKnightHorde	Command_PurchaseUpgradeGondorKnightShieldNew	PASS	Upgrade_GondorKnightShield in 53 frames, cost 150, on all 10 members it affects
-FactionMen	GondorKnightHorde	Command_ToggleFormationKnightWedge	PASS	HORDE_TOGGLE_FORMATION: 0x573d1cf8eb10 -> 0x573d1cfa7000
+FactionMen	GondorKnightHorde	Command_ToggleFormationKnightWedge	PASS	HORDE_TOGGLE_FORMATION: 0x5c1fb26a8670 -> 0x5c1fb26c0b60
 FactionMen	GondorKnightHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionMen	GondorKnightHordeWedgeFormation	(aura) ModuleTag_LeadershipBonus	PASS	AURA: GOndorHauptmannLeadership on MordorWorker (own) at 22 of Range 45, after Upgrade_HerzdesFeuers
 FactionMen	GondorKnightHordeWedgeFormation	Command_PurchaseUpgradeGondorBasicTraining	PASS	Upgrade_GondorBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionMen	GondorKnightHordeWedgeFormation	Command_PurchaseUpgradeGondorForgedBlades	PASS	Upgrade_GondorForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionMen	GondorKnightHordeWedgeFormation	Command_PurchaseUpgradeGondorHeavyArmor	PASS	Upgrade_GondorHeavyArmor in 53 frames, cost 200, on all 10 members it affects
 FactionMen	GondorKnightHordeWedgeFormation	Command_PurchaseUpgradeGondorKnightShieldNew	PASS	Upgrade_GondorKnightShield in 53 frames, cost 150, on all 10 members it affects
-FactionMen	GondorKnightHordeWedgeFormation	Command_ToggleFormationKnightWedge	PASS	HORDE_TOGGLE_FORMATION: 0x573d1cfa7000 -> 0x573d1cf8eb10
+FactionMen	GondorKnightHordeWedgeFormation	Command_ToggleFormationKnightWedge	PASS	HORDE_TOGGLE_FORMATION: 0x5c1fb26c0b60 -> 0x5c1fb26a8670
 FactionMen	GondorKnightHordeWedgeFormation	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionMen	GondorKnightsofDol	(aura) ModuleTag_Leadership	PASS	AURA: InspirationAmrothReiter on AngmarSnowTrollHorde (own) at 40 of Range 200
 FactionMen	GondorKnightsofDol	Command_KnightsofDolInspirationEdain	PASS	NONPRESSABLE (option bit 28): a passive ability's indicator, not pressed
@@ -763,11 +763,11 @@ FactionMen	GondorKnightsofDol	Command_ToggleFormationKnightWedge	MEMBER	MEMBER: 
 FactionMen	GondorKnightsofDol	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
 FactionMen	GondorKnightsofDolHorde	(aura) ModuleTag_Leadership	PASS	AURA: InspirationAmrothReiter on AngmarSnowTrollHorde (own) at 40 of Range 200
 FactionMen	GondorKnightsofDolHorde	Command_KnightsofDolInspirationEdain	PASS	NONPRESSABLE (option bit 28): a passive ability's indicator, not pressed
-FactionMen	GondorKnightsofDolHorde	Command_ToggleFormationKnightWedge	PASS	HORDE_TOGGLE_FORMATION: 0x573d23fde330 -> 0x573d23ff7c60
+FactionMen	GondorKnightsofDolHorde	Command_ToggleFormationKnightWedge	PASS	HORDE_TOGGLE_FORMATION: 0x5c1fb2795da0 -> 0x5c1fb27af6d0
 FactionMen	GondorKnightsofDolHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionMen	GondorKnightsofDolHordeWedgeFormation	(aura) ModuleTag_Leadership	PASS	AURA: InspirationAmrothReiter on AngmarSnowTrollHorde (own) at 40 of Range 200
 FactionMen	GondorKnightsofDolHordeWedgeFormation	Command_KnightsofDolInspirationEdain	PASS	NONPRESSABLE (option bit 28): a passive ability's indicator, not pressed
-FactionMen	GondorKnightsofDolHordeWedgeFormation	Command_ToggleFormationKnightWedge	PASS	HORDE_TOGGLE_FORMATION: 0x573d23ff7c60 -> 0x573d23fde330
+FactionMen	GondorKnightsofDolHordeWedgeFormation	Command_ToggleFormationKnightWedge	PASS	HORDE_TOGGLE_FORMATION: 0x5c1fb27af6d0 -> 0x5c1fb2795da0
 FactionMen	GondorKnightsofDolHordeWedgeFormation	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionMen	GondorMablung_mod_summoned	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionMen	GondorMarketPlace	(aura) ModuleTag_AllowDwarvenRiches	PASS	AURA: GrandHarvestGondor on GondorFarm (own) at 40 of Range 9999, after Upgrade_MarketplaceUpgradeGrandHarvest, Upgrade_PlantShield
@@ -797,33 +797,33 @@ FactionMen	GondorSpearmanHorde	Command_PurchaseUpgradeGondorBasicTraining	PASS	U
 FactionMen	GondorSpearmanHorde	Command_PurchaseUpgradeGondorForgedBlades	PASS	Upgrade_GondorForgedBlades in 53 frames, cost 150, on all 15 members it affects
 FactionMen	GondorSpearmanHorde	Command_PurchaseUpgradeGondorHeavyArmor	PASS	Upgrade_GondorHeavyArmor in 53 frames, cost 200, on all 15 members it affects
 FactionMen	GondorSpearmanHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionMen	GondorSpearmanHorde	Command_TowerGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x573d240ef2e0 -> 0x573d24106c40
+FactionMen	GondorSpearmanHorde	Command_TowerGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5c1fb28a6d50 -> 0x5c1fb28be6b0
 FactionMen	GondorSpearmanHordePorcupine	(aura) ModuleTag_LeadershipBonus	PASS	AURA: GOndorHauptmannLeadership on MordorWorker (own) at 40 of Range 85, after Upgrade_HerzdesFeuers
 FactionMen	GondorSpearmanHordePorcupine	Command_PurchaseUpgradeGondorBasicTraining	PASS	Upgrade_GondorBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionMen	GondorSpearmanHordePorcupine	Command_PurchaseUpgradeGondorForgedBlades	PASS	Upgrade_GondorForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionMen	GondorSpearmanHordePorcupine	Command_PurchaseUpgradeGondorHeavyArmor	PASS	Upgrade_GondorHeavyArmor in 53 frames, cost 200, on all 10 members it affects
 FactionMen	GondorSpearmanHordePorcupine	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionMen	GondorSpearmanHordePorcupine	Command_TowerGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x573d24106c40 -> 0x573d240ef2e0
+FactionMen	GondorSpearmanHordePorcupine	Command_TowerGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5c1fb28be6b0 -> 0x5c1fb28a6d50
 FactionMen	GondorSpearmanHordePorcupineUpgradet_Summoned	(aura) ModuleTag_LeadershipBonus	PASS	AURA: GOndorHauptmannLeadership on MordorWorker (own) at 22 of Range 45
 FactionMen	GondorSpearmanHordePorcupineUpgradet_Summoned	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionMen	GondorSpearmanHordePorcupineUpgradet_Summoned	Command_TowerGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x573d2414d720 -> 0x573d2413b510
+FactionMen	GondorSpearmanHordePorcupineUpgradet_Summoned	Command_TowerGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5c1fb2905190 -> 0x5c1fb28f2f80
 FactionMen	GondorSpearmanHordePorcupine_Denethor	(aura) ModuleTag_LeadershipBonus	PASS	AURA: GOndorHauptmannLeadership on MordorWorker (own) at 40 of Range 85, after Upgrade_HerzdesFeuers
 FactionMen	GondorSpearmanHordePorcupine_Denethor	Command_PurchaseUpgradeGondorBasicTraining	PASS	Upgrade_GondorBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionMen	GondorSpearmanHordePorcupine_Denethor	Command_PurchaseUpgradeGondorForgedBlades	PASS	Upgrade_GondorForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionMen	GondorSpearmanHordePorcupine_Denethor	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionMen	GondorSpearmanHordePorcupine_Denethor	Command_TowerGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x573d24129bb0 -> 0x573d24118230
+FactionMen	GondorSpearmanHordePorcupine_Denethor	Command_TowerGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5c1fb28e1620 -> 0x5c1fb28cfca0
 FactionMen	GondorSpearmanHordePorcupine_Summoned	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionMen	GondorSpearmanHordePorcupine_Summoned	Command_TowerGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x573d077a3880 -> 0x573d24184140
+FactionMen	GondorSpearmanHordePorcupine_Summoned	Command_TowerGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5c1fd7821d70 -> 0x5c1fd780fc60
 FactionMen	GondorSpearmanHordeUpgradet_Summoned	(aura) ModuleTag_LeadershipBonus	PASS	AURA: GOndorHauptmannLeadership on MordorWorker (own) at 22 of Range 45
 FactionMen	GondorSpearmanHordeUpgradet_Summoned	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionMen	GondorSpearmanHordeUpgradet_Summoned	Command_TowerGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x573d2413b510 -> 0x573d2414d720
+FactionMen	GondorSpearmanHordeUpgradet_Summoned	Command_TowerGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5c1fb28f2f80 -> 0x5c1fb2905190
 FactionMen	GondorSpearmanHorde_Denethor	(aura) ModuleTag_LeadershipBonus	PASS	AURA: GOndorHauptmannLeadership on MordorWorker (own) at 40 of Range 85, after Upgrade_HerzdesFeuers
 FactionMen	GondorSpearmanHorde_Denethor	Command_PurchaseUpgradeGondorBasicTraining	PASS	Upgrade_GondorBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionMen	GondorSpearmanHorde_Denethor	Command_PurchaseUpgradeGondorForgedBlades	PASS	Upgrade_GondorForgedBlades in 53 frames, cost 150, on all 15 members it affects
 FactionMen	GondorSpearmanHorde_Denethor	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionMen	GondorSpearmanHorde_Denethor	Command_TowerGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x573d24118230 -> 0x573d24129bb0
+FactionMen	GondorSpearmanHorde_Denethor	Command_TowerGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5c1fb28cfca0 -> 0x5c1fb28e1620
 FactionMen	GondorSpearmanHorde_Summoned	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionMen	GondorSpearmanHorde_Summoned	Command_TowerGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x573d24184140 -> 0x573d077a3880
+FactionMen	GondorSpearmanHorde_Summoned	Command_TowerGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5c1fd780fc60 -> 0x5c1fd7821d70
 FactionMen	GondorSpearmanUpgradet_Summoned	Command_PurchaseUpgradeGondorBasicTraining	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyGondorBasicTraining
 FactionMen	GondorSpearmanUpgradet_Summoned	Command_PurchaseUpgradeGondorForgedBlades	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyGondorForgedBlades
 FactionMen	GondorSpearmanUpgradet_Summoned	Command_PurchaseUpgradeGondorHeavyArmor	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyGondorHeavyArmor
@@ -845,12 +845,12 @@ FactionMen	GondorTowerShieldGuard	Command_ToggleStance	DISABLED	DISABLED: needs 
 FactionMen	GondorTowerShieldGuardHorde	Command_PurchaseUpgradeGondorBasicTraining	PASS	Upgrade_GondorBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionMen	GondorTowerShieldGuardHorde	Command_PurchaseUpgradeGondorForgedBlades	PASS	Upgrade_GondorForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionMen	GondorTowerShieldGuardHorde	Command_PurchaseUpgradeGondorHeavyArmor	PASS	Upgrade_GondorHeavyArmor in 53 frames, cost 200, on all 10 members it affects
-FactionMen	GondorTowerShieldGuardHorde	Command_ToggleFormationSchieldwallTurmwachen	PASS	HORDE_TOGGLE_FORMATION: 0x573d1ce8f240 -> 0x573d1cecad50
+FactionMen	GondorTowerShieldGuardHorde	Command_ToggleFormationSchieldwallTurmwachen	PASS	HORDE_TOGGLE_FORMATION: 0x5c1fc7c83960 -> 0x5c1fc7cbf470
 FactionMen	GondorTowerShieldGuardHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionMen	GondorTowerShieldGuardHordeShieldWall	Command_PurchaseUpgradeGondorBasicTraining	PASS	Upgrade_GondorBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionMen	GondorTowerShieldGuardHordeShieldWall	Command_PurchaseUpgradeGondorForgedBlades	PASS	Upgrade_GondorForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionMen	GondorTowerShieldGuardHordeShieldWall	Command_PurchaseUpgradeGondorHeavyArmor	PASS	Upgrade_GondorHeavyArmor in 53 frames, cost 200, on all 10 members it affects
-FactionMen	GondorTowerShieldGuardHordeShieldWall	Command_ToggleFormationSchieldwallTurmwachen	PASS	HORDE_TOGGLE_FORMATION: 0x573d1cecad50 -> 0x573d1ce8f240
+FactionMen	GondorTowerShieldGuardHordeShieldWall	Command_ToggleFormationSchieldwallTurmwachen	PASS	HORDE_TOGGLE_FORMATION: 0x5c1fc7cbf470 -> 0x5c1fc7c83960
 FactionMen	GondorTowerShieldGuardHordeShieldWall	Command_ToggleFormationSchieldwallTurmwachenNo	FAIL	the button left the bar after the fixture
 FactionMen	GondorTowerShieldGuardHordeShieldWall	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionMen	GondorTowerShieldGuard_Summoned	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
@@ -937,10 +937,10 @@ FactionMen	MordorBalrog	Command_SpecialAbilityFireWhip	PASS	FIRE_WEAPON
 FactionMen	MordorBalrog	Command_SpecialAbilityIgnite	PASS	SpecialAbilityHeroMode fired (target none) after 45 frames: HeroModeSpecialAbilityUpdate HeroAttributeModifier BalrogIgniteState: BalrogIgniteState on object 57915 (S-920 noted)
 FactionMen	MordorBalrog	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionMen	MordorEasterling	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
-FactionMen	MordorEasterlingHorde	Command_MordorEasterlingPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x573d14712490 -> 0x573d1473c6f0
+FactionMen	MordorEasterlingHorde	Command_MordorEasterlingPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5c1face247c0 -> 0x5c1face4ea20
 FactionMen	MordorEasterlingHorde	Command_PurchaseUpgradeMordorBasicTraining	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyMordorBasicTraining [script: Upgrade_TechnologyMordorBasicTraining <- ai_men of the west/WarCampFirstCheck GIVE_PLAYER_UPGRADE]
 FactionMen	MordorEasterlingHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionMen	MordorEasterlingHordePorcupine	Command_MordorEasterlingPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x573d1473c6f0 -> 0x573d14712490
+FactionMen	MordorEasterlingHordePorcupine	Command_MordorEasterlingPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5c1face4ea20 -> 0x5c1face247c0
 FactionMen	MordorEasterlingHordePorcupine	Command_PurchaseUpgradeMordorBasicTraining	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyMordorBasicTraining [script: Upgrade_TechnologyMordorBasicTraining <- ai_men of the west/WarCampFirstCheck GIVE_PLAYER_UPGRADE]
 FactionMen	MordorEasterlingHordePorcupine	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionMen	MordorFellBeast	Command_SpecialAbilityScreech	PASS	SpecialAbilityScreech fired (target none) after 43 frames: SpecialAbilityUpdate (SPECIAL_SCREECH: BeScary -> RadiateTerrorEx -> BeTerrified): object 58176 terrified (EMOTION_TERROR) (S-920 noted)
@@ -1008,18 +1008,18 @@ FactionMen	MorthondBowmenHordeMod	Command_ArcherBombard	PASS	FIRE_WEAPON
 FactionMen	MorthondBowmenHordeMod	Command_PurchaseUpgradeGondorBasicTraining	PASS	Upgrade_GondorBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionMen	MorthondBowmenHordeMod	Command_PurchaseUpgradeGondorFireArrows	PASS	Upgrade_GondorFireArrows in 53 frames, cost 300, on all 15 members it affects
 FactionMen	MorthondBowmenHordeMod	Command_PurchaseUpgradeGondorHeavyArmor	PASS	Upgrade_GondorHeavyArmor in 53 frames, cost 200, on all 15 members it affects
-FactionMen	MorthondBowmenHordeMod	Command_ToggleFormationMorthondArcher	PASS	HORDE_TOGGLE_FORMATION: 0x573d0d4ff7a0 -> 0x573d0d518640
+FactionMen	MorthondBowmenHordeMod	Command_ToggleFormationMorthondArcher	PASS	HORDE_TOGGLE_FORMATION: 0x5c1fba7d51e0 -> 0x5c1fba7ee080
 FactionMen	MorthondBowmenHordeMod	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionMen	MorthondBowmenHordeModAmbush	(aura) ModuleTag_LeadershipBonus	PASS	AURA: GOndorHauptmannLeadership on MordorWorker (own) at 40 of Range 85, after Upgrade_HerzdesFeuers
 FactionMen	MorthondBowmenHordeModAmbush	Command_ArcherBombard	PASS	FIRE_WEAPON
 FactionMen	MorthondBowmenHordeModAmbush	Command_PurchaseUpgradeGondorBasicTraining	PASS	Upgrade_GondorBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionMen	MorthondBowmenHordeModAmbush	Command_PurchaseUpgradeGondorFireArrows	PASS	Upgrade_GondorFireArrows in 53 frames, cost 300, on all 15 members it affects
 FactionMen	MorthondBowmenHordeModAmbush	Command_PurchaseUpgradeGondorHeavyArmor	PASS	Upgrade_GondorHeavyArmor in 53 frames, cost 200, on all 15 members it affects
-FactionMen	MorthondBowmenHordeModAmbush	Command_ToggleFormationMorthondArcher	PASS	HORDE_TOGGLE_FORMATION: 0x573d0d518640 -> 0x573d0d4ff7a0
+FactionMen	MorthondBowmenHordeModAmbush	Command_ToggleFormationMorthondArcher	PASS	HORDE_TOGGLE_FORMATION: 0x5c1fba7ee080 -> 0x5c1fba7d51e0
 FactionMen	MorthondBowmenHordeModAmbush	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionMen	MorthondBowmenHordeModAmbush_Summoned	Command_ToggleFormationMorthondArcher	PASS	HORDE_TOGGLE_FORMATION: 0x573d0d53d380 -> 0x573d0d526770
+FactionMen	MorthondBowmenHordeModAmbush_Summoned	Command_ToggleFormationMorthondArcher	PASS	HORDE_TOGGLE_FORMATION: 0x5c1fba812dc0 -> 0x5c1fba7fc1b0
 FactionMen	MorthondBowmenHordeModAmbush_Summoned	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionMen	MorthondBowmenHordeMod_Summoned	Command_ToggleFormationMorthondArcher	PASS	HORDE_TOGGLE_FORMATION: 0x573d0d526770 -> 0x573d0d53d380
+FactionMen	MorthondBowmenHordeMod_Summoned	Command_ToggleFormationMorthondArcher	PASS	HORDE_TOGGLE_FORMATION: 0x5c1fba7fc1b0 -> 0x5c1fba812dc0
 FactionMen	MorthondBowmenHordeMod_Summoned	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionMen	MorthondBowmenMod	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
 FactionMen	MorthondBowmenMod_Summoned	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
@@ -1028,17 +1028,17 @@ FactionMen	PelegirSpearmenHorde	(aura) ModuleTag_LeadershipBonus	PASS	AURA: GOnd
 FactionMen	PelegirSpearmenHorde	Command_PurchaseUpgradeGondorBasicTraining	PASS	Upgrade_GondorBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionMen	PelegirSpearmenHorde	Command_PurchaseUpgradeGondorForgedBlades	PASS	Upgrade_GondorForgedBlades in 53 frames, cost 150, on all 15 members it affects
 FactionMen	PelegirSpearmenHorde	Command_PurchaseUpgradeGondorHeavyArmor	PASS	Upgrade_GondorHeavyArmor in 53 frames, cost 200, on all 15 members it affects
-FactionMen	PelegirSpearmenHorde	Command_ToggleFormationPelagir	PASS	HORDE_TOGGLE_FORMATION: 0x573d0d5a3210 -> 0x573d0d5e32a0
+FactionMen	PelegirSpearmenHorde	Command_ToggleFormationPelagir	PASS	HORDE_TOGGLE_FORMATION: 0x5c1fba878c50 -> 0x5c1fba8b8ce0
 FactionMen	PelegirSpearmenHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionMen	PelegirSpearmenHordeShieldWall	(aura) ModuleTag_LeadershipBonus	PASS	AURA: GOndorHauptmannLeadership on MordorWorker (own) at 40 of Range 85, after Upgrade_HerzdesFeuers
 FactionMen	PelegirSpearmenHordeShieldWall	Command_PurchaseUpgradeGondorBasicTraining	PASS	Upgrade_GondorBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionMen	PelegirSpearmenHordeShieldWall	Command_PurchaseUpgradeGondorForgedBlades	PASS	Upgrade_GondorForgedBlades in 53 frames, cost 150, on all 15 members it affects
 FactionMen	PelegirSpearmenHordeShieldWall	Command_PurchaseUpgradeGondorHeavyArmor	PASS	Upgrade_GondorHeavyArmor in 53 frames, cost 200, on all 15 members it affects
-FactionMen	PelegirSpearmenHordeShieldWall	Command_ToggleFormationPelagir	PASS	HORDE_TOGGLE_FORMATION: 0x573d0d5e32a0 -> 0x573d0d5a3210
+FactionMen	PelegirSpearmenHordeShieldWall	Command_ToggleFormationPelagir	PASS	HORDE_TOGGLE_FORMATION: 0x5c1fba8b8ce0 -> 0x5c1fba878c50
 FactionMen	PelegirSpearmenHordeShieldWall	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionMen	PelegirSpearmenHordeShieldWall_Summoned	Command_ToggleFormationPelagir	PASS	HORDE_TOGGLE_FORMATION: 0x573d0d5ce900 -> 0x573d0d5b7ab0
+FactionMen	PelegirSpearmenHordeShieldWall_Summoned	Command_ToggleFormationPelagir	PASS	HORDE_TOGGLE_FORMATION: 0x5c1fba8a4340 -> 0x5c1fba88d4f0
 FactionMen	PelegirSpearmenHordeShieldWall_Summoned	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionMen	PelegirSpearmenHorde_Summoned	Command_ToggleFormationPelagir	PASS	HORDE_TOGGLE_FORMATION: 0x573d0d5b7ab0 -> 0x573d0d5ce900
+FactionMen	PelegirSpearmenHorde_Summoned	Command_ToggleFormationPelagir	PASS	HORDE_TOGGLE_FORMATION: 0x5c1fba88d4f0 -> 0x5c1fba8a4340
 FactionMen	PelegirSpearmenHorde_Summoned	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionMen	PelegirSpearmen_Summoned	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
 FactionMen	RingValeSwordsman	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
@@ -1227,17 +1227,17 @@ FactionRohan	GondorTowerShieldGuard	Command_ToggleStance	DISABLED	DISABLED: need
 FactionRohan	GondorTowerShieldGuardHorde	Command_PurchaseUpgradeGondorBasicTraining	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyGondorBasicTraining
 FactionRohan	GondorTowerShieldGuardHorde	Command_PurchaseUpgradeGondorForgedBlades	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyGondorForgedBlades
 FactionRohan	GondorTowerShieldGuardHorde	Command_PurchaseUpgradeGondorHeavyArmor	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyGondorHeavyArmor
-FactionRohan	GondorTowerShieldGuardHorde	Command_ToggleFormationSchieldwallTurmwachen	PASS	HORDE_TOGGLE_FORMATION: 0x571da0cd4720 -> 0x571dbdbdbf50
+FactionRohan	GondorTowerShieldGuardHorde	Command_ToggleFormationSchieldwallTurmwachen	PASS	HORDE_TOGGLE_FORMATION: 0x5cc7065a9f90 -> 0x5cc7065e5aa0
 FactionRohan	GondorTowerShieldGuardHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionRohan	GondorTowerShieldGuardHordePorcupine	Command_PurchaseUpgradeGondorBasicTraining	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyGondorBasicTraining
 FactionRohan	GondorTowerShieldGuardHordePorcupine	Command_PurchaseUpgradeGondorForgedBlades	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyGondorForgedBlades
 FactionRohan	GondorTowerShieldGuardHordePorcupine	Command_PurchaseUpgradeGondorHeavyArmor	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyGondorHeavyArmor
-FactionRohan	GondorTowerShieldGuardHordePorcupine	Command_ToggleFormationSchieldwallTurmwachen	PASS	HORDE_TOGGLE_FORMATION: 0x571dbdbca7b0 -> 0x571da0cd4720
+FactionRohan	GondorTowerShieldGuardHordePorcupine	Command_ToggleFormationSchieldwallTurmwachen	PASS	HORDE_TOGGLE_FORMATION: 0x5cc7065d4300 -> 0x5cc7065a9f90
 FactionRohan	GondorTowerShieldGuardHordePorcupine	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionRohan	GondorTowerShieldGuardHordeShieldWall	Command_PurchaseUpgradeGondorBasicTraining	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyGondorBasicTraining
 FactionRohan	GondorTowerShieldGuardHordeShieldWall	Command_PurchaseUpgradeGondorForgedBlades	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyGondorForgedBlades
 FactionRohan	GondorTowerShieldGuardHordeShieldWall	Command_PurchaseUpgradeGondorHeavyArmor	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyGondorHeavyArmor
-FactionRohan	GondorTowerShieldGuardHordeShieldWall	Command_ToggleFormationSchieldwallTurmwachen	PASS	HORDE_TOGGLE_FORMATION: 0x571dbdbdbf50 -> 0x571da0cd4720
+FactionRohan	GondorTowerShieldGuardHordeShieldWall	Command_ToggleFormationSchieldwallTurmwachen	PASS	HORDE_TOGGLE_FORMATION: 0x5cc7065e5aa0 -> 0x5cc7065a9f90
 FactionRohan	GondorTowerShieldGuardHordeShieldWall	Command_ToggleFormationSchieldwallTurmwachenNo	FAIL	the button left the bar after the fixture
 FactionRohan	GondorTowerShieldGuardHordeShieldWall	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionRohan	GondorTowerShieldGuard_Summoned	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
@@ -1255,13 +1255,13 @@ FactionRohan	IsenfurtReiterHordeHerold	Command_PurchaseUpgradeRohanHorseShieldMo
 FactionRohan	IsenfurtReiterHordeHerold	Command_PurchaseUpgradeRohanModBasicTraining	PASS	Upgrade_RohanModBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionRohan	IsenfurtReiterHordeHerold	Command_PurchaseUpgradeRohanModForgedBlades	PASS	Upgrade_RohanModForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionRohan	IsenfurtReiterHordeHerold	Command_PurchaseUpgradeRohanModHeavyArmor	PASS	Upgrade_RohanModHeavyArmor in 53 frames, cost 200, on all 10 members it affects
-FactionRohan	IsenfurtReiterHordeHerold	Command_ToggleFormationKnightWedge	PASS	HORDE_TOGGLE_FORMATION: 0x571dac5c6fb0 -> 0x571dac5dcfc0
+FactionRohan	IsenfurtReiterHordeHerold	Command_ToggleFormationKnightWedge	PASS	HORDE_TOGGLE_FORMATION: 0x5cc70430d3b0 -> 0x5cc7043233c0
 FactionRohan	IsenfurtReiterHordeHerold	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionRohan	IsenfurtReiterHordeWedgeFormationHerold	Command_PurchaseUpgradeRohanHorseShieldMod	PASS	Upgrade_RohanHorseShieldMod in 53 frames, cost 200, on all 10 members it affects
 FactionRohan	IsenfurtReiterHordeWedgeFormationHerold	Command_PurchaseUpgradeRohanModBasicTraining	PASS	Upgrade_RohanModBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionRohan	IsenfurtReiterHordeWedgeFormationHerold	Command_PurchaseUpgradeRohanModForgedBlades	PASS	Upgrade_RohanModForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionRohan	IsenfurtReiterHordeWedgeFormationHerold	Command_PurchaseUpgradeRohanModHeavyArmor	PASS	Upgrade_RohanModHeavyArmor in 53 frames, cost 200, on all 10 members it affects
-FactionRohan	IsenfurtReiterHordeWedgeFormationHerold	Command_ToggleFormationKnightWedge	PASS	HORDE_TOGGLE_FORMATION: 0x571dac5dcfc0 -> 0x571dac5c6fb0
+FactionRohan	IsenfurtReiterHordeWedgeFormationHerold	Command_ToggleFormationKnightWedge	PASS	HORDE_TOGGLE_FORMATION: 0x5cc7043233c0 -> 0x5cc70430d3b0
 FactionRohan	IsenfurtReiterHordeWedgeFormationHerold	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionRohan	IsenfurtReiterHorde_Summoned	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionRohan	IsenfurtReiter_Summoned	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
@@ -1279,22 +1279,22 @@ FactionRohan	IsenfurtSpeertrgerHorde	Command_PurchaseUpgradeRohanModBasicTrainin
 FactionRohan	IsenfurtSpeertrgerHorde	Command_PurchaseUpgradeRohanModForgedBlades	PASS	Upgrade_RohanModForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionRohan	IsenfurtSpeertrgerHorde	Command_PurchaseUpgradeRohanModHeavyArmor	PASS	Upgrade_RohanModHeavyArmor in 53 frames, cost 200, on all 10 members it affects
 FactionRohan	IsenfurtSpeertrgerHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionRohan	IsenfurtSpeertrgerHorde	Command_WchterMeduseldsPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x571dac6ce090 -> 0x571dac6e58e0
+FactionRohan	IsenfurtSpeertrgerHorde	Command_WchterMeduseldsPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5cc704414490 -> 0x5cc70442bce0
 FactionRohan	IsenfurtSpeertrgerHordeHerold	Command_PurchaseUpgradeRohanModBasicTraining	PASS	Upgrade_RohanModBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionRohan	IsenfurtSpeertrgerHordeHerold	Command_PurchaseUpgradeRohanModForgedBlades	PASS	Upgrade_RohanModForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionRohan	IsenfurtSpeertrgerHordeHerold	Command_PurchaseUpgradeRohanModHeavyArmor	PASS	Upgrade_RohanModHeavyArmor in 53 frames, cost 200, on all 10 members it affects
 FactionRohan	IsenfurtSpeertrgerHordeHerold	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionRohan	IsenfurtSpeertrgerHordeHerold	Command_WchterMeduseldsPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x571dac71b8e0 -> 0x571d9c8435e0
+FactionRohan	IsenfurtSpeertrgerHordeHerold	Command_WchterMeduseldsPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5cc704461ce0 -> 0x5cc704479400
 FactionRohan	IsenfurtSpeertrgerHordePorcupine	Command_PurchaseUpgradeRohanModBasicTraining	PASS	Upgrade_RohanModBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionRohan	IsenfurtSpeertrgerHordePorcupine	Command_PurchaseUpgradeRohanModForgedBlades	PASS	Upgrade_RohanModForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionRohan	IsenfurtSpeertrgerHordePorcupine	Command_PurchaseUpgradeRohanModHeavyArmor	PASS	Upgrade_RohanModHeavyArmor in 53 frames, cost 200, on all 10 members it affects
 FactionRohan	IsenfurtSpeertrgerHordePorcupine	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionRohan	IsenfurtSpeertrgerHordePorcupine	Command_WchterMeduseldsPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x571dac6e58e0 -> 0x571dac6ce090
+FactionRohan	IsenfurtSpeertrgerHordePorcupine	Command_WchterMeduseldsPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5cc70442bce0 -> 0x5cc704414490
 FactionRohan	IsenfurtSpeertrgerHordePorcupineHerold	Command_PurchaseUpgradeRohanModBasicTraining	PASS	Upgrade_RohanModBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionRohan	IsenfurtSpeertrgerHordePorcupineHerold	Command_PurchaseUpgradeRohanModForgedBlades	PASS	Upgrade_RohanModForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionRohan	IsenfurtSpeertrgerHordePorcupineHerold	Command_PurchaseUpgradeRohanModHeavyArmor	PASS	Upgrade_RohanModHeavyArmor in 53 frames, cost 200, on all 10 members it affects
 FactionRohan	IsenfurtSpeertrgerHordePorcupineHerold	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionRohan	IsenfurtSpeertrgerHordePorcupineHerold	Command_WchterMeduseldsPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x571d9c8435e0 -> 0x571dac6ce090
+FactionRohan	IsenfurtSpeertrgerHordePorcupineHerold	Command_WchterMeduseldsPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5cc704479400 -> 0x5cc704414490
 FactionRohan	IsenfurtWchter	Command_IsenfurtWchterSmite	NO-EFFECT	SpecialAbilityZealotBoomAxe (target GondorBoromir) fired but WeaponFireSpecialAbilityUpdate SpecialWeapon IsenfurtWchterSmiteRangeFinder (HordeAttackNugget: caster has no HordeContain): no result;  (first try, target GondorFighter: WeaponFireSpecialAbilityUpdate SpecialWeapon IsenfurtWchterSmiteRangeFinder (HordeAttackNugget: caster has no HordeContain): no result; )
 FactionRohan	IsenfurtWchter	Command_PurchaseUpgradeRohanModBasicTraining	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyRohanModBasicTraining
 FactionRohan	IsenfurtWchter	Command_PurchaseUpgradeRohanModForgedBlades	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyRohanModForgedBlades
@@ -1444,28 +1444,28 @@ FactionRohan	RohanAxtrohirrimHorde	Command_PurchaseUpgradeRohanHorseShieldMod	PA
 FactionRohan	RohanAxtrohirrimHorde	Command_PurchaseUpgradeRohanModBasicTraining	PASS	Upgrade_RohanModBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionRohan	RohanAxtrohirrimHorde	Command_PurchaseUpgradeRohanModForgedBlades	PASS	Upgrade_RohanModForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionRohan	RohanAxtrohirrimHorde	Command_PurchaseUpgradeRohanModHeavyArmor	PASS	Upgrade_RohanModHeavyArmor in 53 frames, cost 200, on all 10 members it affects
-FactionRohan	RohanAxtrohirrimHorde	Command_ToggleFormationKnightWedge	PASS	HORDE_TOGGLE_FORMATION: 0x571d9dfc0c30 -> 0x571d9dfd9780
+FactionRohan	RohanAxtrohirrimHorde	Command_ToggleFormationKnightWedge	PASS	HORDE_TOGGLE_FORMATION: 0x5cc724950ef0 -> 0x5cc724969a40
 FactionRohan	RohanAxtrohirrimHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionRohan	RohanAxtrohirrimHordeHerold	(aura) ModuleTag_EowynDisguiseAura	MOD-DATA	MOD-DATA: the aura waits for Upgrade_EowynConditionDisguised, which nothing in the mod's INI or scripts gives (GRANTS_INI.tsv) (was: NO-AURA: EowynDisguiseModifier on RohanEowyn_mod (own) at 40 of Range 100, after Upgrade_EowynConditionDisguised never arrived in 15 frames (pulses 1; the target at 40))
 FactionRohan	RohanAxtrohirrimHordeHerold	Command_PurchaseUpgradeRohanHorseShieldMod	PASS	Upgrade_RohanHorseShieldMod in 53 frames, cost 200, on all 10 members it affects
 FactionRohan	RohanAxtrohirrimHordeHerold	Command_PurchaseUpgradeRohanModBasicTraining	PASS	Upgrade_RohanModBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionRohan	RohanAxtrohirrimHordeHerold	Command_PurchaseUpgradeRohanModForgedBlades	PASS	Upgrade_RohanModForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionRohan	RohanAxtrohirrimHordeHerold	Command_PurchaseUpgradeRohanModHeavyArmor	PASS	Upgrade_RohanModHeavyArmor in 53 frames, cost 200, on all 10 members it affects
-FactionRohan	RohanAxtrohirrimHordeHerold	Command_ToggleFormationKnightWedge	PASS	HORDE_TOGGLE_FORMATION: 0x571d9dffe560 -> 0x571d9e017080
+FactionRohan	RohanAxtrohirrimHordeHerold	Command_ToggleFormationKnightWedge	PASS	HORDE_TOGGLE_FORMATION: 0x5cc72498e820 -> 0x5cc7249a7340
 FactionRohan	RohanAxtrohirrimHordeHerold	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionRohan	RohanAxtrohirrimHordeWedgeFormation	(aura) ModuleTag_EowynDisguiseAura	MOD-DATA	MOD-DATA: the aura waits for Upgrade_EowynConditionDisguised, which nothing in the mod's INI or scripts gives (GRANTS_INI.tsv) (was: NO-AURA: EowynDisguiseModifier on RohanEowyn_mod (own) at 40 of Range 100, after Upgrade_EowynConditionDisguised never arrived in 15 frames (pulses 1; the target at 40))
 FactionRohan	RohanAxtrohirrimHordeWedgeFormation	Command_PurchaseUpgradeRohanHorseShieldMod	PASS	Upgrade_RohanHorseShieldMod in 53 frames, cost 200, on all 10 members it affects
 FactionRohan	RohanAxtrohirrimHordeWedgeFormation	Command_PurchaseUpgradeRohanModBasicTraining	PASS	Upgrade_RohanModBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionRohan	RohanAxtrohirrimHordeWedgeFormation	Command_PurchaseUpgradeRohanModForgedBlades	PASS	Upgrade_RohanModForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionRohan	RohanAxtrohirrimHordeWedgeFormation	Command_PurchaseUpgradeRohanModHeavyArmor	PASS	Upgrade_RohanModHeavyArmor in 53 frames, cost 200, on all 10 members it affects
-FactionRohan	RohanAxtrohirrimHordeWedgeFormation	Command_ToggleFormationKnightWedge	PASS	HORDE_TOGGLE_FORMATION: 0x571d9dfd9780 -> 0x571d9dfc0c30
+FactionRohan	RohanAxtrohirrimHordeWedgeFormation	Command_ToggleFormationKnightWedge	PASS	HORDE_TOGGLE_FORMATION: 0x5cc724969a40 -> 0x5cc724950ef0
 FactionRohan	RohanAxtrohirrimHordeWedgeFormation	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionRohan	RohanAxtrohirrimHordeWedgeFormationHerold	(aura) ModuleTag_EowynDisguiseAura	MOD-DATA	MOD-DATA: the aura waits for Upgrade_EowynConditionDisguised, which nothing in the mod's INI or scripts gives (GRANTS_INI.tsv) (was: NO-AURA: EowynDisguiseModifier on RohanEowyn_mod (own) at 40 of Range 100, after Upgrade_EowynConditionDisguised never arrived in 15 frames (pulses 1; the target at 40))
 FactionRohan	RohanAxtrohirrimHordeWedgeFormationHerold	Command_PurchaseUpgradeRohanHorseShieldMod	PASS	Upgrade_RohanHorseShieldMod in 53 frames, cost 200, on all 10 members it affects
 FactionRohan	RohanAxtrohirrimHordeWedgeFormationHerold	Command_PurchaseUpgradeRohanModBasicTraining	PASS	Upgrade_RohanModBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionRohan	RohanAxtrohirrimHordeWedgeFormationHerold	Command_PurchaseUpgradeRohanModForgedBlades	PASS	Upgrade_RohanModForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionRohan	RohanAxtrohirrimHordeWedgeFormationHerold	Command_PurchaseUpgradeRohanModHeavyArmor	PASS	Upgrade_RohanModHeavyArmor in 53 frames, cost 200, on all 10 members it affects
-FactionRohan	RohanAxtrohirrimHordeWedgeFormationHerold	Command_ToggleFormationKnightWedge	PASS	HORDE_TOGGLE_FORMATION: 0x571d9e017080 -> 0x571d9dffe560
+FactionRohan	RohanAxtrohirrimHordeWedgeFormationHerold	Command_ToggleFormationKnightWedge	PASS	HORDE_TOGGLE_FORMATION: 0x5cc7249a7340 -> 0x5cc72498e820
 FactionRohan	RohanAxtrohirrimHordeWedgeFormationHerold	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionRohan	RohanBatteringRam	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
 FactionRohan	RohanBattleTowerMod	(aura) ModuleTag_ContainedGetExperience	DISABLED	DISABLED: needs a garrison: the aura affects only the objects its holder contains (AffectContainedOnly); the sweep garrisons nobody
@@ -1674,28 +1674,28 @@ FactionRohan	RohanRohirrimHordeObsolete	Command_PurchaseUpgradeRohanHorseShieldM
 FactionRohan	RohanRohirrimHordeObsolete	Command_PurchaseUpgradeRohanModBasicTraining	PASS	Upgrade_RohanModBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionRohan	RohanRohirrimHordeObsolete	Command_PurchaseUpgradeRohanModForgedBlades	PASS	Upgrade_RohanModForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionRohan	RohanRohirrimHordeObsolete	Command_PurchaseUpgradeRohanModHeavyArmor	PASS	Upgrade_RohanModHeavyArmor in 53 frames, cost 200, on all 10 members it affects
-FactionRohan	RohanRohirrimHordeObsolete	Command_ToggleFormationKnightWedge	PASS	HORDE_TOGGLE_FORMATION: 0x571d9dea5d20 -> 0x571d9debd7d0
+FactionRohan	RohanRohirrimHordeObsolete	Command_ToggleFormationKnightWedge	PASS	HORDE_TOGGLE_FORMATION: 0x5cc724835fe0 -> 0x5cc72484da90
 FactionRohan	RohanRohirrimHordeObsolete	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionRohan	RohanRohirrimHordeObsoleteHerold	(aura) ModuleTag_EowynDisguiseAura	MOD-DATA	MOD-DATA: the aura waits for Upgrade_EowynConditionDisguised, which nothing in the mod's INI or scripts gives (GRANTS_INI.tsv) (was: NO-AURA: EowynDisguiseModifier on RohanEowyn_mod (own) at 40 of Range 100, after Upgrade_EowynConditionDisguised never arrived in 15 frames (pulses 1; the target at 40))
 FactionRohan	RohanRohirrimHordeObsoleteHerold	Command_PurchaseUpgradeRohanHorseShieldMod	PASS	Upgrade_RohanHorseShieldMod in 53 frames, cost 200, on all 10 members it affects
 FactionRohan	RohanRohirrimHordeObsoleteHerold	Command_PurchaseUpgradeRohanModBasicTraining	PASS	Upgrade_RohanModBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionRohan	RohanRohirrimHordeObsoleteHerold	Command_PurchaseUpgradeRohanModForgedBlades	PASS	Upgrade_RohanModForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionRohan	RohanRohirrimHordeObsoleteHerold	Command_PurchaseUpgradeRohanModHeavyArmor	PASS	Upgrade_RohanModHeavyArmor in 53 frames, cost 200, on all 10 members it affects
-FactionRohan	RohanRohirrimHordeObsoleteHerold	Command_ToggleFormationKnightWedge	PASS	HORDE_TOGGLE_FORMATION: 0x571d9dee14b0 -> 0x571d9def7510
+FactionRohan	RohanRohirrimHordeObsoleteHerold	Command_ToggleFormationKnightWedge	PASS	HORDE_TOGGLE_FORMATION: 0x5cc724871770 -> 0x5cc7248877d0
 FactionRohan	RohanRohirrimHordeObsoleteHerold	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionRohan	RohanRohirrimHordeWedgeFormation	(aura) ModuleTag_EowynDisguiseAura	MOD-DATA	MOD-DATA: the aura waits for Upgrade_EowynConditionDisguised, which nothing in the mod's INI or scripts gives (GRANTS_INI.tsv) (was: NO-AURA: EowynDisguiseModifier on RohanEowyn_mod (own) at 40 of Range 100, after Upgrade_EowynConditionDisguised never arrived in 15 frames (pulses 1; the target at 40))
 FactionRohan	RohanRohirrimHordeWedgeFormation	Command_PurchaseUpgradeRohanHorseShieldMod	PASS	Upgrade_RohanHorseShieldMod in 53 frames, cost 200, on all 10 members it affects
 FactionRohan	RohanRohirrimHordeWedgeFormation	Command_PurchaseUpgradeRohanModBasicTraining	PASS	Upgrade_RohanModBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionRohan	RohanRohirrimHordeWedgeFormation	Command_PurchaseUpgradeRohanModForgedBlades	PASS	Upgrade_RohanModForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionRohan	RohanRohirrimHordeWedgeFormation	Command_PurchaseUpgradeRohanModHeavyArmor	PASS	Upgrade_RohanModHeavyArmor in 53 frames, cost 200, on all 10 members it affects
-FactionRohan	RohanRohirrimHordeWedgeFormation	Command_ToggleFormationKnightWedge	PASS	HORDE_TOGGLE_FORMATION: 0x571d9debd7d0 -> 0x571d9dea5d20
+FactionRohan	RohanRohirrimHordeWedgeFormation	Command_ToggleFormationKnightWedge	PASS	HORDE_TOGGLE_FORMATION: 0x5cc72484da90 -> 0x5cc724835fe0
 FactionRohan	RohanRohirrimHordeWedgeFormation	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionRohan	RohanRohirrimHordeWedgeFormationHerold	(aura) ModuleTag_EowynDisguiseAura	MOD-DATA	MOD-DATA: the aura waits for Upgrade_EowynConditionDisguised, which nothing in the mod's INI or scripts gives (GRANTS_INI.tsv) (was: NO-AURA: EowynDisguiseModifier on RohanEowyn_mod (own) at 40 of Range 100, after Upgrade_EowynConditionDisguised never arrived in 15 frames (pulses 1; the target at 40))
 FactionRohan	RohanRohirrimHordeWedgeFormationHerold	Command_PurchaseUpgradeRohanHorseShieldMod	PASS	Upgrade_RohanHorseShieldMod in 53 frames, cost 200, on all 10 members it affects
 FactionRohan	RohanRohirrimHordeWedgeFormationHerold	Command_PurchaseUpgradeRohanModBasicTraining	PASS	Upgrade_RohanModBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionRohan	RohanRohirrimHordeWedgeFormationHerold	Command_PurchaseUpgradeRohanModForgedBlades	PASS	Upgrade_RohanModForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionRohan	RohanRohirrimHordeWedgeFormationHerold	Command_PurchaseUpgradeRohanModHeavyArmor	PASS	Upgrade_RohanModHeavyArmor in 53 frames, cost 200, on all 10 members it affects
-FactionRohan	RohanRohirrimHordeWedgeFormationHerold	Command_ToggleFormationKnightWedge	PASS	HORDE_TOGGLE_FORMATION: 0x571d9def7510 -> 0x571d9dee14b0
+FactionRohan	RohanRohirrimHordeWedgeFormationHerold	Command_ToggleFormationKnightWedge	PASS	HORDE_TOGGLE_FORMATION: 0x5cc7248877d0 -> 0x5cc724871770
 FactionRohan	RohanRohirrimHordeWedgeFormationHerold	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionRohan	RohanRohirrim_mod	(aura) ModuleTag_EowynDisguiseAura	MOD-DATA	MOD-DATA: the aura waits for Upgrade_EowynConditionDisguised, which nothing in the mod's INI or scripts gives (GRANTS_INI.tsv) (was: NO-AURA: EowynDisguiseModifier on RohanEowyn_mod (own) at 40 of Range 100, after Upgrade_EowynConditionDisguised never arrived in 15 frames (pulses 1; the target at 40))
 FactionRohan	RohanRohirrim_mod	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
@@ -1755,22 +1755,22 @@ FactionRohan	RohanWchterMeduseldsHorde	Command_PurchaseUpgradeRohanModBasicTrain
 FactionRohan	RohanWchterMeduseldsHorde	Command_PurchaseUpgradeRohanModForgedBlades	PASS	Upgrade_RohanModForgedBlades in 53 frames, cost 150, on all 15 members it affects
 FactionRohan	RohanWchterMeduseldsHorde	Command_PurchaseUpgradeRohanModHeavyArmor	PASS	Upgrade_RohanModHeavyArmor in 53 frames, cost 200, on all 15 members it affects
 FactionRohan	RohanWchterMeduseldsHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionRohan	RohanWchterMeduseldsHorde	Command_WchterMeduseldsPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x571dc0b88230 -> 0x571dc0b9fae0
+FactionRohan	RohanWchterMeduseldsHorde	Command_WchterMeduseldsPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5cc7050af130 -> 0x5cc7050c69e0
 FactionRohan	RohanWchterMeduseldsHordeHerold	Command_PurchaseUpgradeRohanModBasicTraining	PASS	Upgrade_RohanModBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionRohan	RohanWchterMeduseldsHordeHerold	Command_PurchaseUpgradeRohanModForgedBlades	PASS	Upgrade_RohanModForgedBlades in 53 frames, cost 150, on all 15 members it affects
 FactionRohan	RohanWchterMeduseldsHordeHerold	Command_PurchaseUpgradeRohanModHeavyArmor	PASS	Upgrade_RohanModHeavyArmor in 53 frames, cost 200, on all 15 members it affects
 FactionRohan	RohanWchterMeduseldsHordeHerold	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionRohan	RohanWchterMeduseldsHordeHerold	Command_WchterMeduseldsPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x571dc0bb2020 -> 0x571dc0bc9950
+FactionRohan	RohanWchterMeduseldsHordeHerold	Command_WchterMeduseldsPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5cc7050d8f20 -> 0x5cc7050f0850
 FactionRohan	RohanWchterMeduseldsHordeHeroldPorcupine	Command_PurchaseUpgradeRohanModBasicTraining	PASS	Upgrade_RohanModBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionRohan	RohanWchterMeduseldsHordeHeroldPorcupine	Command_PurchaseUpgradeRohanModForgedBlades	PASS	Upgrade_RohanModForgedBlades in 53 frames, cost 150, on all 11 members it affects
 FactionRohan	RohanWchterMeduseldsHordeHeroldPorcupine	Command_PurchaseUpgradeRohanModHeavyArmor	PASS	Upgrade_RohanModHeavyArmor in 53 frames, cost 200, on all 11 members it affects
 FactionRohan	RohanWchterMeduseldsHordeHeroldPorcupine	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionRohan	RohanWchterMeduseldsHordeHeroldPorcupine	Command_WchterMeduseldsPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x571dc0bc9950 -> 0x571dc0bb2020
+FactionRohan	RohanWchterMeduseldsHordeHeroldPorcupine	Command_WchterMeduseldsPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5cc7050f0850 -> 0x5cc7050d8f20
 FactionRohan	RohanWchterMeduseldsHordePorcupine	Command_PurchaseUpgradeRohanModBasicTraining	PASS	Upgrade_RohanModBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionRohan	RohanWchterMeduseldsHordePorcupine	Command_PurchaseUpgradeRohanModForgedBlades	PASS	Upgrade_RohanModForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionRohan	RohanWchterMeduseldsHordePorcupine	Command_PurchaseUpgradeRohanModHeavyArmor	PASS	Upgrade_RohanModHeavyArmor in 53 frames, cost 200, on all 10 members it affects
 FactionRohan	RohanWchterMeduseldsHordePorcupine	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionRohan	RohanWchterMeduseldsHordePorcupine	Command_WchterMeduseldsPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x571dc0b9fae0 -> 0x571dc0b88230
+FactionRohan	RohanWchterMeduseldsHordePorcupine	Command_WchterMeduseldsPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5cc7050c69e0 -> 0x5cc7050af130
 FactionRohan	RohanWestfoldSpeerwerferCreep	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionRohan	Theoden_OneRing	(aura) ModuleTag_Leadership	PASS	AURA: TheodenRohanring1 on Azog_CINE (own) at 40 of Range 200
 FactionRohan	Theoden_OneRing	(aura) ModuleTag_Leadership0	PASS	AURA: TheodenRohanring1 on Azog_CINE (own) at 40 of Range 300
@@ -1830,11 +1830,11 @@ FactionElves	ElvenLorienArcherHorde	Command_PurchaseUpgradeLothlorienLongBows	PA
 FactionElves	ElvenLorienArcherHorde	Command_PurchaseUpgradeLothlorienSilverthornArrows	PASS	Upgrade_ElvenSilverthornArrows in 53 frames, cost 350, on all 10 members it affects
 FactionElves	ElvenLorienArcherHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionElves	ElvenLorienPikeman	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
-FactionElves	ElvenLorienPikemanHorde	Command_MithlondSentryPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5c4ca8d8b980 -> 0x5c4ca8da6700
+FactionElves	ElvenLorienPikemanHorde	Command_MithlondSentryPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5a02507865f0 -> 0x5a02507a1370
 FactionElves	ElvenLorienPikemanHorde	Command_PurchaseUpgradeLothlorienBasicTraining	PASS	Upgrade_ElvenBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionElves	ElvenLorienPikemanHorde	Command_PurchaseUpgradeLothlorienForgedBlades	PASS	Upgrade_ElvenForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionElves	ElvenLorienPikemanHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionElves	ElvenLorienPikemanHordePorcupine	Command_MithlondSentryPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5c4ca8da6700 -> 0x5c4ca8d8b980
+FactionElves	ElvenLorienPikemanHordePorcupine	Command_MithlondSentryPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5a02507a1370 -> 0x5a02507865f0
 FactionElves	ElvenLorienPikemanHordePorcupine	Command_PurchaseUpgradeLothlorienBasicTraining	PASS	Upgrade_ElvenBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionElves	ElvenLorienPikemanHordePorcupine	Command_PurchaseUpgradeLothlorienForgedBlades	PASS	Upgrade_ElvenForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionElves	ElvenLorienPikemanHordePorcupine	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
@@ -1855,12 +1855,12 @@ FactionElves	ElvenMirkwoodArcherHorde	Command_SpecialAbilityDornpfeileDsterwalds
 FactionElves	ElvenMirkwoodArcherHorde	Command_SpecialAbilityElfCloakMirkwoodArcher	PASS	SpecialAbilityElfCloak fired (target none) after 36 frames: ToggleHiddenSpecialAbilityUpdate: the caster's status changed (S-920 noted)
 FactionElves	ElvenMirkwoodArcherHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionElves	ElvenMithlondSentry	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
-FactionElves	ElvenMithlondSentryHorde	Command_MithlondSentryPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5c4cb3aecba0 -> 0x5c4cb3b06030
+FactionElves	ElvenMithlondSentryHorde	Command_MithlondSentryPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5a0261dba0e0 -> 0x5a0261dd3570
 FactionElves	ElvenMithlondSentryHorde	Command_PurchaseUpgradeElvenBasicTraining	PASS	Upgrade_ElvenBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionElves	ElvenMithlondSentryHorde	Command_PurchaseUpgradeElvenForgedBlades	PASS	Upgrade_ElvenForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionElves	ElvenMithlondSentryHorde	Command_PurchaseUpgradeElvenHeavyArmor	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyElvenHeavyArmor
 FactionElves	ElvenMithlondSentryHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionElves	ElvenMithlondSentryHordePorcupine	Command_MithlondSentryPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5c4cb3b06030 -> 0x5c4cb3aecba0
+FactionElves	ElvenMithlondSentryHordePorcupine	Command_MithlondSentryPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5a0261dd3570 -> 0x5a0261dba0e0
 FactionElves	ElvenMithlondSentryHordePorcupine	Command_PurchaseUpgradeElvenBasicTraining	PASS	Upgrade_ElvenBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionElves	ElvenMithlondSentryHordePorcupine	Command_PurchaseUpgradeElvenForgedBlades	PASS	Upgrade_ElvenForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionElves	ElvenMithlondSentryHordePorcupine	Command_PurchaseUpgradeElvenHeavyArmor	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyElvenHeavyArmor
@@ -2108,13 +2108,13 @@ FactionElves	MirkwoodAvariWarriorHorde	Command_PurchaseUpgradeLothlorienBasicTra
 FactionElves	MirkwoodAvariWarriorHorde	Command_PurchaseUpgradeLothlorienForgedBlades	PASS	Upgrade_ElvenForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionElves	MirkwoodAvariWarriorHorde	Command_SpecialAbilityAvariSpionage	PASS	SpecialAbilityAvariSpionage fired (target GondorBarracks) after 46 frames: WeaponFireSpecialAbilityUpdate SpecialWeapon AvariSpionageObjectWeapon (WeaponOCLNugget): SpionageAvariObject 4486 made (S-920 noted)
 FactionElves	MirkwoodAvariWarriorHorde	Command_SpecialAbilityElfCloakTroops	PASS	SpecialAbilityElfCloak fired (target none) after 36 frames: ToggleHiddenSpecialAbilityUpdate: the caster's status changed (S-920 noted)
-FactionElves	MirkwoodAvariWarriorHorde	Command_ToggleFormationMirkwoodAvari	PASS	HORDE_TOGGLE_FORMATION: 0x5c4cc8f8af10 -> 0x5c4cc8fa5380
+FactionElves	MirkwoodAvariWarriorHorde	Command_ToggleFormationMirkwoodAvari	PASS	HORDE_TOGGLE_FORMATION: 0x5a0264018570 -> 0x5a02640329e0
 FactionElves	MirkwoodAvariWarriorHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionElves	MirkwoodAvariWarriorHordeBlock	Command_PurchaseUpgradeLothlorienBasicTraining	PASS	Upgrade_ElvenBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionElves	MirkwoodAvariWarriorHordeBlock	Command_PurchaseUpgradeLothlorienForgedBlades	PASS	Upgrade_ElvenForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionElves	MirkwoodAvariWarriorHordeBlock	Command_SpecialAbilityAvariSpionage	PASS	SpecialAbilityAvariSpionage fired (target GondorBarracks) after 46 frames: WeaponFireSpecialAbilityUpdate SpecialWeapon AvariSpionageObjectWeapon (WeaponOCLNugget): SpionageAvariObject 4978 made (S-920 noted)
 FactionElves	MirkwoodAvariWarriorHordeBlock	Command_SpecialAbilityElfCloakTroops	PASS	SpecialAbilityElfCloak fired (target none) after 36 frames: ToggleHiddenSpecialAbilityUpdate: the caster's status changed (S-920 noted)
-FactionElves	MirkwoodAvariWarriorHordeBlock	Command_ToggleFormationMirkwoodAvari	PASS	HORDE_TOGGLE_FORMATION: 0x5c4cc8fa5380 -> 0x5c4cc8f8af10
+FactionElves	MirkwoodAvariWarriorHordeBlock	Command_ToggleFormationMirkwoodAvari	PASS	HORDE_TOGGLE_FORMATION: 0x5a02640329e0 -> 0x5a0264018570
 FactionElves	MirkwoodAvariWarriorHordeBlock	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionElves	MirkwoodBarracks	Command_PurchaseUpgradeMirkwoodBarracksLevel3	PASS	Upgrade_MirkwoodBarracksLevel3 in 250 frames, cost 500, on all 0 members it affects
 FactionElves	MirkwoodElkrider	Command_PurchaseUpgradeLothlorienBasicTraining	DISABLED	DISABLED: needs a production queue on the object (RW 0x943050 case 7, RW 0x68C327: disabled in retail too; its horde or master buys it)
@@ -2133,22 +2133,22 @@ FactionElves	MirkwoodElkriderHordeWedgeFormation	Command_PurchaseUpgradeLothlori
 FactionElves	MirkwoodElkriderHordeWedgeFormation	Command_SpecialAbilityElkriderNaturBuff	PASS	SpecialAbilityElkriderNaturBuff fired (target none) after 39 frames: SpecialPowerModule AttributeModifier NaturmagierTierempathieModifier: NaturmagierTierempathieModifier on object 15353 (S-920 noted)
 FactionElves	MirkwoodElkriderHordeWedgeFormation	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionElves	MirkwoodSpearmen	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
-FactionElves	MirkwoodSpearmenHorde	Command_MirkwoodPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5c4ca8dd3ee0 -> 0x5c4ca8debdb0
+FactionElves	MirkwoodSpearmenHorde	Command_MirkwoodPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5a02507ceb50 -> 0x5a02507e6a20
 FactionElves	MirkwoodSpearmenHorde	Command_PurchaseUpgradeLothlorienBasicTraining	PASS	Upgrade_ElvenBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionElves	MirkwoodSpearmenHorde	Command_PurchaseUpgradeLothlorienForgedBlades	PASS	Upgrade_ElvenForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionElves	MirkwoodSpearmenHorde	Command_SpecialAbilityElfCloakTroops	PASS	SpecialAbilityElfCloak fired (target none) after 36 frames: ToggleHiddenSpecialAbilityUpdate: the caster's status changed (S-920 noted)
 FactionElves	MirkwoodSpearmenHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionElves	MirkwoodSpearmenHordePorcupine	Command_MirkwoodPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5c4ca8debdb0 -> 0x5c4ca8dd3ee0
+FactionElves	MirkwoodSpearmenHordePorcupine	Command_MirkwoodPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5a02507e6a20 -> 0x5a02507ceb50
 FactionElves	MirkwoodSpearmenHordePorcupine	Command_PurchaseUpgradeLothlorienBasicTraining	PASS	Upgrade_ElvenBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionElves	MirkwoodSpearmenHordePorcupine	Command_PurchaseUpgradeLothlorienForgedBlades	PASS	Upgrade_ElvenForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionElves	MirkwoodSpearmenHordePorcupine	Command_SpecialAbilityElfCloakTroops	PASS	SpecialAbilityElfCloak fired (target none) after 36 frames: ToggleHiddenSpecialAbilityUpdate: the caster's status changed (S-920 noted)
 FactionElves	MirkwoodSpearmenHordePorcupine	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionElves	MirkwoodSpearmenHordePorcupine_Summoned	Command_MirkwoodPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5c4ca8e15f00 -> 0x5c4ca8dfe030
+FactionElves	MirkwoodSpearmenHordePorcupine_Summoned	Command_MirkwoodPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5a0250810b70 -> 0x5a02507f8ca0
 FactionElves	MirkwoodSpearmenHordePorcupine_Summoned	Command_PurchaseUpgradeLothlorienBasicTraining	PASS	Upgrade_ElvenBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionElves	MirkwoodSpearmenHordePorcupine_Summoned	Command_PurchaseUpgradeLothlorienForgedBlades	PASS	Upgrade_ElvenForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionElves	MirkwoodSpearmenHordePorcupine_Summoned	Command_SpecialAbilityElfCloakTroops	PASS	SpecialAbilityElfCloak fired (target none) after 36 frames: ToggleHiddenSpecialAbilityUpdate: the caster's status changed (S-920 noted)
 FactionElves	MirkwoodSpearmenHordePorcupine_Summoned	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionElves	MirkwoodSpearmenHorde_Summoned	Command_MirkwoodPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5c4ca8dfe030 -> 0x5c4ca8e15f00
+FactionElves	MirkwoodSpearmenHorde_Summoned	Command_MirkwoodPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5a02507f8ca0 -> 0x5a0250810b70
 FactionElves	MirkwoodSpearmenHorde_Summoned	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionElves	MirkwoodSpearmen_Summoned	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
 FactionElves	MirkwoodWachterPfade	Command_ArcherBombard	PASS	FIRE_WEAPON
@@ -2242,13 +2242,13 @@ FactionImladris	BruchtalBogenschuetzenHorde	Command_PurchaseUpgradeBruchtalBasic
 FactionImladris	BruchtalBogenschuetzenHorde	Command_PurchaseUpgradeBruchtalFireArrows	PASS	Upgrade_BruchtalFireArrows in 53 frames, cost 700, on all 5 members it affects
 FactionImladris	BruchtalBogenschuetzenHorde	Command_PurchaseUpgradeBruchtalHeavyArmor	PASS	Upgrade_BruchtalHeavyArmor in 53 frames, cost 500, on all 5 members it affects
 FactionImladris	BruchtalBogenschuetzenHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionImladris	BruchtalLancerHorde	Command_MithlondSentryPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5816d7f87a70 -> 0x5816d7fa0a30
+FactionImladris	BruchtalLancerHorde	Command_MithlondSentryPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x562180ffd830 -> 0x5621810167f0
 FactionImladris	BruchtalLancerHorde	Command_NoldorMasteryAbilityPike	PASS	SpecialAbilityNoldorMastery fired (target none) after 34 frames: WeaponModeSpecialPowerUpdate: 1 weapon modes on
 FactionImladris	BruchtalLancerHorde	Command_PurchaseUpgradeBruchtalBasicTraining	PASS	Upgrade_BruchtalBasicTraining in 53 frames, cost 300, on all 5 members it affects
 FactionImladris	BruchtalLancerHorde	Command_PurchaseUpgradeBruchtalForgedBlades	PASS	Upgrade_BruchtalForgedBlades in 53 frames, cost 500, on all 5 members it affects
 FactionImladris	BruchtalLancerHorde	Command_PurchaseUpgradeBruchtalHeavyArmor	PASS	Upgrade_BruchtalHeavyArmor in 53 frames, cost 500, on all 5 members it affects
 FactionImladris	BruchtalLancerHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionImladris	BruchtalLancerHordePorcupine	Command_MithlondSentryPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5816d7fa0a30 -> 0x5816d7f87a70
+FactionImladris	BruchtalLancerHordePorcupine	Command_MithlondSentryPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5621810167f0 -> 0x562180ffd830
 FactionImladris	BruchtalLancerHordePorcupine	Command_NoldorMasteryAbilityPike	PASS	SpecialAbilityNoldorMastery fired (target none) after 34 frames: WeaponModeSpecialPowerUpdate: 1 weapon modes on
 FactionImladris	BruchtalLancerHordePorcupine	Command_PurchaseUpgradeBruchtalBasicTraining	PASS	Upgrade_BruchtalBasicTraining in 53 frames, cost 300, on all 5 members it affects
 FactionImladris	BruchtalLancerHordePorcupine	Command_PurchaseUpgradeBruchtalForgedBlades	PASS	Upgrade_BruchtalForgedBlades in 53 frames, cost 500, on all 5 members it affects
@@ -2331,23 +2331,23 @@ FactionImladris	DwarvenGuardianLangbrte	Command_ToggleStance	DISABLED	DISABLED: 
 FactionImladris	DwarvenPhalanx	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
 FactionImladris	DwarvenPhalanxEreborHorde_Summoned	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionImladris	DwarvenPhalanxErebor_Summoned	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
-FactionImladris	DwarvenPhalanxHorde	Command_DwarvenPhalanxPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5816bad539d0 -> 0x5816bad6c4a0
+FactionImladris	DwarvenPhalanxHorde	Command_DwarvenPhalanxPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x56218e31ff60 -> 0x56218e338a30
 FactionImladris	DwarvenPhalanxHorde	Command_PurchaseUpgradeDwarvenBasicTraining	PASS	Upgrade_DwarvenBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionImladris	DwarvenPhalanxHorde	Command_PurchaseUpgradeDwarvenForgedBlades	PASS	Upgrade_DwarvenForgedBlades in 53 frames, cost 200, on all 15 members it affects
 FactionImladris	DwarvenPhalanxHorde	Command_PurchaseUpgradeDwarvenMithrilMail	PASS	Upgrade_DwarvenMithrilMail in 53 frames, cost 500, on all 15 members it affects
 FactionImladris	DwarvenPhalanxHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionImladris	DwarvenPhalanxHordePorcupine	Command_DwarvenPhalanxPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5816bad6c4a0 -> 0x5816bad539d0
+FactionImladris	DwarvenPhalanxHordePorcupine	Command_DwarvenPhalanxPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x56218e338a30 -> 0x56218e31ff60
 FactionImladris	DwarvenPhalanxHordePorcupine	Command_PurchaseUpgradeDwarvenBasicTraining	PASS	Upgrade_DwarvenBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionImladris	DwarvenPhalanxHordePorcupine	Command_PurchaseUpgradeDwarvenForgedBlades	PASS	Upgrade_DwarvenForgedBlades in 53 frames, cost 200, on all 12 members it affects
 FactionImladris	DwarvenPhalanxHordePorcupine	Command_PurchaseUpgradeDwarvenMithrilMail	PASS	Upgrade_DwarvenMithrilMail in 53 frames, cost 500, on all 12 members it affects
 FactionImladris	DwarvenPhalanxHordePorcupine	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionImladris	DwarvenPhalanxLangbrte	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
-FactionImladris	DwarvenPhalanxLangbrteHorde	Command_DwarvenPhalanxPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5816ab135080 -> 0x5816ab14e370
+FactionImladris	DwarvenPhalanxLangbrteHorde	Command_DwarvenPhalanxPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5621ab46b980 -> 0x5621ab484c70
 FactionImladris	DwarvenPhalanxLangbrteHorde	Command_PurchaseUpgradeDwarvenBasicTraining	PASS	Upgrade_DwarvenBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionImladris	DwarvenPhalanxLangbrteHorde	Command_PurchaseUpgradeDwarvenForgedBlades	PASS	Upgrade_DwarvenForgedBlades in 53 frames, cost 200, on all 10 members it affects
 FactionImladris	DwarvenPhalanxLangbrteHorde	Command_PurchaseUpgradeDwarvenHeavyArmor	PASS	Upgrade_DwarvenHeavyArmor in 53 frames, cost 200, on all 10 members it affects
 FactionImladris	DwarvenPhalanxLangbrteHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionImladris	DwarvenPhalanxLangbrteHordePorcupine	Command_DwarvenPhalanxPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5816ab14e370 -> 0x5816ab135080
+FactionImladris	DwarvenPhalanxLangbrteHordePorcupine	Command_DwarvenPhalanxPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5621ab484c70 -> 0x5621ab46b980
 FactionImladris	DwarvenPhalanxLangbrteHordePorcupine	Command_PurchaseUpgradeDwarvenBasicTraining	PASS	Upgrade_DwarvenBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionImladris	DwarvenPhalanxLangbrteHordePorcupine	Command_PurchaseUpgradeDwarvenForgedBlades	PASS	Upgrade_DwarvenForgedBlades in 53 frames, cost 200, on all 10 members it affects
 FactionImladris	DwarvenPhalanxLangbrteHordePorcupine	Command_PurchaseUpgradeDwarvenHeavyArmor	PASS	Upgrade_DwarvenHeavyArmor in 53 frames, cost 200, on all 10 members it affects
@@ -2378,12 +2378,12 @@ FactionImladris	ElvenKnightHorde	Command_WindRidersWeaponToggle	PASS	SpecialAbil
 FactionImladris	ElvenKnightHordeWedgeFormation	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionImladris	ElvenKnightHordeWedgeFormation	Command_WindRidersWeaponToggle	PASS	SpecialAbilityBerserkerLightTorch fired (target none) after 34 frames: WeaponChangeSpecialPowerModule: the weapon set flags changed (S-920 noted)
 FactionImladris	ElvenMithlondSentry	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
-FactionImladris	ElvenMithlondSentryHorde	Command_MithlondSentryPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5816ab2cd0e0 -> 0x5816ab2e6570
+FactionImladris	ElvenMithlondSentryHorde	Command_MithlondSentryPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x562180eda530 -> 0x562180ef39c0
 FactionImladris	ElvenMithlondSentryHorde	Command_PurchaseUpgradeElvenBasicTraining	PASS	Upgrade_ElvenBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionImladris	ElvenMithlondSentryHorde	Command_PurchaseUpgradeElvenForgedBlades	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyElvenForgedBlades
 FactionImladris	ElvenMithlondSentryHorde	Command_PurchaseUpgradeElvenHeavyArmor	PASS	Upgrade_ElvenHeavyArmor in 53 frames, cost 300, on all 10 members it affects
 FactionImladris	ElvenMithlondSentryHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionImladris	ElvenMithlondSentryHordePorcupine	Command_MithlondSentryPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5816ab2e6570 -> 0x5816ab2cd0e0
+FactionImladris	ElvenMithlondSentryHordePorcupine	Command_MithlondSentryPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x562180ef39c0 -> 0x562180eda530
 FactionImladris	ElvenMithlondSentryHordePorcupine	Command_PurchaseUpgradeElvenBasicTraining	PASS	Upgrade_ElvenBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionImladris	ElvenMithlondSentryHordePorcupine	Command_PurchaseUpgradeElvenForgedBlades	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyElvenForgedBlades
 FactionImladris	ElvenMithlondSentryHordePorcupine	Command_PurchaseUpgradeElvenHeavyArmor	PASS	Upgrade_ElvenHeavyArmor in 53 frames, cost 300, on all 10 members it affects
@@ -2448,19 +2448,19 @@ FactionImladris	GondorFighterHorde	(aura) ModuleTag_LeadershipBonus	PASS	AURA: G
 FactionImladris	GondorFighterHorde	Command_PurchaseUpgradeGondorBasicTraining	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyGondorBasicTraining
 FactionImladris	GondorFighterHorde	Command_PurchaseUpgradeGondorForgedBlades	PASS	Upgrade_GondorForgedBlades in 53 frames, cost 150, on all 15 members it affects
 FactionImladris	GondorFighterHorde	Command_PurchaseUpgradeGondorHeavyArmor	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyGondorHeavyArmor
-FactionImladris	GondorFighterHorde	Command_ToggleFormationGondorFighterNew	PASS	HORDE_TOGGLE_FORMATION: 0x5816c69f3c60 -> 0x5816c6a323a0
+FactionImladris	GondorFighterHorde	Command_ToggleFormationGondorFighterNew	PASS	HORDE_TOGGLE_FORMATION: 0x562199f84640 -> 0x562199fc2d80
 FactionImladris	GondorFighterHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionImladris	GondorFighterHordeBlock	(aura) ModuleTag_LeadershipBonus	PASS	AURA: GOndorHauptmannLeadership on MordorWorker (own) at 40 of Range 85, after Upgrade_HerzdesFeuers
 FactionImladris	GondorFighterHordeBlock	Command_PurchaseUpgradeGondorBasicTraining	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyGondorBasicTraining
 FactionImladris	GondorFighterHordeBlock	Command_PurchaseUpgradeGondorForgedBlades	PASS	Upgrade_GondorForgedBlades in 53 frames, cost 150, on all 15 members it affects
 FactionImladris	GondorFighterHordeBlock	Command_PurchaseUpgradeGondorHeavyArmor	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyGondorHeavyArmor
-FactionImladris	GondorFighterHordeBlock	Command_ToggleFormationGondorFighterNew	PASS	HORDE_TOGGLE_FORMATION: 0x5816c6a323a0 -> 0x5816c69f3c60
+FactionImladris	GondorFighterHordeBlock	Command_ToggleFormationGondorFighterNew	PASS	HORDE_TOGGLE_FORMATION: 0x562199fc2d80 -> 0x562199f84640
 FactionImladris	GondorFighterHordeBlock	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionImladris	GondorFighterHordeBlockUpgraded_Summoned	(aura) ModuleTag_LeadershipBonus	PASS	AURA: GOndorHauptmannLeadership on MordorWorker (own) at 22 of Range 45, after Upgrade_MenFaction
-FactionImladris	GondorFighterHordeBlockUpgraded_Summoned	Command_ToggleFormationGondorFighter	PASS	HORDE_TOGGLE_FORMATION: 0x5816ba2e4430 -> 0x5816ba2d1ad0
+FactionImladris	GondorFighterHordeBlockUpgraded_Summoned	Command_ToggleFormationGondorFighter	PASS	HORDE_TOGGLE_FORMATION: 0x5621a1090d90 -> 0x5621a107e430
 FactionImladris	GondorFighterHordeBlockUpgraded_Summoned	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionImladris	GondorFighterHordeUpgradet_Summoned	(aura) ModuleTag_LeadershipBonus	PASS	AURA: GOndorHauptmannLeadership on MordorWorker (own) at 22 of Range 45, after Upgrade_MenFaction
-FactionImladris	GondorFighterHordeUpgradet_Summoned	Command_ToggleFormationGondorFighter	PASS	HORDE_TOGGLE_FORMATION: 0x5816ba2d1ad0 -> 0x5816ba2e4430
+FactionImladris	GondorFighterHordeUpgradet_Summoned	Command_ToggleFormationGondorFighter	PASS	HORDE_TOGGLE_FORMATION: 0x5621a107e430 -> 0x5621a1090d90
 FactionImladris	GondorFighterHordeUpgradet_Summoned	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionImladris	GondorFighterUpgraded_Summoned	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
 FactionImladris	GondorGandalfGeprfte	(aura) ModuleTag_Nebeneffeckt1	PASS	AURA: GandalfderGeprfte1Modifier on Azog_CINE (own) at 40 of Range 200
@@ -2510,19 +2510,19 @@ FactionImladris	GondorSpearmanHorde	Command_PurchaseUpgradeGondorBasicTraining	D
 FactionImladris	GondorSpearmanHorde	Command_PurchaseUpgradeGondorForgedBlades	PASS	Upgrade_GondorForgedBlades in 53 frames, cost 150, on all 15 members it affects
 FactionImladris	GondorSpearmanHorde	Command_PurchaseUpgradeGondorHeavyArmor	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyGondorHeavyArmor
 FactionImladris	GondorSpearmanHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionImladris	GondorSpearmanHorde	Command_TowerGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5816ba36d3a0 -> 0x5816ba384d00
+FactionImladris	GondorSpearmanHorde	Command_TowerGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5621847d8a30 -> 0x5621847f0390
 FactionImladris	GondorSpearmanHordePorcupine	(aura) ModuleTag_LeadershipBonus	PASS	AURA: GOndorHauptmannLeadership on MordorWorker (own) at 40 of Range 85, after Upgrade_HerzdesFeuers
 FactionImladris	GondorSpearmanHordePorcupine	Command_PurchaseUpgradeGondorBasicTraining	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyGondorBasicTraining
 FactionImladris	GondorSpearmanHordePorcupine	Command_PurchaseUpgradeGondorForgedBlades	PASS	Upgrade_GondorForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionImladris	GondorSpearmanHordePorcupine	Command_PurchaseUpgradeGondorHeavyArmor	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyGondorHeavyArmor
 FactionImladris	GondorSpearmanHordePorcupine	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionImladris	GondorSpearmanHordePorcupine	Command_TowerGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5816ba384d00 -> 0x5816ba36d3a0
+FactionImladris	GondorSpearmanHordePorcupine	Command_TowerGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5621847f0390 -> 0x5621847d8a30
 FactionImladris	GondorSpearmanHordePorcupineUpgradet_Summoned	(aura) ModuleTag_LeadershipBonus	PASS	AURA: GOndorHauptmannLeadership on MordorWorker (own) at 22 of Range 45, after Upgrade_MenFaction
 FactionImladris	GondorSpearmanHordePorcupineUpgradet_Summoned	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionImladris	GondorSpearmanHordePorcupineUpgradet_Summoned	Command_TowerGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5816ba3cb7e0 -> 0x5816ba3b95d0
+FactionImladris	GondorSpearmanHordePorcupineUpgradet_Summoned	Command_TowerGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x562184836e70 -> 0x562184824c60
 FactionImladris	GondorSpearmanHordeUpgradet_Summoned	(aura) ModuleTag_LeadershipBonus	PASS	AURA: GOndorHauptmannLeadership on MordorWorker (own) at 22 of Range 45, after Upgrade_MenFaction
 FactionImladris	GondorSpearmanHordeUpgradet_Summoned	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionImladris	GondorSpearmanHordeUpgradet_Summoned	Command_TowerGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5816ba3b95d0 -> 0x5816ba3cb7e0
+FactionImladris	GondorSpearmanHordeUpgradet_Summoned	Command_TowerGuardPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x562184824c60 -> 0x562184836e70
 FactionImladris	GondorSpearmanUpgradet_Summoned	Command_PurchaseUpgradeGondorBasicTraining	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyGondorBasicTraining
 FactionImladris	GondorSpearmanUpgradet_Summoned	Command_PurchaseUpgradeGondorForgedBlades	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyGondorForgedBlades
 FactionImladris	GondorSpearmanUpgradet_Summoned	Command_PurchaseUpgradeGondorHeavyArmor	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyGondorHeavyArmor
@@ -2660,11 +2660,11 @@ FactionImladris	LindonMountedArcherHorde_Summoned	Command_ToggleStance	PASS	TOGG
 FactionImladris	LindonMountedArcher_Summoned	Command_LindonGoldenArrowPassive	PASS	NONPRESSABLE (option bit 28): a passive ability's indicator, not pressed
 FactionImladris	LindonMountedArcher_Summoned	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
 FactionImladris	LindonPikemanMod	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
-FactionImladris	LindonPikemanModHorde	Command_MithlondSentryPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5816b6cbe5d0 -> 0x5816b6cd5e10
+FactionImladris	LindonPikemanModHorde	Command_MithlondSentryPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x56218b737f70 -> 0x56218b74f7b0
 FactionImladris	LindonPikemanModHorde	Command_PurchaseUpgradeBruchtalBasicTrainingLindon	PASS	Upgrade_BruchtalBasicTrainingLindon in 53 frames, cost 100, on all 0 members it affects
 FactionImladris	LindonPikemanModHorde	Command_PurchaseUpgradeBruchtalForgedBladesLindon	PASS	Upgrade_BruchtalForgedBladesLindon in 53 frames, cost 250, on all 10 members it affects
 FactionImladris	LindonPikemanModHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionImladris	LindonPikemanModHordePorcupine	Command_MithlondSentryPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5816b6cd5e10 -> 0x5816b6cbe5d0
+FactionImladris	LindonPikemanModHordePorcupine	Command_MithlondSentryPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x56218b74f7b0 -> 0x56218b737f70
 FactionImladris	LindonPikemanModHordePorcupine	Command_PurchaseUpgradeBruchtalBasicTrainingLindon	PASS	Upgrade_BruchtalBasicTrainingLindon in 53 frames, cost 100, on all 0 members it affects
 FactionImladris	LindonPikemanModHordePorcupine	Command_PurchaseUpgradeBruchtalForgedBladesLindon	PASS	Upgrade_BruchtalForgedBladesLindon in 53 frames, cost 250, on all 10 members it affects
 FactionImladris	LindonPikemanModHordePorcupine	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
@@ -2705,10 +2705,10 @@ FactionImladris	MenWallSegmentSmall	Command_MenWallUpgradeToRegularGate	PASS	Upg
 FactionImladris	MenWallSegmentSmall	Command_MenWallUpgradeToTower	PASS	Upgrade_MenWallTower replaced the unit with MenWallTowerSmall after 100 frames, cost 600
 FactionImladris	MenWallSegmentSmall	Command_MenWallUpgradeToTrebuchet	PASS	Upgrade_MenWallTrebuchet replaced the unit with MenWallTrebuchetSmall after 150 frames, cost 600
 FactionImladris	MordorEasterling	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
-FactionImladris	MordorEasterlingHorde	Command_MordorEasterlingPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5816bca6bbf0 -> 0x5816be12ff50
+FactionImladris	MordorEasterlingHorde	Command_MordorEasterlingPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5621ad11fad0 -> 0x5621915a2a70
 FactionImladris	MordorEasterlingHorde	Command_PurchaseUpgradeMordorBasicTraining	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyMordorBasicTraining [script: Upgrade_TechnologyMordorBasicTraining <- ai_men of the west/WarCampFirstCheck GIVE_PLAYER_UPGRADE]
 FactionImladris	MordorEasterlingHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionImladris	MordorEasterlingHordePorcupine	Command_MordorEasterlingPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5816be12ff50 -> 0x5816bca6bbf0
+FactionImladris	MordorEasterlingHordePorcupine	Command_MordorEasterlingPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5621915a2a70 -> 0x5621ad11fad0
 FactionImladris	MordorEasterlingHordePorcupine	Command_PurchaseUpgradeMordorBasicTraining	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyMordorBasicTraining [script: Upgrade_TechnologyMordorBasicTraining <- ai_men of the west/WarCampFirstCheck GIVE_PLAYER_UPGRADE]
 FactionImladris	MordorEasterlingHordePorcupine	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionImladris	MordorFellBeast	Command_SpecialAbilityScreech	PASS	SpecialAbilityScreech fired (target none) after 43 frames: SpecialAbilityUpdate (SPECIAL_SCREECH: BeScary -> RadiateTerrorEx -> BeTerrified): object 31355 terrified (EMOTION_TERROR) (S-920 noted)
@@ -3160,13 +3160,13 @@ FactionDwarves	DwarvenPhalanx	Command_ToggleStance	DISABLED	DISABLED: needs a St
 FactionDwarves	DwarvenPhalanxBreitschultern	(aura) ModuleTag_Kriegsmaske	PASS	AURA: ZwergenKriegsmaskeDebuff on GondorFighterHorde (enemy) at 40 of Range 120, after Upgrade_DwarvenKriegsmaske
 FactionDwarves	DwarvenPhalanxBreitschultern	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
 FactionDwarves	DwarvenPhalanxBreitschulternHorde	(aura) ModuleTag_Kriegsmaske	PASS	AURA: ZwergenKriegsmaskeDebuff on GondorFighterHorde (enemy) at 40 of Range 120, after Upgrade_DwarvenKriegsmaske
-FactionDwarves	DwarvenPhalanxBreitschulternHorde	Command_DwarvenPhalanxPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x583254f89180 -> 0x583254fa2790
+FactionDwarves	DwarvenPhalanxBreitschulternHorde	Command_DwarvenPhalanxPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x568dac151350 -> 0x568dac16a960
 FactionDwarves	DwarvenPhalanxBreitschulternHorde	Command_PurchaseUpgradeDwarvenBasicTraining	PASS	Upgrade_DwarvenBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionDwarves	DwarvenPhalanxBreitschulternHorde	Command_PurchaseUpgradeDwarvenForgedBlades	PASS	Upgrade_DwarvenForgedBlades in 53 frames, cost 200, on all 10 members it affects
 FactionDwarves	DwarvenPhalanxBreitschulternHorde	Command_PurchaseUpgradeDwarvenHeavyArmor	PASS	Upgrade_DwarvenHeavyArmor in 53 frames, cost 200, on all 10 members it affects
 FactionDwarves	DwarvenPhalanxBreitschulternHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionDwarves	DwarvenPhalanxBreitschulternHordePorcupine	(aura) ModuleTag_Kriegsmaske	PASS	AURA: ZwergenKriegsmaskeDebuff on GondorFighterHorde (enemy) at 40 of Range 120, after Upgrade_DwarvenKriegsmaske
-FactionDwarves	DwarvenPhalanxBreitschulternHordePorcupine	Command_DwarvenPhalanxPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x583254fa2790 -> 0x583254f89180
+FactionDwarves	DwarvenPhalanxBreitschulternHordePorcupine	Command_DwarvenPhalanxPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x568dac16a960 -> 0x568dac151350
 FactionDwarves	DwarvenPhalanxBreitschulternHordePorcupine	Command_PurchaseUpgradeDwarvenBasicTraining	PASS	Upgrade_DwarvenBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionDwarves	DwarvenPhalanxBreitschulternHordePorcupine	Command_PurchaseUpgradeDwarvenForgedBlades	PASS	Upgrade_DwarvenForgedBlades in 53 frames, cost 200, on all 10 members it affects
 FactionDwarves	DwarvenPhalanxBreitschulternHordePorcupine	Command_PurchaseUpgradeDwarvenHeavyArmor	PASS	Upgrade_DwarvenHeavyArmor in 53 frames, cost 200, on all 10 members it affects
@@ -3174,34 +3174,34 @@ FactionDwarves	DwarvenPhalanxBreitschulternHordePorcupine	Command_ToggleStance	P
 FactionDwarves	DwarvenPhalanxFeuerbrte	(aura) ModuleTag_Reichtum	PASS	AURA: EomerPassiveOutlawLeadership on IsengardFighterHorde (own) at 5 of Range 10, after Upgrade_ZwergenschmiedReichtum
 FactionDwarves	DwarvenPhalanxFeuerbrte	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
 FactionDwarves	DwarvenPhalanxFeuerbrteHorde	(aura) ModuleTag_Reichtum	PASS	AURA: EomerPassiveOutlawLeadership on IsengardFighterHorde (own) at 5 of Range 10, after Upgrade_ZwergenschmiedReichtum
-FactionDwarves	DwarvenPhalanxFeuerbrteHorde	Command_DwarvenPhalanxPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x583254fb4f60 -> 0x583254fd2660
+FactionDwarves	DwarvenPhalanxFeuerbrteHorde	Command_DwarvenPhalanxPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x568dac17d130 -> 0x568dac19a830
 FactionDwarves	DwarvenPhalanxFeuerbrteHorde	Command_PurchaseUpgradeDwarvenBasicTraining	PASS	Upgrade_DwarvenBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionDwarves	DwarvenPhalanxFeuerbrteHorde	Command_PurchaseUpgradeDwarvenForgedBlades	PASS	Upgrade_DwarvenForgedBlades in 53 frames, cost 200, on all 10 members it affects
 FactionDwarves	DwarvenPhalanxFeuerbrteHorde	Command_PurchaseUpgradeDwarvenHeavyArmor	PASS	Upgrade_DwarvenHeavyArmor in 53 frames, cost 200, on all 10 members it affects
 FactionDwarves	DwarvenPhalanxFeuerbrteHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionDwarves	DwarvenPhalanxFeuerbrteHordePorcupine	(aura) ModuleTag_Reichtum	PASS	AURA: EomerPassiveOutlawLeadership on IsengardFighterHorde (own) at 5 of Range 10, after Upgrade_ZwergenschmiedReichtum
-FactionDwarves	DwarvenPhalanxFeuerbrteHordePorcupine	Command_DwarvenPhalanxPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x583254fd2660 -> 0x583254fb4f60
+FactionDwarves	DwarvenPhalanxFeuerbrteHordePorcupine	Command_DwarvenPhalanxPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x568dac19a830 -> 0x568dac17d130
 FactionDwarves	DwarvenPhalanxFeuerbrteHordePorcupine	Command_PurchaseUpgradeDwarvenBasicTraining	PASS	Upgrade_DwarvenBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionDwarves	DwarvenPhalanxFeuerbrteHordePorcupine	Command_PurchaseUpgradeDwarvenForgedBlades	PASS	Upgrade_DwarvenForgedBlades in 53 frames, cost 200, on all 10 members it affects
 FactionDwarves	DwarvenPhalanxFeuerbrteHordePorcupine	Command_PurchaseUpgradeDwarvenHeavyArmor	PASS	Upgrade_DwarvenHeavyArmor in 53 frames, cost 200, on all 10 members it affects
 FactionDwarves	DwarvenPhalanxFeuerbrteHordePorcupine	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionDwarves	DwarvenPhalanxHorde	Command_DwarvenPhalanxPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x583268069ec0 -> 0x583268082990
+FactionDwarves	DwarvenPhalanxHorde	Command_DwarvenPhalanxPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x568dcbfafb90 -> 0x568dcbfc8660
 FactionDwarves	DwarvenPhalanxHorde	Command_PurchaseUpgradeDwarvenBasicTraining	PASS	Upgrade_DwarvenBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionDwarves	DwarvenPhalanxHorde	Command_PurchaseUpgradeDwarvenForgedBlades	PASS	Upgrade_DwarvenForgedBlades in 53 frames, cost 200, on all 15 members it affects
 FactionDwarves	DwarvenPhalanxHorde	Command_PurchaseUpgradeDwarvenMithrilMail	PASS	Upgrade_DwarvenMithrilMail in 53 frames, cost 500, on all 15 members it affects
 FactionDwarves	DwarvenPhalanxHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionDwarves	DwarvenPhalanxHordePorcupine	Command_DwarvenPhalanxPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x583268082990 -> 0x583268069ec0
+FactionDwarves	DwarvenPhalanxHordePorcupine	Command_DwarvenPhalanxPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x568dcbfc8660 -> 0x568dcbfafb90
 FactionDwarves	DwarvenPhalanxHordePorcupine	Command_PurchaseUpgradeDwarvenBasicTraining	PASS	Upgrade_DwarvenBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionDwarves	DwarvenPhalanxHordePorcupine	Command_PurchaseUpgradeDwarvenForgedBlades	PASS	Upgrade_DwarvenForgedBlades in 53 frames, cost 200, on all 12 members it affects
 FactionDwarves	DwarvenPhalanxHordePorcupine	Command_PurchaseUpgradeDwarvenMithrilMail	PASS	Upgrade_DwarvenMithrilMail in 53 frames, cost 500, on all 12 members it affects
 FactionDwarves	DwarvenPhalanxHordePorcupine	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionDwarves	DwarvenPhalanxLangbrte	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
-FactionDwarves	DwarvenPhalanxLangbrteHorde	Command_DwarvenPhalanxPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x583254fe4de0 -> 0x583254ffe0d0
+FactionDwarves	DwarvenPhalanxLangbrteHorde	Command_DwarvenPhalanxPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x568dac1acfb0 -> 0x568dac1c62a0
 FactionDwarves	DwarvenPhalanxLangbrteHorde	Command_PurchaseUpgradeDwarvenBasicTraining	PASS	Upgrade_DwarvenBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionDwarves	DwarvenPhalanxLangbrteHorde	Command_PurchaseUpgradeDwarvenForgedBlades	PASS	Upgrade_DwarvenForgedBlades in 53 frames, cost 200, on all 10 members it affects
 FactionDwarves	DwarvenPhalanxLangbrteHorde	Command_PurchaseUpgradeDwarvenHeavyArmor	PASS	Upgrade_DwarvenHeavyArmor in 53 frames, cost 200, on all 10 members it affects
 FactionDwarves	DwarvenPhalanxLangbrteHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionDwarves	DwarvenPhalanxLangbrteHordePorcupine	Command_DwarvenPhalanxPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x583254ffe0d0 -> 0x583254fe4de0
+FactionDwarves	DwarvenPhalanxLangbrteHordePorcupine	Command_DwarvenPhalanxPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x568dac1c62a0 -> 0x568dac1acfb0
 FactionDwarves	DwarvenPhalanxLangbrteHordePorcupine	Command_PurchaseUpgradeDwarvenBasicTraining	PASS	Upgrade_DwarvenBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionDwarves	DwarvenPhalanxLangbrteHordePorcupine	Command_PurchaseUpgradeDwarvenForgedBlades	PASS	Upgrade_DwarvenForgedBlades in 53 frames, cost 200, on all 10 members it affects
 FactionDwarves	DwarvenPhalanxLangbrteHordePorcupine	Command_PurchaseUpgradeDwarvenHeavyArmor	PASS	Upgrade_DwarvenHeavyArmor in 53 frames, cost 200, on all 10 members it affects
@@ -3364,13 +3364,13 @@ FactionIsengard	IsengardBergwargreiterHorde	Command_PurchaseUpgradeIsengardBasic
 FactionIsengard	IsengardBergwargreiterHorde	Command_PurchaseUpgradeIsengardForgedBlades	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardForgedBlades
 FactionIsengard	IsengardBergwargreiterHorde	Command_PurchaseUpgradeIsengardHeavyArmor	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardHeavyArmor
 FactionIsengard	IsengardBergwargreiterHorde	Command_SpecialAbilityWargHowlNew	DISABLED	DISABLED: needs model USER_9 (the sweep could not set it: no known setter)
-FactionIsengard	IsengardBergwargreiterHorde	Command_ToggleFormationWargreiterWedge	PASS	HORDE_TOGGLE_FORMATION: 0x58f04ec49b40 -> 0x58f04ec5f440
+FactionIsengard	IsengardBergwargreiterHorde	Command_ToggleFormationWargreiterWedge	PASS	HORDE_TOGGLE_FORMATION: 0x5c1251f35360 -> 0x5c1251f4ac60
 FactionIsengard	IsengardBergwargreiterHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionIsengard	IsengardBergwargreiterHordeWedgeFormation	Command_PurchaseUpgradeIsengardBasicTraining	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardBasicTraining
 FactionIsengard	IsengardBergwargreiterHordeWedgeFormation	Command_PurchaseUpgradeIsengardForgedBlades	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardForgedBlades
 FactionIsengard	IsengardBergwargreiterHordeWedgeFormation	Command_PurchaseUpgradeIsengardHeavyArmor	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardHeavyArmor
 FactionIsengard	IsengardBergwargreiterHordeWedgeFormation	Command_SpecialAbilityWargHowlNew	DISABLED	DISABLED: needs model USER_9 (the sweep could not set it: no known setter)
-FactionIsengard	IsengardBergwargreiterHordeWedgeFormation	Command_ToggleFormationWargreiterWedge	PASS	HORDE_TOGGLE_FORMATION: 0x58f04ec5f440 -> 0x58f04ec49b40
+FactionIsengard	IsengardBergwargreiterHordeWedgeFormation	Command_ToggleFormationWargreiterWedge	PASS	HORDE_TOGGLE_FORMATION: 0x5c1251f4ac60 -> 0x5c1251f35360
 FactionIsengard	IsengardBergwargreiterHordeWedgeFormation	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionIsengard	IsengardBerserkerHorde	Command_SpecialAbilityDeathWish	PASS	SpecialAbilityFanaticHeroMode fired (target none) after 34 frames: WeaponModeSpecialPowerUpdate: 1 weapon modes on
 FactionIsengard	IsengardBerserkerHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
@@ -3410,25 +3410,25 @@ FactionIsengard	IsengardFighterHorde	Command_PurchaseUpgradeIsengardBasicTrainin
 FactionIsengard	IsengardFighterHorde	Command_PurchaseUpgradeIsengardForgedBlades	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardForgedBlades
 FactionIsengard	IsengardFighterHorde	Command_PurchaseUpgradeIsengardHeavyArmor	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardHeavyArmor
 FactionIsengard	IsengardFighterHorde	Command_SpecialAbilityUrukHauptmannSchwertkmpfer	DISABLED	DISABLED: needs model USER_1 (the sweep could not set it: no known setter)
-FactionIsengard	IsengardFighterHorde	Command_ToggleFormationIsengardFighter	PASS	HORDE_TOGGLE_FORMATION: 0x58f073bf14c0 -> 0x58f073c0c4a0
+FactionIsengard	IsengardFighterHorde	Command_ToggleFormationIsengardFighter	PASS	HORDE_TOGGLE_FORMATION: 0x5c125b1007b0 -> 0x5c125d28be20
 FactionIsengard	IsengardFighterHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionIsengard	IsengardFighterHordeArsenal	Command_PurchaseUpgradeIsengardBasicTraining	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardBasicTraining
 FactionIsengard	IsengardFighterHordeArsenal	Command_PurchaseUpgradeIsengardForgedBlades	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardForgedBlades
 FactionIsengard	IsengardFighterHordeArsenal	Command_PurchaseUpgradeIsengardHeavyArmor	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardHeavyArmor
 FactionIsengard	IsengardFighterHordeArsenal	Command_SpecialAbilityUrukHauptmannSchwertkmpfer	DISABLED	DISABLED: needs model USER_1 (the sweep could not set it: no known setter)
-FactionIsengard	IsengardFighterHordeArsenal	Command_ToggleFormationIsengardFighterArsenal	PASS	HORDE_TOGGLE_FORMATION: 0x58f0665dfcb0 -> 0x58f05d411c90
+FactionIsengard	IsengardFighterHordeArsenal	Command_ToggleFormationIsengardFighterArsenal	PASS	HORDE_TOGGLE_FORMATION: 0x5c125d29e060 -> 0x5c125d2b02d0
 FactionIsengard	IsengardFighterHordeArsenal	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionIsengard	IsengardFighterHordeBlock	Command_PurchaseUpgradeIsengardBasicTraining	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardBasicTraining
 FactionIsengard	IsengardFighterHordeBlock	Command_PurchaseUpgradeIsengardForgedBlades	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardForgedBlades
 FactionIsengard	IsengardFighterHordeBlock	Command_PurchaseUpgradeIsengardHeavyArmor	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardHeavyArmor
 FactionIsengard	IsengardFighterHordeBlock	Command_SpecialAbilityUrukHauptmannSchwertkmpfer	DISABLED	DISABLED: needs model USER_1 (the sweep could not set it: no known setter)
-FactionIsengard	IsengardFighterHordeBlock	Command_ToggleFormationIsengardFighter	PASS	HORDE_TOGGLE_FORMATION: 0x58f073c0c4a0 -> 0x58f073bf14c0
+FactionIsengard	IsengardFighterHordeBlock	Command_ToggleFormationIsengardFighter	PASS	HORDE_TOGGLE_FORMATION: 0x5c125d28be20 -> 0x5c125b1007b0
 FactionIsengard	IsengardFighterHordeBlock	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionIsengard	IsengardFighterHordeBlockArsenal	Command_PurchaseUpgradeIsengardBasicTraining	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardBasicTraining
 FactionIsengard	IsengardFighterHordeBlockArsenal	Command_PurchaseUpgradeIsengardForgedBlades	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardForgedBlades
 FactionIsengard	IsengardFighterHordeBlockArsenal	Command_PurchaseUpgradeIsengardHeavyArmor	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardHeavyArmor
 FactionIsengard	IsengardFighterHordeBlockArsenal	Command_SpecialAbilityUrukHauptmannSchwertkmpfer	DISABLED	DISABLED: needs model USER_1 (the sweep could not set it: no known setter)
-FactionIsengard	IsengardFighterHordeBlockArsenal	Command_ToggleFormationIsengardFighterArsenal	PASS	HORDE_TOGGLE_FORMATION: 0x58f05d411c90 -> 0x58f0665dfcb0
+FactionIsengard	IsengardFighterHordeBlockArsenal	Command_ToggleFormationIsengardFighterArsenal	PASS	HORDE_TOGGLE_FORMATION: 0x5c125d2b02d0 -> 0x5c125d29e060
 FactionIsengard	IsengardFighterHordeBlockArsenal	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionIsengard	IsengardFighterShieldurukComboHorde_Summoned	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionIsengard	IsengardFighter_Summoned	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
@@ -3462,13 +3462,13 @@ FactionIsengard	IsengardLurtz_mod	Command_ToggleStance	PASS	TOGGLE_STANCE radial
 FactionIsengard	IsengardMauhur_Spell	Command_SpecialAbilityWitterungAufnehmen	PASS	SpecialAbilityUglukHardMarch fired (target none) after 36 frames: SpecialPowerModule AttributeModifier WitterungModifierNew: WitterungModifierNew on object 16890 (S-920 noted)
 FactionIsengard	IsengardMauhur_Spell	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionIsengard	IsengardPikeman	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
-FactionIsengard	IsengardPikemanHorde	Command_IsengardPikemanPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x58f0664678b0 -> 0x58f0664829a0
+FactionIsengard	IsengardPikemanHorde	Command_IsengardPikemanPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5c126ac9ec20 -> 0x5c126acb9d10
 FactionIsengard	IsengardPikemanHorde	Command_PurchaseUpgradeIsengardBasicTraining	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardBasicTraining
 FactionIsengard	IsengardPikemanHorde	Command_PurchaseUpgradeIsengardForgedBlades	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardForgedBlades
 FactionIsengard	IsengardPikemanHorde	Command_PurchaseUpgradeIsengardHeavyArmor	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardHeavyArmor
 FactionIsengard	IsengardPikemanHorde	Command_SpecialAbilityUrukHauptmannLanzentrger	DISABLED	DISABLED: needs model USER_1 (the sweep could not set it: no known setter)
 FactionIsengard	IsengardPikemanHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionIsengard	IsengardPikemanHordePorcupine	Command_IsengardPikemanPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x58f0664829a0 -> 0x58f0664678b0
+FactionIsengard	IsengardPikemanHordePorcupine	Command_IsengardPikemanPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5c126acb9d10 -> 0x5c126ac9ec20
 FactionIsengard	IsengardPikemanHordePorcupine	Command_PurchaseUpgradeIsengardBasicTraining	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardBasicTraining
 FactionIsengard	IsengardPikemanHordePorcupine	Command_PurchaseUpgradeIsengardForgedBlades	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardForgedBlades
 FactionIsengard	IsengardPikemanHordePorcupine	Command_PurchaseUpgradeIsengardHeavyArmor	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardHeavyArmor
@@ -3682,12 +3682,12 @@ FactionMordor	DolguldurArcherNewHorde	Command_PurchaseUpgradeMordorFireArrows	PA
 FactionMordor	DolguldurArcherNewHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionMordor	DrogothAbilitiesShadow		TEMPORARY	TEMPORARY: a temporary object (a deletion / lifetime timer, or a slave without its master): it leaves by design
 FactionMordor	ElvenMithlondSentry	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
-FactionMordor	ElvenMithlondSentryHorde	Command_MithlondSentryPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5a1261febc70 -> 0x5a1262005100
+FactionMordor	ElvenMithlondSentryHorde	Command_MithlondSentryPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x59c6ffd113c0 -> 0x59c6ffd2a850
 FactionMordor	ElvenMithlondSentryHorde	Command_PurchaseUpgradeElvenBasicTraining	PASS	Upgrade_ElvenBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionMordor	ElvenMithlondSentryHorde	Command_PurchaseUpgradeElvenForgedBlades	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyElvenForgedBlades
 FactionMordor	ElvenMithlondSentryHorde	Command_PurchaseUpgradeElvenHeavyArmor	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyElvenHeavyArmor
 FactionMordor	ElvenMithlondSentryHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionMordor	ElvenMithlondSentryHordePorcupine	Command_MithlondSentryPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5a1262005100 -> 0x5a1261febc70
+FactionMordor	ElvenMithlondSentryHordePorcupine	Command_MithlondSentryPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x59c6ffd2a850 -> 0x59c6ffd113c0
 FactionMordor	ElvenMithlondSentryHordePorcupine	Command_PurchaseUpgradeElvenBasicTraining	PASS	Upgrade_ElvenBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionMordor	ElvenMithlondSentryHordePorcupine	Command_PurchaseUpgradeElvenForgedBlades	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyElvenForgedBlades
 FactionMordor	ElvenMithlondSentryHordePorcupine	Command_PurchaseUpgradeElvenHeavyArmor	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyElvenHeavyArmor
@@ -3764,7 +3764,7 @@ FactionMordor	HaradHaradrimRider	Command_ToggleStance	DISABLED	DISABLED: needs a
 FactionMordor	HaradHaradrimRiderHorde	Command_PurchaseUpgradeHaradBasicTraining	PASS	Upgrade_MordorBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionMordor	HaradHaradrimRiderHorde	Command_PurchaseUpgradeHaradForgedBlades	PASS	Upgrade_MordorForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionMordor	HaradHaradrimRiderHorde	Command_PurchaseUpgradeHaradHeavyArmor	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyMordorHeavyArmor
-FactionMordor	HaradHaradrimRiderHorde	Command_ToggleFormationHalfCircle	PASS	HORDE_TOGGLE_FORMATION: 0x5a1259065ac0 -> 0x5a12590907a0
+FactionMordor	HaradHaradrimRiderHorde	Command_ToggleFormationHalfCircle	PASS	HORDE_TOGGLE_FORMATION: 0x59c7199084a0 -> 0x59c719932fe0
 FactionMordor	HaradHaradrimRiderHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionMordor	HaradHaradrimRiderHorde_Summoned	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionMordor	HaradHaradrimRider_Summoned	Command_PurchaseUpgradeHaradBasicTraining	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyMordorBasicTraining [script: Upgrade_TechnologyMordorBasicTraining <- ai_men of the west/WarCampFirstCheck GIVE_PLAYER_UPGRADE]
@@ -3775,7 +3775,7 @@ FactionMordor	HaradHaradrimRider_Summoned	Command_ToggleStance	DISABLED	DISABLED
 FactionMordor	HaradrimRiderWedgeFormation	Command_PurchaseUpgradeHaradBasicTraining	PASS	Upgrade_MordorBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionMordor	HaradrimRiderWedgeFormation	Command_PurchaseUpgradeHaradForgedBlades	PASS	Upgrade_MordorForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionMordor	HaradrimRiderWedgeFormation	Command_PurchaseUpgradeHaradHeavyArmor	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyMordorHeavyArmor
-FactionMordor	HaradrimRiderWedgeFormation	Command_ToggleFormationHalfCircle	PASS	HORDE_TOGGLE_FORMATION: 0x5a12590907a0 -> 0x5a1259065ac0
+FactionMordor	HaradrimRiderWedgeFormation	Command_ToggleFormationHalfCircle	PASS	HORDE_TOGGLE_FORMATION: 0x59c719932fe0 -> 0x59c7199084a0
 FactionMordor	HaradrimRiderWedgeFormation	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionMordor	IsengardBatteringRam	Command_IsengardCraneSelfRepairPassive	PASS	NONPRESSABLE (option bit 28): a passive ability's indicator, not pressed
 FactionMordor	IsengardBatteringRam	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
@@ -3798,11 +3798,11 @@ FactionMordor	MordorAufseherArcherHordeComboHorde	Command_PurchaseUpgradeMordorB
 FactionMordor	MordorAufseherArcherHordeComboHorde	Command_PurchaseUpgradeMordorFireArrows	PASS	Upgrade_MordorFireArrows in 53 frames, cost 250, on all 20 members it affects
 FactionMordor	MordorAufseherArcherHordeComboHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionMordor	MordorAufseherCirithOrkHordeComboHorde	Command_MordorAufseherInfoBox_ComboHorde	PASS	NONPRESSABLE (option bit 28): a passive ability's indicator, not pressed
-FactionMordor	MordorAufseherCirithOrkHordeComboHorde	Command_MordorPikemanPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5a12484d2330 -> 0x5a12484ea650
+FactionMordor	MordorAufseherCirithOrkHordeComboHorde	Command_MordorPikemanPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x59c704422760 -> 0x59c70443aa80
 FactionMordor	MordorAufseherCirithOrkHordeComboHorde	Command_PurchaseUpgradeMordorOrkSchnffler	PASS	Upgrade_MordorBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionMordor	MordorAufseherCirithOrkHordeComboHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionMordor	MordorAufseherCirithOrkHordeComboHordePorcupine	Command_MordorAufseherInfoBox_ComboHorde	PASS	NONPRESSABLE (option bit 28): a passive ability's indicator, not pressed
-FactionMordor	MordorAufseherCirithOrkHordeComboHordePorcupine	Command_MordorPikemanPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5a12484ea650 -> 0x5a12484d2330
+FactionMordor	MordorAufseherCirithOrkHordeComboHordePorcupine	Command_MordorPikemanPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x59c70443aa80 -> 0x59c704422760
 FactionMordor	MordorAufseherCirithOrkHordeComboHordePorcupine	Command_PurchaseUpgradeMordorOrkSchnffler	PASS	Upgrade_MordorBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionMordor	MordorAufseherCirithOrkHordeComboHordePorcupine	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionMordor	MordorAufseherFighterHordeComboHorde	Command_BloodThirstySacrifice	PASS	BLOODTHIRSTY
@@ -3853,12 +3853,12 @@ FactionMordor	MordorCatapult	Command_ToggleCatAutoAcquire	PASS	TOGGLE_NO_AUTO_AC
 FactionMordor	MordorCatapult	Command_ToggleMordorCatapultHeadsWeaponNew	PASS	SpecialAbilityAragornBladeMaster2 fired (target none) after 34 frames: WeaponModeSpecialPowerUpdate: 1 weapon modes on
 FactionMordor	MordorCatapult	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionMordor	MordorCirithOrk	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
-FactionMordor	MordorCirithOrkHorde	Command_MordorPikemanPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5a1247f56a30 -> 0x5a125665dff0
+FactionMordor	MordorCirithOrkHorde	Command_MordorPikemanPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x59c70b5a7640 -> 0x59c70b5bf850
 FactionMordor	MordorCirithOrkHorde	Command_PurchaseUpgradeMordorBasicTraining	PASS	Upgrade_MordorBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionMordor	MordorCirithOrkHorde	Command_PurchaseUpgradeMordorForgedBladesNew	PASS	Upgrade_MordorForgedBlades in 53 frames, cost 150, on all 15 members it affects
 FactionMordor	MordorCirithOrkHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionMordor	MordorCirithOrkHorde	Command_UngolPikemanPassive	PASS	NONPRESSABLE (option bit 28): a passive ability's indicator, not pressed
-FactionMordor	MordorCirithOrkHordePorcupine	Command_MordorPikemanPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5a125665dff0 -> 0x5a1247f56a30
+FactionMordor	MordorCirithOrkHordePorcupine	Command_MordorPikemanPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x59c70b5bf850 -> 0x59c70b5a7640
 FactionMordor	MordorCirithOrkHordePorcupine	Command_PurchaseUpgradeMordorBasicTraining	PASS	Upgrade_MordorBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionMordor	MordorCirithOrkHordePorcupine	Command_PurchaseUpgradeMordorForgedBladesNew	PASS	Upgrade_MordorForgedBlades in 53 frames, cost 150, on all 15 members it affects
 FactionMordor	MordorCirithOrkHordePorcupine	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
@@ -3874,13 +3874,13 @@ FactionMordor	MordorEasterlingBlackGuard	Command_ToggleStance	DISABLED	DISABLED:
 FactionMordor	MordorEasterlingBlackGuardHorde	(aura) ModuleTag_RhunCapitanLeadershipUpdate	PASS	AURA: BlackEasterlingKhamulLeadership on GasthausKhamulSpell (own) at 40 of Range 300
 FactionMordor	MordorEasterlingBlackGuardHorde	Command_MordorKhamulBlackGuardPassive	PASS	NONPRESSABLE (option bit 28): a passive ability's indicator, not pressed
 FactionMordor	MordorEasterlingBlackGuardHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionMordor	MordorEasterlingHorde	Command_MordorEasterlingPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5a12584c2440 -> 0x5a12367a3a80
+FactionMordor	MordorEasterlingHorde	Command_MordorEasterlingPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x59c707f763f0 -> 0x59c70828e970
 FactionMordor	MordorEasterlingHorde	Command_PurchaseUpgradeMordorBasicTraining	PASS	Upgrade_MordorBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionMordor	MordorEasterlingHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionMordor	MordorEasterlingHordePorcupine	Command_MordorEasterlingPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5a12367a3a80 -> 0x5a12584c2440
+FactionMordor	MordorEasterlingHordePorcupine	Command_MordorEasterlingPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x59c70828e970 -> 0x59c707f763f0
 FactionMordor	MordorEasterlingHordePorcupine	Command_PurchaseUpgradeMordorBasicTraining	PASS	Upgrade_MordorBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionMordor	MordorEasterlingHordePorcupine	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionMordor	MordorEasterlingHorde_Summoned	Command_MordorEasterlingPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5a1236791740 -> 0x5a12367a3a80
+FactionMordor	MordorEasterlingHorde_Summoned	Command_MordorEasterlingPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x59c70827c630 -> 0x59c70828e970
 FactionMordor	MordorEasterlingHorde_Summoned	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionMordor	MordorEasterling_Summoned	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
 FactionMordor	MordorFighter	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
@@ -4331,13 +4331,13 @@ FactionWild	GundabadFighterHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial:
 FactionWild	GundabadGiantBat	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionWild	GundabadPike	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
 FactionWild	GundabadPikeHorde	Command_AbilityGundabadBuff	PASS	SpecialAbilityGundabadHordeBuff fired (target none) after 34 frames: WeaponModeSpecialPowerUpdate: 1 weapon modes on
-FactionWild	GundabadPikeHorde	Command_GundabadPikemanPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5a8765e88010 -> 0x5a8765ea0170
+FactionWild	GundabadPikeHorde	Command_GundabadPikemanPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5671fb559e80 -> 0x5671fb571fe0
 FactionWild	GundabadPikeHorde	Command_PurchaseUpgradeGundabadForgedBlades	PASS	Upgrade_GundabadForgedBlades in 53 frames, cost 150, on all 15 members it affects
 FactionWild	GundabadPikeHorde	Command_PurchaseUpgradeWildBasicTraining	PASS	Upgrade_WildBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionWild	GundabadPikeHorde	Command_PurchaseUpgradeWildHeavyArmor	PASS	Upgrade_WildHeavyArmor in 53 frames, cost 200, on all 15 members it affects
 FactionWild	GundabadPikeHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionWild	GundabadPikeHordePorcupine	Command_AbilityGundabadBuff	PASS	SpecialAbilityGundabadHordeBuff fired (target none) after 34 frames: WeaponModeSpecialPowerUpdate: 1 weapon modes on
-FactionWild	GundabadPikeHordePorcupine	Command_GundabadPikemanPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5a8765ea0170 -> 0x5a8765e88010
+FactionWild	GundabadPikeHordePorcupine	Command_GundabadPikemanPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5671fb571fe0 -> 0x5671fb559e80
 FactionWild	GundabadPikeHordePorcupine	Command_PurchaseUpgradeGundabadForgedBlades	PASS	Upgrade_GundabadForgedBlades in 53 frames, cost 150, on all 15 members it affects
 FactionWild	GundabadPikeHordePorcupine	Command_PurchaseUpgradeWildBasicTraining	PASS	Upgrade_WildBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionWild	GundabadPikeHordePorcupine	Command_PurchaseUpgradeWildHeavyArmor	PASS	Upgrade_WildHeavyArmor in 53 frames, cost 200, on all 15 members it affects
@@ -4366,13 +4366,13 @@ FactionWild	GundabadWarriorHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial:
 FactionWild	HeideMiniDragon	Command_DminirogothFireball	PASS	SpecialAbilityDrogothFireball fired (target GondorFighter) after 56 frames: WeaponFireSpecialAbilityUpdate SpecialWeapon DrogothFireball: its first hit after the cast (frame 19) 1194, the weapon's 500 (all nuggets 950) against the victim's armour; no hit before the cast, WeaponFireSpecialAbilityUpdate SpecialWeapon DrogothFireball (MetaImpactNugget): metaImpactHits 0 -> 12 (S-920 noted)
 FactionWild	HeideMiniDragon	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionWild	IsengardPikeman	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
-FactionWild	IsengardPikemanHorde	Command_IsengardPikemanPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5a878a54bd10 -> 0x5a878a566fc0
+FactionWild	IsengardPikemanHorde	Command_IsengardPikemanPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x56720d0235f0 -> 0x56720a7727f0
 FactionWild	IsengardPikemanHorde	Command_PurchaseUpgradeIsengardBasicTraining	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardBasicTraining
 FactionWild	IsengardPikemanHorde	Command_PurchaseUpgradeIsengardForgedBlades	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardForgedBlades
 FactionWild	IsengardPikemanHorde	Command_PurchaseUpgradeIsengardHeavyArmor	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardHeavyArmor
 FactionWild	IsengardPikemanHorde	Command_SpecialAbilityUrukHauptmannLanzentrger	DISABLED	DISABLED: needs model USER_1 (the sweep could not set it: no known setter)
 FactionWild	IsengardPikemanHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionWild	IsengardPikemanHordePorcupine	Command_IsengardPikemanPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5a878a566fc0 -> 0x5a878a54bd10
+FactionWild	IsengardPikemanHordePorcupine	Command_IsengardPikemanPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x56720a7727f0 -> 0x56720d0235f0
 FactionWild	IsengardPikemanHordePorcupine	Command_PurchaseUpgradeIsengardBasicTraining	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardBasicTraining
 FactionWild	IsengardPikemanHordePorcupine	Command_PurchaseUpgradeIsengardForgedBlades	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardForgedBlades
 FactionWild	IsengardPikemanHordePorcupine	Command_PurchaseUpgradeIsengardHeavyArmor	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardHeavyArmor
@@ -4502,17 +4502,17 @@ FactionWild	WildMarauder	Command_ToggleStance	DISABLED	DISABLED: needs a Stances
 FactionWild	WildMarauderHorde	Command_PurchaseSpiderVenomSacksUpgrade	PASS	Upgrade_WildSpiderVenomSacks in 53 frames, cost 200, on all 10 members it affects
 FactionWild	WildMarauderHorde	Command_PurchaseUpgradeWildBasicTraining	PASS	Upgrade_WildBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionWild	WildMarauderHorde	Command_PurchaseUpgradeWildHeavyArmor	PASS	Upgrade_WildHeavyArmor in 53 frames, cost 200, on all 10 members it affects
-FactionWild	WildMarauderHorde	Command_ToggleFormationWildMarauder	PASS	HORDE_TOGGLE_FORMATION: 0x5a8778ad9bb0 -> 0x5a8778af19a0
+FactionWild	WildMarauderHorde	Command_ToggleFormationWildMarauder	PASS	HORDE_TOGGLE_FORMATION: 0x5671f7a2cf50 -> 0x5671f7a44d40
 FactionWild	WildMarauderHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionWild	WildMarauderHordeFormation	Command_PurchaseSpiderVenomSacksUpgrade	PASS	Upgrade_WildSpiderVenomSacks in 53 frames, cost 200, on all 10 members it affects
 FactionWild	WildMarauderHordeFormation	Command_PurchaseUpgradeWildBasicTraining	PASS	Upgrade_WildBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionWild	WildMarauderHordeFormation	Command_PurchaseUpgradeWildHeavyArmor	PASS	Upgrade_WildHeavyArmor in 53 frames, cost 200, on all 10 members it affects
-FactionWild	WildMarauderHordeFormation	Command_ToggleFormationWildMarauder	PASS	HORDE_TOGGLE_FORMATION: 0x5a8778af19a0 -> 0x5a8778ad9bb0
+FactionWild	WildMarauderHordeFormation	Command_ToggleFormationWildMarauder	PASS	HORDE_TOGGLE_FORMATION: 0x5671f7a44d40 -> 0x5671f7a2cf50
 FactionWild	WildMarauderHordeFormation	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionWild	WildMarauderHordePorcupine	Command_PurchaseSpiderVenomSacksUpgrade	PASS	Upgrade_WildSpiderVenomSacks in 53 frames, cost 200, on all 8 members it affects
 FactionWild	WildMarauderHordePorcupine	Command_PurchaseUpgradeWildBasicTraining	PASS	Upgrade_WildBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionWild	WildMarauderHordePorcupine	Command_PurchaseUpgradeWildHeavyArmor	PASS	Upgrade_WildHeavyArmor in 53 frames, cost 200, on all 8 members it affects
-FactionWild	WildMarauderHordePorcupine	Command_ToggleFormationWildMarauder	PASS	HORDE_TOGGLE_FORMATION: 0x5a8778b031a0 -> 0x5a8778ad9bb0
+FactionWild	WildMarauderHordePorcupine	Command_ToggleFormationWildMarauder	PASS	HORDE_TOGGLE_FORMATION: 0x5671f965cb50 -> 0x5671f7a2cf50
 FactionWild	WildMarauderHordePorcupine	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionWild	WildMarauderSwordBanner	Command_AngmarTrollChargeAttack	NO-SEND	SpecialAbilityAngmarCharge: the click on its target sent nothing (target GondorBoromir at 1300,2702,100, owner Player_2 [pixel 512,384, collision 0x94, model pick 2, 8 clicks of 1 spots] (nothing sent; the pick there hits GondorBoromir/0x94/Player_2)) (first try, target GondorFighter at 1280,2730,100, owner Player_2 [pixel 512,384, collision 0x14, model pick 2, 8 clicks of 1 spots] (nothing sent; the pick there hits GondorFighter/0x14/Player_2 GondorFighter/0x14/Player_2 GondorFighter/0x14/Player_2 GondorFighter/0x14/Player_2 GondorFighter/0x14/Player_2 GondorFighter/0x14/Player_2 GondorFighter/0x14/Player_2 GondorFighter/0x14/Player_2))
 FactionWild	WildMarauderSwordBanner	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
@@ -4730,13 +4730,13 @@ FactionAngmar	AngmarDunedainPikeman	Command_PurchaseUpgradeAngmarBasicTraining	D
 FactionAngmar	AngmarDunedainPikeman	Command_PurchaseUpgradeAngmarDarkIronArmor	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyAngmarDarkIronArmor
 FactionAngmar	AngmarDunedainPikeman	Command_PurchaseUpgradeAngmarDarkIronBlades	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyAngmarDarkIronBlades
 FactionAngmar	AngmarDunedainPikeman	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
-FactionAngmar	AngmarDunedainPikemanHorde	Command_AngmarPikemanPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5859cd738c00 -> 0x5859cd754910
+FactionAngmar	AngmarDunedainPikemanHorde	Command_AngmarPikemanPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x59f70ad3f1f0 -> 0x59f70ad5af00
 FactionAngmar	AngmarDunedainPikemanHorde	Command_DDDeathMask	PASS	Upgrade_DeathMasks in 53 frames, cost 50, on all 10 members it affects
 FactionAngmar	AngmarDunedainPikemanHorde	Command_PurchaseUpgradeAngmarBasicTraining	PASS	Upgrade_AngmarBasicTraining in 53 frames, cost 100, on all 11 members it affects
 FactionAngmar	AngmarDunedainPikemanHorde	Command_PurchaseUpgradeAngmarDarkIronArmor	PASS	Upgrade_AngmarDarkIronArmor in 53 frames, cost 200, on all 10 members it affects
 FactionAngmar	AngmarDunedainPikemanHorde	Command_PurchaseUpgradeAngmarDarkIronBlades	PASS	Upgrade_AngmarDarkIronBlades in 53 frames, cost 150, on all 10 members it affects
 FactionAngmar	AngmarDunedainPikemanHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionAngmar	AngmarDunedainPikemanHordePorcupine	Command_AngmarPikemanPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5859cd754910 -> 0x5859cd738c00
+FactionAngmar	AngmarDunedainPikemanHordePorcupine	Command_AngmarPikemanPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x59f70ad5af00 -> 0x59f70ad3f1f0
 FactionAngmar	AngmarDunedainPikemanHordePorcupine	Command_DDDeathMask	PASS	Upgrade_DeathMasks in 53 frames, cost 50, on all 10 members it affects
 FactionAngmar	AngmarDunedainPikemanHordePorcupine	Command_PurchaseUpgradeAngmarBasicTraining	PASS	Upgrade_AngmarBasicTraining in 53 frames, cost 100, on all 11 members it affects
 FactionAngmar	AngmarDunedainPikemanHordePorcupine	Command_PurchaseUpgradeAngmarDarkIronArmor	PASS	Upgrade_AngmarDarkIronArmor in 53 frames, cost 200, on all 10 members it affects
@@ -4986,13 +4986,13 @@ FactionAngmar	HarbringerOfDark	Command_UpgradeHarbringerRhudaurChoice	PASS	Upgra
 FactionAngmar	IsengardBatteringRam	Command_IsengardCraneSelfRepairPassive	PASS	NONPRESSABLE (option bit 28): a passive ability's indicator, not pressed
 FactionAngmar	IsengardBatteringRam	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionAngmar	IsengardPikeman	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
-FactionAngmar	IsengardPikemanHorde	Command_IsengardPikemanPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5859e3148830 -> 0x5859cf18ba10
+FactionAngmar	IsengardPikemanHorde	Command_IsengardPikemanPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x59f6f9d2b620 -> 0x59f6f9d467a0
 FactionAngmar	IsengardPikemanHorde	Command_PurchaseUpgradeIsengardBasicTraining	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardBasicTraining
 FactionAngmar	IsengardPikemanHorde	Command_PurchaseUpgradeIsengardForgedBlades	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardForgedBlades
 FactionAngmar	IsengardPikemanHorde	Command_PurchaseUpgradeIsengardHeavyArmor	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardHeavyArmor
 FactionAngmar	IsengardPikemanHorde	Command_SpecialAbilityUrukHauptmannLanzentrger	DISABLED	DISABLED: needs model USER_1 (the sweep could not set it: no known setter)
 FactionAngmar	IsengardPikemanHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionAngmar	IsengardPikemanHordePorcupine	Command_IsengardPikemanPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5859cf18ba10 -> 0x5859e3148830
+FactionAngmar	IsengardPikemanHordePorcupine	Command_IsengardPikemanPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x59f6f9d467a0 -> 0x59f6f9d2b620
 FactionAngmar	IsengardPikemanHordePorcupine	Command_PurchaseUpgradeIsengardBasicTraining	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardBasicTraining
 FactionAngmar	IsengardPikemanHordePorcupine	Command_PurchaseUpgradeIsengardForgedBlades	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardForgedBlades
 FactionAngmar	IsengardPikemanHordePorcupine	Command_PurchaseUpgradeIsengardHeavyArmor	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyIsengardHeavyArmor
@@ -5051,17 +5051,17 @@ FactionAngmar	WildMarauder	Command_ToggleStance	DISABLED	DISABLED: needs a Stanc
 FactionAngmar	WildMarauderHorde	Command_PurchaseSpiderVenomSacksUpgrade	DISABLED	DISABLED: needs upgrade Upgrade_WildSpiderVenomSackScience
 FactionAngmar	WildMarauderHorde	Command_PurchaseUpgradeWildBasicTraining	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyWildBasicTraining
 FactionAngmar	WildMarauderHorde	Command_PurchaseUpgradeWildHeavyArmor	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyWildHeavyArmor
-FactionAngmar	WildMarauderHorde	Command_ToggleFormationWildMarauder	PASS	HORDE_TOGGLE_FORMATION: 0x5859cff04880 -> 0x5859ce3bfce0
+FactionAngmar	WildMarauderHorde	Command_ToggleFormationWildMarauder	PASS	HORDE_TOGGLE_FORMATION: 0x59f713024310 -> 0x59f71303c100
 FactionAngmar	WildMarauderHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionAngmar	WildMarauderHordeFormation	Command_PurchaseSpiderVenomSacksUpgrade	DISABLED	DISABLED: needs upgrade Upgrade_WildSpiderVenomSackScience
 FactionAngmar	WildMarauderHordeFormation	Command_PurchaseUpgradeWildBasicTraining	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyWildBasicTraining
 FactionAngmar	WildMarauderHordeFormation	Command_PurchaseUpgradeWildHeavyArmor	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyWildHeavyArmor
-FactionAngmar	WildMarauderHordeFormation	Command_ToggleFormationWildMarauder	PASS	HORDE_TOGGLE_FORMATION: 0x5859ce3bfce0 -> 0x5859cff04880
+FactionAngmar	WildMarauderHordeFormation	Command_ToggleFormationWildMarauder	PASS	HORDE_TOGGLE_FORMATION: 0x59f71303c100 -> 0x59f713024310
 FactionAngmar	WildMarauderHordeFormation	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionAngmar	WildMarauderHordePorcupine	Command_PurchaseSpiderVenomSacksUpgrade	DISABLED	DISABLED: needs upgrade Upgrade_WildSpiderVenomSackScience
 FactionAngmar	WildMarauderHordePorcupine	Command_PurchaseUpgradeWildBasicTraining	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyWildBasicTraining
 FactionAngmar	WildMarauderHordePorcupine	Command_PurchaseUpgradeWildHeavyArmor	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyWildHeavyArmor
-FactionAngmar	WildMarauderHordePorcupine	Command_ToggleFormationWildMarauder	PASS	HORDE_TOGGLE_FORMATION: 0x5859ce3d14e0 -> 0x5859cff04880
+FactionAngmar	WildMarauderHordePorcupine	Command_ToggleFormationWildMarauder	PASS	HORDE_TOGGLE_FORMATION: 0x59f71304d900 -> 0x59f713024310
 FactionAngmar	WildMarauderHordePorcupine	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionAngmar	spell	SpellBookAngmarDarkFortress	PASS	OCLSpecialPower OCL OCL_SpellBookDarkFortress: AngmarDarkFortressEgg 1546 made (frame 1944)
 FactionAngmar	spell	SpellBookAngmarLegions	PASS	OCLSpecialPower OCL OCL_SpellBookAngmarLegion: AngmarSavageSummonEggNew 988 made (frame 1114)
@@ -5082,12 +5082,12 @@ FactionEvilmen	BlackSerpentGuardHorde	Command_ToggleBlackSerpentWeapon	PASS	TOGG
 FactionEvilmen	BlackSerpentGuardHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionEvilmen	DesertScorpionSmaller	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionEvilmen	ElvenMithlondSentry	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
-FactionEvilmen	ElvenMithlondSentryHorde	Command_MithlondSentryPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5bab158a5fd0 -> 0x5bab158bf460
+FactionEvilmen	ElvenMithlondSentryHorde	Command_MithlondSentryPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5a206bb0ad00 -> 0x5a206bb24190
 FactionEvilmen	ElvenMithlondSentryHorde	Command_PurchaseUpgradeElvenBasicTraining	PASS	Upgrade_ElvenBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionEvilmen	ElvenMithlondSentryHorde	Command_PurchaseUpgradeElvenForgedBlades	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyElvenForgedBlades
 FactionEvilmen	ElvenMithlondSentryHorde	Command_PurchaseUpgradeElvenHeavyArmor	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyElvenHeavyArmor
 FactionEvilmen	ElvenMithlondSentryHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionEvilmen	ElvenMithlondSentryHordePorcupine	Command_MithlondSentryPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5bab158bf460 -> 0x5bab158a5fd0
+FactionEvilmen	ElvenMithlondSentryHordePorcupine	Command_MithlondSentryPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5a206bb24190 -> 0x5a206bb0ad00
 FactionEvilmen	ElvenMithlondSentryHordePorcupine	Command_PurchaseUpgradeElvenBasicTraining	PASS	Upgrade_ElvenBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionEvilmen	ElvenMithlondSentryHordePorcupine	Command_PurchaseUpgradeElvenForgedBlades	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyElvenForgedBlades
 FactionEvilmen	ElvenMithlondSentryHordePorcupine	Command_PurchaseUpgradeElvenHeavyArmor	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyElvenHeavyArmor
@@ -5202,12 +5202,12 @@ FactionEvilmen	HaradFighter	Command_ToggleStance	DISABLED	DISABLED: needs a Stan
 FactionEvilmen	HaradFighterHorde	Command_PurchaseUpgradeHaradBasicTraining	PASS	Upgrade_MordorBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionEvilmen	HaradFighterHorde	Command_PurchaseUpgradeHaradForgedBlades	PASS	Upgrade_MordorForgedBlades in 53 frames, cost 150, on all 15 members it affects
 FactionEvilmen	HaradFighterHorde	Command_PurchaseUpgradeHaradHeavyArmor	PASS	Upgrade_MordorHeavyArmor in 53 frames, cost 200, on all 15 members it affects
-FactionEvilmen	HaradFighterHorde	Command_ToggleFormationHaradSkrimish	PASS	HORDE_TOGGLE_FORMATION: 0x5bab31da7490 -> 0x5bab31dbfec0
+FactionEvilmen	HaradFighterHorde	Command_ToggleFormationHaradSkrimish	PASS	HORDE_TOGGLE_FORMATION: 0x5a2084c6a810 -> 0x5a2071630aa0
 FactionEvilmen	HaradFighterHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionEvilmen	HaradFighterHordeSkrimish	Command_PurchaseUpgradeHaradBasicTraining	PASS	Upgrade_MordorBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionEvilmen	HaradFighterHordeSkrimish	Command_PurchaseUpgradeHaradForgedBlades	PASS	Upgrade_MordorForgedBlades in 53 frames, cost 150, on all 15 members it affects
 FactionEvilmen	HaradFighterHordeSkrimish	Command_PurchaseUpgradeHaradHeavyArmor	PASS	Upgrade_MordorHeavyArmor in 53 frames, cost 200, on all 15 members it affects
-FactionEvilmen	HaradFighterHordeSkrimish	Command_ToggleFormationHaradSkrimish	PASS	HORDE_TOGGLE_FORMATION: 0x5bab31dbfec0 -> 0x5bab31da7490
+FactionEvilmen	HaradFighterHordeSkrimish	Command_ToggleFormationHaradSkrimish	PASS	HORDE_TOGGLE_FORMATION: 0x5a2071630aa0 -> 0x5a2084c6a810
 FactionEvilmen	HaradFighterHordeSkrimish	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionEvilmen	HaradForge	Command_PurchaseUpgradeHaradForgeLevel3	PASS	Upgrade_GondorForgeLevel3 in 300 frames, cost 250, on all 0 members it affects
 FactionEvilmen	HaradFortressBallista	Command_BombardEvil	DISABLED	DISABLED: needs none -
@@ -5251,7 +5251,7 @@ FactionEvilmen	HaradHaradrimRider	Command_ToggleStance	DISABLED	DISABLED: needs 
 FactionEvilmen	HaradHaradrimRiderHorde	Command_PurchaseUpgradeHaradBasicTraining	PASS	Upgrade_MordorBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionEvilmen	HaradHaradrimRiderHorde	Command_PurchaseUpgradeHaradForgedBlades	PASS	Upgrade_MordorForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionEvilmen	HaradHaradrimRiderHorde	Command_PurchaseUpgradeHaradHeavyArmor	PASS	Upgrade_MordorHeavyArmor in 53 frames, cost 200, on all 10 members it affects
-FactionEvilmen	HaradHaradrimRiderHorde	Command_ToggleFormationHalfCircle	PASS	HORDE_TOGGLE_FORMATION: 0x5bab33601350 -> 0x5bab22b71f40
+FactionEvilmen	HaradHaradrimRiderHorde	Command_ToggleFormationHalfCircle	PASS	HORDE_TOGGLE_FORMATION: 0x5a2073eed710 -> 0x5a2073f18250
 FactionEvilmen	HaradHaradrimRiderHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionEvilmen	HaradLumberMill		INVENTORY	wearing HaradLumberMillCommandSetWorkshop: the command set does not exist
 FactionEvilmen	HaradLumberMillAI		INVENTORY	wearing HaradLumberMillCommandSetWorkshop: the command set does not exist
@@ -5291,13 +5291,13 @@ FactionEvilmen	HaradOrcSlaveHammer	Command_SpecialAbilityHaradSlavesBuildBoost	M
 FactionEvilmen	HaradOrcSlaveHammer	Command_SpecialAbilityHaradSlavesWorking	MEMBER	MEMBER: a horde member made alone; its horde HaradSlaveOrcHorde (HordeContain InitialPayload) carries the module for SpecialAbilityHaradMillWorking and is swept as its own object
 FactionEvilmen	HaradOrcSlaveHammer	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
 FactionEvilmen	HaradPikemanMod	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
-FactionEvilmen	HaradPikemanModHorde	Command_HaradPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5bab35f0a270 -> 0x5bab35f23430
+FactionEvilmen	HaradPikemanModHorde	Command_HaradPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5a20716a8300 -> 0x5a20774c0120
 FactionEvilmen	HaradPikemanModHorde	Command_PurchaseUpgradeHaradBasicTraining	PASS	Upgrade_MordorBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionEvilmen	HaradPikemanModHorde	Command_PurchaseUpgradeHaradForgedBlades	PASS	Upgrade_MordorForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionEvilmen	HaradPikemanModHorde	Command_PurchaseUpgradeHaradHarondors	PASS	Upgrade_ActivateHarondor in 53 frames, cost 200, on all 10 members it affects
 FactionEvilmen	HaradPikemanModHorde	Command_PurchaseUpgradeHaradHeavyArmor	PASS	Upgrade_MordorHeavyArmor in 53 frames, cost 200, on all 10 members it affects
 FactionEvilmen	HaradPikemanModHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionEvilmen	HaradPikemanModHordePorcupine	Command_HaradPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5bab35f23430 -> 0x5bab35f0a270
+FactionEvilmen	HaradPikemanModHordePorcupine	Command_HaradPorcupineFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5a20774c0120 -> 0x5a20716a8300
 FactionEvilmen	HaradPikemanModHordePorcupine	Command_PurchaseUpgradeHaradBasicTraining	PASS	Upgrade_MordorBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionEvilmen	HaradPikemanModHordePorcupine	Command_PurchaseUpgradeHaradForgedBlades	PASS	Upgrade_MordorForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionEvilmen	HaradPikemanModHordePorcupine	Command_PurchaseUpgradeHaradHarondors	PASS	Upgrade_ActivateHarondor in 53 frames, cost 200, on all 10 members it affects
@@ -5410,7 +5410,7 @@ FactionEvilmen	HaradrimRangerModHorde	Command_ToggleStance	PASS	TOGGLE_STANCE ra
 FactionEvilmen	HaradrimRiderWedgeFormation	Command_PurchaseUpgradeHaradBasicTraining	PASS	Upgrade_MordorBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionEvilmen	HaradrimRiderWedgeFormation	Command_PurchaseUpgradeHaradForgedBlades	PASS	Upgrade_MordorForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionEvilmen	HaradrimRiderWedgeFormation	Command_PurchaseUpgradeHaradHeavyArmor	PASS	Upgrade_MordorHeavyArmor in 53 frames, cost 200, on all 10 members it affects
-FactionEvilmen	HaradrimRiderWedgeFormation	Command_ToggleFormationHalfCircle	PASS	HORDE_TOGGLE_FORMATION: 0x5bab22b71f40 -> 0x5bab33601350
+FactionEvilmen	HaradrimRiderWedgeFormation	Command_ToggleFormationHalfCircle	PASS	HORDE_TOGGLE_FORMATION: 0x5a2073f18250 -> 0x5a2073eed710
 FactionEvilmen	HaradrimRiderWedgeFormation	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
 FactionEvilmen	HaradrrimSlaveAxe	Command_SpecialAbilityHaradSlavesBuildBoost	MEMBER	MEMBER: a horde member made alone; its horde HaradrrimSlaveAxeHorde (HordeContain InitialPayload) carries the module for SpecialAbilityHaradSlavesBuildBoost and is swept as its own object
 FactionEvilmen	HaradrrimSlaveAxe	Command_SpecialAbilityHaradSlavesWorking	MEMBER	MEMBER: a horde member made alone; its horde HaradrrimSlaveAxeHorde (HordeContain InitialPayload) carries the module for SpecialAbilityHaradMillWorking and is swept as its own object
@@ -5428,12 +5428,12 @@ FactionEvilmen	HarondorConqueror_Summoned	Command_HarondorPenetration	PASS	NONPR
 FactionEvilmen	HarondorConqueror_Summoned	Command_PurchaseUpgradeHaradBasicTraining	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyMordorBasicTraining [script: Upgrade_TechnologyMordorBasicTraining <- ai_men of the west/WarCampFirstCheck GIVE_PLAYER_UPGRADE]
 FactionEvilmen	HarondorConqueror_Summoned	Command_PurchaseUpgradeHaradForgedBlades	DISABLED	DISABLED: needs upgrade Upgrade_TechnologyMordorForgedBlades
 FactionEvilmen	HarondorConqueror_Summoned	Command_ToggleStance	DISABLED	DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)
-FactionEvilmen	HarondorConquerorsHorde	Command_HaradShieldWallFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5bab22bccca0 -> 0x5bab21cb2510
+FactionEvilmen	HarondorConquerorsHorde	Command_HaradShieldWallFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5a20862d49e0 -> 0x5a20862fcd00
 FactionEvilmen	HarondorConquerorsHorde	Command_HarondorPenetration	PASS	NONPRESSABLE (option bit 28): a passive ability's indicator, not pressed
 FactionEvilmen	HarondorConquerorsHorde	Command_PurchaseUpgradeHaradBasicTraining	PASS	Upgrade_MordorBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionEvilmen	HarondorConquerorsHorde	Command_PurchaseUpgradeHaradForgedBlades	PASS	Upgrade_MordorForgedBlades in 53 frames, cost 150, on all 10 members it affects
 FactionEvilmen	HarondorConquerorsHorde	Command_ToggleStance	PASS	TOGGLE_STANCE radial: 1 -> 3 -> 1 -> 2 
-FactionEvilmen	HarondorConquerorsHordeShieldWall	Command_HaradShieldWallFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5bab21cb2510 -> 0x5bab22bccca0
+FactionEvilmen	HarondorConquerorsHordeShieldWall	Command_HaradShieldWallFormation	PASS	HORDE_TOGGLE_FORMATION: 0x5a20862fcd00 -> 0x5a20862d49e0
 FactionEvilmen	HarondorConquerorsHordeShieldWall	Command_HarondorPenetration	PASS	NONPRESSABLE (option bit 28): a passive ability's indicator, not pressed
 FactionEvilmen	HarondorConquerorsHordeShieldWall	Command_PurchaseUpgradeHaradBasicTraining	PASS	Upgrade_MordorBasicTraining in 53 frames, cost 100, on all 0 members it affects
 FactionEvilmen	HarondorConquerorsHordeShieldWall	Command_PurchaseUpgradeHaradForgedBlades	PASS	Upgrade_MordorForgedBlades in 53 frames, cost 150, on all 10 members it affects
