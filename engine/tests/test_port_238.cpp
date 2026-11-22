@@ -25,6 +25,7 @@
 #include "GameLogic/Module/EmotionModules.h"
 #include "GameLogic/Module/HeroAbilityModules.h"
 #include "GameLogic/Module/SpellEffectModules.h"
+#include "GameLogic/Module/UpgradeModuleClasses.h"
 #include "GameLogic/Module/SpecialAbilityModules.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/SpellCommands.h"
@@ -3008,4 +3009,210 @@ End
     CHECK(other->getReadyFrame() != 900);
     w.frames(3);
     CHECK(w.byId(heroId) == nullptr);
+}
+
+TEST_CASE("PORT-238 Saruman-style player flag selects ring replacement")
+{
+    HealHudWorld w;
+    // saruman.ini:1110-1168,1279-1301,4150-4175: the conflicting flag
+    // is PLAYER, not Arvedui's OBJECT protection. RW upgrade mux 0x8D26F3,
+    // DoCommandUpgrade 0x8B8E2E and toggle replacement 0x8B1690.
+    const char *data = R"ini(
+Upgrade Upgrade_P238SarRing
+  Type = OBJECT
+End
+Upgrade Upgrade_P238SarFortress
+  Type = OBJECT
+End
+Upgrade Upgrade_P238SarChoice
+  Type = PLAYER
+End
+SpecialPower P238SarCursedPower
+  Enum = SPECIAL_TOGGLE_MOUNTED
+  ReloadTime = 1000
+End
+SpecialPower P238SarBlessedPower
+  Enum = SPECIAL_GENERAL_TARGETLESS
+  ReloadTime = 1000
+End
+CommandButton P238SarCursedButton
+  Command = SPECIAL_POWER
+  SpecialPower = P238SarCursedPower
+  Options = TOGGLE_IMAGE_ON_WEAPONSET ON_GROUND_ONLY OK_FOR_MULTI_EXECUTE
+  InPalantir = No
+End
+CommandButton P238SarBlessedButton
+  Command = SPECIAL_POWER
+  SpecialPower = P238SarBlessedPower
+  Options = TOGGLE_IMAGE_ON_WEAPONSET ON_GROUND_ONLY OK_FOR_MULTI_EXECUTE
+  InPalantir = Yes
+End
+Object P238SarBase
+  KindOf = INFANTRY HERO SELECTABLE COMMANDCENTER CAN_ATTACK
+  Geometry = CYLINDER
+  GeometryMajorRadius = 8
+  GeometryHeight = 20
+  Body = ActiveBody Body
+    MaxHealth = 500
+  End
+  Behavior = AIUpdateInterface AI
+  End
+  Behavior = UnpauseSpecialPowerUpgrade EnableCursed
+    SpecialPowerTemplate = P238SarCursedPower
+    TriggeredBy = Upgrade_P238SarRing
+  End
+  Behavior = SpecialPowerModule CursedStarter
+    SpecialPowerTemplate = P238SarCursedPower
+    UpdateModuleStartsAttack = Yes
+    StartsPaused = Yes
+  End
+  Behavior = ToggleMountedSpecialAbilityUpdate CursedToggle
+    SpecialPowerTemplate = P238SarCursedPower
+    MountedTemplate = P238SarCursed
+    UnpackTime = 2000
+    PreparationTime = 0
+    PackTime = 0
+    IgnoreFacingCheck = Yes
+  End
+  Behavior = DoCommandUpgrade CursedCommand
+    TriggeredBy = Upgrade_P238SarRing
+    ConflictsWith = Upgrade_P238SarChoice
+    GetUpgradeCommandButtonName = P238SarCursedButton
+  End
+  Behavior = UnpauseSpecialPowerUpgrade EnableBlessed
+    SpecialPowerTemplate = P238SarBlessedPower
+    TriggeredBy = Upgrade_P238SarRing Upgrade_P238SarChoice
+    RequiresAllTriggers = Yes
+  End
+  Behavior = SpecialPowerModule BlessedStarter
+    SpecialPowerTemplate = P238SarBlessedPower
+    UpdateModuleStartsAttack = Yes
+    StartsPaused = Yes
+  End
+  Behavior = ToggleMountedSpecialAbilityUpdate BlessedToggle
+    SpecialPowerTemplate = P238SarBlessedPower
+    MountedTemplate = P238SarBlessed
+    UnpackTime = 2000
+    PreparationTime = 0
+    PackTime = 0
+    IgnoreFacingCheck = Yes
+  End
+  Behavior = DoCommandUpgrade BlessedCommand
+    TriggeredBy = Upgrade_P238SarRing Upgrade_P238SarChoice
+    RequiresAllTriggers = Yes
+    GetUpgradeCommandButtonName = P238SarBlessedButton
+  End
+  Behavior = CitadelSlaughterHordeContain RingEntry
+    PassengerFilter = NONE +P238Ring
+    ObjectStatusOfContained = UNSELECTABLE ENCLOSED
+    ContainMax = 1
+    StatusForRingEntry = HOLDING_THE_RING
+    UpgradeForRingEntry = Upgrade_P238SarRing Upgrade_P238SarFortress
+    ObjectToDestroyForRingEntry = NONE +P238Ring
+  End
+End
+Object P238SarCursed
+  KindOf = INFANTRY HERO SELECTABLE CAN_ATTACK
+  Geometry = CYLINDER
+  GeometryMajorRadius = 8
+  GeometryHeight = 20
+  Body = ActiveBody Body
+    MaxHealth = 500
+  End
+  Behavior = AIUpdateInterface AI
+  End
+  Behavior = SpecialPowerModule BlessedStarter
+    SpecialPowerTemplate = P238SarBlessedPower
+    UpdateModuleStartsAttack = Yes
+    StartsPaused = Yes
+  End
+  Behavior = ToggleMountedSpecialAbilityUpdate BlessedToggle
+    SpecialPowerTemplate = P238SarBlessedPower
+    MountedTemplate = P238SarBlessed
+    UnpackTime = 2000
+    PreparationTime = 0
+    PackTime = 0
+    IgnoreFacingCheck = Yes
+  End
+  Behavior = DoCommandUpgrade BlessedCommand
+    TriggeredBy = Upgrade_P238SarChoice
+    GetUpgradeCommandButtonName = P238SarBlessedButton
+  End
+End
+Object P238SarBlessed
+  KindOf = INFANTRY HERO SELECTABLE CAN_ATTACK
+  Body = ActiveBody Body
+    MaxHealth = 500
+  End
+  Behavior = AIUpdateInterface AI
+  End
+End
+)ini";
+    const std::string error = w.w.load(data, INI_LOAD_OVERWRITE, "port238_saruman.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    bool choiceBefore = false;
+    bool choiceAfter = false;
+    SUBCASE("unprotected delivery") {}
+    SUBCASE("player flag before delivery") { choiceBefore = true; }
+    SUBCASE("player flag after cursed replacement") { choiceAfter = true; }
+    Object *hero = w.unit("P238SarBase", 'A', 300, 300);
+    Object *carrier = w.unit("P238Carrier", 'A', 300, 300);
+    Object *ring = w.unit("P238Ring", 'A', 300, 300);
+    REQUIRE(hero != nullptr);
+    REQUIRE(carrier != nullptr);
+    REQUIRE(ring != nullptr);
+    const ObjectID heroId = hero->getID();
+    const ObjectID ringId = ring->getID();
+    auto giveChoice = [&]() {
+        const auto *upgrade = Player::resolveUpgrade("Upgrade_P238SarChoice", true);
+        REQUIRE(upgrade != nullptr);
+        w.playerOf('A')->addUpgrade(upgrade, Player::UPGRADE_STATUS_COMPLETE);
+    };
+    auto find = [&](const char *name) -> Object * {
+        for (Object *o = w.logic->getFirstObject(); o; o = o->getNextObject())
+            if (o->getTemplate() && o->getTemplate()->getName() == name) return o;
+        return nullptr;
+    };
+    if (choiceBefore) { giveChoice(); w.frames(3); CHECK(w.byId(heroId) != nullptr); }
+    auto *contain = dynamic_cast<CitadelSlaughterHordeContain *>(hero->getContain());
+    REQUIRE(contain != nullptr);
+    deliver(*contain, *carrier);
+    CHECK(hero->hasUpgrade("Upgrade_P238SarRing"));
+    CHECK(hero->hasUpgrade("Upgrade_P238SarFortress"));
+    auto *cursedCommand = dynamic_cast<DoCommandUpgrade *>(hero->findModuleByTag(w.w.keys.nameToKey("CursedCommand")));
+    auto *blessedCommand = dynamic_cast<DoCommandUpgrade *>(hero->findModuleByTag(w.w.keys.nameToKey("BlessedCommand")));
+    REQUIRE(cursedCommand != nullptr);
+    REQUIRE(blessedCommand != nullptr);
+    CHECK(cursedCommand->isAlreadyUpgraded() == !choiceBefore);
+    CHECK(blessedCommand->isAlreadyUpgraded() == choiceBefore);
+    REQUIRE(w.byId(ringId) != nullptr);
+    CHECK(w.byId(ringId)->isDestroyed());
+    const char *expected = choiceBefore ? "P238SarBlessed" : "P238SarCursed";
+    for (int i = 0; i < 50 && !find(expected); ++i) w.frames(1);
+    Object *selected = find(expected);
+    REQUIRE(selected != nullptr);
+    CHECK(selected->getControllingPlayer() == w.playerOf('A'));
+    CHECK(find(choiceBefore ? "P238SarCursed" : "P238SarBlessed") == nullptr);
+    w.frames(3);
+    CHECK(w.byId(heroId) == nullptr);
+    if (choiceAfter)
+    {
+        const ObjectID cursedId = selected->getID();
+        const auto *blessedTemplate = w.powers.findSpecialPowerTemplate("P238SarBlessedPower");
+        auto *starter = dynamic_cast<SpecialPowerModule *>(SpecialPowerModules::findModule(*selected, blessedTemplate));
+        auto *toggle = dynamic_cast<ToggleMountedSpecialAbilityUpdate *>(selected->findModule("ToggleMountedSpecialAbilityUpdate"));
+        REQUIRE(starter != nullptr);
+        REQUIRE(toggle != nullptr);
+        CHECK(starter->pauseCount() == 1);
+        giveChoice(); // RW 0x696FD2 supplies 0x40000; 0x8980A6 skips the pause gate
+        CHECK(starter->pauseCount() == 1);
+        CHECK(toggle->isActive());
+        for (int i = 0; i < 50 && !find("P238SarBlessed"); ++i) w.frames(1);
+        Object *blessed = find("P238SarBlessed");
+        REQUIRE(blessed != nullptr);
+        CHECK(blessed->getControllingPlayer() == w.playerOf('A'));
+        w.frames(3);
+        CHECK(w.byId(cursedId) == nullptr);
+    }
+    CHECK_FALSE(w.playerOf('B')->hasUpgradeComplete("Upgrade_P238SarChoice"));
 }
