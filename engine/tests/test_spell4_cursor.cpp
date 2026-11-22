@@ -102,7 +102,7 @@ TEST_CASE("SPELL-4 retail: a selected hero's Tornado previews its white area tex
 			if (button.button && button.button->m_name == "Command_SpecialPowerSpawnWhirlwind") tornado = button;
 	REQUIRE(tornado.button);
 	REQUIRE(tornado.state == ButtonState::Enabled);
-	const Coord3D ordinaryTarget{ 800.0f, 700.0f, logic.getGroundHeight(800.0f, 700.0f) };
+	const Coord3D target{ 800.0f, 700.0f, logic.getGroundHeight(800.0f, 700.0f) };
 	r.rig.lookAt(target);
 	const ICoord2D pixel = r.rig.screenOf(target);
 	r.hud->mouseMove(pixel.x, pixel.y, 0);
