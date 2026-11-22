@@ -1,9 +1,15 @@
 // OpenBFME. PORT-320 (fork issue 756): RotWK permanently reveals the defeated player's map during the defeat update (RW 0x808F53 / 0x8090AA -> 0xB4D940 -> 0xB4F5D0). The surviving player's map remains shrouded; expectations are from those RW calls. Synthetic INI only.
 #include "doctest.h"
 #include "CombatTestUtil.h"
+#include "LogicTestUtil.h"
+#include "StartTestUtil.h"
 
+#include "Common/INI.h"
+#include "Common/PlayerList.h"
 #include "GameLogic/Damage.h"
 #include "GameLogic/GameLogic.h"
+#include "GameLogic/SkirmishAI/SkirmishAIData.h"
+#include "GameLogic/SkirmishAI/SkirmishAIManager.h"
 #include "GameLogic/System/ShroudManager.h"
 #include "GameLogic/VictoryConditions.h"
 
@@ -35,6 +41,33 @@ const char kPort320GameData[] =
 	"  VictoryConditionStructureObjectFilter = NONE +STRUCTURE -IGNORE_FOR_VICTORY -UNATTACKABLE\n"
 	"  VictoryConditionUnitObjectFilter = ANY -DOZER\n"
 	"End\n";
+
+struct Port320AIWorld : CombatWorld
+{
+	SkirmishAIStore store{ w.keys };
+	INIEnvironment env;
+
+	Port320AIWorld()
+		: CombatWorld(kPort320Objects)
+	{
+		static const char aiData[] = "SkirmishAIData TheSkirmishAIData\\n DisableWallBuilding = No\\nEnd\\n"
+									  "ArmyDefinition AlphaArmy\\n Side = Alpha\\n ArmyMemberDefinition M\\n  Unit = Soldier\\n  PercentageOfArmyPhase1 = 100\\n End\\nEnd\\n"
+									  "AIDozerAssignment AlphaDozer\\n Side = Alpha\\n Unit = AlphaPorter\\nEnd\\n";
+		store.registerBlocks(env.blocks);
+		INI ini(env);
+		const std::string text = aiData;
+		ini.loadMemory("port320-ai.ini", std::vector<std::uint8_t>(text.begin(), text.end()), INI_LOAD_OVERWRITE);
+		SkirmishSetup setup;
+		setup.players = { { "H", "FactionA", true, 0, 0, 0 }, { "C1", "FactionA", false, 1, 0, 1 }, { "C2", "FactionB", false, 1, 0, 2 },
+			{ "C3", "FactionA", false, 2, 0, 3 } };
+		setup.defaultStartingCash = 2000;
+		REQUIRE(players.setupSkirmish(setup).empty());
+		logic->skirmishAI().setStore(&store);
+		REQUIRE(logic->skirmishAI().newGame(true) == 3);
+	}
+
+	Player *player(const char *name) { return players.findPlayerWithName(name); }
+};
 
 struct Port320World : CombatWorld
 {
@@ -72,6 +105,36 @@ struct Port320World : CombatWorld
 	}
 };
 } // namespace
+
+TEST_CASE("PORT-320: killPlayer preserves the shared AI group's objects and money, but the ordinary AI still loses its money (RW 0x6ABE7C -> RW 0x6C7518)")
+{
+	Port320AIWorld world;
+	Player *first = world.player("C1");
+	Player *shared = world.player("C2");
+	Player *alone = world.player("C3");
+	REQUIRE(first != nullptr);
+	REQUIRE(shared != nullptr);
+	REQUIRE(alone != nullptr);
+	REQUIRE(world.logic->skirmishAI().findGroup(first->getPlayerIndex()) == world.logic->skirmishAI().findGroup(shared->getPlayerIndex()));
+	REQUIRE(world.logic->skirmishAI().findGroup(first->getPlayerIndex()) != world.logic->skirmishAI().findGroup(alone->getPlayerIndex()));
+	Object *sharedAsset = world.spawn("Port320Keep", 300.0f, 300.0f, 0.0f, world.teamOf("C2"));
+	Object *aloneAsset = world.spawn("Port320Keep", 600.0f, 300.0f, 0.0f, world.teamOf("C3"));
+	REQUIRE(sharedAsset != nullptr);
+	REQUIRE(aloneAsset != nullptr);
+	const auto sharedMoney = shared->getMoney()->countMoney();
+	world.logic->victory().killPlayer(shared);
+	CHECK(shared->isDefeated());
+	CHECK(shared->getMoney()->countMoney() == sharedMoney); // RW 0x6ABE9E -> 0x6ABF5E skips ordinary asset elimination
+	CHECK_FALSE(sharedAsset->isEffectivelyDead());
+	CHECK_FALSE(first->isDefeated());
+	const auto aloneMoney = alone->getMoney()->countMoney();
+	REQUIRE(aloneMoney > 0);
+	world.logic->victory().killPlayer(alone);
+	CHECK(alone->isDefeated());
+	CHECK(alone->getMoney()->countMoney() == 0); // the non-shared branch reaches RW 0x6ABF3C .. 0x6ABF57
+	world.frames(1);
+	CHECK(aloneAsset->isEffectivelyDead());
+}
 
 TEST_CASE("PORT-320: defeated player's whole map is permanently revealed and the surviving player's map is unchanged (RW 0x808F53 / RW 0x8090AA -> RW 0xB4D940 -> RW 0xB4F5D0)")
 {

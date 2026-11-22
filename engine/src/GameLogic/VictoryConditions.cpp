@@ -20,6 +20,7 @@
 #include "GameLogic/ObjectFilter.h"
 #include "GameLogic/ObjectFilterMatch.h"
 #include "GameLogic/SimMath.h"
+#include "GameLogic/SkirmishAI/SkirmishAIManager.h"
 #include "GameLogic/System/ShroudManager.h"
 
 #include <stdexcept>
@@ -366,6 +367,39 @@ void VictoryConditions::registerHandlers(GameLogicDispatch &dispatcher)
 // RW 0x6ABE7C, the part that decides what happens to the objects (the order they are killed in is inference, S-344)
 void VictoryConditions::killPlayer(Player *p)
 {
+	// RW 0x6ABE89 -> AISkirmishPlayer::isSharedAI RW 0x6C7518: a non-first AI member (+0x178 != -1) or the first member with a living linked AI marks only its player dead; the shared group keeps its objects and money.
+	if (p)
+	{
+		const int playerIndex = p->getPlayerIndex();
+		const SkirmishAIManager &manager = m_logic.skirmishAI();
+		const AISkirmishPlayer *ai = manager.findAI(playerIndex);
+		const AISkirmishGroup *group = manager.findGroup(playerIndex);
+		if (ai && group)
+		{
+			bool shared = !ai->firstOfGroup; // RW 0x6C7518's own +0x178 test
+			if (!shared)
+			{
+				for (int memberIndex : group->members)
+				{
+					if (memberIndex == playerIndex)
+					{
+						continue;
+					}
+					Player *member = m_logic.players().getNthPlayer(memberIndex);
+					if (member && !member->isDefeated() && manager.findAI(memberIndex)) // RW 0x6C7537..0x6C7569: a not-yet-defeated AI whose shared link names this player
+					{
+						shared = true;
+						break;
+					}
+				}
+			}
+			if (shared)
+			{
+				p->setDefeated(true); // RW 0x6ABE9E..0x6ABEA5; the ordinary object-death and money-withdrawal pass is skipped
+				return;
+			}
+		}
+	}
 	std::vector<Object *> victims;
 	for (Object *o = m_logic.getFirstObject(); o; o = o->getNextObject())
 	{
