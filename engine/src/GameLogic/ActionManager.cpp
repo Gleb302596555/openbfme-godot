@@ -42,9 +42,9 @@ const char *const kStopRequirements =
 	"command frame) is not ported (answers no for that type); only SpecialAbilityUpdate answers the special power update interface (vslot 0x64)";
 const char *const kStopTypeTest =
 	"[S-1874] ActionManager RW 0x82DFB7: the per-power-type tests of the building powers (0x52, 0x61, 0x67, 0x6A: RW 0x82E2DE), 0x38 "
-	"(RW 0x76A247), 0x41 (RW 0x82E252) and 0x49 (RW 0x680A75 layer) are not ported; grab location 0x27 (RW 0x82EDBC), Rebuild 0x57 (RW 0x82E93C) and the summons' spot test (0x55, 0x56, "
-	"0x5B, 0x5D .. 0x5F, 0x73, 0x76, 0x78, 0x7B, 0x7C, 0x7E, 0x96, 0x9A: RW 0x82E586) are ported (SUMMONLOC-1: the partition's geometry overlap, distance "
-	"type 4, on the template's shapes, S-1020): the unported types answer no (counted per type)";
+	"(RW 0x76A247), 0x41 (RW 0x82E252) and 0x49 (RW 0x680A75 layer) are not ported; grab location 0x27 (RW 0x82EDBC) and Rebuild 0x57 (RW 0x82E93C) "
+	"are ported (PORT-327); the summons' spot test (0x55, 0x56, 0x5B, 0x5D .. 0x5F, 0x73, 0x76, 0x78, 0x7B, 0x7C, 0x7E, 0x96, 0x9A: RW 0x82E586) "
+	"is ported (SUMMONLOC-1: the partition's geometry overlap, distance type 4, on the template's shapes, S-1020); unported types answer no (counted per type)";
 
 const char *const kStopObjectTypeTest =
 	"[S-7140] ActionManager::canDoSpecialPowerAtObject (RW 0x82D925, lane MODCOMPAT-MOD1): the per-power-type object tests of the capture types (0x1D "
