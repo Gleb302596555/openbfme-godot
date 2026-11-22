@@ -25,6 +25,7 @@
 #include "GameLogic/Module/InvisibilityModules.h"
 #include "GameLogic/Module/EmotionModules.h"
 #include "GameLogic/Module/HeroAbilityModules.h"
+#include "GameLogic/Module/HeroModules.h"
 #include "GameLogic/Module/SpellEffectModules.h"
 #include "GameLogic/Module/StoreObjectsSpecialPower.h"
 #include "GameLogic/Module/TeleportToCasterSpecialPower.h"
@@ -4751,4 +4752,108 @@ End
     else CHECK(eternal->getReadyFrame() != 600);
     w.frames(3);
     CHECK(w.byId(heroId) == nullptr);
+}
+
+TEST_CASE("PORT-238 Sauron-mod style Athelas reactivates the first single-burst area healer")
+{
+    HealWorld w;
+    HeroModules::registerAll(w.w.modules);
+    // mordorsauron.ini:6682-6714,7091-7098; includes/specialpower.inc:4821.
+    // RW 0x85562D initializes the waiting flag from ButtonTriggered; the
+    // SPECIAL_ATHELAS branch at 0x854841 finds an AutoHealBehavior by name
+    // and calls 0x855431. Direct synthetic initiation, no HUD/mod load/FX.
+    const char *data = R"ini(
+SpecialPower P238SauronOldHeal
+ Enum = SPECIAL_ATHELAS
+ ReloadTime = 260000
+End
+Object P238SauronOldHealCaster
+ KindOf = INFANTRY HERO SELECTABLE CAN_ATTACK
+ Body = ActiveBody Body
+  MaxHealth = 10000
+ End
+ Behavior = AIUpdateInterface AI
+ End
+ Behavior = SpecialPowerModule Starter
+  SpecialPowerTemplate = P238SauronOldHeal
+  UpdateModuleStartsAttack = Yes
+  StartsPaused = No
+ End
+ Behavior = SpecialAbilityUpdate Ability
+  SpecialPowerTemplate = P238SauronOldHeal
+  StartAbilityRange = 1.6
+  UnpackTime = 1
+  PreparationTime = 3
+  PackTime = 2096
+  AwardXPForTriggering = 0
+  IgnoreFacingCheck = Yes
+ End
+ Behavior = AutoHealBehavior Medicine
+  StartsActive = Yes
+  ButtonTriggered = No
+  HealingAmount = 5000
+  Radius = 10
+  HealOnlyOthers = No
+  SingleBurst = Yes
+  KindOf = HERO
+ End
+ Behavior = AutoHealBehavior Passive
+  StartsActive = Yes
+  HealingAmount = 1
+  HealingDelay = 1000
+  StartHealingDelay = 100000
+  HealOnlyIfNotInCombat = Yes
+ End
+End
+Object P238SauronOldHealHero
+ KindOf = INFANTRY HERO SELECTABLE
+ Body = ActiveBody Body
+  MaxHealth = 10000
+ End
+End
+Object P238SauronOldHealInfantry
+ KindOf = INFANTRY SELECTABLE
+ Body = ActiveBody Body
+  MaxHealth = 10000
+ End
+End
+)ini";
+    const std::string error = w.w.load(data, INI_LOAD_OVERWRITE, "port238_old_sauron_heal.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    Object *ally = w.unit("P238SauronOldHealHero", 'A', 305, 300);
+    Object *enemy = w.unit("P238SauronOldHealHero", 'B', 305, 300);
+    Object *infantry = w.unit("P238SauronOldHealInfantry", 'A', 305, 300);
+    Object *far = w.unit("P238SauronOldHealHero", 'A', 325, 300);
+    Object *caster = w.unit("P238SauronOldHealCaster", 'A', 300, 300);
+    for (Object *obj : {ally, enemy, infantry, far, caster})
+    {
+        REQUIRE(obj != nullptr);
+        w.logic->partition().registerObject(*obj);
+    }
+    w.frames(5); // initial automatic single burst occurs with everyone healthy
+    auto *heal = dynamic_cast<AutoHealBehavior *>(caster->findModule("AutoHealBehavior"));
+    auto *ability = dynamic_cast<SpecialAbilityUpdate *>(caster->findModule("SpecialAbilityUpdate"));
+    REQUIRE(heal != nullptr);
+    REQUIRE(ability != nullptr);
+    CHECK(heal->heals() == 0);
+    DamageInfo damage;
+    damage.m_input.m_amount = 6000.0f;
+    damage.m_input.m_damageType = DAMAGE_UNRESISTABLE;
+    for (Object *obj : {ally, enemy, infantry, far, caster})
+    {
+        obj->attemptDamage(damage);
+        REQUIRE(obj->getBodyModule()->getHealth() == 4000.0f);
+    }
+    w.frames(3);
+    CHECK(caster->getBodyModule()->getHealth() == 4000.0f);
+    CHECK(ally->getBodyModule()->getHealth() == 4000.0f);
+    ability->initiateIntentToDoSpecialPower(ability->abilityData()->m_specialPowerTemplate, nullptr, nullptr, 0, 0);
+    for (int i = 0; i < 30 && heal->heals() < 2; ++i) w.frames(1);
+    REQUIRE(ability->abilitiesTriggered() == 1);
+    CHECK(heal->heals() == 2);
+    CHECK(caster->getBodyModule()->getHealth() == 9000.0f);
+    CHECK(ally->getBodyModule()->getHealth() == 9000.0f);
+    CHECK(enemy->getBodyModule()->getHealth() == 4000.0f);
+    CHECK(infantry->getBodyModule()->getHealth() == 4000.0f);
+    CHECK(far->getBodyModule()->getHealth() == 4000.0f);
 }
