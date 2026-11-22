@@ -3914,3 +3914,237 @@ End
     CHECK(fort->isEffectivelyDead());
     CHECK(w.ringCount() == (heroUpgrade && fortressUpgrade ? 1 : 0));
 }
+
+TEST_CASE("PORT-238 legacy Witch-king-style foot and mounted ring delivery chooses foot form")
+{
+    HealHudWorld w;
+    // angmarwitchking.ini:1269-1318, 2941-2965.  Both declarations target
+    // the foot ring form and list the same seven timers. Synthetic objects do
+    // not exercise ChildObject overrides, mount admission, or the real INI.
+    // RW Citadel 0x8840FC -> DoCommand 0x8B8E2E -> Toggle 0x8B1690;
+    // named timer copy 0x8B12BF.
+    const char *common = R"ini(
+Upgrade Upgrade_P238LegacyRing
+ Type = OBJECT
+End
+Upgrade Upgrade_P238LegacyFortress
+ Type = OBJECT
+End
+SpecialPower P238LegacyTransform
+ Enum = SPECIAL_TOGGLE_MOUNTED
+ ReloadTime = 1000
+End
+SpecialPower SpecialAbilityScreech
+ Enum = SPECIAL_SCREECH
+ ReloadTime = 120000
+End
+SpecialPower SpecialAbilityWitchkingMorgulBlade
+ Enum = SPECIAL_GENERAL_TARGETLESS
+ ReloadTime = 120000
+End
+SpecialPower SpecialAbilityCurseEnemy
+ Enum = SPECIAL_GENERAL_TARGETLESS_TWO
+ ReloadTime = 120000
+End
+SpecialPower SpecialAbilityVerdorbeneMagieAngmars
+ Enum = SPECIAL_GENERAL_TARGETLESS_THREE
+ ReloadTime = 120000
+End
+SpecialPower SpecialAbilityWordOfPower
+ Enum = SPECIAL_SPELL_BOOK_ARROW_VOLLEY_GOOD
+ ReloadTime = 120000
+End
+SpecialPower SpecialAbilityGrausamWitchking
+ Enum = SPECIAL_STORE_LIST_2
+ ReloadTime = 120000
+End
+SpecialPower SpecialAbilityAngmarWitchkingSchattenklinge
+ Enum = SPECIAL_TELEPORT_LIST_TO_POSITION
+ ReloadTime = 120000
+End
+SpecialPower P238LegacyOther
+ Enum = SPECIAL_TOGGLE_MOUNTED
+ ReloadTime = 120000
+End
+CommandButton P238LegacySwitch
+ Command = SPECIAL_POWER
+ SpecialPower = P238LegacyTransform
+ InPalantir = No
+End
+Object P238LegacyRingFoot
+ KindOf = INFANTRY HERO SELECTABLE CAN_ATTACK
+ Body = ActiveBody Body
+  MaxHealth = 500
+ End
+ Behavior = AIUpdateInterface AI
+ End
+ Behavior = SpecialPowerModule Screech
+  SpecialPowerTemplate = SpecialAbilityScreech
+ End
+ Behavior = SpecialPowerModule Curse
+  SpecialPowerTemplate = SpecialAbilityCurseEnemy
+ End
+ Behavior = SpecialPowerModule Other
+  SpecialPowerTemplate = P238LegacyOther
+ End
+End
+Object P238LegacyRingMounted
+ KindOf = CAVALRY HERO SELECTABLE CAN_ATTACK
+ Body = ActiveBody Body
+  MaxHealth = 500
+ End
+ Behavior = AIUpdateInterface AI
+ End
+End
+)ini";
+    std::string error = w.w.load(common, INI_LOAD_OVERWRITE, "port238_legacy_wk_common.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    const char *source = R"ini(
+Object P238LegacySource
+ KindOf = P238LegacyKind HERO SELECTABLE COMMANDCENTER CAN_ATTACK
+ Body = ActiveBody Body
+  MaxHealth = 500
+ End
+ Behavior = AIUpdateInterface AI
+ End
+ Behavior = SpecialPowerModule Starter
+  SpecialPowerTemplate = P238LegacyTransform
+  UpdateModuleStartsAttack = Yes
+  StartsPaused = No
+ End
+ Behavior = ToggleMountedSpecialAbilityUpdate Transform
+  SpecialPowerTemplate = P238LegacyTransform
+  MountedTemplate = P238LegacyRingFoot
+  SynchronizeTimerOnSpecialPower = SpecialAbilityScreech SpecialAbilityWitchkingMorgulBlade SpecialAbilityCurseEnemy SpecialAbilityVerdorbeneMagieAngmars SpecialAbilityWordOfPower SpecialAbilityGrausamWitchking SpecialAbilityAngmarWitchkingSchattenklinge
+  UnpackTime = 2000
+  PreparationTime = 0
+  PackTime = 0
+  IgnoreFacingCheck = Yes
+ End
+ Behavior = DoCommandUpgrade AutoTransform
+  TriggeredBy = Upgrade_P238LegacyRing
+  GetUpgradeCommandButtonName = P238LegacySwitch
+ End
+ Behavior = CitadelSlaughterHordeContain RingEntry
+  PassengerFilter = NONE +P238Ring
+  ObjectStatusOfContained = UNSELECTABLE ENCLOSED
+  ContainMax = 1
+  StatusForRingEntry = HOLDING_THE_RING
+  UpgradeForRingEntry = Upgrade_P238LegacyRing Upgrade_P238LegacyFortress
+  ObjectToDestroyForRingEntry = NONE +P238Ring
+ End
+ Behavior = SpecialPowerModule Screech
+  SpecialPowerTemplate = SpecialAbilityScreech
+ End
+ Behavior = SpecialPowerModule Curse
+  SpecialPowerTemplate = SpecialAbilityCurseEnemy
+ End
+ Behavior = SpecialPowerModule Other
+  SpecialPowerTemplate = P238LegacyOther
+ End
+End
+)ini";
+    auto loadSource = [&](const char *name, const char *kind) {
+        std::string data(source);
+        auto replace = [&](const char *key, const char *value) {
+            const auto pos = data.find(key);
+            REQUIRE(pos != std::string::npos);
+            data.replace(pos, std::string(key).size(), value);
+        };
+        replace("P238LegacySource", name);
+        replace("P238LegacyKind", kind);
+        const std::string loadError = w.w.load(data, INI_LOAD_OVERWRITE, "port238_legacy_wk_source.ini");
+        REQUIRE_MESSAGE(loadError.empty(), loadError);
+    };
+    loadSource("P238LegacyFoot", "INFANTRY");
+    loadSource("P238LegacyMounted", "CAVALRY");
+    const char *form = nullptr;
+    const char *mode = nullptr;
+    // The fortress-only control must not trigger; ring-only must trigger.
+    SUBCASE("foot")
+    {
+        form = "P238LegacyFoot";
+        SUBCASE("deliver both") { mode = "delivery"; }
+        SUBCASE("only fortress") { mode = "fortress"; }
+        SUBCASE("only ring") { mode = "ring"; }
+    }
+    SUBCASE("mounted")
+    {
+        form = "P238LegacyMounted";
+        SUBCASE("deliver both") { mode = "delivery"; }
+        SUBCASE("only fortress") { mode = "fortress"; }
+        SUBCASE("only ring") { mode = "ring"; }
+    }
+    REQUIRE(form != nullptr);
+    REQUIRE(mode != nullptr);
+    Object *hero = w.unit(form, 'A', 300, 300);
+    Object *carrier = w.unit("P238Carrier", 'A', 300, 300);
+    Object *ring = w.unit("P238Ring", 'A', 300, 300);
+    REQUIRE(hero != nullptr);
+    REQUIRE(carrier != nullptr);
+    REQUIRE(ring != nullptr);
+    const ObjectID heroId = hero->getID();
+    const ObjectID ringId = ring->getID();
+    Team *team = hero->getTeam();
+    auto power = [&](Object &obj, const char *name) {
+        const auto *t = w.powers.findSpecialPowerTemplate(name);
+        return t ? dynamic_cast<SpecialPowerModule *>(SpecialPowerModules::findModule(obj, t)) : nullptr;
+    };
+    auto *screech = power(*hero, "SpecialAbilityScreech");
+    auto *curse = power(*hero, "SpecialAbilityCurseEnemy");
+    auto *other = power(*hero, "P238LegacyOther");
+    REQUIRE(screech != nullptr);
+    REQUIRE(curse != nullptr);
+    REQUIRE(other != nullptr);
+    screech->setReadyFrame(300);
+    curse->setReadyFrame(600);
+    other->setReadyFrame(900);
+    if (std::string(mode) == "delivery")
+    {
+        auto *contain = dynamic_cast<CitadelSlaughterHordeContain *>(hero->getContain());
+        REQUIRE(contain != nullptr);
+        deliver(*contain, *carrier);
+        CHECK(hero->hasUpgrade("Upgrade_P238LegacyRing"));
+        CHECK(hero->hasUpgrade("Upgrade_P238LegacyFortress"));
+        REQUIRE(w.byId(ringId) != nullptr);
+        CHECK(w.byId(ringId)->isDestroyed());
+    }
+    else
+    {
+        hero->giveUpgrade(std::string(mode) == "ring" ? "Upgrade_P238LegacyRing" : "Upgrade_P238LegacyFortress");
+        CHECK_FALSE(w.byId(ringId)->isDestroyed());
+    }
+    Object *replacement = nullptr;
+    bool mountedReplacement = false;
+    for (int frame = 0; frame < 50 && !replacement; ++frame)
+    {
+        w.frames(1);
+        for (Object *obj = w.logic->getFirstObject(); obj; obj = obj->getNextObject())
+        {
+            if (!obj->getTemplate()) continue;
+            if (obj->getTemplate()->getName() == "P238LegacyRingFoot") replacement = obj;
+            if (obj->getTemplate()->getName() == "P238LegacyRingMounted") mountedReplacement = true;
+        }
+    }
+    CHECK_FALSE(mountedReplacement);
+    if (std::string(mode) == "fortress")
+    {
+        CHECK(replacement == nullptr);
+        REQUIRE(w.byId(heroId) != nullptr);
+        CHECK(w.byId(heroId)->getTemplate()->getName() == form);
+        return;
+    }
+    REQUIRE(replacement != nullptr);
+    CHECK(replacement->getTeam() == team);
+    screech = power(*replacement, "SpecialAbilityScreech");
+    curse = power(*replacement, "SpecialAbilityCurseEnemy");
+    other = power(*replacement, "P238LegacyOther");
+    REQUIRE(screech != nullptr);
+    REQUIRE(curse != nullptr);
+    REQUIRE(other != nullptr);
+    CHECK(screech->getReadyFrame() == 300);
+    CHECK(curse->getReadyFrame() == 600);
+    CHECK(other->getReadyFrame() != 900);
+    w.frames(3);
+    CHECK(w.byId(heroId) == nullptr);
+}
