@@ -742,6 +742,7 @@ endif()
 # ---- unit tests --------------------------------------------------------------------------
 if(OPENBFME_BUILD_TESTS)
 include(cmake/AudioFixtures.cmake)
+include(cmake/Local132.cmake)
 add_executable(openbfme_tests
     ${OPENBFME_PORT426_TESTS}
     ${OPENBFME_WIN1_TESTS}
@@ -1041,7 +1042,9 @@ add_executable(openbfme_tests
     tests/test_econ_hash.cpp
     tests/test_econ_retail.cpp
     tests/test_falsedef_retail.cpp
-    tests/test_capcrash1.cpp)
+    tests/test_capcrash1.cpp
+    ${OPENBFME_LOCAL132_TESTS}
+)
 target_sources(openbfme_tests PRIVATE
     tests/test_coverage_online_shell.cpp
     tests/test_coverage_simple_screens.cpp
