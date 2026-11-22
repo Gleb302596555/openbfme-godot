@@ -248,10 +248,11 @@ std::vector<std::string> ExperienceWorld::report() const
 	std::vector<std::string> out;
 	out.push_back("[S-630] experience: the ExperienceTracker, the level chains, the kill awards (Object::scoreTheKill RW 0x6955BC -> RW 0x695475), the horde pools "
 		"(HordeContain RW 0x873A02) and the delayed level grants (RW 0x821567) run; " + std::to_string(c.levelsGranted) + " levels granted, " +
-		std::to_string(c.unitLevelUps) + " unit and " + std::to_string(c.heroLevelUps) + " hero level-ups counted for the score keeper (not hashed, S-631)");
+		std::to_string(c.unitLevelUps) + " unit and " + std::to_string(c.heroLevelUps) + " hero level-ups counted in the owner's ScoreKeeper (RW + 0xD4 / "
+		"+ 0xD0, PORT-233)");
 	out.push_back("[S-631] skill points: " + std::to_string(c.skillPointAwards) + " awards (" + std::to_string(c.skillPointsDropped) +
 		" dropped with the sink removed; the default sink adds them to the player's rank points, Player + 8 RW 0x782AA4, and its ScoreKeeper, RW 0x79DBA1), "
-		"the score keeper's level-up counts are kept here, not in a ScoreKeeper");
+		"the score keeper's level-up counts are in the ScoreKeeper (RW + 0xD0 / + 0xD4, PORT-233)");
 	out.push_back("[S-634] level grant (RW 0x821319): " + std::to_string(c.levelUpFxEvents) + " LevelUpFx calls emitted to the FXEventLog (RW 0x8211EC; "
 		"played by LiveFX); not ported: " +
 		std::to_string(c.levelUpOclNotCreated) + " LevelUpOCL not created, " + std::to_string(c.informUpdateModuleNotRun) +

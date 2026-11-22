@@ -178,15 +178,23 @@ void ExperienceTracker::onLevelReached(const ExperienceLevelTemplate &level, boo
 	if (level.m_rank > 1 && !m_leveled && !m_parent->isKindOfName("STRUCTURE")) // RW 0x79DAEC .. 0x79DB04
 	{
 		m_leveled = true;
-		if (logic.economy().context().scoring && m_parent->getControllingPlayer()) // RW 0x79DB50 / 0x79DB6B: only while scores are kept
+		// RW 0x79DB50 / 0x79DB6B: the owner's score keeper counts the level-up (the switch TheGameLogic + 0x98 is the keeper's own `enabled`). The retail
+		// branches: a HERO (the template's kind bit) goes to + 0xD0, an object that is not a horde member to + 0xD4
+		if (Player *owner = m_parent->getControllingPlayer())
 		{
-			if (m_parent->isKindOfName("HERO"))
+			ScoreKeeper &keeper = owner->getScoreKeeper();
+			if (keeper.enabled()) // the keep-score switch (GameLogic + 0x98): the counts are only taken while the scores are kept
 			{
-				++logic.experience().counters().heroLevelUps;
-			}
-			else if (!m_parent->testStatus(kStatusHordeMember))
-			{
-				++logic.experience().counters().unitLevelUps;
+				if (m_parent->isKindOfName("HERO"))
+				{
+					keeper.addHeroVetted(1);
+					++logic.experience().counters().heroLevelUps;
+				}
+				else if (!m_parent->testStatus(kStatusHordeMember))
+				{
+					keeper.addUnitVetted(1);
+					++logic.experience().counters().unitLevelUps;
+				}
 			}
 		}
 	}

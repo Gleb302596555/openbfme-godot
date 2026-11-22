@@ -33,9 +33,9 @@ const char *const kLargeGroupFile = "LargeGroupBonusUpdate.cpp"; // RW 0xC63A68 
 const char *const kStop =
 	"[S-1023] area scans: LargeGroupBonusUpdate (RW 0x8938D9) and PassiveAreaEffectBehavior (RW 0x887DF7) run on ThePartitionManager; not ported: "
 	"LargeGroupBonusUpdate's FlagSubObjectNames (client sub objects) and the horde's second member list (horde slot 0x180 also counts the ids at HordeContain + "
-	"0x54 / + 0x150, S-486); PassiveAreaEffectBehavior's NonStackable (the body's last heal frame, body slot 0x48, as S-858: the heal stacks) and the AntiCategories "
-	"disable (RW 0x804FCC, S-633): both noted when met; the construction test is the object's UNDER_CONSTRUCTION status (RW 0x68C3E6 asks the first module answering "
-	"behavior slot 0x80 first)";
+	"0x54 / + 0x150, S-486); PassiveAreaEffectBehavior's AntiCategories disable (RW 0x804FCC, S-633) is noted when met; NonStackable is ported (the "
+	"body's last heal frame, body slot 0x48: RW 0x887C1A .. 0x887C34); the construction test is the object's UNDER_CONSTRUCTION status (RW 0x68C3E6 asks "
+	"the first module answering behavior slot 0x80 first)";
 
 #define LG_OFF(field) (int)offsetof(LargeGroupBonusUpdateModuleData, field)
 #define PA_OFF(field) (int)offsetof(PassiveAreaEffectBehaviorModuleData, field)
@@ -416,8 +416,11 @@ void PassiveAreaEffectBehavior::affect(Object &target)
 			bool blocked = false;
 			if (d->m_nonStackable)
 			{
-				// RW 0x887C2C: the body's last heal frame (slot 0x48) + PingDelay > now blocks (S-1023: not ported, the heal stacks)
-				logic.noteStop("[S-1023] PassiveAreaEffectBehavior: NonStackable needs the body's last heal frame (body slot 0x48): the heal stacks");
+				// RW 0x887C1A .. 0x887C34: NonStackable reads the body's last heal frame (body vslot 0x48, the getter RW 0x5DC48C) and blocks the heal while
+				// `last heal frame + PingDelay` is above the current frame (RW 0x887C2F: `add eax, [data + 0x10]`, RW 0x887C32: `cmp eax, ebx`,
+				// RW 0x887C34: `ja` past the heal and its HealFX). The sum is unsigned in retail, so a body that was never healed (-1, RW 0x8C3897)
+				// refuses the first heal until PingDelay frames have passed. The refused heal does no FX and does not stamp the frame again
+				blocked = b->getLastHealingFrame() + d->m_pingDelay > now;
 			}
 			if (!blocked)
 			{

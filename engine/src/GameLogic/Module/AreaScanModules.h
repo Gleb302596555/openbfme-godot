@@ -22,14 +22,15 @@
 //     (+0x20), the scan RW 0x887F17 refills the target list (+0x24): ThePartitionManager within EffectRadius, type 0, sorted near to far, filters the
 //     relationship RW 0xC11DC0 (ALLIES of the object), RW 0xC10E20, RW 0xC0F374 and the AllowFilter for the owner; not the object itself, not KindOf
 //     IGNORED_IN_GUI / ARMY_OF_DEAD (RW 0x70C548), each id once. Every update then affects each live target (RW 0x887B72): the heal RW 0x887BAB (a target not
-//     damaged within 4 seconds (RW 0x68C933), HealPercentPerSecond > 0, health below max, not NonStackable-blocked: MaxHealth * (percent / 5) * PingDelay through
+//     damaged within 4 seconds (RW 0x68C933), HealPercentPerSecond > 0, health below max, not NonStackable-blocked (RW 0x887C1A .. 0x887C34: the body's
+//     last heal frame (PORT-293's stamp, written by the healing at RW 0x8C30BA, read through body vslot 0x48, RW 0x5DC48C) plus PingDelay above the
+//     current frame): MaxHealth * (percent / 5) * PingDelay through
 //     attemptHealingFromSoleBenefactor (RW 0x690584) for PingDelay frames, then HealFX) and the modifiers RW 0x887C94 (every ModifierName for its own
 //     duration (-1), then the pool's AntiCategories until now + PingDelay (RW 0x804FCC) and AntiFX).
 //
 // NOT PORTED / INFERENCE (stop S-1023, AreaScanModules::stopLines): LargeGroupBonusUpdate's FlagSubObjectNames (client sub objects) and the horde's second member
-// list (slot 0x180 also counts the ids at HordeContain + 0x54 / + 0x150, S-486); PassiveAreaEffectBehavior's NonStackable (the body's last heal frame, body slot
-// 0x48, as S-858: the heal stacks; noted) and the AntiCategories disable (RW 0x804FCC, XP-1's S-633: noted); the construction test is the object's
-// UNDER_CONSTRUCTION status (RW 0x68C3E6 asks the first module answering behavior slot 0x80 first).
+// list (slot 0x180 also counts the ids at HordeContain + 0x54 / + 0x150, S-486); PassiveAreaEffectBehavior's AntiCategories disable (RW 0x804FCC, XP-1's
+// S-633: noted); the construction test is the object's UNDER_CONSTRUCTION status (RW 0x68C3E6 asks the first module answering behavior slot 0x80 first).
 
 #pragma once
 

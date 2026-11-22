@@ -22,6 +22,11 @@
 //   other class finds the module to read them; the .text has no + 0x1BC read and its + 0x1C0 byte reads are other classes' (arena triage batch 5, rows 22 / 23).
 //   DONOR BFME2: the class contract of GiantBirdSlowDeathBehaviorModuleData (Open-BFME-2 reverse/class_contracts) lists no retail access beyond the
 //   constructor, and its beginSlowDeath view reads only the mask and the radius. The port keeps both fields parsed and stored, read by nothing.
+//   PORT-233 (issue #556) proved the donor the same way and named the constructor's write block: RW 0x8650B5 writes + 0x1BC from the parsed float
+//   (RW 0x8650D1) and + 0x1C0 = 0 (RW 0x8650D9); no function of the class reads either of them (the class's vtable RW 0xC5958C, its update RW 0x865009,
+//   its beginSlowDeath RW 0x86511C - the only reader of the neighbour + 0x1B8 is RW 0x8651FA -, the die slots RW 0x860608 / 0x8604CC / 0x863BF3 /
+//   RW 0x8BD372 and the SlowDeath base RW 0x861712 / 0x860B39); in BFME2 1.06 the field table entry RW 0xC42D58 keeps the offset + 0x1BC, the class's
+//   vtable is RW 0xC42E64 and its beginSlowDeath RW 0x86200E reads + 0x1B8 at RW 0x8620EC and neither of the two fields.
 //   The module's other own functions (none are behaviour): RW 0x864F97 getModuleNameKey (NameKey of RW 0xC0BCD8, cached at RW 0xDE903C), RW 0x864FDC the
 //   module name (`mov eax, 0xC0BCD8`), RW 0x8650E4 / RW 0x865100 scalar deleting destructors (RW 0x8619E8 / RW 0x864FE2, then RW 0x42F6A0), RW 0x4B612F a
 //   shared name helper (RW 0x435F30 on the global RW 0xDC62B8, used by many modules).
