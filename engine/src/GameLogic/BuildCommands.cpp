@@ -291,7 +291,7 @@ bool BuildCommands::repair(GameLogic &logic, const GameMessage &m)
 		{
 			if (DozerAIUpdate *d = dynamic_cast<DozerAIUpdate *>(o->getAIUpdateInterface()))
 			{
-				if (d->repair(*target))
+				if (d->repair(*target, CMD_FROM_PLAYER))
 				{
 					++m_stats.repairs;
 				}

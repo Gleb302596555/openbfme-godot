@@ -223,6 +223,13 @@ GettingBuiltBehavior::GettingBuiltBehavior(Thing *thing, const GettingBuiltBehav
 	setWakeFrame(getObject(), UPDATE_SLEEP_NONE);
 }
 
+// RW 0x8564F6: the repair interface's slot 9 asks whether the structure has no
+// WorkerName, i.e. whether it repairs itself rather than accepting a worker.
+bool GettingBuiltBehavior::canSelfRepair() const
+{
+	return m_data && m_data->m_workerName.empty();
+}
+
 // RW 0x68C933(&damager, 4): HordeContain's provider first, otherwise the body's last-damage record.
 bool GettingBuiltBehavior::recentlyDamaged() const
 {
@@ -649,7 +656,7 @@ void GettingBuiltBehavior::spawnWorkerOrStart(bool force)
 		}
 		else
 		{
-			dozer->repair(*obj);
+			dozer->repair(*obj, CMD_FROM_AI);
 		}
 	}
 	else if (worker->getAIUpdateInterface())

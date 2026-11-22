@@ -38,7 +38,7 @@ void RepairSpecialPower::doSpecialPowerAtObject(Object *target, unsigned)
 	// RW 0x7714C1 aiRepair(structure, CMD_FROM_PLAYER): AI command 0x13; DozerAIUpdate's aiDoCommand runs it as DozerAIUpdate::repair (RW 0x88BD8D); any other AI
 	// class has no case for it
 	DozerAIUpdate *dozer = dynamic_cast<DozerAIUpdate *>(ai);
-	if (dozer && ai->acceptCommand(CMD_FROM_PLAYER, 0x13) && dozer->repair(*structure))
+	if (dozer && ai->acceptCommand(CMD_FROM_PLAYER, 0x13) && dozer->repair(*structure, CMD_FROM_PLAYER))
 	{
 		++m_repairs;
 	}

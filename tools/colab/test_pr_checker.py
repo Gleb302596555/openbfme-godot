@@ -130,3 +130,18 @@ def test_base_conflicts_names_the_files_a_fork_pr_conflicts_in(tmp_path, monkeyp
     run("commit", "-q", "-am", "main")
     run("update-ref", "refs/remotes/origin/main", "HEAD")
     assert pr_checker.base_conflicts("7") == ["a.txt"]
+
+
+def test_the_red_note_carries_the_failed_lines_of_the_actions_log():
+    # PR 670 (2026-11-21): the agent saw only "exit code 1" in the annotations and asked the owner for the build log's lines
+    log = ("2026-11-21T21:06:22.0965013Z [12/300] Building CXX object a.o\n"
+           "2026-11-21T21:06:23.0000000Z FAILED: CMakeFiles/openbfme_core.dir/src/X.cpp.o\n"
+           "2026-11-21T21:06:23.1000000Z ../src/X.cpp:10:5: error: 'foo' was not declared in this scope\n"
+           "2026-11-21T21:06:23.2000000Z ../src/X.cpp:10:5: error: 'foo' was not declared in this scope\n"
+           "2026-11-21T21:07:09.8397139Z ##[error]Process completed with exit code 1.\n")
+    lines = pc.failed_lines(log)
+    assert lines == ["FAILED: CMakeFiles/openbfme_core.dir/src/X.cpp.o", "../src/X.cpp:10:5: error: 'foo' was not declared in this scope",
+                     "##[error]Process completed with exit code 1."]
+    block = pc.log_block(lines)
+    assert block.count("```") == 2 and "FAILED: CMakeFiles" in block
+    assert pc.log_block([]) == ""
