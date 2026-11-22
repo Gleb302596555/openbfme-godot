@@ -178,4 +178,7 @@ TEST_CASE("PORT-327 grab location requires a standing grabbable map tree")
     REQUIRE(record);
     record->toppled = true;
     CHECK_FALSE(allowed(400));
+    record->toppled = false;
+    record->grabbable = false;
+    CHECK_FALSE(allowed(400)); // mode 1 excludes trees not marked IsGrabbable
 }
