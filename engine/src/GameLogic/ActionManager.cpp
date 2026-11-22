@@ -10,6 +10,7 @@
 #include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Module/AIUpdate.h"
+#include "GameLogic/Map/TerrainTrees.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/Object/Contain/OpenContainRuntime.h"
 #include "GameLogic/Module/CastleModules.h"
@@ -40,8 +41,8 @@ const char *const kStopRequirements =
 	"[S-1873] the location requirements RW 0x897E01: RW 0x896DB4 (power type 0x20: the object's special ability state, RW 0x68C89B, and its AI's last "
 	"command frame) is not ported (answers no for that type); only SpecialAbilityUpdate answers the special power update interface (vslot 0x64)";
 const char *const kStopTypeTest =
-	"[S-1874] ActionManager RW 0x82DFB7: the per-power-type tests of the building powers (0x52, 0x61, 0x67, 0x6A: RW 0x82E2DE), 0x27 (RW 0x67F52B), 0x38 "
-	"(RW 0x76A247), 0x41 (RW 0x82E252) and 0x49 (RW 0x680A75 layer) are not ported; Rebuild 0x57 (RW 0x82E93C) and the summons' spot test (0x55, 0x56, "
+	"[S-1874] ActionManager RW 0x82DFB7: the per-power-type tests of the building powers (0x52, 0x61, 0x67, 0x6A: RW 0x82E2DE), 0x38 "
+	"(RW 0x76A247), 0x41 (RW 0x82E252) and 0x49 (RW 0x680A75 layer) are not ported; grab location 0x27 (RW 0x82EDBC), Rebuild 0x57 (RW 0x82E93C) and the summons' spot test (0x55, 0x56, "
 	"0x5B, 0x5D .. 0x5F, 0x73, 0x76, 0x78, 0x7B, 0x7C, 0x7E, 0x96, 0x9A: RW 0x82E586) are ported (SUMMONLOC-1: the partition's geometry overlap, distance "
 	"type 4, on the template's shapes, S-1020): the unported types answer no (counted per type)";
 
@@ -243,7 +244,7 @@ enum FinalTest
 	FINAL_NOT_SHROUD,  // RW 0x82ED95: the status is not SHROUDED (2)
 	FINAL_GRID_CLIFF,  // RW 0x82EC27 (0x48 .. 0x4A)
 	FINAL_RANGE,       // RW 0x82ED67 (0x92)
-	FINAL_SPECIAL,     // 0x27 unported, 0x57 Rebuild
+	FINAL_SPECIAL,     // 0x27 grab tree, 0x57 Rebuild
 	FINAL_GRID_PLANE,  // RW 0x82EA58 (0x59, 0x68)
 	FINAL_ARMY         // RW 0x82EB27 (0x63)
 };
@@ -905,9 +906,11 @@ bool canDoSpecialPowerAtLocation(Object &obj, const Coord3D &loc, const SpecialP
 	}
 	case FINAL_SPECIAL:
 	{
-		if (type != 0x57)
+		if (type == 0x27)
 		{
-			return unportedAnswer(unported, logic, type); // 0x27's earlier test remains unported
+			// RW 0x82DFB7, 0x82EDBC..0x82EDDC: standing grabbable map tree at the point.
+			// DONOR BFME2 0x0041D60B (ActionManagerCanDoSpecialPowerAtLocation.cpp).
+			return logic.trees().findClosestTree(loc, 5.0f, true, 1) != nullptr; // RW 0x67F52B
 		}
 		// RW 0x82DFB7, 0x82E93C..0x82EA56; DONOR BFME2 0x0041D60B
 		// (ActionManagerCanDoSpecialPowerAtLocation.cpp): live allied STRUCTUREs,
