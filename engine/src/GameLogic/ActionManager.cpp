@@ -44,7 +44,8 @@ const char *const kStopTypeTest =
 	"[S-1874] ActionManager RW 0x82DFB7: the per-power-type tests of the building powers (0x52, 0x61, 0x67, 0x6A: RW 0x82E2DE), 0x38 "
 	"(RW 0x76A247), 0x41 (RW 0x82E252) and 0x49 (RW 0x680A75 layer) are not ported; grab location 0x27 (RW 0x82EDBC) and Rebuild 0x57 (RW 0x82E93C) "
 	"are ported (PORT-327); the summons' spot test (0x55, 0x56, 0x5B, 0x5D .. 0x5F, 0x73, 0x76, 0x78, 0x7B, 0x7C, 0x7E, 0x96, 0x9A: RW 0x82E586) "
-	"is ported (SUMMONLOC-1: the partition's geometry overlap, distance type 4, on the template's shapes, S-1020); unported types answer no (counted per type)";
+	"is ported (SUMMONLOC-1: the partition's geometry overlap, distance type 4, on the template's shapes, S-1020); Rebuild uses the shared relationship "
+	"without RW 0x68D7AB's mine / gate exceptions (S-1022); unported types answer no (counted per type)";
 
 const char *const kStopObjectTypeTest =
 	"[S-7140] ActionManager::canDoSpecialPowerAtObject (RW 0x82D925, lane MODCOMPAT-MOD1): the per-power-type object tests of the capture types (0x1D "
@@ -919,6 +920,7 @@ bool canDoSpecialPowerAtLocation(Object &obj, const Coord3D &loc, const SpecialP
 		static const int kStructure = kindBit("STRUCTURE");
 		PartitionFilterFn alive([](Object &o) { return !o.isEffectivelyDead(); });
 		PartitionFilterFn structure([](Object &o) { return hasKindBit(o, kStructure); });
+		// INFERENCE (S-1874): the shared Object::getRelationship omits RW 0x68D7AB's mine / gate exceptions (also S-1022).
 		PartitionFilterFn allied([&](Object &o) { return obj.getRelationship(o) == ALLIES; }); // RW 0x660B85, flag 0
 		for (const PartitionHit &hit : logic.partition().iterateObjectsInRange(loc, radius, FROM_CENTER_2D, { &alive, &structure, &allied }, ITER_FASTEST))
 		{
