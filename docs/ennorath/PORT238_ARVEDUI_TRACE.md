@@ -1,6 +1,6 @@
 # PORT-238: ArnorArveduiNew ring forms (partial trace)
 
-Evidence: extracted Ennorath 1.9.8.3 INI archive MD5 `c53b6dea885cab044f80e783565f41f3`; RW 2.01 `game.dat` MD5 `daed3668006cd90f01c34e5a7da1901f`. Paths below are relative to `data/ini`. Source declarations and an automated matrix sweep are **not** an effective-load, player-game, complete power or visual audit. This is a different base and pair of forms from `GondorArvedui_OneRing` in `object/goodfaction/units/arnor/arnorarvedui.ini`.
+Evidence: extracted Ennorath 1.9.8.3 INI archive MD5 `c53b6dea885cab044f80e783565f41f3`; RW 2.01 `game.dat` MD5 `daed3668006cd90f01c34e5a7da1901f`. Paths below are relative to `data/ini`. Source declarations and an automated matrix sweep are **not** an effective-load, player-game, complete power or visual audit. This is a different base and pair of forms from `GondorArvedui_OneRing` in `object/goodfaction/units/arnor/arnorarvedui.ini`; the separate old-form trace is `PORT238_ARVEDUI_OLD_TRACE.md`.
 
 ## Entry and two alternatives
 

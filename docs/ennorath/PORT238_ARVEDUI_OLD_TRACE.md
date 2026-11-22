@@ -1,0 +1,25 @@
+# PORT-238: old Gondor Arvedui ring form (partial)
+
+Literal Ennorath **1.9.8.3** archive MD5 `c53b6dea885cab044f80e783565f41f3`; paths below are relative to `data/ini`. `GondorArvedui` / `GondorArvedui_OneRing` are distinct from `ArnorArveduiNew` / its good and evil forms (`PORT238_ARVEDUI_TRACE.md`). No effective-load or game/appearance verdict follows from these declarations.
+
+## Entry, replacement and timers
+
+`object/goodfaction/units/arnor/arnorarvedui.ini:8` defines the old base; `:759–775` declares ring contain entry and both OBJECT ring upgrades. The base `:707–735` unpauses and issues an automatic command on `Upgrade_RingHero` alone; `Command_SpecialAbilityGlorfindelRingSwitch` points to `SpecialAbilityGandalfGeprfte` (`includes/commandbutton.inc:32716–32725`) and the toggle names `GondorArvedui_OneRing` with 2000 ms unpack. Its four synchronized names are `SpecialAbilitySchtzedesKnigsreichs`, `SpecialAbilityHaltetStand`, `SpecialAbilityAragornBladeMaster`, `SpellBookPalantirNorden`. The first three names are directly declared on the base; no matching `SpecialPowerTemplate` for any of the four is literally declared in the separate destination object's body (`:948–1750`). This search does not resolve includes, inherited defaults, overrides, or dynamic module creation. The ordinary carrier-attachment macro explicitly excludes `GondorArvedui` (`_gamedata.inc:31`); that does not preclude delivery by a different carrier. The cavalry child is separate (`:913–946`), and its effective ring entry/mount interactions have not been resolved.
+
+RW generic contain `0x8840FC`, auto-command `0x8B8E2E`, toggle `0x8B1690` and named timer-copy `0x8B12BF` are analyzed in `PORT238_RW_ANALYSIS.md` / `PORT238_BOROMIR_TRACE.md`. `PORT-238 old Gondor Arvedui-style delivery*` uses a synthetic unpause + paused starter, automatic single-upgrade trigger, two-upgrade delivery and destination with none of those four powers. It confirms replacement and old-object removal, carrier/ring handling via the fixture, ownership, and absence of invented destination power modules; it **does not** assert that real ring-form powers are absent, nor timer-copy behavior when a destination module actually exists. Matching isolated `3f0105c8` core/headers plus separately compiled upstream PORT-286 parser: **35/35 assertions**; unrelated synthetic auto-trigger produces **28/29** (fixture sensitivity, not an engine pre-fix control). All isolated `PORT-238*`: **40/40 cases, 2701/2701 assertions**. Current merged executable rebuild pending.
+
+The base has a two-upgrade-gated ring death OCL (`:782–789`); the separate ring object has an ungated ring death OCL (`:1669–1676`) and respawns as the base (`:1377–1388`). Generic gates are bounded in `PORT238_FORTRESS_TRACE.md` and `PORT238_DURIN_TRACE.md`; exact death order, duplication, respawn, real admission and UI remain open. S-7321, S-7446 and S-861 remain for shared delivery/transport/replacement.
+
+## Ring form commands, effects and appearance
+
+The directly declared `ArnorArveduiModCommandSet_OneRing` (`includes/commandset.inc:9287–9299`) lists leadership, Unantastbar, Einzugserlass, Aussortierung and Malbeth's Weissagung besides standard controls. These are **not** the good/evil New sets.
+
+| Item | Source evidence | Remaining |
+| --- | --- | --- |
+| Leadership | Ring object `:1460–1481`: two active auras, radius 200, one filters allied heroes, the other allied infantry/cavalry with exclusions | Exact modifier values, stacking, recipients and visible state; shared aura S-856 |
+| Unantastbar | `:1489–1518`: `HeroModeTrigger = Yes` fires `MorchantBannzirkelEffect`; level-3 `HeroModeSpecialAbilityUpdate` with `ArveduiUnantastbarModifier` for 30000 ms. Weapon `includes/weapon.inc:46646–46664` declares ALLIES ENEMIES and radius-55 meta-impact | Actual target/filter and shockwave, modifier, activation timing, expiry and effects not tested here; generic HeroMode/fire bounded separately for Sauron, not this ability; S-920/S-924 |
+| Einzugserlass | `:1525–1577`: level-5 starter calls `ActivateModuleSpecialPower` -> target-position `ModuleTag_MachtbereicherungBlastStarter`, which uses `SteuererlassParalyzeWeaponArvedui`; LevelGrant branch in source is commented | Chained target admission, weapon effects, paralyze, recharge and visuals untested; S-920/S-924 |
+| Aussortierung | `:1582–1604`: level-7 `SpecialAbilityKlingentanz` with `ArveduiAussortierungWeapon` | Weapon nuggets, real targets, timing, animation untested; S-920/S-924 |
+| Malbeth's Weissagung | `:1611–1641`: level-10 `SpecialAbilityMalbethWeissagung` with `MalbethWeissagungWeapon` and an auto-ability scan | Effects, targeting and presentation untested; S-920/S-924 |
+
+The ring draw names `guarvedui_skc`, shield `guarv_shield.tga` and `SaronRingSpark` on `B_HANDR` (`:956–975`); no model, particles, attachment or animation has been inspected in game. A commented `BuildableHeroesMP` lists the base in `playertemplate.ini:112`; it is **not** evidence of availability. Creation routes and all effective powers remain to be audited.

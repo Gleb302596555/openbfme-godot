@@ -4466,3 +4466,143 @@ End
     CHECK(otherPlayer->testModelCondition(user6) == allied);
     CHECK_FALSE(otherKind->testModelCondition(user6));
 }
+
+TEST_CASE("PORT-238 old Gondor Arvedui-style delivery replaces the base without inventing missing destination powers")
+{
+    HealHudWorld w;
+    // arnor/arnorarvedui.ini:707-735,759-774,948-1750. The four names are
+    // synchronized by the base but no matching module is literally declared
+    // in the separate ring object. Synthetic fixtures do not resolve includes.
+    // RW 0x8840FC -> 0x8B8E2E -> 0x8B1690; timer loop 0x8B12BF.
+    const char *data = R"ini(
+Upgrade Upgrade_P238OldArveduiRing
+ Type = OBJECT
+End
+Upgrade Upgrade_P238OldArveduiFortress
+ Type = OBJECT
+End
+SpecialPower P238OldArveduiTransform
+ Enum = SPECIAL_TOGGLE_MOUNTED
+ ReloadTime = 1000
+End
+SpecialPower SpecialAbilitySchtzedesKnigsreichs
+ Enum = SPECIAL_GENERAL_TARGETLESS
+ ReloadTime = 120000
+End
+SpecialPower SpecialAbilityHaltetStand
+ Enum = SPECIAL_GENERAL_TARGETLESS_TWO
+ ReloadTime = 120000
+End
+SpecialPower SpecialAbilityAragornBladeMaster
+ Enum = SPECIAL_GENERAL_TARGETLESS_THREE
+ ReloadTime = 120000
+End
+SpecialPower SpellBookPalantirNorden
+ Enum = SPECIAL_SCREECH
+ ReloadTime = 120000
+End
+CommandButton P238OldArveduiSwitch
+ Command = SPECIAL_POWER
+ SpecialPower = P238OldArveduiTransform
+ InPalantir = Yes
+End
+Object P238OldArveduiBase
+ KindOf = INFANTRY HERO SELECTABLE COMMANDCENTER CAN_ATTACK
+ Body = ActiveBody Body
+  MaxHealth = 500
+ End
+ Behavior = AIUpdateInterface AI
+ End
+ Behavior = UnpauseSpecialPowerUpgrade Enable
+  SpecialPowerTemplate = P238OldArveduiTransform
+  TriggeredBy = Upgrade_P238OldArveduiRing
+  RequiresAllTriggers = Yes
+ End
+ Behavior = SpecialPowerModule Starter
+  SpecialPowerTemplate = P238OldArveduiTransform
+  UpdateModuleStartsAttack = Yes
+  StartsPaused = Yes
+ End
+ Behavior = ToggleMountedSpecialAbilityUpdate Transform
+  SpecialPowerTemplate = P238OldArveduiTransform
+  MountedTemplate = P238OldArveduiRingForm
+  SynchronizeTimerOnSpecialPower = SpecialAbilitySchtzedesKnigsreichs SpecialAbilityHaltetStand SpecialAbilityAragornBladeMaster SpellBookPalantirNorden
+  UnpackTime = 2000
+  PreparationTime = 0
+  PackTime = 0
+  IgnoreFacingCheck = Yes
+ End
+ Behavior = DoCommandUpgrade Automatic
+  TriggeredBy = Upgrade_P238OldArveduiRing
+  GetUpgradeCommandButtonName = P238OldArveduiSwitch
+ End
+ Behavior = CitadelSlaughterHordeContain Entry
+  PassengerFilter = NONE +P238Ring
+  ObjectStatusOfContained = UNSELECTABLE ENCLOSED
+  ContainMax = 1
+  StatusForRingEntry = HOLDING_THE_RING
+  UpgradeForRingEntry = Upgrade_P238OldArveduiRing Upgrade_P238OldArveduiFortress
+  ObjectToDestroyForRingEntry = NONE +P238Ring
+ End
+ Behavior = SpecialPowerModule Wealth
+  SpecialPowerTemplate = SpecialAbilitySchtzedesKnigsreichs
+ End
+ Behavior = SpecialPowerModule Hold
+  SpecialPowerTemplate = SpecialAbilityHaltetStand
+ End
+ Behavior = SpecialPowerModule Blade
+  SpecialPowerTemplate = SpecialAbilityAragornBladeMaster
+ End
+End
+Object P238OldArveduiRingForm
+ KindOf = INFANTRY HERO SELECTABLE CAN_ATTACK
+ Body = ActiveBody Body
+  MaxHealth = 500
+ End
+ Behavior = AIUpdateInterface AI
+ End
+End
+)ini";
+    const std::string error = w.w.load(data, INI_LOAD_OVERWRITE, "port238_old_arvedui.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    Object *hero = w.unit("P238OldArveduiBase", 'A', 300, 300);
+    Object *carrier = w.unit("P238Carrier", 'A', 300, 300);
+    Object *ring = w.unit("P238Ring", 'A', 300, 300);
+    REQUIRE(hero != nullptr);
+    REQUIRE(carrier != nullptr);
+    REQUIRE(ring != nullptr);
+    const ObjectID heroId = hero->getID();
+    const ObjectID ringId = ring->getID();
+    Team *team = hero->getTeam();
+    auto power = [&](Object &obj, const char *name) {
+        const auto *t = w.powers.findSpecialPowerTemplate(name);
+        return t ? dynamic_cast<SpecialPowerModule *>(SpecialPowerModules::findModule(obj, t)) : nullptr;
+    };
+    for (const char *name : {"SpecialAbilitySchtzedesKnigsreichs", "SpecialAbilityHaltetStand", "SpecialAbilityAragornBladeMaster"})
+    {
+        auto *sourcePower = power(*hero, name);
+        REQUIRE(sourcePower != nullptr);
+        sourcePower->setReadyFrame(600);
+    }
+    CHECK(power(*hero, "SpellBookPalantirNorden") == nullptr);
+    auto *contain = dynamic_cast<CitadelSlaughterHordeContain *>(hero->getContain());
+    REQUIRE(contain != nullptr);
+    deliver(*contain, *carrier);
+    CHECK(hero->hasUpgrade("Upgrade_P238OldArveduiRing"));
+    CHECK(hero->hasUpgrade("Upgrade_P238OldArveduiFortress"));
+    REQUIRE(w.byId(ringId) != nullptr);
+    CHECK(w.byId(ringId)->isDestroyed());
+    Object *replacement = nullptr;
+    for (int frame = 0; frame < 50 && !replacement; ++frame)
+    {
+        w.frames(1);
+        for (Object *obj = w.logic->getFirstObject(); obj; obj = obj->getNextObject())
+            if (obj->getTemplate() && obj->getTemplate()->getName() == "P238OldArveduiRingForm") replacement = obj;
+    }
+    REQUIRE(replacement != nullptr);
+    CHECK(replacement->getTeam() == team);
+    for (const char *name : {"SpecialAbilitySchtzedesKnigsreichs", "SpecialAbilityHaltetStand", "SpecialAbilityAragornBladeMaster", "SpellBookPalantirNorden"})
+        CHECK(power(*replacement, name) == nullptr);
+    w.frames(3);
+    CHECK(w.byId(heroId) == nullptr);
+}
