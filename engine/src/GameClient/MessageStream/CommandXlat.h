@@ -18,7 +18,8 @@
 // types): Shift+Up / Shift+Down pass every translator and do nothing in retail, and do nothing here (counted by retailNoOpMeta()).
 //
 // ATTACK RULE (inference, stop S-286): an object is attackable by the click when it is an enemy of the local player and some selected object (or a member of
-// a selected horde) can possibly have a weapon (canPossiblyHaveAnyWeapon, RW 0x73C191), which stands for ZH's ActionManager::canAttackObject.
+// a selected horde, or a SPAWNS_ARE_THE_WEAPONS slave via SpawnBehaviorInterface slot 7 canAnySlavesAttack / slot 2 getClosestSlave, PORT-198 RW 0x81D9DE)
+// can possibly have a weapon (canPossiblyHaveAnyWeapon, RW 0x73C191), which stands for ZH's ActionManager::canAttackObject.
 // TARGET FACT: not when the object is UNATTACKABLE (KindOf 54 or status 0x3C): RotWK's WeaponSet::getAbleToAttackSpecificObject (RW 0x6C9147) refuses it for
 // every attacker (RW 0x6C91FA / 0x6C9207).
 // TARGET FACT (lane WALL-3): RotWK attacks an object only when the selection's best attack result (getCanSelectedObjectsAttack RW 0x69D1D4, RW 0x81F18E) is

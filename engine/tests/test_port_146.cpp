@@ -219,8 +219,10 @@ TEST_CASE("PORT-146: a siege carrier's passengers stand on their bones and the a
 	w.frames(30);
 	std::printf("info: shots in 30 frames standing: %llu (victim %s)\n", (unsigned long long)(w.logic->combat().counters().projectilesLaunched - standing),
 	            aai->currentVictim() ? aai->currentVictim()->getTemplate()->getName().c_str() : "none");
-	// the bow: PreAttackDelay 400, ClipSize 2 of DelayBetweenShots 800, then ClipReloadTime 2000 - five fires in the 30 frames of one bow's clip run
-	CHECK(w.logic->combat().counters().projectilesLaunched == standing + 5);
+	// Port 225 (#548): the last shot position is kept between shots (RW 0x8E32CF; zeroed only by coolDown RW 0x8E30AF),
+	// PER_POSITION skips the pre-attack delay of a standing shooter: six fires, was five with the per-frame reset
+	// the bow: PreAttackDelay 400, ClipSize 2 of DelayBetweenShots 800, then ClipReloadTime 2000 - six fires in the 30 frames of one bow's clip run
+	CHECK(w.logic->combat().counters().projectilesLaunched == standing + 6);
 
 	// the carrier rolls: the archer keeps its bone offset frame by frame and goes on firing
 	REQUIRE(carrier->getAIUpdateInterface() != nullptr);

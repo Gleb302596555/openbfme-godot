@@ -3,6 +3,7 @@
 set(OPENBFME_UI2_CLIENT_SOURCES
     src/GameClient/GUI/Gadget/GadgetMapPreview.cpp
     src/GameClient/AptView3D.cpp
+    src/GameClient/EnnorathOptions.cpp
     src/GameClient/OptionPreferences.cpp
 )
 set(OPENBFME_UI2_GODOT_SOURCES

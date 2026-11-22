@@ -71,6 +71,7 @@ PlayerStatusInfo makePlayerStatusInfo(const PlayerStatusInput &in, const Skirmis
 {
 	PlayerStatusInfo info;
 	info.inSkirmish = in.gameMode == 2; // RW 0x914AA1: TheGameLogic + 0x110 == 2
+	info.localSlot = in.localSlot;
 	if (!in.game)
 	{
 		return info;

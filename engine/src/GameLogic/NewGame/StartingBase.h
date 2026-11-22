@@ -22,7 +22,7 @@
 //     radius south when a structure was made (RW 0x62ADC4), else the start waypoint; each at its ground height.  BFME2 0x641C75 is the same code
 //     (tier A, open-bfme-2 GameLogic.cpp placeNetworkBuildingsForPlayer): both editions.  A unit then gets Player::onUnitCreated
 //     (RW 0x6AA688).
-// INFERENCE / not ported (S-272): Player::onStructureCreated / ConstructionComplete / onUnitCreated, the team activation, the pathfinder registration and the
+// INFERENCE / not ported (S-272): Player::onStructureCreated / ConstructionComplete (RW 0x6AA688 onUnitCreated is ported via PORT-198), the team activation, the pathfinder registration and the
 // adjusted destination of mobile units, the waypoint flag, the CRT parity of acos / sin / cos (S-081 / S-167).
 
 #pragma once

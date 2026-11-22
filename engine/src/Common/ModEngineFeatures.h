@@ -44,6 +44,11 @@ enum class ModEngineFeature
 	EnnorathStanceKeepsMoving,         // HoldGround idles the AI only when it is idle and not waiting for a path (.stancem)
 	EnnorathMiddleClickCamera,         // a middle click resets the camera: at most 350 ms by the clock, never moved beyond 5 pixels (.camfix)
 	EnnorathEvacuateContainers,        // evacuate all lets a rider with a contain that is no horde out of a horde garrison / tunnel (.keydef 0xF39580)
+	EnnorathOptionsPages,              // paged options screen ETPage0..4/9, ETBegin/ETCancel/ETReset, ETFrameRate (display-only), ETMouseSensitivity (.optui / .optfix)
+	EnnorathOptionHotkeys,             // 11 CommandMap hotkey rows in options and mod defaults Builder=B / MatchType=E (.optui / .optfix / .hotkeys / .keydef / .keycmd)
+	EnnorathOnlineDelayFix,            // NetworkDelayFix checkbox and online frame-count pacing (.dlyfix)
+	EnnorathLobbyMapSearch,            // MpGameSetup MapSearch text entry filters MapList live by display name (.mapfind / .mapsvar)
+	EnnorathChatMute,                  // per-player chat mute on the PlayerTribute screen and in the chat path (.chatmut 0xEDB000)
 	Count
 };
 

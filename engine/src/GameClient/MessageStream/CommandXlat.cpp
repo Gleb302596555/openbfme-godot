@@ -23,7 +23,6 @@
 #include "GameClient/HudObjects.h"
 #include "GameLogic/GameMessage.h"
 #include "GameLogic/BeaconCommands.h"
-#include "GameLogic/Combat/CombatNames.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/Module/BehaviorModule.h"
@@ -36,6 +35,7 @@
 #include "GameLogic/Module/GiantBirdAIUpdate.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/SimMath.h"
+#include "GameLogic/System/ShroudManager.h"
 
 #include <cstdlib>
 
@@ -194,6 +194,12 @@ bool CommandTranslator::objectCanDamage(Object &obj, Object &victim)
 				return true;
 			}
 		}
+		// PORT-198 (RW 0x6C8A01): WeaponSet slot 6 fallback if the object had matching anti-mask weapons that didn't directly apply
+		const CanAttackResult res = obj.getAbleToUseWeaponAgainstTarget(ATTACK_NEW_TARGET, &victim, victim.getPosition(), CMD_FROM_PLAYER);
+		if (res == ATTACKRESULT_POSSIBLE || res == ATTACKRESULT_POSSIBLE_AFTER_MOVING)
+		{
+			return true;
+		}
 	}
 	if (ContainModuleInterface *contain = obj.getContain())
 	{
@@ -208,19 +214,18 @@ bool CommandTranslator::objectCanDamage(Object &obj, Object &victim)
 			}
 		}
 	}
-	// PORT-208 (issue #490): RW 0x6913B7 .. 0x691416 as in objectCanAttack: a spawner's slaves decide whether the spawner can hurt the victim
-	if (obj.isKindOf((unsigned)CombatNames::kinds().spawnsAreTheWeapons))
+	// RW 0x77208A .. 0x772248 / RW 0x81D9DE: a SPAWNS_ARE_THE_WEAPONS spawner checks shroud and delegates to its closest slave's getAbleToAttackSpecificObject
+	if (obj.isKindOf((unsigned)CombatNames::kinds().spawnsAreTheWeapons) && !ShroudManager::isShroudedForAction(obj, victim))
 	{
 		if (SpawnBehaviorInterface *spawn = SpawnBehaviorInterface::of(obj))
 		{
-			bool any = false;
-			spawn->forEachSpawnID([&](ObjectID slaveId) {
-				Object *slave = m_ctx.logic.findObjectByID(slaveId);
-				any = any || (slave && !slave->isDestroyed() && objectCanDamage(*slave, victim));
-			});
-			if (any)
+			if (Object *slave = spawn->getClosestSlave(victim.getPosition()))
 			{
-				return true;
+				const CanAttackResult res = slave->getAbleToAttackSpecificObject(ATTACK_NEW_TARGET, &victim, CMD_FROM_PLAYER);
+				if (res == ATTACKRESULT_POSSIBLE || res == ATTACKRESULT_POSSIBLE_AFTER_MOVING)
+				{
+					return true;
+				}
 			}
 		}
 	}
@@ -432,6 +437,27 @@ int CommandTranslator::evaluateForceAttack(Object *target, const Coord3D *pos, E
 		// RW 0x81E594 .. 0x81E5A3: the invalid hint (0xB2, GenericInvalid) is only for the eligibility result 1; result 0 (no attacker) gives no hint.
 		// The boolean test here stands for result 0 (S-286), so no hint (lane INPUT-1 r4)
 		return 0;
+	}
+	if (target && first->isKindOf((unsigned)CombatNames::kinds().spawnsAreTheWeapons))
+	{
+		CanAttackResult res = first->getAbleToAttackSpecificObject(ATTACK_NEW_TARGET_FORCED, target, CMD_FROM_PLAYER);
+		if (res != ATTACKRESULT_POSSIBLE && res != ATTACKRESULT_POSSIBLE_AFTER_MOVING)
+		{
+			SpawnBehaviorInterface *spawn = SpawnBehaviorInterface::of(*first);
+			Object *slave = spawn ? spawn->getClosestSlave(target->getPosition()) : nullptr;
+			if (slave)
+			{
+				res = slave->getAbleToAttackSpecificObject(ATTACK_NEW_TARGET_FORCED, target, CMD_FROM_PLAYER);
+			}
+			if (res != ATTACKRESULT_POSSIBLE && res != ATTACKRESULT_POSSIBLE_AFTER_MOVING)
+			{
+				if (res == ATTACKRESULT_INVALID_SHOT && type == EvaluateType::DoHint)
+				{
+					hint(MouseCursorName::GenericInvalid);
+				}
+				return 0;
+			}
+		}
 	}
 	const int msgType = target ? MSG_DO_FORCE_ATTACK_OBJECT : MSG_DO_FORCE_ATTACK_GROUND;
 	if (type == EvaluateType::DoCommand)
