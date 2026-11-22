@@ -5,6 +5,7 @@
 #include "StartTestUtil.h"
 
 #include "Common/INI.h"
+#include "Common/Player.h"
 #include "Common/PlayerList.h"
 #include "GameLogic/Damage.h"
 #include "GameLogic/GameLogic.h"
@@ -12,6 +13,10 @@
 #include "GameLogic/SkirmishAI/SkirmishAIManager.h"
 #include "GameLogic/System/ShroudManager.h"
 #include "GameLogic/VictoryConditions.h"
+
+#include <cstdint>
+#include <string>
+#include <vector>
 
 using namespace combattest;
 
