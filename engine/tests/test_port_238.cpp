@@ -3300,3 +3300,251 @@ End
     CHECK(w.count("P238NewThief") == 1);
     CHECK(w.count("P238NewBearer") == 1);
 }
+
+TEST_CASE("PORT-238 Gandalf-style white choice before or after ring delivery")
+{
+    HealHudWorld w;
+    // gondorgandalf.ini:1415-1499, 2979-3003 and
+    // gondorgandalfverfhrte.ini:1328-1350; RW 0x8D26F3, 0x8B8E2E, 0x8B1690.
+    const char *data = R"ini(
+Upgrade Upgrade_P238GanRing
+ Type = OBJECT
+End
+Upgrade Upgrade_P238GanFortress
+ Type = OBJECT
+End
+Upgrade Upgrade_P238GanWhite
+ Type = PLAYER
+End
+SpecialPower P238GanWhitePower
+ Enum = SPECIAL_TOGGLE_MOUNTED
+ ReloadTime = 1000
+End
+SpecialPower P238GanEvilPower
+ Enum = SPECIAL_GENERAL_TARGETLESS
+ ReloadTime = 1000
+End
+SpecialPower P238GanGoodPower
+ Enum = SPECIAL_GENERAL_TARGETLESS_TWO
+ ReloadTime = 1000
+End
+CommandButton P238GanWhiteButton
+ Command = SPECIAL_POWER
+ SpecialPower = P238GanWhitePower
+ InPalantir = No
+End
+CommandButton P238GanEvilButton
+ Command = SPECIAL_POWER
+ SpecialPower = P238GanEvilPower
+ InPalantir = No
+End
+CommandButton P238GanGoodButton
+ Command = SPECIAL_POWER
+ SpecialPower = P238GanGoodPower
+ InPalantir = No
+End
+Object P238GanBase
+ KindOf = INFANTRY HERO SELECTABLE COMMANDCENTER CAN_ATTACK
+ Body = ActiveBody Body
+  MaxHealth = 500
+ End
+ Behavior = AIUpdateInterface AI
+ End
+ Behavior = SpecialPowerModule WhiteStarter
+  SpecialPowerTemplate = P238GanWhitePower
+  StartsPaused = No
+  UpdateModuleStartsAttack = Yes
+ End
+ Behavior = ToggleMountedSpecialAbilityUpdate WhiteToggle
+  SpecialPowerTemplate = P238GanWhitePower
+  MountedTemplate = P238GanWhite
+  UnpackTime = 2000
+  PreparationTime = 0
+  PackTime = 0
+  IgnoreFacingCheck = Yes
+ End
+ Behavior = DoCommandUpgrade WhiteCommand
+  TriggeredBy = Upgrade_P238GanWhite
+  GetUpgradeCommandButtonName = P238GanWhiteButton
+ End
+ Behavior = SpecialPowerModule EvilStarter
+  SpecialPowerTemplate = P238GanEvilPower
+  StartsPaused = No
+  UpdateModuleStartsAttack = Yes
+ End
+ Behavior = ToggleMountedSpecialAbilityUpdate EvilToggle
+  SpecialPowerTemplate = P238GanEvilPower
+  MountedTemplate = P238GanEvil
+  UnpackTime = 2000
+  PreparationTime = 0
+  PackTime = 0
+  IgnoreFacingCheck = Yes
+ End
+ Behavior = DoCommandUpgrade EvilCommand
+  TriggeredBy = Upgrade_P238GanRing Upgrade_P238GanFortress
+  ConflictsWith = Upgrade_P238GanWhite
+  GetUpgradeCommandButtonName = P238GanEvilButton
+ End
+ Behavior = CitadelSlaughterHordeContain RingEntry
+  PassengerFilter = NONE +P238Ring
+  ObjectStatusOfContained = UNSELECTABLE ENCLOSED
+  ContainMax = 1
+  StatusForRingEntry = HOLDING_THE_RING
+  UpgradeForRingEntry = Upgrade_P238GanRing Upgrade_P238GanFortress
+  ObjectToDestroyForRingEntry = NONE +P238Ring
+ End
+End
+Object P238GanWhite
+ KindOf = INFANTRY HERO SELECTABLE COMMANDCENTER CAN_ATTACK
+ Body = ActiveBody Body
+  MaxHealth = 500
+ End
+ Behavior = AIUpdateInterface AI
+ End
+ Behavior = SpecialPowerModule GoodStarter
+  SpecialPowerTemplate = P238GanGoodPower
+  StartsPaused = No
+  UpdateModuleStartsAttack = Yes
+ End
+ Behavior = ToggleMountedSpecialAbilityUpdate GoodToggle
+  SpecialPowerTemplate = P238GanGoodPower
+  MountedTemplate = P238GanGood
+  UnpackTime = 2000
+  PreparationTime = 0
+  PackTime = 0
+  IgnoreFacingCheck = Yes
+ End
+ Behavior = DoCommandUpgrade GoodCommand
+  TriggeredBy = Upgrade_P238GanRing Upgrade_P238GanFortress
+  GetUpgradeCommandButtonName = P238GanGoodButton
+ End
+ Behavior = CitadelSlaughterHordeContain RingEntry
+  PassengerFilter = NONE +P238Ring
+  ObjectStatusOfContained = UNSELECTABLE ENCLOSED
+  ContainMax = 1
+  StatusForRingEntry = HOLDING_THE_RING
+  UpgradeForRingEntry = Upgrade_P238GanRing Upgrade_P238GanFortress
+  ObjectToDestroyForRingEntry = NONE +P238Ring
+ End
+End
+Object P238GanEvil
+ KindOf = INFANTRY HERO SELECTABLE CAN_ATTACK
+ Body = ActiveBody Body
+  MaxHealth = 500
+ End
+ Behavior = AIUpdateInterface AI
+ End
+ Behavior = SpecialPowerModule WhiteStarter
+  SpecialPowerTemplate = P238GanWhitePower
+  StartsPaused = No
+  UpdateModuleStartsAttack = Yes
+ End
+ Behavior = ToggleMountedSpecialAbilityUpdate WhiteToggle
+  SpecialPowerTemplate = P238GanWhitePower
+  MountedTemplate = P238GanGood
+  UnpackTime = 2000
+  PreparationTime = 0
+  PackTime = 0
+  IgnoreFacingCheck = Yes
+ End
+ Behavior = DoCommandUpgrade WhiteCommand
+  TriggeredBy = Upgrade_P238GanWhite
+  GetUpgradeCommandButtonName = P238GanWhiteButton
+ End
+End
+Object P238GanGood
+ KindOf = INFANTRY HERO SELECTABLE CAN_ATTACK
+ Body = ActiveBody Body
+  MaxHealth = 500
+ End
+ Behavior = AIUpdateInterface AI
+ End
+End
+)ini";
+    const std::string error = w.w.load(data, INI_LOAD_OVERWRITE, "port238_gandalf.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    bool whiteFirst = false;
+    bool simultaneous = false;
+    SUBCASE("ring before white") {}
+    SUBCASE("white before ring") { whiteFirst = true; }
+    SUBCASE("ring during white transition") { whiteFirst = true; simultaneous = true; }
+    Object *hero = w.unit("P238GanBase", 'A', 300, 300);
+    Object *carrier = w.unit("P238Carrier", 'A', 300, 300);
+    Object *ring = w.unit("P238Ring", 'A', 300, 300);
+    REQUIRE(hero != nullptr);
+    REQUIRE(carrier != nullptr);
+    REQUIRE(ring != nullptr);
+    const ObjectID originalId = hero->getID();
+    const ObjectID ringId = ring->getID();
+    auto find = [&](const char *name) -> Object * {
+        for (Object *o = w.logic->getFirstObject(); o; o = o->getNextObject())
+            if (o->getTemplate() && o->getTemplate()->getName() == name) return o;
+        return nullptr;
+    };
+    auto giveWhite = [&]() {
+        const auto *upgrade = Player::resolveUpgrade("Upgrade_P238GanWhite", true);
+        REQUIRE(upgrade != nullptr);
+        w.playerOf('A')->addUpgrade(upgrade, Player::UPGRADE_STATUS_COMPLETE);
+    };
+    auto waitFor = [&](const char *name) -> Object * {
+        for (int i = 0; i < 50 && !find(name); ++i) w.frames(1);
+        return find(name);
+    };
+    if (whiteFirst)
+    {
+        giveWhite();
+        if (!simultaneous)
+        {
+            hero = waitFor("P238GanWhite");
+            REQUIRE(hero != nullptr);
+            w.frames(3);
+            CHECK(w.byId(originalId) == nullptr);
+        }
+    }
+    auto *contain = dynamic_cast<CitadelSlaughterHordeContain *>(hero->getContain());
+    REQUIRE(contain != nullptr);
+    deliver(*contain, *carrier);
+    CHECK(hero->hasUpgrade("Upgrade_P238GanRing"));
+    CHECK(hero->hasUpgrade("Upgrade_P238GanFortress"));
+    if (simultaneous)
+    {
+        auto *evilCommand = dynamic_cast<DoCommandUpgrade *>(hero->findModuleByTag(w.w.keys.nameToKey("EvilCommand")));
+        REQUIRE(evilCommand != nullptr);
+        CHECK_FALSE(evilCommand->isAlreadyUpgraded());
+    }
+    REQUIRE(w.byId(ringId) != nullptr);
+    CHECK(w.byId(ringId)->isDestroyed());
+    if (simultaneous)
+    {
+        // Characterizes the port only: do not infer RW or a real-game race.
+        Object *white = waitFor("P238GanWhite");
+        REQUIRE(white != nullptr);
+        const ObjectID whiteId = white->getID();
+        w.frames(50);
+        white = w.byId(whiteId);
+        REQUIRE(white != nullptr);
+        CHECK_FALSE(white->hasUpgrade("Upgrade_P238GanRing"));
+        CHECK_FALSE(white->hasUpgrade("Upgrade_P238GanFortress"));
+        CHECK(find("P238GanGood") == nullptr);
+        CHECK(find("P238GanEvil") == nullptr);
+        CHECK(white->getControllingPlayer() == w.playerOf('A'));
+        CHECK(w.byId(originalId) == nullptr);
+        return;
+    }
+    Object *selected = waitFor(whiteFirst ? "P238GanGood" : "P238GanEvil");
+    REQUIRE(selected != nullptr);
+    CHECK(selected->getControllingPlayer() == w.playerOf('A'));
+    w.frames(3);
+    if (!whiteFirst)
+    {
+        const ObjectID evilId = selected->getID();
+        CHECK(w.byId(originalId) == nullptr);
+        giveWhite();
+        Object *good = waitFor("P238GanGood");
+        REQUIRE(good != nullptr);
+        CHECK(good->getControllingPlayer() == w.playerOf('A'));
+        w.frames(3);
+        CHECK(w.byId(evilId) == nullptr);
+    }
+    CHECK_FALSE(w.playerOf('B')->hasUpgradeComplete("Upgrade_P238GanWhite"));
+}
