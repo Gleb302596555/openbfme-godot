@@ -314,6 +314,16 @@ void GadgetTextEntrySetTextColor(GameWindow *g, Color color)
 	g->winSetDisabledTextColors(darkenColor(color, 25), back);
 }
 
+void GadgetTextEntrySetPlaceholder(GameWindow *g, const UnicodeString &text, Color color, Color borderColor)
+{
+	if (EntryData *e = entryOf(g))
+	{
+		e->placeholderText = text;
+		e->placeholderColor = color;
+		e->placeholderBorderColor = borderColor;
+	}
+}
+
 // ---- draw (W3DTextEntry.cpp) -------------------------------------------------------------------------------------------------------------------
 
 static void drawTextEntryText(GameWindow *window, WinInstanceData *instData, Color textColor, Color textDropColor, int x, int y, int width, int fontHeight)
@@ -364,6 +374,12 @@ static void drawTextEntryText(GameWindow *window, WinInstanceData *instData, Col
 		x += 2;
 		mgr.winDrawText(text, font, x, y, textColor, textDropColor);
 		cursorPos = textWidth + x;
+	}
+	// PYSAGE 1.9.8.5 .mapfind 0x00F3305E -> 0x00F3320B (hooked at W3DGadgetTextEntryDraw RW 0x49F7C6 / RW 0x49FC37):
+	// when both text and secret text are empty, draw the placeholder inside the same clip region.
+	if (e->text.empty() && e->sText.empty() && !e->placeholderText.empty())
+	{
+		mgr.winDrawText(e->placeholderText, font, x, y, e->placeholderColor, e->placeholderBorderColor);
 	}
 	mgr.enableClipping(false);
 	GameWindow *parent = window->winGetParent();

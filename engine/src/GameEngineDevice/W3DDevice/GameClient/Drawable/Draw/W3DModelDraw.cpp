@@ -688,6 +688,7 @@ void parseEmbedPortal(INI *ini, void *instance, void *, const void *)
 	W3DModelDrawModuleData *module = static_cast<W3DModelDrawModuleData *>(instance);
 	module->m_embedPortalName = lowerCopy(ini->getNextAsciiString());
 	module->m_embedPortalKind = ini->getNextAsciiString();
+	module->m_embedPortals.push_back({ module->m_embedPortalName, module->m_embedPortalKind }); // RW 0x004B7A22 / 0x004C30BD
 }
 
 // RW 0x4C7E42 (donor Rva0077C390Parse.cpp): AttachModel [conditions] ... End with Bone / Offset / Model NAME prob:N.
@@ -917,6 +918,7 @@ void W3DDefaultDrawModuleData::buildFieldParse(MultiIniFieldParse &)
 // PORT-106 (issue #266): RW 0x4C72E1 cmp byte [edi+0x15D] (edi = [ebx+4], the module data) -> je 0x4C7312; else isInMultiplayerGame
 // RW 0x441B7C -> je 0x4C78D3 (return); TheWritableGlobalData +0xD45 RW 0x4C7305..0x4C730C -> jne 0x4C78D3 (return). Only the reads of
 // these two inputs are ported here; the caller (Drawable::addEntry) supplies them from the logic (GameLogic::isInMultiplayerGame).
+// RW 0x004B25DE: checks TheGameLogic+0x70 (multiplayer) or GlobalData+0xE78
 bool W3DModelDrawModuleData::multiPlayerOnlySkipsBody(bool inMultiplayerGame, bool globalDataFieldD45) const
 {
 	return m_multiPlayerOnly && (!inMultiplayerGame || globalDataFieldD45);

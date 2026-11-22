@@ -255,6 +255,43 @@ Coord3D TransitionDamageFX::effectPos(const TransitionDamageFXModuleData::LocInf
 }
 
 // RW 0x8BE077
+// RW 0x008BDCF7: HideSubObject then ShowSubObject (permanent) for the given damage state
+void TransitionDamageFX::applySubObjects(BodyDamageType state)
+{
+	Object *obj = getObject();
+	if (!obj)
+	{
+		return;
+	}
+	if (ObjectClientHooks *hooks = obj->clientHooks())
+	{
+		for (const std::string &n : m_data->m_hideSubObjects[state])
+		{
+			hooks->showSubObject(*obj, n, false, true);
+		}
+		for (const std::string &n : m_data->m_showSubObjects[state])
+		{
+			hooks->showSubObject(*obj, n, true, true);
+		}
+	}
+}
+
+// RW 0x008BDEE5 (vtable 0x00C707A4 slot 6): apply HideSubObject / ShowSubObject for the body's current damage state
+void TransitionDamageFX::onDrawableBoundToObject()
+{
+	Object *obj = getObject();
+	if (!obj)
+	{
+		return;
+	}
+	const BodyModuleInterface *body = obj->getBodyModule();
+	if (!body)
+	{
+		return;
+	}
+	applySubObjects(body->getDamageState());
+}
+
 void TransitionDamageFX::onBodyDamageStateChange(const DamageInfo *info, BodyDamageType oldState, BodyDamageType newState)
 {
 	Object &obj = *getObject();
@@ -279,18 +316,7 @@ void TransitionDamageFX::onBodyDamageStateChange(const DamageInfo *info, BodyDam
 			logic.fxEvents().emit(ev);
 		}
 	}
-	// RW 0x8BDCF7: the new state's sub objects (permanent), Hide then Show
-	if (ObjectClientHooks *hooks = obj.clientHooks())
-	{
-		for (const std::string &n : d.m_hideSubObjects[newState])
-		{
-			hooks->showSubObject(obj, n, false, true);
-		}
-		for (const std::string &n : d.m_showSubObjects[newState])
-		{
-			hooks->showSubObject(obj, n, true, true);
-		}
-	}
+	applySubObjects(newState);
 	if (oldState < newState)
 	{
 		// body interface slot 0x40: the last damage record (ActiveBody + 0x40; its damage type at + 0x10); null for a body without one
@@ -325,8 +351,7 @@ void TransitionDamageFX::onBodyDamageStateChange(const DamageInfo *info, BodyDam
 				}
 				else if (list)
 				{
-					list->create(logic, &obj, pos); // RW 0x5F00CA; the secondary position (the source's) is not handed over (S-530)
-					++st.oclSecondaryDropped;
+					list->create(logic, &obj, pos, source->getPosition()); // RW 0x5F00CA with source's position as secondary
 					++st.oclCalls;
 				}
 			}
@@ -353,8 +378,7 @@ std::vector<std::string> TransitionDamageFX::stops()
 	const Stats &s = stats();
 	return { "[S-686] TransitionDamageFX: RW 0x8BE077 ran " + std::to_string(s.transitions) + " transitions, " + std::to_string(s.fxCalls) + " FXList, " +
 			 std::to_string(s.particleCalls) + " particle system, " + std::to_string(s.oclCalls) + " OCL calls; not ported: the rubble neighbours (RW 0x8BDF08, " +
-			 std::to_string(s.rubbleNeighborsNotRun) + " calls, S-342), the OCL's secondary position (" + std::to_string(s.oclSecondaryDropped) +
-			 " calls, S-530), an OCL call without a damage source (" + std::to_string(s.oclWithoutSource) +
+			 std::to_string(s.rubbleNeighborsNotRun) + " calls, S-342), an OCL call without a damage source (" + std::to_string(s.oclWithoutSource) +
 			 " not made); the drawable of RW 0x8BDDAC is taken as present; FXList / particle system names are not checked at parse time" };
 }
 

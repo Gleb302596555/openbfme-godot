@@ -121,7 +121,13 @@ void GameLogic::registerSnapshotBlocks()
 				m_aiWorld->xfer(x);
 			}
 		},
-		nullptr, { "pathfinder and AI movers", "objects" });
+		[this]() {
+			if (m_aiWorld)
+			{
+				m_aiWorld->loadPostProcess();
+			}
+		},
+		{ "pathfinder and AI movers", "objects" });
 	add4c("obfme:Shroud", kSaveLoadAndDeepCRC,
 		[this, present](Xfer &x) {
 			XferVersion v{ 1, 1 };
@@ -335,7 +341,7 @@ void GameLogic::xferCore(Xfer &x)
 	}
 	if (v.current >= 5)
 	{
-		m_cheatMode.xferSandbox(x);
+		m_cheatMode.xferSandbox(x, m_players.getPlayerCount());
 	}
 	else if (x.isLoading())
 	{

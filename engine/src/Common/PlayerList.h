@@ -65,6 +65,9 @@ public:
 	// multiplayer game); the game start sets it before newGame. setupSkirmish / applySkirmishSlots always use the skirmish mode.
 	void setSpellGameMode(const SpellGameMode &mode) { m_spellModeForMaps = mode; }
 	const SpellGameMode &spellGameMode() const { return m_spellModeForMaps; }
+	// PORT-227: AIData ForceSkirmishAI (RW 0x6AA450 / 0x6AA49F -> Player::setPlayerType): when true, PLAYER_COMPUTER sides get AISkirmishPlayer even when playerIsSkirmish is false
+	void setForceSkirmishAI(bool force) { m_forceSkirmishAI = force; }
+	bool forceSkirmishAI() const { return m_forceSkirmishAI; }
 	std::vector<std::string> newGame(const SidesList &sides, std::uint32_t defaultStartingCash);
 	std::vector<std::string> setupSkirmish(const SkirmishSetup &setup);
 	// A map game with lobby slots (ZH GameLogic::startNewGame): the players of `newGame` stay, and each entry of `setup.players` takes over the
@@ -104,6 +107,7 @@ public:
 
 private:
 	SpellGameMode m_spellModeForMaps; // SPELL-1
+	bool m_forceSkirmishAI = false;   // PORT-227: AIData ForceSkirmishAI
 	Player *addPlayer(const std::string &name, const std::string &displayName);
 	void finishRelationships(Player *p);
 

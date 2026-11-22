@@ -15,6 +15,12 @@ bool ObjectFilter::operator==(const ObjectFilter &o) const
 		rule == o.rule && relationships == o.relationships && flag == o.flag && side == o.side;
 }
 
+const ObjectFilter &specialPowerFilterOrDefault(const ObjectFilter *filter)
+{
+	static const ObjectFilter kDefault = ObjectFilter::none(KindOfMaskType{}, KindOfMaskType{});
+	return filter ? *filter : kDefault;
+}
+
 ObjectFilter ObjectFilter::none(const KindOfMaskType &include, const KindOfMaskType &exclude)
 {
 	ObjectFilter f;

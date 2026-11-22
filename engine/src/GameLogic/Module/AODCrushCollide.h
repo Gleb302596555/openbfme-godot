@@ -1,6 +1,6 @@
 // OpenBFME. GPL-3.0.
 // Both editions: collision RW 0x8C0201 / BFME2 0x8BC0B8; update RW 0x8C042F /
-// BFME2 0x8BC2E6. Horde notifications and the two-object OCL require stops.
+// BFME2 0x8BC2E6. Horde notification parity stop S-6007 remains; two-object OCL ported in PORT-237 (S-6008 closed).
 #pragma once
 #include "Common/INI.h"
 #include "GameLogic/Module/CollideModule.h"

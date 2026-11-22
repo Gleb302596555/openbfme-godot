@@ -34,6 +34,8 @@
 #include "GodotDevice/GodotPlacementGhost.h"
 #include "GameClient/HudObjects.h"
 #include "GameClient/InGameHud.h"
+#include "Common/ModEngineFeatures.h"
+#include "GameClient/EnnorathOptions.h"
 #include "GameClient/OptionPreferences.h"
 #include "GameClient/GameLODManager.h"
 #include "GameClient/LiveGame.h"
@@ -77,6 +79,7 @@
 #include <godot_cpp/classes/input_event_mouse_button.hpp>
 #include <godot_cpp/classes/input_event_mouse_motion.hpp>
 #include <godot_cpp/classes/os.hpp>
+#include <godot_cpp/classes/project_settings.hpp>
 #include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/classes/viewport.hpp>
 #include <godot_cpp/classes/decal.hpp>
@@ -2230,6 +2233,16 @@ Dictionary InGameHudNode::attach(const Ref<RetailFileSystem> &fs, GameWorld *wor
 	if (!d->meta.load(*d->metaEnv, "Data\\INI\\CommandMap.ini", &error) || (!bfme1Keys && !d->meta.load(*d->metaEnv, "CommandMap.ini", &error)))
 	{
 		errors.push_back(toGodot(error));
+	}
+	else if (ModEngineFeatures::has(ModEngineFeature::EnnorathOptionHotkeys))
+	{
+		OptionPreferences prefs;
+		const Variant optFile = options.get("options_file", Variant());
+		const String path = optFile.get_type() == Variant::STRING && !String(optFile).is_empty()
+			? ProjectSettings::get_singleton()->globalize_path(String(optFile))
+			: ProjectSettings::get_singleton()->globalize_path("user://Options.ini");
+		prefs.load(std::string(path.utf8().get_data()));
+		applyEnnorathHotkeys(d->meta, &prefs);
 	}
 	if (!errors.is_empty())
 	{

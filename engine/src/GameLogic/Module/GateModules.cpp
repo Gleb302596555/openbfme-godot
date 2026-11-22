@@ -139,6 +139,9 @@ void AIGateUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 
 // ---- GateOpenAndCloseBehavior -------------------------------------------------------------------------------------------------------
 // RW 0x89C04B
+// RW 0x89C006 is the function-local `static const NameKeyType` of the class (RW 0x89C04B's guard at 0x89C010 / 0x89C017: `or byte [0xDE9530], 1`,
+// then RW 0x5487EC nameToKey("GateOpenAndCloseBehavior", RW 0xC0A0A0), the result at 0xDE952C): the constructor asks for the pool key once. The port
+// keys modules by name at registration (ModuleFactory), so there is no call site here; the address is cited because the map counted the function.
 GateOpenAndCloseBehavior::GateOpenAndCloseBehavior(Thing *thing, const GateOpenAndCloseBehaviorModuleData *data)
 	: UpdateModule(thing, data)
 	, m_data(data)
@@ -651,7 +654,7 @@ GateOpenAndCloseBehavior::GeometryState GateProxyBehavior::geometryState() const
 	return resolveTarget() ? m_targetGate->geometryState() : GEOMETRY_NONE;
 }
 
-float GateProxyBehavior::percent() const // slots 11 / 12 (RW 0x656779 / 0x6567A1)
+float GateProxyBehavior::percent() const // slots 11 / 12 (RW 0x656779 / RW 0x006567A1)
 {
 	return resolveTarget() ? m_targetGate->percent() : 0.0f;
 }
@@ -661,7 +664,7 @@ UpdateSleepTime GateProxyBehavior::update() // RW 0x64DF74
 	return UPDATE_SLEEP_FOREVER;
 }
 
-void GateProxyBehavior::onObjectCreated() // RW 0x499475 / RW 0x89CB19
+void GateProxyBehavior::onObjectCreated() // RW 0x0089CC24 -> RW 0x89CB19 (DONOR BFME2 0x499475)
 {
 	GateOpenAndCloseBehavior::onObjectCreated();
 	if (m_linkedObjectId == 0 && getObject())
@@ -693,6 +696,20 @@ AIGateUpdate::AIGateUpdate(Thing *thing, const AIGateUpdateModuleData *data)
 	: UpdateModule(thing, data)
 	, m_data(data)
 {
+}
+
+// RW 0x008B490F (~AIGateUpdate), RW 0x008B4A33 (scalar deleting dtor), RW 0x006E4A7F (PolygonTrigger::getPolygonTriggerByID):
+// when the gate is destroyed, remove its runtime polygon trigger from the global list (RW 0x6E4ABE) and clear every object's trigger entries (RW 0x6263AF).
+AIGateUpdate::~AIGateUpdate()
+{
+	if (m_trigger >= 0)
+	{
+		if (Object *obj = getObject())
+		{
+			obj->logic().scriptEngine().removePolygonTrigger(m_trigger);
+		}
+		m_trigger = -1;
+	}
 }
 
 // RW 0x8B4BB7 (the corners RW 0x8B4B31). lane CASTLEAREA-1: savedIndex >= 0 is a snapshot load's (the trigger goes back at the index it had)
@@ -764,7 +781,7 @@ void AIGateUpdate::onTrigger(Object &obj, bool entered)
 UpdateSleepTime AIGateUpdate::update()
 {
 	Object *obj = getObject();
-	GateOpenAndCloseBehavior *gate = obj ? GateOpenAndCloseBehavior::findGate(*obj) : nullptr; // RW 0x89BEE0
+	GateOpenAndCloseBehavior *gate = obj ? GateOpenAndCloseBehavior::findGate(*obj) : nullptr; // RW 0x008B4A4F (getGateInterface) -> RW 0x89BEE0
 	if (!m_enabled)
 	{
 		const Player *owner = obj ? obj->getControllingPlayer() : nullptr;
@@ -809,7 +826,9 @@ void AIGateUpdate::crc(StateHasher &hasher) const
 void GateModules::registerAll(ModuleFactory &modules)
 {
 	bind<GateOpenAndCloseBehavior, GateOpenAndCloseBehaviorModuleData>(modules, "GateOpenAndCloseBehavior");
+	// getModuleName RW 0x0064E03B, getModuleNameKey RW 0x0064DFF6
 	bind<GateProxyBehavior, GateProxyBehaviorModuleData>(modules, "GateProxyBehavior");
+	// RW 0x008B4983 (getModuleName -> "AIGateUpdate"), RW 0x008B4989 (getModuleNameKey)
 	bind<AIGateUpdate, AIGateUpdateModuleData>(modules, "AIGateUpdate");
 }
 
@@ -859,6 +878,13 @@ std::vector<std::string> GateModules::acceptanceStops()
 }
 
 // ---- lane SAVE-4b: the snapshots (OpenBFME native, S-4190; retail's AIGateUpdate::xfer RW 0x8B4A69 (1, 2) holds two more ints) ----------------------
+// RW 0x89C37A (DONOR BFME2 0x00498BCB, GateOpenAndCloseBehaviorXfer.cpp): the gate's snapshot block. The body is slot 3 of the vtable RW 0xC668AC,
+// and its member order is read there: BehaviorModule (RW 0x8CD4AA: the version pair RW 0x404F15, then Module's own), the version pair RW 0x404F15
+// again, UpdateModule's part (RW 0x850C60: the version pair, then BehaviorModule's xfer and the scheduler fields while the version pair RW 0x850C8D
+// says update part) and then the members: the gate-relative id (+0x24, Xfer slot 0x7C), the state (+0x28), the geometry state (+0x2C, through the
+// object's slot 0x90), the request (+0x38 in that interface's view = the state frame here, Xfer slot 0x7C), the audio handle (+0x40, the manager's
+// slot 0x160), the played flag (+0x44, slot 0x90) and, while the version is at least 2, the rate (+0x30 / +0x34, Xfer slot 0x70 pairs).
+// The port's own layout differences are Local 33's (the proxy link is gate-relative +0x24, version 2 added it); the order above is retail's.
 void GateOpenAndCloseBehavior::xfer(Xfer &x)
 {
 	// Local 33: version 2 adds the proxy link (+0x24); version 1 had none
@@ -887,6 +913,7 @@ void GateOpenAndCloseBehavior::xfer(Xfer &x)
 	}
 }
 
+// RW 0x0089C45B -> RW 0x89C37A (GateOpenAndCloseBehavior::xfer)
 void GateProxyBehavior::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);
@@ -894,6 +921,7 @@ void GateProxyBehavior::xfer(Xfer &x)
 	x.xferObjectID(&m_linkedObjectId);
 }
 
+// RW 0x008B4A69 (AIGateUpdate::xfer, retail version 1..2; OpenBFME native layout S-4190)
 void AIGateUpdate::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

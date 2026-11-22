@@ -1,6 +1,8 @@
 // OpenBFME. GPL-3.0. See LiveGameAudio.h.
 
 #include "GameClient/LiveGameAudio.h"
+#include "GameClient/LargeGroupAudioGrid.h"
+#include "GameLogic/Map/TerrainLogic.h"
 #include "Common/PathIO.h"
 #include "GameLogic/ScriptEngine/ScriptEngine.h"
 
@@ -50,184 +52,38 @@ AudioRelationship toAudio(Relationship r)
 }
 } // namespace
 
-// Lane AUDIO-4: the client half of TheLargeGroupAudio's member calls. The LargeGroupAudioUpdate modules (logic, GameLogic/Module/LargeGroupAudioUpdate.h)
-// call add / update / remove inside the logic frame (RW 0x60D5FF / 0x60D5CB / 0x60D633, through LargeGroupAudioLink); the sink queues each call with the member
-// state the maps read during it, and the render side applies them in order at a worker-idle point. TARGET FACTS of a map's three calls (caveat S-001):
-//   * a member qualifies for a map when its model condition flags hold the map's Required and none of its Excluded flags (RW 0x7EEEDF -> 0x5DF56A, map + 0x28 /
-//     + 0x74), its status bits likewise (RW 0x7EEEF3), and, with IgnoreStealthedUnits (map + 0xE5), it is not stealthed (RW 0x694C0D, no viewer);
-//   * add (RW 0x7EF032): qualifying with its current state: every Sound block of the map adds it (RW 0x971326, which keeps it only when one of its keys is one of
-//     the block's, RW 0x970617);
-//   * update (RW 0x7EEF0D): "new" = qualifying with the current state, "old" = qualifying with the stored state AND its stored frame after TheLargeGroupAudio
-//     + 0x3C (a member last told at or before the gate was never counted); both: an unchanged x, y does nothing, else every block moves it (RW 0x971157);
-//     new only: add (RW 0x971326); old only: remove (RW 0x971392);
-//   * remove (RW 0x7EF0A1): "old" as above: every block removes it (RW 0x971392).
-// What a Sound block does with its members (the cells, thresholds, hand-off, ducking: RW 0x9712C9 / 0x970326 / 0x970E81 ...) is not decoded (S-248):
-// largeGroupUpdate below counts the members per cell by the INI's documented rules.
+// RW 0x60D5FF / RW 0x60D5CB / RW 0x60D633: capture member state and the gate at notification time.
+// Apply to Sound blocks on the audio owner; they never look up object IDs or write simulation state.
 struct LiveGameAudio::LgaRuntime : public LargeGroupAudioSink
 {
-	struct Member
+	std::map<std::pair<std::string, std::string>, LargeGroupAudioGrid> blocks;
+	struct Notification
 	{
-		float x = 0.0f, y = 0.0f;
-		std::uint16_t weight = 1;
+		LargeGroupAudioEvent event;
+		std::int32_t gate;
 	};
-	// (map name, Sound block name) -> object -> member
-	std::map<std::pair<std::string, std::string>, std::map<ObjectID, Member>> members;
-	std::vector<LargeGroupAudioEvent> pending;
-	std::vector<std::int32_t> pendingGate; ///< TheLargeGroupAudio + 0x3C at each queued call
+	std::vector<Notification> pending;
 	const LargeGroupAudioLink *link = nullptr;
-	std::uint64_t adds = 0, moves = 0, removes = 0, events = 0;
-
+	std::uint64_t events = 0;
 	void onLargeGroupAudioEvent(const LargeGroupAudioEvent &event) override
 	{
-		// on the simulation owner: capture only (the sounds belong to the render side)
-		pending.push_back(event);
-		pendingGate.push_back(link ? link->gateFrame() : -1);
+		pending.push_back({event, link->gateFrame()});
 	}
-
-	static bool masks(const LargeGroupAudioMap &map, const ModelConditionMask &mc, const ObjectStatusMaskType &st)
+	void apply(const LargeGroupAudioStore &store, float maxX, float maxY)
 	{
-		for (size_t w = 0; w < mc.size(); ++w)
+		for (const auto &map : store.maps())
 		{
-			if ((mc[w] & map.requiredModelConditionFlags[w]) != map.requiredModelConditionFlags[w] || (mc[w] & map.excludedModelConditionFlags[w]) != 0)
+			if (!(map.size > 0))
+				continue;
+			for (const auto &snd : map.sounds)
 			{
-				return false;
+				auto &block = blocks.try_emplace({map.name, snd.name}, map.size, maxX, maxY).first->second;
+				for (auto &n : pending)
+					block.notify(map, snd, n.event, n.gate);
 			}
 		}
-		for (size_t w = 0; w < st.size(); ++w)
-		{
-			if ((st[w] & map.requiredObjectStatusBits[w]) != map.requiredObjectStatusBits[w] || (st[w] & map.excludedObjectStatusBits[w]) != 0)
-			{
-				return false;
-			}
-		}
-		return true;
-	}
-	static bool keyed(const LargeGroupAudioSound &snd, const std::vector<std::string> *keys)
-	{
-		if (!keys)
-		{
-			return false;
-		}
-		for (const std::string &k : snd.keys)
-		{
-			for (const std::string &mk : *keys)
-			{
-				if (k == mk) // RW 0x970617: the interned keys (exact bytes, RW 0x7EE97A)
-				{
-					return true;
-				}
-			}
-		}
-		return false;
-	}
-	// lane PERF-CLIENT: per map and Sound block of the store, its member map (found by the names once: each event looked them up by a pair of new strings)
-	std::vector<std::vector<std::map<ObjectID, Member> *>> groupsOf;
-	const LargeGroupAudioStore *groupsStore = nullptr;
-	void bindGroups(const LargeGroupAudioStore &store)
-	{
-		bool same = groupsStore == &store && groupsOf.size() == store.maps().size();
-		for (size_t m = 0; same && m < groupsOf.size(); ++m)
-		{
-			same = groupsOf[m].size() == store.maps()[m].sounds.size();
-		}
-		if (same)
-		{
-			return;
-		}
-		groupsStore = &store;
-		groupsOf.assign(store.maps().size(), {});
-		for (size_t m = 0; m < store.maps().size(); ++m)
-		{
-			const LargeGroupAudioMap &map = store.maps()[m];
-			for (const LargeGroupAudioSound &snd : map.sounds)
-			{
-				groupsOf[m].push_back(&members[{ map.name, snd.name }]); // std::map nodes stay put
-			}
-		}
-	}
-	void add(const LargeGroupAudioMap &map, const std::vector<std::map<ObjectID, Member> *> &groups, const LargeGroupAudioEvent &e)
-	{
-		for (size_t s = 0; s < map.sounds.size(); ++s)
-		{
-			if (keyed(map.sounds[s], e.keys))
-			{
-				(*groups[s])[e.object] = Member{ e.x, e.y, e.weight };
-				++adds;
-			}
-		}
-	}
-	void move(const LargeGroupAudioMap &map, const std::vector<std::map<ObjectID, Member> *> &groups, const LargeGroupAudioEvent &e)
-	{
-		for (size_t s = 0; s < map.sounds.size(); ++s)
-		{
-			auto it = groups[s]->find(e.object);
-			if (it != groups[s]->end())
-			{
-				it->second = Member{ e.x, e.y, e.weight };
-				++moves;
-			}
-		}
-	}
-	void remove(const LargeGroupAudioMap &map, const std::vector<std::map<ObjectID, Member> *> &groups, const LargeGroupAudioEvent &e)
-	{
-		for (size_t s = 0; s < map.sounds.size(); ++s)
-		{
-			if (groups[s]->erase(e.object))
-			{
-				++removes;
-			}
-		}
-	}
-	void apply(const LargeGroupAudioStore &store)
-	{
-		bindGroups(store);
-		for (size_t i = 0; i < pending.size(); ++i)
-		{
-			const LargeGroupAudioEvent &e = pending[i];
-			const std::int32_t gate = pendingGate[i];
-			++events;
-			for (size_t mi = 0; mi < store.maps().size(); ++mi)
-			{
-				const LargeGroupAudioMap &map = store.maps()[mi];
-				const std::vector<std::map<ObjectID, Member> *> &groups = groupsOf[mi];
-				const bool nowQ = masks(map, e.conditions, e.status) && !(map.ignoreStealthedUnits && e.stealthed);
-				const bool oldQ = masks(map, e.storedConditions, e.storedStatus) && !(map.ignoreStealthedUnits && e.storedStealthed) && (std::int32_t)e.storedFrame > gate;
-				switch (e.kind)
-				{
-					case LargeGroupAudioEvent::ADD:
-						if (nowQ)
-						{
-							add(map, groups, e);
-						}
-						break;
-					case LargeGroupAudioEvent::UPDATE:
-						if (nowQ && oldQ)
-						{
-							if (!(e.x == e.storedX && e.y == e.storedY))
-							{
-								move(map, groups, e);
-							}
-						}
-						else if (nowQ)
-						{
-							add(map, groups, e);
-						}
-						else if (oldQ)
-						{
-							remove(map, groups, e);
-						}
-						break;
-					case LargeGroupAudioEvent::REMOVE:
-						if (oldQ)
-						{
-							remove(map, groups, e);
-						}
-						break;
-				}
-			}
-		}
+		events += pending.size();
 		pending.clear();
-		pendingGate.clear();
 	}
 };
 
@@ -530,16 +386,18 @@ std::uint8_t LiveGameAudio::templateAudio(const ThingTemplate &tt)
 	return kinds;
 }
 
+// RW 0x006787DA (reads BodyModuleInterface::getDamageState vslot 0x24 and resolves the ambient sound for that state)
 const std::string &LiveGameAudio::cachedAmbientSoundFor(const Object &obj)
 {
-	// lane PERF-1 r2: ambientSoundFor reads the template's sound rows (field lookups by name); its result depends on the template and the damage state
-	// alone, so update() asks it once per pair
+	// lane PERF-1 r2: ambientSoundFor depends on the template, damage state and construction flags (RW 0x006760CA), so update() asks it once per tuple
 	BodyDamageType dt = BODY_PRISTINE;
 	if (const BodyModuleInterface *body = obj.getBodyModule())
 	{
 		dt = body->getDamageState();
 	}
-	const auto key = std::make_pair(obj.getTemplate(), (int)dt);
+	// RW 0x006760CA: model condition bits 0x43 (AWAITING_CONSTRUCTION) or 0x45 (ACTIVELY_BEING_CONSTRUCTED)
+	const bool constructing = obj.testModelCondition(0x43) || obj.testModelCondition(0x45);
+	const auto key = std::make_pair(obj.getTemplate(), (int)dt | (constructing ? 0x100 : 0));
 	auto it = m_ambientByTemplate.find(key);
 	if (it == m_ambientByTemplate.end())
 	{
@@ -548,9 +406,12 @@ const std::string &LiveGameAudio::cachedAmbientSoundFor(const Object &obj)
 	return it->second;
 }
 
+// RW 0x00678578 (select ambient with pristine fallback for DAMAGED / REALLYDAMAGED, none for RUBBLE)
+// -> RW 0x00677898 (non-RUBBLE with RW 0x006760CA construction flags forces pristine SoundAmbient; else switch on BodyDamageType)
+// -> RW 0x00676B5A (0x25 SoundAmbient), RW 0x00676B73 (0x26 SoundAmbientDamaged),
+//    RW 0x00676B8C (0x27 SoundAmbientReallyDamaged), RW 0x00676BA5 (0x28 SoundAmbientRubble)
 std::string LiveGameAudio::ambientSoundFor(const Object &obj)
 {
-	// ZH Drawable::startAmbientSound(dt): the sound of the damage state, else for DAMAGED / REALLYDAMAGED the pristine one (RUBBLE has no fallback)
 	const ThingTemplate &tt = *obj.getTemplate();
 	BodyDamageType dt = BODY_PRISTINE;
 	if (const BodyModuleInterface *body = obj.getBodyModule())
@@ -558,7 +419,10 @@ std::string LiveGameAudio::ambientSoundFor(const Object &obj)
 		dt = body->getDamageState();
 	}
 	static const char *const kField[BODYDAMAGETYPE_COUNT] = { "SoundAmbient", "SoundAmbientDamaged", "SoundAmbientReallyDamaged", "SoundAmbientRubble" };
-	std::string s = soundField(tt, kField[dt]);
+	// RW 0x006760CA + RW 0x00677898: while AWAITING_CONSTRUCTION (0x43) or ACTIVELY_BEING_CONSTRUCTED (0x45) and not RUBBLE, use SoundAmbient
+	const bool constructing = obj.testModelCondition(0x43) || obj.testModelCondition(0x45);
+	const BodyDamageType pick = (dt != BODY_RUBBLE && constructing) ? BODY_PRISTINE : dt;
+	std::string s = soundField(tt, kField[pick]);
 	if (s.empty() && dt != BODY_PRISTINE && dt != BODY_RUBBLE)
 	{
 		s = soundField(tt, kField[BODY_PRISTINE]);
@@ -566,6 +430,7 @@ std::string LiveGameAudio::ambientSoundFor(const Object &obj)
 	return s;
 }
 
+// RW 0x006746FD (Drawable::stopAmbientSound: removes the ambient handle via TheAudio vslot 0x6C and resets it)
 void LiveGameAudio::stopAmbient(ObjectID, Ambient &a)
 {
 	if (a.handle >= AHSV_FirstHandle)
@@ -623,18 +488,19 @@ void LiveGameAudio::evaWatch(const Object &o)
 
 void LiveGameAudio::largeGroupUpdate()
 {
-	// INFERENCE (S-248): the per-cell rules EA documents at the top of LargeGroupAudio.ini; RW's Sound block runtime is not decoded. Per map and Sound block:
-	// the block's members (LgaRuntime, from the modules' calls) are counted (UnitWeight each) in a grid of Size cells; a cell starts its sound at
-	// StartThreshold and stops below StopThreshold; the sound sits at the cell's weighted centre and moves toward it at most MaximumAudioSpeed per logic
-	// frame. Port 100: the hand-off between cells is ported below (a displaced cell's sound is transferred, not stopped / restarted);
-	// ducking and the burning-cell key are not ported.
+	const auto *terrain = m_game.logic().terrain();
+	if (!terrain)
+		return;
+	float maxX = 0, maxY = 0;
+	terrain->getLargestExtent(maxX, maxY); // RW 0x7EECFA, terrain slot +0x30
 	const LargeGroupAudioStore &store = m_audio.ini().largeGroupAudio;
-	m_lga->apply(store);
+	m_lga->apply(store, maxX, maxY);
 	if (store.maps().empty())
 	{
 		return;
 	}
 	std::map<std::string, bool> live;
+	bool allocated = false;
 	for (const LargeGroupAudioMap &map : store.maps())
 	{
 		if (map.size <= 0.0f)
@@ -647,86 +513,40 @@ void LiveGameAudio::largeGroupUpdate()
 			{
 				continue;
 			}
-			std::map<std::pair<int, int>, std::pair<int, Coord3D>> cells; // cell -> weight, weighted position sum
-			const auto group = m_lga->members.find({ map.name, snd.name });
-			if (group != m_lga->members.end())
+			auto &block = m_lga->blocks.at({map.name, snd.name});
+			block.advance(map.startThreshold, map.stopThreshold, m_game.logic().getFrame(), allocated);
+			auto keyOf = [&](LargeGroupAudioGrid::Cell c) {
+				return map.name + "/" + snd.name + "/" + std::to_string(c.first) + "," + std::to_string(c.second);
+			};
+			std::map<LargeGroupAudioGrid::Cell, Group> transfers;
+			for (const auto &[target, source] : block.handoffs)
 			{
-				for (const auto &mv : group->second)
+				if (target == source)
+					continue; // same cell keeps its remaining steps
+				auto donor = m_groups.find(keyOf(source));
+				if (donor != m_groups.end())
 				{
-					const LgaRuntime::Member &m = mv.second;
-					// the height of the sound: the member's drawable (the maps keep x, y only)
-					Coord3D at{ m.x, m.y, 0.0f };
-					Coord3D livePos;
-					if (objectPosition((std::uint32_t)mv.first, &livePos))
-					{
-						at.z = livePos.z;
-					}
-					const std::pair<int, int> cell((int)std::floor(m.x / map.size), (int)std::floor(m.y / map.size));
-					auto &c = cells[cell];
-					c.first += m.weight;
-					c.second.x += at.x * (float)m.weight;
-					c.second.y += at.y * (float)m.weight;
-					c.second.z += at.z * (float)m.weight;
+					transfers.emplace(target, donor->second);
+					m_groups.erase(donor);
 				}
 			}
-			// Port 100: the cells of this Sound block that stay live this pass (a new cell at StartThreshold, a playing one at
-			// StopThreshold), before any group is made: a displaced cell's sound is handed to a live cell, as RW's update does
-			// (the displaced loop RW 0x972136.. runs before the cell-start loop RW 0x972238..)
-			std::map<std::pair<int, int>, bool> liveCells;
-			for (const auto &kv : cells)
+			for (const auto &cell : block.playing)
 			{
-				const bool playing = m_groups.count(map.name + "/" + snd.name + "/" + std::to_string(kv.first.first) + "," + std::to_string(kv.first.second)) != 0;
-				liveCells[kv.first] = kv.second.first >= (int)(playing ? map.stopThreshold : map.startThreshold);
-			}
-			for (const auto &kv : cells)
-			{
-				const std::string key = map.name + "/" + snd.name + "/" + std::to_string(kv.first.first) + "," + std::to_string(kv.first.second);
+				const std::string key = keyOf(cell);
 				auto it = m_groups.find(key);
-				const int weight = kv.second.first;
-				const Coord3D centre{ kv.second.second.x / (float)weight, kv.second.second.y / (float)weight, kv.second.second.z / (float)weight };
-				// qualification (the start / stop thresholds) is kept apart from playback (review r2 fix 4)
+				Coord3D centre = block.position(cell);
+				centre.z = terrain->getGroundHeight(centre.x, centre.y);
 				if (it == m_groups.end())
 				{
-					if (weight < (int)map.startThreshold)
-					{
-						continue;
-					}
 					Group g;
 					g.position = centre;
-					// Port 100 (RW 0x9721C7): a cell of this Sound block that stopped qualifying this pass hands its playing sound
-					// to this cell instead of the sound being stopped and a new one started: the handle and its position carry
-					// over, and the glide counter is the map's HandOffModeDuration. No field (0): no hand-off, the current
-					// behaviour (the old cell is stopped below, this cell starts its own sound).
-					if (map.handOffModeDurationFrames > 0)
-					{
-						const std::string prefix = map.name + "/" + snd.name + "/";
-						for (auto donor = m_groups.begin(); donor != m_groups.end(); ++donor)
-						{
-							if (donor->first.rfind(prefix, 0) != 0 || donor->second.handle == 0)
-							{
-								continue;
-							}
-							// the donor's cell, read back out of its key (".../cellx,celly")
-							const std::string cellPart = donor->first.substr(prefix.size());
-							const size_t comma = cellPart.find(',');
-							const std::pair<int, int> donorCell(std::stoi(cellPart.substr(0, comma)), std::stoi(cellPart.substr(comma + 1)));
-							if (liveCells.count(donorCell) && liveCells[donorCell])
-							{
-								continue; // still qualifying itself: not displaced
-							}
-							g.position = donor->second.position;
-							g.handle = donor->second.handle;
-							g.startedOnce = donor->second.startedOnce;
-							g.handOff.begin(map.handOffModeDurationFrames);
-							m_groups.erase(donor);
-							break;
-						}
+					auto donor = transfers.find(cell);
+					if (donor != transfers.end())
+					{ // RW 0x971FA7 at 0x9721C7: transfer even for zero duration.
+						g = donor->second;
+						g.handOff.begin(map.handOffModeDurationFrames);
 					}
 					it = m_groups.emplace(key, g).first;
-				}
-				else if (weight < (int)map.stopThreshold)
-				{
-					continue; // dropped below: not marked live, stopped below (or handed off above)
 				}
 				// the sound follows the group's centre: during a hand-off by the 1/steps glide, else at MaximumAudioSpeed
 				// (world units per logic frame) (RW 0x9D8018, LargeGroupAudioHandOff::advance)
@@ -799,9 +619,9 @@ void LiveGameAudio::largeGroupUpdate()
 	m_stats.largeGroupQualified = m_groups.size();
 	m_stats.largeGroupEvents = m_lga->events;
 	m_stats.largeGroupMembers = 0;
-	for (const auto &kv : m_lga->members)
+	for (const auto &kv : m_lga->blocks)
 	{
-		m_stats.largeGroupMembers += kv.second.size();
+		m_stats.largeGroupMembers += kv.second.members;
 	}
 }
 
@@ -1021,6 +841,7 @@ void LiveGameAudio::update()
 		}
 		Ambient &a = found != m_ambients.end() ? found->second : m_ambients[o->getID()];
 		a.seenPass = pass;
+		// RW 0x0067876B (Drawable::rva00278440: when the resolved ambient differs from the playing one, restart it)
 		if (a.event != want)
 		{
 			stopAmbient(o->getID(), a);

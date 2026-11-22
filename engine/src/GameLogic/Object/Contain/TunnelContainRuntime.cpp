@@ -209,6 +209,7 @@ TunnelContain::TunnelContain(Thing *thing, const ModuleData *data, const TunnelC
 	getObject()->logic().noteStop(stopLine()); // the stop reaches GameLogic::report().stops in every game that has a tunnel
 }
 
+// RW 0x00880E18 (TunnelContain::getModuleName), RW 0x00880DD3 (TunnelContain::getModuleNameKey)
 void TunnelContain::registerClasses(ModuleFactory &modules)
 {
 	modules.bindTypedData<TunnelContainBehaviorData>("TunnelContain", MODULETYPE_BEHAVIOR);
@@ -246,6 +247,37 @@ void TunnelContain::onBuildComplete()
 	{
 		t->onTunnelCreated(*getObject());
 		m_registered = true;
+	}
+}
+
+// RW 0x00880FA8 (TunnelContain main +0x84) / RW 0x0088117A (main +0x80 findHordeContaining, covered by isContainedHere RW 0x008811DD)
+// RW 0x00880F78 (contain slot 0x110): iterate TunnelTracker riders when flags & 1 (reverse when flags & 8)
+void TunnelContain::iterateContained(const std::function<void(Object *)> &fn, unsigned flags)
+{
+	if (!fn || (flags & 1u) == 0)
+	{
+		return;
+	}
+	TunnelTracker *t = tracker();
+	if (!t)
+	{
+		return;
+	}
+	if ((flags & 8u) != 0)
+	{
+		const std::vector<Object *> riders(t->riders().rbegin(), t->riders().rend());
+		for (Object *r : riders)
+		{
+			if (r) fn(r);
+		}
+	}
+	else
+	{
+		const std::vector<Object *> riders(t->riders().begin(), t->riders().end());
+		for (Object *r : riders)
+		{
+			if (r) fn(r);
+		}
 	}
 }
 
@@ -407,7 +439,7 @@ void TunnelContain::leaveNetwork()
 				}
 			}
 		}
-		// RW 0x881105: a HORDE rider whose AI goal is this tunnel and whose members are all in comes out here
+		// RW 0x881105: a HORDE rider whose AI goal is this tunnel and whose members are not all in yet is let out here
 		static const int horde = CombatNames::kindOf("HORDE");
 		const std::vector<Object *> riders(t->riders().begin(), t->riders().end());
 		for (Object *r : riders)
@@ -437,6 +469,11 @@ void TunnelContain::onDie(const DieModuleInterface::Event &event)
 	{
 		leaveNetwork();
 	}
+}
+
+void TunnelContain::onSelling()
+{
+	leaveNetwork(); // RW 0x8812A8 -> RW 0x88121A
 }
 
 void TunnelContain::onDelete()
@@ -518,6 +555,8 @@ void TunnelTracker::xfer(Xfer &x, GameLogic &logic)
 }
 
 // lane SAVE-4b: the tunnel's snapshot (OpenBFME native, S-4190): GarrisonContain's, then its two flags; the network is obfme:TunnelTracker's
+// RW 0x00880E44 (TunnelContain::xfer), RW 0x00880E8B (TunnelContain::loadPostProcess thunk -> 0x0087CFE6),
+// RW 0x00880E1E (asOpenContain MI cast), RW 0x00880EF2 (scalar deleting dtor)
 void TunnelContain::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

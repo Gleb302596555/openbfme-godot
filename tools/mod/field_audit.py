@@ -152,13 +152,14 @@ class ModField:
 
 
 def mod_fields(vfs, block_types: set[str], diag: dict | None = None, grammar: "Grammar | None" = None,
-               line_rows: dict[str, set[str]] | None = None) -> dict[tuple[str, str, str], ModField]:
+               line_rows: dict[str, set[str]] | None = None, sink=None) -> dict[tuple[str, str, str], ModField]:
     """(block type, owner, field) -> what the mod writes. The owner is the module class (with /<nested key> inside a nested block), /<key> for a
     block nested in the definition, or "" for the definition's own fields. Where RotWK's grammar knows the open block (a module class, Object and
     the sub-tables of both), a line without '=' is what the table says: a field (`ParticleSysBone Bone Fx`), a sub-block or a script (BeginScript up
     to EndScript, one field); elsewhere a line without '=' opens a nested block when an End closes it (headers(); line_rows: the names the port's
     tables of a block type parse as one line, never a block). diag gets the definitions whose blocks did not close and the module classes'
-    definitions."""
+    definitions. sink(block type, owner, field, definition, value), when given, gets every field line (modifier_map.py: which definition names
+    which ModifierList, with the module class from this grammar)."""
     out: dict[tuple[str, str, str], ModField] = defaultdict(ModField)
     diag = diag if diag is not None else {}
     diag.setdefault("unclosed", [])
@@ -191,6 +192,8 @@ def mod_fields(vfs, block_types: set[str], diag: dict | None = None, grammar: "G
                 f.count += 1
                 f.defs.add(defname)
                 f.values[value.strip()[:60]] += 1
+                if sink is not None:
+                    sink(typ, owner, key, defname, value)
                 f.src = f.src or s
 
             i += 1
@@ -1571,6 +1574,26 @@ def audit(mod, rw, rw_object, coverage, src: Source, real_blocks: set[str], stop
         # rows it asks for is not followed, a lead for the hand check
         return "dynamic-row", f"{listed} (a name list of another file, read by index)" if listed else hit, "", "string"
 
+    def init_target(r):
+        """the member a whole table is parsed into, for a row that stores into the instance itself (member nullptr / offset 0): the
+        initFromINI call naming the row's table within 40 lines after it, `ini->initFromINI(&tt->m_threatCategory, fields)` -> m_threatCategory.
+        '' when there is none"""
+        if not r.table:
+            return ""
+        lines = src.files.get(r.file, [])
+        pat = re.compile(r"initFromINI\w*\s*\(\s*&?\s*(?:[\w\[\]]+\s*(?:\.|->)\s*)*(\w+)\s*,\s*" + re.escape(r.table) + r"\b")
+        for k in range(r.line - 1, min(len(lines), r.line + 40)):
+            m = pat.search(lines[k])
+            if m:
+                return m.group(1)
+        return ""
+
+    def own_members(r):
+        """the members a row stores into; a row that stores into the instance itself (member nullptr / offset 0) stores into what its table is
+        parsed into (init_target): only then, a row naming its own member is never followed to the table's target"""
+        members = [m for m in r.member.split("|") if re.fullmatch(r"[A-Za-z_]\w+", m) and m not in ("nullptr", "NULL")]
+        return members or [init_target(r)]
+
     def typed_status(field, structs, nested, files=(), path=(), block="", block_path=()):
         cands = [r for s in structs for r in rows_of(s) if r.field.lower() == field.lower()] if not path else []
         how = "struct"
@@ -1620,7 +1643,7 @@ def audit(mod, rw, rw_object, coverage, src: Source, real_blocks: set[str], stop
             return "no-table-row", "", "", how
         followed = False
         for r in cands:
-            for m in r.member.split("|"):
+            for m in own_members(r):
                 if not re.fullmatch(r"[A-Za-z_]\w+", m) or m in ("nullptr", "NULL"):
                     continue
                 followed = True
@@ -1657,8 +1680,17 @@ def audit(mod, rw, rw_object, coverage, src: Source, real_blocks: set[str], stop
     def raw_block(owner, field):
         """an Object's nested block the template keeps as raw lines (ThingFactory.cpp, stop S-071): its readers are the files that walk the raw
         blocks (rawBlocks) and name the block (AIThreatFinder.cpp's "ThreatBreakdown", LivingWorldUnits.cpp's readSets(tt, "AutoResolveArmor",
-        "Armor", ..)); a field is read when such a file names it. None when no file reads the block"""
+        "Armor", ..)); a field is read when such a file names it. A port may also parse the block typed while keeping the raw lines (Port 227:
+        ThreatBreakdown's AIKindOf row -> initFromINI(&tt->m_threatCategory, ..)): a row of that field in a file naming the block is followed
+        to its member first, so a typed reader is never reported as parsed-unused. None when no file reads the block"""
         block = owner.split("/")[1]
+        naming = {f for f, _ in src.string_lines(block)} | src.files_naming("S_" + block)
+        for r in (r for r in src.rows if r.file in naming and r.field.lower() == field.lower()):
+            for m in own_members(r):
+                if re.fullmatch(r"[A-Za-z_]\w+", m or "") and m not in ("nullptr", "NULL"):
+                    use = src.member_read(m, r.struct or "?", origin=r.file, parser=(r.file, r.func))
+                    if use:
+                        return "used", use, "typed-block"
         readers = {f for f in src.files_naming("rawBlocks") | src.files_naming("m_rawBlocks") if any(g == f for g, _ in src.string_lines(block))}
         if not readers:
             return None

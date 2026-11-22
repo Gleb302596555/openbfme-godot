@@ -50,13 +50,14 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x00889774 (getModuleName), RW 0x0088977A (getModuleNameKey), RW 0x008897E9 / RW 0x0088975B (dtor)
 class DestroyDie : public BehaviorModule, public DieModuleInterface
 {
 public:
 	OBFME_MODULE_XFER(DestroyDie) // lane SAVE-4b: BehaviorModule's (no state)
 	DestroyDie(Thing *thing, const DestroyDieModuleData *data) : BehaviorModule(thing, data), m_data(data) {}
 	DieModuleInterface *getDie() override { return this; }
-	void onDie(const DieModuleInterface::Event &event) override;
+	void onDie(const DieModuleInterface::Event &event) override; // RW 0x00889805
 
 private:
 	const DestroyDieModuleData *m_data;
@@ -92,13 +93,14 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x00889843 (getModuleName), RW 0x00889849 (getModuleNameKey), RW 0x008898B8 / RW 0x0088982A (dtor)
 class FXListDie : public BehaviorModule, public DieModuleInterface
 {
 public:
 	OBFME_MODULE_XFER(FXListDie) // lane SAVE-4b: BehaviorModule's (no state)
 	FXListDie(Thing *thing, const FXListDieModuleData *data) : BehaviorModule(thing, data), m_data(data) {}
 	DieModuleInterface *getDie() override { return this; }
-	void onDie(const DieModuleInterface::Event &event) override;
+	void onDie(const DieModuleInterface::Event &event) override; // RW 0x008898D4
 
 private:
 	const FXListDieModuleData *m_data;
@@ -117,15 +119,17 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
-// Body interface 0xC72E58 slot 0 is RW 0x8C63C4 and slot 0x9C is RW 0x8C62BB. Both call the gate and, because it returns
-// false, fall through to ActiveBody::attemptDamage (RW 0x8C3FA3) and to "allow crush" (al = 1, the same answer as
-// ActiveBody's slot RW 0x9B501B). No override is ported: a second path would fire weapons retail never fires. xfer is
-// ActiveBody's (RW 0x8C5524 -> 0x8C3388).
+// Body interface 0xC72E58 slot 0 is RW 0x8C63C4 and slot 0x9C is RW 0x8C62BB. Both call the gate (RW 0x8C6244) and, because it
+// returns false, fall through to ActiveBody::attemptDamage (RW 0x8C3FA3) and to "allow crush" (al = 1, the same answer as
+// ActiveBody's slot RW 0x9B501B); the dead-branch helpers RW 0x008C6269 (3D range, DONOR BFME2 0x004C20D5) and RW 0x008C633D
+// (reflected weapon, DONOR BFME2 0x004C21A9) are unreachable (S-7191). Primary slot 1 loadPostProcess thunk RW 0x008C60BF -> RW 0x008C35AF
+// is S-7408 / S-342. xfer is ActiveBody's (RW 0x8C5524 -> 0x8C3388).
 class PorcupineFormationBody : public ActiveBody
 {
 public:
 	OBFME_MODULE_XFER(PorcupineFormationBody) // lane SAVE-4b: ActiveBody's
 	PorcupineFormationBody(Thing *thing, const PorcupineFormationBodyModuleData *data) : ActiveBody(thing, data), m_porcupine(data) {}
+	~PorcupineFormationBody() override = default; // RW 0x008C61CA (~PorcupineFormationBodyModule), RW 0x008C6228 (scalar deleting dtor)
 	const PorcupineFormationBodyModuleData *porcupineData() const { return m_porcupine; }
 
 private:
@@ -173,6 +177,7 @@ public:
 };
 
 // ZH SlowDeathBehavior: a die module that, when it wins the roulette among the applicable slow deaths, sinks the body after SinkDelay and removes the object after DestructionDelay
+// RW 0x008603F3 (getModuleName), RW 0x00860487 (getModuleNameKey), RW 0x008605EC (scalar deleting dtor -> RW 0x008603CC)
 class SlowDeathBehavior : public UpdateModule, public DieModuleInterface
 {
 public:
@@ -189,7 +194,7 @@ public:
 	bool isSlowDeathActivated() const { return m_activated; }
 	// ZH SlowDeathBehavior::getProbabilityModifier: ProbabilityModifier + overkill percent * ModifierBonusPerOverkillPercent, at least 1
 	int probabilityModifier(const DieModuleInterface::Event &event) const;
-	bool isDieApplicable(const DieModuleInterface::Event &event) const;
+	bool isDieApplicable(const DieModuleInterface::Event &event) const; // RW 0x008604CC
 	// SlowDeathBehaviorInterface slot 0xC, asked by the roulette (RW 0x861712) before a pick begins: the base answers true (RW 0x8BD372)
 	virtual bool canBeginSlowDeath() { return true; }
 	unsigned sinkFrame() const { return m_sinkFrame; }
@@ -233,7 +238,7 @@ private:
 // ClearanceMinHeightFraction (+ 0x204) through RW 0x42ED6F, ClearanceMinHeight (+ 0x200) through RW 0x42EDC2. DONOR (BFME2 1.06 game.dat, the same offsets): the
 // table's parsers BFME2 0x42F02F ("invalid Real value %1.7f -- expected >= 0") and 0x42F082 ("... expected <= 0"), the same 0x53 bytes apart as RW 0x42ED6F /
 // 0x42EDC2 (INFERENCE: the same parsers); the data ctor BFME2 0x883E25 (GeometryInfo(type 0, small no, 1.0, 1.0, 1.0), offset 0, MaxHeight 20, MinHeight -20,
-// both fractions 1.1). The RotWK ctor (inside RW 0x64C22E) was not read (S-7163).
+// both fractions 1.1). Verified against RotWK RW 0x88709D / 0x887191 (PORT-237 closed S-7163).
 class ClearanceTestingSlowDeathBehaviorModuleData : public SlowDeathBehaviorModuleData
 {
 public:
@@ -250,6 +255,25 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// lane PORT-305: the class's own RotWK functions, each read from its first instruction (game.dat 2.01; the map's own list came from
+// docs/ennorath/RW_FUNCTION_MAP.tsv, class ClearanceTestingSlowDeathBehavior). The module's object starts with the vtable 0xC6073C (INSTALLED BY
+// RW 0x886FB1: +0x00 0xC6073C, +0x0C 0xC60680, +0x10 0xC60670, +0x20 0xC6066C, +0x24 0xC6065C, +0x50 0xC60650), so every member function reads its data at
+// this+4 and its object at this+8 through whichever interface pointer it was called with (data = ecx-0x1C or ecx-0x20, object = ecx-0x18 / ecx-0x1C).
+//   * BEHAVIOUR, ported: RW 0x887191 canBeginSlowDeath (this file), RW 0x88701C getClearanceTestGeometryCenter (this file, RW 0x88701C's data = ecx-0x4C,
+//     object = ecx-0x48: the +0x50 interface subobject), and the two partition filters the former builds: the crusher filter's allow RW 0x886F1C (ctor
+//     RW 0x886EFF, vtable 0xC60774, built inline at RW 0x88720A with the object and RW 0x695070's crusher level) and the would-collide filter (ctor
+//     RW 0x67C5F3, allow RW 0x66139C -> RW 0xAD2CE0, vtable 0xC112C8), ported inline in canBeginSlowDeath (RW 0x8871E0..0x887221, the And chain
+//     RW 0xA394C0, the query RW 0xA39090);
+//   * GEOMETRY INTERFACE 0xC60650 at +0x50 (installed by RW 0x886FB1, reached through the primary slot +0x34 RW 0x886EE6 and the behaviour slot +0x60
+//     RW 0x886EF2): slot 0 RW 0x887013 returns module data +0x190 (the clearance GeometryInfo), slot 1 RW 0x88701C the clearance centre (ported),
+//     slot 2 RW 0x887070 returns the owner's angle (object +0x44) or 0.0f (0xC1B594) with no object. Slots 0 and 2 have no consumer in the traced
+//     RotWK code (RW 0x887191 reads object +0x44 itself) -> S-7557, no port code without a caller;
+//   * MODULE BASE, no behaviour: RW 0x886EE0 returns the tag name string (data 0xC0B9F0 = "ClearanceTestingSlowDeathBehavior"), RW 0x886F6C the
+//     cached name key (TheNameKeyGenerator 0xDD90E4, cache 0xDE921C; BFME2 donor 0x483CF4 getModuleNameKey), RW 0x887082 the tag-name setter
+//     (module base RW 0x8603F9), RW 0x886EB2 the destructor, RW 0x886FF7 its scalar deleting destructor. The port has the equivalent in the module
+//     factory (the template name) and needs no per-class code;
+//   * NOT THIS CLASS: RW 0x893738 is the scalar deleting destructor in the would-collide filter's vtable 0xC112C8 (its destructor RW 0x893629), which
+//     the map attributes to this class by proximity; RW 0x886EFF (the crusher filter's ctor) and RW 0x887082 sit between the map's function starts.
 class ClearanceTestingSlowDeathBehavior : public SlowDeathBehavior
 {
 public:

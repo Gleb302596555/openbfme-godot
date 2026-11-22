@@ -55,13 +55,16 @@ public:
 		size_t worldEntries = 0, worldExits = 0;
 		size_t engineEvents = 0;               ///< lane HERO-2: engine dispatches (RW 0x7379CB) that reached an object with a handler list
 		size_t modelConditionChanges = 0;      ///< lane HERO-2: model condition changes the AI update handed to the ModelCondition events (RW 0x663E32)
-		std::vector<std::string> errors;       ///< handler alerts
+		std::vector<std::string> errors;       ///< handler alerts (runtime errors on registered objects)
+		std::map<std::string, size_t> dataDefects; ///< retail-swallowed alerts (quirk Q5 on unregistered objects, RW 0x735AE9 -> _ALERT RW 0x734E41)
 		std::vector<std::string> stops;        ///< the reports of the script engine ("[S-124] ...")
 	};
 	Stats stats() const;
 
 	// LuaGameHost
 	bool findObject(int id, LuaObjectInfo *out) override;
+	bool objectDescription(int id, ObjectDescription *out) override;
+	bool objectAttributeModifier(int id, int type, float *bonus) override;
 	std::uint32_t logicFrame() override;
 	std::string objectPlayerSide(int id) override;
 	bool objectCapturingPlayerSide(int id, std::string *out) override;
@@ -105,5 +108,8 @@ private:
 	};
 	std::map<const ThingTemplate *, TemplateLists> m_templates;
 	Stats m_stats;
+	// map sweep 2026-11-20: per alert of the logic Lua state (same index), the creation that raised it ("<template> OnCreated <handler>"); empty when
+	// the alert came from elsewhere. Only names the report: the alert itself is retail's, swallowed (RW 0x734E41)
+	std::vector<std::string> m_alertSources;
 	bool m_attached = false;
 };

@@ -17,6 +17,7 @@
 #include "GameLogic/Locomotor.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/CollideModule.h"
+#include "GameLogic/Module/SpawnBehavior.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/SimMath.h"
@@ -35,8 +36,8 @@ const char *const kStop =
 	"AIEnterState moves to the entry position itself (adjusted for a SHIP container only) and ignores the container as an obstacle (RW 0x751668 .. "
 	"0x751707 / 0x752B31); not ported: AIMoveToPositionAndEnterState's unadjusted goal (RW 0x751AB6) with its goal-following update RW 0x755572 (the port "
 	"adjusts the entry point), the SHIP branches "
-	"(RW 0x82CED4, privateEnter's AI command 0x4F RW 0x66C6E3), behaviour slot 0x48 of the collide branch, getCanAttackObject's STRUCTURE and "
-	"SPAWNS_ARE_THE_WEAPONS parts (reported), the container AI's slot 0x1A8 in the exit states (taken as not 2), the members' AI slot 0x1C4 of RW 0x875C93, "
+	"(RW 0x82CED4, privateEnter's AI command 0x4F RW 0x66C6E3), behaviour slot 0x48 of the collide branch, getCanAttackObject's STRUCTURE part "
+	"(reported; SPAWNS_ARE_THE_WEAPONS is ported by PORT-198 via SpawnBehaviorInterface slot 2), the container AI's slot 0x1A8 in the exit states (taken as not 2), the members' AI slot 0x1C4 of RW 0x875C93, "
 	"the group manager of MSG_ENTER (GameData + 0x11CA); AIEnterState's ignored obstacle (the container, RW 0x7516C8 / 0x752B31) and the locomotor's "
 	"allow-invalid-position flag (RW 0x7516D7 / 0x752B40) are set and cleared as RW does, no reader of the flag is located";
 
@@ -110,13 +111,12 @@ bool GarrisonRules::isAboveTerrain(const Object &obj)
 
 // RW 0x82CFD4 ActionManager::getCanAttackObject(obj, victim, source, ATTACK_NEW_TARGET) (lane BACKLOG-1; BFME2 decomp ActionManager.cpp, tier B
 // same-shape): no for a dead object or victim (+ 0x458 bit 0), the object itself, an object that is not able to attack (Object::isAbleToAttack RW 0x691269) or
-// one with DISABLED bit 4 (+ 0x1C8 & 0x10: ATTACK_NEW_TARGET is refused). A STRUCTURE asks its riders first (RW 0x82C8A7) and a SPAWNS_ARE_THE_WEAPONS object
-// its slave closest to the victim (RW 0x68C3A3 slot 8); neither enters a container (not mobile) and both are reported here. Then the object's own
-// getAbleToAttackSpecificObject (RW 0x68D6A6): INFERENCE (S-325, as the guard and turret machines): ObjectWeapons::canAttackObject, not forced, stands in for it
+// one with DISABLED bit 4 (+ 0x1C8 & 0x10: ATTACK_NEW_TARGET is refused). A STRUCTURE asks its riders first (RW 0x82C8A7, reported) and a SPAWNS_ARE_THE_WEAPONS
+// object its slave closest to the victim (RW 0x68C3A3 slot 2, PORT-198). Then the object's own getAbleToAttackSpecificObject (RW 0x68D6A6)
 bool GarrisonRules::canAttackAsNewTarget(Object &obj, Object &victim, CommandSourceType source)
 {
 	static const int structure = CombatNames::kindOf("STRUCTURE");
-	static const int spawnsAreTheWeapons = CombatNames::kindOf("SPAWNS_ARE_THE_WEAPONS");
+	static const int spawnsAreTheWeapons = CombatNames::kinds().spawnsAreTheWeapons;
 	if (obj.isEffectivelyDead() || victim.isEffectivelyDead() || &obj == &victim || !obj.isAbleToAttack())
 	{
 		return false;
@@ -125,10 +125,25 @@ bool GarrisonRules::canAttackAsNewTarget(Object &obj, Object &victim, CommandSou
 	{
 		return false; // RW 0x82D021 .. 0x82D034
 	}
-	if (obj.isKindOf((unsigned)structure) || obj.isKindOf((unsigned)spawnsAreTheWeapons))
+	if (obj.isKindOf((unsigned)structure) && obj.getContain())
 	{
-		obj.logic().reportError("getCanAttackObject (RW 0x82CFD4): the STRUCTURE / SPAWNS_ARE_THE_WEAPONS branches are not ported (S-1101), " + obj.getTemplate()->getName() +
+		obj.logic().reportError("getCanAttackObject (RW 0x82CFD4): the STRUCTURE passenger branch is not ported (S-1101), " + obj.getTemplate()->getName() +
 			" asks for itself");
+	}
+	if (obj.isKindOf((unsigned)spawnsAreTheWeapons))
+	{
+		// RW 0x82D054..0x82D091 asks the closest slave directly. The action shroud check (RW 0x82C167) is not part of this branch.
+		if (SpawnBehaviorInterface *spawn = SpawnBehaviorInterface::of(obj))
+		{
+			if (Object *slave = spawn->getClosestSlave(victim.getPosition()))
+			{
+				const CanAttackResult res = slave->getAbleToAttackSpecificObject(ATTACK_NEW_TARGET, &victim, source);
+				if (res != ATTACKRESULT_NOT_POSSIBLE)
+				{
+					return res == ATTACKRESULT_POSSIBLE || res == ATTACKRESULT_POSSIBLE_AFTER_MOVING;
+				}
+			}
+		}
 	}
 	ObjectWeapons *w = obj.getWeapons();
 	return w && w->canAttackObject(victim, source, false);
@@ -262,6 +277,119 @@ bool GarrisonRules::canEnterObject(Object &obj, Object *container, CommandSource
 		checkCapacity = false;
 	}
 	return contain->isValidContainerFor(obj, checkCapacity, checkPath);
+}
+
+// RW 0x0082C798 ActionManager::canGetHealedAt (DONOR BFME2 0x0042B4F5)
+bool GarrisonRules::canGetHealedAt(Object &obj, Object *healDepot, CommandSourceType source)
+{
+	if (!healDepot)
+	{
+		return false;
+	}
+	if (obj.getRelationship(*healDepot) != ALLIES)
+	{
+		return false; // RW 0x0082C7BB: call 0x68D7AB; cmp eax, 2
+	}
+	if (healDepot->isEffectivelyDead())
+	{
+		return false; // RW 0x0082C7C5: test byte [esi + 0x458], 1
+	}
+	static const int underConstruction = statusBit("UNDER_CONSTRUCTION");
+	static const int sold = statusBit("SOLD");
+	if (obj.testStatus((unsigned)underConstruction) || healDepot->testStatus((unsigned)underConstruction) || healDepot->testStatus((unsigned)sold))
+	{
+		return false; // RW 0x0082C7CE..0x0082C7FB: status 2 and 0x13
+	}
+	static const int infantry = CombatNames::kindOf("INFANTRY");
+	static const int healPad = CombatNames::kindOf("HEAL_PAD");
+	if (!obj.isKindOf((unsigned)infantry) || !healDepot->isKindOf((unsigned)healPad))
+	{
+		return false; // RW 0x0082C801..0x0082C818: +0x109 & 1 INFANTRY, +0x10A & 0x20 HEAL_PAD
+	}
+	if (shroudedForPlayer(obj, *healDepot, source))
+	{
+		return false; // RW 0x0082C823: call 0x82C167
+	}
+	const BodyModuleInterface *body = obj.getBodyModule();
+	return body && body->getMaxHealth() > body->getHealth(); // RW 0x0082C82F..0x0082C849
+}
+
+// RW 0x0082C4E9 ActionManager::canGetRepairedAt (DONOR BFME2 0x0042B246)
+bool GarrisonRules::canGetRepairedAt(Object &obj, Object *repairDepot, CommandSourceType source)
+{
+	if (!repairDepot)
+	{
+		return false;
+	}
+	if (obj.getRelationship(*repairDepot) != ALLIES)
+	{
+		return false; // RW 0x0082C50E: call 0x68D7AB; cmp eax, 2
+	}
+	if (obj.isEffectivelyDead())
+	{
+		return false; // RW 0x0082C518: test byte [edi + 0x458], 1
+	}
+	static const int underConstruction = statusBit("UNDER_CONSTRUCTION");
+	static const int sold = statusBit("SOLD");
+	if (obj.testStatus((unsigned)underConstruction) || repairDepot->testStatus((unsigned)underConstruction) || repairDepot->testStatus((unsigned)sold))
+	{
+		return false; // RW 0x0082C521..0x0082C54E: status 2 and 0x13
+	}
+	static const int aircraft = CombatNames::kindOf("AIRCRAFT");
+	static const int airfield = CombatNames::kindOf("AIRFIELD");
+	static const int repairPad = CombatNames::kindOf("REPAIR_PAD");
+	if (obj.isKindOf((unsigned)aircraft))
+	{
+		if (!GarrisonRules::isAboveTerrain(obj) || !repairDepot->isKindOf((unsigned)airfield))
+		{
+			return false; // RW 0x0082C55E..0x0082C578
+		}
+	}
+	else if (!repairDepot->isKindOf((unsigned)repairPad))
+	{
+		return false; // RW 0x0082C57C..0x0082C587: +0x10A & 0x40 REPAIR_PAD
+	}
+	const BodyModuleInterface *body = obj.getBodyModule();
+	if (!body || !(body->getMaxHealth() > body->getHealth()))
+	{
+		return false; // RW 0x0082C589..0x0082C5A3
+	}
+	return !shroudedForPlayer(obj, *repairDepot, source); // RW 0x0082C5AE: call 0x82C167
+}
+
+// RW 0x0082C254 ActionManager::canCombineObjects (DONOR BFME2 0x000C4080)
+bool GarrisonRules::canCombineObjects(Object &obj, Object *target, CommandSourceType source)
+{
+	(void)source;
+	if (!target)
+	{
+		return false;
+	}
+	static const int hordeMember = statusBit("HORDE_MEMBER");
+	Object *a = &obj;
+	if (a->testStatus((unsigned)hordeMember))
+	{
+		a = a->getContainedBy(); // RW 0x0082C277: call 0x693A1A(0)
+		if (!a)
+		{
+			return false;
+		}
+	}
+	Object *b = target;
+	if (b->testStatus((unsigned)hordeMember))
+	{
+		b = b->getContainedBy(); // RW 0x0082C299: call 0x693A1A(0)
+		if (!b)
+		{
+			return false;
+		}
+	}
+	if (a == b)
+	{
+		return false; // RW 0x0082C2A4: cmp esi, edi
+	}
+	HordeContainInterface *hc = hordeOf(*a);
+	return hc ? hc->canCombineWith(*b) : false; // RW 0x0082C2BA..0x0082C2C2: hc vslot +0x70
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------
@@ -749,6 +877,246 @@ private:
 	bool m_horde;
 	ObjectID m_container = INVALID_ID;
 };
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// 49 AIEnterAndAttackState (Local 114: ctor RW 0x00744901, onEnter RW 0x00751777, update RW 0x0075620A, onExit RW 0x00752B73, xfer RW 0x00742848;
+// DONOR BFME2 0x0034FF6C / 0x003546EA / 0x003512B2)
+// ---------------------------------------------------------------------------------------------------------------------------------
+class AIEnterAndAttackState : public AIMoveToMachineState
+{
+public:
+	// RW 0x00744901
+	explicit AIEnterAndAttackState(AIStateMachine &m) : AIMoveToMachineState(m, "AIEnterAndAttackState") {}
+
+	// RW 0x00751777
+	StateReturnType onEnter() override
+	{
+		m_entryTargetID = INVALID_ID; // RW 0x00751783: and dword ptr [ebx + 0x4C], 0
+		Object &obj = owner();
+		Object *container = machine().goalObject();
+		const Object *victim = ai().currentVictim(); // RW 0x007517A2: call 0x668303
+		m_victimID = victim ? victim->getID() : INVALID_ID; // RW 0x007517B0..0x007517B5: [ebx + 0x50]
+		if (!container || !GarrisonRules::canEnterObject(obj, container, ai().lastCommandSource(), 0, false))
+		{
+			return STATE_FAILURE; // RW 0x007517B8..0x007517E1
+		}
+		if (ContainModuleInterface *contain = container->getContain())
+		{
+			if (!contain->getEntryPosition(m_goalPosition)) // contain vslot 0x158
+			{
+				m_goalPosition = *container->getPosition();
+			}
+			contain->onObjectWantsToEnterOrExit(&obj, 0); // contain vslot 0x44(obj, 0)
+			m_entryTargetID = container->getID(); // RW 0x00751817: [ebx + 0x4C]
+		}
+		else
+		{
+			m_goalPosition = *container->getPosition();
+		}
+		ai().mover().ignoreObstacle(container->getID()); // RW 0x00751833: call 0x66831A
+		if (Locomotor *loco = ai().curLocomotor())
+		{
+			loco->setFlags(loco->flags() | (unsigned)LOCOMOTOR_FLAG_ALLOW_INVALID_POSITION); // RW 0x00751842: or [eax + 0x44], 2
+		}
+		m_adjustsDestination = false; // RW 0x00751865: mov byte ptr [ebx + 0x48], 0
+		m_move = std::make_unique<AIMoveToState>(ai().mover(), m_goalPosition, false);
+		return m_move->onEnter();
+	}
+
+	// RW 0x0075620A
+	StateReturnType update() override
+	{
+		Object &obj = owner();
+		Object *container = machine().goalObject();
+		if (!container)
+		{
+			return STATE_FAILURE;
+		}
+		if (container->getContainedBy() && GarrisonRules::isAboveTerrain(*container) && !GarrisonRules::isAboveTerrain(obj))
+		{
+			return STATE_FAILURE; // RW 0x0075622A..0x00756247
+		}
+		m_goalPosition = *container->getPosition(); // RW 0x0075624D..0x00756255
+		machine().setGoalObject(container->getID()); // RW 0x0075625D: call 0x6627F0
+		if (!GarrisonRules::canEnterObject(obj, container, ai().lastCommandSource(), 0, false))
+		{
+			if (obj.getRelationship(*container) == ENEMIES && GarrisonRules::canAttackAsNewTarget(obj, *container, ai().lastCommandSource()))
+			{
+				ai().aiAttackObject(container, ai().lastCommandSource(), 0x7FFFFFFF); // RW 0x007562E4: call 0x66C536
+				++GarrisonRules::enemyContainerAttacks();
+				return STATE_CONTINUE;
+			}
+			return STATE_FAILURE;
+		}
+		if ((obj.getDisabledMask() & (1u << 3)) != 0)
+		{
+			return STATE_SUCCESS; // RW 0x007562FA: DISABLED_HELD
+		}
+		if (!m_move)
+		{
+			return STATE_FAILURE;
+		}
+		m_move->setGoal(m_goalPosition);
+		StateReturnType r = m_move->update(); // RW 0x00756308: call 0x748E46
+		if (r == STATE_SUCCESS)
+		{
+			if (GarrisonRules::isAboveTerrain(*container) && !GarrisonRules::isAboveTerrain(obj))
+			{
+				return STATE_CONTINUE; // RW 0x00756314..0x0075632C
+			}
+			const float dy = SimMath::subf32(obj.getPosition()->y, container->getPosition()->y);
+			const float dx = SimMath::subf32(obj.getPosition()->x, container->getPosition()->x);
+			const float dist = SimMath::addf32(SimMath::mulf32(dy, dy), SimMath::mulf32(dx, dx));
+			const float r0 = CombatQueries::boundingCircleRadius(*container);
+			const float radiusSq = SimMath::mulf32(r0, r0);
+			if (radiusSq > dist)
+			{
+				if (ContainModuleInterface *contain = container->getContain())
+				{
+					contain->addToContain(&obj); // RW 0x00756378: vslot 0x9C
+				}
+			}
+		}
+		return r;
+	}
+
+	// RW 0x00752B73
+	void onExit(StateExitType status) override
+	{
+		if (m_victimID != INVALID_ID)
+		{
+			if (Object *v = owner().logic().findObjectByID(m_victimID))
+			{
+				machine().setGoalObject(v->getID()); // RW 0x00752B90: machine vslot 0x38
+			}
+		}
+		AIMoveToMachineState::onExit(status); // RW 0x00752B9F: call 0x748D8A
+		ai().mover().ignoreObstacle(PATHFIND_INVALID_ID); // RW 0x00752BB2: call 0x66831A(0)
+		if (Locomotor *loco = ai().curLocomotor())
+		{
+			loco->setFlags(loco->flags() & ~(unsigned)LOCOMOTOR_FLAG_ALLOW_INVALID_POSITION);
+		}
+		if (m_entryTargetID != INVALID_ID)
+		{
+			if (Object *c = owner().logic().findObjectByID(m_entryTargetID))
+			{
+				if (ContainModuleInterface *contain = c->getContain())
+				{
+					contain->onObjectWantsToEnterOrExit(&owner(), 2); // RW 0x00752BEB: vslot 0x44(obj, 2)
+				}
+			}
+		}
+	}
+
+	void crc(StateHasher &h) const override
+	{
+		AIMoveToMachineState::crc(h);
+		h.addU32(m_entryTargetID);
+		h.addU32(m_victimID);
+	}
+
+	// RW 0x00742848
+	void xfer(Xfer &x) override
+	{
+		XferVersion v{ 1, 1 };
+		x.xferVersion(v);
+		AIMoveToMachineState::xfer(x);
+		AIXfer::objectId(x, m_entryTargetID, "ai enter and attack: entryTargetID");
+		AIXfer::objectId(x, m_victimID, "ai enter and attack: victimID");
+	}
+
+private:
+	ObjectID m_entryTargetID = INVALID_ID; // state + 0x4C
+	ObjectID m_victimID = INVALID_ID;      // state + 0x50
+};
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// 60 AICombineState (Local 114: ctor RW 0x007448DE, onEnter RW 0x00751716, update RW 0x0074D433, internalUpdate RW 0x00747B4F;
+// DONOR BFME2 0x0034FF0B / 0x0034BE40 / 0x00345EA8)
+// ---------------------------------------------------------------------------------------------------------------------------------
+class AICombineState : public AIMoveToMachineState
+{
+public:
+	// RW 0x007448DE
+	explicit AICombineState(AIStateMachine &m) : AIMoveToMachineState(m, "AICombineState") {}
+
+	// RW 0x00751716
+	StateReturnType onEnter() override
+	{
+		const StateReturnType st = internalUpdate(); // RW 0x00751719: call 0x747B4F
+		if (st != STATE_CONTINUE)
+		{
+			return st;
+		}
+		if (ContainModuleInterface *c = owner().getContain())
+		{
+			if (HordeContainInterface *hc = c->getHordeContainInterface())
+			{
+				if (hc->notComboFormation()) // RW 0x00751738: vslot +0x220
+				{
+					if (HordeContain *h = dynamic_cast<HordeContain *>(c))
+					{
+						h->toggleFormation(); // RW 0x00751746: vslot +0x60
+					}
+				}
+			}
+		}
+		const StateReturnType enterRet = AIMoveToMachineState::onEnter(); // RW 0x00751770: jmp 0x74DADA
+		m_adjustsDestination = false; // RW 0x00751769: mov byte ptr [esi + 0x48], 0
+		if (m_move)
+		{
+			m_move->setAdjustsDestination(false);
+		}
+		return enterRet;
+	}
+
+	// RW 0x0074D433
+	StateReturnType update() override
+	{
+		const StateReturnType st = internalUpdate(); // RW 0x0074D436: call 0x747B4F
+		if (st != STATE_CONTINUE)
+		{
+			return st;
+		}
+		return AIMoveToMachineState::update(); // RW 0x0074D442: jmp 0x748E46
+	}
+
+private:
+	// RW 0x00747B4F
+	StateReturnType internalUpdate()
+	{
+		Object &obj = owner();
+		Object *goal = machine().goalObject();
+		if (obj.isEffectivelyDead() || !goal || goal->isEffectivelyDead())
+		{
+			return STATE_FAILURE; // RW 0x00747B5F..0x00747B7D
+		}
+		if (!GarrisonRules::canCombineObjects(obj, goal, ai().lastCommandSource()))
+		{
+			return STATE_FAILURE; // RW 0x00747B9A: call 0x82C254
+		}
+		m_goalPosition = *goal->getPosition(); // RW 0x00747BA8..0x00747BB3
+		const float dx = SimMath::subf32(goal->getPosition()->x, obj.getPosition()->x);
+		const float dy = SimMath::subf32(goal->getPosition()->y, obj.getPosition()->y);
+		const float distSq2D = SimMath::addf32(SimMath::mulf32(dx, dx), SimMath::mulf32(dy, dy)); // RW 0x00747BB4: call 0x66352C
+		const float dz = std::fabs(SimMath::subf32(goal->getPosition()->z, obj.getPosition()->z));
+		if (2500.0f > distSq2D && 10.0f > dz) // RW 0x00747BB9: [0xBE5A00] = 2500.0f; RW 0x00747BD5: [0xBD83D8] = 10.0f
+		{
+			HordeContainInterface *hc = hordeOf(obj);
+			Object *partner = goal;
+			if (!hc)
+			{
+				hc = hordeOf(*goal);
+				partner = &obj;
+			}
+			if (hc && hc->firstMemberNotKindOf(0xFFFFFFFFu) != nullptr) // RW 0x00747C16: vslot +0x110 (firstMember)
+			{
+				hc->combineWith(partner); // RW 0x00747C28: vslot +0x74
+			}
+		}
+		return STATE_CONTINUE;
+	}
+};
 } // namespace
 
 std::unique_ptr<AIState> makeMoveToPositionAndEnterState(AIStateMachine &machine)
@@ -770,4 +1138,12 @@ std::unique_ptr<AIState> makeExitState(AIStateMachine &machine)
 std::unique_ptr<AIState> makeHordeExitState(AIStateMachine &machine)
 {
 	return std::make_unique<AIExitState>(machine, true);
+}
+std::unique_ptr<AIState> makeEnterAndAttackState(AIStateMachine &machine)
+{
+	return std::make_unique<AIEnterAndAttackState>(machine);
+}
+std::unique_ptr<AIState> makeCombineState(AIStateMachine &machine)
+{
+	return std::make_unique<AICombineState>(machine);
 }

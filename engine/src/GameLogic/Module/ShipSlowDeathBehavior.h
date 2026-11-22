@@ -1,10 +1,11 @@
 // OpenBFME. GPL-3.0. MODGAP-2; both editions.
-// RW 0x861AA9 / 0x861B45, BFME2 0x85EA66 / 0x85EB02 (ShipSlowDeathBehavior.cpp).
+// RW 0x00861AA9 / RW 0x00861B45 / RW 0x00861D51, BFME2 0x85EA66 / 0x85EB02 (ShipSlowDeathBehavior.cpp).
 // RW binary provenance: S-001. Native save format: S-4190.
 #pragma once
 #include "GameLogic/Module/CombatModules.h"
 
 class ModuleFactory;
+// RW 0x00861A37 (getModuleName), RW 0x00861A3D (getModuleNameKey), RW 0x00861D72 (scalar deleting dtor -> RW 0x00861A82)
 class ShipSlowDeathBehavior : public SlowDeathBehavior {
 public:
     OBFME_MODULE_XFER(ShipSlowDeathBehavior)

@@ -308,6 +308,62 @@ void TerrainLogic::getMapExtentIncludingBorder(float &minX, float &minY, float &
 	maxY = (float)(m_map->m_height - m_map->m_borderSize) * MAP_XY_FACTOR;
 }
 
+Coord3D TerrainLogic::findClosestEdgePoint(const Coord3D &pos) const
+{
+	// RW 0x67D949: extent via vslot 0x20 (getExtent(0), else (0,0)); nearest side in order low y, high x, high y, low x (strictly smaller wins).
+	float hiX = 0.0f, hiY = 0.0f;
+	if (!getExtent(0, hiX, hiY))
+	{
+		hiX = hiY = 0.0f;
+	}
+	const float loX = 0.0f, loY = 0.0f;
+	auto dist = [](float a, float b) { return SimMath::fstpDword(SimMath::absD(SimMath::pc24SubW((double)a, (double)b))); };
+	const float d[4] = { dist(pos.y, loY), dist(pos.x, hiX), dist(pos.y, hiY), dist(pos.x, loX) };
+	int best = 0;
+	float bestD = d[0];
+	for (int i = 1; i < 4; ++i)
+	{
+		if (d[i] < bestD)
+		{
+			bestD = d[i];
+			best = i;
+		}
+	}
+	float x = pos.x, y = pos.y;
+	switch (best)
+	{
+	case 0:
+		y = loY;
+		break;
+	case 1:
+		x = hiX;
+		break;
+	case 2:
+		y = hiY;
+		break;
+	default:
+		x = loX;
+		break;
+	}
+	return Coord3D{ x, y, getGroundHeight(x, y) };
+}
+
+Coord3D TerrainLogic::findFarthestEdgePoint(const Coord3D &pos) const
+{
+	// RW 0x67DA48: extent via vslot 0x20 (getExtent(0), else (0,0)); farthest corner on each axis (mid > pos ? hi : lo), then ground height.
+	float hiX = 0.0f, hiY = 0.0f;
+	if (!getExtent(0, hiX, hiY))
+	{
+		hiX = hiY = 0.0f;
+	}
+	const float loX = 0.0f, loY = 0.0f;
+	const float midX = SimMath::mulf32(SimMath::subf32(hiX, loX), 0.5f);
+	const float midY = SimMath::mulf32(SimMath::subf32(hiY, loY), 0.5f);
+	const float x = midX > pos.x ? hiX : loX;
+	const float y = midY > pos.y ? hiY : loY;
+	return Coord3D{ x, y, getGroundHeight(x, y) };
+}
+
 void TerrainLogic::init(const WorldHeightMap &heightMap, const MapChunks &chunks, std::vector<std::string> *problems)
 {
 	m_map = &heightMap;

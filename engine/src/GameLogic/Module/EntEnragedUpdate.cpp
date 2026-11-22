@@ -37,10 +37,6 @@ const int kConditionWeaponSetEnraged = 0xFA; // RW 0x8B69E2
 const int kConditionInitialEnraged = 0x13B;  // RW 0x8B6A04
 const unsigned kDisabledTransition = 4;      // RW 0x8B6A1C
 
-const char kStop[] =
-	"[S-5605] EntEnragedUpdate (RW 0x8B6866) rages and calms; a burning RunToWater object takes RW 0x890A04's suppression when water is found (FlammableUpdate's search, "
-	"RW 0x890782) or RW 0x890A15's forced rage when it is not (none within RunToWaterSearchRadius, none above RunToWaterDepth or none the object can reach)";
-
 void parseFilter(INI *ini, void *instance, void *store, const void *)
 {
 	ObjectFilter f;
@@ -86,11 +82,6 @@ EntEnragedUpdateModuleData::EntEnragedUpdateModuleData()
 void EntEnragedUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kFields);
-}
-
-const char *EntEnragedUpdate::stopLine()
-{
-	return kStop;
 }
 
 EntEnragedUpdate *EntEnragedUpdate::of(const Object &obj)

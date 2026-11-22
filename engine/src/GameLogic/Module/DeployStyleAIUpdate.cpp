@@ -642,6 +642,7 @@ UpdateSleepTime DeployStyleAIUpdate::update()
 	return (UpdateSleepTime)((int)sleep < (int)base ? sleep : base); // RW 0x8929C8: cmovl
 }
 
+// RW 0x00891D88 (DeployStyleAIUpdate::xfer)
 void DeployStyleAIUpdate::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);
@@ -759,14 +760,14 @@ ToggleDeploySpecialAbilityUpdate::ToggleDeploySpecialAbilityUpdate(Thing *thing,
 }
 
 // RW 0x8B1C5F
-bool ToggleDeploySpecialAbilityUpdate::allowsSpecialPowerUse() const
+bool ToggleDeploySpecialAbilityUpdate::allowsSpecialPowerUse(const Coord3D *loc) const
 {
 	const Object &obj = *getObject();
 	if (obj.testModelCondition(mcPacking()) || obj.testModelCondition(mcUnpacking()))
 	{
 		return false;
 	}
-	return SpecialAbilityUpdate::allowsSpecialPowerUse(); // RW 0x851B6E
+	return SpecialAbilityUpdate::allowsSpecialPowerUse(loc); // RW 0x851B6E
 }
 
 // RW 0x8B1D10

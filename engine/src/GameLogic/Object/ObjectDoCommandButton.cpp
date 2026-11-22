@@ -277,7 +277,7 @@ void Object::doCommandButton(const CommandButton *button, CommandSourceType cmdS
 	case GUI_COMMAND_STOP:
 		if (ai)
 		{
-			ai->aiIdle(cmdSource); // RW 0x69710B
+			ai->aiIdle(cmdSource); // RW 0x69710B (AIUpdateInterface::privateCommandButton RW 0x0066E166 handles GUI_COMMAND_STOP 0x0E)
 		}
 		return;
 	case GUI_COMMAND_SPECIAL_POWER:

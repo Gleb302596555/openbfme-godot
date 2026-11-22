@@ -8,6 +8,7 @@
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DSailModelDraw.h"
 
 #include <chrono>
+#include <cstdlib>
 #include <set>
 
 // The game host of the creation hooks: the objects of the map are its object table (id = drawable index + 1), and a hide / show of a
@@ -115,12 +116,23 @@ DrawMessageClass classifyDrawMessage(const std::string &message)
 	}
 	// lane FX-3: a script's transition to a state the module does not define (retail logs this line, RW 0x4BE7F5 .. 0x4BE843, and continues)
 	static const std::string noTransition = "W3DScriptedModelDraw::adjustAnimation: Unable to find transition state named ";
+	// a BeginScript body that does not compile (W3DScriptedModelDraw::runScript's "script of state S failed: <alert>")
+	if (message.compare(0, 16, "script of state ") == 0 && isLuaSyntaxAlert(message))
+	{
+		c.kind = DrawMessageClass::DATA_DEFECT;
+		return c;
+	}
 	if ((message.find("animation ") != std::string::npos && message.find(" is not registered") != std::string::npos) ||
 		(message.compare(0, 6, "model ") == 0 && message.find(" is not available") != std::string::npos) || message.compare(0, noTransition.size(), noTransition) == 0)
 	{
 		c.kind = DrawMessageClass::DATA_DEFECT;
 	}
 	return c;
+}
+
+bool isLuaSyntaxAlert(const std::string &message)
+{
+	return message.find("LUA Alert: ") != std::string::npos && message.find(";\n  last token read: `") != std::string::npos;
 }
 
 void MapObjectRuntime::classifyRuntimeError(const std::string &object, const std::string &className, const std::string &message)
@@ -411,6 +423,11 @@ void MapObjectRuntime::build(const MapObjectDrawables &drawables, bool createDra
 	m_report.scriptsRun = m_host.scriptsRun();
 	for (const std::string &f : m_host.failures())
 	{
+		if (isLuaSyntaxAlert(f)) // retail drops it (RW 0x734E41): a data defect of the mod's script text, not a failed load
+		{
+			++m_report.dataDefects["BeginScript does not compile (retail drops the alert, RW 0x734E41): " + f.substr(0, f.find("  in: "))];
+			continue;
+		}
 		m_report.errors.push_back("BeginScript failed: " + f);
 	}
 	auto addReports = [&](const LuaReportSink &sink) {
@@ -430,9 +447,34 @@ void MapObjectRuntime::build(const MapObjectDrawables &drawables, bool createDra
 	if (m_lua)
 	{
 		addReports(m_lua->reports());
-		for (const std::string &a : m_lua->logic()->alerts())
+		const std::vector<std::string> &alerts = m_lua->logic()->alerts();
+		const std::vector<std::string> &ctx = m_lua->logic()->alertSources();
+		const std::vector<bool> &dropped = m_lua->logic()->alertRetailDropped();
+		for (size_t i = 0; i < alerts.size(); ++i)
 		{
-			m_report.errors.push_back("OnCreated handler failed: " + a);
+			std::string where = i < ctx.size() ? ctx[i] : std::string();
+			if (!where.empty())
+			{
+				const size_t at = where.find(" of object ");
+				if (at != std::string::npos)
+				{
+					const int id = std::atoi(where.c_str() + at + 11);
+					if (id >= 1 && (size_t)id <= drawables.drawables.size() && drawables.drawables[(size_t)id - 1].info)
+					{
+						where += " " + drawables.drawables[(size_t)id - 1].info->name;
+					}
+				}
+			}
+			const std::string msg = !where.empty() ? "OnCreated handler failed (" + where + "): " + alerts[i]
+				: "OnCreated handler failed: " + alerts[i];
+			if (i < dropped.size() && dropped[i])
+			{
+				++m_report.dataDefects[msg];
+			}
+			else
+			{
+				m_report.errors.push_back(msg);
+			}
 		}
 		if (m_report.creationHookTemplatesWithSeveralLists > 0)
 		{

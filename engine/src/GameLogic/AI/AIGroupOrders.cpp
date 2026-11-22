@@ -588,16 +588,27 @@ const MoveToGroupOrder &moveOrder(const AIOrdersManager::GroupOrder &order)
 	return *move;
 }
 
-void xferState(Xfer &x, MoveToGroupOrder::State &s)
+// RW 0x94E0D4 / RW 0x94E6B8 both pass their ObjectID -> position map to RW 0x94DE2A.
+// A cached member can be gone (RW 0x94E49E, 0x94E50E..520), but must have had a real ID.
+void xferPositions(Xfer &x, std::map<ObjectID, Coord3D> &positions, ObjectID nextObjectID)
+{
+	AIXfer::map(x, positions, 16, [&](ObjectID &id, Coord3D &c) {
+		x.xferUnsignedInt(&id);
+		if (x.isLoading())
+		{
+			AIXfer::inRange(id, 1, static_cast<long long>(nextObjectID) - 1, "orders: a cached position's object id");
+		}
+		AIXfer::coord(x, c);
+	});
+}
+
+void xferState(Xfer &x, MoveToGroupOrder::State &s, ObjectID nextObjectID)
 {
 	XferVersion v{ 1, 1 };
 	x.xferVersion(v);
 	AIXfer::coord(x, s.destination);
 	x.xferBool(&s.attackMove);
-	AIXfer::map(x, s.positions, 16, [&](std::uint32_t &id, Coord3D &c) {
-		x.xferUnsignedInt(&id);
-		AIXfer::coord(x, c);
-	});
+	xferPositions(x, s.positions, nextObjectID);
 	AIXfer::uns(x, s.stuck);
 }
 
@@ -619,18 +630,23 @@ void xferState(Xfer &x, GarrisonObjectGroupOrder::State &s)
 	AIXfer::coord(x, s.lastTargetPos);
 }
 
-void xferState(Xfer &x, MoveToFormationGroupOrder::State &s)
+void xferState(Xfer &x, MoveToFormationGroupOrder::State &s, const GameLogic &logic)
 {
 	XferVersion v{ 1, 1 };
 	x.xferVersion(v);
 	x.xferInt(&s.formationType);
+	if (x.isLoading())
+	{
+		// RW 0x94E585 (0x94E5FC) passes +0x18 to RW 0x8345F4 to look up the template. As in
+		// FormationAssistant::layout, this is an index in this game's data, not a fixed enum.
+		const auto *assistant = logic.formationAssistant();
+		const auto count = assistant ? assistant->templates.size() : 0;
+		AIXfer::inRange(s.formationType, 0, static_cast<long long>(count) - 1, "orders: the formation template index");
+	}
 	AIXfer::coord(x, s.destination);
 	x.xferReal(&s.angle);
 	x.xferBool(&s.attackMove);
-	AIXfer::map(x, s.positions, 16, [&](std::uint32_t &id, Coord3D &c) {
-		x.xferUnsignedInt(&id);
-		AIXfer::coord(x, c);
-	});
+	xferPositions(x, s.positions, logic.getNextObjectID());
 	x.xferBool(&s.completed);
 	AIXfer::uns(x, s.stuck);
 }
@@ -778,7 +794,6 @@ void crc(const AIOrdersManager &manager, StateHasher &h)
 
 void xfer(Xfer &x, Image &image, GameLogic &logic)
 {
-	(void)logic;
 	XferVersion v{ 1, 2 };
 	x.xferVersion(v);
 	AIXfer::uns(x, image.nextId);
@@ -799,6 +814,10 @@ void xfer(Xfer &x, Image &image, GameLogic &logic)
 		{
 			std::uint8_t k = static_cast<std::uint8_t>(o.kind);
 			x.xferUnsignedByte(&k);
+			if (x.isLoading()) // native v2 body discriminator; v1 has only Move and no tag byte
+			{
+				AIXfer::inRange(k, static_cast<int>(OrderKind::Move), static_cast<int>(OrderKind::Formation), "orders: the order kind");
+			}
 			o.kind = static_cast<OrderKind>(k);
 		}
 		else
@@ -807,7 +826,7 @@ void xfer(Xfer &x, Image &image, GameLogic &logic)
 		}
 		if (o.kind == OrderKind::Move)
 		{
-			xferState(x, o.move);
+			xferState(x, o.move, logic.getNextObjectID());
 		}
 		else if (o.kind == OrderKind::Attack)
 		{
@@ -819,7 +838,7 @@ void xfer(Xfer &x, Image &image, GameLogic &logic)
 		}
 		else if (o.kind == OrderKind::Formation)
 		{
-			xferState(x, o.formation);
+			xferState(x, o.formation, logic);
 		}
 	}
 	x.xferVectorSize(image.queues, 16);

@@ -11,6 +11,7 @@
 #include "GameClient/ModelConditionAudioLoopClientBehavior.h"
 #include "GameClient/RenderInterpolation.h"
 #include "GameClient/StealthLook.h"
+#include "GameClient/SwayClientUpdate.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DTreeDraw.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDrawVariants.h"
@@ -27,6 +28,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <algorithm>
 #include <variant>
 
 DrawEntry::DrawEntry() = default;
@@ -212,6 +214,8 @@ void Drawable::addEntry(DrawServices &services, const ThingTemplate::Nugget &nug
 				// Drawable::showModule (RW 0x6789B4); the template answers which tags exist (the drawable makes every draw module of its template, S-114)
 				o.hasModule = [this](const std::string &tag) { return ClientEventRecorder::templateHasDrawModuleTag(*m_template, tag); };
 				o.setModuleVisible = [this](const std::string &tag, bool visible) { scriptModuleVisible(tag, visible); };
+				// LOCAL-106: Drawable::getShouldAnimate (RW 0x00675655), called from W3DScriptedModelDraw::doDrawModule (RW 0x004BF615)
+				o.shouldAnimate = [this](bool animationsRequirePower) { return getShouldAnimate(animationsRequirePower); };
 				if (const W3DHordeModelDrawModuleData *hd = dynamic_cast<const W3DHordeModelDrawModuleData *>(nugget.data.get()))
 				{
 					e.draw.reset(new W3DHordeModelDraw(*hd, 2, services.drawAssets, services.random, &services.host, o)); // LOD HIGH (S-114)
@@ -593,6 +597,92 @@ bool Drawable::advanceIsLocal() const
 // every model draw, including a static prop whose only state is the constructor's empty idle, and writes the draw's own opacity /
 // hidden state. The position is the drawable's synced drawn position (RW 0x676711); the port advances before syncTransforms, so it
 // is the pose the previous render frame synced (client presentation only, no simulation state).
+namespace
+{
+// the template's ShadowSizeX / ShadowSizeY / ShadowOffsetX / ShadowOffsetY (RW ThingTemplate +0x4F8 .. +0x504), the size of a terrain decal
+float terrainDecalField(const ThingTemplate *tt, const char *name)
+{
+	const FieldValue *v = tt ? tt->findField(name) : nullptr;
+	if (const float *f = v ? std::get_if<float>(v) : nullptr)
+	{
+		return *f;
+	}
+	if (const long long *i = v ? std::get_if<long long>(v) : nullptr)
+	{
+		return (float)*i;
+	}
+	return 0.0f;
+}
+} // namespace
+
+void Drawable::setTerrainDecal(int type)
+{
+	if (m_terrainDecalType == type) // RW 0x672BA0
+	{
+		return;
+	}
+	m_terrainDecalType = type;
+	// RW 0x672BA6: the first module of the draw module list (+0x14C) only; a module that is not a model draw has the empty base slot
+	if (!m_entries.empty() && m_entries.front().draw)
+	{
+		const ThingTemplate *tt = getTemplate();
+		m_entries.front().draw->setTerrainDecal(type, terrainDecalField(tt, "ShadowSizeX"), terrainDecalField(tt, "ShadowSizeY"),
+			terrainDecalField(tt, "ShadowOffsetX"), terrainDecalField(tt, "ShadowOffsetY"));
+	}
+}
+
+void Drawable::setTerrainDecalTexture(const std::string &texture)
+{
+	m_terrainDecalType = texture.empty() ? 7 : 6; // RW 0x672BC2 .. 0x672BD0
+	if (!m_entries.empty() && m_entries.front().draw)
+	{
+		const ThingTemplate *tt = getTemplate();
+		m_entries.front().draw->setTerrainDecalTexture(texture, terrainDecalField(tt, "ShadowSizeX"), terrainDecalField(tt, "ShadowSizeY"),
+			terrainDecalField(tt, "ShadowOffsetX"), terrainDecalField(tt, "ShadowOffsetY"));
+	}
+}
+
+void Drawable::setTerrainDecalFadeTarget(float target, float rate, unsigned logicFrame)
+{
+	m_decalFadeTarget = target;   // RW 0x670947
+	m_decalFadeRate = rate;       // RW 0x670955
+	m_decalFadeFrame = logicFrame; // RW 0x67095D .. 0x670968: TheGameLogic's frame
+}
+
+void Drawable::advanceTerrainDecal(unsigned logicFrame)
+{
+	if (m_terrainDecalType == 7) // RW 0x675C25 -> 0x675D1E
+	{
+		m_decalOpacity = 0.0f;
+		return;
+	}
+	if (m_entries.empty() || !m_entries.front().draw) // RW 0x675C38
+	{
+		return;
+	}
+	W3DScriptedModelDraw &module = *m_entries.front().draw;
+	if (m_decalFadeRate != 0.0f) // RW 0x675C40 .. 0x675C4F
+	{
+		// RW 0x675C51 .. 0x675CA9: the frames since the last step (at least 1), the module gets the opacity before the step
+		const int elapsed = std::max((int)(logicFrame - m_decalFadeFrame), 1);
+		m_decalFadeFrame = logicFrame;
+		module.setTerrainDecalOpacity(m_decalOpacity);
+		m_decalOpacity += (float)elapsed * m_decalFadeRate;
+	}
+	if (m_decalFadeRate < 0.0f && m_decalOpacity <= 0.0f) // RW 0x675CAF .. 0x675CD3: faded out, the decal goes
+	{
+		m_decalFadeRate = 0.0f;
+		m_decalOpacity = 0.0f;
+		setTerrainDecal(7);
+	}
+	else if (m_decalFadeRate > 0.0f && m_decalOpacity >= 1.0f) // RW 0x675CDD .. 0x675D19: faded in
+	{
+		m_decalOpacity = 1.0f;
+		m_decalFadeRate = 0.0f;
+		module.setTerrainDecalOpacity(1.0f);
+	}
+}
+
 void Drawable::advanceCameraFade()
 {
 	if (!m_services.cameraPosition)
@@ -633,6 +723,7 @@ void Drawable::advanceAnimationLocal(double elapsedMs)
 			e.lightDraw->stepFlicker((float)(elapsedMs * 0.001));
 		}
 	}
+	flushPendingCapturePresentation();
 }
 
 void Drawable::advanceAnimation(double elapsedMs)
@@ -654,6 +745,7 @@ void Drawable::advanceAnimation(double elapsedMs)
 			e.lightDraw->stepFlicker((float)(elapsedMs * 0.001));
 		}
 	}
+	flushPendingCapturePresentation();
 }
 
 // lane COMBAT-4 (FB-0002), RW 0x4CBFFB (W3DTruckDraw's draw update, run once per client frame: 6 per logic frame, RW 0xDE4324 + 0x38): with a front tire bone
@@ -731,6 +823,38 @@ void Drawable::advanceTires(DrawEntry &e, double elapsedMs)
 	}
 }
 
+// PORT-267 (fork issue 626): the floor records of this drawable, once per client frame. RotWK's shared W3DFloorBuffer holds one record per
+// (drawable, model name); the port keeps that record on the drawable's floor entry, and the two places that touch it are the module's
+// doDrawModule (RW 0x4CEBCA, instance vtable RW 0xBE3378 slot +0x2C) and the buffer's per-frame walk (RW 0x4E547D).
+void Drawable::updateFloorFades()
+{
+	for (DrawEntry &e : m_entries)
+	{
+		// RW 0x4CEBCA needs the module data only: the record is found by the data's ModelName (RW 0x4CEC04 passes data +8), not by the model the
+		// archives resolved, so a floor whose model is missing still gets its record
+		if (e.kind != W3D_DRAWKIND_FLOOR || !e.data)
+		{
+			continue;
+		}
+		const auto *data = dynamic_cast<const W3DFloorDrawModuleData *>(e.data);
+		if (!data)
+		{
+			continue;
+		}
+		// RW 0x4CEBCA: the data (RW 0x4CEBCE) and the drawable (RW 0x4CEBD6) exist, FloorFadeRateOnObjectDeath (data +0x20) is not zero
+		// (RW 0x4CEBDA) and the drawable's object is effectively dead (RW 0x4CEBEC..0x4CEBFD) -> the rate goes to the record, RW 0x4CEC1E
+		// through RW 0x46AFCA to RW 0x4E5A98 (the record's +0x88)
+		if (data->m_floorFadeRateOnObjectDeath != 0.0f && m_effectivelyDead)
+		{
+			e.floorFade.setRate(data->m_floorFadeRateOnObjectDeath);
+		}
+		// RW 0x4E42DE: the record's visibility (bit 12 of Drawable + 0x264) drives the state machine RW 0x4E54BE..0x4E54FD. The port's equivalent
+		// of that bit is whether the floor is drawn at all: its HideIfModelConditions (RENDER-2) or a script's / the client's hide
+		e.floorFade.setVisible(!e.conditionHidden && !e.moduleHidden && !m_clientHidden);
+		e.floorFade.step(drawOpacity()); // RW 0x4E547D -> RW 0x4E3EC5
+	}
+}
+
 void Drawable::syncFromSnapshot(const ObjectSnapshot &rec, UnsignedInt snapshotFrame, double alpha, bool interpolate)
 {
 	// the sequential form (lane PERF-3 keeps it as the reference of prepareSync / commitSync, DrawableManager::setParallelSync(false)). Lane SMOOTH-1: the
@@ -762,7 +886,10 @@ void Drawable::syncFromSnapshot(const ObjectSnapshot &rec, UnsignedInt snapshotF
 	updateConstruction(rec, snapshotFrame, alpha); // RENDER-2 (DrawableConstruction.cpp)
 	updatePhantomLook(rec);                        // lane FBSIM-1
 	m_moveSpeed = rec.moveSpeed;                   // lane SMOOTH-3: the walk / run cycle's speed source (RW 0x4B67D4)
+	m_disabledMask = rec.disabledMask;             // LOCAL-106: RW 0x00675670 (Object +0x1C8)
+	m_scriptStatus = rec.scriptStatus;             // LOCAL-106: RW 0x00675667 (Object +0x457)
 	m_scriptTarget = rec.scriptTarget;             // lane FX-3
+	m_effectivelyDead = rec.effectivelyDead;       // PORT-267: the floor gate RW 0x4CEBEC..0x4CEBFD
 	applyPhysicsXform(rec, p);                     // LOCAL-25: presentation physics
 }
 
@@ -802,9 +929,42 @@ void Drawable::prepareSync(const ObjectSnapshot &rec, UnsignedInt snapshotFrame,
 	updateConstruction(rec, snapshotFrame, alpha); // RENDER-2 (DrawableConstruction.cpp)
 	updatePhantomLook(rec);                        // lane FBSIM-1
 	m_moveSpeed = rec.moveSpeed;                   // lane SMOOTH-3: the walk / run cycle's speed source (RW 0x4B67D4)
+	m_disabledMask = rec.disabledMask;             // LOCAL-106: RW 0x00675670 (Object +0x1C8)
+	m_scriptStatus = rec.scriptStatus;             // LOCAL-106: RW 0x00675667 (Object +0x457)
 	m_scriptTarget = rec.scriptTarget;             // lane FX-3
 	// LOCAL-25: no presentation physics here: this runs on the job pool, and the step draws the shared client random (the ordered pass of
 	// DrawableManager makes it)
+}
+
+// LOCAL-106: Drawable::getShouldAnimate (RW 0x00675655; called from W3DScriptedModelDraw::doDrawModule RW 0x004BF615).
+// RotWK 2.01 only (BFME2 1.06 0x004BFDFE has no call to getShouldAnimate).
+bool Drawable::getShouldAnimate(bool animationsRequirePower) const
+{
+	if (m_objectId == INVALID_ID)
+	{
+		return true; // RW 0x00675655..0x0067565E: no object bound -> animate
+	}
+	if (animationsRequirePower && (m_scriptStatus & 0x02u) != 0)
+	{
+		return false; // RW 0x00675660..0x0067566E: Object +0x457 bit 1 (OBJECT_STATUS_SCRIPT_UNPOWERED)
+	}
+	if (m_disabledMask == DISABLEDMASK_NONE)
+	{
+		return true; // RW 0x00675670..0x0067567F: call 0x009325B4 (BitFlags::any)
+	}
+	if ((m_disabledMask & (1u << DISABLED_USER_FROZEN)) != 0)
+	{
+		return false; // RW 0x00675681..0x00675686: test ah, 8 (bit 11 = 0x800)
+	}
+	if ((m_disabledMask & ((1u << DISABLED_EMP) | (1u << DISABLED_UNMANNED))) != 0)
+	{
+		return false; // RW 0x00675688..0x0067568A: test al, 0x24 (bits 2 | 5)
+	}
+	if (animationsRequirePower && (m_disabledMask & (1u << DISABLED_UNDERPOWERED)) != 0)
+	{
+		return false; // RW 0x0067568C..0x00675695: test al, 0x40 (bit 6)
+	}
+	return true; // RW 0x0067569B
 }
 
 void Drawable::updatePhantomLook(const ObjectSnapshot &rec)
@@ -1599,6 +1759,29 @@ bool Drawable::entryTransform(const DrawEntry &e, Matrix3D &outMatrix) const
 		pos.z += basis[8] * k;
 	}
 	const float scale = getInstanceScale();
+	if (m_hasInstanceMatrix)
+	{
+		Matrix3D world;
+		for (int r = 0; r < 3; ++r)
+		{
+			for (int c = 0; c < 3; ++c)
+			{
+				world.Row[r][c] = basis[r * 3 + c];
+			}
+		}
+		world.Row[0][3] = pos.x;
+		world.Row[1][3] = pos.y;
+		world.Row[2][3] = pos.z;
+		Matrix3D::Multiply(world, m_instanceMatrix, &outMatrix);
+		for (int r = 0; r < 3; ++r)
+		{
+			for (int c = 0; c < 3; ++c)
+			{
+				outMatrix.Row[r][c] *= scale;
+			}
+		}
+		return false;
+	}
 	for (int r = 0; r < 3; ++r)
 	{
 		for (int c = 0; c < 3; ++c)
@@ -1610,6 +1793,29 @@ bool Drawable::entryTransform(const DrawEntry &e, Matrix3D &outMatrix) const
 	outMatrix.Row[1][3] = pos.y;
 	outMatrix.Row[2][3] = pos.z;
 	return false;
+}
+
+void Drawable::setInstanceMatrix(const Matrix3D &xfrm)
+{
+	m_instanceMatrix = xfrm;
+	m_hasInstanceMatrix = true;
+}
+
+float Drawable::getZRotation() const
+{
+	const float *b = getBasis();
+	return std::atan2(b[3], b[0]);
+}
+
+void Drawable::updateSway(const W3DVegetationSway::Breeze &breeze, bool visible, bool burnedOrDead)
+{
+	for (const auto &m : m_clientModules)
+	{
+		if (auto *sway = dynamic_cast<SwayClientUpdate *>(m.get()))
+		{
+			sway->clientUpdate(breeze, m_services.random, visible, burnedOrDead);
+		}
+	}
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -2524,4 +2730,65 @@ Coord3D Drawable::getPresentationPosition() const
 		return m_presentationPosition;
 	}
 	return *getPosition();
+}
+
+bool Drawable::hasPendingAnimationTransition() const
+{
+	for (const DrawEntry &e : m_entries)
+	{
+		if (e.draw && e.draw->pendingStatePending())
+		{
+			const AnimationStateInfo *st = e.draw->currentAnimationState();
+			// Trans_CancelReraise in captureflag.ini has its own LuaEvent = OnStateEnter (raises the previous owner's flag).
+			if (st && st->stateName == "Trans_CancelReraise")
+			{
+				continue;
+			}
+			return true;
+		}
+	}
+	return false;
+}
+
+void Drawable::applyCapturePresentationNow(const std::vector<DeferredSubObject> &subObjects, bool hasIndicator, std::uint32_t indicator, bool hasHouse, std::uint32_t house)
+{
+	for (const DeferredSubObject &s : subObjects)
+	{
+		showSubObject(s.name, s.visible, s.permanent);
+	}
+	if (hasIndicator)
+	{
+		setIndicatorColor(indicator);
+	}
+	if (hasHouse)
+	{
+		setHouseColor(house);
+	}
+}
+
+void Drawable::applyOrDeferCapturePresentation(std::vector<DeferredSubObject> subObjects, bool hasIndicator, std::uint32_t indicator, bool hasHouse, std::uint32_t house)
+{
+	if (!hasPendingAnimationTransition())
+	{
+		m_pendingCapturePresentation = PendingCapturePresentation{};
+		applyCapturePresentationNow(subObjects, hasIndicator, indicator, hasHouse, house);
+		return;
+	}
+	m_pendingCapturePresentation.active = true;
+	m_pendingCapturePresentation.subObjects = std::move(subObjects);
+	m_pendingCapturePresentation.hasIndicatorColor = hasIndicator;
+	m_pendingCapturePresentation.indicatorColor = indicator;
+	m_pendingCapturePresentation.hasHouseColor = hasHouse;
+	m_pendingCapturePresentation.houseColor = house;
+}
+
+void Drawable::flushPendingCapturePresentation()
+{
+	if (!m_pendingCapturePresentation.active || hasPendingAnimationTransition())
+	{
+		return;
+	}
+	PendingCapturePresentation pending = std::move(m_pendingCapturePresentation);
+	m_pendingCapturePresentation = PendingCapturePresentation{};
+	applyCapturePresentationNow(pending.subObjects, pending.hasIndicatorColor, pending.indicatorColor, pending.hasHouseColor, pending.houseColor);
 }

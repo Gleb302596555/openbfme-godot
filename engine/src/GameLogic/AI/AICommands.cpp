@@ -13,6 +13,7 @@
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Combat/CombatNames.h"
+#include "GameLogic/Map/TerrainTrees.h"
 #include "GameLogic/Object/Object.h"
 
 #include <algorithm>
@@ -56,8 +57,23 @@ void AICommands::recordAttackOrderAccepted()
 	}
 }
 
+const FormationAssistant *GameLogic::formationAssistant() const
+{
+	if (m_formationAssistant) return m_formationAssistant;
+	const auto *world = RetailObjectWorld::currentContext();
+	return world ? &world->formations() : nullptr;
+}
+
+void AICommands::setFormationAssistant(const FormationAssistant *assistant)
+{
+	m_formations = assistant;
+	if (m_registeredLogic) m_registeredLogic->setFormationAssistant(assistant);
+}
+
 void AICommands::registerHandlers(GameLogicDispatch &d)
 {
+	m_registeredLogic = &d.logic();
+	m_registeredLogic->setFormationAssistant(m_formations);
 	s_activeCommands = this;
 	for (int t : { (int)MSG_DO_MOVETO, (int)MSG_DO_FORCEMOVETO, (int)MSG_DO_ATTACKMOVETO, (int)MSG_ADD_WAYPOINT })
 	{
@@ -199,7 +215,31 @@ bool AICommands::attackObject(GameLogic &logic, const GameMessage &m)
 	}
 	const bool force = m.getType() == MSG_DO_FORCE_ATTACK_OBJECT;
 	(force ? m_stats.forceAttacks : m_stats.attacks) += 1;
-	Object *victim = logic.findObjectByID(who->objectID);
+	// PORT-208 (issue #490, lane LOCAL-42): RW 0x77AF18 (force, MSG_DO_FORCE_ATTACK_OBJECT RW 0x77AED3) / RW 0x77C1C2 (MSG_DO_ATTACK_OBJECT RW
+	// 0x77C170) compare the victim id with 99999999 (cmp [edi+0x74], 0x5F5E0FF: the clicked map tree, the stand-in the client's picker handed out). With
+	// AIData AllowForestFires (TheAI's data + 0xBC, the port's GameLogicSettings::allowForestFires) the tree at the message's location (argument 1,
+	// RW 0x77AF37) is made an object (TheTerrainLogic RW 0x68449B, the port's TerrainTrees::makeTreeObject), its makeObjectScriptSelectable (RW 0x6719FA,
+	// pushed 1) runs, and that object is the victim; without the setting, or with no tree there, the id resolves to null (xor edi, edi at RW 0x77AF67 /
+	// 0x77C211) and the command ends at RW 0x77AF69 / 0x77C213.
+	Object *victim = nullptr;
+	if (GameLogic::isTreeStandInID(who->objectID))
+	{
+		const GameMessageArgument *where = arg(m, 1, ARGUMENTDATATYPE_LOCATION);
+		if (!where || !logic.settings().allowForestFires)
+		{
+			return true; // RW 0x77AF67 / 0x77C211 -> the victim is null: nothing happens
+		}
+		victim = logic.trees().makeTreeObject(where->location);
+		if (!victim)
+		{
+			return true; // RW 0x77AF44 / 0x77C1EE: no tree at that point
+		}
+		victim->setScriptSelectable(true); // RW 0x77AF4C .. 0x77AF65: RW 0x70E013 (the drawable) + RW 0x6719FA(1)
+	}
+	else
+	{
+		victim = logic.findObjectByID(who->objectID);
+	}
 	if (!victim || victim->isDestroyed())
 	{
 		return true; // the target is already gone: nothing happens
@@ -211,31 +251,16 @@ bool AICommands::attackObject(GameLogic &logic, const GameMessage &m)
 	}
 	else if (logic.aiWorld() && logic.aiWorld()->config().pathfind.planningModeEnabled)
 	{
-		// lane MOVE-3 / P-9: RW 0x77C22F .. 0x77C254: MSG_DO_ATTACK_OBJECT submits AttackObjectGroupOrder (RW 0x7574F8)
+		// lane MOVE-3 / P-9: RW 0x77C22F .. 0x77C254: MSG_DO_ATTACK_OBJECT submits AttackObjectGroupOrder (RW 0x7574F8); the id it carries is the
+		// one compare at RW 0x77C23C reads ([edi+0x74]), i.e. the made tree's own id, not the stand-in's
 		group.releaseWeaponLockForGroup(LOCKED_TEMPORARILY); // RW 0x77C226
-		group.planningAttackObject(who->objectID, logic.players().getNthPlayer(m.getPlayerIndex())->orderMode());
+		group.planningAttackObject(victim->getID(), logic.players().getNthPlayer(m.getPlayerIndex())->orderMode());
 		group.clearTemporarySpeedCaps(); // RW 0x77C254 -> 0x77B00A -> 0x77A342 (RW 0x76FD04)
 		return true;
 	}
-	for (Object *o : group.members())
-	{
-		AIUpdateInterface *ai = o->getAIUpdateInterface();
-		if (!ai)
-		{
-			continue;
-		}
-		Object *target = victim;
-		if (o->isKindOf((unsigned)CombatNames::kinds().horde) && victim->getContainedBy() && victim->getContainedBy()->getContain() &&
-			victim->getContainedBy()->getContain()->getHordeContainInterface())
-		{
-			target = victim->getContainedBy(); // a horde fights the horde of the member that was clicked
-		}
-		const bool ok = force ? ai->aiForceAttackObject(target, CMD_FROM_PLAYER) : ai->aiAttackObject(target, CMD_FROM_PLAYER);
-		m_stats.attackOrdersAccepted += ok ? 1u : 0u;
-	}
+	group.groupAttackObject(victim, force, CMD_FROM_PLAYER);
 	// RW 0x76FD04 through RW 0x77B00A: the force attack (RW 0x77AF8E -> 0x77A3BF, lane PLAY-2) and the plain one (RW 0x77C254 / 0x77C260 -> 0x77A3BE)
-	group.clearTemporarySpeedCaps();
-	return true;
+	group.clearTemporarySpeedCaps();	return true;
 }
 
 // lane PLAY-2: MSG_DO_FORCE_ATTACK_GROUND, RW 0x77AF93 (see AICommands.h)
@@ -292,17 +317,14 @@ bool AICommands::formationMove(GameLogic &logic, const GameMessage &m)
 	}
 	const auto *type=arg(m,2,ARGUMENTDATATYPE_INTEGER);
 	const auto *attack=arg(m,3,ARGUMENTDATATYPE_BOOLEAN);
-	const auto *world=RetailObjectWorld::currentContext();
+	const auto *assistant = logic.formationAssistant();
 	// PR #88 review fix 5: a NaN / infinite angle or location from a malformed peer message is rejected; it reached the per-slot moves and
 	// crashed (or, on the old whole-group path, hung) the simulation. The angle must also lie in [-2 pi, 2 pi] (the client sends an atan2
 	// result): a huge finite facing (1e20) never leaves the final-turn wrap loop (AIMove, RW 0x748E46), whose 2 pi steps vanish at that magnitude
 	const float twoPi = 6.2831855f;
-	if (!type || !attack || (!world && !m_formations) || !finiteLocation(dest->location) || !(angle->real >= -twoPi && angle->real <= twoPi)) { ++m_stats.rejected; return false; }
+	if (!type || !attack || !assistant || !finiteLocation(dest->location) || !(angle->real >= -twoPi && angle->real <= twoPi)) { ++m_stats.rejected; return false; }
 	const auto ids = selection(logic, m.getPlayerIndex());
-	// An assistant set explicitly (setFormationAssistant: the unit tests' synthetic worlds) wins over the registered world's, so a retail
-	// world left registered by another test cannot replace it; the game sets none and uses the world's FormationAssistant.ini
-	const auto &assistant = m_formations ? *m_formations : world->formations();
-	const auto slots = assistant.layout(logic, ids, type->integer, dest->location);
+	const auto slots = assistant->layout(logic, ids, type->integer, dest->location);
 	if (slots.empty()) { ++m_stats.rejected; return false; }
 	const float c = SimMath::cosDet(SimMath::addf32(angle->real, 1.5707964f)), s = SimMath::sinDet(SimMath::addf32(angle->real, 1.5707964f));
 	std::map<ObjectID, Coord3D> computedPositions;
@@ -326,6 +348,8 @@ bool AICommands::formationMove(GameLogic &logic, const GameMessage &m)
 		// RW 0x77BBC1 .. 0x77BBED: MSG_DO_MOVETO_FORMATION submits MoveToFormationGroupOrder (RW 0x757419)
 		AIGroup group(logic, ids);
 		group.planningMoveToFormation(type->integer, dest->location, angle->real, attack->boolean, logic.players().getNthPlayer(m.getPlayerIndex())->orderMode(), computedPositions);
+		// RW 0x77BBED: this branch too jumps to RW 0x77AAEB after its order, the selection's speed matching RW 0x77005F(0)
+		group.cohereMoveSpeed(false);
 		++m_stats.formationMoves;
 		return true;
 	}

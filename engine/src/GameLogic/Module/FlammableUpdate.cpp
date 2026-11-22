@@ -13,6 +13,8 @@
 #include "Common/AsciiString.h"
 #include "Common/Audio/AudioRequests.h"
 #include "Common/INIException.h"
+#include "Common/Player.h"
+#include "Common/PlayerList.h"
 #include "Common/StateHash.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "GameLogic/AI/AIPathfind.h"
@@ -32,8 +34,10 @@
 #include "GameLogic/SimMath.h"
 #include "GameClient/FXList.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstring>
+#include <vector>
 
 namespace
 {
@@ -400,10 +404,34 @@ void FlammableUpdate::onDamage(const DamageInfo &info)
 	}
 	m_flameDamageLimit = 0.0f;
 	tryToIgnite();
-	if (obj->getContain())
+	// RW 0x8905A2 (data + 0x39 BurnContained) / RW 0x8905AC (Object + 0x258, the contain): with BurnContained every passenger takes
+	// max(AflameDamageAmount / 2, 1) FLAME damage (death BURNED) from the burning object itself, the list coming from the contain's slot 0x118;
+	// without BurnContained the contain hears the ignition through its slot 0x88(2) instead (RW 0x890656).
+	if (m_data->m_burnContained)
 	{
-		noteStop(*obj, m_data->m_burnContained ? "FlammableUpdate: BurnContained's damage to the passengers (RW 0x8905B9) is not ported"
-											   : "FlammableUpdate: the contain module's slot 0x88(2) at ignition (RW 0x890656) is not ported");
+		if (ContainModuleInterface *contain = obj->getContain())
+		{
+			DamageInfo burn;                                  // RW 0x8905B9: the DamageInfo ctor RW 0x66365E
+			burn.m_input.m_sourceID = obj->getID();           // RW 0x8905E3: D + 0x08, the object's id (Object + 0x74)
+			burn.m_input.m_damageType = DAMAGE_FLAME;         // RW 0x890608: D + 0x10 = 6
+			burn.m_input.m_deathType = DEATH_BURNED;          // RW 0x890606: D + 0x1C = 3
+			const int half = m_data->m_aflameDamageAmount / 2; // RW 0x8905C4: the signed halving (cdq / sub / sar 1)
+			burn.m_input.m_amount = (float)(half < 1 ? 1 : half); // RW 0x8905D2 .. 0x8905DF: at least 1
+			if (const ContainModuleInterface::ContainedItemsList *items = contain->getContainedItemsList()) // RW 0x89060F: contain slot 0x118
+			{
+				for (Object *passenger : *items) // RW 0x89062E .. 0x890646: every entry, null entries skipped
+				{
+					if (passenger)
+					{
+						passenger->attemptDamage(burn); // RW 0x89063E: RW 0x698E7D
+					}
+				}
+			}
+		}
+	}
+	else if (ContainModuleInterface *contain = obj->getContain())
+	{
+		contain->evacuateCrew(2 /*CMD_FROM_AI*/); // RW 0x00890656 .. 0x00890666: contain slot 0x88(2)
 	}
 }
 
@@ -658,7 +686,7 @@ void FlammableUpdate::crc(StateHasher &hasher) const
 	hasher.addBool(m_panicLocomotorWhileAflameActive);
 }
 
-// ---- FireSpreadUpdate ---------------------------------------------------------------------------------------------------------------
+// ---- FireSpreadUpdate (dtor RW 0x0088ECE2 / RW 0x0088EE2E, name RW 0x0088ECFB, getModuleNameKey RW 0x0088ED01; DONOR BFME2 0x0088ACCE / 0x0088ACE7 / 0x0088ACED / 0x0088AE1A) ----
 // RW 0x88EDDA
 FireSpreadUpdate::FireSpreadUpdate(Thing *thing, const FireSpreadUpdateModuleData *data)
 	: UpdateModule(thing, data)
@@ -701,7 +729,7 @@ UpdateSleepTime FireSpreadUpdate::update()
 	{
 		if (const ObjectCreationList *ocl = TheObjectCreationListStore ? TheObjectCreationListStore->findObjectCreationList(m_data->m_oclEmbers) : nullptr)
 		{
-			ocl->create(logic, obj, *obj->getPosition()); // RW 0x5F0126 (S-980: the position variant)
+			ocl->create(logic, obj, nullptr); // RW 0x5F0126 (object-pair overload)
 		}
 	}
 	if (m_data->m_spreadTryRange != 0.0f) // RW 0x88EEB9: ucomiss, jnp on equal

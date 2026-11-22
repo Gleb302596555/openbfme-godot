@@ -158,6 +158,7 @@ std::uint32_t GadgetTextEntryValidationFlags(const EntryData &entry);
 bool GadgetTextEntryInsertCharacter(GameWindow *textentry, char16_t character);
 void GadgetTextEntrySetText(GameWindow *textentry, const UnicodeString &text);
 void GadgetTextEntrySetTextColor(GameWindow *textentry, Color color);
+void GadgetTextEntrySetPlaceholder(GameWindow *g, const UnicodeString &text, Color color, Color borderColor);
 
 // ---- image combo box (BFME addition: the colour column of the lobby, window\Apt\ImageComboBox.wnd) -------------------------------------------------------
 WindowMsgHandledType GadgetImageComboBoxInput(GameWindow *window, std::uint32_t msg, WindowMsgData mData1, WindowMsgData mData2);

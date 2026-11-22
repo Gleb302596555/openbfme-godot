@@ -26,8 +26,7 @@
 //     (RW 0x73FE51 / 0x73FE59); RW 0x7EDB72 adds the value to + 0 and to + 4 + 4 * category, so an object without a ThreatBreakdown adds it to the total twice.
 //   * the counter table RW 0x7EDC2F / 0x7ED963 (used by RW 0x6C6623, the threat of the end's merge RW 0x8F1499, and by the unported best-target gate S-1302).
 // INFERENCE / NOT PORTED (stop S-1300, reported by stopLines): object + 0x4B8 is taken as its constructor value 1 (the writer RW 0x691A2F is not ported); an
-// InactiveBody's health ratio is taken as 0; the ThreatBreakdown block is read from the template's raw lines (S-071), so an unknown AIKindOf name, a load error in
-// retail (RW 0x8ED505 throws), leaves the category -1 here.
+// InactiveBody's health ratio is taken as 0. ThreatBreakdown's AIKindOf is typed-parsed into ThingTemplate (+ 0x530, RW 0x73C073 / 0x8ED505).
 
 #pragma once
 
@@ -64,9 +63,14 @@ ThreatRecord sumRecords(GameLogic &logic, const ThreatRecord (&records)[kRecords
 
 // template + 0x530: the ThreatBreakdown's AIKindOf (-1 without one)
 int threatCategory(const ThingTemplate &tt);
+// RW 0x7EDAED: dominant AI_KINDOF category in `r` (0 when total == 0, else argmax over 0 .. 16 with strictly greater)
+int dominantCategory(const ThreatRecord &r);
 // RW 0x68F0EC: the threat value of one object, as the x87 register returns it, and stored as a float (RW 0x7EDB83)
 double threatValueWide(const Object &obj);
 float threatValue(const Object &obj);
+// lane THREATLEVEL-1: the template's ThreatLevel as RW 0x68F0EC reads it (RotWK + 0x52C; BFME2 1.06 + 0x51C, the same INI field, ThingTemplateConstructor.cpp:354:
+// 1.0 unset in both); the BFME2 edition's script threat sums it per hit (GameLogic/ScriptEngine/ScriptThreat.cpp)
+float templateThreatLevel(const Object &obj);
 
 // RW 0x7EE057: the per-player records of the objects around `position` (`noStructures` is the finder's + 0x5B8)
 void scan(GameLogic &logic, const Coord3D &position, float radius, bool noStructures, ThreatRecord (&records)[kRecords]);

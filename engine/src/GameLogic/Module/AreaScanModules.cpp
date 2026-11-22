@@ -243,12 +243,13 @@ UpdateSleepTime LargeGroupBonusUpdate::update()
 	{
 		m_lastScan = now;
 		const Player *owner = obj->getControllingPlayer();
-		// RW 0x89396E: RW 0xC0F374 (bit 3: never set), RW 0xC10E20, RW 0xC10E14 (the same controlling player), RW 0xC63870 (a horde with an allowed member)
+		// RW 0x89396E: RW 0xC0F374 (PartitionFilterSameMapStatus RW 0x660E93: same Object + 0x458 bit 3 = isOffMap()), RW 0xC10E20 (not effectively dead),
+		// RW 0xC10E14 (the same controlling player), RW 0xC63870 (a horde with an allowed member)
 		// the filter's member count of each accepted object, kept for the sum below (performance: the hits of an unsorted scan are the accepted objects in
 		// acceptance order, so the count need not be recomputed; the same pure function either way)
 		m_scanCounts.clear();
 		PartitionFilterFn filter([&](Object &o) {
-			if (o.isEffectivelyDead() || o.getControllingPlayer() != owner)
+			if (o.isEffectivelyDead() || o.isOffMap() != obj->isOffMap() || o.getControllingPlayer() != owner)
 			{
 				return false;
 			}
@@ -468,7 +469,11 @@ UpdateSleepTime PassiveAreaEffectBehavior::update()
 	}
 	if (obj->isEffectivelyDead())
 	{
-		return UPDATE_SLEEP_FOREVER;
+		// Reported in play (P-23, both editions): the port briefly marks a placed structure effectively dead while it is a
+		// foundation (Construction::makeStructure), and the binary's UPDATE_SLEEP_FOREVER (RW 0x887DF7) then leaves the aura asleep
+		// for good: the Hearth never heals after the building is finished or rebuilt. This is a port guard, not a retail rule: the
+		// dead object does nothing in scan()/affect(), so waking at the aura's own ping delay is safe and lets it resume.
+		return sleep;
 	}
 	const UnsignedInt now = logic.getFrame();
 	if (now - m_lastScan >= m_data->m_pingDelay)
@@ -541,6 +546,7 @@ void LargeGroupBonusUpdate::xfer(Xfer &x)
 	x.xferUnsignedInt(&m_lastCount);
 }
 
+// RW 0x00887EE4 (DONOR BFME2 0x00884857; dtor RW 0x00887DAE / RW 0x00887EC8, name RW 0x00887D63, getModuleNameKey RW 0x00887D69)
 void PassiveAreaEffectBehavior::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

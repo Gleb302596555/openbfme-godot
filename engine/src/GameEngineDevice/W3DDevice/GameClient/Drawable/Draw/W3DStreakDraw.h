@@ -71,9 +71,16 @@ public:
 	void update(const W3DStreakDrawModuleData &data, const float position[3]);
 	const std::vector<W3DStreakPoint> &points() const { return m_points; }
 	void clear() { m_points.clear(); }
+	// RW 0x004CF73F W3DStreakDraw::setHidden(bool) (DONOR BFME2 0x000CFF4C): Set_Visible(!hidden) and Set_Hidden(hidden)
+	void setHidden(bool hidden) { m_hidden = hidden; }
+	bool isHidden() const { return m_hidden; }
+	// RW 0x004CFC4C reactToTransformChange / RW 0x004CFC54 doDrawModule -> RW 0x004CF884 updateStreak
+	void reactToTransformChange(const W3DStreakDrawModuleData &data, const float position[3]) { update(data, position); }
+	void doDrawModule(const W3DStreakDrawModuleData &data, const float position[3]) { update(data, position); }
 
 private:
 	std::vector<W3DStreakPoint> m_points;
+	bool m_hidden = false;
 };
 
 struct W3DStreakVertex

@@ -15,19 +15,24 @@
 #include "GameLogic/Construction.h"
 #include "GameLogic/ConstructionSite.h"
 #include "Common/PlayerList.h"
+#include "Common/Team.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Module/AIUpdate.h"
+#include "GameLogic/Module/BehaviorModule.h"
 #include "GameLogic/Module/CastleModules.h"
 #include "GameLogic/Module/ConstructionModules.h"
 #include "GameLogic/Module/ProductionUpdate.h"
 #include "GameLogic/Object/Object.h"
+#include "GameLogic/Object/PartitionManager.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameLogic/SimMath.h"
 #include "GameLogic/SkirmishAI/AIBaseBuilder.h"
 #include "GameLogic/SkirmishAI/AIStatCollector.h"
 #include "GameLogic/SkirmishAI/AITacticalAI.h"
+#include "GameLogic/SkirmishAI/AIThreatFinder.h"
 #include "GameLogic/SkirmishAI/SkirmishAIData.h"
 #include "GameLogic/SkirmishAI/SkirmishAIManager.h"
+#include "GameLogic/System/InvisibilityManager.h"
 
 #include <algorithm>
 
@@ -37,14 +42,10 @@ const char *const kUnitUpgraderFile = "AIUnitUpgrader.cpp";           // RW 0xC8
 const char *const kScienceBuilderFile = "AIUpgradeScienceBuilder.cpp"; // RW 0xC88170
 const char *const kExpansionFile = "AIExpansionScience.cpp";          // RW 0xC8EB40
 const char *const kFortressFile = "AIUpgradeHeuristicFortress.cpp";    // RW 0xC8EA68
-
-const char *const kStopSummon =
-	"[S-1876] skirmish AI upgrade heuristics (lane AI5): SUMMON_ANTICAVALRY / ANTIARCHER / ANTISPECIAL / ANTIINFANTRY (RW 0x9ECF7F / 0x9ECC0D / 0x9EC8A1 / "
-	"0x9EC539: the army trackers AI + 0x164 -> + 0x20, the threat finder and their GetGameLogicRandomValueReal draws) are not ported: they answer 3 (never "
-	"bought) and are counted; retail data uses them only for the four Thrall Master summon upgrades";
-const char *const kStopWallUpgrade =
-	"[S-1876] skirmish AI upgrade legality (lane AI5): RW 0x695338's WALL_UPGRADE test (Object + 0x25C vslot 0x24 == 3) is not read; such an object is "
-	"refused (9) and counted";
+const char *const kAntiInfantryFile = "AIUpgradeHeuristicSummonAntiInfantry.cpp"; // RW 0xC8E7E0
+const char *const kAntiSpecialFile = "AIUpgradeHeuristicSummonAntiSpecial.cpp";   // RW 0xC8E8A8
+const char *const kAntiArcherFile = "AIUpgradeHeuristicSummonAntiArcher.cpp";     // RW 0xC8E930
+const char *const kAntiCavalryFile = "AIUpgradeHeuristicSummonAntiCavalry.cpp";   // RW 0xC8E9F0
 
 constexpr unsigned kButtons = 33;                       // RW 0x9A018B / 0x9A155C / 0x9ED4D2: buttons 0 .. 0x20
 constexpr float kPriorityNone = -1.0f;                  // RW 0xBD19DC
@@ -493,6 +494,159 @@ int evaluateUnitUnlock(GameLogic &logic, const AIBuildRequest &r)
 	}
 	return 0;
 }
+
+// RW 0x9EC539 / 0x9EC8A1 / 0x9ECC0D / 0x9ECF7F: SUMMON_ANTIINFANTRY (7), ANTISPECIAL (6), ANTIARCHER (5), ANTICAVALRY (4)
+int evaluateSummonAnti(GameLogic &logic, const AIBuildRequest &r, int heuristicType)
+{
+	Object *producer = logic.findObjectByID(r.producer);
+	if (!producer || producer->testStatus((unsigned)CombatNames::statuses().hordeMember) ||
+		producer->testStatus((unsigned)CombatNames::statuses().noAttackFromAI))
+	{
+		return 3;
+	}
+	const Player *player = producer->getControllingPlayer();
+	const AISkirmishPlayer *ai = aiOf(logic, player);
+	if (!ai)
+	{
+		return 3;
+	}
+	const char *rushCounterKind = nullptr;
+	const char *enemyKind = nullptr;
+	int expectedDomCat = 0;
+	const char *randFile = nullptr;
+	int randLine = 0;
+	switch (heuristicType)
+	{
+	case AIUpgrade::HEURISTIC_SUMMON_ANTIINFANTRY: // RW 0x9EC539
+		rushCounterKind = "ARCHER";
+		enemyKind = "INFANTRY";
+		expectedDomCat = 0;
+		randFile = kAntiInfantryFile;
+		randLine = 0x97;
+		break;
+	case AIUpgrade::HEURISTIC_SUMMON_ANTISPECIAL: // RW 0x9EC8A1
+		rushCounterKind = "INFANTRY";
+		enemyKind = "PIKE";
+		expectedDomCat = 2;
+		randFile = kAntiSpecialFile;
+		randLine = 0x98;
+		break;
+	case AIUpgrade::HEURISTIC_SUMMON_ANTIARCHER: // RW 0x9ECC0D
+		rushCounterKind = "CAVALRY";
+		enemyKind = "ARCHER";
+		expectedDomCat = 1;
+		randFile = kAntiArcherFile;
+		randLine = 0x97;
+		break;
+	case AIUpgrade::HEURISTIC_SUMMON_ANTICAVALRY: // RW 0x9ECF7F
+		rushCounterKind = "PIKE";
+		enemyKind = "CAVALRY";
+		expectedDomCat = 3;
+		randFile = kAntiCavalryFile;
+		randLine = 0xA1;
+		break;
+	default:
+		return 1;
+	}
+	if (ai->build.phase == 0)
+	{
+		const std::vector<ObjectID> &army = AITacticalAI::recordOf(logic, player->getPlayerIndex()).army();
+		if (army.empty())
+		{
+			return 2;
+		}
+		int matches = 0;
+		for (ObjectID id : army)
+		{
+			if (const Object *o = logic.findObjectByID(id); o && objectIs(*o, rushCounterKind))
+			{
+				++matches;
+			}
+		}
+		return SimMath::pc24DivW((double)matches, (double)army.size()) < 0.25 ? 2 : 3;
+	}
+	auto currentVictimOf = [](const Object *o) -> Object * {
+		AIUpdateInterface *pai = o ? o->getAIUpdateInterface() : nullptr;
+		return (pai && pai->isAttacking()) ? pai->currentVictim() : nullptr; // RW 0x68B36F
+	};
+	Object *victim = currentVictimOf(producer);
+	if (victim && !objectIs(*victim, "STRUCTURE") && objectIs(*victim, enemyKind))
+	{
+		return 2;
+	}
+	if (!ai->brain.attackedAt.empty())
+	{
+		float bestDistSq = 360000.0f; // 600^2
+		const AIAttackedAt *best = nullptr;
+		// RW 0x9EC6B5: delta is initialized once before the loop and mutated per entry
+		Coord2D delta{ producer->getPosition()->x, producer->getPosition()->y };
+		for (const AIAttackedAt &rec : ai->brain.attackedAt)
+		{
+			if (victim)
+			{
+				const float dot = SimMath::addf32(
+					SimMath::addf32(SimMath::mulf32(rec.position.x, victim->getPosition()->x),
+									SimMath::mulf32(rec.position.y, victim->getPosition()->y)),
+					SimMath::mulf32(rec.position.z, victim->getPosition()->z));
+				if (dot < 0.0f)
+				{
+					continue;
+				}
+			}
+			delta.x = SimMath::subf32(delta.x, rec.position.x);
+			delta.y = SimMath::subf32(delta.y, rec.position.y);
+			const float distSq = SimMath::addf32(SimMath::mulf32(delta.x, delta.x), SimMath::mulf32(delta.y, delta.y));
+			if (distSq < bestDistSq)
+			{
+				bestDistSq = distSq;
+				best = &rec;
+			}
+		}
+		if (best)
+		{
+			return AIThreatFinder::dominantCategory(best->enemies) == expectedDomCat ? 2 : 3; // RW 0x7EDAED
+		}
+	}
+	PartitionFilterFn enemyFilter([player](Object &o) {
+		const Player *op = o.getControllingPlayer();
+		return op && player->getRelationship(op) == ENEMIES;
+	});
+	PartitionFilterFn aliveFilter([](Object &o) { return !o.isEffectivelyDead(); });
+	const PartitionHits hits =
+		logic.partition().iterateObjectsInRange(*producer->getPosition(), 400.0f, FROM_CENTER_2D, { &enemyFilter, &aliveFilter }, ITER_SORTED_NEAR_TO_FAR);
+	if (!hits.empty())
+	{
+		const Object &nearest = *hits[0].object;
+		if (objectIs(nearest, enemyKind) || (heuristicType == AIUpgrade::HEURISTIC_SUMMON_ANTIARCHER && objectIs(nearest, "MONSTER")))
+		{
+			return 2;
+		}
+	}
+	if (heuristicType == AIUpgrade::HEURISTIC_SUMMON_ANTICAVALRY)
+	{
+		// RW 0x7A3E9B (const read of Team + 0x114): valid structure team target & victim within 600
+		const Team *team = producer->getTeam();
+		const Object *targetObj = (team && team->teamTargetId() != 0) ? logic.findObjectByID(team->teamTargetId()) : nullptr;
+		if (targetObj && (targetObj->isEffectivelyDead() || targetObj->getContainedBy() ||
+						  InvisibilityManager::isStealthedAndUndetected(*targetObj, team->getControllingPlayer())))
+		{
+			targetObj = nullptr;
+		}
+		if (targetObj && objectIs(*targetObj, "STRUCTURE"))
+		{
+			if (Object *v2 = currentVictimOf(producer))
+			{
+				const float dx = SimMath::subf32(producer->getPosition()->x, v2->getPosition()->x);
+				const float dy = SimMath::subf32(producer->getPosition()->y, v2->getPosition()->y);
+				if (SimMath::addf32(SimMath::mulf32(dy, dy), SimMath::mulf32(dx, dx)) < 360000.0f)
+				{
+					return 2;
+				}
+			}
+		}
+	}
+	return logic.random().getValueReal(0.0f, 1.0f, randFile, randLine) < 0.0005f ? 2 : 3;
+}
 } // namespace
 
 void AIUpgrade::init(AISkirmishPlayer &ai, const SkirmishAIData &data)
@@ -661,8 +815,12 @@ int AIUpgrade::legality(GameLogic &logic, const Object &obj, const CommandButton
 	}
 	if (objectIs(obj, "WALL_UPGRADE"))
 	{
-		logic.noteStop(kStopWallUpgrade);
-		return 9;
+		// RW 0x69536E .. 0x695388: Object + 0x25C body vslot 0x24 == BODY_RUBBLE (3)
+		const BodyModuleInterface *body = obj.getBodyModule();
+		if (body && body->getDamageState() == BODY_RUBBLE)
+		{
+			return 9;
+		}
 	}
 	if (u->getUpgradeType() == UPGRADE_TYPE_OBJECT && (obj.hasUpgrade(u) || !obj.affectedByUpgrade(u))) // RW 0x691421 / 0x694914
 	{
@@ -780,8 +938,7 @@ int AIUpgrade::evaluate(GameLogic &logic, AIBuildRequest &r, Player &player)
 	default:
 		if (r.heuristicType >= HEURISTIC_SUMMON_ANTICAVALRY && r.heuristicType <= HEURISTIC_SUMMON_ANTIINFANTRY)
 		{
-			logic.noteStop(kStopSummon);
-			result = 3;
+			result = evaluateSummonAnti(logic, r, r.heuristicType);
 		}
 		else
 		{

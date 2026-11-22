@@ -44,6 +44,8 @@
 #include <string>
 #include <vector>
 
+class Xfer;
+
 // W3DBuffDrawModuleData (both editions: RW 0x4CE61A / BFME2 0x4CEE4C ctor, size 0x10; RW 0x4CE661 / BFME2 0x4CEE93 buildFieldParse, table RW 0xBE318C /
 // BFME2 0xBCD2F4). Bound on "W3DBuffDraw" in W3DDrawModules::registerTypedDrawModuleData; read by LiveFX::turnOnBuff (BuffLogic::addBuff RW 0x707FFF /
 // BFME2 0x70682A).
@@ -89,6 +91,9 @@ public:
 		unsigned expireFrame = 0;  ///< BuffInstance + 0x14: the logic frame it is turned off at
 		int state = FADE_IN;       ///< TBuff + 0x08
 		float opacity = 0.0f;      ///< TBuff + 0x0C
+		bool visible = true;       ///< TBuff + 0x44
+		Coord3D position{ 0.0f, 0.0f, 0.0f }; ///< TBuff + 0x48
+		float scale = 1.0f;        ///< TBuff + 0x54
 		std::uint64_t serial = 0;  ///< a new TBuff gets a new serial (the device's instance follows it)
 	};
 
@@ -105,8 +110,10 @@ public:
 	const std::map<std::pair<ObjectID, int>, Buff> &buffs() const { return m_buffs; }
 	size_t count() const { return m_buffs.size(); }
 
-	// TBuff::UpdateFade (RW 0x4D1417)
+	// TBuff::UpdateFade (RW 0x004D1417)
 	static void updateFade(int &state, float &opacity);
+	// TBuff::xfer (RW 0x004D18E9): version(1..5), xfers template ID, state (+0x08), opacity (+0x0C), visible (+0x44), position (+0x48), scale (+0x54)
+	static void xferBuff(Xfer &x, Buff &b);
 
 private:
 	std::map<std::pair<ObjectID, int>, Buff> m_buffs; ///< by (object, type): BuffManager's instance array

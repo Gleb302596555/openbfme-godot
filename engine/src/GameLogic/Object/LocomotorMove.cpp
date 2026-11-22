@@ -177,7 +177,7 @@ const std::vector<std::string> &Locomotor::allStops()
 		"S-081: locomotor numeric parity unproven: the movers mix x87 and SSE (moveForward RW 0x5E586F) and use the CRT / x87 sin, cos and atan2; "
 		"operation order and PC24 precision are reproduced through NumericState, the trigonometry is NumericState's deterministic double-double "
 		"(lane WIN-1: the same bits on every OS), not the retail CRT / x87 results.",
-		"S-084: locomotor cases not ported: the ZAxisBehaviors FIXED_RELATIVE_TO_GROUND_AND_BUILDINGS and RELATIVE_TO_HIGHEST_LAYER, and the projectile / falling "
+		"S-084: locomotor cases not ported: the ZAxisBehavior FIXED_RELATIVE_TO_GROUND_AND_BUILDINGS, and the projectile / falling "
 		"special cases of RW 0x5E774A (its ramp and walkway height hold is ported: lane WALL-4; the wall-scaling look-ahead RW 0x5E8956, the SCALING_WALLS z case "
 		"and the look-ahead's stealth reveal RW 0x5E8CB2 are ported: lane MECH-D; the wading updater RW 0x5E5785 and SURFACE_RELATIVE_HEIGHT's reveal of a disguised climber RW 0x5E7C0A are ported: Port 202), and the HORDE mover's formation path nodes (types 2, 3, 7, 8; RW 0x5E6E20-0x5E7148).",
 		"S-1750: maintainCurrentPosition (RW 0x5E7CC7) is ported without its tail: the held position's z behaviour (RW 0x5E76AC on +0x08) with its "
@@ -1452,6 +1452,42 @@ void Locomotor::handleBehaviorZ(LocomotorHost &host, const Coord3D &goal)
 		host.setPendingPosition(Coord3D{ effective.x, effective.y, SimMath::subf32(SimMath::mulf32(p.z, 2.0f), cur.z) });
 		return;
 	}
+	if (zAxis == Z_RELATIVE_TO_HIGHEST_LAYER)
+	{
+		// RW 0x5E76AC case 7 (table RW 0x5E7CA3 -> RW 0x5E7A10..0x5E7ACC; DONOR BFME2 LocomotorRva001E7ECA.cpp:328):
+		// nothing while m_preferredHeight (+0x48) is 0 and flag 8 (PRECISE_Z_POS) is clear.
+		// Otherwise layer = obj->getLayer() (RW 0x68BBE0); if layer == 1 (GROUND), layer = getHighestLayerForDestination (RW 0x680B70);
+		// aim = getLayerHeight(x, y, layer) + m_preferredHeight (x87 fadd RW 0x5E7A75), or goal.z with flag 8 (RW 0x5E7A82).
+		// step = ((pos.z + (aim - pos.z) * m_preferredHeightDamping) - pos.z) / (LOGICFRAMES_PER_SECOND * 2.0f) (SSE RW 0x5E7A91..0x5E7AB7).
+		// If step != 0: pos.z += step, write m_matrix translation; then common tail RW 0x5E7C40 (setPendingPosition).
+		Coord3D p{ m_matrix.m[0][3], m_matrix.m[1][3], m_matrix.m[2][3] }; // RW 0x5E3A5A
+		if (!(m_preferredHeight == 0.0f) || (m_flags & 0x8u))
+		{
+			const float surface = host.highestLayerHeightAt(p.x, p.y); // RW 0x5E7A36..0x5E7A6F
+			float aim = NumericState::pc24Add(surface, m_preferredHeight); // RW 0x5E7A75: x87 fadd
+			if (m_flags & 0x8u)
+			{
+				aim = goal.z; // RW 0x5E7A82
+			}
+			const float frames2 = SimMath::mulf32((float)LOGICFRAMES_PER_SECOND, 2.0f); // RW 0x5E7A96..0x5E7A9E
+			float step = SimMath::subf32(aim, p.z);
+			step = SimMath::mulf32(step, m_preferredHeightDamping);
+			step = SimMath::addf32(step, p.z);
+			step = SimMath::subf32(step, p.z);
+			step = SimMath::divf32(step, frames2);
+			if (!(step == 0.0f)) // RW 0x5E7ABB..0x5E7ACC
+			{
+				p.z = SimMath::addf32(step, p.z);
+				m_matrix.m[0][3] = p.x;
+				m_matrix.m[1][3] = p.y;
+				m_matrix.m[2][3] = p.z;
+			}
+		}
+		const Coord3D cur = host.getPosition();
+		const Coord3D effective = host.hasPendingPosition() ? host.getPendingPosition() : cur;
+		host.setPendingPosition(Coord3D{ effective.x, effective.y, SimMath::subf32(SimMath::mulf32(p.z, 2.0f), cur.z) });
+		return;
+	}
 	if (zAxis == Z_SURFACE_RELATIVE_HEIGHT || zAxis == Z_ABSOLUTE_HEIGHT)
 	{
 		// lane SHIP-1, RW 0x5E7AF6 .. 0x5E7C3B (cases 2 and 3 of the table RW 0x5E7CA3): nothing while the preferred height (+ 0x48) is 0 and flag 8 (ZH
@@ -1517,7 +1553,7 @@ void Locomotor::handleBehaviorZ(LocomotorHost &host, const Coord3D &goal)
 	if (zAxis != Z_NO_Z_MOTIVE_FORCE)
 	{
 		noteStopOf(1);
-		throw std::logic_error("S-084: ZAxisBehavior other than NO_Z_MOTIVE_FORCE, FLOATING_Z, SEA_LEVEL, SURFACE_RELATIVE_HEIGHT, ABSOLUTE_HEIGHT, FIXED_SURFACE_RELATIVE_HEIGHT, FIXED_ABSOLUTE_HEIGHT and SCALING_WALLS is not ported");
+		throw std::logic_error("S-084: ZAxisBehavior other than NO_Z_MOTIVE_FORCE, FLOATING_Z, SEA_LEVEL, SURFACE_RELATIVE_HEIGHT, ABSOLUTE_HEIGHT, FIXED_SURFACE_RELATIVE_HEIGHT, FIXED_ABSOLUTE_HEIGHT, RELATIVE_TO_HIGHEST_LAYER and SCALING_WALLS is not ported");
 	}
 	Coord3D pos{ m_matrix.m[0][3], m_matrix.m[1][3], m_matrix.m[2][3] }; // RW 0x5E3A5A
 	if (!host.zMotionSuppressed())
@@ -1692,7 +1728,26 @@ bool Locomotor::locomotorMaintainCurrentPosition(LocomotorHost &host)
 		}
 		break;
 	}
-	noteStopOf(2); // the tail (RW 0x5E76AC on the held position, RW 0x70BA76) is not run
+	// RW 0x5E7E64 .. 0x5E7E84 (inside RW 0x5E7CC7): tail handleBehaviorZ (RW 0x5E76AC) + setTransform (RW 0x70BA76).
+	// S-1750 narrowed: for a non-HORDE NO_Z_MOTIVE_FORCE locomotor whose z differs from its layer surface (e.g. a ground unit
+	// spawned at a projectile detonation height by an OCL without ON_GROUND_ALIGNED), snap z to the surface as
+	// RW 0x5E774A .. 0x5E7816 does. Skipping when already at surface avoids writing pendingPosition / transform on every
+	// grounded idle unit (S-1750 stays noted for the full tail and sleep return RW 0x5E7E70).
+	if (m_template->m_zAxisBehavior == Z_NO_Z_MOTIVE_FORCE && m_template->m_appearance != LOCO_HORDE && !host.zMotionSuppressed())
+	{
+		const Coord3D pos{ m_matrix.m[0][3], m_matrix.m[1][3], m_matrix.m[2][3] }; // RW 0x5E3A5A
+		float surface = host.groundHeightAt(pos.x, pos.y);                         // TheTerrainLogic vslot 0x1C (layer height)
+		if (host.logicFrame() > (unsigned)LOGICFRAMES_PER_SECOND && host.isOnRampOrRaisedLayer() && SimMath::subf32(pos.z, surface) > 20.0f)
+		{
+			surface = pos.z; // RW 0x5E77AF .. 0x5E77EE
+		}
+		if (!(pos.z == surface))
+		{
+			m_matrix.m[2][3] = surface;
+			host.setTransform(m_matrix); // RW 0x70BA76
+		}
+	}
+	noteStopOf(2); // full tail (other ZAxisBehavior modes, wading, pending z, sleep return RW 0x5E7E70) is not run
 	return result;
 }
 

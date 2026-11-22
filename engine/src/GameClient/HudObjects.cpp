@@ -8,6 +8,7 @@
 #include "Common/Thing/ThingTemplate.h"
 #include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/Module/AIUpdate.h"
+#include "GameLogic/Map/TerrainTrees.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/PlayerCommands.h"
 #include "GameClient/ControlBarCommands.h"
@@ -468,9 +469,38 @@ Object *pickObject(const HudContext &ctx, const ICoord2D &pixel)
 	return pickObject(ctx, pixel, pickTypesForContext(ctx));
 }
 
+namespace
+{
+// RW 0x7108F2 (addDrawableToList), DONOR BFME2 0x70F14C (GameClient/Rva0030F14CSelect.cpp):
+// point and box selection replace the picked soldier with its HORDE producer, even while the
+// soldier is out of containment (RW 0x7109CE–0x710A09, Object + 0x78). Leave order/hover picks alone.
+Object *selectionListObject(const HudContext &ctx, Object &picked, bool dragSelecting)
+{
+	const ObjectID producerId = picked.getProducerID();
+	Object *producer = producerId != INVALID_ID ? ctx.logic.findObjectByID(producerId) : nullptr;
+	if (producer && producer->isKindOfName("HORDE"))
+	{
+		static const int unselectable = ObjectTemplateInfoBuilder::objectStatusIndex("UNSELECTABLE");
+		if (!isSelectable(picked, ctx.ui.getGUICommand()) || producer->testStatus((unsigned)unselectable)) // RW 0x710964, 0x7109F7
+		{
+			return nullptr; // reject the hit, not a fallback to the member's command set
+		}
+		return producer;
+	}
+	if (const Object *container = picked.getContainedBy(); container && !container->isKindOfName("HORDE"))
+	{
+		// Keep the port's non-horde container handling (S-288).
+		return dragSelecting ? nullptr : selectionRepresentative(picked);
+	}
+	return &picked; // absent or non-horde producer: the picked object's own drawable (RW 0x710A0C)
+}
+} // namespace
+
 Object *pickForSelection(const HudContext &ctx, const ICoord2D &pixel)
 {
-	return pickObject(ctx, pixel, pickTypesForContext(ctx) | PICK_TYPE_OWN); // RW 0x485CB1 .. 0x485CB8: `or ah, 1`
+	// RW 0x485CB1 .. 0x485CB8: `or ah, 1`. Use the raw drawable before the selection callback (RW 0x485D6F).
+	Object *picked = pickObject(ctx, pixel, pickTypesForContext(ctx) | PICK_TYPE_OWN, false);
+	return picked ? selectionListObject(ctx, *picked, false) : nullptr;
 }
 
 Object *pickForHover(const HudContext &ctx, const ICoord2D &pixel)
@@ -529,6 +559,50 @@ int selectionPriorityOf(const Object &obj)
 	return -1;
 }
 
+// PORT-208 (issue #490, S-2480): RW 0x48ACF5 .. 0x48ADA0, the tail of W3DView::pickDrawable (RW 0x48AB28). The five tier picks above left nothing
+// (RW 0x48ACC0 -> 0x48ACF5), so the view asks the terrain point under the pixel (RW 0x48ACFF: the tactical view slot 0x168) for the closest map tree
+// within 10.0 (RW 0x48AD12 -> RW 0x67F4F6 -> RW 0x67E078 with only the record list, no mode) and refuses it when the local player's shroud cell there is
+// SHROUDED (RW 0x48AD34 -> RW 0xB4D9B0 on TheShroudManager RW 0xDE4358, status 2; no local player or no displayed shroud: the test is skipped, as
+// RW 0x48AD1D .. 0x48AD32 skips it without ThePlayerList's local player). The id the pick answers follows the record's two flags (RW 0x48AD4B .. 0x48AD7E):
+// grabbable and harvestable 99999999 (RW 0x48AD57), grabbable only 99999998, harvestable only 99999997, neither 99999996. The object itself is not
+// made: the logic makes it when the command runs (AICommands::attackObject, RW 0x77AF3B / 0x77C1E5 -> RW 0x68449B).
+bool pickTreeStandIn(const HudContext &ctx, const ICoord2D &pixel, ObjectID &out)
+{
+	Coord3D ground{};
+	if (!ctx.view.screenToTerrain(pixel, ctx.logic, ground))
+	{
+		return false;
+	}
+	const TerrainTrees::Record *tree = ctx.logic.trees().findClosestTree(ground, 10.0f, false, 0); // RW 0xBD83D8, RW 0x67F4F6
+	if (!tree)
+	{
+		return false;
+	}
+	const Player *local = ctx.localPlayer();
+	const ShroudManager *sm = ctx.logic.shroud();
+	if (local && sm && sm->displayed() && sm->getStatusAt(local->getPlayerIndex(), tree->position.x, tree->position.y) == CELLSHROUD_SHROUDED)
+	{
+		return false;
+	}
+	if (tree->grabbable && tree->harvestable)
+	{
+		out = 99999999u; // RW 0x48AD57 (0x5F5E0FF)
+	}
+	else if (tree->grabbable)
+	{
+		out = 99999998u; // RW 0x48AD67 (0x5F5E0FE)
+	}
+	else if (tree->harvestable)
+	{
+		out = 99999997u; // RW 0x48AD77 (0x5F5E0FD)
+	}
+	else
+	{
+		out = 99999996u; // RW 0x48AD7E (0x5F5E0FC)
+	}
+	return true;
+}
+
 std::vector<Object *> objectsInRegion(const HudContext &ctx, const IRegion2D &region)
 {
 	std::vector<Object *> out;
@@ -546,7 +620,6 @@ std::vector<Object *> objectsInRegion(const HudContext &ctx, const IRegion2D &re
 		}
 		return out;
 	}
-	static const int unselectable = ObjectTemplateInfoBuilder::objectStatusIndex("UNSELECTABLE");
 	static const int clickThrough = ObjectTemplateInfoBuilder::kindOfIndex("CLICK_THROUGH");
 	static const int baseFoundation = ObjectTemplateInfoBuilder::kindOfIndex("BASE_FOUNDATION");
 	int bestPriority = -1; // RW 0x7108A9: SelectionInfo::m_bestPriority = -1
@@ -570,20 +643,6 @@ std::vector<Object *> objectsInRegion(const HudContext &ctx, const IRegion2D &re
 		{
 			continue;
 		}
-		// lane SELECT-1: RotWK addDrawableToList (RW 0x7108F2, the callback of the drag's iterateDrawablesInRegion at RW 0x83C44C) visits the soldiers'
-		// drawables too: a selectable soldier (RW 0x710964: Object RW 0x68DE58) whose producer (Object + 0x78, RW 0x7109CE) is a HORDE (template + 0x115
-		// bit 5) stands for that horde unless the horde is UNSELECTABLE (status 3, RW 0x7109F7: skipped). So a box over any soldier takes the battalion, not
-		// only a box over the horde's centre; any other contained object stays out (an enclosing container hides it: S-288)
-		Object *stand = obj;
-		if (obj->getContainedBy())
-		{
-			Object *producer = ctx.logic.findObjectByID(obj->getProducerID());
-			if (!producer || !producer->isKindOfName("HORDE") || producer->testStatus(unselectable))
-			{
-				continue;
-			}
-			stand = producer;
-		}
 		ICoord2D px;
 		if (!ctx.view.worldToScreen(*obj->getPosition(), px))
 		{
@@ -591,6 +650,11 @@ std::vector<Object *> objectsInRegion(const HudContext &ctx, const IRegion2D &re
 		}
 		if (px.x >= region.lo.x && px.x <= region.hi.x && px.y >= region.lo.y && px.y <= region.hi.y)
 		{
+			Object *stand = selectionListObject(ctx, *obj, true);
+			if (!stand)
+			{
+				continue;
+			}
 			const int priority = selectionPriorityOf(*stand); // RW 0x710A0C..0x710A41
 			if (priority < -1) // RW 0x710A47..0x710A4F: return 2
 			{

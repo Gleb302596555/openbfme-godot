@@ -320,15 +320,17 @@ TEST_CASE("cbhunt: ActionManager::canDoSpecialPowerAtObject (RW 0x82D925): the g
 	CHECK_FALSE(ActionManager::canDoSpecialPowerAtObject(*bare, enemy, CMD_FROM_AI, knife, 0, false)); // RW 0x68C26D: no module
 	// the per-type tests not ported answer no, say so and count
 	const unsigned long long before = ActionManager::stats().objectTypeTests;
-	const unsigned long long before33 = ActionManager::stats().unportedObjectTypeTests[0x33];
+	// 0x1D (capture, RW 0x82D0A1) is still unported. 0x33 was this test's example until PORT-109 ported it (canGiveUpgrade, RW 0x82D780).
+	// A capture without an ObjectFilter asks RW 0x82D0A1 twice: for the dead-target decision before the type switch, then in its case.
+	const unsigned long long before1d = ActionManager::stats().unportedObjectTypeTests[0x1D];
 	SpecialPowerTemplate *knifeMutable = const_cast<SpecialPowerTemplate *>(knife);
 	const int savedType = knifeMutable->m_type;
-	knifeMutable->m_type = 0x33;
+	knifeMutable->m_type = 0x1D;
 	bool unported = false;
 	CHECK_FALSE(ActionManager::canDoSpecialPowerAtObject(*h, enemy, CMD_FROM_AI, knife, 0, true, &unported));
 	CHECK(unported);
-	CHECK(ActionManager::stats().objectTypeTests == before + 1);
-	CHECK(ActionManager::stats().unportedObjectTypeTests[0x33] == before33 + 1);
+	CHECK(ActionManager::stats().objectTypeTests == before + 2);
+	CHECK(ActionManager::stats().unportedObjectTypeTests[0x1D] == before1d + 2);
 	knifeMutable->m_type = 0x5; // a type without a case: no, not unported
 	unported = false;
 	CHECK_FALSE(ActionManager::canDoSpecialPowerAtObject(*h, enemy, CMD_FROM_AI, knife, 0, false, &unported));

@@ -26,10 +26,11 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
-// TARGET FACTS (RotWK 2.01, caveat S-001): canSacrifice RW 0x850DF9, isValidSacrifice RW 0x850E83, addSacrifice RW 0x850EEC, sacrificeHorde
-// RW 0x851080, update RW 0x85123F (read in Ghidra; tier A / B to the byte-matched BFME2 donor
-// Code/GameEngine/Source/GameLogic/Object/Update/BloodthirstyUpdate.cpp, rva0044E12F .. rva0044E533). MSG_SACRIFICE (1056): the
-// dispatcher gives the selected group's FRONT member's interface the target, source 0 (donor GameLogicDispatch.cpp case 1056 -> AIGroup::rva0036DC6F).
+// TARGET FACTS (RotWK 2.01 game.dat): getModuleName RW 0x850CCA, getModuleNameKey RW 0x850D1E, scalar deleting dtor RW 0x850DDD,
+// canSacrifice RW 0x850DF9, isValidSacrifice RW 0x850E83, addSacrifice RW 0x850EEC,
+// initiateVoice RW 0x851003, sacrificeHorde RW 0x851080, cancelSacrifice RW 0x8511B5, update RW 0x85123F, xfer RW 0x850CD0
+// (verified against workspace/RotWK/game.dat; matches BFME2 donor Code/GameEngine/Source/GameLogic/Object/Update/BloodthirstyUpdate.cpp).
+// MSG_SACRIFICE (1056): the dispatcher gives the selected group's FRONT member's interface the target, source 0.
 class BloodthirstyUpdate : public UpdateModule
 {
 public:

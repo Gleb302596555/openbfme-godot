@@ -7,10 +7,11 @@
 //     the rest (the files the mod overwrote) is downloaded from the All In One service;
 //   * Battle for Middle-earth II 1.06: the player's own folder, used as it is (aio_package.py lays out RotWK packages only).
 // Then, and on every later start, it starts the game: game\Godot_v4.7.2-stable_win64.exe --path game\godot -- --mod-install=<Ennorath>
-// with ROTWK_INSTALL / BFME2_INSTALL set to the laid-out folders.
+// with ROTWK_INSTALL / BFME2_INSTALL set to the laid-out folders, and --mod-engine=<md5> for each modified game binary the layout manifest lists
+// (Ennorath 1.9.8.5: its pySAGE game.dat, lane MODS-3).
 //
 // Build (MSVC x64, static runtime: nothing to install):
-//   cl /nologo /O2 /MT /EHsc /DUNICODE /D_UNICODE launcher.cpp /Fe:OpenBFME.exe ole32.lib shell32.lib user32.lib
+//   cl /nologo /O2 /MT /EHsc /DUNICODE /D_UNICODE launcher.cpp /Fe:OpenBFME.exe ole32.lib shell32.lib user32.lib advapi32.lib
 #include <windows.h>
 #include <shobjidl.h>
 #include <shlobj.h>
@@ -194,6 +195,63 @@ bool layOut(const std::wstring &package, const std::wstring &corpus, const std::
 	return code == 0;
 }
 
+// a folder path from EA's install keys (both registry views; "" when absent)
+std::wstring regPath(const wchar_t *subkey, const wchar_t *value)
+{
+	for (REGSAM view : { (REGSAM)KEY_WOW64_32KEY, (REGSAM)KEY_WOW64_64KEY })
+	{
+		HKEY k = nullptr;
+		if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, subkey, 0, KEY_READ | view, &k) != ERROR_SUCCESS)
+		{
+			continue;
+		}
+		wchar_t buf[MAX_PATH * 2] = {};
+		DWORD size = sizeof(buf), type = 0;
+		const LONG r = RegQueryValueExW(k, value, nullptr, &type, (LPBYTE)buf, &size);
+		RegCloseKey(k);
+		if (r == ERROR_SUCCESS && (type == REG_SZ || type == REG_EXPAND_SZ) && buf[0])
+		{
+			std::wstring out = buf;
+			while (!out.empty() && (out.back() == L'\\' || out.back() == L'/'))
+			{
+				out.pop_back();
+			}
+			return out;
+		}
+	}
+	return L"";
+}
+
+// 2026-11-18 (owner: "сама не выбирает папку игры"): the Rise of the Witch-king folder with Ennorath merged in (the All In One BFME Launcher's), found
+// without asking: EA's install key, then the usual folders; it must hold the game (lotrbfme2ep1.exe or game.dat) and Ennorath's data archive
+std::wstring guessRotwkWithEnnorath()
+{
+	std::vector<std::wstring> c;
+	for (const wchar_t *key : { L"SOFTWARE\\Electronic Arts\\Electronic Arts\\The Lord of the Rings, The Rise of the Witch-king",
+	                            L"SOFTWARE\\Electronic Arts\\EA Games\\The Lord of the Rings, The Rise of the Witch-king" })
+	{
+		const std::wstring r = regPath(key, L"InstallPath");
+		if (!r.empty())
+		{
+			c.push_back(r);
+		}
+	}
+	for (const wchar_t *g : { L"C:\\ROTWK", L"C:\\RotWK", L"D:\\ROTWK", L"C:\\Games\\ROTWK",
+	                          L"C:\\Program Files (x86)\\Electronic Arts\\The Lord of the Rings, The Rise of the Witch-king",
+	                          L"C:\\Program Files (x86)\\EA Games\\The Lord of the Rings, The Rise of the Witch-king" })
+	{
+		c.push_back(g);
+	}
+	for (const std::wstring &d : c)
+	{
+		if ((exists(d + L"\\lotrbfme2ep1.exe") || exists(d + L"\\game.dat")) && exists(d + L"\\____enrth_data.big"))
+		{
+			return d;
+		}
+	}
+	return L"";
+}
+
 // the player's BFME2 folder remembered in openbfme-paths.txt, "" when none or gone
 std::wstring bfme2Folder()
 {
@@ -209,6 +267,39 @@ int fail(const std::wstring &why)
 	return 1;
 }
 
+// the MD5s of a layout manifest's "engine_edits" lines ("<package>: <file> md5 <32 hex digits>"); none when the file or the list is missing
+std::vector<std::wstring> engineEdits(const std::wstring &manifest)
+{
+	std::vector<std::wstring> out;
+	FILE *f = _wfopen(manifest.c_str(), L"rb");
+	if (!f)
+	{
+		return out;
+	}
+	std::string text;
+	char buf[4096];
+	for (size_t n; (n = fread(buf, 1, sizeof(buf), f)) > 0;)
+	{
+		text.append(buf, n);
+	}
+	fclose(f);
+	const size_t list = text.find("\"engine_edits\"");
+	const size_t end = list == std::string::npos ? std::string::npos : text.find(']', list);
+	if (end == std::string::npos)
+	{
+		return out;
+	}
+	for (size_t at = text.find(" md5 ", list); at != std::string::npos && at < end; at = text.find(" md5 ", at + 5))
+	{
+		const std::string hex = text.substr(at + 5, 32);
+		if (hex.size() == 32 && hex.find_first_not_of("0123456789abcdef") == std::string::npos)
+		{
+			out.push_back(std::wstring(hex.begin(), hex.end()));
+		}
+	}
+	return out;
+}
+
 int setup()
 {
 	const std::wstring rotwkOut = g_dir + L"layouts\\games\\" + kRotwkLayout + L"\\install";
@@ -217,13 +308,21 @@ int setup()
 	say(L"");
 	if (!exists(rotwkOut) || !exists(modOut))
 	{
-		box(L"Choose the folder of Rise of the Witch-king with Ennorath installed (the one the All In One BFME Launcher installed,\n"
-		    L"for example C:\\ROTWK).\n\nFiles that match are linked from it; the files Ennorath replaced are downloaded from the All In One "
-		    L"service (internet needed, a few minutes).",
-		    MB_OK | MB_ICONINFORMATION);
 		std::wstring merged = cfgGet(L"ROTWK_WITH_ENNORATH");
 		if (merged.empty() || !isDir(merged))
 		{
+			merged = guessRotwkWithEnnorath();
+			if (!merged.empty())
+			{
+				say(L"Found Rise of the Witch-king with Ennorath: " + merged);
+			}
+		}
+		if (merged.empty() || !isDir(merged))
+		{
+			box(L"Choose the folder of Rise of the Witch-king with Ennorath installed (the one the All In One BFME Launcher installed,\n"
+			    L"for example C:\\ROTWK).\n\nFiles that match are linked from it; the files Ennorath replaced are downloaded from the All In One "
+			    L"service (internet needed, a few minutes).",
+			    MB_OK | MB_ICONINFORMATION);
 			merged = pickFolder(L"Rise of the Witch-king folder with Ennorath");
 		}
 		if (merged.empty())
@@ -250,6 +349,15 @@ int setup()
 	{
 		// aio_package.py lays out RotWK packages only (it leaves other games' files out): BFME2 is the player's own 1.06 folder, used as it is
 		std::wstring bfme2;
+		for (const wchar_t *key : { L"SOFTWARE\\Electronic Arts\\Electronic Arts\\The Battle for Middle-earth II",
+		                            L"SOFTWARE\\Electronic Arts\\EA Games\\The Battle for Middle-earth II" })
+		{
+			const std::wstring r = regPath(key, L"InstallPath");
+			if (bfme2.empty() && !r.empty() && exists(r + L"\\ini.big"))
+			{
+				bfme2 = r;
+			}
+		}
 		const wchar_t *guesses[] = { L"C:\\Program Files (x86)\\BFME2", L"C:\\Program Files (x86)\\EA Games\\The Battle for Middle-earth (tm) II",
 			L"C:\\Program Files (x86)\\Electronic Arts\\The Battle for Middle-earth (tm) II", L"C:\\BFME2" };
 		for (const wchar_t *g : guesses)
@@ -309,7 +417,32 @@ int wmain()
 	{
 		return fail(L"game\\Godot_v4.7.2-stable_win64.exe is missing: unpack the whole archive again.");
 	}
+	// the Godot project's import cache lists the GDExtension (.godot\extension_list.cfg): without it the window stays grey. The package ships it;
+	// when it is gone (a partial unpack), Godot imports the project once before the game starts
+	if (!exists(g_dir + L"game\\godot\\.godot\\extension_list.cfg"))
+	{
+		say(L"Preparing the game files (once)...");
+		std::wstring imp = L"\"" + godot + L"\" --headless --path \"" + g_dir + L"game\\godot\" --import";
+		STARTUPINFOW isi{};
+		isi.cb = sizeof(isi);
+		PROCESS_INFORMATION ipi{};
+		std::vector<wchar_t> ibuf(imp.begin(), imp.end());
+		ibuf.push_back(0);
+		if (CreateProcessW(nullptr, ibuf.data(), nullptr, nullptr, FALSE, 0, nullptr, g_dir.c_str(), &isi, &ipi))
+		{
+			WaitForSingleObject(ipi.hProcess, 5 * 60 * 1000);
+			CloseHandle(ipi.hThread);
+			CloseHandle(ipi.hProcess);
+		}
+	}
 	std::wstring cmd = L"\"" + godot + L"\" --path \"" + g_dir + L"game\\godot\" -- \"--mod-install=" + mod + L"\"";
+	// lane MODS-3: the modified game binaries of the laid-out package (aio_package.py writes "engine_edits": ["Ennorath: game.dat md5 <md5>"] to
+	// openbfme-aio.json): each becomes --mod-engine=<md5>, as the launcher's Play does (launcher/scripts/core/mod_catalog.gd); the game knows
+	// Ennorath 1.9.8.5's (Common/ModEngineFeatures.h) and refuses one it does not know
+	for (const std::wstring &md5 : engineEdits(g_dir + L"layouts\\mods\\Ennorath\\openbfme-aio.json"))
+	{
+		cmd += L" \"--mod-engine=" + md5 + L"\"";
+	}
 	STARTUPINFOW si{};
 	si.cb = sizeof(si);
 	PROCESS_INFORMATION pi{};

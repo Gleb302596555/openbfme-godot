@@ -72,6 +72,7 @@ public:
 	static void parseRawLine(INI *ini, void *instance, void *store, const void *userData);
 };
 
+// RW 0x0089A1A6 (getModuleName), RW 0x0089A1DE (getModuleNameKey), RW 0x0089A282 (scalar deleting dtor -> RW 0x0089A18D)
 class BannerCarrierUpdate : public UpdateModule
 {
 public:

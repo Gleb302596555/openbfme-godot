@@ -429,7 +429,7 @@ Node3D *MapObjectBuilder::build_objects(const Ref<RetailFileSystem> &fsRef, cons
 			const auto *module = p.module < d.draws.size() ? dynamic_cast<const W3DModelDrawModuleData *>(d.draws[p.module].data) : nullptr;
 			const bool useShadowMapping = W3DInstancer::shadow_maps_enabled();
 			target->set_instance_cast_shadow(instance, ObjectShadow::castsMap(d.info ? d.info->tmpl : nullptr, module,
-				p.draw ? p.draw->currentModelState() : nullptr, useShadowMapping));
+				p.draw ? p.draw->currentModelState() : nullptr, useShadowMapping, isTree));
 		}
 		if (infantryLightBit >= 0 && d.info && d.info->kindOf_test(infantryLightBit))
 		{

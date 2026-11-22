@@ -29,6 +29,7 @@
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/PartitionManager.h"
 #include "GameLogic/ObjectTemplateInfo.h"
+#include "GameLogic/Module/SpawnBehavior.h"
 #include "GameLogic/Module/StancesBehavior.h"
 #include "GameLogic/System/InvisibilityManager.h"
 #include "GameLogic/SimMath.h"
@@ -350,8 +351,11 @@ bool AIUpdateInterface::aiAttackObject(Object *victim, CommandSourceType source,
 	{
 		return false;
 	}
+	const bool spawnsAreTheWeapons = obj->isKindOf((unsigned)CombatNames::kinds().spawnsAreTheWeapons);
 	ObjectWeapons *w = obj->getWeapons();
-	if (!w || !w->canAttackObject(*victim, source, false))
+	// PORT-198 (RW 0x66BD33): SPAWNS_ARE_THE_WEAPONS bypasses the self-weapon gate here, enters AI_ATTACK_OBJECT (failing cleanly to AI_IDLE if !w),
+	// and unconditionally dispatches slot 3 at 0x66BEC3 without pre-checking slave capability or shroud.
+	if (!spawnsAreTheWeapons && (!w || !w->canAttackObject(*victim, source, false)))
 	{
 		return false;
 	}
@@ -363,7 +367,7 @@ bool AIUpdateInterface::aiAttackObject(Object *victim, CommandSourceType source,
 	m_machine->setState(AI_ATTACK_OBJECT);
 	// lane PLAY-2 (Sol r1): the command's shot limit goes on the current weapon after the state's entry lifted it (RW 0x74D0FC; ZH privateAttackObject's
 	// setMaxShotCount); privateAttackPosition's ContinueAttackRange redirect passes its limit here (RW 0x66DF02 .. 0x66DF0C)
-	if (Weapon *cur = w->currentWeapon())
+	if (Weapon *cur = w ? w->currentWeapon() : nullptr)
 	{
 		cur->clearWhenFiringEnds(); // lane ATKRESET-1, RW 0x66BE77: the old shot's FiringDuration lock ends; the next shot waits only for its delay (+ 0x18)
 		cur->setMaxShotCount(maxShotsToFire);
@@ -379,6 +383,13 @@ bool AIUpdateInterface::aiAttackObject(Object *victim, CommandSourceType source,
 	if (source == CMD_FROM_PLAYER || source == CMD_FROM_SCRIPT)
 	{
 		postEnterStateAttackVoice(*obj, *victim);
+	}
+	if (spawnsAreTheWeapons)
+	{
+		if (SpawnBehaviorInterface *spawn = SpawnBehaviorInterface::of(*obj))
+		{
+			spawn->orderSlavesToAttackTarget(victim, maxShotsToFire, source); // RW 0x66BEC3 -> slot 3 (0xC)
+		}
 	}
 	wakeUpNow();
 	return true;
@@ -463,8 +474,8 @@ bool AIUpdateInterface::aiAttackPosition(const Coord3D &pos, int maxShotsToFire,
 	{
 		return false;
 	}
-	// RW 0x66DE32 .. 0x66DE3C: a unit outside the playable area (Object + 0x458 bit 3) ignores it; the port never sets that bit (S-920, S-2480)
-	if (m_mover->isAiDead() || !CombatQueries::isAlive(*obj))
+	// RW 0x66DE32 .. 0x66DE3C: a unit outside the playable area (Object + 0x458 bit 3, Object::isOffMap) ignores it
+	if (obj->isOffMap() || m_mover->isAiDead() || !CombatQueries::isAlive(*obj))
 	{
 		return false;
 	}
@@ -480,9 +491,11 @@ bool AIUpdateInterface::aiAttackPosition(const Coord3D &pos, int maxShotsToFire,
 	{
 		static const int kIgnoringStealth = CombatNames::status("IGNORING_STEALTH");
 		obj->setStatus((unsigned)kIgnoringStealth, true);
-		// INFERENCE (S-2480): PartitionFilterPossibleToAttack(ATTACK_NEW_TARGET) is the non-forced canAttackObject; the off-map filter keeps everything (the bit is never set)
+		// RW 0x660E93 PartitionFilterSameMapStatus (vtable RW 0xC0F374): candidate's off-map bit (Object + 0x458 bit 3) matches the attacker's;
+		// INFERENCE (S-2480): PartitionFilterPossibleToAttack(ATTACK_NEW_TARGET, RW 0x660CA4 -> 0x68D6A6) is the non-forced canAttackObject
+		PartitionFilterFn sameMapStatus([&](Object &o) { return o.isOffMap() == obj->isOffMap(); });
 		PartitionFilterFn possible([&](Object &o) { return w->canAttackObject(o, source, false); });
-		Object *victim = obj->logic().partition().getClosestObject(localPos, continueRange, FROM_CENTER_2D, { &possible });
+		Object *victim = obj->logic().partition().getClosestObject(localPos, continueRange, FROM_CENTER_2D, { &sameMapStatus, &possible });
 		obj->setStatus((unsigned)kIgnoringStealth, false);
 		if (victim)
 		{

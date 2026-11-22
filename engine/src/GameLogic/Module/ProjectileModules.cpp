@@ -26,6 +26,7 @@
 #include "GameLogic/Module/NotifyCrushModules.h"
 #include "GameLogic/Object/ObjectGeometry.h"
 #include "GameLogic/Object/PartitionManager.h"
+#include "GameLogic/FXEvents.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/SimMath.h"
@@ -240,6 +241,7 @@ int BezierProjectileBehaviorModuleData::preLandingRelationshipMask(GameEdition e
 	return 7;
 }
 
+// BezierProjectileBehavior: getModuleName RW 0x0085F037, getModuleNameKey RW 0x0085F03D
 void ProjectileModules::registerAll(ModuleFactory &modules)
 {
 	modules.bindTypedData<BezierProjectileBehaviorModuleData>("BezierProjectileBehavior", MODULETYPE_BEHAVIOR);
@@ -848,7 +850,7 @@ bool ProjectileModules::shouldProjectileCollideWith(GameLogic &logic, const Weap
 	return true;
 }
 
-// RW 0x85EF6A (lane FLANK-1; BFME2 decomp BezierProjectileBehavior.cpp rva0045BF06): a path and a warhead; an object of KindOf HORDE (template + 0x115 bit 5) or
+// RW 0x0085EF6A (CollideModuleInterface thunk RW 0x0085F082 -> RW 0x0085EF6A; lane FLANK-1; BFME2 decomp BezierProjectileBehavior.cpp rva0045BF06): a path and a warhead; an object of KindOf HORDE (template + 0x115 bit 5) or
 // dead (Object + 0x458 bit 0) never; else the warhead's RW 0x6CC79C with the launcher found by id, the projectile and the intended victim's id (+ 0x38)
 bool BezierProjectileBehavior::projectileCanCollideWith(const Object *other) const
 {
@@ -904,6 +906,7 @@ void BezierProjectileBehavior::backOff(const Object &other)
 	obj->setPosition(&cur);
 }
 
+// RW 0x0085EBCC (DONOR BFME2 Gen_001EFD20::bfmeIsNew): linear search over m_hitList (+0x7C) for other->getID() (+0x74); returns 1 if not hit yet
 bool BezierProjectileBehavior::alreadyHit(ObjectID id) const
 {
 	for (ObjectID h : m_hitList)
@@ -945,7 +948,7 @@ bool BezierProjectileBehavior::projectileHandleCollision(Object *other)
 				Coord3D pos = *other->getPosition();
 				DeliverNuggets(logic, obj->getID(), *m_warhead, WeaponBonus(), nullptr, &pos, true, &counters.unportedNuggets);
 			}
-			m_hitList.push_back(other->getID());
+			m_hitList.push_back(other->getID()); // retail std::list<ObjectID>::push_back RW 0x006A253A
 		}
 		return true;
 	}
@@ -1087,8 +1090,21 @@ void BezierProjectileBehavior::detonate()
 		}
 		else
 		{
-			// RW 0x6CF4D6 handleProjectileDetonation(warhead, &origin, source, &position, bonus)
+			// LOCAL-116 (P-161, both editions): RW 0x85F1FE .. 0x85F213 -> RW 0x6CF4D6 handleProjectileDetonation
+			// -> RW 0x6CF38E -> RW 0x6CEF6D -> RW 0x6CC915 fireWeaponTemplate (FireFX block RW 0x6CCB4B .. 0x6CCBF3;
+			// DONOR BFME2 0x002CE8AA -> 0x002CBBF5 WeaponPrivateFireWeapon.cpp:755).
 			Coord3D pos = *obj->getPosition();
+			Object *shooter = producer ? producer : obj;
+			if (FXEventLog::isFXName(m_warhead->m_fireFXs[0]))
+			{
+				FXEvent e = FXEventLog::objectEvent(FXEvent::WEAPON_FIRE_FX, "FireFX", logic.getFrame(), m_warhead->m_fireFXs[0], *shooter);
+				e.secondaryPosition = pos;
+				e.weaponSlot = PRIMARY_WEAPON;
+				e.barrel = 0;
+				e.weaponSpeed = m_warhead->m_weaponSpeed;
+				e.playWhenStealthed = m_warhead->m_playFXWhenStealthed;
+				logic.fxEvents().emit(e);
+			}
 			DeliverNuggets(logic, source, *m_warhead, WeaponBonus(), nullptr, &pos, true, &counters.unportedNuggets);
 		}
 		if (m_data && m_data->m_detonateCallsKill)

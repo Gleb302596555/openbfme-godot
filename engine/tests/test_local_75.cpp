@@ -799,10 +799,26 @@ TEST_CASE("LOCAL-75 P-142 Ennorath: Imladris library mages, BruchtalGelehrter, a
 		CHECK(hasAttrList(*scholar, "WissenaneignenModifier"));
 	}
 	{
-		CHECK(pressTargetedExpectAccepted(h, *scholar, "Command_SpecialAbilityWeisheitderGelehrten", *earth));
-		h.step(10);
 		const UpgradeTemplate *wisdom = world.shared.world->upgrades().findUpgrade("Upgrade_ImladrisGelehrtenWeisheit");
 		REQUIRE(wisdom != nullptr);
+		CHECK_FALSE(earth->hasUpgrade(wisdom));
+		CHECK(pressTargetedExpectAccepted(h, *scholar, "Command_SpecialAbilityWeisheitderGelehrten", *earth));
+
+		// Keep the same 10-frame budget for the projectile to apply its list (weapon.inc, WeisheitderGelehrtenWeaponWarhead).
+		const char *list = "WeisheitderGelehrtenUpgrade";
+		for (int f = 0; f < 10 && !hasAttrList(*earth, list); ++f)
+		{
+			h.step(1);
+		}
+		CHECK(hasAttrList(*earth, list));
+		CHECK_FALSE(earth->hasUpgrade(wisdom)); // attributemodifier.inc: Delay:100 is one frame (RW 0x8050D3), not an immediate grant
+
+		// RW 0x805CED -> RW 0x850C32 wakes an idle pool at impact + Duration (3000 ms = 15 frames); RW 0x80585F grants then.
+		// A pool that wakes sooner may grant sooner. Stop as soon as the grant arrives so later checks do not wait needlessly.
+		for (int f = 0; f < 15 && !earth->hasUpgrade(wisdom); ++f)
+		{
+			h.step(1);
+		}
 		CHECK(earth->hasUpgrade(wisdom));
 	}
 

@@ -582,6 +582,11 @@ std::int8_t ThingTemplate::structureRubbleHeight() const
 	return 0;
 }
 
+int ThingTemplate::threatCategory() const
+{
+	return getFinalOverride()->m_threatCategory;
+}
+
 int ThingTemplate::selectionPriority() const
 {
 	// Port 101 (issue #261), RW 0x710A41: mov esi, [esi + 0x64C] (table row RW 0xDA49D8, INI::parseInt RW 0x42EC5E,

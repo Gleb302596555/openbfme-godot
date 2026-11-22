@@ -70,11 +70,13 @@ public:
 class LargeGroupBonusUpdate : public UpdateModule
 {
 public:
+	// RotWK vtable identity & boilerplate: getModuleNameKey RW 0x893670, getModuleName RW 0x8936B5,
+	// xfer RW 0x8936C9 (v1..2), scalar deleting dtor RW 0x8937F4. (onDelete flag sub-object hide is S-1023.)
 	OBFME_MODULE_XFER(LargeGroupBonusUpdate) // lane SAVE-4b
 	LargeGroupBonusUpdate(Thing *thing, const LargeGroupBonusUpdateModuleData *data); ///< RW 0x893765
 	UpdateSleepTime update() override;                                                 ///< RW 0x8938D9
 	void crc(StateHasher &h) const override;
-	bool active() const { return m_active; }
+	bool active() const { return m_active; } ///< RW 0x734403
 	bool reached() const { return m_reached; }
 	unsigned lastCount() const { return m_lastCount; }
 
@@ -107,7 +109,7 @@ class PassiveAreaEffectBehavior : public UpdateModule
 {
 public:
 	OBFME_MODULE_XFER(PassiveAreaEffectBehavior) // lane SAVE-4b
-	PassiveAreaEffectBehavior(Thing *thing, const PassiveAreaEffectBehaviorModuleData *data); ///< RW 0x887CF3
+	PassiveAreaEffectBehavior(Thing *thing, const PassiveAreaEffectBehaviorModuleData *data); ///< RW 0x887CF3 (dtor RW 0x00887DAE / RW 0x00887EC8, name RW 0x00887D63, key RW 0x00887D69, xfer RW 0x00887EE4; DONOR BFME2 0x008846D6 / 0x008846DC / 0x00884721 / 0x0088483B / 0x00884857)
 	UpdateSleepTime update() override;                                                        ///< RW 0x887DF7
 	void crc(StateHasher &h) const override;
 	const std::list<ObjectID> &targets() const { return m_targets; }

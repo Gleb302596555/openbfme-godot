@@ -1,0 +1,5 @@
+object	button	why
+# The owner's word that a failing matrix verdict is the mod's own design (tools/matrix_run.py collect turns it into BY-DESIGN).
+HarbringerOfDark	Command_SpecialAbilityHarbringerDunedainChoice	Angmar's sub-faction chooser at the game's start: it leaves once a path is chosen (owner 2026-11-17)
+HarbringerOfDark	Command_SpecialAbilityHarbringerDarkMagicChoice	Angmar's sub-faction chooser at the game's start: it leaves once a path is chosen (owner 2026-11-17)
+HarbringerOfDark	Command_SpecialAbilityHarbringerRhudaurChoice	Angmar's sub-faction chooser at the game's start: it leaves once a path is chosen (owner 2026-11-17)

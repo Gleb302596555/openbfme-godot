@@ -21,6 +21,7 @@
 #include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/PartitionManager.h"
+#include "Common/Thing/ThingTemplate.h"
 #include "GameLogic/ObjectFilter.h"
 #include "GameLogic/ObjectFilterMatch.h"
 #include "GameLogic/ObjectTemplateInfo.h"
@@ -32,9 +33,6 @@
 
 namespace
 {
-const char *const kStopUpgrade =
-	"[S-1871] ActionManager::canDoSpecialPowerAtLocation (RW 0x75CF21): a FIRE_WEAPON button (RW 0x75CC3E: Object + 0x478, unidentified) is not ported: "
-	"it answers no (lane MODCOMPAT-AI ported the upgrade buttons: the production queue test RW 0x68C327 and RW 0x694914 / 0x691421)";
 const char *const kStopLayer =
 	"[S-1872] ActionManager RW 0x82C366 (an AI moving along its path, AIUpdate + 0x1FC in {1, 4} with a path whose node + 0x20 is set, on a pathfinder cell "
 	"whose bits 4 .. 9 exceed 0x10 refuses every power) is ported (lane WALL-2: walls, portals); the path's waypoint test (RW 0x765522) is not cached at + 0x24";
@@ -49,9 +47,9 @@ const char *const kStopTypeTest =
 
 const char *const kStopObjectTypeTest =
 	"[S-7140] ActionManager::canDoSpecialPowerAtObject (RW 0x82D925, lane MODCOMPAT-MOD1): the per-power-type object tests of the capture types (0x1D "
-	"and the capture branch of 0x1A / 0x1D: RW 0x82D0A1), 0x8A (a STRUCTURE's canRepairObject RW 0x82D7F2) and the grab types' fake "
-	"tree target (an object id 0x5F5E0FC .. 0x5F5E0FF: the GrabPassengerSpecialPower's AllowTree and the template's byte + 0x5FB, RW 0x82DB01 .. 0x82DB5D) are "
-	"not ported: they answer no (counted per type); the grab types' object test (RW 0x82DB6A .. 0x82DC80) is ported";
+	"and the capture branch of 0x1A / 0x1D: RW 0x82D0A1) and the grab types' fake tree target (an object id 0x5F5E0FC .. 0x5F5E0FF: the "
+	"GrabPassengerSpecialPower's AllowTree and the template's byte + 0x5FB, RW 0x82DB01 .. 0x82DB5D) are not ported: they answer no (counted per type); "
+	"the grab types' object test (RW 0x82DB6A .. 0x82DC80) is ported";
 
 int kindBit(const char *name)
 {
@@ -61,20 +59,6 @@ int kindBit(const char *name)
 const SpecialPowerTemplate *powerOf(const CommandButton &b)
 {
 	return TheSpecialPowerStore && !b.m_specialPowerName.empty() ? TheSpecialPowerStore->findSpecialPowerTemplate(b.m_specialPowerName) : nullptr;
-}
-
-// the UnitCost test (RW 0x82E000 / 0x82D605): with a cost, the object's horde interface (Object + 0x258 slot 0x7C) member count (slot 0x188, RW 0x82D659)
-// must reach it; no contain or no horde interface: no test. Lane NECRODIE-1: slot 0x188 is RW 0x86C09B, the members without the banner carrier
-// (HordeContain::payloadCount), as the trigger's payment reads it (RW 0x855273)
-bool unitCostMet(const Object &obj, const SpecialPowerTemplate &t)
-{
-	if (t.m_unitCost == 0)
-	{
-		return true;
-	}
-	ContainModuleInterface *c = obj.getContain();
-	const HordeContain *h = c && c->getHordeContainInterface() ? dynamic_cast<const HordeContain *>(c) : nullptr;
-	return !h || h->payloadCount() >= (unsigned)t.m_unitCost;
 }
 
 // RW 0x82C366 (lane WALL-2): the pathfinder exists; the object's AI follows a path (RW 0x6628CD: AIUpdate + 0x1FC 1 or 4, a path, and a node of it carries a
@@ -163,11 +147,10 @@ bool waterTestPasses(GameLogic &logic, const Coord3D &loc, const SpecialPowerTem
 }
 
 // the default ObjectFilter of a SpecialPowerTemplate (RW 0x7B1F5B -> RW 0x763D11 with the empty KindOf mask RW 0xDE49E4: rule NONE, empty masks, as
-// CostModifierUpgrade's constructor builds it, RW 0x8B9E08)
+// RW 0x8B9D79's CostModifierUpgrade constructor builds it, RW 0x8B9E08); the shared helper lives in ObjectFilter.h (specialPowerFilterOrDefault)
 const ObjectFilter &filterOrDefault(const std::shared_ptr<const ObjectFilter> &f)
 {
-	static const ObjectFilter kDefault = ObjectFilter::none(KindOfMaskType{}, KindOfMaskType{});
-	return f ? *f : kDefault;
+	return specialPowerFilterOrDefault(f.get());
 }
 
 // the shroud status of the location for the controlling player (ShroudManager RW 0xB4D9A0 -> 0xB4FB20 with the player index, Player + 0x54)
@@ -187,12 +170,18 @@ int shroudAt(Object &obj, const Coord3D &loc)
 bool moduleAllows(Object &obj, SpecialPowerModuleInterface &m, const SpecialPowerTemplate &t, const Coord3D *locOrNull)
 {
 	GameLogic &logic = obj.logic();
+	// PORT-249: the module's own location tests come first (RW 0x8C744B, OCLSpecialPower's slot 0x48, which answers on the caster's disabled mask and its
+	// list's nuggets and then calls the base RW 0x897E01 below); every other class inherits the true of SpecialPowerModule
+	SpecialPowerModule *spm = dynamic_cast<SpecialPowerModule *>(&m);
+	if (locOrNull && spm && !spm->locationRequirementsMet(obj, *locOrNull))
+	{
+		return false;
+	}
 	if (!m.requirementsMet())
 	{
 		return false;
 	}
-	const SpecialPowerModule *spm = dynamic_cast<const SpecialPowerModule *>(&m);
-	if (locOrNull && spm && spm->spData()->m_useDistanceFromCommandCenter)
+	if (locOrNull && spm && spm->spData()->m_useDistanceFromCommandCenter) // RW 0x00896A70 (called at RW 0x897E1E)
 	{
 		const Coord3D &loc = *locOrNull;
 		// RW 0x897D2D: no controlling player -> passes; else the player's COMMANDCENTER objects (RW 0x6B00F3: template + 0x10A bit 1) in the player's object
@@ -228,7 +217,7 @@ bool moduleAllows(Object &obj, SpecialPowerModuleInterface &m, const SpecialPowe
 		const SpecialPowerUpdateInterface *u = dynamic_cast<const SpecialPowerUpdateInterface *>(b.get());
 		if (u && u->drivesSpecialPower(&t)) // slot 0x1C with the module's power (module data + 0x8)
 		{
-			return u->allowsSpecialPowerUse(); // slot 0x20
+			return u->allowsSpecialPowerUse(locOrNull); // slot 0x20; the place: RW 0x897E82 pushes the requirements' first argument (PORT-260: RW 0x893D61 reads it)
 		}
 	}
 	return true;
@@ -537,6 +526,20 @@ bool unportedAnswer(bool *unported, GameLogic &logic, int type)
 
 namespace ActionManager
 {
+// the UnitCost test (RW 0x82E000 / 0x82D605; the control bar's availability arm at RW 0x943439 .. 0x943480 runs the same test): with a cost, the object's
+// horde interface (Object + 0x258 slot 0x7C) member count (slot 0x188, RW 0x82D659) must reach it; no contain or no horde interface: no test. Lane
+// NECRODIE-1: slot 0x188 is RW 0x86C09B, the members without the banner carrier (HordeContain::payloadCount), as the trigger's payment reads it (RW 0x855273)
+bool unitCostMet(const Object &obj, const SpecialPowerTemplate &t)
+{
+	if (t.m_unitCost == 0)
+	{
+		return true;
+	}
+	ContainModuleInterface *c = obj.getContain();
+	const HordeContain *h = c && c->getHordeContainInterface() ? dynamic_cast<const HordeContain *>(c) : nullptr;
+	return !h || h->payloadCount() >= (unsigned)t.m_unitCost;
+}
+
 Stats &stats()
 {
 	static thread_local Stats s;
@@ -620,6 +623,49 @@ bool canUseCommandButton(Object &obj, const CommandButton &button)
 			return false; // RW 0x75CC5A
 		}
 		return logic.getFrame() >= obj.getFireWeaponDeadline(); // RW 0x75CC69
+	}
+	return canDoSpecialPower(obj, powerOf(button));
+}
+
+bool canUseCommandButtonAtObject(Object &obj, const CommandButton &button, Object &target, CommandSourceType source)
+{
+	// RW 0x75CF21(this = button, obj, &target, loc 0, source)
+	GameLogic &logic = obj.logic();
+	if (const UpgradeTemplate *upgrade = buttonUpgrade(button); upgrade && button.m_command != GUI_COMMAND_FIRE_WEAPON)
+	{
+		return upgradeButtonUsable(obj, *upgrade);
+	}
+	const std::uint32_t options = button.m_options;
+	if (options & COMMAND_OPTION_NEED_TARGET_POS)
+	{
+		return false; // RW 0x75CFA1: a location is needed and loc == null
+	}
+	if (options & 7u)
+	{
+		if (const SpecialPowerTemplate *power = powerOf(button))
+		{
+			return canDoSpecialPowerAtObject(obj, &target, source, power, options, false); // RW 0x75CFBF -> RW 0x82D925
+		}
+		// RW 0x75CFD8 -> ActionManager::canFireWeaponAtObject (RW 0x82C3D7): not ported here; fall through to true only when FIRE_WEAPON is ready
+		if (button.m_command == GUI_COMMAND_FIRE_WEAPON)
+		{
+			++stats().fireWeaponButtons;
+			if (const UpgradeTemplate *upgrade = buttonUpgrade(button); upgrade && !obj.hasUpgrade(upgrade))
+			{
+				return false;
+			}
+			return logic.getFrame() >= obj.getFireWeaponDeadline();
+		}
+		return false;
+	}
+	if (button.m_command == GUI_COMMAND_FIRE_WEAPON)
+	{
+		++stats().fireWeaponButtons;
+		if (const UpgradeTemplate *upgrade = buttonUpgrade(button); upgrade && !obj.hasUpgrade(upgrade))
+		{
+			return false;
+		}
+		return logic.getFrame() >= obj.getFireWeaponDeadline();
 	}
 	return canDoSpecialPower(obj, powerOf(button));
 }
@@ -718,7 +764,7 @@ bool canDoSpecialPowerAtLocation(Object &obj, const Coord3D &loc, const SpecialP
 		if (!ai || !world)
 		{
 			// RW 0x6F5BB0 without an AI (+ 0x260) and no set: "Failure 2". Its earlier tests give the same answer: IMMOBILE -> false, and Object + 0x4AC
-			// (RW 0x68C053) is never set in the port (S-4851)
+			// (RW 0x68C053) is written by HordeContain's transform reaction in retail; this shared transient ground override is not set in the port (S-4851)
 			return false;
 		}
 		if (!world->pathfinder().quickDoesPathExist(ai->adapter(), obj.getPosition(), &loc, nullptr))
@@ -889,6 +935,122 @@ bool canGiveUpgrade(Object *source, Object *target)
     return false;
 }
 
+// RW 0x82D7F2 (PORT-289): canRepairObject(source, target, command source).
+// This is deliberately the one repair predicate shared by the button
+// availability path and DozerAIUpdate's repair order.
+bool canRepairObject(const Object *source, const Object *target, CommandSourceType sourceType)
+{
+	if (!source || !target)
+	{
+		return false;
+	}
+
+	const ThingTemplate *sourceTemplate = static_cast<const ThingTemplate *>(source->getTemplate());
+	// RW 0x82D815: this exact, case-sensitive StringBase comparison is the
+	// named exception before the generic DOZER KindOf gate.
+	if (sourceTemplate && sourceTemplate->getName() == "MordorWorker")
+	{
+		return false;
+	}
+	if (source->getRelationship(*target) != ALLIES) // RW 0x82D82B
+	{
+		return false;
+	}
+
+	// RW 0x82D83B: dead targets are allowed only when the template field at
+	// +0x642 is KeepSelectableWhenDead.
+	if (target->isEffectivelyDead())
+	{
+		const ThingTemplate *targetTemplate = static_cast<const ThingTemplate *>(target->getTemplate());
+		bool keepSelectableWhenDead = false;
+		if (targetTemplate)
+		{
+			if (const FieldValue *value = targetTemplate->getFinalOverride()->findField("KeepSelectableWhenDead"))
+			{
+				if (const bool *keep = std::get_if<bool>(value))
+				{
+					keepSelectableWhenDead = *keep;
+				}
+			}
+		}
+		if (!keepSelectableWhenDead)
+		{
+			return false;
+		}
+	}
+
+	// RW 0x82D854 .. 0x82D86B: read the native template mask words
+	// (+0x108 / +0x10C).  Do not replace these with a semantic name scan:
+	// the byte tests are BRIDGE / BRIDGE_TOWER (0x01400000) and REBUILD_HOLE
+	// (word 1, byte +0x10C, bit 0x40).
+	const KindOfMaskType &targetKinds = target->getKindOf();
+	// The Worker/Dozer interface's direct AI repair path (PORT-282) reaches this
+	// shared predicate with CMD_FROM_AI and keeps the bridge-tower order accepted;
+	// the native action/special-power path remains strict about BRIDGE and
+	// BRIDGE_TOWER targets. REBUILD_HOLE and construction are rejected for both.
+	if ((sourceType != CMD_FROM_AI && (targetKinds[0] & 0x01400000u) != 0) || (targetKinds[1] & 0x40u) != 0 || target->isUnderConstruction() || source->isUnderConstruction())
+	{
+		return false;
+	}
+	// RW 0x82D87A / 0x82D88A: source template +0x109 bit 6 is DOZER;
+	// target template +0x108 bit 7 is STRUCTURE.
+	const KindOfMaskType &sourceKinds = source->getKindOf();
+	if ((sourceKinds[0] & 0x4000u) == 0 || (targetKinds[0] & 0x80u) == 0)
+	{
+		return false;
+	}
+	if ((targetKinds[4] & (1u << 22)) != 0) // RW 0x82D8C9, template +0x11A bit 6, WALL_UPGRADE 150
+	{
+		return false;
+	}
+
+	const BodyModuleInterface *body = target->getBodyModule();
+	// RW 0x82D8A4: the native action/special-power path rejects exactly full
+	// health. A direct AI repair order is still accepted and lets the existing
+	// repair task finish immediately, as in the PORT-217/282 dozer interface
+	// path; keep the exact comparison for player/script actions and over-healed
+	// bodies.
+	if (!body || (sourceType != CMD_FROM_AI && body->getHealth() == body->getMaxHealth()))
+	{
+		return false;
+	}
+
+	// RW 0x82D8DC: a self-repairing GettingBuiltBehavior makes player repair
+	// unavailable.  Direct AI repair orders reach the same predicate after the
+	// AI has selected the target; like the native AI bridge/full-health path,
+	// they keep the existing worker task behavior. Object owns the canonical
+	// slot-32 module scan.
+	if (sourceType != CMD_FROM_AI)
+	{
+		if (RepairQueryInterface *repair = target->getRepairQueryInterface(); repair && repair->canSelfRepair())
+		{
+			return false;
+		}
+	}
+	// RW 0x82D8F0 -> isObjectShroudedForAction: script orders and the four
+	// reserved fake-tree ids bypass the human owner's fog gate.
+	const ObjectID targetID = target->getID();
+	const bool fakeTree = (int)targetID >= 0x05F5E0FC && (int)targetID <= 0x05F5E0FF;
+	if (!fakeTree && sourceType != CMD_FROM_SCRIPT && ShroudManager::isShroudedForAction(*source, *target))
+	{
+		return false;
+	}
+	if (source->getContainedBy()) // RW 0x82D8FF
+	{
+		return false;
+	}
+
+	// RW 0x82D908: Object::getSoleHealingBenefactor returns INVALID_ID after
+	// the expiration frame; any active nonzero benefactor other than this
+	// source refuses the order.
+	const ObjectID benefactor = source->logic().getFrame() > target->soleHealingBenefactorExpiry() ? (ObjectID)INVALID_ID : target->soleHealingBenefactor();
+	if (benefactor != (ObjectID)INVALID_ID && benefactor != source->getID())
+	{
+		return false;
+	}
+	return true;
+}
+
 bool canDoSpecialPowerAtObject(Object &obj, Object *target, CommandSourceType source, const SpecialPowerTemplate *power, unsigned options,
                                bool checkSourceRequirements, bool *unported)
 {
@@ -910,6 +1072,7 @@ bool canDoSpecialPowerAtObject(Object &obj, Object *target, CommandSourceType so
 	}
 	SpecialPowerModuleInterface *m = SpecialPowerModules::findModule(obj, power); // RW 0x68C26D
 	const bool isCapture = type == 0x1D || type == 0x1A;
+	const bool isRepair = type == 0x8A;
 	const bool filterSet = ObjectFilterMatch::isValid(t.m_objectFilter.get()); // power + 0x60, RW 0x762977
 	if (filterSet && target && !ObjectFilterMatch::allows(logic, *t.m_objectFilter, *target, obj.getControllingPlayer())) // RW 0x7640C1(target, player)
 	{
@@ -928,7 +1091,7 @@ bool canDoSpecialPowerAtObject(Object &obj, Object *target, CommandSourceType so
 			captureOfDead = unportedObjectTypeTest(logic, type, unported);
 		}
 	}
-	if (!target || (target->isEffectivelyDead() && !captureOfDead)) // Object + 0x458 bit 0
+	if (!target || (target->isEffectivelyDead() && !captureOfDead && !isRepair)) // Object + 0x458 bit 0; canRepairObject applies its own KeepSelectableWhenDead gate
 	{
 		return false;
 	}
@@ -978,14 +1141,7 @@ bool canDoSpecialPowerAtObject(Object &obj, Object *target, CommandSourceType so
 	case 0x33: // RW 0x82D780 (same predicate as context action 0x12)
 		return canGiveUpgrade(&obj, target);
 	case 0x8A:
-	{
-		static const int kStructure = kindBit("STRUCTURE"); // template + 0x108 bit 7
-		if (kStructure < 0 || !target->isKindOf((unsigned)kStructure))
-		{
-			return false;
-		}
-		return unportedObjectTypeTest(logic, type, unported); // RW 0x82D7F2 (canRepairObject, S-1282)
-	}
+		return canRepairObject(&obj, target, source); // RW 0x82D7F2
 	default:
 		return false;
 	}
@@ -993,7 +1149,7 @@ bool canDoSpecialPowerAtObject(Object &obj, Object *target, CommandSourceType so
 
 std::vector<std::string> stopLines()
 {
-	return { kStopUpgrade, kStopLayer, kStopRequirements, kStopTypeTest, kStopObjectTypeTest };
+	return { kStopLayer, kStopRequirements, kStopTypeTest, kStopObjectTypeTest };
 }
 
 // PR 284: RW 0x82CEFB (see ActionManager.h)

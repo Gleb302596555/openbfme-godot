@@ -16,6 +16,21 @@ void UpdateModule::setWakeFrame(Object *obj, UpdateSleepTime wakeDelay)
 	logic.friend_awakenUpdateModule(obj, this, now + (UnsignedInt)wakeDelay);
 }
 
+// RW 0x00850BE9 / DONOR BFME2 0x0044DF28 (UpdateModule::frameToSleepTime)
+UpdateSleepTime UpdateModule::frameToSleepTime(UnsignedInt f1, UnsignedInt f2, UnsignedInt f3, UnsignedInt f4) const
+{
+	UnsignedInt earliest = f1;
+	if (earliest > f2) earliest = f2;
+	if (earliest > f3) earliest = f3;
+	if (earliest > f4) earliest = f4;
+	const UnsignedInt now = getObject()->logic().getFrame();
+	if (earliest > now)
+	{
+		return (UpdateSleepTime)(earliest - now);
+	}
+	return UPDATE_SLEEP_NONE;
+}
+
 void UpdateModule::crc(StateHasher &hasher) const
 {
 	hasher.addU32(m_nextCallFrame);

@@ -25,6 +25,7 @@ void SupplyCenterCreateModuleData::buildFieldParse(MultiIniFieldParse &p)
 	p.add(kSupplyCenterCreateFieldParse);
 }
 
+// GetSnapshotName RW 0x008BCEEC, getModuleNameKey RW 0x008BCF0B
 void SupplyCenterCreate::registerClass(ModuleFactory &modules)
 {
 	modules.bindTypedData<SupplyCenterCreateModuleData>("SupplyCenterCreate", MODULETYPE_BEHAVIOR);
@@ -58,6 +59,7 @@ void SupplyCenterCreate::onBuildComplete()
 	}
 }
 
+// GetSnapshotName RW 0x008BCFE3, getModuleNameKey RW 0x008BD002
 void SupplyWarehouseCreate::registerClass(ModuleFactory &modules)
 {
 	modules.bindTypedData<SupplyCenterCreateModuleData>("SupplyWarehouseCreate", MODULETYPE_BEHAVIOR); // no fields, as SupplyCenterCreate

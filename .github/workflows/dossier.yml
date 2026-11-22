@@ -1,0 +1,38 @@
+# The dossier of a Port / Local task (owner 2026-11-19): when the issue is opened or edited, tools/ci/port_dossier.py posts or updates its
+# `<!-- dossier -->` comment from the maps in the repository (function map, button matrix gaps, field gaps, modifier readers). No game files:
+# the disassembly is sandbox 4's (tools/mod/dossier_disasm.py, the arena files on the Drive).
+name: Task dossier
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: dossier-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  dossier:
+    name: "Task dossier"
+    if: startsWith(github.event.issue.title, 'Port') || startsWith(github.event.issue.title, 'Local')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: main
+          sparse-checkout: |
+            tools/ci
+            docs/ennorath
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Task dossier
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 tools/ci/port_dossier.py --issue "${{ github.event.issue.number }}"

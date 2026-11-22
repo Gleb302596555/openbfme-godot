@@ -495,6 +495,15 @@ void W3DInstancer::set_particle_color(bool enabled)
 	}
 }
 
+void W3DInstancer::set_buff_blend(bool enabled)
+{
+	BuffBlend = enabled;
+	if (Materials)
+	{
+		Materials->Set_Buff_Blend(enabled);
+	}
+}
+
 void W3DInstancer::set_instance_particle_color(int64_t instance, int shader, float r, float g, float b)
 {
 	if (instance < 0 || instance >= (int64_t)Instances.size()) return;
@@ -701,6 +710,49 @@ void W3DInstancer::ensure_occlusion_passes(MeshGpu &gpu, bool mark, bool color)
 	}
 }
 
+// Local 117 (P-170, P-83): RW 0x525E1F -> 0x5284C0..0x5284F7 renders depth-writing meshes into the shadow map
+// with an opaque/alpha-tested shadow shader even when the colour pass uses SRC_ALPHA / INV_SRC_ALPHA.
+void W3DInstancer::ensure_shadow_mesh(MeshGpu &gpu)
+{
+	if (gpu.ShadowMeshBuilt) return;
+	gpu.ShadowMeshBuilt = true;
+	if (gpu.Mesh.is_null() || !Materials) return;
+	const int surfaceCount = gpu.Mesh->get_surface_count();
+	if (surfaceCount <= 0) return;
+	bool anyOverride = false;
+	std::vector<W3DShaderKey> shadowKeys((size_t)surfaceCount);
+	std::vector<bool> needOverride((size_t)surfaceCount, false);
+	for (int s = 0; s < surfaceCount && (size_t)s < gpu.Keys.size() && (size_t)s < gpu.Materials.size(); ++s)
+	{
+		if (W3D_Shadow_Pass_Key(gpu.Keys[(size_t)s], shadowKeys[(size_t)s]))
+		{
+			needOverride[(size_t)s] = true;
+			anyOverride = true;
+		}
+	}
+	if (!anyOverride) return;
+	gpu.ShadowMesh.instantiate();
+	gpu.ShadowMesh->set_custom_aabb(gpu.Mesh->get_custom_aabb());
+	for (int s = 0; s < surfaceCount; ++s)
+	{
+		const uint64_t flags = (size_t)s < gpu.SurfaceFlags.size() ? gpu.SurfaceFlags[(size_t)s] : 0;
+		gpu.ShadowMesh->add_surface_from_arrays(Mesh::PRIMITIVE_TRIANGLES, gpu.Mesh->surface_get_arrays(s), Array(), Dictionary(), flags);
+		if (needOverride[(size_t)s])
+		{
+			Ref<ShaderMaterial> m = gpu.Materials[(size_t)s]->duplicate();
+			m->set_shader(Materials->Get_Shader(shadowKeys[(size_t)s]));
+			m->set_next_pass(Ref<Material>());
+			AllMaterials.push_back(m);
+			m->set_shader_parameter("w3d_palette", palette_sampler());
+			gpu.ShadowMesh->surface_set_material(s, m);
+		}
+		else
+		{
+			gpu.ShadowMesh->surface_set_material(s, gpu.Mesh->surface_get_material(s));
+		}
+	}
+}
+
 bool W3DInstancer::instance_outside(int64_t instance, const std::vector<Plane> &frustum)
 {
 	if (frustum.empty() || instance < 0 || instance >= (int64_t)Instances.size() || Instances[(size_t)instance].Removed) return false;
@@ -795,6 +847,7 @@ Dictionary W3DInstancer::setup(const Ref<RetailFileSystem> &fs)
 		Materials->Set_Asset_Packs(fs->assetPacks().empty() ? nullptr : &fs->assetPacks());
 		Materials->Set_Alpha_Override(AlphaOverride); // lane BUILD-5 r3
 		Materials->Set_Particle_Color(ParticleColor);
+		Materials->Set_Buff_Blend(BuffBlend);
 		// housecolor.ini: the table only names which textures have a house texture; applying it is stop S-022 (reported per surface).
 		// A missing or malformed file is an error, not an empty table.
 		std::vector<std::uint8_t> hcBytes;
@@ -1026,6 +1079,7 @@ std::shared_ptr<W3DInstancer::MeshGpu> W3DInstancer::build_mesh(const MeshModelC
 		gpu->Mesh->surface_set_material(surfaceIndex, mat.Material);
 		gpu->Materials.push_back(mat.Material);
 		gpu->Keys.push_back(mat.Key);
+		gpu->SurfaceFlags.push_back(flags);
 		for (const W3DMapperBinding &b : mat.Mappers) gpu->Mappers.push_back(b);
 		for (const std::string &n : mat.Notes) gpu->Notes.push_back(n);
 		for (const std::string &e : mat.Errors) gpu->Errors.push_back(e);
@@ -2732,10 +2786,11 @@ void W3DInstancer::pack_draw(Model &m, DrawItem &d)
 	}
 	if (shadowCount != 0 && d.ShadowMM.is_null())
 	{
+		ensure_shadow_mesh(*d.Mesh);
 		d.ShadowMM.instantiate();
 		d.ShadowMM->set_transform_format(MultiMesh::TRANSFORM_3D);
 		d.ShadowMM->set_use_custom_data(true);
-		d.ShadowMM->set_mesh(d.Mesh->Mesh);
+		d.ShadowMM->set_mesh(d.Mesh->ShadowMesh.is_valid() ? d.Mesh->ShadowMesh : d.Mesh->Mesh);
 		MultiMeshInstance3D *shadow = memnew(MultiMeshInstance3D);
 		shadow->set_name(String(d.Node->get_name()) + "_shadow");
 		shadow->set_multimesh(d.ShadowMM);

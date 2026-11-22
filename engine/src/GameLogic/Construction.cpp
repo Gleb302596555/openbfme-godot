@@ -479,9 +479,21 @@ Object *Construction::buildObjectNow(GameLogic &logic, Object *builder, const Th
 	}
 	if (structure)
 	{
+		// PORT-224 (issue #534, P-143): RW 0x797951 .. 0x797977 (DONOR BFME2 BuildAssistant.cpp:1776-1782, Rva002A9BF2Get.cpp:92-108):
+		// neither buildObjectNow nor Player::onStructureConstructionComplete (RW 0x6AA72B) clears OBJECT_STATUS_UNDER_CONSTRUCTION (set at
+		// RW 0x797894). Full-health structures with GettingBuiltBehavior clear it on their first update via checkCompletion (RW 0x857BDA ->
+		// RW 0x857D4C); workerless RebuildHoleBehavior::update (RW 0x886994 .. 0x8869F7, e.g. NeutralStructureHole creep lairs) drops health to 1%
+		// and calls startConstruction(true) with m_forceComplete = true (RW 0x8567A2), keeping UNDER_CONSTRUCTION throughout the self-rise so
+		// killing the rising lair awards no bounty (RW 0x6AC09B), spawns no new hole (RW 0x889B0C), and fades the masked hole without treasure.
 		onStructureCreated(owner, builder, *obj);
-		obj->setStatus(OBJECT_STATUS_UNDER_CONSTRUCTION, false);
-		onStructureConstructionComplete(owner, builder, *obj, false);
+		if (!builder || !templateKindOf(logic, *builder->getTemplate(), "WALL_HUB")) // RW 0x797964 .. 0x79796E: KindOf bit 156 (+0x11B & 0x10)
+		{
+			onStructureConstructionComplete(owner, builder, *obj, false);
+		}
+	}
+	else
+	{
+		owner.onUnitCreated(builder, obj); // PORT-198 (RW 0x79797E -> 0x6AA688)
 	}
 	// lane PORT-117 (issue #301, P-57): RW 0x7979D4 .. 0x797A02. A KindOf HORDE object is completed WITHOUT its producer. RotWK reads the new object's
 	// template (Object + 4) KindOf word + 0x114 for bit 0x2000 (RW 0x7979DC: KindOf bit 109 = HORDE in the name table RW 0xDA0E68) and, when it is set, calls
@@ -516,10 +528,10 @@ std::vector<std::string> Construction::stopLines()
 		"unfinished structure is not sent back to it (RW 0x857DEA); the player notification that counts a self-built structure's command points is inferred (BUILD-1's completion); RotWK's "
 		"dozer makes its structure an inert phantom and places it on arrival with 1 hit point (RW 0x88D272 / 0x88D44F, lane FBSIM-1); "
 		"BUILD-1's dozer completion sets CONSTRUCTION_COMPLETE, which RW 0x88DEE0 does not",
-		"[S-652] Object::attemptHealingFromSoleBenefactor (RW 0x690584): the tail behind the template byte + 0x642 (RUBBLE cleared, a dead object revived) is not ported: the field is not identified",
+		"[S-652] closed by PORT-231: Object::attemptHealingFromSoleBenefactor (RW 0x00690584) reads ThingTemplate KeepSelectableWhenDead (+0x642), clearing RUBBLE and reviving effectively dead objects (REALLYDAMAGED)",
 		"[S-653] GettingBuiltBehavior: calls not identified and not ported: Player + 0x3DC's RW 0x79F0E1(object, 1) and Object + 0x456 at a rebuild's start, the body's slot "
-		"0x94 after a heal (RW 0x8C1D53), RW 0x68C3A3's slot 0x28 at a build's end (RW 0x8569C7; the production update's slot 0x60 before it is setFactoryDisabled(false), "
-		"lane PLAY-4): noted at runtime where reached. Lane BACKLOG2 ported BuildAssistant::moveObjectsForConstruction RW 0x797465 (the rebuild's start RW 0x85679D, a "
+		"0x94 after a heal (RW 0x8C1D53): noted at runtime where reached. RW 0x68C3A3's slot 0x28 reEnslaveSlaves (RW 0x8569C7) and the production update's slot 0x60 "
+		"setFactoryDisabled(false) are ported by PORT-198 / PLAY-4. Lane BACKLOG2 ported BuildAssistant::moveObjectsForConstruction RW 0x797465 (the rebuild's start RW 0x85679D, a "
 		"wall segment crossing 20 % health RW 0x85805E, buildObjectNow RW 0x797807 with clearRemovableForConstruction RW 0x796576 for the plots' builds); its "
 		"inference: an object's own geometry is its template's shapes with its active flags",
 		"[S-654] RebuildWhenDead: the DisallowRebuildFilter scan (RW 0x857873) is ported over the object list (3D centre distance, any match blocks); a template without the "

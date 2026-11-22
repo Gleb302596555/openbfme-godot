@@ -158,9 +158,26 @@ bool LiveGame::load(const Options &options, std::string *error)
 	{
 		return false;
 	}
+	// the GameData / AIData / MultiplayerSettings values the object layer reads (an error when one is missing)
+	GameLogicSettings settings;
+	if (!GameLogicSettingsLoader::load(m_fs, settings, error))
+	{
+		return false;
+	}
+	// lane STEALTHFLY1: the map's own AIData (map.ini / solo.ini, RW 0x627224 / 0x627290), e.g. MinFlightHeight and LowLodTreeName
+	std::vector<std::string> mapAiErrors;
+	GameLogicSettingsLoader::applyMapAIData(m_fs, MapClassification::mapDirectory(lowerName), settings, mapAiErrors);
+
+	MapObjectOptions effectiveMapOptions = m_mapOptions;
+	effectiveMapOptions.useLowLODTrees = settings.useLowLODTrees;
+	effectiveMapOptions.lowLodTreeName = settings.lowLodTreeName;
+	effectiveMapOptions.lowLodTreeNameNoGrab = settings.lowLodTreeNameNoGrab;
+	effectiveMapOptions.lowLodTreeNameNoHarvest = settings.lowLodTreeNameNoHarvest;
+	effectiveMapOptions.lowLodTreeScale = settings.lowLodTreeScale;
+
 	// the shared pipeline (GameClient/MapClassification, the static map path's too): map -> terrain -> map.ini -> classification -> client-only split
 	MapClassification::Result cr;
-	const bool classified = MapClassification::run(bytes, lowerName, lowerName, m_world, m_mapOptions, m_map, m_terrain, m_classified, &m_clientOnly, cr, error);
+	const bool classified = MapClassification::run(bytes, lowerName, lowerName, m_world, effectiveMapOptions, m_map, m_terrain, m_classified, &m_clientOnly, cr, error);
 	if (!classified)
 	{
 		return false;
@@ -177,21 +194,13 @@ bool LiveGame::load(const Options &options, std::string *error)
 		if (!MapCache::validateStartPositions(actual, error)) return false;
 	}
 	m_report.mapIniErrors = cr.mapIni.errors;
+	m_report.mapIniErrors.insert(m_report.mapIniErrors.end(), mapAiErrors.begin(), mapAiErrors.end());
 	m_report.mapObjects = m_classified.report.objects;
 	m_report.classificationErrors = m_classified.report.errors;
 	m_report.classifiedFull = cr.fullObjects;
 	m_report.clientOnlyObjects = cr.clientOnly;
 	m_report.secondsMap = cr.secondsLoad + cr.secondsMapIni + cr.secondsBuild;
 	progress(2); // the map's INI and terrain are loaded (RW 0x62FAF1)
-
-	// the GameData / AIData / MultiplayerSettings values the object layer reads (an error when one is missing)
-	GameLogicSettings settings;
-	if (!GameLogicSettingsLoader::load(m_fs, settings, error))
-	{
-		return false;
-	}
-	// lane STEALTHFLY1: the map's own AIData (map.ini / solo.ini, RW 0x627224 / 0x627290), e.g. a MinFlightHeight; its errors join the map.ini's
-	GameLogicSettingsLoader::applyMapAIData(m_fs, MapClassification::mapDirectory(lowerName), settings, m_report.mapIniErrors);
 	std::uint32_t defaultCash = options.defaultStartingCash ? options.defaultStartingCash : settings.defaultStartingCash;
 	// lane RULES-1: RW Player::init 0x6B0578: with TheGameInfo (a started game) a player whose template has no money gets the InitialResources rule
 	// (TheGameInfo + 0x70), not GameData's DefaultStartingCash (GlobalData + 0xBB8, the branch without a game). A game with no rule block (-1: tests and
@@ -210,6 +219,7 @@ bool LiveGame::load(const Options &options, std::string *error)
 
 	// players: the map's sides, then the lobby slots
 	m_players = std::make_unique<PlayerList>(m_world.nameKeys(), m_world.playerTemplates(), m_teams);
+	m_players->setForceSkirmishAI(settings.forceSkirmishAI); // PORT-227: RW 0x6AA450 / 0x6AA49F AIData ForceSkirmishAI
 	SidesList sidesUsed = m_map.sides; // lane SCRIPT-1: TheSidesList of the game (the script engine's side order)
 	std::set<std::string> slotSides;   // lane SCRIPT-1: the slot sides of a started game (their map lists are dropped, RW 0x73193D)
 	if (options.start)
@@ -1531,9 +1541,14 @@ LiveGame::Report LiveGame::report() const
 		r.scripting = m_scripting->stats();
 	}
 	r.errors.insert(r.errors.end(), r.mapIniErrors.begin(), r.mapIniErrors.end());
+	// RW 0x62DCE4 / RW 0x6D1305: map objects whose template name does not exist in ThingFactory are skipped silently without error
+	// (MapObjectDrawables::Report::unresolved and r.classificationErrors still record them for diagnostics and mapobj tests).
 	for (const std::string &e : r.classificationErrors)
 	{
-		r.errors.push_back(e);
+		if (e.find(": no template of that name") == std::string::npos)
+		{
+			r.errors.push_back(e);
+		}
 	}
 	for (const std::string &e : r.loop.errors)
 	{

@@ -26,15 +26,15 @@ void InGameHelpBox::loaded(const std::string &clip, CallFn call)
 	m_state = 0;
 	m_countdown = 0;
 	m_width = -1;
-	m_help.reset();
+	setHelp(nullptr);
 }
 
 void InGameHelpBox::unloaded()
 {
 	m_loaded = false;
 	m_call = nullptr;
-	m_help.reset();
 	m_state = 0;
+	setHelp(nullptr);
 }
 
 bool InGameHelpBox::call(const std::string &fn, const std::vector<std::string> &args)
@@ -61,6 +61,7 @@ void InGameHelpBox::setHelp(std::shared_ptr<CommandButtonHelp> help)
 		call("Hide", {});
 		m_state = 2;
 	}
+	m_displayedCommand.reset();
 	m_help = std::move(help);
 }
 
@@ -78,6 +79,10 @@ void InGameHelpBox::update(const std::function<int(CommandButtonHelp &, int)> &m
 	if (!m_loaded)
 	{
 		return;
+	}
+	if (!m_marked) // nobody offered this command window this frame: re-entry must pay the ordinary hover delay
+	{
+		m_displayedCommand.reset();
 	}
 	switch (m_state) // RW 0x92E462
 	{
@@ -107,9 +112,7 @@ void InGameHelpBox::update(const std::function<int(CommandButtonHelp &, int)> &m
 			if (--m_countdown <= 0)
 			{
 				// RW 0x92E362: Hide, state 2, the help released
-				call("Hide", {});
-				m_state = 2;
-				m_help.reset();
+				setHelp(nullptr);
 			}
 			break;
 		default:
@@ -157,9 +160,10 @@ void InGameHelpBox::dropProvider()
 	}
 }
 
-void InGameHelpBox::showHelp(const Provider &p, std::uint32_t nowMs, int tooltipDelayMs, const std::function<std::shared_ptr<CommandButtonHelp>()> &compose)
+void InGameHelpBox::showHelp(const Provider &p, std::uint32_t nowMs, int tooltipDelayMs, const std::function<std::shared_ptr<CommandButtonHelp>()> &compose,
+                             const ControlBarButton *commandWindow)
 {
-	if (m_endGameTimer >= 0) // RW 0x80786B: ScriptEngine + 0x1A204, including the expired timer (zero).
+	if (m_endGameTimer >= 0) // RW 0x807848, early timer gate 0x807874
 	{
 		return;
 	}
@@ -168,45 +172,58 @@ void InGameHelpBox::showHelp(const Provider &p, std::uint32_t nowMs, int tooltip
 		m_hoverStartSet = true;
 		m_hoverStart = nowMs;
 	}
-	if (m_haveProvider && m_provider == p)
+	if (m_displayedCommand && !(m_displayedCommand->owner == p))
 	{
+		m_displayedCommand.reset(); // an offer for a different window cannot refresh the outgoing content
+	}
+	// RW 0x807A81 selects both labels at 0x807D9C / 0x807EB3 using the current index; RW 0x92E2AC draws the retained help in 3 AND 4.
+	// INFERENCE (PORT-272): in the split HUD/logic updates, refresh an already visible command's changed text this update. Compare the two
+	// effective label keys used by compose, not the image or the provider identity (RW 0x8075F5 only compares the window and button).
+	const bool refresh = commandWindow && m_displayedCommand && (m_state == 3 || m_state == 4) &&
+		(commandWindow->textLabel != m_displayedCommand->textLabel || commandWindow->descriptLabel != m_displayedCommand->descriptLabel);
+	if (!m_haveProvider || !(m_provider == p))
+	{
+		if (!m_loaded || isShown())
+		{
+			m_haveProvider = false; // RW 0xA0CB16: release the old provider before requesting the hide.
+			m_provider = Provider();
+			if (m_loaded)
+			{
+				hideSoon();
+			}
+			return;
+		}
+		m_provider = p; // RW 0x807848: clone, mark, restart the clock (0x807918..0x807960)
+		m_haveProvider = true;
 		m_marked = true;
-		if (m_shownForProvider)
+		m_hoverStart = nowMs;
+		m_shownForProvider = false;
+		if (!refresh)
 		{
 			return;
 		}
-		if (nowMs <= m_hoverStart + (std::uint32_t)tooltipDelayMs) // RW 0x8078E0: unsigned
-		{
-			return;
-		}
-		m_shownForProvider = true;
-		if (m_disconnectMenuPresent) // RW 0x807982: consumed even though composition is suppressed.
-		{
-			return;
-		}
-		std::shared_ptr<CommandButtonHelp> help = compose(); // RW 0x807676: the provider's vslot 3, then the Palantir's help box
-		if (help && m_loaded)
-		{
-			setHelp(help);
-			++m_helpsShown;
-		}
-		return;
 	}
-	if (!m_loaded || isShown())
-	{
-		m_haveProvider = false; // RW 0xA0CB16: release the old provider before requesting the hide.
-		m_provider = Provider();
-		if (m_loaded)
-		{
-			hideSoon();
-		}
-		return;
-	}
-	m_provider = p; // RW 0x807914 .. 0x80795B
-	m_haveProvider = true;
 	m_marked = true;
-	m_hoverStart = nowMs;
-	m_shownForProvider = false;
+	if (!refresh && (m_shownForProvider || nowMs <= m_hoverStart + (std::uint32_t)tooltipDelayMs)) // RW 0x8078CA..0x8078ED: unsigned
+	{
+		return;
+	}
+	m_shownForProvider = true;
+	m_displayedCommand.reset(); // even a suppressed request is consumed; do not retry it when the menu goes away
+	if (m_disconnectMenuPresent) // RW 0x807982: after consumption, before composition
+	{
+		return;
+	}
+	std::shared_ptr<CommandButtonHelp> help = compose(); // RW 0x807676: the provider's vslot 3, then the Palantir's help box
+	if (help && m_loaded)
+	{
+		setHelp(std::move(help)); // RW 0x92E570: replace; update remeasures for the movie's sampled width before the next draw
+		if (commandWindow)
+		{
+			m_displayedCommand = DisplayedCommand{ p, commandWindow->textLabel, commandWindow->descriptLabel };
+		}
+		++m_helpsShown;
+	}
 }
 
 std::vector<std::string> InGameHelpBox::acceptanceStops()

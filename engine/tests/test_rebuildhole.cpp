@@ -354,18 +354,19 @@ TEST_CASE("rebuild hole live: a dead Cave Troll Lair leaves its hole, which rebu
 
 	checkRoundTrip(*rh, g, 3);
 
-	// the counter runs out: the lair is built at once through the build-now slot, the hole is masked and dies the same frame (the lair is not under construction)
+	// the counter runs out: the lair is spawned under construction through the build-now slot (RW 0x797894), the hole is masked while the lair rises
+	// from 1% health (RW 0x886994..0x886A08), and the hole fades once GettingBuiltBehavior clears UNDER_CONSTRUCTION (RW 0x857D4C -> 0x886BDC..0x886C40)
 	const unsigned diedAt = logic.getFrame();
 	int frames = 0;
-	while (!hole->isEffectivelyDead() && frames < 700)
+	while (rh->rebuildsStarted() == 0u && frames < 700)
 	{
 		g.live->advance(0.2);
 		++frames;
 	}
-	MESSAGE("the hole rebuilt its lair " << logic.getFrame() - diedAt << " frames after the lair died");
-	CHECK(hole->isEffectivelyDead());
+	MESSAGE("the hole started rebuilding its lair " << logic.getFrame() - diedAt << " frames after the lair died");
 	CHECK(frames == 599); // the saved counter (the round trip restored it)
 	CHECK(rh->rebuildsStarted() == 1u);
+	CHECK_FALSE(hole->isEffectivelyDead());
 	CHECK(hole->isMasked());
 	CHECK(status(*hole, "UNSELECTABLE"));
 	CHECK(status(*hole, "UNATTACKABLE"));
@@ -376,8 +377,7 @@ TEST_CASE("rebuild hole live: a dead Cave Troll Lair leaves its hole, which rebu
 	CHECK(rebuilt->getID() != lairID);
 	CHECK(rebuilt->getProducerID() == hole->getID());
 	CHECK(rebuilt->getBuildCostPaid() == 123.0f);
-	CHECK(rebuilt->getName() == "TestLair");
-	CHECK_FALSE(rebuilt->isUnderConstruction());
+	CHECK(rebuilt->isUnderConstruction());
 	CHECK(rebuilt->getPosition()->x == lairPos.x);
 	CHECK(rebuilt->getPosition()->y == lairPos.y);
 	// it rises from 1 % of its health (body vslot 0x58) and builds itself up (GettingBuiltBehavior slot 4)
@@ -394,6 +394,13 @@ TEST_CASE("rebuild hole live: a dead Cave Troll Lair leaves its hole, which rebu
 		g.live->advance(0.2);
 	}
 	CHECK(rebuilt->getBodyModule()->getHealth() > first); // tolerance: the claim is that it builds itself up, not its rate (GettingBuiltBehavior's, tested elsewhere)
+	for (int i = 0; i < 101 && !hole->isEffectivelyDead(); ++i)
+	{
+		g.live->advance(0.2);
+	}
+	CHECK_FALSE(rebuilt->isUnderConstruction());
+	CHECK(rebuilt->getName() == "TestLair");
+	CHECK(hole->isEffectivelyDead());
 }
 
 TEST_CASE("rebuild hole live: a dead Goblin cave's Wild hole makes a worker that rebuilds the cave as RECONSTRUCTING, then the hole dies (RW 0x8AD6A4)")

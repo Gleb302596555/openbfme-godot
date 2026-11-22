@@ -62,6 +62,8 @@ struct ObjectSnapshot
 	// locomotor's speed (AI +0x260 -> +0x1F0 -> +0x40, world units per logic frame; 0 without AI or locomotor, or when not positive), else when that is 0
 	// the same of the object's horde (RW 0x693A1A(0): the object itself when HORDE, else its container when that is a HORDE)
 	float moveSpeed = 0.0f;
+	DisabledMaskType disabledMask = DISABLEDMASK_NONE; ///< LOCAL-106 (RW 0x00675670): Object +0x1C8 disabled mask for Drawable::getShouldAnimate
+	std::uint8_t scriptStatus = 0;                     ///< LOCAL-106 (RW 0x00675667): Object +0x457 script status byte (bit 1 = SCRIPT_UNPOWERED)
 	const LocomotorTemplate *locomotorTemplate = nullptr; ///< LOCAL-25: current locomotor template for client presentation physics
 	bool giantBirdAI = false;                             ///< LOCAL-47 (RW 0x670E29 / 0x8BD372): AI answers vslot 0x168 (GiantBirdAIUpdate)
 	float giantBirdTurnRate = 0.0f;                       ///< LOCAL-47 (RW 0x670E3D / 0x8CEF91): GiantBirdFlight::turnRate (AI + 0x600)
@@ -95,6 +97,7 @@ struct ObjectSnapshot
 	// an ALWAYS_VISIBLE object and for one without a record (a contained object); FXList::doFXObj asks the cell at the position of the latter (RW 0x5E22C4)
 	bool shroudRecord = false;
 	bool effectivelyDead = false;  ///< lane VISUAL-2: Object::isEffectivelyDead (the drawable's shroud grace is 3 s longer, RW 0x64849E: GameClient/DrawableShroud.h)
+	bool burned = false;           ///< LOCAL-103: OBJECT_STATUS_BURNED (bit 11, RW 0x008CD921 SwayClientUpdate::clientUpdate)
 	// lane OCCLUDE-1: the behind-building roles the object qualifies for at this frame (RTS3DSceneOcclusion::eligibility bits: occluder, occludee)
 	std::uint8_t occlusion = 0;
 	// lane STEALTH-1: the invisibility look for the local player (InvisibilityManager::clientLook, RW 0x81AA03): 0 normal, 1 / 4 the friend's opacity pulse, 3 detected
@@ -172,6 +175,8 @@ struct LogicSnapshot
 {
 	UnsignedInt frame = 0;          ///< the completed logic frame
 	bool showBehindBuildingMarkers = true; ///< lane OCCLUDE-1: TheGameLogic + 0x99 (script action 298)
+	bool showDrawableIconUI = true;        ///< LOCAL-94: TheGameLogic + 0x9A (script action 300, RW 0x7BD55C / 0x679134)
+	bool particleCapMode = true;           ///< LOCAL-94: TheGameLogic + 0x9B (script action 301, RW 0x7BD56F / 0x441B52)
 	// lane OCCLUDE-1: GameData UseBehindBuildingMarker and OccludedColorLuminanceScale, carried here so the renderer never waits for the logic to read them
 	bool useBehindBuildingMarker = true;
 	float occludedColorLuminanceScale = 0.5f;

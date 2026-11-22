@@ -8,6 +8,7 @@
 #include "Common/ResourceGatheringManager.h"
 #include "Common/StateHash.h"
 #include "Common/Team.h"
+#include "Common/Thing/KindOfTokens.h"
 #include "Common/Thing/ModuleFactory.h"
 #include "Common/Thing/RawModuleData.h"
 #include "Common/Xfer.h"
@@ -445,6 +446,7 @@ WorkerAIUpdate::WorkerAIUpdate(Thing *thing, const ModuleData *data)
 	}
 }
 
+// RW 0x008AD122 (dtor) / RW 0x008AD5AE (scalar deleting dtor)
 WorkerAIUpdate::~WorkerAIUpdate()
 {
 	// RW 0x8AD122 deletes the machines (+ 0x588, + 0x58C, + 0x584): the supply-truck and worker machines go without their states' exits (StateMachine
@@ -459,6 +461,9 @@ WorkerAIUpdate::~WorkerAIUpdate()
 	}
 }
 
+// RW 0x008AD216 (getModuleNameKey) / RW 0x008AD25B (getModuleName): "WorkerAIUpdate" (0xC0B0D4);
+// privateIdle thunk RW 0x008ACE45 -> AIUpdateInterface::privateIdle RW 0x0066D8F5;
+// DozerAIInterface::onDelete adjustor thunk RW 0x008AE456 -> RW 0x008AE203.
 void WorkerAIUpdate::registerClass(ModuleFactory &modules)
 {
 	modules.bindModuleProc("WorkerAIUpdate", MODULETYPE_BEHAVIOR, [](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &info) -> std::unique_ptr<Module> {
@@ -547,7 +552,7 @@ UpdateSleepTime WorkerAIUpdate::update()
 	return UPDATE_SLEEP_NONE;
 }
 
-// RW 0x8AD6A4 with its sixth argument 1 (see WorkerAIUpdate.h)
+// RW 0x008AD6A4 (DozerAIInterface::construct adjustor thunk RW 0x008ADA95; createPhantomStructure slot 25 RW 0x00610A6C is a ret 0x10 no-op because workers create structures directly) with its sixth argument 1 (see WorkerAIUpdate.h)
 Object *WorkerAIUpdate::constructForRebuild(const ThingTemplate &what, const Coord3D &pos, float angle, Player &owner)
 {
 	m_rebuildConstruct581 = true; // + 0x581
@@ -591,6 +596,52 @@ Object *WorkerAIUpdate::constructForRebuild(const ThingTemplate &what, const Coo
 	Construction::setModelConditions(*obj, { "AWAITING_CONSTRUCTION" }, { "PARTIALLY_CONSTRUCTED", "ACTIVELY_BEING_CONSTRUCTED" }); // RW 0x68D607
 	newTask(DOZER_TASK_BUILD, *obj); // the dozer interface's slot 0x30
 	return obj;
+}
+
+// RW 0x008AE4A9 (WorkerAIUpdate::newTask, dozer_if slot 0x30): delegates task/dock setup to DozerAIUpdate::newTask,
+// sets OBJECT_STATUS_WORKER_REPAIRING (0x61, RW 0x008AE6BE..0x008AE6CF) for BUILD/REPAIR, and if m_workerMachine is
+// in AS_SUPPLY_TRUCK (1, RW 0x008AE6FF..0x008AE741) switches out to AS_DOZER (0) via aiIdle + setState(AS_DOZER).
+void WorkerAIUpdate::newTask(int task, Object &target)
+{
+	DozerAIUpdate::newTask(task, target);
+	if (task == DOZER_TASK_BUILD || task == DOZER_TASK_REPAIR)
+	{
+		static const int kWorkerRepairing = ObjectTemplateInfoBuilder::objectStatusIndex("WORKER_REPAIRING"); // RW 0x61
+		if (kWorkerRepairing >= 0 && isTaskPending(task))
+		{
+			getObject()->setStatus((unsigned)kWorkerRepairing, true); // RW 0x008AE6BE..0x008AE6CF
+		}
+	}
+	if (m_workerMachine && m_workerMachine->currentStateId() == (unsigned)AS_SUPPLY_TRUCK)
+	{
+		exitingSupplyTruckState(); // RW 0x008AE716..0x008AE741
+	}
+}
+
+// RW 0x008AE17C (WorkerAIUpdate::internalTaskCompleteOrCancelled, dozer_if slot 0x40): clears ACTIVELY_CONSTRUCTING
+// for BUILD/REPAIR and clears OBJECT_STATUS_WORKER_REPAIRING (0x61, RW 0x008AE1E9..0x008AE1F3).
+void WorkerAIUpdate::internalTaskCompleteOrCancelled(int task)
+{
+	DozerAIUpdate::internalTaskCompleteOrCancelled(task);
+	static const int kWorkerRepairing = ObjectTemplateInfoBuilder::objectStatusIndex("WORKER_REPAIRING"); // RW 0x61
+	if (kWorkerRepairing >= 0)
+	{
+		getObject()->setStatus((unsigned)kWorkerRepairing, false); // RW 0x008AE1E9..0x008AE1F3
+	}
+}
+
+// RW 0x008AE74B (WorkerAIUpdate::internalCancelTask, dozer_if slot 0x3C): calls internalTaskCompleteOrCancelled,
+// clears m_task[task] and dock points, and idles the AI (RW 0x008AE775..0x008AE78E).
+void WorkerAIUpdate::internalCancelTask(int task)
+{
+	DozerAIUpdate::internalCancelTask(task);
+}
+
+// RW 0x008ACEE3 (WorkerAIUpdate::cancelTask, dozer_if slot 0x34): calls internalCancelTask (slot 0x3C) and resets
+// the dozer primary machine.
+void WorkerAIUpdate::cancelTaskInternal(int task)
+{
+	DozerAIUpdate::cancelTaskInternal(task);
 }
 
 // RW 0x8AE461

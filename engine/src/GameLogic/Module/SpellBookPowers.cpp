@@ -11,6 +11,7 @@
 #include "GameLogic/Module/SpellBookPowers.h"
 #include "GameLogic/Map/FireLogicSystem.h"
 #include "GameLogic/Module/SpellEffectModules.h"
+#include "GameLogic/Module/EmotionModules.h" // PORT-260: CloudBreak's fire put-out request (RW 0x68F383)
 
 #include "Common/Player.h"
 #include "Common/Thing/ModuleFactory.h"
@@ -280,17 +281,24 @@ Object *WeatherFamilySpecialPower::seedArea(const Coord3D &loc, const std::strin
 			list->create(logic, obj, loc); // RW 0x5F00CA (source: the object)
 		}
 	}
-	// RW 0x8C8DF9 / 0x8C7C22: the template by name (RW 0x6D1305); newObject on no team (the neutral player's, RW 0x699E4A) at the location
+	// RW 0x8C8DF9 / 0x8C7C22: the template by name (RW 0x6D1305); newObject on no team (RW 0x6D165E), then the location (RW 0x70C201) and the caster's
+	// team (Object + 0x31C, setTeam RW 0x69954A): Taint places it first (RW 0x8C8E46, 0x8C8E56), Elven Wood sets the team first (RW 0x8C7C8F, 0x8C7C99).
+	// The area object is the caster's, so its aura's ally filter and the grid's owner test follow the caster (upstream merge 2026-11-16: TAINTAREA-1)
 	const ThingTemplate *tt = logic.things().findTemplate(objectName);
 	if (!tt)
 	{
 		return nullptr;
 	}
 	Object *made = logic.newObject(tt, nullptr, ObjectStatusMaskType{});
-	if (made)
+	if (made && morphType == 2)
 	{
-		made->setPosition(&loc); // RW 0x70C201
-		++m_unported;            // RW 0x69954A (with the caster's + 0x31C): S-921
+		made->setTeam(obj->getTeam()); // RW 0x8C7C8F
+		made->setPosition(&loc);       // RW 0x8C7C99
+	}
+	else if (made)
+	{
+		made->setPosition(&loc);       // RW 0x8C8E46
+		made->setTeam(obj->getTeam()); // RW 0x8C8E56
 	}
 	return made;
 }
@@ -331,20 +339,32 @@ void CloudBreakSpecialPower::doSpecialPowerAtLocation(const Coord3D &loc, unsign
 	}
 	baseDo(&loc, nullptr, options);
 	emitCentreFX(m_data->m_fx, nullptr); // RW 0x8C8B01
+	putOutFires();                        // RW 0x8C8A3B
 	makeSunbeams();                       // RW 0x8C8B57
-	// RW 0x8C8A3B: every object the filter allows for the caster's player has its outermost container's fire put out (RW 0x68F383): S-921
-	Object *obj = getObject();
-	if (m_data->m_attributeModifierAffects)
-	{
-		for (Object *o = obj->logic().getFirstObject(); o; o = o->getNextObject())
-		{
-			if (ObjectFilterMatch::allows(obj->logic(), *m_data->m_attributeModifierAffects, *o, obj->getControllingPlayer()))
-			{
-				++m_unported;
-			}
-		}
-	}
 	zeroBurnDecay();
+}
+
+// RW 0x8C8A3B: every object of the object list (RW 0x97338F first, + 0x8C next) the data's AttributeModifierAffects (+ 0x24, the base's field, RW
+// 0x7640C1 with the object's template and the caster's controlling player, RW 0x68B678) allows gets, through its OUTERMOST container (+ 0x27C chain to the
+// top, RW 0x68F383's first loop 0x68F389 / 0x68F381), the request "put the fire out" at its EmotionTrackerUpdate: RW 0x68F393 reads Object + 0x254 (the
+// tracker the object caches at construction, RW 0x69A529) and RW 0x68F397 jumps to RW 0x8B4E75 with type 5 (UNCONTROLLABLE_FEAR per the port's table,
+// RW 0x8C8A70 `push 5`), the null source and 1 (RW 0x8C8A6D `push 1`, the delay: one frame). S-921's "CloudBreak's fire put-out" (RW 0x68F383) runs now
+void CloudBreakSpecialPower::putOutFires()
+{
+	// The walk runs unconditionally (RW 0x8C8A50 jumps to RW 0x8C8A58 when the filter slot is empty, then 0x8C8A61 -> RW 0x7640C1 with a null filter:
+	// ObjectFilterMatch::isValid is false, so RW 0x7640C1's "unset filter" answer is what the filter-less cast gets)
+	GameLogic &logic = getObject()->logic();
+	const Player *player = getObject()->getControllingPlayer(); // RW 0x8C8A58 -> RW 0x68B678
+	for (Object *o = logic.getFirstObject(); o; o = o->getNextObject()) // RW 0x8C8A4E / RW 0x8C8A79
+	{
+		if (m_data->m_attributeModifierAffects &&
+			!ObjectFilterMatch::allows(logic, *m_data->m_attributeModifierAffects, *o, player)) // RW 0x8C8A61 -> RW 0x7640C1
+		{
+			continue;
+		}
+		EmotionTrackerUpdate::requestEmotion(*o, EMOTION_UNCONTROLLABLE_FEAR, nullptr, 1); // RW 0x8C8A72 -> RW 0x68F383 -> RW 0x8B4E75
+		++m_firesPutOut;
+	}
 }
 
 // RW 0x8C8B57 .. 0x8C8C46 (SSE): spacing > 0: y = (float)(int)(spacing + lo.y) while y < hi.y - spacing; x = (float)(int)(spacing + lo.x) while x < hi.x - spacing:
@@ -427,16 +447,22 @@ void ElvenWoodSpecialPower::doSpecialPowerAtLocation(const Coord3D &loc, unsigne
 	paintArea(loc, m_data->m_elvenWoodRadius, made, 0xFF); // RW 0x8C7E89 .. 0x8C7ECD
 }
 
-// ---- ProductionSpeedBonus ------------------------------------------------------------------------------------------------------------------
+// ---- ProductionSpeedBonus (RW 0x8C70FC / RW 0x8C7126 / RW 0x8C712C / RW 0x8C7171 / RW 0x8C71ED / RW 0x8C724F / RW 0x8C726B / RW 0x8C6606) --------------
 void ProductionSpeedBonus::doSpecialPower(unsigned options)
 {
-	// RW 0x8C7191 .. 0x8C71B7: fld mult; fsub 1.0 (double); fld mult; fmul -1.0 (double); fdivp; fstp single
+	Object *caster = getObject();
+	Player *player = caster->getControllingPlayer(); // RW 0x8C7180 -> RW 0x68B678
+	// RW 0x8C7191 .. 0x8C71B7: fld mult; fsub 1.0 (double RW 0xBD2C98); fld mult; fmul -1.0 (double RW 0xBDFC10); fdivp; fstp single -> RW 0x6AF3C8
 	const float mult = m_data->m_speedMultiplier;
 	const float factor = SimMath::fstpDword(SimMath::pc24DivW(SimMath::pc24SubW((double)mult, 1.0), SimMath::pc24MulW((double)mult, -1.0)));
 	for (const std::string &type : m_data->m_types)
 	{
+		if (player)
+		{
+			player->setProductionSpeedBonus(type, factor, m_data->m_numberOfFrames); // PORT-280: RW 0x8C71B7 -> RW 0x6AF3C8
+		}
 		bool found = false;
-		for (auto &b : m_bonuses) // RW 0x6AF3C8: the name's record is found or made
+		for (auto &b : m_bonuses) // inspection mirror for spellbook probes; production reads Player::getProductionTimeChange (RW 0x6AF484)
 		{
 			if (b.first == type)
 			{
@@ -449,11 +475,10 @@ void ProductionSpeedBonus::doSpecialPower(unsigned options)
 		{
 			m_bonuses.push_back({ type, { m_data->m_numberOfFrames, factor } });
 		}
-		++m_unported; // the player's production bonus is not read by production (S-921)
 	}
-	if (getObject()->getDisabledMask() == 0)
+	if (caster->getDisabledMask() == 0) // RW 0x8C71C7 .. 0x8C71D4 -> RW 0x9325B4
 	{
-		const Coord3D pos = *getObject()->getPosition();
+		const Coord3D pos = *caster->getPosition();
 		SpecialPowerModule::doSpecialPowerAtLocation(pos, options); // RW 0x8C71E2 (slot 0x30: the base RW 0x89816C)
 	}
 }
@@ -613,10 +638,11 @@ std::vector<std::string> SpellBookPowers::stopLines()
 		"Scavenger, UntamedAllegiance and Devastate run their logic do* paths, with the map-centre FX (TerrainLogic vslot 0x20 = RW 0x462637, the "
 		"active boundary taken as 0: only scripts change it) and CloudBreak's SunbeamObject grid (RW 0x8C8B57: every created sunbeam draws what its "
 		"constructor and sendObjectCreated draw, TWO logic random draws each for the retail CloudBreakSunbeam (LifetimeUpdate's lifetime and the seed), "
-		"2 * N per cast for N grid points); not ported (counted per cast): the fire grid burn rate (RW 0x687C4C), CloudBreak's fire put-out (RW 0x68F383) "
-		"and the sunbeams' Lua terror (their panic gameplay), the terrain's taint / elven wood tree areas (RW 0x67F6F0, 0x67D4CE; TheTaintManager's paint RW 0xAD4C10 runs, TaintManager.h), RW "
-		"0x69954A on the area object, the production speed bonus consumer (RW 0x6AF3C8 is stored only), the defect side effects (RW 0x699368 / 0x6938BD), "
-		"Devastate's FireWeapon (lane DECOMP-1) and its trees, FX and money (lane SPELL-3, S-930) run",
+		"2 * N per cast for N grid points); ProductionSpeedBonus writes Player's timed production-time bonuses (PORT-280: RW 0x8C7171 -> RW 0x6AF3C8, "
+		"Player::update RW 0x6AF269, calcTimeToBuild RW 0x73C3EC -> RW 0x6AF484, ProductionUpdate RW 0x8A1C20 .. 0x8A1D4F); not ported (counted per cast): "
+		"the fire grid burn rate (RW 0x687C4C), CloudBreak's fire put-out (RW 0x68F383) and the sunbeams' Lua terror (their panic gameplay), the terrain's "
+		"taint / elven wood tree areas (RW 0x67F6F0, 0x67D4CE; TheTaintManager's paint RW 0xAD4C10 runs, TaintManager.h), RW 0x69954A on the area object, "
+		"the defect side effects (RW 0x699368 / 0x6938BD), Devastate's FireWeapon (lane DECOMP-1) and its trees, FX and money (lane SPELL-3, S-930) run",
 	};
 	for (const std::string &s : GlobalWeatherSystem::stopLines())
 	{
@@ -696,6 +722,7 @@ void ProductionSpeedBonus::xfer(Xfer &x)
 	});
 }
 
+// RW 0x008C891C
 void ScavengerSpecialPower::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

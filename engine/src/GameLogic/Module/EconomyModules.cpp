@@ -45,7 +45,7 @@ void EconomyModules::registerAll(ModuleFactory &modules)
 	modules.bindTypedData<RefundDieModuleData>("RefundDie", MODULETYPE_BEHAVIOR);
 	bindRuntime<RefundDie, RefundDieModuleData>(modules, "RefundDie");
 	modules.bindTypedData<PillageModuleData>("PillageModule", MODULETYPE_BEHAVIOR);
-	bindRuntime<PillageModule, PillageModuleData>(modules, "PillageModule");
+	bindRuntime<PillageModule, PillageModuleData>(modules, "PillageModule"); // GetSnapshotName RW 0x008881C7, getModuleNameKey RW 0x00888202
 	modules.bindTypedData<SalvageCrateCollideModuleData>("SalvageCrateCollide", MODULETYPE_BEHAVIOR);
 	modules.bindTypedData<VeterancyCrateCollideModuleData>("VeterancyCrateCollide", MODULETYPE_BEHAVIOR);
 	bindRuntime<VeterancyCrateCollide, VeterancyCrateCollideModuleData>(modules, "VeterancyCrateCollide");

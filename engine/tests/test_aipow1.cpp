@@ -489,22 +489,22 @@ TEST_CASE("AIPOW-1: TOGGLE_SIEGE (RW 0x9EA2E1 / 0x9EA201 / 0x9EA280) and DOMINAT
 	CHECK(dominate->decision()->kind == AISpecialPowerDecision::KIND_OBJECT);
 }
 
-TEST_CASE("AIPOW-1: the ActionManager's stops [S-1871] .. [S-1874] and the computer's sciences [S-1875] are reported, S-1421 names what stays unported")
+TEST_CASE("PORT-232 AIPOW-1 stops: the ActionManager's stops [S-1872] .. [S-1874] and the computer's sciences [S-1875] are reported, S-1421 names what stays unported")
 {
 	const std::vector<std::string> am = ActionManager::stopLines();
-	REQUIRE(am.size() == 5);
-	CHECK(am[0].rfind("[S-1871]", 0) == 0);
-	CHECK(am[1].rfind("[S-1872]", 0) == 0);
-	CHECK(am[2].rfind("[S-1873]", 0) == 0);
-	CHECK(am[3].rfind("[S-1874]", 0) == 0);
-	CHECK(am[4].rfind("[S-7140]", 0) == 0); // MODCOMPAT-MOD1: RW 0x82D925's unported per-type object tests
+	REQUIRE(am.size() == 4);
+	CHECK(am[0].rfind("[S-1872]", 0) == 0);
+	CHECK(am[1].rfind("[S-1873]", 0) == 0);
+	CHECK(am[2].rfind("[S-1874]", 0) == 0);
+	CHECK(am[3].rfind("[S-7140]", 0) == 0); // MODCOMPAT-MOD1: RW 0x82D925's unported per-type object tests
 	const std::vector<std::string> ai = AISpecialPowerUpdate::stopLines();
 	REQUIRE(ai.size() == 2);
 	CHECK(ai[0].rfind("[S-1421]", 0) == 0);
-	CHECK(ai[0].find("51 of the 53 decisions run") != std::string::npos);
+	// pin: PORT-196 (fork issue 463) ported the spell book's ARMY_BREAKER (RW 0x9E92CA), so the sentence counts 52 of 53 — this pin moved with it
+	CHECK(ai[0].find("52 of the 53 decisions run") != std::string::npos);
 	CHECK(ai[0].find("SOUL_FREEZE") == std::string::npos); // lane RAI-POW ported it
 	CHECK(ai[1].rfind("[S-1875]", 0) == 0);
-	// the decisions still unported: ATTACK_HEAL_AOE and the 2 spell book ones (ARMY_BREAKER, HEAL); TREE_KILLER is ported by lane RAI-POW-3
+	// the decision still unported: the spell book's HEAL; ATTACK_HEAL_AOE is ported by RAI-POW-4, TREE_KILLER by RAI-POW-3, ARMY_BREAKER by PORT-196 (fork issue 463)
 	int unported = 0;
 	for (int t = 0; t < AI_SPECIAL_POWER_TYPE_COUNT; ++t)
 	{
@@ -515,7 +515,8 @@ TEST_CASE("AIPOW-1: the ActionManager's stops [S-1871] .. [S-1874] and the compu
 			CHECK_MESSAGE(spellBook, TheAISpecialPowerTypeNames[t]);
 		}
 	}
-	CHECK(unported == 2); // RAI-POW-4 moved this from 3: ATTACK_HEAL_AOE is ported
+	// pin: PORT-196 ported ARMY_BREAKER: 3 -> 2 (RAI-POW-4) -> 1; the remaining one is the spell book's HEAL (stop S-7389)
+	CHECK(unported == 1);
 	CHECK(AISpecialPowerDecision::decisionPorted(21));
 	CHECK(AISpecialPowerDecision::decisionPorted(25));
 	CHECK(AISpecialPowerDecision::decisionPorted(34));
@@ -1638,13 +1639,13 @@ TEST_CASE("RAI-POW-2: DEBUFFECONOMYBUILDING (RW 0x9E74B7) takes the enemy record
 	REQUIRE(ai);
 	const Player *enemy = AITacticalAI::enemyPlayer(*a.logic, *ai);
 	REQUIRE(enemy == a.human);
-	// RW 0x7A1129's ThingClass read is not ported: the acquire says so once (S-4257)
+	// PORT-227: RW 0x7A1129 reads ThingTemplate::m_isBuildFacility (+ 0x5F6, already resolved); S-4257 is closed
 	bool classifiedStop = false;
 	for (const std::string &line : a.logic->report().stops)
 	{
 		classifiedStop = classifiedStop || line.rfind("[S-4257]", 0) == 0;
 	}
-	CHECK(classifiedStop);
+	CHECK_FALSE(classifiedStop);
 	CHECK(ai->enemyIndex == a.human->getPlayerIndex());
 	const std::uint32_t refresh = ai->enemyRefreshFrame;
 	CHECK(refresh >= a.logic->getFrame()); // tolerance: the refresh frame is this frame + 25, read at its boundary

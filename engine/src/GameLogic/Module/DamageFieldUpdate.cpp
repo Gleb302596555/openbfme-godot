@@ -37,13 +37,14 @@ void DamageFieldUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 	p.add(kDamageFieldUpdateFieldParse);
 }
 
-// RW 0x894935 / DONOR BFME2 0x491220
+// RW 0x894935 / DONOR BFME2 0x491220 (retail m_victims std::list<ObjectID> helpers: ctor RW 0x006A057C, _M_create_node RW 0x006A05C1, insert RW 0x006A1D75, erase RW 0x006AC552, remove RW 0x006AC9F9)
 DamageFieldUpdate::DamageFieldUpdate(Thing *thing, const DamageFieldUpdateModuleData *data)
 	: FireWeaponUpdate(thing, data)
 	, m_data(data)
 {
 }
 
+// RW 0x008948B8 (~DamageFieldUpdate -> FireWeaponUpdate::~FireWeaponUpdate RW 0x0088F37D), RW 0x00894986 (scalar deleting destructor)
 DamageFieldUpdate::~DamageFieldUpdate() = default;
 
 // RW 0x89483A / DONOR BFME2 0x4911AE
@@ -57,7 +58,7 @@ void DamageFieldUpdate::fireExtraWeapon(Object *other)
 	{
 		if (weaponHost().extraWeaponStatus(*m_weapon) == WEAPON_READY_TO_FIRE)
 		{
-			weaponHost().fireExtraWeapon(*m_weapon, *other);
+			weaponHost().forceFireExtraWeapon(*m_weapon, *other); // RW 0x00894860 -> RW 0x006CF407
 			++m_shots;
 		}
 		return;
@@ -69,7 +70,7 @@ void DamageFieldUpdate::fireExtraWeapon(Object *other)
 		{
 			continue;
 		}
-		weaponHost().fireExtraWeapon(*r.weapon, *other);
+		weaponHost().forceFireExtraWeapon(*r.weapon, *other); // RW 0x0089489B -> RW 0x006CF407
 		++m_shots;
 		if (r.oneShot)
 		{
@@ -134,7 +135,7 @@ UpdateSleepTime DamageFieldUpdate::update()
 	return nextSleep(); // RW 0x894BF5
 }
 
-// RW 0x894C52 / DONOR BFME2 0x49157D
+// RW 0x00894C09 / DONOR BFME2 0x49157D
 void DamageFieldUpdate::xfer(Xfer &x)
 {
 	XferVersion v{ 1, 1 };
@@ -153,7 +154,7 @@ void DamageFieldUpdate::crc(StateHasher &hasher) const
 	FireWeaponUpdate::crc(hasher);
 }
 
-// RW 0x659082 / DONOR BFME2 0x6577D5
+// RW 0x659082 / DONOR BFME2 0x6577D5; getModuleName RW 0x008948EA, getModuleNameKey RW 0x008948F0
 void DamageFieldUpdate::registerClass(ModuleFactory &modules)
 {
 	modules.bindTypedData<DamageFieldUpdateModuleData>("DamageFieldUpdate", MODULETYPE_BEHAVIOR);

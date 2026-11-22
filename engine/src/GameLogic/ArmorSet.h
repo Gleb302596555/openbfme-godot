@@ -60,5 +60,5 @@ inline int ArmorSetPopCount(std::uint32_t v)
 	return n;
 }
 
-// RW 0x73F6A0 -> 0x73D917 (the rule in the header comment): nullptr for an empty vector
+// RW 0x73F6A0 -> RW 0x0073EED2 (SparseMatchFinder::findBestInfo) -> RW 0x73D917 (findBestInfoSlow): nullptr for an empty vector
 const ArmorTemplateSet *FindArmorTemplateSet(const std::vector<ArmorTemplateSet> &sets, ArmorSetFlags flags);

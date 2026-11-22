@@ -17,6 +17,7 @@
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/PartitionManager.h"
 #include "GameLogic/System/InvisibilityManager.h"
+#include <cstdlib>
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDraw.h"
 
 namespace
@@ -74,7 +75,26 @@ bool LiveScripting::start(const std::string &mapFolder, std::string *error)
 		LuaObjectInfo info;
 		const bool dispatch = describe(obj, &info, true);
 		++m_stats.creations;
-		return LuaScriptEngine::sendObjectCreated(m_logic.random(), dispatch ? m_engine.get() : nullptr, dispatch ? &info : nullptr, bindDrawable);
+		const size_t before = m_engine->logic() ? m_engine->logic()->alerts().size() : 0;
+		auto created = LuaScriptEngine::sendObjectCreated(m_logic.random(), dispatch ? m_engine.get() : nullptr, dispatch ? &info : nullptr, bindDrawable);
+		if (m_engine->logic() && m_engine->logic()->alerts().size() > before)
+		{
+			// name the object and its handler in the report (an alert carries neither)
+			std::string source = obj.getTemplate() ? obj.getTemplate()->getName() : std::string("?");
+			if (dispatch && info.luaEvents)
+			{
+				if (const LuaEventHandler *h = info.luaEvents->find(m_engine->events().internalKey(LUAEVENT_OnCreated)))
+				{
+					source += " OnCreated " + h->function;
+				}
+			}
+			m_alertSources.resize(m_engine->logic()->alerts().size());
+			for (size_t i = before; i < m_alertSources.size(); ++i)
+			{
+				m_alertSources[i] = source;
+			}
+		}
+		return created;
 	});
 	m_logic.setWorldHooks(
 		[this](Object &obj) {
@@ -258,6 +278,41 @@ bool LiveScripting::findObject(int id, LuaObjectInfo *out)
 	return obj && describe(*obj, out, false);
 }
 
+// RW 0x7366FE (luaObjectDescription) -> RW 0x69005F: description fields for ObjectDescription(self)
+bool LiveScripting::objectDescription(int id, ObjectDescription *out)
+{
+	const Object *obj = m_logic.findObjectByID((ObjectID)id);
+	if (!obj || !out)
+	{
+		return false;
+	}
+	out->objectName = obj->getName();
+	out->templateName = obj->getTemplate() ? obj->getTemplate()->getName() : std::string();
+	if (const Player *player = obj->getControllingPlayer())
+	{
+		out->playerIndex = player->getPlayerIndex();
+		const std::string &disp = player->getPlayerDisplayName().empty() ? player->getPlayerName() : player->getPlayerDisplayName();
+		out->playerName.assign(disp.begin(), disp.end());
+	}
+	else
+	{
+		out->playerIndex = 0;
+		out->playerName = L"<unknown>";
+	}
+	return true;
+}
+
+// RW 0x7369AE (luaObjectTestCanSufferFear) -> RW 0x736A09 -> RW 0x68C818 -> RW 0x804F39 (AttributeModifierPool::sum)
+bool LiveScripting::objectAttributeModifier(int id, int type, float *bonus)
+{
+	const Object *obj = m_logic.findObjectByID((ObjectID)id);
+	if (!obj || !bonus)
+	{
+		return false;
+	}
+	return obj->attributeModifierSum(type, nullptr, *bonus);
+}
+
 // LuaBindings.cpp RW 0x7367E3 / 0x73684D: owner side, or the current capturer's side.
 std::string LiveScripting::objectPlayerSide(int id)
 {
@@ -425,9 +480,39 @@ LiveScripting::Stats LiveScripting::stats() const
 		{
 			s.stops.push_back("[" + e.stop + "] " + e.text);
 		}
-		for (const std::string &a : m_engine->logic()->alerts())
+		const std::vector<std::string> &alerts = m_engine->logic()->alerts();
+		const std::vector<std::string> &ctx = m_engine->logic()->alertSources();
+		const std::vector<bool> &dropped = m_engine->logic()->alertRetailDropped();
+		for (size_t i = 0; i < alerts.size(); ++i)
 		{
-			s.errors.push_back("OnCreated handler failed: " + a);
+			const std::string &from = i < m_alertSources.size() ? m_alertSources[i] : std::string();
+			std::string where = i < ctx.size() ? ctx[i] : std::string();
+			if (!where.empty())
+			{
+				// the handler's object, by its id, while it lives
+				const size_t at = where.find(" of object ");
+				if (at != std::string::npos)
+				{
+					const int id = std::atoi(where.c_str() + at + 11);
+					if (const Object *o = m_logic.findObjectByID((ObjectID)id); o && o->getTemplate())
+					{
+						where += " " + o->getTemplate()->getName();
+					}
+				}
+			}
+			const std::string msg = !from.empty() ? "OnCreated handler failed (" + from + "): " + alerts[i]
+				: !where.empty() ? "Lua alert (" + where + "): " + alerts[i] : "Lua alert: " + alerts[i];
+			if (i < dropped.size() && dropped[i])
+			{
+				// RW 0x735AE9 (pushObject quirk Q5) -> lua_call RW 0x73611D -> _ALERT RW 0x734E41 (retail builds and drops the alert):
+				// e.g. DozerAIUpdate::hideInStructure RW 0x88C51B -> Object::leaveWorld RW 0x68C18F -> unregisterObject RW 0x735A1D
+				// before OnProducing (+ACTIVELY_CONSTRUCTING) fires via AIUpdateInterface::update RW 0x6695EF -> RW 0x663E32 -> RW 0x7378DA.
+				++s.dataDefects[msg];
+			}
+			else
+			{
+				s.errors.push_back(msg);
+			}
 		}
 	}
 	return s;

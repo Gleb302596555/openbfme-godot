@@ -1,0 +1,43 @@
+# The fork's light checks (owner 2026-11-17): everything that needs no game file runs here, on GitHub's runner, for every pull request (the
+# owner's agents' and other accounts' forks alike) and every push to main: the tools' Python tests, the stop fragments, the matrix diff. The
+# tests on the game's data stay on the owner's Colab sandboxes (tools/colab/pr_checker.py, batch_bot.py): game files never come here. The
+# dashboard (lib/prs.ts) reads this job by its name, "Fork tools: pytest, stops, matrix", and shows its error annotations as red lines.
+name: Fork tools checks
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fork-tools-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  tools:
+    name: "Fork tools: pytest, stops, matrix"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # a pull request: GitHub's merge into main, HEAD^1 is main; a push: HEAD^1 is the commit before
+          fetch-depth: 2
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - name: Install pytest and the disassembler libraries the tools import
+        run: python3 -m pip install --disable-pip-version-check --no-input "pytest==9.1.1" "capstone==5.0.9" "pefile==2024.8.26"
+      - name: Tools' Python tests (no game files)
+        run: python3 -m pytest -q -p no:cacheprovider tools/mod tools/re tools/colab tools/ci tools/test_fragments.py
+      - name: Stop fragments and matrix diff
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: python3 tools/ci/tools_check.py

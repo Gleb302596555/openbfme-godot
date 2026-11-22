@@ -7,6 +7,7 @@
 #include "doctest.h"
 
 #include "ProdTestUtil.h"
+#include "FlatTerrainTestUtil.h"
 
 #include "Common/StateHash.h"
 #include "GameLogic/BitFlags.h"
@@ -76,7 +77,9 @@ struct BuildFx : ProdWorld
 	Object *plot = nullptr;
 	GameLogicDispatch dispatch;
 	BuildCommands commands;
-	BuildFx() : dispatch(*logic)
+	flatterrain::Flat flat; // lane BUILDCLEAR-1: the castle unpack (0x105) and the wall span (0x55) test terrain restrictions (RW 0x796A9A)
+	~BuildFx() { logic->reset(); } // the objects leave the pathfinder before the AIWorld goes
+	BuildFx() : dispatch(*logic), flat(*this, 300)
 	{
 		load(kBuildObjects);
 		load(kBuildCommands);
@@ -353,7 +356,7 @@ TEST_CASE("placement: footprints collide as oriented rectangles and discs (ZH ge
 	CHECK_FALSE(footprintsCollide(e, g));
 }
 
-TEST_CASE("stops S-300 .. S-307 and S-650 .. S-657 (S-651 and S-655 closed): every construction stop is in the live report, and a PreBuiltList castle notes its stop at runtime")
+TEST_CASE("stops S-300 .. S-307 and S-650 .. S-657 (S-651, S-652 and S-655 closed): every construction stop is in the live report, and a PreBuiltList castle notes its stop at runtime")
 {
 	BuildFx f;
 	const GameLogic::Report before = f.logic->report();
@@ -364,7 +367,7 @@ TEST_CASE("stops S-300 .. S-307 and S-650 .. S-657 (S-651 and S-655 closed): eve
 	}
 	for (int id = 650; id <= 657; ++id)
 	{
-		if (id != 651 && id != 655) // S-651 closed by lane DECOMP-1: the HealWeapon is the full temporary weapon (RW 0x6CF530); S-655 by lane LUMBER1 (WorkerAIUpdate's supply half)
+		if (id != 651 && id != 652 && id != 655) // S-651 closed by lane DECOMP-1; S-652 closed by PORT-231 (KeepSelectableWhenDead tail RW 0x690626); S-655 by lane LUMBER1
 		{
 			ids.push_back(id); // lane BUILD-2
 		}
@@ -636,16 +639,17 @@ TEST_CASE("build rate: RebuildWhenDead - a dead structure kept by KeepObjectDie 
 
 namespace
 {
+// lane BUILDCLEAR-1: the segment is a WALL_SEGMENT, as retail's segments are (campsandcastles.ini): RW 0x796EE9 then ignores the hub that builds it
 std::string wallObjects(const char *stagger)
 {
-	return std::string("Object WallSeg\n  KindOf = STRUCTURE SELECTABLE IMMOBILE\n  BuildCost = 10\n  BuildTime = 2.0\n  Geometry = BOX\n  GeometryMajorRadius = 20\n  GeometryMinorRadius = 20\n  GeometryHeight = 10\n"
+	return std::string("Object WallSeg\n  KindOf = STRUCTURE SELECTABLE IMMOBILE WALL_SEGMENT\n  BuildCost = 10\n  BuildTime = 2.0\n  Geometry = BOX\n  GeometryMajorRadius = 20\n  GeometryMinorRadius = 20\n  GeometryHeight = 10\n"
 		"  Behavior = GettingBuiltBehavior ModuleTag_GB\n  End\n  Body = ActiveBody ModuleTag_Body\n    MaxHealth = 100\n    MaxHealthDamaged = 50\n    MaxHealthReallyDamaged = 10\n  End\nEnd\n"
 		"Object WallHubT\n  KindOf = STRUCTURE SELECTABLE IMMOBILE WALL_HUB\n  BuildCost = 20\n  BuildTime = 2.0\n  Geometry = BOX\n  GeometryMajorRadius = 20\n  GeometryMinorRadius = 20\n  GeometryHeight = 10\n"
 		"  Behavior = GettingBuiltBehavior ModuleTag_GB\n  End\n  Body = ActiveBody ModuleTag_Body\n    MaxHealth = 100\n    MaxHealthDamaged = 50\n    MaxHealthReallyDamaged = 10\n  End\n"
 		"  Behavior = WallHubBehavior ModuleTag_WH\n    Options = OPTION_ONE\n    SegmentTemplateName = WallSeg\n    HubCapTemplateName = WallHubT\n    DefaultSegmentTemplateName = WallSeg\n"
 		"    BuilderRadius = 20\n    StaggeredBuildFactor = ") + stagger + "\n  End\nEnd\n"
-		"Object WallCentre\n  KindOf = STRUCTURE IMMOBILE COMMANDCENTER\n  Geometry = BOX\n  GeometryMajorRadius = 20\n  GeometryMinorRadius = 20\n  GeometryHeight = 10\nEnd\n"
-		"Object ImmDozer\n  KindOf = STRUCTURE IMMOBILE DOZER\nEnd\nObject Walker\n  KindOf = INFANTRY\nEnd\n";
+		"Object ImmDozer\n  KindOf = STRUCTURE IMMOBILE DOZER\nEnd\nObject Walker\n  KindOf = INFANTRY\nEnd\n"
+		"Object WallCC\n  KindOf = STRUCTURE IMMOBILE COMMANDCENTER\nEnd\n";
 }
 
 struct WallFx : BuildFx
@@ -654,12 +658,10 @@ struct WallFx : BuildFx
 	{
 		load(wallObjects(stagger));
 		logic->settings().maxLineBuildObjects = 50;
-		// P-106: a hub cap is a WALL_HUB template, and isLocationLegalToBuild (RW 0x796C66 .. 0x796D24) measures its WallHubBehavior range (+ 0x30, the unset
-		// default 54321.0) against the owner's command centres (the collector RW 0x6B00F3 -> 0x6B00CE): with none in the world the span is refused with the code
-		// 9 before the plan's own checks. The base stands away from the tested line so only the range is satisfied here.
-		Object *centre = make("WallCentre", teamOf("Alice"));
-		Coord3D c{ 1000.0f, 1500.0f, 0.0f };
-		centre->setPosition(&c);
+		// lane BUILDCLEAR-1: a WALL_HUB build (the hub caps) is legal within its MaxBuildoutDistance of one of the player's COMMANDCENTERs (RW 0x796C66)
+		Object *cc = make("WallCC", teamOf("Alice"));
+		Coord3D c{ 200.0f, 200.0f, 0.0f };
+		cc->setPosition(&c);
 	}
 	Object *hubAt(float x, float y)
 	{

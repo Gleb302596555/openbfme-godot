@@ -29,6 +29,8 @@
 //   DONOR  Open-BFME-1 Rva0076C080 / Rva0075F0E0 (names for the above), ZH W3DModelDraw.cpp (setModelState render object reuse,
 //          bones, hide / show).
 //
+// Presentation repair requested by the owner: S-5920 reports a missing movement clip replaced by a compatible,
+// matching movement cycle from the same module. Shared by BFME2 / RotWK and BFME1 data mode; simulation is unchanged.
 // What is NOT retail knowledge (stops, docs/STOPS.md):
 //   S-090  the setModelState virtual (RW 0x4C451D) and the pieces of the retail routines that need engine objects this core does
 //          not have: the shared-model-flags / attached-model update of replaceModelConditionState, the sequential-animation flag
@@ -47,9 +49,25 @@
 //   S-097  the pose that supplies the pristine bone positions (see W3DModelDrawBones.h).
 //   S-098  how hidden sub objects carry over when the render object is recreated (RetainSubObjects), and the sub object name match.
 
+// Local 89 (#715, docs/ennorath/W3DSMD_FUNCTIONS.md): RotWK's own functions of this class and of W3DHordeModelDraw that the port does elsewhere
+// (vtables RW 0xBDFFE8 / RW 0xBDC810 and the ObjectDrawInterface RW 0xBE3B78 at draw + 0xC):
+//   RW 0x4C7D11 / RW 0x478A50 the scalar deleting destructors (~W3DScriptedModelDraw); RW 0x4C0911 / RW 0x478423 the class names and
+//   RW 0x4C08CC / RW 0x4783DE getModuleNameKey (the module registry, W3DModelDraw.cpp); RW 0x4C091D / RW 0x47A043 onDrawableBoundToObject (the
+//   first model and animation state: this constructor and the first setModelConditionFlags); RW 0x4B7378 preloadAssets (the device loads on first
+//   use); RW 0x4B26F9 setShadowsEnabled (Drawable::setShadowsEnabled, read per module by the renderer) and RW 0x4B26E4 releaseShadows
+//   (ObjectShadow); RW 0x4B30C0 isVisible, RW 0x98255B getRenderObject and RW 0x4B7748 reactToTransformChange (the device's instance and its
+//   per-frame transform); RW 0x4B2DA8 / RW 0x4B2E3F / RW 0x4B7664 clientOnly_getRenderObjInfo / BoundBox / BoneTransform and RW 0x4B4B23 the
+//   current bone positions (W3DModelDrawBones.h); RW 0x4C0B38 / RW 0x4C0B88 / RW 0x4C0BC0 / RW 0x4C0E53 track i's animation name, handle, frame
+//   and the frame window (W3DDrawTrack, AnimationSoundClientBehavior); RW 0x4BF4D9 / RW 0x4BF501 select the named transition / animation state
+//   at once (select); RW 0x4BA427 / RW 0x4BA4FF / RW 0x4BA5BB / RW 0x4BA693 / RW 0x4B7A59 / RW 0x4B7B07 / RW 0x4BB76A / RW 0x4BB7EB the wall and
+//   ramp mesh queries (GameClient/DrawableWallMeshes.h).
+
 #pragma once
 
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DDrawServices.h"
+#include "Common/GameEdition.h"
+#include "Common/NameKeyGenerator.h"
+#include "GameClient/RadiusCursor.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDraw.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDrawBones.h"
 #include "GameEngineDevice/W3DDevice/GameClient/HouseColor.h"
@@ -172,6 +190,10 @@ struct W3DScriptedModelDrawOptions
 	// called from RW 0x4BF586 inside it) return at once. Set by Drawable::addEntry from W3DModelDrawModuleData::multiPlayerOnlySkipsBody;
 	// unset (no logic, e.g. the map-object runtime): the body runs, as before.
 	bool multiPlayerOnlySkipped = false;
+	// LOCAL-95 (issue #760): RotWK-only animation pause gate (RW 0x004BF608..0x004BF630 -> Drawable::getShouldAnimate RW 0x00675655).
+	// BFME2 1.06 advanceAnimation (BFME2 0x004BFDFE) has no pause return; edition selects the rule.
+	GameEdition edition = GameEdition::RotWK201;
+	std::function<bool(bool animationsRequirePower)> shouldAnimate;
 };
 
 class W3DScriptedModelDraw : public W3DDrawScriptApi
@@ -193,6 +215,25 @@ public:
 	bool setModelState(const ModelConditionInfo *state, bool force = false);
 	// RW 0x8B911E -> draw module vslot 0x84: SubObjectsUpgrade's UpgradeTexture list replaces the module's upgrade textures (empty: none)
 	void setUpgradeTextureSwaps(const std::vector<std::pair<std::string, std::string>> &swaps);
+
+	// Local 89 (#715): the terrain decal, draw module vtable RW 0xBDFFE8 slots 19-22 (docs/ennorath/W3DSMD_FUNCTIONS.md). RotWK makes a decal shadow
+	// of the shadow manager (RW 0xDD1D14 vslot 0xC, type 0x20 SHADOW_ALPHA_DECAL) sized by the template's ShadowSizeX / ShadowSizeY / ShadowOffsetX /
+	// ShadowOffsetY (+0x4F8 .. +0x504); the port keeps its description here and ObjectShadow draws it with the other decal shadows. Callers:
+	// Drawable::setTerrainDecal (RW 0x672B96 / 0x672BBB) and its fade (RW 0x675C25).
+	struct TerrainDecal
+	{
+		std::string texture;            ///< as the table or the caller names it (no extension)
+		float sizeX = 0.0f, sizeY = 0.0f, offsetX = 0.0f, offsetY = 0.0f;
+		int opacity = 255;              ///< the RadiusDecal opacity, int(opacity * 255) (RW 0x73228B); a new decal is opaque
+	};
+	static const char *terrainDecalTexture(int type); ///< RW 0xD99F40: the texture of a TerrainDecalType below 7 (6: the caller's texture), else null
+	// RW 0x4B94BC (slot 20): the old decal goes; a type below 7 makes the decal of the table's texture, 7 (TERRAIN_DECAL_NONE) or more only removes
+	void setTerrainDecal(int type, float sizeX, float sizeY, float offsetX, float offsetY);
+	// RW 0x4B95AD (slot 19): the old decal goes; a non-empty texture name makes a decal of it
+	void setTerrainDecalTexture(const std::string &texture, float sizeX, float sizeY, float offsetX, float offsetY);
+	void setTerrainDecalSize(float x, float y);   ///< RW 0x4B2A1B (slot 21): with a decal, its size
+	void setTerrainDecalOpacity(float opacity);   ///< RW 0x4B2A3B (slot 22): with a decal, int(opacity * 255.0) truncated (RW 0x4B2A48 / 0x4B2A50)
+	const TerrainDecal *terrainDecal() const { return m_hasTerrainDecal ? &m_terrainDecal : nullptr; }
 	// lane COMBAT-4: the module data's DependencySharedModelFlags (+ 0xBC, RW table row 0xBE1420): the flags the module's dependents share (RW 0x4BF2D8)
 	const ModelConditionFlags &dependencySharedModelFlags() const { return m_data.m_dependencySharedModelFlags; }
 
@@ -244,6 +285,10 @@ public:
 		{
 			return false; // RW 0x4BF56C / 0x4BF575: advance returns at once
 		}
+		if (m_isPaused && m_options.edition == GameEdition::RotWK201)
+		{
+			return static_cast<bool>(m_options.shouldAnimate); // LOCAL-95 (RW 0x004BF62A): paused until shouldAnimate unpauses
+		}
 		if (m_tracks[1].anim || m_tracks[2].anim)
 		{
 			return true;
@@ -253,9 +298,9 @@ public:
 		{
 			return m_pending;
 		}
-		if (m_whichAnim >= 0 && m_whichAnim < (int)m_curAnimState->animations.size())
+		if (const W3DAnimationInfo *playing = playbackAnimationInfo())
 		{
-			const W3DAnimationInfo &info = m_curAnimState->animations[(size_t)m_whichAnim];
+			const W3DAnimationInfo &info = *playing;
 			if (info.fadeBeginFrame > 0.0f && info.fadeEndFrame > info.fadeBeginFrame)
 			{
 				return true; // RW 0x4B54D0 .. 0x4B54EB: the ramp's test
@@ -319,6 +364,85 @@ public:
 	// Speed multiplier of every track (RW +0x9C: the movement speed sync, recomputed at the end of every advance). Exposed for tests.
 	void setSpeedMultiplier(float m) { m_speedSync = m; }
 	float speedMultiplier() const { return m_speedSync; } // lane SMOOTH-3: the Distance sync (RW +0x9C)
+	// LOCAL-95 (issue #760): animation control, pause and track queries
+	void setPauseAnimation(bool pause);                    ///< RW 0x004B304E (slot +0x70): pause/resume track 0 (+0x81/+0x84)
+	bool isAnimationPaused() const { return m_isPaused; }
+	bool setAnimationLoopDuration(unsigned numFrames);     ///< RW 0x004B300D (slot +0x64) -> RW 0x004B2808: scale speedSync to numFrames
+	bool setAnimationCompletionTime(unsigned numFrames);   ///< RW 0x004B3049 (slot +0x68): forwards to setAnimationLoopDuration
+	void skipToEndOfAnimation();                           ///< RW 0x004B3350 (primary +0xE4): snap track 0 to last frame
+	void showPreviousAnimationState();                     ///< RW 0x004BF4D9 (slot +0xB4) -> RW 0x004B44F3: step to previous AnimationState
+	void showNextAnimationState();                         ///< RW 0x004BF501 (slot +0xB8) -> RW 0x004B4514: step to next AnimationState
+	bool sequentialAnimation() const { return m_sequentialAnim; } ///< RW +0x28C
+	std::string getPlayingAnimationName(int track) const;  ///< RW 0x004C0B38 (slot +0x28): clip name on track 0..2
+	NameKeyType getPlayingAnimationNameKey(int track, NameKeyGenerator &keys) const; ///< RW 0x004C0B88 (slot +0x2C)
+	void buildPlayingAnimationStringInfo(int track, std::string *outAnim, std::string *outState) const; ///< RW 0x004C0BC0 (slot +0x30)
+	bool getAnimationFrameCount(const std::string &animName, int *outFrames) const; ///< RW 0x004BF0B5 (slot +0x38)
+	// LOCAL-95 (issue #760): portrait/button images, shadow/hidden state and wall/ramp mesh overloads
+	std::string portraitImageName();                       ///< RW 0x004B6789 (primary +0xCC): cached ModelConditionInfo::portraitImageName
+	std::string buttonImageName();                         ///< RW 0x004B9460 (primary +0xD0): cached buttonImageName gated by !portraitImageName.empty()
+	void setShadowsEnabled(bool enable);                   ///< RW 0x004B26F9 (primary +0x30): sets +0x4A and active shadow render flag
+	void releaseShadows();                                 ///< RW 0x004B26E4 (primary +0x34): releases active shadow (+0x58)
+	void setFullyObscuredByShroud(bool obscured);          ///< updates +0x4B shroud mask used by setShadowsEnabled (RW 0x004B270B)
+	bool shadowsEnabled() const { return m_shadowEnabled; }
+	bool shadowRenderEnabled() const { return m_shadowRenderEnabled; }
+	bool hasShadow() const { return m_hasShadow; }
+	bool isHidden() const { return m_hidden; }             ///< RW 0x004B26E0 (primary +0x44): +0x4C
+	void setHidden(bool hidden);                           ///< RW 0x004B3752 / DONOR W3DModelDraw_setHidden.cpp (respects +0x4D hide override)
+	void setWallBoundsMeshOverload(const std::string &name); ///< RW 0x004B5809 (primary +0xD4): +0x260
+	void setRampMeshOverload(const std::string &name, int index); ///< RW 0x004B5814 (primary +0xD8): +0x264[index]
+	bool hasWallBoundsMeshOverload() const;                ///< RW 0x004B582B (primary +0xDC): !(+0x260).empty()
+	const std::string &wallBoundsMeshOverload() const { return m_wallBoundsMeshOverload; }
+	const std::string &rampMeshOverload(int index) const;
+
+	// LOCAL-106 (issue #784): remaining own W3DScriptedModelDraw & RadiusDecal methods
+	// RW 0x007B2EFE (vslot 18): sets hide override (+0x4D); while set, setModelHidden(false) is ignored (DONOR W3DModelDraw_setHidden.cpp)
+	void setHideOverride(bool overrideHide);
+	bool isHideOverride() const { return m_hideOverride; }
+
+	// RW 0x0047836C (vslot 60): forwards to ModuleData vslot +0x78 (RW 0x00464A02, +0x15E)
+	bool allowsUnhideWhileInHorde() const;
+	// RW 0x004B7A22 (ObjectDrawInterface slot 44): copies EmbedPortal entry i (+0x11C) if in bounds
+	bool getEmbedPortal(int index, W3DModelDrawModuleData::W3DEmbedPortalInfo &out) const;
+	// RW 0x004B86BA (slot 17), RW 0x004B30DC (slot 18), RW 0x004BC171 (slot 16), RW 0x004BB86C (slot 19):
+	// sub-object override state (+0xA0 dirty flag, +0xA4 value, +0xA8 tracked key set, +0xB4 name)
+	void setSubObjectOverride(int value, const std::string &name);
+	void markSubObjectOverrideDirty();
+	void insertTrackedSubObjectKey(int key);
+	void eraseTrackedSubObjectKey(int key);
+	bool isSubObjectOverrideDirty() const { return m_subObjectOverrideDirty; }
+	int subObjectOverrideValue() const { return m_subObjectOverrideValue; }
+	const std::string &subObjectOverrideName() const { return m_subObjectOverrideName; }
+	const std::set<int> &trackedSubObjectKeys() const { return m_trackedSubObjectKeys; }
+	// RW 0x004B3338: returns true when both track 0 and track 1 carry active animations
+	bool isBlending() const { return m_tracks[0].anim != nullptr && m_tracks[1].anim != nullptr; }
+
+	// LOCAL-106: RadiusDecal slots on W3DScriptedModelDraw (RW 0x004B2A5D..0x004B2C0D -> RW 0x0073266B..0x00732CBB)
+	struct DrawRadiusDecal
+	{
+		bool active = false;
+		Coord3D position{ 0.0f, 0.0f, 0.0f };
+		Coord3D offset{ 0.0f, 0.0f, 0.0f };
+		float radius = 0.0f;
+		float opacity = 1.0f;
+		std::uint32_t color = 0xFFFFFFFFu;
+		void clear()
+		{
+			active = false;
+			radius = 0.0f;
+		}
+	};
+	void setTerrainDecalRadius(float radius);                                       // RW 0x004B2A5D -> 0x00732858
+	void clearTerrainDecal();                                                       // RW 0x004B2B36 -> 0x007327E5
+	void setSelectionDecalTemplate(const RadiusDecalTemplate *tmpl);                // RW 0x004B2B41 -> 0x0073266B
+	void setSelectionDecalPosition(const Coord3D *pos);                             // RW 0x004B2B92 -> 0x00732828
+	void setSelectionDecalOffset(const Coord3D *offset);                            // RW 0x00732840
+	void setSelectionDecalOpacity(float opacity);                                   // RW 0x004B2BA7
+	void setSelectionDecalColor(std::uint32_t color);                               // RW 0x004B2BBF
+	bool createSelectionDecal(const Coord3D &pos, float radius, bool hasPlayer);    // RW 0x004B2BDC -> 0x00732CBB
+	void clearSelectionDecal();                                                     // RW 0x004B2C0D -> 0x007327E5
+	const DrawRadiusDecal &terrainRadiusDecal() const { return m_terrainRadiusDecal; }
+	const DrawRadiusDecal &selectionRadiusDecal() const { return m_selectionRadiusDecal; }
+	const RadiusDecalTemplate &selectionDecalTemplate() const { return m_selectionDecalTemplate; }
 
 	// Introspection for tests and tools.
 	const ModelConditionInfo *currentModelState() const { return m_curModelInfo; }
@@ -376,7 +500,7 @@ protected:
 
 	// vtable slot 0x108 (RW 0x4C0917 returns 100000; the horde draw returns its LOD row's MaxRandomAnimations, RW 0x478A6C)
 	virtual int maxRandomAnimations() const { return 100000; }
-	// RW 0x4C48A1 passes 0xFF as the RandomTexture limit; the horde draw passes its LOD row's MaxRandomTextures and picks none when it is not
+	// RW 0x4C48A1 passes 0xFF as the RandomTexture limit; the horde draw passes its LOD row's MaxRandomTextures (RW 0x004789F6) and picks none when it is not
 	// positive (RW 0x47A356 .. 0x47A38B)
 	virtual int maxRandomTextures() const { return 0xFF; }
 	// vtable slot 0x10C (RW 0x4B3766: GameClientRandomValue(0, frames - 1); the horde draw scales it, RW 0x478A74)
@@ -406,11 +530,19 @@ private:
 	bool isIdleLike(const AnimationStateInfo &state) const; // RW 0x4B424F
 	float currentAnimFraction() const;                      // RW 0x4B2785
 	const HAnimClass *resolveAnimation(const W3DAnimationInfo &info, std::string *resolved, std::string *error);
+	const HAnimClass *repairMissingMovementAnimation(const AnimationStateInfo &state, std::string *resolved);
+	const W3DAnimationInfo *playbackAnimationInfo() const
+	{
+		if (m_movementRepairInfo) return m_movementRepairInfo;
+		return m_curAnimState && m_whichAnim >= 0 && m_whichAnim < (int)m_curAnimState->animations.size()
+			? &m_curAnimState->animations[(size_t)m_whichAnim] : nullptr;
+	}
 	void startAnimation(const HAnimClass *anim, const std::string &clipName, const W3DAnimationInfo &info, int animationIndex, float startFrame,
 		float speedFactor);
 	void setTrack(int slot, const W3DDrawTrack &track);
 	void clearTrack(int slot);
 	void promote();
+	void activateQueuedMovementRepair();
 	void initBlend(const W3DDrawTrack &incoming);
 	bool trackComplete(const W3DDrawTrack &t, bool flag) const; // RW 0x4B271C
 	void stepTrack(W3DDrawTrack &t, float elapsedMs);
@@ -437,6 +569,8 @@ private:
 	Options m_options;
 
 	ModelConditionFlags m_pendingFlags;     // RW +0x17C
+	TerrainDecal m_terrainDecal;            // RW +0x5C (the decal shadow)
+	bool m_hasTerrainDecal = false;
 	const ModelConditionInfo *m_curModelInfo = nullptr; // RW +0x14
 	std::vector<std::pair<std::string, std::string>> m_randomTextureSwaps; // RW 0x4C238A's pairs, picked once (initializeState)
 	std::vector<std::pair<std::string, std::string>> m_upgradeTextureSwaps; // RW 0x8B911E's list (setUpgradeTextureSwaps)
@@ -446,6 +580,10 @@ private:
 	const AnimationStateInfo *m_curAnimState = nullptr; // RW +0x18
 	int m_whichAnim = -1;                   // RW +0x44
 	int m_lastAnim = 0;                     // RW +0x88
+	const W3DAnimationInfo *m_movementRepairInfo = nullptr; // S-5920: playback metadata; requested state / index stay retail's.
+	const HAnimClass *m_movementRepairAnimation = nullptr; // Pair Distance with this cycle's duration when visible or incoming.
+	float m_queuedMovementRepairSpeedFactor = 1.0f;
+	bool m_movementRepairQueued = false; // S-5920: a waiting repair must not retime the visible blend.
 
 	const RenderObjPrototype *m_model = nullptr;
 	std::string m_modelName; // lower case, the render object identity
@@ -464,6 +602,29 @@ private:
 	float m_blendInitial = 1.0f;             // RW +0x94
 	float m_speedFactor = 1.0f;              // RW +0x98 (set by startAnimation)
 	float m_speedSync = 1.0f;                // RW +0x9C
+	bool m_isPaused = false;                 // RW +0x81 (setPauseAnimation RW 0x004B304E)
+	int m_savedAnimMode = W3D_ANIM_MODE_MANUAL; // RW +0x84 (saved mode while paused)
+	bool m_sequentialAnim = false;           // RW +0x28C (set by RW 0x004BF4D9/0x004BF501, cleared by RW 0x004C09C7)
+	bool setAnimationLoopDurationMs(float durationMs); // RW 0x004B2808
+	bool m_shadowEnabled = true;             // RW +0x4A (setShadowsEnabled RW 0x004B26F9)
+	bool m_fullyObscuredByShroud = false;    // RW +0x4B
+	bool m_hidden = false;                   // RW +0x4C (isHidden RW 0x004B26E0)
+	bool m_hideOverride = false;             // RW +0x4D (setHideOverride RW 0x007B2EFE)
+	bool m_subObjectOverrideDirty = false;   // RW +0xA0 (RW 0x004B30DC / 0x004B86BA)
+	int m_subObjectOverrideValue = 0;        // RW +0xA4 (RW 0x004B86BA)
+	std::set<int> m_trackedSubObjectKeys;    // RW +0xA8 (RW 0x004BC171 / 0x004BB86C)
+	std::string m_subObjectOverrideName;     // RW +0xB4 (RW 0x004B86BA)
+	DrawRadiusDecal m_terrainRadiusDecal;    // RW +0x1D0 (RW 0x004B2A5D / 0x004B2B36)
+	DrawRadiusDecal m_selectionRadiusDecal;  // RW +0x218 (RW 0x004B2B92..0x004B2C0D)
+	RadiusDecalTemplate m_selectionDecalTemplate; // RW +0x228 (RW 0x004B2B41 / 0x004B2BDC)
+	bool m_hasShadow = false;                // RW +0x58 != nullptr
+	bool m_shadowRenderEnabled = false;      // RW (+0x58)->+0x04
+	bool m_portraitImageDirty = true;        // RW +0x2D9 (getPortraitImage RW 0x004B6789)
+	std::string m_cachedPortraitImage;       // RW +0x2DC
+	std::string m_cachedButtonImage;         // RW +0x2E0
+	std::string m_cachedButtonImageKey;      // RW +0x2E4 (getButtonImage RW 0x004B9460)
+	std::string m_wallBoundsMeshOverload;    // RW +0x260 (RW 0x004B5809)
+	std::string m_rampMeshOverload[2];       // RW +0x264 (RW 0x004B5814)
 	float m_opacity = 1.0f;
 	bool m_hiddenByFade = false;
 	float m_constructionPercent = 0.0f;      // RW +0x26C (the object's percent, cached on the first client frame of a logic frame)

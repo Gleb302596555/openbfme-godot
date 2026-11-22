@@ -171,10 +171,8 @@ void CreateObjectDie::onDie(const DieModuleInterface::Event &event)
 	{
 		return; // RW: an unknown name parsed to NULL, nothing is made
 	}
-	logic.noteStop("[S-980] CreateObjectDie: the death's ObjectCreationList runs the position variant of OCL::create at the dead object (RW calls the object-pair "
-		"variant with the killer as secondary); see S-530 for the nugget kinds that run");
-	const Coord3D at = *obj->getPosition();
-	m_created += (unsigned)ocl->create(logic, obj, at).size();
+	Object *killer = event.sourceId != INVALID_ID ? logic.findObjectByID(event.sourceId) : nullptr;
+	m_created += (unsigned)ocl->create(logic, obj, killer).size(); // RW 0x888F04 -> 0x5F0126
 }
 
 void CreateObjectDie::crc(StateHasher &hasher) const
@@ -349,6 +347,7 @@ void CreateObjectDie::xfer(Xfer &x)
 }
 
 // the stored death (the event the delayed shot fires for) whole, then the counters
+// RW 0x00885E47 (OpenBFME native snapshot order, S-4190)
 void FireWeaponWhenDeadBehavior::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

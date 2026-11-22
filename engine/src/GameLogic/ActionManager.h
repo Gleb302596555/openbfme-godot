@@ -43,7 +43,7 @@
 //     0x93, 0x97 yes; 0x39, 0x44, 0x45, 0x90 the target is not AIRBORNE_TARGET (Object + 0x94 bit 6); 0x82 an ENEMY, or an ALLY / NEUTRAL that
 //     is DEPLOYED_MINE (template + 0x11D bit 4); 0x27 / 0x28 the grab test (RW 0x82DB6A .. 0x82DC80, lane MODCOMPAT-MOD1: see grabObjectTest; its
 //     fake tree branch RW 0x82DB01 is S-7140); 0x33 uses shared canGiveUpgrade (RW 0x82D780, PORT-109; contained provider S-7318); 0x1D the capture test RW 0x82D0A1, 0x8A a
-//     STRUCTURE's RW 0x82D7F2 (canRepairObject): not ported (S-7140, answer no, counted per type); any other type no.
+//     STRUCTURE's RW 0x82D7F2 (canRepairObject, PORT-289); any other type no.
 // Each type test this file does not port answers no, counted and reported as stop S-1874 (stopLines()); the object form's as S-7140. TheTerrainLogic vslot 0x54 is the third bit plane
 // of the map (WorldHeightMap + 0x74, PathfindTerrain::thirdPlane).
 
@@ -63,10 +63,16 @@ class SpecialPowerTemplate;
 
 namespace ActionManager
 {
+// the UnitCost test of a special power (RW 0x82E000 / 0x82D605 in this class, RW 0x943439 .. 0x943480 in the control bar's availability arm):
+// the template's final override + 0x80 (UnitCost); with a cost the object's contain (Object + 0x258 slot 0x7C) horde member count (slot 0x188)
+// must reach it; no contain or no horde interface: no test
+bool unitCostMet(const Object &obj, const SpecialPowerTemplate &t);
 // RW 0x75CF21 with no target object and source 0 (the AI's location run, RW 0xA021D8)
 bool canDoSpecialPowerAtLocation(Object &obj, const CommandButton &button, const Coord3D &loc);
 // lane MODCOMPAT-AI: RW 0x75CF21 with no target object and no location (TEAM_PARTIAL_USE_COMMANDBUTTON, RW 0x7C7D95, source 1)
 bool canUseCommandButton(Object &obj, const CommandButton &button);
+// RW 0x75CF21 with target != null and loc == null (PartitionFilterValidCommandButtonTarget RW 0x6611FD, NAMED_USE_COMMANDBUTTON_ON_NEAREST_KINDOF RW 0x7BE6EE)
+bool canUseCommandButtonAtObject(Object &obj, const CommandButton &button, Object &target, CommandSourceType source);
 // RW 0x82DFB7(obj, loc, 0, power, 0, options, 0); lane SPELL-4: `unported` (when given) is set when the answer no came from a per-type test this file does
 // not port (S-1874), not from a test that was run
 bool canDoSpecialPowerAtLocation(Object &obj, const Coord3D &loc, const SpecialPowerTemplate *power, unsigned options, bool *unported = nullptr);
@@ -75,6 +81,9 @@ bool canDoSpecialPower(Object &obj, const SpecialPowerTemplate *power);
 // RW 0x82D925 (see above); `unported` (when given) is set when the answer no came from a per-type test this file does not port (S-7140)
 // RW 0x82D780: shared action-0x12 / power-type-0x33 target predicate (PORT-109).
 bool canGiveUpgrade(Object *source, Object *target);
+// RW 0x82D7F2: the shared repair target predicate used by the special-power
+// availability check and by the dozer repair order (PORT-289).
+bool canRepairObject(const Object *source, const Object *target, CommandSourceType sourceType);
 bool canDoSpecialPowerAtObject(Object &obj, Object *target, CommandSourceType source, const SpecialPowerTemplate *power, unsigned options,
                                bool checkSourceRequirements, bool *unported = nullptr);
 
@@ -100,7 +109,7 @@ EnterMessage getEnterMessage(const Object &target, const std::vector<const Objec
 int finalTestKind(int type);
 bool targetlessTypeAccepted(int type);
 
-// diagnostics (not state): the tests that ran into an unported part (S-1871 .. S-1874), by the power type of RW 0x82DFB7's per-type tests
+// diagnostics (not state): the tests that ran into an unported part (S-1872 .. S-1874), by the power type of RW 0x82DFB7's per-type tests
 struct Stats
 {
 	unsigned long long fireWeaponButtons = 0, movingOnLayer = 0, typeTests = 0;

@@ -11,6 +11,7 @@
 #include "GameLogic/Map/TerrainTaintClear.h"
 #include "GameLogic/Object/PartitionManager.h"
 
+#include "Common/AsciiString.h"
 #include "Common/Audio/AudioRequests.h"
 #include "Common/BuildAssistant.h"
 #include "Common/CommandPoints.h"
@@ -399,8 +400,8 @@ void CastleBehavior::onCreate()
 	initiateUnpack(false, nullptr); // lane BACKLOG2: RW 0x79C17D(0, null): state 1 and the side's price (none for a retail summoned castle); the constructor's wake runs it
 }
 
-// RW 0x799F0F: the keep (+ 0x38) and the members (+ 0x5C) clear one model condition and set another (Object RW 0x68D607); their CastleMemberBehavior's own
-// sub-object call (RW 0x798057) is not ported (S-951)
+// RW 0x799F0F: the keep (+ 0x38) and the members (+ 0x5C) clear one model condition and set another (Object RW 0x68D607) and notify their
+// CastleMemberBehavior (RW 0x00798057) for BeingBuiltSound (PORT-231)
 void CastleBehavior::setMembersModelCondition(int clear, int set)
 {
 	GameLogic &logic = getObject()->logic();
@@ -416,6 +417,10 @@ void CastleBehavior::setMembersModelCondition(int clear, int set)
 		if (set >= 0)
 		{
 			o->setModelConditionState(set, true);
+		}
+		if (CastleMemberBehavior *cm = CastleMemberBehavior::of(*o))
+		{
+			cm->onParentModelConditionChanged(clear, set); // RW 0x00798057
 		}
 	};
 	apply(m_keepId != INVALID_ID ? logic.findObjectByID(m_keepId) : nullptr);
@@ -595,28 +600,27 @@ bool CastleBehavior::unpack(bool instant)
 	}
 	else
 	{
+		// RW 0x79B903 -> RW 0x799021 -> RW 0x798F70: if the owner's side has no entry in CastleToUnpackForFaction,
+		// retail returns nameToKey("kq") (RW 0xC30C08), TheCastleTemplateStore::getEntry (RW 0x72D72F) returns false
+		// on iteration 0 (0 objects created, no error), buildAreas (RW 0x79B881 -> RW 0x72D76E) adds no areas,
+		// and unpack continues cleanly (clearForCastle RW 0x79BF1B, etc.).
 		const std::string base = baseNameFor(*owner);
-		if (base.empty())
+		if (!base.empty())
 		{
-			m_lastError = "CastleToUnpackForFaction names no base for the faction '" + owner->getSide() + "'";
-			return false;
-		}
-		std::string error;
-		const CastleTemplate *layout = logic.castleTemplates().find(base, &error);
-		if (!layout)
-		{
-			m_lastError = error;
-			return false;
-		}
-		for (const CastleTemplateEntry &entry : layout->entries)
-		{
-			if (Object *made = createOwnedObject(entry, *owner, instant)) // RW 0x79B903(instant) -> 0x7987EE
+			std::string error;
+			if (const CastleTemplate *layout = logic.castleTemplates().find(base, &error))
 			{
-				m_owned.push_back(made->getID());
-				registerOwnedObject(*made); // RW 0x79B94E
+				for (const CastleTemplateEntry &entry : layout->entries)
+				{
+					if (Object *made = createOwnedObject(entry, *owner, instant)) // RW 0x79B903(instant) -> 0x7987EE
+					{
+						m_owned.push_back(made->getID());
+						registerOwnedObject(*made); // RW 0x79B94E
+					}
+				}
+				buildAreas(*layout); // lane CASTLEAREA-1: RW 0x79BF0C -> RW 0x79B881 (the template form only)
 			}
 		}
-		buildAreas(*layout); // lane CASTLEAREA-1: RW 0x79BF0C -> RW 0x79B881 (the template form only)
 	}
 	// RW 0x79BF1B .. 0x79BF36 (after either form): TheTerrainLogic's castle clear RW 0x683955 at the castle's position with MaxCastleRadius (RW 0x797ED7:
 	// the data's + 0x2C, 0 without data): the TAINT objects within it and the taint they left go (GameLogic/Map/TerrainTaintClear.h)
@@ -705,13 +709,16 @@ Object *CastleBehavior::createOwnedObject(const CastleTemplateEntry &entry, Play
 	// single predefined layout, not independent player building placements.
 	// Keep the RotWK placement check for its castle system.
 	if (!m_data->m_useNewCastleSystem && !templateKindOf(logic, *tt, "COMMANDCENTER") &&
-		BuildPlacement::isLocationLegalToBuild(logic, pos, *tt, angle, LLF_NO_OBJECT_OVERLAP | LLF_CASTLE_MEMBERS_CLEAR, castle, &owner) != LBC_OK) // P-77: the thunk RW 0x797A96 adds bit 8
+		// lane BUILDCLEAR-1: RW 0x798968 passes 5 to RW 0x797A96, which ORs 0x100 into it (RW 0x797AAC) and calls isLocationLegalToBuild with no player:
+		// 0x105 = terrain restrictions, object overlap, the castle's own members ignored (BFME2 numbering, DECOMPINV-2 item 2). The port passes 0x104: its
+		// terrain sample classification (S-161, the cell types standing for RW 0x794A2B's GetCellType) refuses members retail places on the retail maps (the
+		// starting fortresses' and the maps' castles lost walls and foundations to code 6), so the terrain bit stays a named remainder (S-303)
+		BuildPlacement::isLocationLegalToBuild(logic, pos, *tt, angle, LLF_NO_OBJECT_OVERLAP | LLF_CASTLE_MEMBERS, castle, nullptr) != LBC_OK)
 	{
 		return nullptr;
 	}
-	// lane BACKLOG2: RW 0x79899A: the castle's creation interface (its + 0x20 vtable RW 0xC30DE8 slot 4 = RW 0x859198) with (the castle, the template, the position,
-	// the angle, the player of the team chosen above, instant): the site is cleared first (RW 0x858C41), the object made (slot 7, RW 0x858701: below, the port's
-	// placement, S-303), then the units in the way are pushed out (RW 0x858CFC)
+	// RW 0x79899A -> creation interface slot 7 RW 0x858701: clear the site, create and place the member, then push out units in the way (RW 0x858C41 / 0x858CFC).
+	// S-303: keep the castle as producer without routing through the generic plot-construction callbacks; retail's CastleBehavior path completes the member itself.
 	Player *creator = mine ? &owner : logic.players().getNeutralPlayer();
 	ConstructionSite::clearSiteForFoundation(logic, *tt, pos, angle);
 	Object *obj = logic.newObject(tt, team, ObjectStatusMaskType{});
@@ -719,6 +726,7 @@ Object *CastleBehavior::createOwnedObject(const CastleTemplateEntry &entry, Play
 	{
 		return nullptr;
 	}
+	obj->setProducer(castle); // RW 0x8587E7: retain the producing castle link
 	obj->setOrientation(angle);
 	obj->setPosition(&pos);
 	obj->friend_onBuildComplete();
@@ -728,8 +736,6 @@ Object *CastleBehavior::createOwnedObject(const CastleTemplateEntry &entry, Play
 	}
 	if (mine && obj->isKindOfName("STRUCTURE"))
 	{
-		// lane PLAY-4: RW 0x7987EE makes no Player::onStructureCreated call (RW 0x6AAF3B is not among its calls): since that call sets GettingBuiltBehavior's
-		// + 0x36 and spawns the worker of a plot or castle builder, the castle's complete members do not get it here (they spawned workers that faded at once)
 		Construction::onStructureConstructionComplete(owner, castle, *obj, false);
 	}
 	if (creator)
@@ -1553,8 +1559,8 @@ std::vector<std::string> CastleBehavior::stopLines()
 		"ported (reportCampDestroyedEva: the owner / ally / attacker event of the castle's CastleMemberBehavior data against the local player)",
 		"[S-952] castle: inference in the ported states: the capture scan and the push out run on ThePartitionManager (types 0 and 3, S-1020), the "
 		"push out's geometry overlap filter (RW 0x67C5F3 -> RW 0xAD2CE0) and the horde's slot 0x1C8 test (RW 0x79C88F) are not ported, a plot's occupant counts while the object exists (retail clears the "
-		"plot's + 0x28 in the plot's own update RW 0x8584DB), a packed castle's upgrades are not reset (RW 0x68E083); FilterValidOwnedEntries unset is taken as accepting everything; RW 0x683955 of the "
-		"unpack was not read; retail's member + 0x14 is the keep's id (RW 0x7990D9 / 0x79A09D), the port keeps a pad's occupant there (RW 0x79A518's keep test is not ported)",
+		"plot's + 0x28 in the plot's own update RW 0x8584DB), a packed castle's upgrades are not reset (RW 0x68E083); FilterValidOwnedEntries unset is taken as accepting everything; "
+		"retail's member + 0x14 is the keep's id (RW 0x7990D9 / 0x79A09D), the port keeps a pad's occupant there (RW 0x79A518's keep test is not ported)",
 	};
 }
 
@@ -1606,6 +1612,53 @@ CastleMemberBehavior::CastleMemberBehavior(Thing *thing, const CastleMemberBehav
 	: BehaviorModule(thing, data)
 	, m_data(data)
 {
+}
+
+// PORT-231: RW 0x00797C40 (destructor stops held BeingBuiltSound handle at +0x20 when active)
+CastleMemberBehavior::~CastleMemberBehavior()
+{
+	if (m_beingBuiltSoundActive && getObject())
+	{
+		AudioApi::stopHeldSound(AudioApi::HELD_CASTLE_BEING_BUILT, getObject()->getID());
+		m_beingBuiltSoundActive = false;
+	}
+}
+
+void CastleMemberBehavior::onDelete()
+{
+	if (m_beingBuiltSoundActive && getObject())
+	{
+		AudioApi::stopHeldSound(AudioApi::HELD_CASTLE_BEING_BUILT, getObject()->getID());
+		m_beingBuiltSoundActive = false;
+	}
+}
+
+// PORT-231: RW 0x00798057 (BeingBuiltSound on BASE_BUILD model condition bit 219)
+void CastleMemberBehavior::onParentModelConditionChanged(int clear, int set)
+{
+	Object *obj = getObject();
+	if (!obj)
+	{
+		return;
+	}
+	const int baseBuild = castleNames().baseBuild;
+	if (baseBuild < 0)
+	{
+		return;
+	}
+	if (set == baseBuild)
+	{
+		if (!m_data->m_beingBuiltSound.empty() && AsciiStringUtil::compareNoCase(m_data->m_beingBuiltSound, "NoSound") != 0)
+		{
+			AudioApi::resumeHeldSound(AudioApi::HELD_CASTLE_BEING_BUILT, m_data->m_beingBuiltSound, obj->getID(), obj->getID());
+			m_beingBuiltSoundActive = true;
+		}
+	}
+	else if (clear == baseBuild && m_beingBuiltSoundActive)
+	{
+		AudioApi::stopHeldSound(AudioApi::HELD_CASTLE_BEING_BUILT, obj->getID());
+		m_beingBuiltSoundActive = false;
+	}
 }
 
 bool CastleMemberBehavior::plotIsTaken() const

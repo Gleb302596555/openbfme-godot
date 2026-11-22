@@ -176,7 +176,9 @@ void BloodthirstyUpdate::sacrificeHorde(Object *victim, CommandSourceType source
 	victimModule->m_sacrificerID = self->getID();
 	ai->aiForceAttackObject(victim, source);
 	self->setStatusAcrossHorde(statusIndex("BLOODTHIRSTY"), true);
-	horde->setStatusAcrossHorde(statusIndex("IGNORE_AI_COMMAND"), true);
+	const unsigned ignoreAI = statusIndex("IGNORE_AI_COMMAND");
+	horde->setStatus(ignoreAI, true); // RW 0x851129 -> 0x62684D(0x4A, 1)
+	horde->setStatusAcrossHorde(ignoreAI, true); // RW 0x851134 -> 0x748650(0x4A, 1)
 	AudioApi::postUnitVoice(0x7e9, self->getID());
 }
 
@@ -212,7 +214,9 @@ void BloodthirstyUpdate::clearVictimState(Object &victim)
 		return;
 	}
 	setModelConditionForHorde(*horde, false);
-	horde->setStatusAcrossHorde(statusIndex("IGNORE_AI_COMMAND"), false);
+	const unsigned ignoreAI = statusIndex("IGNORE_AI_COMMAND");
+	horde->setStatus(ignoreAI, false); // RW 0x85121A / 0x85128B -> 0x62684D(0x4A, 0)
+	horde->setStatusAcrossHorde(ignoreAI, false); // RW 0x851224 / 0x851296 -> 0x748650(0x4A, 0)
 	if (AIUpdateInterface *ai = horde->getAIUpdateInterface())
 	{
 		ai->aiIdle(CMD_FROM_AI);

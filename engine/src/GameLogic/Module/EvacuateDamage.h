@@ -8,7 +8,8 @@
 //   * data (ctor RW 0x8BEE59, table RW 0xC70A88): WeaponThatCausesEvacuation + 0x08 (parse RW 0x8BEDF8: an AsciiString, set only when TheWeaponStore knows the name,
 //     RW 0x6CC5DF; empty otherwise), DamageTypeToTrack + 0x0C (RW 0x42E956 over the damage names, default 3 = PIERCE), DamageToPanicThreshold + 0x10 (a percent as a real,
 //     default 0.1 = RW 0xBD83D4), TrackingTimeSpan + 0x14 (RW 0x73A429, frames, default 6);
-//   * module (ctor RW 0x8BEF66 over DamageModule; vtables RW 0xC70AE4, damage interface RW 0xC70AD8): + 0x14 a list of {amount, frame};
+//   * module (ctor RW 0x8BEF66 over DamageModule, dtor RW 0x008BF011 / scalar deleting dtor RW 0x008BF05A, name getter RW 0x008BEFC6, getModuleNameKey RW 0x008BEFCC,
+//     xfer RW 0x008BEDCC; DONOR BFME2 0x008BAC83 / 0x008BAE7D / 0x008BAE83 / 0x008BAEC8 / 0x008BAF11; vtables RW 0xC70AE4, damage interface RW 0xC70AD8): + 0x14 a list of {amount, frame};
 //   * onDamage (RW 0x8BF12E): the source object (DamageInfo + 0x08) must exist and have a current weapon (RW 0x68B58C(0)). The data's weapon name equal to the weapon
 //     template's name (RW 0x4065AA, a compare that answers 0 for equal): the object's contain (Object + 0x258) takes every rider out at once (the contain's slot 0x74 is the
 //     exit interface, never null in the contain tables read: RW 0x867A94): a HORDE rider aiHordeExit (RW 0x775AFB), any other aiExit (RW 0x7716C1), both with the

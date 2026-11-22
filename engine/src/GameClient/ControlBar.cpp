@@ -25,6 +25,7 @@
 #include "Common/Science.h"
 #include "Common/SpecialPower.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
+#include "GameLogic/ActionManager.h"
 #include "GameLogic/Object/Contain/OpenContainRuntime.h"
 #include "GameLogic/Object/Contain/TransportContainRuntime.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
@@ -44,6 +45,7 @@
 #include "GameLogic/WeaponState.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 
 namespace ModelCondition
@@ -192,6 +194,14 @@ ButtonState ControlBar::evaluate(const CommandButton &b, Object &obj, bool &comm
 	{
 		return ButtonState::Restricted;
 	}
+	// PORT-220 (issue #529): RW 0x942826 .. 0x94282D, after the script availability call (RW 0x942490) and before the experience tracker's gate
+	// (RW 0x942833): an object whose single-use command flag (Object + 0x45B) is set disables every button of its command set (RW 0x9438C8: availability 0).
+	// The flag's writer is processCommandUI's RW 0x94066B (ControlBarCommandProcessing.cpp); the flag is never cleared (no RW instruction writes 0 to it
+	// after the constructor's RW 0x699C88), so the object keeps its gray buttons. Command 0x18 skips only RW 0x942490 (RW 0x94280D .. 0x942811), not this gate.
+	if (obj.hasSingleUseCommandBeenUsed())
+	{
+		return ButtonState::Restricted;
+	}
 	// RW 0x942833..0x94284E: no tracker, or a positive RequireLevel above the current rank, hides the button.
 	const ExperienceTracker *xp = obj.getExperienceTracker();
 	if (!xp || (b.m_requireLevel > 0 && xp->getRank() < b.m_requireLevel))
@@ -270,9 +280,7 @@ ButtonState ControlBar::evaluate(const CommandButton &b, Object &obj, bool &comm
 	{
 		case GUI_COMMAND_REVIVE:
 			return ButtonState::Enabled; // record-specific rules follow in reviveButton; these common gates run first
-		case GUI_COMMAND_UNIT_BUILD:
-		case GUI_COMMAND_DOZER_CONSTRUCT:     // BUILD-1: a builder's or a plot's building button (the same availability: command set, price, command points, maximum)
-		case GUI_COMMAND_FOUNDATION_CONSTRUCT:
+		case GUI_COMMAND_UNIT_BUILD: // RW 0x942733 arm 3: the production path, the only arm that asks canMakeUnit
 		{
 			const ThingTemplate *tt = b.getThingTemplate();
 			if (!tt)
@@ -292,12 +300,43 @@ ButtonState ControlBar::evaluate(const CommandButton &b, Object &obj, bool &comm
 			{
 				return ButtonState::Restricted;
 			}
+			// RW 0x942733 arm 3: 7 -> 7, canMakeUnit 6 / 5 -> 0 (disabled), 2 -> 6, anything else -> 1 (enabled). The maximum of the
+			// template is arm 3's alone (canMakeUnit RW 0x793ECB, its count at RW 0x794054).
 			const CanMakeType make = BuildAssistant::canMakeUnit(obj, tt, -1);
-			if (make == CANMAKE_UNKNOWN_7 && b.m_command != GUI_COMMAND_UNIT_BUILD)
+			return buildAvailability(make, commandPointsShort);
+		}
+		case GUI_COMMAND_FOUNDATION_CONSTRUCT: // PORT-212 (fork issue 502): RW 0x942733 arm 1 — a build plot's construction button
+		case GUI_COMMAND_DOZER_CONSTRUCT:      // RW 0x942733 arm 0x35 — a dozer's construction button
+		{
+			// PORT-212 (fork issue 502): the two construction arms of RW 0x942733 were read for what they do NOT contain (the switch
+			// inventory in docs/re/rotwk/RW_0x942733.md): arm 1 is "Buildable gate; template kind flags; ...; allowedToBuild / canBuild
+			// tests, radial hide, prerequisite and money results" and arm 0x35 is "Kind flags, controlling player +0x770 == 0, optional
+			// dozer slot 0x78, allowedToBuild/canBuild/money checks". Neither calls BuildAssistant::canMakeUnit, so MaxSimultaneousOfType,
+			// the production queue and the command points never restrict a construction button: those are arm 3's (UNIT_BUILD) and, for a
+			// builder, the per-click query of the placement translator (RW 0x83E771). This is why Ennorath's LothlorienEntMoot
+			// (MaxSimultaneousOfType = 1 in the mod's INI) may be built any number of times on its plots in RotWK; the shared arm the port
+			// used before made the second one unavailable through canMakeUnit's maximum (CANMAKE_MAXED_OUT_FOR_PLAYER).
+			const ThingTemplate *tt = b.getThingTemplate();
+			if (!tt)
+			{
+				return ButtonState::Hidden;
+			}
+			const int buildable = BuildAssistant::buildable(*tt, obj.logic());
+			if (buildable == 2 || (buildable == 3 && player->getPlayerType() != PLAYER_COMPUTER))
+			{
+				return ButtonState::Hidden; // Buildable = No, and Only_By_AI for a human
+			}
+			// Player::canBuild: allowedToBuild + Buildable + every prerequisite (RW 0x6AAA2E; the port's BuildAssistant::playerCanBuild)
+			if (!BuildAssistant::playerCanBuild(*player, tt, m_ctx.logic))
 			{
 				return ButtonState::Restricted;
 			}
-			return buildAvailability(make, commandPointsShort);
+			// the money result of the two arms: availability 6, the same state the production arm's CANMAKE_NO_MONEY gives
+			if ((std::uint32_t)BuildAssistant::calcCostToBuild(*tt, player, &obj, -1) > player->getMoney()->countMoney())
+			{
+				return ButtonState::CantAfford;
+			}
+			return ButtonState::Enabled;
 		}
 		case GUI_COMMAND_PUSH_VISIBLE_COMMAND_RANGE:
 		case GUI_COMMAND_POP_VISIBLE_COMMAND_RANGE:
@@ -485,6 +524,13 @@ ButtonState ControlBar::evaluate(const CommandButton &b, Object &obj, bool &comm
 				{
 					return ButtonState::Restricted;
 				}
+			}
+			// PORT-250 (fork issue 578): RW 0x943439 .. 0x943480, the UnitCost gate of this arm, before the module search: the template's final
+			// override (RW 0x688D3C) + 0x80 (UnitCost); with a cost the object's contain (Object + 0x258 slot 0x7C) horde member count (slot 0x188,
+			// RW 0x943477) below it answers 0 = disabled. ActionManager runs the same test for a press (RW 0x82E000 / 0x82D605)
+			if (!ActionManager::unitCostMet(obj, *t))
+			{
+				return ButtonState::Restricted;
 			}
 			SpecialPowerModuleInterface *sp = t ? SpecialPowerModules::findModule(obj, t) : nullptr;
 			if (!sp)
@@ -758,6 +804,8 @@ void ControlBar::setScheme(const ControlBarScheme *scheme)
 		return;
 	}
 	m_schemeName = scheme->m_name;
+	// RW 0x720704 .. 0x72070D: passes BuildUpClockColor (+0x18) to setBuildUpClockColor (RW 0x8DBE7E -> TheControlBar +0x210)
+	setBuildUpClockColor(scheme->m_buildUpClockColor);
 	// RW 0x720712 .. 0x720727: passes border colors to setCommandBarBorderColors (RW 0x71C62F)
 	setCommandBarBorderColors(
 		scheme->m_buttonBorderBuildColor,
@@ -767,6 +815,18 @@ void ControlBar::setScheme(const ControlBarScheme *scheme)
 		scheme->m_buttonBorderAlteredColor
 	);
 	m_commandBarBorderColor = scheme->m_commandBarBorderColor; // RW 0x720732 (+0x234)
+	// RW 0x720796 .. 0x7207C6 / RW 0x72176B .. 0x7217A7: resMultiplier = TheDisplay->{width,height} / ScreenCreationRes.{x,y}
+	m_schemeCreationRes = scheme->m_screenCreationRes;
+	m_schemeMultiplierX = (m_schemeCreationRes.x > 0) ? (float)m_displayWidth / (float)m_schemeCreationRes.x : 1.0f;
+	m_schemeMultiplierY = (m_schemeCreationRes.y > 0) ? (float)m_displayHeight / (float)m_schemeCreationRes.y : 1.0f;
+}
+
+void ControlBar::setDisplaySize(int width, int height)
+{
+	m_displayWidth = width;
+	m_displayHeight = height;
+	m_schemeMultiplierX = (m_schemeCreationRes.x > 0) ? (float)m_displayWidth / (float)m_schemeCreationRes.x : 1.0f;
+	m_schemeMultiplierY = (m_schemeCreationRes.y > 0) ? (float)m_displayHeight / (float)m_schemeCreationRes.y : 1.0f;
 }
 
 // RW 0x71D350 / 0x721613
@@ -950,6 +1010,7 @@ void ControlBar::update()
 		}
 	}
 	bool multiSelectCommon = false;
+	bool multiSelectHero = false;
 	std::vector<Object *> commonObjects;
 	std::vector<Object *> evalObjects;
 	Object *obj = liveSelected.empty() ? nullptr : liveSelected.front();
@@ -990,6 +1051,7 @@ void ControlBar::update()
 		}
 		if (bestHero)
 		{
+			multiSelectHero = true;
 			obj = bestHero; // RW 0x944826..0x944839: m_currentSelectedDrawable = bestHero -> populateObject(bestHero, 0)
 		}
 		else
@@ -998,11 +1060,16 @@ void ControlBar::update()
 			obj = firstNonIgnored; // RW 0x9404D0..0x940511: processCommandUI resolves context object to first non-IGNORED_IN_GUI
 		}
 	}
+	// PORT-213 (issue #503): AptPalantir::setDrawable receives the single selected object (RW 0x9443BD -> 0x6D4671)
+	// or the senior qualifying HERO picked by populateMultiSelect (RW 0x94482B), and INVALID_ID otherwise (RW 0x9448FC).
+	const ObjectID contextId = (obj && (liveSelected.size() == 1 || multiSelectHero))
+		? obj->getID()
+		: (ObjectID)INVALID_ID;
 
 	const ObjectID id = obj ? obj->getID() : (ObjectID)INVALID_ID;
 	// PORT-189 (issue #455): clear click-predicted toggle indices whenever ControlBar would re-populate
 	// (selection, command set, under-construction context, or m_UIDirty RW 0x71FD81).
-	const bool contextChanged = wasDirty || id != m_source || m_ctx.ui.selected() != m_pendingSelection
+	const bool contextChanged = wasDirty || id != m_source || contextId != m_contextSource || m_ctx.ui.selected() != m_pendingSelection
 		|| !obj || (!multiSelectCommon && isUnderConstructionContext(*obj)) || obj->getCommandSetName() != m_setName;
 	if (contextChanged)
 	{
@@ -1015,6 +1082,7 @@ void ControlBar::update()
 		m_setName.clear();
 		resetRanges();
 	}
+	m_contextSource = contextId;
 	m_palantir.clear();
 	m_side.clear();
 	m_offBar.clear();
@@ -1203,11 +1271,17 @@ void ControlBar::update()
 					continue;
 				}
 				Object *timerObj = obj;
-				if (multiSelectCommon)
-				{
-					// PORT-221: updateContextMultiSelect (RW 0x944911..0x944B87): evaluate across every non-IGNORED_IN_GUI selected object.
-					// Any Hidden or Restricted+HIDE_WHILE_DISABLED (RW 0x944A1F..0x944A65) hides the slot; availCount > 0 (Enabled / Active,
-					// RW 0x944AE7..0x944B73) enables the button; otherwise keep the disabled state (NotReady > CantAfford > Purchased > Restricted).
+		if (multiSelectCommon)
+		{
+			// PORT-221: updateContextMultiSelect (RW 0x944911..0x944B87): evaluate across every non-IGNORED_IN_GUI selected object.
+			// Any Hidden or Restricted+HIDE_WHILE_DISABLED (RW 0x944A1F..0x944A65) hides the slot; availCount > 0 (Enabled / Active,
+			// RW 0x944AE7..0x944B73) enables the button; otherwise keep the disabled state (NotReady > CantAfford > Purchased > Restricted).
+			// PORT-270: the single-object context block below (RW 0x943B12..0x943D6F) refreshes timer/cost/queue/border from
+			// obj = *evalObjects — the first selected object (RW 0x944998 reads the client selection list). The purchase of a shared
+			// upgrade is a production-queue entry of that object (RW 0x696FC8 marks TheControlBar dirty), so its progress must be
+			// taken from the same object the availability was evaluated against; otherwise a queued shared upgrade keeps the
+			// stale single-object timer (-1). Only the per-object context runs here — selection, queue, hero and panel refresh stay
+			// in the `!multiSelectCommon` block below (RW 0x943D6F..0x943DA4).
 					bool hidden = false;
 					int availCount = 0;
 					ButtonState enabledState = ButtonState::Enabled;
@@ -1385,10 +1459,19 @@ void ControlBar::update()
 				}
 				// Upgrade buttons share the production queue's progress with unit buttons. Availability
 				// remains Purchased while researching; it does not mean the research is complete.
+				// PORT-270 (issue #637): RW 0x944AA4..0x944ACB (inside updateContextMultiSelect RW 0x944911)
+				// takes the progress float RW 0x942733 wrote for the evaluated object, scales it and calls
+				// RW 0x729f0c(window, value, 0) — the same progress write the single-object path makes at
+				// RW 0x943A7B. The caller's `pu` is null for a multi-select context (above, RW has no single
+				// producer there either), so take the queue from timerObj — the first selected object the
+				// availability was evaluated against (RW 0x944998) — or a queued shared upgrade would keep
+				// the stale timer (-1) and the button would not show its bought/researching progress until
+				// the selection is rebuilt.
 				if (b->m_command == GUI_COMMAND_OBJECT_UPGRADE || b->m_command == GUI_COMMAND_PLAYER_UPGRADE || b->m_command == GUI_COMMAND_CASTLE_UPGRADE)
 				{
 					const UpgradeTemplate *upgrade = TheUpgradeCenter ? TheUpgradeCenter->findUpgrade(b->m_upgradeName) : nullptr;
-					for (const ProductionEntry *e = pu ? pu->firstProduction() : nullptr; e; e = pu->nextProduction(e))
+					const ProductionUpdateInterface *queuePu = pu ? pu : (multiSelectCommon && timerObj ? timerObj->getProductionUpdate() : nullptr);
+					for (const ProductionEntry *e = queuePu ? queuePu->firstProduction() : nullptr; e; e = queuePu->nextProduction(e))
 					{
 						if (upgrade && e->type == PRODUCTION_UPGRADE && e->upgradeToResearch == upgrade)
 						{
@@ -1670,7 +1753,18 @@ bool ControlBar::structureInventory(Object &obj, Player *local)
 
 bool ControlBar::isUnderConstructionContext(const Object &obj)
 {
-	// RW 0x71EE29 .. 0x71EE61: a WALL_UPGRADE whose Object query RW 0x68C82D(3, ...) reads 0.0 is in this context too: that query is not identified (S-3801)
+	// RW 0x71EBDA (RW 0x71EE29..0x71EE61; DONOR BFME2 ControlBarRva0031D230.cpp:359-365):
+	// a WALL_UPGRADE (KindOf bit 150, [tmpl+0x11A] & 0x40, RW 0xDA0E68) whose DAMAGE_MULT product
+	// (RW 0x71EE48 -> RW 0x68C82D(3, &amount, 0, 1) -> RW 0x804FFF) returns true and equals 0.0f ([0xC1B594])
+	// switches to context 6 (CB_CONTEXT_UNDER_CONSTRUCTION).
+	if (obj.isKindOfName("WALL_UPGRADE"))
+	{
+		float amount = 0.0f;
+		if (obj.attributeModifierProduct(3, nullptr, true, amount) && amount == 0.0f)
+		{
+			return true;
+		}
+	}
 	static const int baseBuild = ModelCondition::indexOf("BASE_BUILD");
 	if (baseBuild >= 0 && obj.testModelCondition(baseBuild))
 	{
@@ -1739,16 +1833,24 @@ void ControlBar::populateUnderConstruction(Object &obj, bool mine)
 	place(cb, 0); // command window 0
 }
 
+// the bar key's timer field: a percent ready can be far outside int (a power not ready by status whose ready frame passed: RW 0x991434's unsigned
+// ready - now wraps, as in retail), so it is clamped before the cast (UBSan 2026-11-18: -4.29e11 to int is undefined)
+static std::string timerKey(float timer)
+{
+	const float t = std::isfinite(timer) ? std::clamp(timer * 100.0f, -1.0e9f, 1.0e9f) : 0.0f;
+	return std::to_string((long long)t);
+}
+
 void ControlBar::emitStateKey()
 {
 	// the version moves when the picture of the bar changes
-	std::string key = std::to_string(m_source) + "|" + m_setName + (m_underConstruction ? "|uc" : "") + "|" + std::to_string(m_rangeStack.size()) + "|" + std::to_string(m_rangeStack.back().first) + "|" + std::to_string(m_money) + "|"
+	std::string key = std::to_string(m_source) + ":" + std::to_string(m_contextSource) + "|" + m_setName + (m_underConstruction ? "|uc" : "") + "|" + std::to_string(m_rangeStack.size()) + "|" + std::to_string(m_rangeStack.back().first) + "|" + std::to_string(m_money) + "|"
 		+ std::to_string(m_cpUsed) + "/" + std::to_string(m_cpLimit);
 	for (const auto *v : { &m_palantir, &m_side, &m_offBar })
 	{
 		for (const ControlBarButton &b : *v)
 		{
-			key += std::string(v == &m_palantir ? "a" : (v == &m_side ? "s" : "o")) + std::to_string(b.position) + "|" + std::to_string(b.slot) + ":" + std::to_string((int)b.state) + ":" + std::to_string(b.queued) + ":" + std::to_string((int)(b.timer * 100.0f)) + ":" +
+			key += std::string(v == &m_palantir ? "a" : (v == &m_side ? "s" : "o")) + std::to_string(b.position) + "|" + std::to_string(b.slot) + ":" + std::to_string((int)b.state) + ":" + std::to_string(b.queued) + ":" + timerKey(b.timer) + ":" +
 				std::to_string(b.rider) + ":" + b.image + ":" + b.textLabel + ":" + b.descriptLabel + (b.autoAbility ? ":auto" : "");
 		}
 	}
@@ -1996,8 +2098,8 @@ std::vector<std::string> ControlBar::acceptanceStops()
 		"a disabled Palantir button's image is drawn in greyscale with the bubbles' luminance weights (RotWK's RenderImage callback not read)",
 		"[S-3801] under-construction context (lane PLAY-4, evaluateContextUI RW 0x71EBDA -> populateUnderConstruction RW 0x944EFB): a structure whose GettingBuiltBehavior "
 		"rebuilds it or has + 0x36 set while UNDER_CONSTRUCTION (+ 0x36 alone when not), or with the model condition BASE_BUILD, shows only Command_CancelConstruction "
-		"(not for DONT_USE_CANCEL_BUILD_BUTTON; enabled for its controller; MSG_DOZER_CANCEL_CONSTRUCT, RW 0x9409A1); not ported: the WALL_UPGRADE whose Object query "
-		"RW 0x68C82D(3, ...) reads 0.0 (unidentified), the overlay windows (ControlBar + 0x29C / + 0x2A0), the radar override; the construction text and the rally "
+		"(not for DONT_USE_CANCEL_BUILD_BUTTON; enabled for its controller; MSG_DOZER_CANCEL_CONSTRUCT, RW 0x9409A1) and WALL_UPGRADE whose DAMAGE_MULT (RW 0x71EE48 -> 0x68C82D) reads 0.0; not ported: "
+		"the overlay windows (ControlBar + 0x29C / + 0x2A0), the radar override; the construction text and the rally "
 		"point are the HUD's (DrawableIconUI)",
 		"[S-3803] stance buttons (lanes PLAY-4, CAMPUI-1): SET_STANCE sends MSG_CHANGE_STANCE with its stance (RW 0x96F53C); TOGGLE_STANCE is available with a "
 		"StancesBehavior (RW 0x942A77) and shows the current stance's image and labels (StanceToButtonSlot); on the Palantir its press opens / closes the radial of "

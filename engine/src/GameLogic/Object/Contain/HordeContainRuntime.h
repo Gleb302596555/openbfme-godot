@@ -41,6 +41,7 @@
 #include <vector>
 
 class HordeContainCore;
+class UpgradeTemplate;
 class ThingTemplate;
 struct ComboHordeEntry;
 struct HordeContainModuleData;
@@ -112,6 +113,7 @@ public:
 	// slot 0x1D8 / 4 (RW 0x870E50): a ModifierList reaches the members (not a LEVEL one) and always the horde's own pool
 	virtual void addAttributeModifier(const std::string &listName, int duration) = 0;
 	virtual void removeAttributeModifier(const std::string &listName) = 0; ///< slot 0x1DC (RW 0x870F75, lane INTEG-1)
+	virtual void clearAllAttributeModifiers() = 0; ///< slot 0x1E0 (RW 0x00879106, DONOR BFME2 0x00475E06)
 	// ---- lane GARRISON-1 (a horde entering a HordeGarrisonContain and leaving it; GameLogic/Object/Contain/HordeGarrisonLink.cpp) ----
 	// slot 0x18 (RW 0x86EE1B): `member` is contained by this horde or is one of its members on the way into a garrison (the map at interface + 0x54)
 	virtual bool isMemberOrEntering(const Object &member) const = 0;
@@ -198,6 +200,14 @@ public:
 	// dz of 0 -- the smallest range drawn when the first candidate is scored (a zero range is a candidate: 0.0 < the -1.0 start); null when no member
 	// has a weapon. `closestMemberOnly` is not an input: the pick is always the longest-reaching one.
 	virtual Object *memberWithLongestAttackRange() const = 0;
+	// ---- lane PORT-199 (issue #466): the two slots GiveUpgradeUpdate's delivery asks a horde (declared LAST so no earlier declared order moves) ----
+	// slot 0xAC (RW 0x86ECAB): a contained member, or a member still on its way into a garrison (the id map at interface + 0x54), answers
+	// Object::affectedByUpgrade (RW 0x694914) for the upgrade; the first true member answers for the horde
+	virtual bool affectedByUpgrade(const UpgradeTemplate *upgrade) const = 0;
+	// slot 0xB8 (RW 0x871A90): the horde object takes the upgrade itself (RW 0x69388B), then every member: with `allMembers` all of them,
+	// otherwise only the members that are affectedByUpgrade; every member that takes it flashes (RW 0x871B0F -> RW 0x70E013, the grey
+	// 0.99 colour at RW 0xBE53BC, pushed as `push 0xf; push 4; push 4` at RW 0x871B18)
+	virtual void giveUpgrade(const UpgradeTemplate *upgrade, bool allMembers) = 0;
 };
 
 class HordeContain : public UpdateModule, public ContainModuleInterface, public CreateModuleInterface, public HordeContainInterface
@@ -265,6 +275,8 @@ public:
 	// RW 0x870F75 (slot 0x1DC, name, filter; the stances pass no filter): every member (contain slot 0x118) loses the list (Object::removeAttributeModifier), the
 	// second list's members are not ported (S-486), then the horde's own AttributeModifierPoolUpdate (RW 0x8052FB) (lane INTEG-1)
 	void removeAttributeModifier(const std::string &listName) override;
+	// RW 0x00879106 (slot 0x1E0, DONOR BFME2 0x00475E06): clears attribute modifiers on contained and garrison-entering members (RW 0x006998D0) and erases the horde's own pool entries
+	void clearAllAttributeModifiers() override;
 	// lane GARRISON-1 (HordeGarrisonLink.cpp)
 	bool isMemberOrEntering(const Object &member) const override;
 	bool allMembersEntered() const override { return m_garrisonEntering.empty(); }
@@ -279,6 +291,9 @@ public:
 	void exitContainer(Object *container, int source) override;
 	void releaseMembersToward(Object *container, int source) override;
 	std::vector<ObjectID> membersEntering() const override { return std::vector<ObjectID>(m_garrisonEntering.begin(), m_garrisonEntering.end()); }
+	// lane PORT-199: HordeContainInterface slots 0xAC / 0xB8 (RW 0x86ECAB / 0x871A90)
+	bool affectedByUpgrade(const UpgradeTemplate *upgrade) const override;
+	void giveUpgrade(const UpgradeTemplate *upgrade, bool allMembers) override;
 	void setMembersTeam(Team *team) override;
 	// lane GARRISON-3 (HordeGarrisonLink.cpp)
 	void recentreOnMembers(Object *about) override;
@@ -320,6 +335,9 @@ public:
 	bool canSplit() const;
 	// lane MODGAP-2: slot 0x1F8 (RW 0x8791C5; BFME2 0x875F61): the members go to new hordes by the SplitHorde rows, this horde is destroyed (stop S-6004)
 	void splitHorde();
+	// PORT-265 (fork issue 613): RW 0x86DF44, the class's own slot +0x7C of the update. RW 0x86DFB5 .. 0x86E09A: the split of a horde that holds no
+	// more members than SplitHordeNumber (data + 0x258) and whose experience tracker rank is at most 1; true when the horde split (the update then ends).
+	bool splitHordeIfDue();
 	static const char *splitStopLine();
 	// contain slot 0x110 (RW 0x87055D): the first member of the contain list, else the first member on its way into a garrison, else null
 	Object *firstMember() const;

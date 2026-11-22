@@ -27,6 +27,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008BA809 (getModuleName), RW 0x008BA80F (getModuleNameKey), RW 0x008BA8A7 / RW 0x008BA7E9 (dtor)
 class AttributeModifierUpgrade : public UpgradeModule
 {
 public:
@@ -41,6 +42,7 @@ private:
 	const AttributeModifierUpgradeModuleData *m_data;
 };
 
+// RW 0x008BC651 (getModuleName), RW 0x008BC667 (getModuleNameKey), RW 0x008BC6FF / RW 0x008BC631 (dtor)
 class AllowBannerSpawnUpgrade : public UpgradeModule
 {
 public:

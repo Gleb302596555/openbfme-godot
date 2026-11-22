@@ -55,6 +55,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x0085C5D8 (getModuleName), RW 0x0085C610 (getModuleNameKey), RW 0x0085C6E8 (scalar deleting dtor -> RW 0x0085C5B8), RW 0x0085CA3D (this-0x14 getUpdate thunk -> RW 0x008A18E0)
 class ClickReactionBehavior : public UpdateModule
 {
 public:

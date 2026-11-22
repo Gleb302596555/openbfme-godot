@@ -13,6 +13,15 @@
 //   default segment / cliff cap templates, slot 11 the builder radius (module + 0x24: BuilderRadius, or the object's bounding circle radius when it is the default,
 //   ctor RW 0x855EC7), slot 12 MaxBuildoutDistance (true when it was set, RW 0x855EA0), slot 14 StaggeredBuildFactor. Object RW 0x693B55(options) finds the hub module
 //   whose Options match (the command button's).
+//   PORT-307 (issue #699): every slot of the interface read from its first instruction. Slot 0 RW 0x79AA4A (`lea eax,[ecx-0x20] / neg / sbb / and`) is the
+//   this-adjustor to module +0, slot 15 RW 0x855F61 the deleting destructor (RW 0x855E00 the class's, free RW 0x42F6A0), slot 17 RW 0x855E20
+//   (`mov eax, 0xC0BEC4`) the name, slot 18 RW 0x855FC5 the xfer, slot 19 RW 0x855E43 the field-parse key (0xC0BEC4 through RW 0x5487EC, guarded by byte
+//   0xDE8E20). Slots 5 / 6 / 7 are the shared empty stubs RW 0x00851E97 and slot 13 the shared `ret 4` RW 0x009F3A3C. Slot 16 RW 0x008B88B0 is
+//   `jmp 0x004D0EAF` then `jmp 0x0063F3BF`, which is `xor eax,eax; ret`: it answers false and is not behaviour. Slot 8 RW 0x855E26 / slot 9 RW 0x855E2C
+//   are the STATIC Options byte accessors (`mov eax, [0xDAE264]` / `mov [0xDAE264], arg`, image value 0x00FFFFFE = the reserved bit 0 clear, not a
+//   property of one object); slot 10 RW 0x855E38 is the static resetter of that byte to the same 0xFFFFFE, so the hub has NO per-object disabled mask and
+//   the scheduler reads UpdateModule's empty one (RW 0x8B3313) for it. Read as a pool of RW 0x693B55, the accessors are the pool's DefaultOptions
+//   (INFERENCE: the class has no reader; the port keys Options by the object's own data).
 //   MSG_WALL_HUB_CONSTRUCT_SPAN (1123, dispatcher case RW 0x77C4C3): arguments 0 the hub template id (word), 1 / 2 the span's start and end, 3 the options, 4 the
 //   hub object; the hub's owner must pass Player::canBuild (RW 0x6AAA2E) and have RW + 0x770 == 0; then BuildAssistant slot 0x3C (RW 0x795221) builds the span.
 //   planWallSpan (BuildAssistant slot 0x54, RW 0x79586E) and buildWallSpan (slot 0x3C, RW 0x795221) are ported below in their order; the numbers (the tile length
@@ -68,13 +77,13 @@ public:
 	void crc(StateHasher &hasher) const override;
 	const WallHubBehaviorModuleData *data() const { return m_data; }
 	// the interface (RW 0xC565A8); a template name the store lacks answers null (as RW 0x6D1305)
-	const ThingTemplate *patternTemplate(unsigned index) const; // slot 1
-	const ThingTemplate *hubCapTemplate() const;                // slot 2
-	const ThingTemplate *defaultSegmentTemplate() const;        // slot 3
-	const ThingTemplate *cliffCapTemplate() const;              // slot 4
-	float builderRadius() const;                                 // slot 11
-	bool maxBuildoutDistance(float &out) const;                 // slot 12
-	int staggeredBuildFactor() const { return m_data->m_staggeredBuildFactor; } // slot 14
+	const ThingTemplate *patternTemplate(unsigned index) const; // slot 1 (RW 0x0085601C, epilogue RW 0x0085603C)
+	const ThingTemplate *hubCapTemplate() const;                // slot 2 (RW 0x00855F7D)
+	const ThingTemplate *defaultSegmentTemplate() const;        // slot 3 (RW 0x00855F95)
+	const ThingTemplate *cliffCapTemplate() const;              // slot 4 (RW 0x00855FAD)
+	float builderRadius() const;                                 // slot 11 (RW 0x005F2D3D)
+	bool maxBuildoutDistance(float &out) const;                 // slot 12 (RW 0x00855EA0)
+	int staggeredBuildFactor() const { return m_data->m_staggeredBuildFactor; } // slot 14 (RW 0x00855E88)
 
 	// RW 0x693B55: the hub module of `obj` whose Options are `options` (0: the first one)
 	static WallHubBehavior *find(const Object &obj, unsigned options);

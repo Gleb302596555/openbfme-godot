@@ -12,6 +12,7 @@
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DScriptedModelDraw.h"
 
 class Matrix3D;
+class Xfer;
 
 class W3DSailModelDraw final : public W3DScriptedModelDraw
 {
@@ -19,6 +20,10 @@ public:
 	W3DSailModelDraw(const W3DSailModelDrawModuleData &data, W3DDrawAssets &assets, W3DDrawRandom &random,
 		W3DDrawScriptHost *scripts = nullptr, const Options &options = Options());
 	void adjustAttachedTransform(Matrix3D &matrix) override;
+	// RW 0x004D0009 (DONOR BFME2 0x000D0816): version(1, 1), xfers m_lastAngle (+0x2E8) and m_hasLastAngle (+0x2EC)
+	void xfer(Xfer &x);
+	float lastAngle() const { return m_lastAngle; }
+	bool hasLastAngle() const { return m_hasLastAngle; }
 
 private:
 	const W3DSailModelDrawModuleData &m_sailData;

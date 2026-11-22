@@ -137,8 +137,11 @@ TransportContain::TransportContain(Thing *thing, const ModuleData *data, const T
 	getObject()->logic().noteStop(kStopTransport);
 }
 
+// RW 0x0086B14D (TransportContain scalar deleting dtor), RW 0x0087A46B (HordeTransportContain scalar deleting dtor)
 TransportContain::~TransportContain() = default;
 
+// RW 0x0086B04A (TransportContain::getModuleName), RW 0x0086B005 (TransportContain::getModuleNameKey),
+// RW 0x0087A31B (HordeTransportContain::getModuleName), RW 0x0087A426 (HordeTransportContain::getModuleNameKey)
 void TransportContain::registerClasses(ModuleFactory &modules)
 {
 	modules.bindTypedData<TransportContainBehaviorData>("TransportContain", MODULETYPE_BEHAVIOR);
@@ -526,33 +529,29 @@ void TransportContain::letRidersUpgradeWeaponSet()
 			two = true; // data + 0xCC
 		}
 	}
-	ObjectWeapons *w = getObject()->getWeapons();
-	if (!w)
-	{
-		return;
-	}
-	const auto has = [w](int bit) { return ((w->weaponSetFlags()[(size_t)bit >> 5] >> (bit & 31)) & 1u) != 0; };
+	Object *container = getObject();
+	const auto has = [container](int bit) { return ((container->getWeaponSetFlags()[(size_t)bit >> 5] >> (bit & 31)) & 1u) != 0; };
 	if (one)
 	{
 		if (!has(PASSENGER_TYPE_ONE))
 		{
-			w->setWeaponSetFlag(PASSENGER_TYPE_ONE, true); // RW 0x691059(4)
+			container->setWeaponSetFlag(PASSENGER_TYPE_ONE, true); // RW 0x691059(4) on the OBJECT
 		}
 	}
 	else if (has(PASSENGER_TYPE_ONE))
 	{
-		w->setWeaponSetFlag(PASSENGER_TYPE_ONE, false); // RW 0x691106(4)
+		container->setWeaponSetFlag(PASSENGER_TYPE_ONE, false); // RW 0x691106(4) on the OBJECT
 	}
 	if (two)
 	{
 		if (!has(PASSENGER_TYPE_TWO))
 		{
-			w->setWeaponSetFlag(PASSENGER_TYPE_TWO, true);
+			container->setWeaponSetFlag(PASSENGER_TYPE_TWO, true);
 		}
 	}
 	else if (has(PASSENGER_TYPE_TWO))
 	{
-		w->setWeaponSetFlag(PASSENGER_TYPE_TWO, false);
+		container->setWeaponSetFlag(PASSENGER_TYPE_TWO, false);
 	}
 }
 
@@ -673,6 +672,41 @@ int TransportContain::reserveDoorForExit(const Object &obj)
 	return isSpecificRiderFreeToExit(obj) ? 0 : -1;
 }
 
+// RW 0x0086A3DB (main +0x24) / RW 0x0086B057 (contain +0x60 MI-thunk): TransportContain::onCapture
+void TransportContain::onCapture(Player *oldOwner, Player *newOwner)
+{
+	if (oldOwner == newOwner)
+	{
+		return;
+	}
+	// RW 0x0086A3E9: Object + 0x1C8 bit 0x20 = DISABLED_UNMANNED (type 5)
+	if (getObject()->isDisabledByType(5))
+	{
+		removeAllContained(false);
+		return;
+	}
+	orderAllPassengersToExit(2 /*CMD_FROM_AI*/);
+	if (isPassengerAllowedToFire() && getObject()->getControllingPlayer() != newOwner)
+	{
+		orderAllPassengersToIdle(2 /*CMD_FROM_AI*/);
+	}
+}
+
+void TransportContain::orderAllPassengersToIdle(int source)
+{
+	const std::vector<Object *> riders(m_contained.begin(), m_contained.end());
+	for (Object *r : riders)
+	{
+		if (r)
+		{
+			if (AIUpdateInterface *ai = r->getAIUpdateInterface())
+			{
+				ai->aiIdle((CommandSourceType)source);
+			}
+		}
+	}
+}
+
 void TransportContain::onObjectCreated()
 {
 	if (!m_payloadCreated)
@@ -713,13 +747,34 @@ void TransportContain::createPayload()
 	}
 }
 
+namespace
+{
+// RW 0x86A104 -> 0x86A117..0x86A15E and RW 0x86B169 -> 0x86B24B..0x86B28F:
+// when the container is a HordeContain (vslot +0x7C), GlobalData +0xD45 is clear (normal runtime), the payload template is neither
+// HERO (KindOf bit 90, ThingTemplate +0x113 bit 2) nor MONSTER (KindOf bit 10, ThingTemplate +0x109 bit 2), and AIData ForceHordesToLowLOD
+// (+0xBB) is set, the spawned member receives OBJECT_STATUS_CREATE_DRAWABLE_WITH_LOW_DETAIL (bit 55).
+ObjectStatusMaskType hordePayloadInitialStatus(GameLogic &logic, ContainModuleInterface &contain, const ThingTemplate &t)
+{
+	ObjectStatusMaskType status{};
+	if (contain.getHordeContainInterface() && logic.settings().forceHordesToLowLOD)
+	{
+		const auto &ko = logic.templateInfo(t.getFinalOverride()).kindOf;
+		if (!MaskTest(ko, 90u) && !MaskTest(ko, 10u))
+		{
+			MaskSet(status, OBJECT_STATUS_CREATE_DRAWABLE_WITH_LOW_DETAIL, true);
+		}
+	}
+	return status;
+}
+} // namespace
+
 // RW 0x86A104
 Object *TransportContain::createPayloadObject(const ThingTemplate &t, ContainModuleInterface &contain, bool checkCapacity)
 {
 	Object *container = getObject();
 	GameLogic &logic = container->logic();
-	// RW 0x86A118 .. 0x86A15C: CREATE_DRAWABLE_WITH_LOW_DETAIL for a horde payload of a low detail setting (client side): no status
-	Object *o = logic.newObject(&t, container->getTeam(), ObjectStatusMaskType{}); // RW 0x6D165E(t, container + 0x31C)
+	const ObjectStatusMaskType status = hordePayloadInitialStatus(logic, contain, t); // RW 0x86A117 .. 0x86A15E
+	Object *o = logic.newObject(&t, container->getTeam(), status); // RW 0x6D165E(t, container + 0x31C)
 	if (!o)
 	{
 		return nullptr;
@@ -797,7 +852,8 @@ void TransportContain::processUpgradeCreationTriggers()
 			{
 				break;
 			}
-			Object *o = logic.newObject(t, container->getTeam(), ObjectStatusMaskType{});
+			const ObjectStatusMaskType status = hordePayloadInitialStatus(logic, *contain, *t); // RW 0x86B24B .. 0x86B28F
+			Object *o = logic.newObject(t, container->getTeam(), status);
 			if (!o)
 			{
 				break;
@@ -860,6 +916,7 @@ UpdateSleepTime TransportContain::update()
 	return s;
 }
 
+// RW 0x00869ECF (TransportContain::crc, retail tail-jumps to no-op 0x009F3A3C)
 void TransportContain::crc(StateHasher &h) const
 {
 	OpenContain::crc(h);
@@ -941,7 +998,7 @@ bool HordeTransportContain::addToContain(Object *obj)
 		ObjectWeapons *w = o->getWeapons();
 		if (w && w->hasWeaponSetFor(CONTAINED))
 		{
-			w->setWeaponSetFlag(CONTAINED, true);
+			o->setWeaponSetFlag(CONTAINED, true);
 			return true;
 		}
 		return false;
@@ -1016,10 +1073,7 @@ void HordeTransportContain::removeFromContain(Object *obj, bool exposeStealthUni
 		return;
 	}
 	const auto clearContainedWeaponSet = [](Object *o) {
-		if (ObjectWeapons *w = o->getWeapons())
-		{
-			w->setWeaponSetFlag(CONTAINED, false); // RW 0x691106(0x14)
-		}
+		o->setWeaponSetFlag(CONTAINED, false); // RW 0x691106(0x14) on the OBJECT
 	};
 	// RW 0x87A361: OpenContain's removal (false), CONTAINED cleared, RW 0x990EE6: back into the world, not UNSELECTABLE
 	const auto removeRider = [this, &clearContainedWeaponSet](Object *o) {
@@ -1105,6 +1159,41 @@ void HordeTransportContain::onRiderPlaced(Object *rider, bool hidden)
 }
 
 // RW 0x87A559 -> RW 0x991027: a horde rider gets horde slot 0x84 (its AI command 0x3E), another rider with an AI aiExit (command 0x1A)
+// RW 0x0087A988 (contain slot 0x174, callback RW 0x0087A572): forward container upgrades to passengers
+void HordeTransportContain::onContainerUpgrade(const std::vector<const UpgradeTemplate *> &granted)
+{
+	if (granted.empty())
+	{
+		return;
+	}
+	const std::vector<Object *> riders(m_contained.begin(), m_contained.end());
+	for (Object *r : riders)
+	{
+		if (!r)
+		{
+			continue;
+		}
+		for (const UpgradeTemplate *t : granted)
+		{
+			if (t && r->affectedByUpgrade(t))
+			{
+				r->giveUpgrade(t);
+			}
+		}
+	}
+}
+
+// RW 0x0087A3A4 (DONOR BFME2 0x00479C0C): contain vslot 0x68 on HordeTransportContain (and subclass HordeSiegeEngineContain):
+// forwards to OpenContain::onContainedAboutToTakeDamage (RW 0x00865631) only when rider->getContain() == nullptr
+void HordeTransportContain::onContainedAboutToTakeDamage(Object *rider, const void *damageSource, DamageInfo *info)
+{
+	if (rider && rider->getContain() != nullptr)
+	{
+		return;
+	}
+	OpenContain::onContainedAboutToTakeDamage(rider, damageSource, info);
+}
+
 void HordeTransportContain::orderAllPassengersToExit(int source)
 {
 	const std::vector<Object *> riders(m_contained.begin(), m_contained.end());
@@ -1354,6 +1443,7 @@ void HordeTransportContain::crc(StateHasher &h) const
 }
 
 // ---- lane SAVE-4b: the snapshots (OpenBFME native, S-4190) ------------------------------------------------------------------------------------------------
+// RW 0x00869E86 (TransportContain::xfer), RW 0x0086970E (TransportContain::loadPostProcess thunk -> OpenContain::loadPostProcess)
 void TransportContain::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);
@@ -1371,6 +1461,7 @@ void TransportContain::xfer(Xfer &x)
 	}
 }
 
+// RW 0x0087A3EB (HordeTransportContain::xfer), RW 0x0087CFE6 (HordeTransportContain::loadPostProcess thunk -> 0x0086970E)
 void HordeTransportContain::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

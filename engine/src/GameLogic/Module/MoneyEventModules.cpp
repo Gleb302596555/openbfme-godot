@@ -304,6 +304,7 @@ void RefundDie::xfer(Xfer &x)
 	xferBehaviorModule(x);
 }
 
+// RW 0x00888247
 void PillageModule::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

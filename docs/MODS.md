@@ -249,6 +249,7 @@ rebuilt in OpenBFME as a named feature, off unless that mod is loaded (`Common/M
 |---|---|
 | Edain Unchained 4.4.3 `game.dat` (5c31f503...) | the `edain-unchained.*` features below |
 | Patch 2.02 / 2.02 Delayfix `lotrbfme2ep1.exe` | nothing to do: install checks and EA's frame pacing, no game rule |
+| Ennorath 1.9.8.5 `game.dat` (fc32e4c4...) | `ennorath.stance-keeps-moving` (the defensive stance does not stop a moving unit) `ennorath.middle-click-camera` (a middle click resets the camera within 350 ms, unless the pointer went beyond 5 pixels) and `ennorath.evacuate-containers` (evacuate all of a tunnel lets war wagons and the Witch-king out too); the S-5304 line names the pySAGE edits left out; [ennorath/ENNORATH_EXE.md](ennorath/ENNORATH_EXE.md) decodes them |
 | Edain Völker 1.7 `game.dat` | nothing to do for the game rules: frame pacing and desync reporting |
 | RJ-RotWK launcher and its `file.dat` | nothing: a launcher, not the game |
 

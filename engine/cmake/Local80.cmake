@@ -1,0 +1,4 @@
+# LOCAL-80 (issue #704): script library rank actions (PLAYER_ADD_SKILLPOINTS / PLAYER_ADD_RANKLEVEL /
+# PLAYER_SET_RANKLEVEL / PLAYER_SET_RANKLEVELLIMIT) and condition PLAYER_COMPARE_RANK.
+set(OPENBFME_LOCAL80_TESTS
+    tests/test_local_80.cpp)

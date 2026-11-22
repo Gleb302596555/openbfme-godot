@@ -38,7 +38,7 @@
 //     0x6C RW 0x88CFFE: the paid price back, truncated, the money spent score taken back, the object destroyed); a legal site: the body's health is changed by
 //     1.0 - health (body vslots 0x10 / 0x84: the structure rises from 1 hit point).
 //   * DozerAIUpdate::update (RW 0x88CAF5): the base AI update, then a current REPAIR task whose target the ActionManager no longer lets it repair is cancelled
-//     (RW 0x82D7F2, S-1282), then the primary machine. The dozer never sleeps (returns 1).
+//     (RW 0x82D7F2, PORT-289), then the primary machine. The dozer never sleeps (returns 1).
 // TARGET (lane BUILD-2, DozerActionDoActionState::update RW 0x88D993, sub task 3): a build task adds 100 / calcTimeToBuild(template, the dozer's owner, the dozer)
 // to the construction percent each frame (SSE, RW 0x88DE72..0x88DE99) and changes the body's health by MaxHealth / that (x87, RW 0x88DEA8..0x88DEB5), sets itself as
 // producer / builder when none is set, and completes the structure when the percent reaches 100 (RW 0x88DEE0 ff); a repair task heals the body by RepairHealthPercentPerSecond
@@ -108,7 +108,9 @@ public:
 	~DozerAIUpdate() override; // RW 0x88D1AC: finishBuildingSound (RW 0x88BFA9) first
 	// lane BFME2CAMP1 (review): RW 0x88D1AC's tail: a dozer that still has an unplaced phantom (+ 0x568) removes it (RW 0x88CFFE: the price back, the phantom
 	// destroyed). The port runs it when the dozer is destroyed in the game (Module::onDelete), not in the destructor, which also runs at the logic's teardown
-	void onDelete() override;
+	void onDelete() override; // RW 0x0088CF96
+	// RW 0x0088BF7A (primary vslot +0x24C, called by Object::onDie RW 0x00698FB5): removes an unplaced phantom structure on builder death.
+	void onOwnerDie() override;
 	// RW 0x88E44F (DozerAIUpdate::aiDoCommand): a PLAYER command other than repair (0x13), resume construction (0x14) and move away (0x34) cancels the current task
 	// before it runs (dozer interface slot 0x34) and resets the primary machine
 	void commandAccepted(CommandSourceType source, int command, Object *target) override;
@@ -119,8 +121,8 @@ public:
 	static void registerWorkerClass(ModuleFactory &modules); // lane LUMBER1: binds WorkerAIUpdate (GameLogic/Module/WorkerAIUpdate.h)
 	bool isWorker() const { return m_isWorker; }
 
-	// RW 0x88C217 -> 0x88C2A5: the legality gate of the construct body, flags 0x49F (ZH CLEAR_PATH | TERRAIN_RESTRICTIONS | NO_OBJECT_OVERLAP | USE_QUICK_PATHFIND | SHROUD_REVEALED = 0x1F
-	// plus the RotWK bits 0x80 and 0x400 whose meaning is not read, S-301): a nonzero result rejects the order. The dispatcher asks it before it changes the builder's state
+	// RW 0x88C217 -> 0x88C2A5: the legality gate of the construct body, flags 0x49F (RotWK numbering, lane BUILDCLEAR-1: terrain, clear path, object overlap,
+	// quick path, the unread 0x10, fogged objects ignored, the pending dozer structures): a nonzero result rejects the order. The dispatcher asks it before it changes the builder's state
 	static constexpr unsigned kConstructLegalFlags = 0x49F;
 	bool siteIsLegal(const ThingTemplate &what, const Coord3D &pos, float angle, Player &owner);
 	// RW vslot 0x1F8 (RW 0x88C217): makes the foundation of `what` at `pos` and starts the build task; null when refused (illegal site, no money). The 5th
@@ -129,8 +131,17 @@ public:
 	Object *construct(const ThingTemplate &what, const Coord3D &pos, float angle, Player &owner, bool isRebuild = false);
 	// MSG_RESUME_CONSTRUCTION: RW 0x8ACEA9 (vslot 0xB4): the ActionManager's test, then newTask(BUILD, structure); the command path first idles a dozer without a task
 	bool resumeConstruction(Object &structure);
-	// lane BUILD-2: RW 0x88BD8D (vslot 0xB0, MSG_DO_REPAIR, a worker spawned to repair): the ActionManager's test and a free sole benefactor, then newTask(REPAIR)
-	bool repair(Object &structure);
+	// lane BUILD-2: RW 0x88BD8D (vslot 0xB0, MSG_DO_REPAIR, a worker spawned to repair): the ActionManager's test and a free sole benefactor, then newTask(REPAIR).
+	// lane PORT-282: virtual - the worker's class overrides the slot with its own body (RW 0x8AD2D3, WorkerAIUpdate::repair)
+	virtual bool repair(Object &structure);
+	// PORT-289: source-aware entry used by command paths; it records the source and
+	// dispatches through the virtual one-argument repair slot, preserving the
+	// WorkerAIUpdate override from PORT-282.
+	bool repair(Object &structure, CommandSourceType source);
+	// RW 0x88CB8A (dozer interface slot 0x50): may a repair order for `structure` replace the REPAIR task this builder already has?
+	// FALSE while the ordered target is the structure this builder repairs (the running task keeps it), TRUE otherwise, except for two bridge
+	// towers (RW 0x85B874's bridge module on both sides, their ids equal): an order for the other tower of a bridge is refused
+	bool canAcceptNewRepair(const Object *structure) const;
 	bool repairing() const { return m_currentTask == DOZER_TASK_REPAIR; }
 	// the frames of work (sub task 3) this dozer put into its current / last task
 	UnsignedInt taskWorkFrames() const { return m_taskWorkFrames; }
@@ -141,17 +152,17 @@ public:
 	// the target of the current task, else of the most recently ordered pending one (INVALID_ID: none)
 	ObjectID taskTarget() const;
 	bool working() const { return m_working; }
-	float repairHealthPercentPerSecond() const { return m_repairPercentPerSecond; }
+	float repairHealthPercentPerSecond() const { return m_repairPercentPerSecond; } // slot 0x04, RW 0x0088BEBE
 
-	// ---- the dozer interface (RW vtable 0xC622D8) ----
-	bool isTaskPending(int task) const { return task >= 0 && task < DOZER_NUM_TASKS && m_task[task].target != INVALID_ID; } // slot 0x18
-	bool isAnyTaskPending() const;                                                                                         // slot 0x20
-	int getMostRecentCommand() const;                                                                                       // slot 0x14
+	// ---- the dozer interface (RW vtable 0xC622D8; WorkerAIUpdate vtable 0xC6AC18) ----
+	bool isTaskPending(int task) const { return task >= 0 && task < DOZER_NUM_TASKS && m_task[task].target != INVALID_ID; } // slot 0x18, RW 0x0088BDDE / RW 0x008ACEFE
+	bool isAnyTaskPending() const;                                                                                         // slot 0x20, RW 0x0088BDEE
+	int getMostRecentCommand() const;                                                                                       // slot 0x14, RW 0x0088BE47 / RW 0x008ACF48
 	int getCurrentTask() const { return m_currentTask; }                                                                    // slot 0x24
-	ObjectID getTaskTarget(int task) const { return isTaskPending(task) ? m_task[task].target : INVALID_ID; }              // slot 0x1C
-	const Coord3D *getDockPoint(int task, int point) const;                                                                 // slot 0x44
-	int getBuildSubTask() const { return m_buildSubTask; }                                                                  // slot 0x4C
-	ObjectID unplacedStructure() const { return m_unplacedStructure; }                                                      // + 0xC0
+	ObjectID getTaskTarget(int task) const { return isTaskPending(task) ? m_task[task].target : INVALID_ID; }              // slot 0x1C, RW 0x0088BE0D / RW 0x008ACF0E
+	const Coord3D *getDockPoint(int task, int point) const;                                                                 // slot 0x44, RW 0x0088BE84 / RW 0x008ACF85
+	int getBuildSubTask() const { return m_buildSubTask; }                                                                  // slot 0x4C (setter slot 0x48 RW 0x0088C924 / RW 0x004944E7)
+	ObjectID unplacedStructure() const { return m_unplacedStructure; }                                                      // + 0xC0 (slot 0x70/0x74 RW 0x0088D0C6)
 	int primaryState() const { return m_primaryState; }
 	// the action machine state of the current task (ACTION_NONE without one)
 	int actionState() const { return m_currentTask >= 0 ? m_action[m_currentTask].state : (int)ACTION_NONE; }
@@ -162,6 +173,7 @@ public:
 
 	void crc(StateHasher &hasher) const override;
 	void xferAIStateBody(class Xfer &x) override; // lane SAVE-4c (AIUpdateSnapshot.cpp)
+	void loadPostProcess() override; // RW 0x0088D186 -> makePhantomStructureInert RW 0x0088D0D8
 	OBFME_MODULE_XFER(DozerAIUpdate) // lane SAVE-4e: its version and AIUpdateInterface's (its state: xferAIStateBody)
 
 	// RW 0x88CAF5: the base update, the repair validity check, the primary machine; never sleeps
@@ -185,10 +197,11 @@ protected:
 		Coord3D location{ 0.0f, 0.0f, 0.0f };
 	};
 
-	void newTask(int task, Object &target);         // slot 0x30, RW 0x88CCFC
-	void cancelTaskInternal(int task);              // slot 0x34, RW 0x88E3CE
-	void internalTaskComplete(int task);            // slot 0x38, RW 0x88BE18
-	void internalCancelTask(int task);              // slot 0x3C, RW 0x88E40A
+	virtual void newTask(int task, Object &target);            // slot 0x30, RW 0x0088CCFC (Worker: RW 0x008AE4A9)
+	virtual void cancelTaskInternal(int task);                 // slot 0x34, RW 0x0088E3CE (Worker: RW 0x008ACEE3)
+	void internalTaskComplete(int task);                       // slot 0x38, RW 0x0088BE18 / RW 0x008ACF19
+	virtual void internalCancelTask(int task);                 // slot 0x3C, RW 0x0088E40A (Worker: RW 0x008AE74B)
+	virtual void internalTaskCompleteOrCancelled(int task);    // slot 0x40, RW 0x0088C93C (Worker: RW 0x008AE17C)
 	void removeUnplacedStructure();                 // slot 0x6C, RW 0x88CFFE
 	bool placeUnplacedStructure();                  // slot 0x68, RW 0x88D44F: false when the site is no longer legal
 	void notifyAIPlayerDozerFree();                 // slot 0x7C, RW 0x88BF4E
@@ -219,10 +232,10 @@ protected:
 
 	TaskInfo m_task[DOZER_NUM_TASKS];
 	DockPoint m_dockPoint[DOZER_NUM_TASKS][DOZER_NUM_DOCK_POINTS];
-	int m_currentTask = DOZER_TASK_INVALID;
-	int m_buildSubTask = DOZER_SELECT_BUILD_DOCK_LOCATION;
-	ObjectID m_unplacedStructure = INVALID_ID;
-	bool m_isRebuild = false; ///< + 0x4D0 (lane BFME2CAMP1): the last construct's rebuild flag (RW 0x88C217)
+	int m_currentTask = DOZER_TASK_INVALID; ///< slot 0x28 setter RW 0x0099474B / RW 0x0097D97C
+	int m_buildSubTask = DOZER_SELECT_BUILD_DOCK_LOCATION; ///< slot 0x48 setter RW 0x0088C924 / RW 0x004944E7
+	ObjectID m_unplacedStructure = INVALID_ID; ///< slot 0x70/0x74 getter RW 0x0088D0C6
+	bool m_isRebuild = false; ///< + 0x4D0 (lane BFME2CAMP1): the last construct's rebuild flag (RW 0x88C217, slot 0x2C getter RW 0x008F114D)
 	// primary machine
 	int m_primaryState = -1;          ///< -1 until the machine is made (RW 0x88C1C1)
 	UnsignedInt m_idleTimestamp = 0;  ///< IDLE + 0x20
@@ -249,6 +262,6 @@ protected:
 	void finishBuildingSound();
 	bool m_isWorker = false;               // a WorkerAIUpdate (RW 0x88B897: the AI has a supply interface, vslot 0x190): it does not hide while it builds
 	float m_repairPercentPerSecond = 0.0f; // +0x64
-	float m_boredTime = 0.0f;              // +0x68 (frames * 1.0: parseDurationReal)
+	float m_boredTime = 0.0f;              // +0x68 (frames * 1.0: parseDurationReal; slot 0x08 getter RW 0x0088BEC8 / RW 0x008ACD22)
 	float m_boredRange = 0.0f;             // +0x6C
 };

@@ -164,10 +164,10 @@ public:
 	void destroyPath();
 	void setPath(Path *path);
 	AIGoalType goalType() const { return m_goalType; }
-	void setGoalOnPath();
+	void setGoalOnPath();                  // RW 0x006628F4: goal type 1 (on path), the goal position zeroed
 	void setGoalExplicit(const Coord3D &p);
 	void setGoalExplicitWithPath(const Coord3D &p);
-	void setGoalAngle(float angle);
+	void setGoalAngle(float angle);        // RW 0x0066297C: goal type 3 (an angle), the angle at AI + 0x200
 	float goalAngle() const { return m_goalAngle; } // lane EXIT-1: AI + 0x200 of an angle goal
 	void setGoalNone();
 	void setDesiredSpeed(float s) { m_desiredSpeed = s; }
@@ -365,6 +365,8 @@ public:
 	bool waitingForPath() const { return m_waitingForPath; }
 	// lane MODULES-3 r2: RW 0x740C97 clears + 0x49 when a temporary state ended (the next update re-requests the path)
 	void clearWaitingForPath() { m_waitingForPath = false; }
+	// PORT-165: RW 0x741FC1 copies the queued attack request into the derived move state.
+	void setWaitingForPath(bool waiting) { m_waitingForPath = waiting; }
 	const Coord3D &goal() const { return m_goal; }
 	// MOVE-1: a moving goal (ZH AIMoveToState::update re-reads the goal object's position every frame; the repath test compares it with the goal of the last path)
 	void setGoal(const Coord3D &g) { m_goal = g; }

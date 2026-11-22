@@ -27,6 +27,7 @@
 #include "GameLogic/Module/HordeDispatchSpecialPower.h"
 #include "GameLogic/Module/ObjectCreationUpgrade.h"
 #include "GameLogic/Module/OCLUpdate.h"
+#include "GameLogic/Module/FadeAndDieOrnamentUpdate.h"
 #include "GameLogic/Module/DeflectSpecialPower.h"
 #include "GameLogic/Module/ReflectDamage.h"
 #include "GameLogic/Module/EvacuateDamage.h"
@@ -59,6 +60,7 @@
 #include "GameLogic/Module/PortalModules.h"
 #include "GameLogic/Module/BaseUpgrade.h"
 #include "GameLogic/Module/DamageFieldUpdate.h"
+#include "GameLogic/Module/PoisonedBehavior.h"
 #include "GameLogic/Module/CivilianSpawnUpdate.h"
 #include "GameLogic/Module/CivilianSpawnCollide.h"
 
@@ -108,6 +110,7 @@
 void LogicModules::registerAll(ModuleFactory &modules)
 {
 	SpawnUnitBehavior::registerClass(modules); // both editions: RW 0x8BC9B0 / BFME2 0x89ECC0 (S-207)
+	// ActiveBody: getModuleName RW 0x008C3A2D, getModuleNameKey RW 0x008C39E8 (DONOR BFME2 0x004BF88D / 0x004BE1F0)
 	modules.bindTypedData<ActiveBodyModuleData>("ActiveBody", MODULETYPE_BEHAVIOR);
 	modules.bindModuleProc("ActiveBody", MODULETYPE_BEHAVIOR, [](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &) -> std::unique_ptr<Module> {
 		const ActiveBodyModuleData *typed = dynamic_cast<const ActiveBodyModuleData *>(data);
@@ -145,6 +148,7 @@ void LogicModules::registerAll(ModuleFactory &modules)
 	LocomotorSetUpgrade::registerClass(modules); // MODGAP-2: switch the AI's normal locomotor set
 	ObjectCreationUpgrade::registerClass(modules); // lane FACT-A: the object an upgrade makes (the Crystal Moat)
 	OCLUpdate::registerClass(modules);             // lane MODGAP-1: the wall trebuchet / catapult makers
+	FadeAndDieOrnamentUpdate::registerClass(modules); // both editions: RW 0x007A772B / 0x007A7801
 	DeflectSpecialPower::registerClass(modules);   // lane MODGAP-1: the spear carriers' shield wall (inert in Ennorath, S-5601)
 	ReflectDamage::registerClass(modules);         // lane MODGAP-1: the Witch-king's and the Nazgul's thorns
 	EvacuateDamage::registerClass(modules);        // lane MODGAP-1: the towers' garrison runs out (S-5602)
@@ -215,6 +219,7 @@ void LogicModules::registerAll(ModuleFactory &modules)
 	StrafeAreaUpdate::registerClass(modules);              // MODGAP-2: both editions (RW 0x008A3950 / BFME2 0x0089F9F0)
 	BaseUpgrade::registerClass(modules);                   // LOCAL-36 (issue #286): both editions (RW 0x65A28A / BFME2 0x659074)
 	DamageFieldUpdate::registerClass(modules);             // LOCAL-36 (issue #286): both editions (RW 0x659082 / BFME2 0x6577D5)
+	PoisonedBehavior::registerClass(modules);              // LOCAL-97 (fork issue 762): both editions (RW 0x00658636 / DONOR BFME2 0x00482F7D)
 	CivilianSpawnUpdate::registerClass(modules);           // LOCAL-36 (issue #286): both editions (RW 0x6593F7 / BFME2 0x65824C)
 	CivilianSpawnCollide::registerClass(modules);          // LOCAL-36 (issue #286): both editions (RW 0x65B091 / BFME2 0x659C97)
 	DynamicShroudClearingRangeUpdate::registerClass(modules); // LOCAL-35 (#285): the map ping's growing/shrinking shroud reveal (RW 0x88E6D8 / 0x88E9B0)

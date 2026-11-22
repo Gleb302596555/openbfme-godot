@@ -2,6 +2,7 @@
 // BFME1's two Bloodthirsty voice slots follow Open-BFME-1 MessageStream/CommandXlatVoice.cpp, case 0x7E9 and its playback tail.
 
 #include "GameClient/UnitVoiceResponse.h"
+#include "GameClient/InGameUI.h"
 
 #include "Common/AsciiString.h"
 #include "Common/Audio/AudioEntryPoints.h"
@@ -22,6 +23,7 @@
 #include "GameLogic/Module/InvisibilityModules.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
+#include "GameLogic/Object/ExperienceTracker.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameLogic/System/InvisibilityManager.h"
@@ -694,6 +696,29 @@ void UnitVoiceResponse::selectVoices(Object &obj, int msgType, const Info *, Cho
 	}
 }
 
+std::string UnitVoiceResponse::Sink::planningModeOrderSound() const
+{
+	const AudioManager *audio = AudioApi::current();
+	return audio ? audio->miscAudio("PlanningModeOrderGiven") : std::string();
+}
+
+bool UnitVoiceResponse::planningOrderVoice(const Object &obj, int msgType, Choice &c) const
+{
+	// RW 0x8DEE0E: the bypass bool is original message 0x46A, not force-attack.
+	// RW 0x8DE901 / 0x8DDFD7 / 0x8DF416: planning replaces move/attack/enter
+	// before their normal rules. Even an empty MiscAudio slot exits: no unit fallback.
+	constexpr int kPlanningVoiceBypassMessage = 0x46A; // RW 0x8DEE0E
+	const Player *player = obj.getControllingPlayer();
+	if (isEnterState(msgType) || msgType == kPlanningVoiceBypassMessage || !player || player->orderMode() != 2)
+	{
+		return false;
+	}
+	Voice voice;
+	voice.sound = m_sink.planningModeOrderSound();
+	fill(c, voice);
+	return true;
+}
+
 void UnitVoiceResponse::moveVoices(Object &obj, int msgType, const Info *info, Choice &c, Rank &rank) const
 {
 	// RW 0x8DE838
@@ -702,8 +727,11 @@ void UnitVoiceResponse::moveVoices(Object &obj, int msgType, const Info *info, C
 	const int base = enterState ? 27 : VOICE_MOVE;
 	const int whileAttacking = enterState ? 32 : VOICE_MOVE_WHILE_ATTACKING;
 	const int higherGround = enterState ? 28 : VOICE_MOVE_TO_HIGHER_GROUND;
-	// the planning mode branch (player + 0x770 == 2: MiscAudio PlanningModeOrderGiven), VoiceCrush (GameData + 0x8B9 and a crushable target), the busy gate
-	// (GameData + 0x8B0) are not ported: stop S-704
+	if (planningOrderVoice(obj, msgType, c))
+	{
+		return;
+	}
+	// VoiceCrush remains S-704 (InGameUI +0x8B9, not GameData).
 	if (!enterState && msgType == MSG_DO_SALVAGE)
 	{
 		if (fillName(c, obj, "VoiceSalvage"))
@@ -714,6 +742,14 @@ void UnitVoiceResponse::moveVoices(Object &obj, int msgType, const Info *info, C
 	if (rank.special > 0)
 	{
 		return; // RW 0x8DEA60: a special voice ends the rule list
+	}
+	// RW 0x8DEA22–0x8DEA5C: this is InGameUI waypoint mode, not a GameData
+	// busy flag. Special voices above survive the early return; enter-state ignores it.
+	const AIUpdateInterface *ai = obj.getAIUpdateInterface();
+	if (!enterState && m_ui && m_ui->isInWaypointMode() && ai &&
+		(ai->isMoving() || ai->mover().isWaitingForPath()))
+	{
+		return;
 	}
 	const bool hasPosition = info && info->hasPosition;
 	// RW 0x8DDBC4 (donor BFME2 0x004D990E): the movement-sensitive module scan, before the camp rule (RW 0x8DEA6E .. 0x8DEAAB)
@@ -897,6 +933,10 @@ void UnitVoiceResponse::attackVoices(Object &obj, int msgType, const Info *info,
 	const int structure = enterState ? 25 : VOICE_ATTACK_STRUCTURE;
 	const int machine = enterState ? 26 : VOICE_ATTACK_MACHINE;
 	c.charge = true;
+	if (planningOrderVoice(obj, msgType, c))
+	{
+		return;
+	}
 	if (msgType == MSG_DO_FORCE_ATTACK_GROUND)
 	{
 		fillName(c, obj, "VoiceBombard");
@@ -945,8 +985,10 @@ void UnitVoiceResponse::attackVoices(Object &obj, int msgType, const Info *info,
 	if (!done(c))
 	{
 		// RW 0x671ED8: the charge voice is allowed when neither the unit nor its horde is ATTACKING (RW 0x694154(0x25): the model condition bit 37 through
-		// 0x46E918, the horde resolved by 0x693A1A(0); review r1 fix 5) and obj + 0x384 (frame + VoiceAttackChargeTimeout) has passed. The retail
-		// function also answers false for an object without a drawable (obj + 0xFC); that gate is not ported here (S-704)
+		// 0x46E918, the horde resolved by 0x693A1A(0); review r1 fix 5) and drawable + 0x384 (frame + VoiceAttackChargeTimeout) has passed. The retail
+		// receiver is the DRAWABLE (RW 0x8DDF50 -> 0x8DE15C); +0xFC is its Object.
+		// RW 0x671EE4 rejects an unbound drawable, not a headless Object. This picker
+		// already has a live Object reference; do not test Object::clientHooks here.
 		static const int attacking = ModelCondition::indexOf("ATTACKING");
 		const Object *horde = obj.getContainedBy();
 		if (horde && !(horde->getContain() && horde->getContain()->getHordeContainInterface()))
@@ -1111,7 +1153,18 @@ bool UnitVoiceResponse::pickAndPlay(const std::vector<ObjectID> &selection, int 
 		rank.priority = objectVoicePriority(obj); // RW 0x675095
 		const int heroBit = ObjectTemplateInfoBuilder::kindOfIndex("HERO");
 		rank.hero = heroBit >= 0 && obj.isKindOf((unsigned)heroBit);
-		// a hero's level (RW 0x79D12A experience tracker -> 0x689024 / 0x688EEC) stays at the minimum: the experience system is lane XP-1's (S-705)
+		// PORT-271 (issue #638, P-151): a hero's level is the rank of its experience tracker, the number the panel's hero is picked by
+		// (0x8DF0A3 reads obj + 0x26C and asks getCurrentLevel RW 0x79D12A, isValid RW 0x689024 and getLevelRank RW 0x688EEC). A hero no
+		// ExperienceLevel names keeps the minimum (0x8DF0CE), so a ranked hero of the selection speaks instead of it
+		if (rank.hero)
+		{
+			int heroLevel = 0;
+			const ExperienceTracker *tracker = obj.getExperienceTracker();
+			if (tracker && tracker->currentLevelRank(heroLevel))
+			{
+				rank.level = heroLevel;
+			}
+		}
 		switch (msgType)
 		{
 			case MSG_CREATE_SELECTED_GROUP:
@@ -1252,6 +1305,10 @@ bool UnitVoiceResponse::pickAndPlay(const std::vector<ObjectID> &selection, int 
 				break;
 			case MSG_ENTER:
 			{
+				if (planningOrderVoice(obj, msgType, c))
+				{
+					break; // RW 0x8DF40A–0x8DF47F
+				}
 				// RW 0x8DF484 .. 0x8DF4FF: VoiceEnterUnit<target template>
 				const Object *target = enterTarget;
 				if (target && target->getTemplate())
@@ -1561,11 +1618,10 @@ std::vector<std::string> UnitVoiceResponse::acceptanceStops()
 		"[S-703] unit voice: message types of RW 0x8DEDBB not answered here: weapon modes (0x43A), "
 		"the planned action queue (0x46A), the Ring voices (0x7E4, 0x7E5); combine hordes (0x423, RW 0x8DF2EB) is answered (PORT-84); 0x7DB .. 0x7DD are answered (PORT-86); "
 		"0x7EA (RW 0x8DFD0D) and 0x7EB (RW 0x8DFE7B) are answered (PORT-87), the post of 0x7EA is stop S-7226",
-		"[S-704] unit voice: rules of the move / attack / enter helpers not ported: the planning order mode (player + 0x770 == 2 -> MiscAudio PlanningModeOrderGiven), "
-		"VoiceCrush (GameData + 0x8B9, crushable target), the busy gate (GameData + 0x8B0), the charge voice's drawable gate (RW 0x671EE4: no drawable, no charge)",
-		"[S-705] unit voice: the candidate order is selection then member order (retail iterates a hash map keyed by Object pointers), a count tie between "
-		"two sounds goes to the lower-case name order (retail: the lower audio info POINTER, RW 0x8DE522's unsigned compare), and a hero's level is the "
-		"minimum (the experience tracker RW 0x79D12A is lane XP-1's): which sound wins a tie and which object of a bucket speaks may differ from retail",
+		"[S-704] unit voice: VoiceCrush (InGameUI + 0x8B9, crushable target) is not ported; planning and waypoint movement gates are ported (PORT-462)",
+		"[S-705] unit voice: the candidate order is selection then member order (retail iterates a hash map keyed by Object pointers) and a count tie between "
+		"two sounds goes to the lower-case name order (retail: the lower audio info POINTER, RW 0x8DE522's unsigned compare): which sound wins a tie and "
+		"which object of a bucket speaks may differ from retail. A hero's level is its experience tracker's rank (PORT-271)",
 	};
 }
 

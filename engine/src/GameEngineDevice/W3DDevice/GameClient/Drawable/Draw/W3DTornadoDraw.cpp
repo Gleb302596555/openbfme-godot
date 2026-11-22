@@ -138,8 +138,10 @@ void W3DTornadoDraw::createDecals()
 	}
 }
 
+// TARGET RW 0x004D1071 GetSnapshotName, RW 0x004D11EE scalar deleting destructor.
 void W3DTornadoDraw::reactToTransformChange(const Coord3D * /*oldPos*/, float /*oldAngle*/)
 {
+	// RW 0x004D1000 (DONOR BFME2 0x000D17EF): updates decal positions to drawable position
 	if (m_thing && m_thing->getPosition())
 	{
 		const Coord3D pos = *m_thing->getPosition();
@@ -269,6 +271,7 @@ void W3DTornadoDraw::xfer(Xfer &x)
 		x.xferReal(&m_decals[i].angle);
 		x.xferUnsignedInt(&m_decals[i].color);
 		x.xferInt(&m_decals[i].opacity);
+		SnapshotXfer::checkRange(m_decals[i].opacity, 0, 255, "W3DTornadoDraw decal opacity"); // a byte's share, as the draw sets it
 		x.xferBool(&m_decals[i].hasShadow);
 	}
 }

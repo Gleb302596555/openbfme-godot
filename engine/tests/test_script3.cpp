@@ -1160,6 +1160,7 @@ TEST_CASE("backlog8 settings hash: the retail and the constructor tuples of the 
 		{ "FormationEnemyDistance", [](GameLogicSettings &s) { s.formationEnemyDistance = 501.0f; } },
 		{ "NarrowPassageScale", [](GameLogicSettings &s) { s.narrowPassageScale = 0.5f; } },
 		{ "WaitForOthers", [](GameLogicSettings &s) { s.waitForOthers = true; } },
+		{ "ForceSkirmishAI", [](GameLogicSettings &s) { s.forceSkirmishAI = true; } },
 		{ "UseFormations", [](GameLogicSettings &s) { s.useFormations = false; } },
 		{ "GroupMoveClickToGatherAreaFactor", [](GameLogicSettings &s) { s.groupMoveClickToGatherAreaFactor = 0.6f; } },
 	};

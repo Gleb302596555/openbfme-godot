@@ -1,0 +1,50 @@
+# A pull request that adds tests shows them passing (owner 2026-11-19: PR 721's test had never compiled and was found in a batch, after a
+# bisect of five builds). tools/ci/own_test_check.py reads the pull request's description, its comments and the comments of the issue it
+# closes for a doctest summary line of each added test prefix; none: the check fails and the pull request gets one comment per head. No build,
+# no game files: it runs in seconds, before the PR checker would spend a build on the pull request (pr_checker.py refuses it the same way).
+name: Own test check
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+    branches:
+      - main
+  issue_comment:
+    types: [created, edited]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: own-test-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  own-test:
+    name: "Own test shown passing"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    # a comment of this check itself does not start it again
+    if: github.event_name == 'pull_request' || !startsWith(github.event.comment.body, '<!-- own-test-missing')
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # the check's own code from main, never the pull request's
+          ref: main
+          sparse-checkout: tools/ci
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Own test shown passing
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number || '' }}
+          ON_PR: ${{ github.event.issue.pull_request && github.event.issue.number || '' }}
+          ON_ISSUE: ${{ !github.event.issue.pull_request && github.event.issue.number || '' }}
+        run: |
+          if [ -n "$PR" ]; then python3 tools/ci/own_test_check.py --pr "$PR"
+          elif [ -n "$ON_PR" ]; then python3 tools/ci/own_test_check.py --pr "$ON_PR"
+          else python3 tools/ci/own_test_check.py --issue "$ON_ISSUE"; fi

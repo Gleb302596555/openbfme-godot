@@ -164,6 +164,14 @@ public:
 	// lane WALL-2: RW 0x765522 itself (cached by RW at + 0x24): a node of the optimised chain from the head carries a waypoint id
 	bool hasWaypointNodes() const;
 	void appendNode(const Coord3D *pos, PathfindLayerEnum layer);
+	// Local 114: RW 0x0076578C Path::setLastNodePortal (DONOR BFME2 0x00362F78): writes m_pathTail->m_waypointID ([ecx + 8] -> [eax + 0x20])
+	void setLastNodePortal(int portalWaypointID)
+	{
+		if (m_pathTail)
+		{
+			m_pathTail->setWaypointID(portalWaypointID);
+		}
+	}
 	void setBlockedByAlly(bool blocked) { m_blockedByAlly = blocked; }
 	bool getBlockedByAlly() const { return m_blockedByAlly; }
 	void markOptimized() { m_isOptimized = true; }
@@ -1189,7 +1197,7 @@ public:
 	PathfindLayerEnum getLayerAt(const PathfindObject &obj, const Coord3D &pos) const;
 	// lane WALLHORDE-1: RW 0x6EE600 (BFME2 0x6ED236), the object's layer at `pos` without RW 0x680A75's ramp test: the point moved by 5 for an even footprint,
 	// the first raised walkway whose cell there is passable and whose height is less than 25 above z, else the ground grid cell's own layer (a wall top's, the
-	// ramp's or the ground). RW first answers the ground for an object whose byte + 0x4AC is set (RW 0x68C053; not identified, S-4840)
+	// ramp's or the ground). RW first answers the ground when Object + 0x4AC is set (RW 0x68C053); HordeContain's transform reaction writes this transient override (S-4851; not yet ported).
 	PathfindLayerEnum objectLayerAt(const PathfindObject &obj, const Coord3D &pos) const;
 	// Pathfinder::IsPointOnRamp: (x, y) is on a ramp's surface; `z` its height there
 	bool isPointOnRamp(float x, float y, float *z = nullptr) const;

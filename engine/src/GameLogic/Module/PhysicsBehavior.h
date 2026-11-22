@@ -105,8 +105,9 @@ struct PhysicsBehaviorModuleData : public ModuleData
 class PhysicsBehavior : public UpdateModule
 {
 public:
-	OBFME_MODULE_XFER(PhysicsBehavior) // lane SAVE-4b
+	OBFME_MODULE_XFER(PhysicsBehavior) // lane SAVE-4b (RW 0x00793113, DONOR BFME2 0x00390D50)
 	PhysicsBehavior(Thing *thing, const PhysicsBehaviorModuleData *data);
+	~PhysicsBehavior() override = default; // RW 0x00792C85 (~PhysicsBehavior, DONOR BFME2 0x003908C2), RW 0x00792DA1 (scalar deleting dtor)
 	static void registerClass(ModuleFactory &modules);
 	// the object's PhysicsBehavior, or null
 	static PhysicsBehavior *find(Object &obj);
@@ -142,6 +143,7 @@ public:
 	float speed() const { return m_speed; }
 	float apexHeight() const { return m_apex; }
 	int pointCount() const { return m_pointCount; }
+	// RW 0x0079295E (called by SlowDeathBehavior::update RW 0x00860B39 at RW 0x00860D8E)
 	bool isFlying() const { return !m_points.empty(); }
 	// lane FLY-1: + 0x5F, the flight ends in a kill (the rest RW 0x79308D: SPLATTED and Object::kill); GiantBirdAIUpdate's toss sets it (RW 0x76CD76)
 	void setKillOnRest(bool on) { m_killOnRest = on; }

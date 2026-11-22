@@ -31,8 +31,9 @@
 //     SET_COUNTER 2, NO_OP 5, SET_TIMER 6, ENABLE_SCRIPT 8, DISABLE_SCRIPT 9, CALL_SUBROUTINE 10, INCREMENT / DECREMENT_COUNTER 15 / 16,
 //     SET_MILLISECOND_TIMER 20, SET_RANDOM_TIMER 150, SET_RANDOM_MSEC_TIMER 151, STOP_TIMER 152, RESTART_TIMER 153, ADD_TO / SUB_FROM_MSEC_TIMER
 //     154 / 155, SET_RANDOM_COUNTER 373, SET_COUNTER_TO_COUNTER 374, SET_FLAG_TO_FLAG 375, SET_COUNTER_IN_SECONDS 415, SET_RANDOM_COUNTER_IN_SECONDS
-//     416, SET_COUNTER_TO_CLIENT_RANDOM_VALUE 508; the tree sway, fades, attack priorities and threat counters 103, 124 .. 127, 132 .. 134, 439, 440
-//     are engine-owned and not ported here), everything else TheScriptActions vslot 0x38 (RW 0x7CAFA5, which skips an action whose + 0x41 is 0).
+//     416, SET_COUNTER_TO_CLIENT_RANDOM_VALUE 508; the tree sway, fades and attack priorities 103, 124 .. 127, 132 .. 134 are engine-owned too;
+//     the threat counters SET_COUNTER_TO_UNIT_THREAT / SET_COUNTER_TO_TEAM_THREAT 439 / 440 are RW 0x608BCA setCounterToThreat, lane THREATLEVEL-1),
+//     everything else TheScriptActions vslot 0x38 (RW 0x7CAFA5, which skips an action whose + 0x41 is 0).
 //   * names are side-qualified (RW 0x72C43C): "Side/name" names the side's counter / flag / script, a plain name the current side's. Counters and
 //     flags live per (side, name) (RW 0x60817A get-or-create, RW 0x6080F4 find; flags RW 0x6082CF / 0x608249); scripts and groups are found in
 //     the named side's list (RW 0x604986, 0x604A5D, 0x6049DD).
@@ -401,6 +402,10 @@ public:
 	// RW 0x758DE5: the first entry of the player's list with the name's CRC and, when `source` is not 0, that source; removed when `remove`
 	bool isUpgradeCompleted(int playerIndex, const std::string &name, bool remove, ObjectID source);
 	const std::vector<TriggeredSpecialPower> &completedUpgrades(int playerIndex) const { return m_completedUpgrades[(size_t)playerIndex]; }
+	// LOCAL-94 (issue #720): PLAYER_LOST_OBJECT_TYPE per-player object counts (RW + 0x1A264) & skirmish enemy
+	int getObjectCount(int playerIndex, const std::string &typeName) const;          // RW 0x605DB0 (DONOR BFME2 0x00206255)
+	void setObjectCount(int playerIndex, const std::string &typeName, int newCount); // RW 0x607822 (DONOR BFME2 0x00207DF4)
+	Player *getSkirmishEnemyPlayer();                                                // RW 0x758AB1 (DONOR BFME2 0x00357900)
 
 	// lane SCRIPT-3: HAS_FINISHED_AUDIO's list (RW ScriptEngine + 0x1A35C, a list of { name key, end frame }, appended at the end, RW 0x759903)
 	struct AudioTimer
@@ -485,6 +490,7 @@ private:
 	void setTimer(const ScriptActionRec &a, bool milliseconds, bool random);
 	void setCounter(const ScriptActionRec &a, int randomMode, bool fromCounter, bool seconds);
 	void adjustMsecTimer(const ScriptActionRec &a, bool milliseconds, bool add);
+	void setCounterToThreat(const ScriptActionRec &a, bool team); // lane THREATLEVEL-1: RW 0x608BCA (actions 439 / 440)
 	void enableScript(const ScriptActionRec &a, bool enable);
 	void callSubroutine(const ScriptActionRec &a);
 
@@ -533,6 +539,7 @@ private:
 	std::vector<AudioTimer> m_audioTimers;                  ///< lane SCRIPT-3: RW + 0x1A35C
 	std::array<std::vector<TriggeredSpecialPower>, kSpecialPowerListPlayers> m_triggeredSpecialPowers; ///< lane BACKLOG4: RW + 0x1A368
 	std::array<std::vector<TriggeredSpecialPower>, kSpecialPowerListPlayers> m_completedUpgrades;      ///< lane MODCOMPAT-AI: RW + 0x1A458
+	std::array<std::map<std::uint32_t, std::int32_t>, kSpecialPowerListPlayers> m_objectCounts;        ///< LOCAL-94 (issue #720): RW + 0x1A264
 	std::uint32_t m_conditionTeam = 0; ///< lane SCRIPT-3: RW + 0x1A218 while a sequential action runs (the record's team): "<This Team>" (not state)
 	Team *m_thisTeam = nullptr;        ///< lane CAMP-1H: RW + 0x1A210 while a team script runs (not state: set and restored inside one call)
 	// lane CAMP-1H: the generic scripts of a prototype (RW 0x7A1759: looked up once by name in the prototype owner's side and DUPLICATED, RW 0x7B7F2B: the copy

@@ -56,7 +56,11 @@
 //     frame at or past the next frame (or -1): next = frame + LOGICFRAMES_PER_SECOND * ((7 - phase) * 5 - (5 when the AI difficulty RW 0x6AA61B is above 1)),
 //     then the first structure of the player info record that is a DOZER_FACTORY makes it 0 when GetGameLogicRandomValue(1, 5) (money + reserve, RW 0x99E766,
 //     above 2000; AIUpgradeHeuristicFortress.cpp 0x4F) or GetGameLogicRandomValue(1, 10) (0x58) is 1. SUMMON_ANTICAVALRY / ANTIARCHER / ANTISPECIAL /
-//     ANTIINFANTRY (4 .. 7, RW 0x9ECF7F / 0x9ECC0D / 0x9EC8A1 / 0x9EC539) are not ported (stop S-1876).
+//     ANTIINFANTRY (4 .. 7, RW 0x9ECF7F / 0x9ECC0D / 0x9EC8A1 / 0x9EC539): return 3 without producer, with HORDE_MEMBER or NO_ATTACK_FROM_AI, or without AI;
+//     in Rush (phase 0) return 2 if the AI's army is empty or < 25% matching own counter KindOf; past Rush check currentVictim (!STRUCTURE & enemy KindOf),
+//     brain.attackedAt nearest within 600 (skipping dot(rec.pos, victim.pos) < 0 with retail's running delta -= rec.pos; dominantCategory RW 0x7EDAED),
+//     nearest alive enemy within 400 (PartitionManager, ANTIARCHER accepts ARCHER || MONSTER), ANTICAVALRY team target STRUCTURE & victim within 600, else
+//     GetGameLogicRandomValueReal(0, 1) < 0.0005.
 //   * the requests in the AI's processor (RW 0x8F0F7E): neither needs a producer (vslots 0x2C / 0x10 answer false, RW 0x5188EB); an upgrade's vslot 0x14 does
 //     nothing (RW 0x63F3BF), an expansion's is the base's (RW 0x961D28). Check (vslot 0x40) of an upgrade RW 0x99F88B: money (Player + 0x94) below the cost: 2;
 //     no object, production or button: 9; production entries (vslot 0x44): 4; else the legality RW 0x695338. Check of an expansion RW 0x9ED764: no template
@@ -73,8 +77,7 @@
 //     button's NeededUpgrade list (all, or any with NeededUpgradeAny).
 //   * the money reserve (record + 0xC -> + 0x14, ported with these: AIBaseBuilder's saveMoney RW 0x8F0502, moneyPlusReserve RW 0x99E766, withdrawFromReserve
 //     RW 0x99E79A, the processor's check / execute wrappers RW 0x961975 / 0x96190B, the dozer queue's draw RW 0x9A1AA2, the hero check RW 0x9A0A74).
-// INFERENCE / NOT PORTED (stop S-1876): a plot's occupant is the port's CastleMemberBehavior occupant id (S-952); the body vslot 0x24 test of a WALL_UPGRADE object is not
-// read (no object the AI registers can reach it: the upgrade builder ignores WALL_UPGRADE, the unit upgrader's army list holds no structure); FACTORY_UNITUNLOCK
+// INFERENCE / NOT PORTED (stop S-1876): a plot's occupant is the port's CastleMemberBehavior occupant id (S-952); FACTORY_UNITUNLOCK
 // keeps template names (the evaluation compares names, RW 0x82FE4C).
 
 #pragma once
@@ -106,6 +109,8 @@ enum Heuristic
 	HEURISTIC_FACTORY_UNITUNLOCK = 2,
 	HEURISTIC_FORTRESS = 3,
 	HEURISTIC_SUMMON_ANTICAVALRY = 4,
+	HEURISTIC_SUMMON_ANTIARCHER = 5,
+	HEURISTIC_SUMMON_ANTISPECIAL = 6,
 	HEURISTIC_SUMMON_ANTIINFANTRY = 7
 };
 

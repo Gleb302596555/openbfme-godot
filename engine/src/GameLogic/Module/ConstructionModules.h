@@ -88,11 +88,13 @@ public:
 // build frames through Object::attemptHealingFromSoleBenefactor (RW 0x690584) and the percent is health / MaxHealth * 100, so damage sets it back. A structure
 // with a worker is built by the worker's DozerAIUpdate (RW 0x88DE43: the percent grows by 100 / calcTimeToBuild per frame, the health by MaxHealth / that).
 // Field names are this port's; the RW offset of each is given.
-class GettingBuiltBehavior : public UpdateModule
+class GettingBuiltBehavior : public UpdateModule, public RepairQueryInterface
 {
 public:
 	OBFME_MODULE_XFER(GettingBuiltBehavior) // lane SAVE-4b
 	GettingBuiltBehavior(Thing *thing, const GettingBuiltBehaviorModuleData *data);
+	RepairQueryInterface *slot32() override { return this; } // RW Object::rva0028BD17, module slot 32 (+0x80)
+	bool canSelfRepair() const override; // RW 0x8564F6, repair interface slot 9 (+0x24)
 	UpdateSleepTime update() override;
 	void crc(StateHasher &hasher) const override;
 	// lane PLAY-4: RW 0x856434 (module slot 5): a wall piece starts building itself; a PENDING_CONSTRUCTION structure's production is disabled
@@ -185,6 +187,7 @@ public:
 // night map (and again when a burning building's fire goes out at night); the glow window list (GlowWindowName) is shown while the building is on fire (status AFLAME, 0xA).
 // Lane Port 29 (issue #101) added the other two lists of the same loop: FireWindowName (+0x14) is shown while the building burns, and FireName (+0x2C - the field's only
 // reader in RotWK is RW 0x85944B in this update) is shown while it burns at night only.
+// RW 0x0085921F (getModuleName), RW 0x00859225 (getModuleNameKey), RW 0x008592D4 (scalar deleting dtor -> RW 0x00859206)
 class BuildingBehavior : public UpdateModule
 {
 public:

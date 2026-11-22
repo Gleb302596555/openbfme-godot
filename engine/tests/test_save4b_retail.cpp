@@ -426,6 +426,8 @@ TEST_CASE("save4b retail T4: a real 4-player skirmish's snapshot is written (SAV
 		}
 		MESSAGE("save4b retail T4 classes (" << classes.size() << "): " << listed);
 	}
+	// The census is Windows MSVC's: on Colab Linux GCC main c0388357 already gives another set (no AutoHealBehavior; a HordeNotifyTargetsOfImminentProbableCrushingUpdate,
+	// HorseHordeContain, PillageModule, ProjectileStreamUpdate and RepairSpecialPower object), with or without Locals 108-126 (2026-11-21, sb5); re-pin on MSVC only
 	CHECK(classes == std::set<std::string>{
 		"AISpecialPowerUpdate", "ActiveBody", "ArmorUpgrade", "ArrowStormUpdate", "AttributeModifierAuraUpdate", "AttributeModifierPoolUpdate",
 		"AttributeModifierUpgrade", "AudioLoopUpgrade", "AutoAbilityBehavior", "AutoDepositUpdate", "AutoHealBehavior", "AutoPickUpUpdate",

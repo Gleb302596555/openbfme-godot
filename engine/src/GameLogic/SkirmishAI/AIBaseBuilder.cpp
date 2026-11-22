@@ -38,7 +38,7 @@ const float kHalfPi = 1.5707963705062866f;    // RW 0xBD89D0
 const float kPhaseBoostPerDifficulty = 75.0f; // RW 0xC8EF48
 const float kEnemyScanRadius = 300.0f;        // RW 0xC857A0
 const std::uint32_t kRebuildDelayFrames = 150; // RW 0x97DDF4: ftol(frame + LOGICFRAMES_PER_SECOND (5) * 30.0f)
-const unsigned kCheckLegalOptions = 0x85;     // RW 0x97DD2F
+const unsigned kCheckLegalOptions = 0x85;     // RW 0x97DD2F (RotWK numbering, lane BUILDCLEAR-1: terrain, object overlap, fogged objects ignored)
 const unsigned kStatusUnderConstruction = 2;  // RW 0x8F0CB4 (TheObjectStatusNames: UNDER_CONSTRUCTION)
 const unsigned kStatusIsLeavingFactory = 0x5A; // RW 0x9A1D7E (IS_LEAVING_FACTORY)
 const unsigned kStatusPendingConstruction = 0x57; // RW 0x8F0744 (PENDING_CONSTRUCTION)
@@ -2100,20 +2100,24 @@ void AIBaseBuilder::onDozerIdle(GameLogic &logic, AISkirmishPlayer &ai, Object &
 	}
 }
 
-void AIBaseBuilder::onStructureBuilt(GameLogic &logic, AISkirmishPlayer &ai, const Object &builder, const Object &structure, bool built)
+void AIBaseBuilder::onStructureBuilt(GameLogic &logic, AISkirmishPlayer &ai, const Object *builder, const Object &structure, bool built)
 {
 	// RW 0x8F06FF(builder, structure, built): the first request in progress (state 1) of the builder (+ 8) whose template name (+ 0xC) is the structure's is
-	// complete; the created-object call (built false, Player::onStructureCreated RW 0x6AA688) skips a HORDE (template + 0x115 & 0x20) and every call skips a
-	// PENDING_CONSTRUCTION structure
+	// complete; the created-object call (built false, Player::onStructureCreated / onUnitCreated RW 0x6AA688) skips a HORDE (template + 0x115 & 0x20) and every
+	// call skips a PENDING_CONSTRUCTION structure or a null builder (RW 0x8F0703)
 	static const int horde = kindIndex("HORDE");
 	(void)logic;
+	if (!builder)
+	{
+		return;
+	}
 	if (!built && isKind(structure, horde))
 	{
 		return;
 	}
 	for (auto &r : ai.build.inProgress)
 	{
-		if (r->state != 1 || r->producer != builder.getID())
+		if (r->state != 1 || r->producer != builder->getID())
 		{
 			continue;
 		}
@@ -2124,6 +2128,10 @@ void AIBaseBuilder::onStructureBuilt(GameLogic &logic, AISkirmishPlayer &ai, con
 		if (structure.getTemplate() && structure.getTemplate()->getName() == r->templateName)
 		{
 			r->state = 2;
+			if (r->unit)
+			{
+				++ai.build.units.queued;
+			}
 			return;
 		}
 	}

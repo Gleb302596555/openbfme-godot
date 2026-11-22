@@ -50,6 +50,8 @@ class ModuleFactory;
 class DeployStyleAIUpdate : public AIUpdateInterface
 {
 public:
+	// RW 0x00891D88 (xfer), RW 0x00891F81 (getModuleName), RW 0x00891F3C (getModuleNameKey),
+	// RW 0x00891EE2 (~DeployStyleAIUpdate), RW 0x00892083 (scalar deleting destructor)
 	OBFME_MODULE_XFER(DeployStyleAIUpdate) // the save (SAVE-4e): its version and AIUpdateInterface's (its state: xferAIStateBody)
 	void xferAIStateBody(class Xfer &x) override; // the deploy state, the kept command, the attack flags (obfme:AIWorld)
 	enum DeployState
@@ -77,7 +79,7 @@ public:
 	static const char *stopLine(); // [S-4945]
 
 protected:
-	bool routeCommand(const RoutedCommand &command) override; // RW 0x89209F for the routed commands
+	bool routeCommand(const RoutedCommand &command) override; // RW 0x00891F87 (AICommandInterface::aiDoCommand thunk) -> RW 0x89209F for the routed commands
 
 private:
 	void setMyState(int state);     // RW 0x8921E3
@@ -125,12 +127,13 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008B1BB8 (getModuleName), RW 0x008B1BDE (getModuleNameKey), RW 0x008B1C43 (scalar deleting dtor -> 0x008B1BBE).
 class ToggleDeploySpecialAbilityUpdate : public SpecialAbilityUpdate
 {
 public:
 	OBFME_MODULE_XFER(ToggleDeploySpecialAbilityUpdate) // the save (SAVE-4b): SpecialAbilityUpdate's and the counts
 	ToggleDeploySpecialAbilityUpdate(Thing *thing, const ToggleDeploySpecialAbilityUpdateModuleData *data); // RW 0x8B1B87
-	bool allowsSpecialPowerUse() const override; // RW 0x8B1C5F
+	bool allowsSpecialPowerUse(const Coord3D *loc = nullptr) const override; // RW 0x8B1C5F
 	unsigned deploys() const { return m_deploys; }
 	unsigned undeploys() const { return m_undeploys; }
 

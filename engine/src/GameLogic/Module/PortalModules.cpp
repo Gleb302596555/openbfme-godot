@@ -277,8 +277,8 @@ DynamicPortalBehaviour *DynamicPortalBehaviour::of(const Object &obj)
 
 Coord3D DynamicPortalBehaviour::topAttackPosition()
 {
-	// RW 0x863D77 (lane SIEGE-1's reading): the object's planar X axis normalised by its larger component, its length scales TopAttackPos's X and Y; the point
-	// through the object's transform (RW 0x70BFD1)
+	// RW 0x863D77 (first instruction): transform local X to world (RW 0x70BFD1), subtract the object's position, divide all three components by max(abs(x), abs(y)),
+	// take the 3D length (RW 0x403111), scale TopAttackPos X/Y by it (the retail code leaves Z unchanged), then transform the point to world.
 	using SimMath::addf32;
 	using SimMath::mulf32;
 	const Object *obj = getObject();
@@ -287,13 +287,9 @@ Coord3D DynamicPortalBehaviour::topAttackPosition()
 	const Coord3D &t = m_data->m_topAttackPos;
 	const double ax = SimMath::absD((double)b[0]), ay = SimMath::absD((double)b[3]);
 	const float m = (float)(ax >= ay ? ax : ay);
-	float lx = t.x, ly = t.y;
-	if (m != 0.0f)
-	{
-		const float len = SimMath::length2d(SimMath::divf32(b[0], m), SimMath::divf32(b[3], m));
-		lx = mulf32(t.x, len);
-		ly = mulf32(t.y, len);
-	}
+	const double scale = SimMath::length3d(SimMath::divf32(b[0], m), SimMath::divf32(b[3], m), SimMath::divf32(b[6], m));
+	const float lx = SimMath::fstpDword(SimMath::pc24MulW((double)t.x, scale));
+	const float ly = SimMath::fstpDword(SimMath::pc24MulW((double)t.y, scale));
 	return Coord3D{ addf32(addf32(addf32(mulf32(b[0], lx), mulf32(b[1], ly)), mulf32(b[2], t.z)), p.x),
 		addf32(addf32(addf32(mulf32(b[3], lx), mulf32(b[4], ly)), mulf32(b[5], t.z)), p.y),
 		addf32(addf32(addf32(mulf32(b[6], lx), mulf32(b[7], ly)), mulf32(b[8], t.z)), p.z) };
@@ -546,6 +542,7 @@ std::function<bool(const PathfindObject &)> DynamicPortalBehaviour::waypointFilt
 	};
 }
 
+// RW 0x00863A5F (UpgradeModule::xfer, v1..2, 6 portal waypoints, m_created +0x3C, m_disabled +0x3D)
 void DynamicPortalBehaviour::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);
@@ -751,6 +748,8 @@ UpdateSleepTime FakePathfindPortalBehaviour::update()
 	return UPDATE_SLEEP(1);
 }
 
+// RW 0x00864BFE: UpdateModule::xfer, v1..2, two portal waypoint ids, m_created, m_dead, m_registered;
+// RW 0x00864CC8 .. 0x00864CDB: when m_registered is true on XFER_LOAD, call doRegister() (RW 0x0086498E).
 void FakePathfindPortalBehaviour::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);
@@ -763,6 +762,10 @@ void FakePathfindPortalBehaviour::xfer(Xfer &x)
 	x.xferBool(&m_dead);
 	x.xferBool(&m_registered);
 	x.xferBool(&m_gateFound);
+	if (m_registered && x.isLoading())
+	{
+		doRegister(); // RW 0x00864CDB -> RW 0x0086498E
+	}
 }
 
 void FakePathfindPortalBehaviour::crc(StateHasher &hasher) const

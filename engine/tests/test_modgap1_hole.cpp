@@ -5,15 +5,24 @@
 
 #include "GameLogic/Damage.h"
 #include "GameLogic/Module/RebuildHoleModules.h"
+#include "GameLogic/ProductionSettings.h"
 
 using namespace combattest;
 
 namespace
 {
+const char kProductionGameData[] =
+	"GameData\n"
+	"  MinLowEnergyProductionSpeed = 1\n  MaxLowEnergyProductionSpeed = 1\n  LowEnergyPenaltyModifier = 1\n  MultipleFactory = 1\n"
+	"  MultiPlayUnitSpeedMult = MP1:1 MP2:1 MP3:1 MP4:1 MP5:1 MP6:1 MP7:1 MP8:1\n"
+	"  MultiPlayBuildingSpeedMult = MP1:1 MP2:1 MP3:1 MP4:1 MP5:1 MP6:1 MP7:1 MP8:1\n"
+	"End\n";
+
 std::string lair(const char *name, const char *holeName)
 {
 	return std::string("Object ") + name + "\n"
 		"  KindOf = STRUCTURE\n"
+		"  BuildTime = 1.0\n"
 		"  Geometry = CYLINDER\n"
 		"  GeometryMajorRadius = 20\n"
 		"  GeometryMinorRadius = 20\n"
@@ -24,6 +33,8 @@ std::string lair(const char *name, const char *holeName)
 		"  End\n"
 		"  Body = ActiveBody ModuleTag_Body\n"
 		"    MaxHealth = 200\n"
+		"  End\n"
+		"  Behavior = GettingBuiltBehavior ModuleTag_GettingBuilt\n"
 		"  End\n"
 		"  Behavior = DestroyDie ModuleTag_Destroy\n"
 		"  End\n"
@@ -67,6 +78,8 @@ struct HoleWorld : CombatWorld
 	HoleWorld()
 		: CombatWorld(kHoleObjects.c_str())
 	{
+		std::string error;
+		REQUIRE_MESSAGE(ProductionSettings::scan(kProductionGameData, logic->productionSettings(), &error), error);
 	}
 	std::vector<Object *> alive(const char *templateName)
 	{

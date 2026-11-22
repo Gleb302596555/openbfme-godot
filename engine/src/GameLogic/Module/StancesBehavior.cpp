@@ -6,6 +6,7 @@
 
 #include "Common/INI.h"
 #include "Common/INIException.h"
+#include "Common/ModEngineFeatures.h"
 #include "Common/StateHash.h"
 #include "Common/Thing/ModuleFactory.h"
 #include "GameLogic/AI/AICommands.h"
@@ -131,6 +132,7 @@ void StancesBehavior::traceStance(int oldStance, int newStance, const char *site
 		oldStance, newStance, site ? site : "unspecified", event);
 }
 
+// RW 0x0086200F (getModuleName -> "StancesBehavior"), RW 0x00862015 (getModuleNameKey lazy cache), RW 0x008620C1 (scalar deleting destructor)
 void StancesBehavior::registerClass(ModuleFactory &modules)
 {
 	modules.bindTypedData<StancesBehaviorModuleData>("StancesBehavior", MODULETYPE_BEHAVIOR);
@@ -205,7 +207,11 @@ bool StancesBehavior::setStance(StanceType stance, const char *site)
 		horde = hordeOf(obj);     // RW 0x862143: the interface again
 	}
 	AIUpdateInterface *ai = obj.getAIUpdateInterface();
-	if (stance == STANCE_HOLD_GROUND && ai)
+	// RW 0x86215B .. 0x862170: HoldGround (stance 3) idles the AI whatever it does. ennorath.stance-keeps-moving (PYSAGE 1.9.8.5 .stancem 0xF34000,
+	// hooked at RW 0x862161): only an AI that is not waiting for a path (byte AI + 0x3B1, 0xF3400A) and is idle (AI vslot 0x1B8, isIdle RW 0x6643FC,
+	// 0xF34017) is idled; a moving unit keeps its order
+	if (stance == STANCE_HOLD_GROUND && ai &&
+		(!ModEngineFeatures::has(ModEngineFeature::EnnorathStanceKeepsMoving) || (!ai->mover().isWaitingForPath() && ai->isIdle())))
 	{
 		ai->aiIdle(CMD_FROM_PLAYER); // RW 0x86216B: AI + 0x20, RW 0x5E821A(0)
 	}

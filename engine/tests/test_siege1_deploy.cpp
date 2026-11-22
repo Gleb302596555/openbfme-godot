@@ -484,7 +484,9 @@ TEST_CASE("siege1 retail: a deployed siege ladder's berserker goes onto the wall
 	CHECK(rp.y == doctest::Approx(top.y).epsilon(1e-5)); // tolerance: as above
 	AIUpdateInterface *rai = rider->getAIUpdateInterface();
 	REQUIRE(rai);
-	CHECK(isWallLayer(rai->adapter().getLayer()));
+	const PathfindLayerEnum expectedWallLayer = r.logic().aiWorld()->pathfinder().getLayerAt(rp.x, rp.y);
+	CHECK(isWallLayer(expectedWallLayer));
+	CHECK(rai->adapter().getLayer() == expectedWallLayer); // S-4943: 0x11 is the first wall-top id; on a wall use that cell's exact WALL-1 height layer
 	CHECK(r.logic().aiWorld()->pathfinder().isPointOnWall(rp, false));
 	CHECK(siegeReportHas(r.logic(), "[S-4943]"));
 	// a human player's rider idles there (RW 0x5E821A); it walks on the wall top when ordered

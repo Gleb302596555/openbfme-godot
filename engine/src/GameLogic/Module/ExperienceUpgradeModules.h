@@ -25,6 +25,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008B7ED6 (getModuleName), RW 0x008B7EDC (getModuleNameKey), RW 0x008B7F74 / RW 0x008B7EB6 (dtor)
 class LevelUpUpgrade : public UpgradeModule
 {
 public:

@@ -618,7 +618,9 @@ OLD_LINE_88 = 'run: engine/build/openbfme_tests --test-case-exclude="audio decod
 
 def test_the_real_workflow_parses_and_the_old_unparsable_line_is_refused():
     assert public_workflows.yaml_problems(".github/workflows/pr.yml", PR_YML) == []
-    old = '        run: |\n          engine/build/openbfme_tests\n'
+    # the Linux test step's block (the fork runs it with its scope, tools/fork_scope.txt)
+    old = PR_YML[PR_YML.index('        run: |\n          # the fork\'s scope'):]
+    old = old[:old.index('"${scope[@]}"\n') + len('"${scope[@]}"\n')]
     assert old in PR_YML
     probs = public_workflows.workflow_problems(".github/workflows/pr.yml", PR_YML.replace(old, "        " + OLD_LINE_88 + "\n", 1))
     assert len(probs) == 1 and "not valid YAML (mapping values are not allowed here)" in probs[0], probs

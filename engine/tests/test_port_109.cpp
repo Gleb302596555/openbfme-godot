@@ -158,10 +158,14 @@ TEST_CASE("PORT-109 shared target predicate preserves ally AI and immobile rejec
     REQUIRE(ActionManager::canGiveUpgrade(source, target));
     target->friend_setContainedBy(source);
     CHECK_FALSE(ActionManager::canGiveUpgrade(source, target));
+    // PORT-199 closed this stop: RW 0x89FE86 sends a contained target to the producer's contain (Object + 0x78 ->
+    // Object + 0x258, contain vslot 0x7C, RW 0x89FD77) and the provider answers for its members (horde slot 0xAC,
+    // RW 0x86ECAB), so the refusal below is the ported rule, not an unported path. `ActionManager::canGiveUpgrade`
+    // still answers false (RW 0x82D7E4 -> RW 0x89FE64), it just writes no [S-7318] line any more.
     bool stopped = false;
     for (const auto &line : r.logic->report().stops)
         if (line.find("PORT-109 contained upgrade target") != std::string::npos) stopped = true;
-    CHECK(stopped);
+    CHECK_FALSE(stopped);
     target->friend_setContainedBy(nullptr);
     CHECK(ActionManager::canGiveUpgrade(source, target));
 }

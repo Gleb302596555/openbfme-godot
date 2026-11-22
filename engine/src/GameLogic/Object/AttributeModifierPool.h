@@ -47,7 +47,8 @@ class AttributeModifierPool : public UpdateModule
 public:
 	OBFME_MODULE_XFER(AttributeModifierPool) // lane SAVE-4b
 	AttributeModifierPool(Thing *thing, const ModuleData *data);
-	static void registerClass(ModuleFactory &modules);
+	~AttributeModifierPool() override = default; // RW 0x008055C9 (~AttributeModifierPoolUpdate -> m_entries vector dtor RW 0x00805517), RW 0x00805843 (scalar deleting dtor)
+	static void registerClass(ModuleFactory &modules); // getModuleName RW 0x00805612, getModuleNameKey RW 0x00805618
 
 	UpdateSleepTime update() override; ///< RW 0x80585F
 	DisabledMaskType getDisabledTypesToProcess() const override { return (DisabledMaskType)(1u << DISABLED_PARALYZED); } // RW 0x792C6A
@@ -60,6 +61,8 @@ public:
 	bool hasList(const std::string &listName) const;
 	// RW 0x8052FB (Object::removeAttributeModifier RW 0x68F259, lane INTEG-1): the list's entry goes, with its removal side effects
 	void remove(const std::string &listName) { removeByName(listName); }
+	// RW 0x006998D0 -> 0x699900..0x699908 (0x698DC9) / RW 0x00879106 -> 0x87917F..0x879187 (DONOR BFME2 0x00298E6A): erases the entry vector (+0x20) in place without per-entry remove (RW 0x8052FB)
+	void clearEntries() { m_entries.clear(); }
 	// RW 0x804FCC (lane SPELL-2): every category whose bit is set in `mask` (15 categories) is disabled until `frame` (the suppressed test of RW 0x804D27)
 	void disableCategories(unsigned mask, unsigned frame)
 	{
@@ -84,6 +87,19 @@ public:
 		return out;
 	}
 	int categoryCount(int category) const { return (category >= 0 && category < 15) ? m_categoryCount[(size_t)category] : 0; }
+	// the expiry frame of the entry of `listName` (RW 0x805A8E: frame + duration, 0x3FFFFFFF when it never expires); 0 when the pool has no such entry.
+	// Read by the button matrix (MATRIX_TODO 2: an effect must end after its Duration)
+	unsigned expireOf(const std::string &listName) const
+	{
+		for (const Entry &e : m_entries)
+		{
+			if (e.name == listName)
+			{
+				return e.expire;
+			}
+		}
+		return 0;
+	}
 	void crc(StateHasher &hasher) const override;
 
 private:

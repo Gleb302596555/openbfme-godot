@@ -32,6 +32,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p); // RW 0x8BEC6E
 };
 
+// RW 0x008BEC98 (getModuleName), RW 0x008BEC9E (getModuleNameKey), RW 0x008BED27 (scalar deleting dtor -> RW 0x008BEC7F)
 class ReflectDamage : public BehaviorModule, public DamageModuleInterface
 {
 public:

@@ -30,9 +30,9 @@
 //   * onExit RW 0x74B800: when + 0x5C exists, sets it to AI_IDLE; then the internal move's exit, the AI may no longer path through units, the locomotor's
 //     precise z off, the desired speed FAST_AS_POSSIBLE, the current goal path index -1.
 // INFERENCE / NOT PORTED (stop S-4463): the crate pickup state 0x27 of RW 0x74E083 (S-1188 / S-1189) and AI + 0x3C7; AI + 0x44 is taken as the desired
-// speed and AI + 0x164 (cleared before each new point, RW 0x662D98) is not identified; canMoveToNextFormationPathPoint's wait (AIData WaitForOthers, No
-// in the retail AIData) is not ported: the unit always goes on; the internal move is the port's AIMoveToState (its adjustment rule is its own flag, RW
-// 0x745B3F's parachute / aircraft tests are not read); computePath's outside-the-map quick path (BFME2 0x745BCF) is not ported.
+// speed and AI + 0x164 (cleared before each new point, RW 0x662D98) is not identified; canMoveToNextFormationPathPoint (RW 0x74B85F, AIData WaitForOthers)
+// is ported; the internal move is the port's AIMoveToState (its adjustment rule is its own flag, RW 0x745B3F's parachute / aircraft tests are not read);
+// computePath's outside-the-map quick path (BFME2 0x745BCF) is not ported.
 
 #pragma once
 
@@ -58,6 +58,8 @@ public:
 	int index() const { return m_index; }
 	bool turningToFinalAngle() const { return m_turning; }
 	const AIStateMachine *attackMachine() const { return m_attackMachine.get(); }
+	// RW 0x74B85F (AIData WaitForOthers + 0xB8, Locomotor WaitForFormation + 0x10B): wait for matching formation peers at the first waypoints
+	bool canMoveToNextFormationPathPoint() const;
 
 	static const char *stopLine();
 

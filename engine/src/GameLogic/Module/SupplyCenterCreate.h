@@ -24,6 +24,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// scalar deleting dtor RW 0x008BCF50
 class SupplyCenterCreate : public BehaviorModule, public CreateModuleInterface
 {
 public:
@@ -43,6 +44,7 @@ private:
 // is created (warehouses are never built). TARGET FACTS: the name's table row RW 0x65AC39; onCreate RW 0x8BD063: with ThePlayerList, every player from the
 // last (+ 0x14 - 1) down to 0 that has a ResourceGatheringManager (Player + 0x304) gets addSupplyWarehouse(object) (RW 0x8FAA31). Ennorath's supply rocks
 // (SupplyRocksPile*) are warehouses: without this the stoneworkers' harvesters found none. The xfer is the create module base's, as SupplyCenterCreate's.
+// scalar deleting dtor RW 0x008BD047
 class SupplyWarehouseCreate : public BehaviorModule, public CreateModuleInterface
 {
 public:

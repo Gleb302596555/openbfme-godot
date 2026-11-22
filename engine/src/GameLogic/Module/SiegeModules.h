@@ -115,6 +115,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p); // no field (RW 0x85C939: the base table only)
 };
 
+// RW 0x0085CA3D (this-0x14 getUpdate thunk -> RW 0x008A18E0)
 class SiegeDockingBehavior : public UpdateModule
 {
 public:
@@ -126,8 +127,11 @@ public:
 		Coord3D direction{};      // + 0x14 (the bone's X axis negated: away from the wall)
 		ObjectID reservedBy = INVALID_ID; // + 0x20
 	};
+	// RW 0x85C9C4 (ctor), RW 0x0085CE0A (~SiegeDockingBehavior), RW 0x0085D1DD (scalar deleting dtor),
+	// RW 0x0085CC87 (clearDockPoints), RW 0x0085CA37 (getModuleName), RW 0x0085CA45 (getModuleNameKey)
 	SiegeDockingBehavior(Thing *thing, const SiegeDockingBehaviorModuleData *data); // RW 0x85C9C4
-	OBFME_MODULE_XFER(SiegeDockingBehavior) // the save (SAVE-4b): UpdateModule's, the dock entries and the made flag
+	OBFME_MODULE_XFER(SiegeDockingBehavior) // RW 0x0085D08F: UpdateModule's, the dock entries and the made flag
+	void loadPostProcess();                                                         // RW 0x0085D1CD
 	UpdateSleepTime update() override;                                              // RW 0x85D216
 	void crc(StateHasher &h) const override;
 
@@ -178,9 +182,11 @@ public:
 	// ---- the special power update interface (+ 0x20) ----
 	bool drivesSpecialPower(const SpecialPowerTemplate *t) const override { return t && t == m_baseData->m_specialPowerTemplate; } // RW 0x89827C
 	bool isActive() const override { return false; }               // slot 2: RW 0x9188EB (the subclasses override it)
-	bool allowsSpecialPowerUse() const override { return true; }   // slot 8: RW 0x9B501B
+	bool allowsSpecialPowerUse(const Coord3D *) const override { return true; } // slot 8: RW 0x9B501B
 	// ---- the special power interface (+ 0x24) ----
 	const SpecialPowerTemplate *getSpecialPowerTemplate() const override { return m_baseData->m_specialPowerTemplate; }
+	// RW 0xC650F0 (the base's interface) slot 0x50 = xor eax, eax; ret (0x851E97): this family keeps no target id here (SiegeDeploySpecialPower overrides its interface)
+	ObjectID getTargetId() const override { return INVALID_ID; }
 	bool isReady() const override { return readyImpl(true); }                 // RW 0x99135D
 	float getPercentReady() const override { return percentImpl(true); }      // RW 0x9913BC
 	unsigned getReadyFrame() const override;                                  // RW 0x991473
@@ -235,6 +241,7 @@ public:
 	virtual void stopSpecialPower() = 0;
 };
 
+// Local 87: RW 0x008C9BC5 (getModuleName), RW 0x008C9C0B (getModuleNameKey), RW 0x008C9CEA (dtor), RW 0x008C9FC8 (xfer).
 class SiegeDeploySpecialPower : public SpecialPowerUpdateBase, public SpecialPowerStopInterface
 {
 public:
@@ -262,6 +269,8 @@ public:
 	bool isDeployed() const { return m_phase == PHASE_DEPLOYED; } // RW 0x8C9C01
 	int phase() const { return m_phase; }
 	ObjectID dockId() const { return m_dockId; }           // + 0x40 (the + 0x24 interface's slot 0x50, RW 0x7B0F25)
+	// RW 0xC74878 (this class's interface) slot 0x50 = RW 0x7B0F25 (mov eax, [ecx + 0x1C]; ret; interface at + 0x24) = the dock id
+	ObjectID getTargetId() const override { return m_dockId; }
 	const Coord3D &approachPoint() const { return m_approach; }
 	const Coord3D &dockDirection() const { return m_direction; }
 	const SiegeDeploySpecialPowerModuleData &data() const { return *m_data; }
@@ -336,6 +345,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);        // RW 0x8CABDB
 };
 
+// Local 87: RW 0x008CAC24 (getModuleName), RW 0x008CAC65 (getModuleNameKey), RW 0x008CACAA (dtor), RW 0x008C6583 (base dtor thunk).
 class StopSpecialPower : public SpecialPowerModule
 {
 public:

@@ -121,6 +121,7 @@ void MonitorConditionUpdate::swapTo(const std::string &target, const std::string
 		m_saved = current;
 	}
 	obj->setCommandSetOverride(target); // RW 0x693B94
+	// RW 0x008E3D1E (S-982): skirmish AI notification from Object::setCommandSetOverride (RW 0x693B94 -> RW 0x693BE7)
 	obj->logic().noteStop("[S-982] MonitorConditionUpdate: the command set override's skirmish AI notification (RW 0x693B94 -> 0x8E3D1E) is not ported");
 }
 
@@ -162,6 +163,7 @@ void DeletionUpdate::xfer(Xfer &x)
 }
 
 // OpenBFME native (S-4190): the command set the monitor saved
+// RW 0x00894C52 (v1, m_saved +0x20, UpdateModule::xfer)
 void MonitorConditionUpdate::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

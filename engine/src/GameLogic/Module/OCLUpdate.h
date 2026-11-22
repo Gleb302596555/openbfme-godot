@@ -13,8 +13,7 @@
 //   * the schedule RW 0x89EBBA: + 0x24 = the frame, + 0x20 = the frame + GameLogicRandomValue(MinDelay, MaxDelay) ("OCLUpdate.cpp" line 0x7B: a draw even when
 //     both are equal);
 //   * xfer RW 0x89EC00: version 2, UpdateModule, + 0x20, + 0x24, and from version 2 + 0x28.
-// NOT PORTED (stop S-5501): CreateAtEdge (the creation at TerrainLogic::findClosestEdgePoint, RW 0x89EC81: the object's position is used and the use is counted),
-// getCountdownPercent (the control bar's timer, RW 0x89EA88).
+// NOT PORTED: none (PORT-237 closed stop S-5501: CreateAtEdge uses TerrainLogic::findClosestEdgePoint RW 0x67D949 / 0x89EC81, and getCountdownPercent RW 0x89EA88 is ported).
 
 #pragma once
 
@@ -42,12 +41,15 @@ class OCLUpdate : public UpdateModule
 public:
 	OBFME_MODULE_XFER(OCLUpdate)
 	OCLUpdate(Thing *thing, const OCLUpdateModuleData *data); // RW 0x89EB48
+	~OCLUpdate() override = default; // RW 0x0089EA69 / RW 0x0089EB7D
 	UpdateSleepTime update() override;                        // RW 0x89EC43
 	void crc(StateHasher &h) const override;
 
 	unsigned nextFrame() const { return m_nextFrame; }
+	unsigned scheduledAt() const { return m_scheduledAt; }
 	int created() const { return m_created; }
-	static void registerClass(ModuleFactory &modules);
+	float getCountdownPercent() const; // RW 0x89EA88
+	static void registerClass(ModuleFactory &modules); // getModuleName RW 0x0089EA82, getModuleNameKey RW 0x0089EAD7
 	static const char *stopLine();
 
 private:

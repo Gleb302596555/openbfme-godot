@@ -181,6 +181,8 @@ void HitReactionBehavior::crc(StateHasher &h) const
 	h.addFloat(m_lastHealth);
 }
 
+// RW 0x0085C1DB (getModuleName -> "HitReactionBehavior"), RW 0x0085C213 (getModuleNameKey lazy cache),
+// RW 0x0085C1C2 (~HitReactionBehavior), RW 0x0085C2F3 (scalar deleting destructor)
 void HitReactionBehavior::registerClass(ModuleFactory &modules)
 {
 	modules.bindTypedData<HitReactionBehaviorModuleData>("HitReactionBehavior", MODULETYPE_BEHAVIOR);
@@ -195,6 +197,7 @@ void HitReactionBehavior::registerClass(ModuleFactory &modules)
 }
 
 // ---- lane SAVE-4b: the snapshot (OpenBFME native, S-4190) ---------------------------------------------------------------------------------------------------
+// RW 0x0085C1E1 (HitReactionBehavior::xfer: version (1,1) RW 0x404F15, UpdateModule::xfer RW 0x850C60, m_countdown +0x24, m_lastHealth +0x20)
 void HitReactionBehavior::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

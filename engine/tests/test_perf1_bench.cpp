@@ -623,6 +623,12 @@ TEST_CASE("perf1 bench: 4-player skirmish (medium computer players, 20 game minu
 // ground fire in a fresh game, as RotWK's do; re-measured the skirmish (OPENBFME_PERF1_REGEN=1, Windows MSVC, station-1): it moves from frame 1343; the
 // big battle is unchanged. Attributed by the night run of 2026-11-06 on main da6cbfdf (this test passes there on the previous vectors; 7bb69587 between
 // them changes a stop's text and a test only)
+// Local 108 (issue #786, agent/local/sb5-st1, Colab Linux GCC, measured once with OPENBFME_PERF1_REGEN=1): ActiveBody rubble reset (RW 0x8C1BB7)
+// now calls Object::clearAllAttributeModifiers (RW 0x006998D0, DONOR BFME2 0x00298E6A), clearing a dying STRUCTURE's AttributeModifierPool entries;
+// the 4-player skirmish moves from frame 845; the big battle is unchanged.
+// pin: Locals 108, 112, 113, 114, 122-126 landing (2026-11-21, agent/claude/sb5-accept, Colab sb5 Linux GCC, the skirmish re-measured once on the merged
+// tree with OPENBFME_PERF1_REGEN=1): Local 108's RW 0x8C1BB7 -> Object::clearAllAttributeModifiers alone moves it from frame 845. Attributed by one build
+// with that call switched off (every other branch on): the previous vectors hold (perf1 11/11); the big battle and uber1 are unchanged
 // pin: the fork's merge of upstream 3e363ff9 (2026-11-06) re-measured both once on the merged tree (OPENBFME_PERF1_REGEN=1, Windows MSVC, station-1):
 // CASTLEATK-1, ATKSTATE-1a and the banner carrier rule on top of the fork; the vectors differ from both parents
 // pin: merge queue q44 re-measured all three once on the merged tree (OPENBFME_PERF1_REGEN=1), compared at each merge point: AIRBORNE-1 alone (the locomotor
@@ -665,6 +671,16 @@ TEST_CASE("perf1 bench: 4-player skirmish (medium computer players, 20 game minu
 // match the MSVC pins). The per-PR checks (each PR alone on main 157b917f) name the movers: Local 59 (#500, WeaponFireSpecialAbilityUpdate makes and
 // loads its weapon in the constructor and crc() hashes it, RW 0x895DE1: from frame 0), Local 61 (#501, stunned units skip the AI update, RW 0x669652),
 // Port 464 (#487, a summoned helper's AI steering) and Port 201 (#496, the captured building's production cancel and upgrade reset)
+// pin: PORT-12 hashes MinDistFromEdgeOfMapForBuild in GameLogicSettings::crc (RotWK GlobalData +0xA68; BFME2 1.06's data/ini/gamedata.ini carries the
+// same 30.0 row) and refuses a footprint sample inside the active boundary's margin (RW 0x794BF2 .. 0x794C5A): all three vectors move from frame 0.
+// Re-measured once (OPENBFME_PERF1_REGEN=1, Windows MSVC) on this tree with the other open ports merged; every pin above is otherwise as it was.
+// pin: the fork's merge of upstream 4a8d8272 (2026-11-19, lanes BUILDCLEAR-1 / THREATLEVEL-1) re-measured the skirmish once on the merged tree
+// (OPENBFME_PERF1_REGEN=1, Windows MSVC): it moves from frame 1923 on (upstream's own tree: 2197), BUILDCLEAR-1's placement test (see the next pin) under
+// the fork's ports; the big battle and the allied blob do not move
+// pin: BUILDCLEAR-1 (isLocationClearOfObjects as RotWK's RW 0x796D37, the options in RotWK's numbering) moves the skirmish from frame 2197 only: every
+// placement check before it answers as before (both runs logged, 136 checks), and there Isengard's computer player checks its next Furnace site with
+// 0x85 (terrain, overlap, fogged objects ignored): the retail clear test refuses it (code 8) where ZH's overlap rule passed it and the porter's 0x49F
+// gate refused it a step later. The big battle does not move. Re-measured once on this lane's head (OPENBFME_PERF1_REGEN=1).
 TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after another AI game (6000 frames) hash as the build before PERF-1 did in every frame")
 {
 	// Ambient movement: target idle wandering adds RNG draws and origin state,
@@ -676,6 +692,10 @@ TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after a
 	// pin: P-77 (2026-11-13) re-measured the battle and the skirmish once on station-0 (OPENBFME_PERF1_REGEN=1, Windows MSVC): a BASE_SITE castle's unpack no longer
 	// refuses its own members, the castle or a DOZER (thunk RW 0x797A96 bit 8, RW 0x796E9A .. 0x796EE3), so the starting fortresses place members the port
 	// used to drop; the allied blob keeps its file
+	// pin: the PC batch of 2026-11-19 (batch 19f, Ports 300, 294, 270, 275, 459, 282, 272, 241, 277, 280, 136) re-measured it once on the merged
+	// tree (REGEN=1, Windows MSVC), bisected over the merge points: green after batch 19f, red from Port 294 (#723) on: ObjectCreationUpgrade's
+	// own wouldUpgrade / postUpgradeCheck (RW 0x8B82AB / 0x8B8329), asked on every upgrade event (RW 0x6936FE), replace the mux base's answers;
+	// PORT-459 (#653) after it was not split off
 	// pin: the fork's merge of upstream 234f5742 (2026-11-13) re-measured the battle and the skirmish once on the merged tree (OPENBFME_PERF1_REGEN=1, Linux GCC on Colab, whose hashes
 	// match the MSVC pins frame for frame on main df5f0b41): PORT-13's GameLogicSettings::crc hashes AttackMoveUsesFormations only when it is false (both editions'
 	// aidata.ini set Yes), so every frame's settings hash moves; with the old condition put back the old pins pass, so nothing else moved
@@ -683,7 +703,18 @@ TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after a
 	// whose hashes match the MSVC pins): with the batch only perf1 and uber1 move against main bc66c72f on the same machine (every other suite of the
 	// batch run fails or passes as on main); the batch's logic changes are Port 138 (a rubble rebuild), Port 145 (SHIP enter legs), Port 148 (GIANT_BIRD
 	// separation), Port 164 (the giant bird's contact point, mode 1) and Port 29 (BuildingBehavior's fire lists); not bisected between them
+	// pin: the fork's merge of upstream 942fd79e (2026-11-16) re-measured the battle and the skirmish once on the merged tree (OPENBFME_PERF1_REGEN=1,
+	// Linux GCC on Colab, whose hashes match the MSVC pins): the merge's AIAttack and ThreatFinderUpdate changes move the battle from frame 48 and
+	// the skirmish from frame 24 (allied_blob_300 unchanged); not bisected between them
 	const std::vector<std::uint32_t> battleRef = perf1::readHashes("big_battle_400.hashes");
+	// pin: the landing of 2026-11-17 re-measured the skirmish once on the merged tree (OPENBFME_PERF1_REGEN=1, Linux GCC on Colab): Port 227 (fork PR 590:
+	// the skirmish AI's formation wait, ForceSkirmishAI and the AIKindOf threat category) moves it from frame 9 (merge points: main + PR 588 keeps it, + PR 590
+	// moves it); PRs 588, 591, 587 and the merge of upstream 16474d71 keep it; the battle and the blob are unchanged
+	// pin: batch 2026-11-17a re-measured the skirmish once on the batch tree (OPENBFME_PERF1_REGEN=1, Linux GCC on Colab): Port 237 (#596: death / create
+	// modules, ObjectCreationList, OCLUpdate) moves it from frame 1661; merge-point bisect: 6e3b8a16 (before #596) passes, 2ce6a623 (with it) differs
+	// pin: batch 2026-11-18a re-measured the skirmish once on the batch tree (OPENBFME_PERF1_REGEN=1, Linux GCC on Colab): Port 224 (#581: a creep lair
+	// or hole destroyed while it rebuilds gives no money or treasure and stays destroyed) moves it from line 1964 of the file; merge-point bisect: 61d4dfa7
+	// (main + #586 + #584) passes, de944025 (+ #581) differs; the battle and the blob are unchanged
 	const std::vector<std::uint32_t> skirmishRef = perf1::readHashes("skirmish4_6000.hashes");
 	// OPENBFME_PERF1_REGEN=1 rewrites the two reference vectors from this build instead of comparing: run it only when a merged change is MEANT to
 	// change the simulation (a retail port), and say so in the commit; a pure optimisation must pass against the stored vectors unchanged
@@ -740,11 +771,23 @@ TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after a
 // archive's, byte for byte), then once on the merged tree: MODCOMPAT-MOD1 and #133 each move it, #166 keeps it. TOP20 S-560 re-measured it: the shroud's
 // channels (RW 0x68EC3B -> 0xB51030) move it from frame 0 (with their fill switched off it matches the previous vector).
 // pin: issue #88 (S-322, S-321): unconditional GameLogicSettings::crc of attributeModifierArmorMaxBonus and damageRadiusMinimumForSplash moves the vector from frame 0 (with the two fields unhashed it matches the previous vector).
+// pin: the landing of Locals 111-120 (2026-11-21) re-measured the battle and skirmish files once on the merged station-0 tree (OPENBFME_PERF1_REGEN=1); causes proven by one build with all three disabled (PROCESS 7 item 5): Local 118 (#802, PR #818: LargeGroupAudioUpdate wakes a disabled object's update, RW 0x008AF0D0 -> RW 0x008AF246), Local 120 (#804, PR #820) P-169 (Locomotor::locomotorMaintainCurrentPosition RW 0x5E7CC7: an idle NO_Z_MOTIVE_FORCE unit off its layer's height is put on it, RW 0x5E7E64 .. 0x5E7E84) and P-168 (ObjectCreationUpgrade::update RW 0x8B8464: the made object is enslaved to its maker, RW 0x8B86DB .. 0x8B8708); with them off the old pins matched (perf1 11/11, uber1 7/7)
 TEST_CASE("perf1: the allied blob (300 frames) hashes as the build before the collision module caches did in every frame")
 {
 	// pin: the fork's merge of upstream 234f5742 (2026-11-13) re-measured the allied blob once on the merged tree (OPENBFME_PERF1_REGEN=1, Linux GCC on Colab, whose hashes
 	// match the MSVC pins frame for frame on main df5f0b41): PORT-13's GameLogicSettings::crc hashes AttackMoveUsesFormations only when it is false (both editions'
 	// aidata.ini set Yes), so every frame's settings hash moves; with the old condition put back the old pins pass, so nothing else moved
+	// pin: the PC landing of Locals 96 / 97 / 98 (2026-11-21, MSVC) re-measured the skirmish file (OPENBFME_PERF1_REGEN=1 on the merged station-0 tree): Local 96's
+	// WorkerAIUpdate::newTask sets WORKER_REPAIRING (status 0x61, in the object hash; RW 0x008AE4A9) and DozerAIUpdate::onDelete (RW 0x0088CF96): the skirmish
+	// differs from frame 1296; with Local 96's changes switched off on its branch the old pin passes 12676/12676; Locals 97 / 98 left perf1 unmoved on theirs
+	// pin: the PC landing of 2026-11-20 (Local 93 #740 and Local 94 #741 with batches 2026-11-20c..f) re-measured all three files once on the merged station-0
+	// tree (OPENBFME_PERF1_REGEN=1, Windows MSVC): Local 93's AIData ForceHordesToLowLOD (+0xBB, default true) sets status bit 55 CREATE_DRAWABLE_WITH_LOW_DETAIL
+	// on produced units and horde members (RW 0x8A25DC .. 0x8A25F4, RW 0x86A117 .. 0x86A15E, RW 0x86B24B .. 0x86B28F), and the status is in the object hash;
+	// with those three sites switched off the batch-20f pins pass 11/11, so nothing else moved
+	// pin: batches 2026-11-18l and m (fork PRs 579, 615, 629, 658, 661, 623: Ports 218, 232, 255, 274, 261, 252) merged onto main e3bb171a
+	// (with PR 619, Port 226, landed on its own): the batches and main each re-pinned skirmish4_6000 on its own tree, so the merge re-measured it once on
+	// the merged tree (OPENBFME_PERF1_REGEN=1, Linux GCC on Colab); uber1 did not move; not bisected between the ports (target acquisition of Port 226 meets
+	// the batches' logic changes)
 	// pin: the arena PR batch of 2026-11-14 (fork PRs 217, 359 .. 424: 20 ports) re-measured the allied blob once on the merged tree (OPENBFME_PERF1_REGEN=1, Linux GCC on Colab,
 	// whose hashes match the MSVC pins): with the batch only perf1 and uber1 move against main bc66c72f on the same machine (every other suite of the
 	// batch run fails or passes as on main); the batch's logic changes are Port 138 (a rubble rebuild), Port 145 (SHIP enter legs), Port 148 (GIANT_BIRD

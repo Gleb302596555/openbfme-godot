@@ -89,7 +89,9 @@ void ReplaceObjectUpdate::triggerAbilityEffect() {
     }
 }
 void ReplaceObjectUpdate::crc(StateHasher &h) const { SpecialAbilityUpdate::crc(h); }
+// RW 0x008B6AE3 (SpecialAbilityUpdate::xfer RW 0x852782 + version(1, 1))
 void ReplaceObjectUpdate::xfer(Xfer &x) { SnapshotXfer::version(x, 1, 1); SpecialAbilityUpdate::xfer(x); }
+// getModuleName RW 0x008B6ABD, getModuleNameKey RW 0x008B6B04, dtor RW 0x008B6AC3 / RW 0x008B6B49
 void ReplaceObjectUpdate::registerClass(ModuleFactory &factory) {
     factory.bindTypedData<ReplaceObjectUpdateModuleData>("ReplaceObjectUpdate", MODULETYPE_BEHAVIOR);
     factory.bindModuleProc("ReplaceObjectUpdate", MODULETYPE_BEHAVIOR, [](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &) -> std::unique_ptr<Module> {

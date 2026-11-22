@@ -308,6 +308,7 @@ runner is claimed. All paths below are relative to the repository root.
 | `godot/tests/timeline_markers_test.gd` | `tools/test_gdscript.py::test_game_script` | Allowlisted: score timeline markers against a stub shell; headless, 20 s timeout. |
 | `godot/tests/wotr_preview_visibility_test.gd` | `tools/test_gdscript.py::test_game_script` | Allowlisted: hidden War of the Ring preview rendering and reveal; synthetic shell, no retail assets or readback; headless, 20 s timeout. |
 | `godot/tests/wotr_setup_dialog_test.gd` | Manual | Retail RotWK and BFME2 presentation: historical versus freeform selection, Start refusal, modal preview hiding/input blocking and restoration; synthetic preview, private installs and built extension required; no GPU readback. |
+| `godot/tests/wotr_hud_viewport_test.gd` | Manual | Retail RotWK and BFME2 strategic HUD through AptMenuPlayer: GPU artwork comparison against 4:3, repeated widescreen resizing, Fit, and fixed window-space END PHASE input including before tick/render. Requires both installs and a GPU; exits 77 without them. |
 | `godot/tests/save_failure_menu_test.gd` | `tools/test_gdscript.py::test_game_script` | Allowlisted: late save refusals resume the shell and replace the loading canvas; synthetic world and shell; headless, 20 s timeout. |
 | `godot/tests/uberjoin1_lan_test.gd` | `godot/tests/start_test.gd` | CI gate's helper/child; not scheduled separately by pytest. |
 | `godot/tests/uberjoin1_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and game/frame setup. |
@@ -328,6 +329,7 @@ runner is claimed. All paths below are relative to the repository root.
 | `godot/tests/edainfactions1_test.gd` | Manual only; no generic pytest runner | Needs the Edain 4.8.5.3 install (OPENBFME_EDAIN_INSTALL, OPENBFME_EDAIN_ASSETS_INSTALL); without them it only parses. Runs the Dwarven clan choices and the Dwarven AI in real skirmishes. |
 | `godot/tests/ennorath_run_pose_test.gd` | Manual only; no generic pytest runner | manual: needs the Ennorath install (`OPENBFME_ENNORATH_INSTALL`) and retail assets (P-30) |
 | `godot/tests/p88_hidden_mesh_test.gd` | Manual only; no generic pytest runner | manual: needs the Ennorath install (`OPENBFME_ENNORATH_INSTALL`) and retail assets (P-88) |
+| `godot/tests/p99_instance_param_test.gd` | Manual only; no generic pytest runner | manual: needs retail assets for the W3D instancer's draw-node count (P-99) |
 
 | `godot/tests/harlindon_creep_combat_test.gd` | Manual only; no generic pytest runner | Private retail assets and a live skirmish. |
 

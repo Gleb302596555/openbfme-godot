@@ -10,9 +10,9 @@
 name: Pull request checks
 
 on:
-  pull_request:
-    branches:
-      - main
+  # fork (owner 2026-11-20): not on pull requests. Upstream's full matrix filled GitHub's 20 parallel jobs with every agent push while
+  # the fork reads none of it; the fork's per-PR checks are fork-pr.yml (build + own tests) and pr-rules.yml. Pushes to main still run it
+  # (and keep main's compiler caches warm, which fork-pr.yml restores).
   merge_group:
   push:
     branches:
@@ -65,6 +65,8 @@ jobs:
         with:
           fetch-depth: 2
           persist-credentials: false
+          # the fork keeps *.png in Git LFS (.gitattributes): without it tools/platformicon's tests read pointer files ("not a PNG")
+          lfs: true
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.13"
@@ -160,7 +162,9 @@ jobs:
           key: ccache-linux-${{ github.sha }}
       - name: Unit tests (the tests that need the game skip)
         run: |
-          engine/build/openbfme_tests
+          # the fork's scope (tools/fork_scope.txt, docs/ennorath/PROCESS.md 16): other games' and mods' tests are not run here either
+          scope=(); while IFS= read -r line; do scope+=("$line"); done < <(grep -v '^#' tools/fork_scope.txt | tr -d '\r' | grep .)  # macOS bash 3.2: no mapfile
+          engine/build/openbfme_tests "${scope[@]}"
 
   windows:
     name: Windows cross build (llvm-mingw, compile only)
@@ -230,6 +234,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # the Godot import of godot/assets reads the PNGs the fork keeps in Git LFS (pointer files fail as ERR_FILE_CORRUPT)
+          lfs: true
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.13"
@@ -251,7 +257,11 @@ jobs:
           New-Item -ItemType Directory -Force $target | Out-Null
           New-Item -ItemType Junction -Path "$target\$env:REPO" -Target "$PWD" | Out-Null
       - name: Unit tests (the tests that need the game skip)
-        run: build/windows/build/openbfme_tests.exe
+        shell: bash
+        run: |
+          # the fork's scope (tools/fork_scope.txt, docs/ennorath/PROCESS.md 16): other games' and mods' tests are not run here either
+          scope=(); while IFS= read -r line; do scope+=("$line"); done < <(grep -v '^#' tools/fork_scope.txt | tr -d '\r' | grep .)  # macOS bash 3.2: no mapfile
+          build/windows/build/openbfme_tests.exe "${scope[@]}"
       - name: Download Godot 4.7.2 (its SHA512-SUMS.txt hash)
         run: |
           mkdir -p "$RUNNER_TEMP/godot"
@@ -270,8 +280,8 @@ jobs:
     # the build contributors run on Windows (the release ships llvm-mingw, so no other job compiles with MSVC), from a fresh clone
     runs-on: windows-2025
     needs: fixtures
-    # a cold compiler cache took 37 and 64 minutes (2026-11-05), a warm one 3, and the unit tests take 2 more
-    timeout-minutes: 90
+    # a cold compiler cache took 37 and 64 minutes (2026-11-05) and over 90 (2026-11-18, cancelled: the cache is saved only by a finished main run), a warm one 3, and the unit tests take 2 more
+    timeout-minutes: 150
     env:
       CCACHE_DIR: ${{ github.workspace }}\.ccache
       CCACHE_MAXSIZE: 3G
@@ -324,7 +334,10 @@ jobs:
           key: ccache-msvc-${{ github.sha }}
       - name: Unit tests (the tests that need the game skip)
         shell: bash
-        run: engine/build/openbfme_tests.exe
+        run: |
+          # the fork's scope (tools/fork_scope.txt, docs/ennorath/PROCESS.md 16): other games' and mods' tests are not run here either
+          scope=(); while IFS= read -r line; do scope+=("$line"); done < <(grep -v '^#' tools/fork_scope.txt | tr -d '\r' | grep .)  # macOS bash 3.2: no mapfile
+          engine/build/openbfme_tests.exe "${scope[@]}"
 
   macos:
     name: macOS arm64 build and unit tests
@@ -376,7 +389,9 @@ jobs:
         # includes the console filter tests: the real macOS /dev/null sink, privacy filtering and bounded shutdown
         # without three files of network timing tests that fail in about a quarter of the runs on this runner; Linux and Windows still run them
         run: |
-          engine/build-macos/openbfme_tests -sfe="*test_netlag2.cpp,*test_mpdrop3_farewell.cpp,*test_onlinemenu1.cpp"
+          # the fork's scope (tools/fork_scope.txt, docs/ennorath/PROCESS.md 16): other games' and mods' tests are not run here either
+          scope=(); while IFS= read -r line; do scope+=("$line"); done < <(grep -v '^#' tools/fork_scope.txt | tr -d '\r' | grep .)  # macOS bash 3.2: no mapfile
+          engine/build-macos/openbfme_tests -sfe="*test_netlag2.cpp,*test_mpdrop3_farewell.cpp,*test_onlinemenu1.cpp" "${scope[@]}"
 
   ci:
     name: CI

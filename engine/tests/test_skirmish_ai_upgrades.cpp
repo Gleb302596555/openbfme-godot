@@ -291,7 +291,7 @@ TEST_CASE("ai5 upgrade builder: the structures' upgrades and the plots' expansio
 	});
 }
 
-TEST_CASE("ai5 heuristics: none answers 1, IMPORTANT and BOILINGOIL 0 (RW 0xC8EAF0 / 0xC8EAE8), FORTRESS waits (7 - phase) * 5 seconds and draws 1 in 10 or 1 in 5 (RW 0x9ED374), the summon ones are a stop")
+TEST_CASE("ai5 heuristics: none answers 1, IMPORTANT and BOILINGOIL 0 (RW 0xC8EAF0 / 0xC8EAE8), FORTRESS waits (7 - phase) * 5 seconds and draws 1 in 10 or 1 in 5 (RW 0x9ED374), and the AI5 stop line is present")
 {
 	OPENBFME_REQUIRE_START(s);
 	withVersusGame(*s, "FactionMen", "FactionMordor", 2, [&](LiveGame &game, GameLogic &logic) {

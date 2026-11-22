@@ -1,6 +1,7 @@
 // OpenBFME unit tests: lane MODS-3, the engine features of mods that change the game program (Common/ModEngineFeatures.h). GPL-3.0.
 
 #include "doctest.h"
+#include "CombatTestUtil.h"
 #include "EconTestUtil.h"
 
 #include "Common/ModEngineFeatures.h"
@@ -8,11 +9,17 @@
 #include "Common/PlayerTemplate.h"
 #include "Common/Upgrade.h"
 #include "GameClient/ControlBarCommands.h"
+#include "GameLogic/AI/AIStateMachine.h"
+#include "GameLogic/GameLogic.h"
+#include "GameLogic/Module/AIUpdate.h"
+#include "GameLogic/Module/BehaviorModule.h"
 #include "GameLogic/Module/LogicModules.h"
 #include "GameLogic/Module/ProductionUpdate.h"
 #include "GameLogic/Module/SpawnBehavior.h"
+#include "GameLogic/Module/StancesBehavior.h"
 #include "GameLogic/Module/UpgradeModuleClasses.h"
 #include "GameLogic/Object/Object.h"
+#include "GameLogic/Object/PartitionManager.h"
 #include "Common/Thing/KindOfTokens.h"
 
 #include <memory>
@@ -39,7 +46,7 @@ TEST_CASE("MODS-3: a known modified game binary turns its profile's features on;
 	CHECK(ModEngineFeatures::has(ModEngineFeature::EdainUnchainedHerobarKindOf));
 	CHECK(ModEngineFeatures::activeProfiles() == std::vector<std::string>{ "Edain Unchained 4.4.3 game.dat" });
 	const std::vector<std::string> ids = ModEngineFeatures::identityFeatures();
-	REQUIRE(ids.size() == (size_t)ModEngineFeature::Count);
+	REQUIRE(ids.size() == (size_t)ModEngineFeature::EnnorathStanceKeepsMoving); // every edain-unchained feature: the enum lists Edain's first
 	CHECK(ids.front() == "mod-engine:edain-unchained.herobar-kindof");
 
 	// Patch 2.02's game binary: known, nothing to re-implement for the simulation (its changes are install checks and frame pacing)
@@ -52,6 +59,172 @@ TEST_CASE("MODS-3: a known modified game binary turns its profile's features on;
 				   "engine changes would be missing");
 	CHECK(ModEngineFeatures::activeProfiles().empty()); // a failure leaves every feature off (retail), the earlier set included
 	CHECK_FALSE(ModEngineFeatures::has(ModEngineFeature::EdainUnchainedHerobarKindOf));
+}
+
+TEST_CASE("MODS-3: Ennorath 1.9.8.5's game.dat turns on ennorath.stance-keeps-moving and ennorath.middle-click-camera, and its S-5304 line names the pySAGE edits left out")
+{
+	// the MD5 of Ennorath 1.9.8.5's RotWK\game.dat, which the All In One service's Ennorath package lists as an engine edit (the launcher passes it as
+	// --mod-engine); its sections .stancem and .camfix are the two features (docs/ennorath/ENNORATH_EXE.md)
+	Retail guard;
+	std::string error;
+	REQUIRE_MESSAGE(ModEngineFeatures::activate({ "fc32e4c4142b5c607b90972eaf448400" }, &error), error);
+	CHECK(ModEngineFeatures::activeProfiles() == std::vector<std::string>{ "Ennorath 1.9.8.5 game.dat" });
+	CHECK(ModEngineFeatures::identityFeatures() ==
+		std::vector<std::string>{ "mod-engine:ennorath.stance-keeps-moving", "mod-engine:ennorath.middle-click-camera", "mod-engine:ennorath.evacuate-containers", "mod-engine:ennorath.options-pages", "mod-engine:ennorath.option-hotkeys", "mod-engine:ennorath.online-delay-fix", "mod-engine:ennorath.lobby-map-search", "mod-engine:ennorath.chat-mute" }); // a retail peer is refused
+	CHECK_FALSE(ModEngineFeatures::has(ModEngineFeature::EdainUnchainedHerobarKindOf));
+	const std::vector<std::string> lines = ModEngineFeatures::stopLines();
+	REQUIRE(lines.size() == 1);
+	CHECK(lines[0].rfind("S-5304: Ennorath 1.9.8.5 game.dat: rebuilt: ", 0) == 0);
+	CHECK(lines[0].find("the map search in the lobby (.mapfind / .mapsvar)") != std::string::npos);
+	CHECK(lines[0].find("the option hotkeys and mod defaults (.hotkeys / .keydef / .keycmd)") != std::string::npos); // Local 127
+	CHECK(lines[0].find("per-player chat mute on the tribute screen (.chatmut 0xEDB000)") != std::string::npos); // Local 129
+	CHECK(lines[0].find("not yet (docs/ennorath/ENNORATH_EXE.md): replays") != std::string::npos); // Locals 127-129 merged (2026-11-22)
+}
+
+namespace
+{
+// a walker with an AI (CombatTestUtil's world: 200 ms frames, WalkerLoco)
+const char kStanceWalker[] =
+	"Object StanceWalker\n"
+	" KindOf = INFANTRY SELECTABLE CAN_ATTACK\n"
+	" Geometry = CYLINDER\n GeometryMajorRadius = 8\n GeometryMinorRadius = 8\n GeometryHeight = 20\n"
+	" Body = ActiveBody BodyTag\n  MaxHealth = 100\n End\n"
+	" Behavior = AIUpdateInterface AiTag\n End\n"
+	" LocomotorSet\n  Locomotor = WalkerLoco\n  Condition = SET_NORMAL\n  Speed = 55\n End\n"
+	"End\n";
+} // namespace
+
+TEST_CASE("MODS-3: ennorath.stance-keeps-moving: HoldGround stops a walking unit in retail 2.01 (RW 0x86216B), with the feature only an idle one (PYSAGE 1.9.8.5 .stancem)")
+{
+	// retail StancesBehavior::setStance (RW 0x8620DD): stance 3 calls aiIdle (RW 0x5E821A(0)) on any AI (RW 0x86215B .. 0x862170). The pySAGE hook at
+	// RW 0x862161 (.stancem 0xF34000 .. 0xF34026) calls it only when byte AI + 0x3B1 (waiting for a path) is clear and AI vslot 0x1B8 (isIdle) is true
+	Retail guard;
+	const Coord3D goal{ 605.0f, 105.0f, 0.0f };
+	auto same = [](const Coord3D &a, const Coord3D &b) { return a.x == b.x && a.y == b.y && a.z == b.z; };
+	// the control: the same walk with no stance request, 25 frames in (the world is deterministic)
+	Coord3D control{};
+	{
+		ModEngineFeatures::reset();
+		combattest::CombatWorld c(kStanceWalker);
+		Object *walker = c.unit("StanceWalker", 'B', 105, 105);
+		c.aiOf(walker)->aiMoveToPosition(goal, CMD_FROM_PLAYER);
+		c.frames(25);
+		REQUIRE(c.aiOf(walker)->currentStateId() == (unsigned)AI_MOVE_TO);
+		control = *walker->getPosition();
+	}
+	for (const bool feature : { false, true })
+	{
+		CAPTURE(feature);
+		std::string error;
+		if (feature)
+		{
+			REQUIRE(ModEngineFeatures::activate({ "fc32e4c4142b5c607b90972eaf448400" }, &error));
+		}
+		else
+		{
+			ModEngineFeatures::reset();
+		}
+		combattest::CombatWorld f(kStanceWalker);
+		Object *walker = f.unit("StanceWalker", 'B', 105, 105);
+		AIUpdateInterface *ai = f.aiOf(walker);
+		ai->aiMoveToPosition(goal, CMD_FROM_PLAYER);
+		f.frames(5);
+		REQUIRE(ai->currentStateId() == (unsigned)AI_MOVE_TO);
+		REQUIRE_FALSE(ai->isIdle());
+		StancesBehaviorModuleData data; // no StanceTemplate: setStance refuses after the idle step (RW 0x862188), the idle is what is tested
+		StancesBehavior stance(walker, &data);
+		stance.setStance(STANCE_HOLD_GROUND, "test:player");
+		f.frames(10);
+		const Coord3D mid = *walker->getPosition();
+		f.frames(10);
+		if (feature)
+		{
+			CHECK(ai->currentStateId() == (unsigned)AI_MOVE_TO); // the walk goes on
+			CHECK(same(*walker->getPosition(), control));       // exactly where the walk without the request is
+		}
+		else
+		{
+			CHECK(ai->isIdle()); // retail: the unit stops
+			CHECK(same(*walker->getPosition(), mid));           // and stands
+			CHECK_FALSE(same(*walker->getPosition(), control));
+		}
+		// the neighbour: Aggressive never idles, with or without the feature
+		ai->aiMoveToPosition(goal, CMD_FROM_PLAYER);
+		f.frames(2);
+		REQUIRE(ai->currentStateId() == (unsigned)AI_MOVE_TO);
+		stance.setStance(STANCE_AGGRESSIVE, "test:player");
+		CHECK(ai->currentStateId() == (unsigned)AI_MOVE_TO);
+	}
+}
+
+namespace
+{
+// a tunnel (TunnelContain: a horde garrison, vtable RW 0xC5DCE0 slot 0x80 = RW 0x87CE8F -> RW 0x991027), a wagon with a TransportContain (no horde) and a walker
+const char kEvacuate[] =
+	"Object EvacTunnel\n"
+	" KindOf = STRUCTURE SELECTABLE\n"
+	" Geometry = BOX\n GeometryMajorRadius = 20\n GeometryMinorRadius = 20\n GeometryHeight = 30\n"
+	" Body = ActiveBody BodyTag\n  MaxHealth = 500\n End\n"
+	" Behavior = TunnelContain ContainTag\n  TimeForFullHeal = 5000\n  AllowAlliesInside = Yes\n  AllowEnemiesInside = No\n  AllowNeutralInside = No\n End\n"
+	"End\n"
+	"Object EvacWagon\n"
+	" KindOf = VEHICLE SELECTABLE TRANSPORT\n"
+	" TransportSlotCount = 1\n"
+	" Geometry = CYLINDER\n GeometryMajorRadius = 10\n GeometryMinorRadius = 10\n GeometryHeight = 20\n"
+	" Body = ActiveBody BodyTag\n  MaxHealth = 500\n End\n"
+	" Behavior = AIUpdateInterface AiTag\n End\n"
+	" Behavior = TransportContain ContainTag\n  Slots = 2\n  AllowAlliesInside = Yes\n  AllowEnemiesInside = No\n  AllowNeutralInside = No\n End\n"
+	" LocomotorSet\n  Locomotor = WalkerLoco\n  Condition = SET_NORMAL\n  Speed = 55\n End\n"
+	"End\n"
+	"Object EvacWalker\n"
+	" KindOf = INFANTRY SELECTABLE CAN_ATTACK\n"
+	" TransportSlotCount = 1\n"
+	" Geometry = CYLINDER\n GeometryMajorRadius = 8\n GeometryMinorRadius = 8\n GeometryHeight = 20\n"
+	" Body = ActiveBody BodyTag\n  MaxHealth = 100\n End\n"
+	" Behavior = AIUpdateInterface AiTag\n End\n"
+	" LocomotorSet\n  Locomotor = WalkerLoco\n  Condition = SET_NORMAL\n  Speed = 55\n End\n"
+	"End\n";
+} // namespace
+
+TEST_CASE("MODS-3: ennorath.evacuate-containers: evacuate all leaves a wagon (a rider whose contain is no horde) in the tunnel in retail 2.01 (RW 0x991072), lets it out with the feature (PYSAGE 1.9.8.5 .keydef 0xF39580)")
+{
+	// RW 0x991027: per rider, its contain (Object + 0x258): a horde (contain vslot 0x7C) gets vslot 0x84, no horde -> skipped (RW 0x991072 je 0x99109E); no
+	// contain -> aiExit (RW 0x991099 -> RW 0x7716C1). The pySAGE hook at RW 0x99106B sends the no-horde case to RW 0x991086 (aiExit) as well
+	Retail guard;
+	for (const bool feature : { false, true })
+	{
+		CAPTURE(feature);
+		std::string error;
+		if (feature)
+		{
+			REQUIRE(ModEngineFeatures::activate({ "fc32e4c4142b5c607b90972eaf448400" }, &error));
+		}
+		else
+		{
+			ModEngineFeatures::reset();
+		}
+		combattest::CombatWorld f(kEvacuate);
+		f.logic->partition().setRegion(0.0f, 0.0f, 1000.0f, 1000.0f);
+		Object *tunnel = f.unit("EvacTunnel", 'B', 300, 300);
+		tunnel->friend_onBuildComplete();
+		Object *wagon = f.unit("EvacWagon", 'B', 300, 340);
+		Object *walker = f.unit("EvacWalker", 'B', 300, 340);
+		ContainModuleInterface *c = tunnel->getContain();
+		REQUIRE(c->addToContain(wagon));
+		REQUIRE(c->addToContain(walker));
+		REQUIRE(wagon->getContainedBy() == tunnel);
+		c->orderAllPassengersToExit((int)CMD_FROM_PLAYER);
+		f.frames(60);
+		CHECK(walker->getContainedBy() == nullptr); // the rider without a contain leaves either way (the neighbour)
+		if (feature)
+		{
+			CHECK(wagon->getContainedBy() == nullptr);
+		}
+		else
+		{
+			CHECK(wagon->getContainedBy() == tunnel);
+		}
+	}
 }
 
 TEST_CASE("MODS-3: edain-unchained.herobar-kindof: HEROBAR is KindOf bit 222 and HEROBAR_GROUP bit 223 only with the feature")

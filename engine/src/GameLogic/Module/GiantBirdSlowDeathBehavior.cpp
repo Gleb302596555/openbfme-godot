@@ -35,8 +35,8 @@ const float kTwoPi = 6.28318548f;  // RW 0xBDD38C
 const float kMinRadius = 10.0f;    // RW 0xBD83D8
 
 const char kStop[] =
-	"[S-5606] GiantBirdSlowDeathBehavior (RW 0x86511C, 0x865009, 0x66A61A) crashes the flyer clear of CrashAvoidKindOfs; FXHitGround, OCLHitGround, DelayFromGroundToFinalDeath, "
-	"CrashAvoidStrength and NeedToMaintainFlailingHeight are read by none of these functions";
+	"[S-5606] GiantBirdSlowDeathBehavior (RW 0x86511C, 0x865009, 0x66A61A) crashes the flyer clear of CrashAvoidKindOfs; FXHitGround, OCLHitGround and "
+	"DelayFromGroundToFinalDeath are read by none of these functions (CrashAvoidStrength and NeedToMaintainFlailingHeight: RotWK reads neither, PORT-304)";
 
 void parseName(INI *ini, void *, void *store, const void *)
 {
@@ -190,6 +190,7 @@ void GiantBirdSlowDeathBehavior::crc(StateHasher &h) const
 	h.addFloat(m_crashTarget.z);
 }
 
+// RW 0x0086502B
 void GiantBirdSlowDeathBehavior::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

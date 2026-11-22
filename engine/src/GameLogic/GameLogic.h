@@ -94,6 +94,7 @@ class TerrainLogic;
 class UpgradeTypeTable;
 class UpgradeTemplate;
 class AIWorld;
+class FormationAssistant;
 class Economy;
 class CombatState;
 class ExperienceWorld;
@@ -179,6 +180,9 @@ public:
 	// drawable's RW 0x674727 and RW 0x690786 its RW 0x67896F, which clear / set the drawable's audible flag (+ 0x44A) and tell every client behaviour
 	// module's second interface (slot 1 RW 0x8CE25E / 0x8D04EB, slot 0 RW 0x8CE249 / 0x8D04D9)
 	virtual void setDrawableAudible(Object &obj, bool audible) { (void)obj; (void)audible; }
+	// LOCAL-97, RW 0x008862E0 (Drawable + 0x118 |= bits) and RW 0x00670913 (Drawable::clearTintStatus)
+	virtual void setDrawableTintStatus(Object &obj, UnsignedInt statusBits) { (void)obj; (void)statusBits; }
+	virtual void clearDrawableTintStatus(Object &obj, UnsignedInt statusBits) { (void)obj; (void)statusBits; }
 	// PORT-68: Object::setDrawableFXTrigger (RW 0x68B56A -> Drawable::setFXTrigger RW 0x44C465, Drawable + 0x360)
 	virtual void setDrawableFXTrigger(Object &obj, int fxTrigger) { (void)obj; (void)fxTrigger; }
 	// RW 0x67B78C -> 0x6D4789: a qualifying hit on a local hero, independently of the EVA gate.
@@ -220,6 +224,7 @@ struct GameLogicSettings
 	// lane AIDATA-1: every AIData default below is the AIData constructor's (RW 0x6FFBEF; BFME2 decomp AIConstructor_Unresolved.cpp TAiData::TAiData), so a mod
 	// aidata.ini that leaves a field out gets retail's value; no AIData field is required (retail's parser RW 0x7017AA requires none)
 	bool enableRepulsors = false;                    ///< AIData EnableRepulsors (RW 0xDE4B40 + 0x18 + 0x64, ctor 0): the RepulsorHelper condition
+	bool forceSkirmishAI = false;                    ///< AIData ForceSkirmishAI (+ 0x65, row RW 0xC1CC80 parseBool; ctor RW 0x6FFBEF / 0x6FFD49 stores 0): RW 0x6AA450 Player::setPlayerType gives PLAYER_COMPUTER an AISkirmishPlayer even when skirmish == false
 	float repulsedDistance = 0.0f;                   ///< AIData RepulsedDistance (+ 0x60, lane MODULES-3): the safe path radius beyond the vision range
 	bool useFormations = true;                       ///< AIData UseFormations (+ 0xBD, row RW 0xC1CE90 parseBool; the constructor RW 0x6FFDE5 stores 1; lane BACKLOG6): AIGroup RW 0x774897's formation gate
 	float minDistanceForGroup = 100.0f;              ///< AIData MinDistanceForGroup (+ 0x6C, row RW 0xC1D390 parseReal; the constructor stores RW 0xBD88D8 = 100.0f at RW 0x6FFD56; lane BACKLOG6): RW 0x76F115's group move distance
@@ -295,6 +300,18 @@ struct GameLogicSettings
 	// (RW 0xDE4B40 + 0x18): FireSpreadUpdate's tree branch (RW 0x88EF0F) and the attack on a map tree (RW 0x77AF3B / 0x77C1E5) make a tree an object
 	// (TerrainTrees::makeTreeObject, RW 0x68449B) only with it set. Retail 2.01 and Ennorath set No (defaultidata.ini)
 	bool allowForestFires = false;
+	// Local 93: AIData ForceHordesToLowLOD (row RW 0xC1CE70, parseBool RW 0x42E558, AIData + 0xBB; ctor RW 0x6FFBEF -> RW 0x6FFDA5: true):
+	// sets OBJECT_STATUS_CREATE_DRAWABLE_WITH_LOW_DETAIL (bit 55) on produced units (RW 0x8A1B9F -> 0x8A25E4) and horde payloads / upgrade
+	// creation triggers (RW 0x86A104 -> 0x86A151, RW 0x86B169 -> 0x86B282; excluding HERO and MONSTER templates).
+	bool forceHordesToLowLOD = true;
+	// Local 93: AIData low-LOD trees (rows RW 0xC1CF50 UseLowLODTrees + 0xD8 parseBool, RW 0xC1CF70..0xC1CF90 LowLodTreeName / NoGrab /
+	// NoHarvest + 0xDC/+0xE0/+0xE4 parseAsciiString, RW 0xC1CFA0 LowLodTreeScale + 0xE8 parseReal; ctor RW 0x6FFBEF -> RW 0x6FFE0C..0x6FFE4A:
+	// false, "", "", "", 0.55f from RW 0xBDAE10). Read by RW 0x62DCE4 (MapObjectCreation::build) when staticLODLevel <= 0. Presentation only: not in crc.
+	bool useLowLODTrees = false;
+	std::string lowLodTreeName;
+	std::string lowLodTreeNameNoGrab;
+	std::string lowLodTreeNameNoHarvest;
+	float lowLodTreeScale = 0.55f;
 	// lane PORT-38 (issue #123): the AI player's team build tempo — six AIData rows of the table that starts at RW 0xC1CB20, and the constructor
 	// RW 0x6FFBEF stores 0.0f / 0 to all of them (so a data set that leaves them out divides by a zero rate, exactly as the image does; the rules
 	// and their callers are GameLogic/SkirmishAI/AITeamTempo.h, stop S-5620 for the team build that would consume them):
@@ -351,6 +368,8 @@ struct GameLogicSettings
 	float supplyBuildBorder = 0.0f;
 	int maxLineBuildObjects = 0;
 	float minDistFromEdgeOfMapForBuild = 0.0f;
+	bool maxCastleRadiusLoaded = false; ///< lane BUILDCLEAR-1: GameData read MaxCastleRadius (BFME1's GameData has no such row)
+	float maxCastleRadius = 0.0f;       ///< GameData MaxCastleRadius (GlobalData + 0x1220): isLocationClearOfObjects' range
 	// lane BUILD-3 (GameData, RW GlobalData + 0x11E4): BuilderMoveFromNewStructureDistance, the walk of a porter out of the structure it built (RW 0x88D6AE); loaded when a block read it
 	bool builderMoveLoaded = false;
 	float builderMoveFromNewStructureDistance = 0.0f;
@@ -362,9 +381,9 @@ struct GameLogicSettings
 	// RW GlobalData +0xA88, parseUnsignedInt (seconds).
 	bool repairDamageDelayLoaded = false;
 	unsigned timeAfterDamageUntilRepairAllowed = 0;
-	// lane FACT-A (GameData SellPercentage, RW GlobalData + 0xB94): a sold structure's refund share (BuildAssistant::update RW 0x79468B); loaded when a block read it
+	// lane FACT-A (GameData SellPercentage, RW GlobalData + 0xB94): a sold structure's refund share (BuildAssistant::update RW 0x79468B); GlobalData ctor defaults it to 1.0f (RW 0x006429AD -> 0x643160 / 0x643222)
 	bool sellPercentageLoaded = false;
-	float sellPercentage = 0.0f;
+	float sellPercentage = 1.0f;
 	// lane LOCAL-1 (GameData AttributeModifierArmorMaxBonus, row RW 0xC00490, parsePercentToReal RW 0x42EEFA, GlobalData + 0xAE8): cap on active ARMOR modifiers in AdjustDamage (RW 0x5D893C, asm RW 0x5D8B02..0x5D8B3D); retail 2.01 gamedata.ini sets 75%
 	float attributeModifierArmorMaxBonus = 0.75f;
 	// lane LOCAL-1 (GameData DamageRadiusMinimumForSplash, row RW 0xC00580, parseReal RW 0x42ED00, GlobalData + 0xB40): minimum radius for splash in WeaponDelivery::radiusDamage (RW 0x90DEF0, asm RW 0x90E24F); radius <= threshold hurts only first victim; retail 2.01 sets 4.0
@@ -762,6 +781,23 @@ public:
 	// and GameData UseBehindBuildingMarker are set (RW 0x47074D). Not hashed and not saved (no GameLogic xfer reads it): presentation only
 	void setShowBehindBuildingMarkers(bool on) { m_showBehindBuildingMarkers = on; }
 	bool getShowBehindBuildingMarkers() const { return m_showBehindBuildingMarkers; }
+	// PORT-301: TheGameLogic + 0x9F, the hero-experience-sharing switch: the GameLogic constructor sets it to 1 (RW 0x62D299: mov byte ptr [esi + 0x9F], 1), script
+	// action 538 SET_HERO_EXPERIENCE_SHARING writes it (RW 0x7CDF99 -> RW 0x7BD3D1: the parameter's int (+ 8) != 0), and ShareExperienceBehavior::share reads it
+	// (RW 0x883428: cmp byte ptr [eax + 0x9F], 0) to skip a HERO candidate when it is clear. GameLogic's init / reset / startNewGame leave the byte alone (their
+	// default stores RW 0x62D1CB .. 0x62D1E0 / RW 0x62D3CF .. 0x62D3E4 / RW 0x62A22F .. 0x62A23D write + 0x98 .. + 0x9B only), so it survives between
+	// games. Not hashed and not saved: the GameLogic + 0x9F accesses are RW 0x62D299 the constructor, RW 0x7BB038 the member setter, RW 0x7BD3DB the script
+	// writer, RW 0x883054 the member getter and RW 0x883428 the reader (every other .text + 0x9F displacement is foreign or non-code: RW 0x5F079D a data-table
+	// byte, RW 0x5F1563 a Player byte, RW 0x630146 another class's constructor), and GameLogic's xfer (RW 0x630D6F .. 0x630D78) reads none of them
+	void setHeroExperienceSharing(bool on) { m_heroExperienceSharing = on; }
+	bool getHeroExperienceSharing() const { return m_heroExperienceSharing; }
+	// LOCAL-94 (issue #720): TheGameLogic + 0x9A (OPTIONS_SET_DRAWICON_UI_MODE, action 300, RW 0x7CE222 -> RW 0x7BD55C, DONOR BFME2 0x003BCA7B;
+	// init / reset / startNewGame RW 0x62D1D9 / 0x62D3DD / 0x62A236; read by Drawable::drawIconUI RW 0x679134) and TheGameLogic + 0x9B
+	// (OPTIONS_SET_PARTICLE_CAP_MODE, action 301, RW 0x7CE2B6 -> RW 0x7BD56F, DONOR BFME2 0x003BCA8E; init / reset / startNewGame RW 0x62D1E0 /
+	// 0x62D3E4 / 0x62A23D; read by GameLogic::getParticleCapMode RW 0x441B52 at RW 0x4438ED). Not hashed (XferCRC skips them, RW 0x630ADF).
+	void setShowDrawableIconUI(bool on) { m_showDrawableIconUI = on; }
+	bool getShowDrawableIconUI() const { return m_showDrawableIconUI; }
+	void setParticleCapMode(bool on) { m_particleCapMode = on; }
+	bool getParticleCapMode() const { return m_particleCapMode; }
 	// PORT-43: TheGameLogic + 0x118, m_rankLevelLimit: constructor RW 0x6301DD and startNewGame's init helper RW 0x62A20D (RW 0x62A11A, called at
 	// RW 0x631555; GameLogic::reset RW 0x62D232 leaves +0x118 untouched) set 1000 (0x3E8); startNewGame's tail helper RW 0x6311ED (called at RW 0x6315A7)
 	// copies GlobalData + 0xE94 (GameData PowerLimit, row RW 0xC00C00, EconomySettings::powerLimit) into +0x118 at RW 0x631420 .. 0x631436 when RW 0x625456
@@ -824,6 +860,13 @@ public:
 	// ZH GameLogic::friend_createObject / ThingFactory::newObject (Common/Thing/ThingFactoryObjects.cpp): the whole creation order
 	Object *newObject(const ThingTemplate *tt, Team *team, const ObjectStatusMaskType &status, ObjectID id = INVALID_ID);
 	Object *findObjectByID(ObjectID id) const;
+	// lane LOCAL-42 / PORT-208 (S-2480): the stand-in a clicked map tree is picked as. RW 0x77AF18 / 0x77C1C2 compare the message's victim id with
+	// 0x5F5E0FF (99999999) and the client's picker RW 0x48ACF5 .. 0x48ADA0 hands out 99999996 .. 99999999, the four ids of the tree stand-ins GameLogic
+	// keeps (RW 0x62F508: ids 0x5F5E0FF, 0x5F5E0FE, 0x5F5E0FC, 0x5F5E0FD made from TheOneTree / TheNonInteractableTree / TheGrabbableTree /
+	// TheHarvestableTree, one per tree flavour). The port makes no object for them: a stand-in is an ID only, never looked up, never hashed, never saved,
+	// and the logic turns it into a real tree object with TerrainTrees::makeTreeObject (RW 0x68449B) when the command executes
+	static bool isTreeStandInID(ObjectID id) { return id >= 99999996u && id <= 99999999u; }
+	static const ObjectID kTreeStandInID = 99999999; ///< the one the picker returns (RW 0x48AD57: grabbable AND harvestable)
 	Object *getFirstObject() const { return m_objectHead; }
 	Object *getLastObject() const { return m_objectTail; }
 	size_t getObjectCount() const { return m_objectCount; }
@@ -1003,6 +1046,10 @@ public:
 	// MOVE-1: the pathfinder / AI world of this game (GameLogic/AI/AIWorld.h; TheAI): null until the game that has one installs it
 	void setAIWorld(AIWorld *ai) { m_aiWorld = ai; }
 	AIWorld *aiWorld() const { return m_aiWorld; }
+	// The formation table for commands and their snapshots. An explicit data source (synthetic worlds)
+	// overrides FormationAssistant.ini from the active world. Configuration, not simulation state.
+	void setFormationAssistant(const FormationAssistant *data) { m_formationAssistant = data; }
+	const FormationAssistant *formationAssistant() const;
 	// objects created without the OnCreated dispatch (no ObjectCreatedProc installed): counted and reported (S-147)
 	unsigned long long creationsWithoutDispatch() const { return m_creationsWithoutDispatch; }
 
@@ -1271,6 +1318,7 @@ public:
 private:
 	int m_nextListenerToken = 0;
 	AIWorld *m_aiWorld = nullptr;
+	const FormationAssistant *m_formationAssistant = nullptr;
 	ShroudManager *m_shroud = nullptr;
 	std::unique_ptr<PartitionManager> m_partition; // lane MODULES-2
 	std::unique_ptr<EmotionWorld> m_emotions;      // lane MODULES-2
@@ -1283,6 +1331,9 @@ private:
 	UnsignedInt m_frame = 0;
 	int m_gameDifficulty = 1;     ///< lane CAMP-1H: RW GameLogic + 0xA4
 	bool m_showBehindBuildingMarkers = true; ///< lane OCCLUDE-1: RW GameLogic + 0x99
+	bool m_heroExperienceSharing = true; ///< PORT-301: RW GameLogic + 0x9F (the constructor sets it to 1, RW 0x62D299)
+	bool m_showDrawableIconUI = true;        ///< LOCAL-94: RW GameLogic + 0x9A
+	bool m_particleCapMode = true;           ///< LOCAL-94: RW GameLogic + 0x9B
 	int m_rankLevelLimit = kDefaultRankLevelLimit; ///< PORT-43: RW GameLogic + 0x118 (m_rankLevelLimit)
 	bool m_rankLevelLimitScripted = false;         ///< PORT-43: set by PLAYER_SET_RANKLEVELLIMIT (RW 0x7BB04E)
 	GameRules m_gameRules = MpGameRules::none(); ///< lane RULES-1

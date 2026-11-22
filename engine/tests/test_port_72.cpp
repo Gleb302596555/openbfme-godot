@@ -76,7 +76,9 @@ TEST_CASE("PORT-72 FactionVictoryData: victorysystem.ini loads as recording stub
 {
 	Fixture fx;
 	INIBlockRecorder rec;
-	RegisterRecordingBlockStubs(fx.env.blocks, rec, {});
+	// PORT-236 now provides real parsers for VictorySystemData/FactionVictoryData (RW 0x61584E/0x615A68, table 0xC4EBF8/0xC38760);
+	// the stub path is retained when realParsers=false; default (true) now parses into TheVictorySystem and does not record.
+	RegisterRecordingBlockStubs(fx.env.blocks, rec, {}, StubExtent::Strict, false);
 
 	REQUIRE(loadError(fx.env, "victorysystem.ini", kSyntheticVictorySystem).empty());
 

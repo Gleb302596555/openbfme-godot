@@ -113,6 +113,7 @@ public:
 	const std::vector<ObjectID> &approachOwners() const { return m_approachPositionOwners; }
 	const std::vector<bool> &approachReached() const { return m_approachPositionReached; }
 	bool dockerInside() const { return m_dockerInside; }
+	bool dockCrippled() const { return m_dockCrippled; } ///< + 0x85 (RW 0x991727 sets it)
 
 	void crc(StateHasher &hasher) const override;
 	static std::string stopLine(); ///< [S-5201]
@@ -151,6 +152,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// scalar deleting dtor RW 0x008A4558
 class SupplyCenterDockUpdate : public DockUpdate
 {
 public:
@@ -177,6 +179,20 @@ private:
 // SupplyWarehouseDockUpdate (ZH GameLogic/Object/Update/DockUpdate/SupplyWarehouseDockUpdate.cpp; RotWK's own source path at RW 0xC6A218): a source of
 // boxes the supply trucks / workers take one at a time. Table RW 0xC6A15C: StartingBoxes (+ 0x10, parseInt RW 0x42EC5E), DeleteWhenEmpty (+ 0x14, parseBool).
 // The dock interface's slot 12 is action RW 0x8AB53D. No RotWK retail object has one; Ennorath's supply rocks do.
+// The class's own functions (Port 297, fork issue 689; module vtable RW 0xC6A1E0, dock interface vtable RW 0xC6A190; every body read from its first
+// instruction in game.dat 2.01):
+//   * the constructor RW 0x8AB4C0 (DockUpdate RW 0x99230C, then the boxes (+0x88) = StartingBoxes (data + 0x10)); slot 0 RW 0x8AB4FD the scalar deleting
+//     destructor (RW 0x8AB42B: not behaviour); slot 2 getModuleName RW 0x8AB44B (the literal "SupplyWarehouseDockUpdate", RW 0xC0B20C) and slot 4
+//     getModuleNameKey RW 0x8AB47B (its cached name key): the ModuleFactory's class name and key.
+//   * slot 3 xfer RW 0x8AB451: version 1 (RW 0x404F15), DockUpdate::xfer (RW 0x99248C), the boxes (+0x88, Xfer slot 0x7C): xfer below.
+//   * slot 5 onObjectCreated RW 0x8AB519 and slot 1 loadPostProcess RW 0x8AB69B (after DockUpdate's RW 0x99198A): the drawable (RW 0x70E013), when there is
+//     one, hears StartingBoxes and the boxes left (RW 0x671948, W3DSupplyDraw). The port records the same call as the SUPPLY_STATUS client event when the
+//     object is created and when it is loaded (ClientEventRecorder::recordSupplyStatus), and after every box taken (action).
+//   * dock interface slot 17 setDockCrippled RW 0x8AB6E3: see setDockCrippled below. Its only retail caller is SupplyWarehouseCripplingBehavior
+//     (RW 0x886E38 with true, RW 0x886E4A with false, its vtable RW 0xC603A8), which no RotWK or Ennorath object uses and the port does not have (S-7533).
+//   * RW 0x8AB64E setCashValue (the boxes = ceil(value / ValuePerSupplyBox), then the drawable as above) is called only by the script action
+//     WAREHOUSE_SET_VALUE (RW 0x7C191A, found by the object's script name), which the port's script engine does not execute and no Ennorath library script
+//     uses (S-7534).
 class SupplyWarehouseDockUpdateModuleData : public DockUpdateModuleData
 {
 public:
@@ -192,6 +208,11 @@ public:
 	SupplyWarehouseDockUpdate(Thing *thing, const SupplyWarehouseDockUpdateModuleData *data);
 	static void registerClass(ModuleFactory &modules);
 	bool action(Object &docker, Object *drone) override; // RW 0x8AB53D
+	// RW 0x8AB6E3: crippling (setting true) with an active docker that still exists: one inside (DockUpdate's dockerInside) dies, Object::kill(UNRESISTABLE,
+	// NORMAL) (RW 0x698EC3(8, 0)), unless it moves on an airborne locomotor (RW 0x68BEED); one not inside yet, when it has a supply truck AI interface
+	// (AI vslot 0x17C), goes idle (aiIdle(CMD_FROM_AI), RW 0x5E821A with 2) and is forced into its wanting state (slot 0x2C, true). Then DockUpdate's flag
+	// (RW 0x991727), crippled or not.
+	void setDockCrippled(bool setting) override;
 	int boxesStored() const { return m_boxesStored; }
 	int startingBoxes() const { return m_data->m_startingBoxes; }
 	void crc(StateHasher &hasher) const override;

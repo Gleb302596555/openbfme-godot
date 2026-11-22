@@ -13,6 +13,10 @@
 //     called by the icon anchor RW 0x677985, takes the same maximum over shapes that are both ACTIVE (+0x20) and used for the health box (+0x21).
 //   * lane BUILD-3: GeometryContactPoint = X:<x> Y:<y> Z:<z> [<label>] (RW 0xAD3D30): the coordinate by the sub tokens X / Y / Z (parseReal each), then the next token
 //     (getNextTokenOrNull) or "" is the label; appended (RW 0xAD3C80) to the 16 byte records of GeometryInfo + 0x38 / + 0x3C (x, y, z, the label string at + 0xC).
+//   * mode 1 (RW 0xAD3187 -> RW 0xAD3340): the GeometryInfo member +0x44, the highest GeometryContactPoint row in the object's own space (the row parser
+//     RW 0xAD3DD5 .. 0xAD3DEB replaces it with a strictly higher z, RW 0xAD3DC9), z clamped to getMaxHeightAbovePosition (RW 0xAD1920, RW 0xAD3357 .. 0xAD336D),
+//     always true (RW 0xAD3373); no caller position and no overlap test are read. The GiantBird swoop / attack fallback asks for it (RW 0x76B6FF .. 0x76B721)
+//     through Object::getWorldspaceBestContactPoint RW 0x690D20. A template without rows answers (0, 0, 0) (INFERENCE on the constructor's +0x44).
 //   * getBestContactPoint (RW 0xAD30E0) with mode 0 and a caller position (the only mode lane BUILD-3 ports): over the points whose label equals the asked one
 //     (StringBase compare RW 0x406585: exact bytes), z clamped to getMaxHeightAbovePosition (x87 fcomp: when the height is below z), the overlap test RW 0xAD2CE0
 //     unless `preferred` is set (the dozer's call sets it; lane AIMAIM-1 ported the test: the sphere of radius 2 at the point, RW 0xAD3415), the smallest x87 PC24 distance (dx^2 + dy^2) + dz^2 strictly below the best (start

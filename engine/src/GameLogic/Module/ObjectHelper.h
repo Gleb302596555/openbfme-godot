@@ -50,3 +50,26 @@ private:
 	std::string m_name, m_tag;
 	unsigned m_calls = 0;
 };
+
+// PORT-237: ObjectDefectionHelper (RW 0x68CFAA, vtables 0xC11E1C / 0xC67300 / 0xC11E10). Derives from ObjectHelperShell so GameLogic::report() still counts
+// it under helperShells("DefectionHelper"); isUnported() is false. Handles InvulnerableTime (RW 0x68C6C8 -> 0x8E3ABB) and clears Object + 0x458 bit 1 on expiry (RW 0x8E38DD).
+class DefectionHelper : public ObjectHelperShell
+{
+public:
+	explicit DefectionHelper(Thing *thing);
+
+	bool isUnported() const override { return false; }
+	UpdateSleepTime update() override;                                                     // RW 0x8E38DD
+	DisabledMaskType getDisabledTypesToProcess() const override { return (DisabledMaskType)0xFFFFFFFFu; } // RW 0x8B3313
+	void startDefectionTimer(UnsignedInt frames, bool flash = false);                      // RW 0x8E3ABB
+	void crc(StateHasher &hasher) const override;
+	OBFME_MODULE_XFER(DefectionHelper)
+
+	UnsignedInt startFrame() const { return m_startFrame; }
+	UnsignedInt expireFrame() const { return m_expireFrame; }
+
+private:
+	UnsignedInt m_startFrame = 0;  // + 0x20
+	UnsignedInt m_expireFrame = 0; // + 0x24
+	bool m_flash = false;          // + 0x2C
+};

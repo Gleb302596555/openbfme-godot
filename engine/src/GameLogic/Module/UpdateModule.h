@@ -80,7 +80,9 @@ protected:
 	// ZH UpdateModule::setWakeFrame: "yes, protected: modules should only wake themselves up". now + delay goes to
 	// GameLogic::friend_awakenUpdateModule (clamped there by friend_setNextCallFrame).
 	void setWakeFrame(Object *obj, UpdateSleepTime wakeDelay);
-	// the frame the module is due (ZH getWakeFrame returns it as a sleep time)
+	// RW 0x00850BE9 / DONOR BFME2 0x0044DF28: earliest of four frames relative to now, minimum 1 (UPDATE_SLEEP_NONE)
+	UpdateSleepTime frameToSleepTime(UnsignedInt f1, UnsignedInt f2, UnsignedInt f3, UnsignedInt f4) const;
+	// RW 0x00850C1C (partial: retail returns m_nextCallFrame > now ? m_nextCallFrame - now : 1; port keeps absolute m_nextCallFrame for nextUpdateFrame())
 	UnsignedInt getWakeFrame() const { return m_nextCallFrame; }
 	// lane SAVE-4b: UpdateModule::xfer (RW 0x850C60, tier B, (1, 1)): the version, BehaviorModule::xfer, the next call frame (retail packs the phase into
 	// the word's low bits, ZH m_nextCallFrameAndPhase; OpenBFME's word is the frame alone: the phase and the vector index are the scheduler block's)

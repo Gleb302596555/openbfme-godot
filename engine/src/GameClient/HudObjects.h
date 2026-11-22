@@ -85,6 +85,12 @@ struct PickHit
 std::vector<PickHit> pickHits(const HudContext &ctx, const ICoord2D &pixel, unsigned pickTypes);
 // ZH View::iterateDrawablesInRegion: the objects whose position lies in the region, in object list order; a region of zero size is a point pick
 std::vector<Object *> objectsInRegion(const HudContext &ctx, const IRegion2D &region);
+// PORT-208 (issue #490, S-2480): RW 0x48ACF5 .. 0x48ADA0 in W3DView::pickDrawable (RW 0x48AB28): when the hit-test found nothing, the terrain point
+// under the pixel (the view's screenToTerrain, RW 0x48ACFF -> the tactical view slot 0x168) is looked up in the map's trees (TerrainTrees::findClosestTree
+// 10.0, RW 0x67F4F6) and, when the local player sees that cell (RW 0xB4D9B0: the shroud's cell status is not SHROUDED; skipped when there is no local
+// player or no displayed shroud), the pick answers the stand-in id: 99999999 for a grabbable and harvestable tree, 99999998 for a grabbable only, 99999997
+// for a harvestable only, 99999996 for neither. A tree the client cannot see is no pick. Returns false when nothing tree-like is under the pixel.
+bool pickTreeStandIn(const HudContext &ctx, const ICoord2D &pixel, ObjectID &out);
 // the object a contained object stands for in the selection: the container when it is the horde's member, else itself
 Object *selectionRepresentative(Object &obj);
 // ZH SelectionTranslator's third click test: the camera moved further than DragTolerance3D between the button down and the up (client view maths)

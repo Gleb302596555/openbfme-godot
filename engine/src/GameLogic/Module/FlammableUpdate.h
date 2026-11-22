@@ -54,7 +54,8 @@
 //     the script event 11; the sound stops (client); status AFLAME and model condition AFLAME cleared; the panic locomotor ends (RW 0x8900F0 .. 0x890119: only
 //     when PanicLocomotorWhileAflame and the module's + 0x4C flag and an AI: RW vslot 0x238(0), LOCOMOTORSET_NORMAL; the flag is then cleared; the AI + 0x3C9
 //     flag is write-only in RotWK 2.01 and is not carried); the body's slot 0x2C.
-//   * FireSpreadUpdate (create RW 0x64CB6E, constructor RW 0x88EDDA, update vtable RW 0xC627AC; table RW 0xC62828: OCLEmbers (+8), MinSpreadDelay (+0xC),
+//   * FireSpreadUpdate (create RW 0x64CB6E, constructor RW 0x88EDDA, dtor RW 0x0088ECE2 / scalar deleting dtor RW 0x0088EE2E, name getter RW 0x0088ECFB,
+//     getModuleNameKey RW 0x0088ED01, DONOR BFME2 0x0088ACCE / 0x0088ACE7 / 0x0088ACED / 0x0088AE1A; update vtable RW 0xC627AC; table RW 0xC62828: OCLEmbers (+8), MinSpreadDelay (+0xC),
 //     MaxSpreadDelay (+0x10), SpreadTryRange (+0x14)). Sleeps forever from the constructor; startFireSpreading (RW 0x88EFA9, called by the ignition): when
 //     the object is AFLAME the update sleeps calcNextSpreadDelay (RW 0x88EE4A: GameLogicRandomValue(Min, Max) FireSpreadUpdate.cpp line 0x98, at least 1).
 //     update RW 0x88EE6E: not AFLAME: sleep forever. The OCLEmbers list runs (RW 0x5F0126, the object as primary); with a SpreadTryRange: the closest object
@@ -62,11 +63,29 @@
 //     RW 0xC627A0 (RW 0x88ED46: the object has a FlammableUpdate whose status is NORMAL) is ignited (its FlammableUpdate's tryToIgnite); when none, with
 //     TheAI data (RW 0xDE4B40 + 0x18) + 0xBC, AIData AllowForestFires, set, the standing map tree within the range is made an object and ignited (RW 0x67F52B /
 //     0x68449B, lane LOCAL-42); then sleep calcNextSpreadDelay.
+// THE 7 OWN FUNCTIONS THE NIGHTLY MAP STILL REPORTS AS `none` (each read from its first instruction, the class bound by create -> constructor ->
+// vtable, `docs/ennorath/RW_FUNCTION_MAP.tsv`): none of them carries simulation behaviour, so nothing below is a second path:
+//   * RW 0x88FF53 (the module vtable RW 0xC62C04 slot 0) the scalar deleting destructor: the destructor RW 0x88FDAD, then operator delete RW 0x42F6A0
+//     when the flag is set (the port's ~FlammableUpdate, C++ lifetime);
+//   * RW 0x88FD62 (slot 2) Snapshot's name: `mov eax, 0xC0B648`, the literal "FlammableUpdate" (the port's Module::getModuleClassName);
+//   * RW 0x88FBEE (slot 3) the module's xfer -- ported, and re-read with the port: RW 0x850C60 (UpdateModule), the version 3 (min 1, RW 0x88FC15),
+//     the tagged 4-byte status (+0x24, tag RW 0xC1DFF8, RW 0x707647), +0x28 / +0x2C / +0x30 / +0x3C / +0x44 through the xfer's slot 0x78, +0x38
+//     through slot 0x70, the burning sound handle (+0x34) through TheAudio (RW 0xDE42FC) slot 0x160 -- a client handle, and the port's sound is the
+//     AudioApi's (PORT-103) --, +0x40 through slot 0x90, and, with version >= 2, +0x48 (RW 0x707887) and with version >= 3 +0x4C through slot
+//     0x90. FlammableUpdate::xfer transfers every one of those fields but the client's sound handle (native layout, S-4190);
+//   * RW 0x88FD68 (slot 4) the module name key: NameKeyGenerator's key of "FlammableUpdate" (the name table RW 0xC0B648 through RW 0x5487EC, cached at
+//     RW 0xDE936C) -- the port's Module::getModuleNameKey;
+//   * RW 0x890C86 (the ModuleData vtable RW 0xC62C38 slot 0) the ModuleData's scalar deleting destructor (its destructor RW 0x8906EF): C++ lifetime;
+//   * RW 0x464A09 (the ModuleData vtable RW 0xC62C38 slot 2) the ModuleData's name: `mov eax, 0xBDBA8C`, the literal "ModuleData" (the port's
+//     ModuleData, Common/Module.h);
+//   * RW 0x4B612F (the ModuleData vtable RW 0xC62C38 slot 14) the base ModuleData's empty tag name: an AsciiString built from the empty literal
+//     RW 0xDC62B8 through RW 0x435F30 (the port's ModuleData::getModuleTagName).
 // WHAT IS INFERENCE / NOT PORTED (stop S-983, reported per use):
 //   * PORT-103: burning sound start/stop now use AudioApi (RW 0x890201, 0x8900C7, 0x88FDDD).
 //     Remaining client parts (the drawable flushes) and the body's slot 0x2C, RW 0x68F2F1(0), the script events 10 / 11 and the
 //     EntEnragedUpdate notification are not run;
-//   * BurnContained's passenger damage and the contain's slot 0x88(2) are not ported (reported);
+//   * BurnContained's passenger damage is ported (onDamage: RW 0x8905A2 .. 0x890654); the contain's slot 0x88(2) at ignition (RW 0x890656,
+//     `call [eax + 0x88]` with the argument 2) is not (reported);
 //   * the search runs only with a map (TerrainLogic through the pathfinder): without one there is nothing to search and the object takes RW 0x890A15's
 //     no-water branch (the rage is forced), reported as a stop; the depth compare is the port's subf32 (RW's is an x87 double compare, the two differ by
 //     at most 1 ulp at the RunToWaterDepth border);

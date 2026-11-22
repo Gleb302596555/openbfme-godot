@@ -167,7 +167,6 @@ struct Chase
 	float speed = 0.0f;      // the horde's locomotor speed per frame (curLocomotorSpeed)
 	float radius = 0.0f;     // the horde's bounding circle radius (Object + 0xB8, part of RW 0x6FF412's range)
 	bool noted3802 = false;
-	bool noted5148 = false;  // stop S-5148: the idle state's stance failure (RW 0x7553AB / 0x7537E0) is not ported
 	unsigned lastState = 0;
 	bool sawOuter = false, sawReturn = false;
 	bool sawFaceObject = false; // the temporary FACE_OBJECT state (59, RW 0x75638B) of the TAUNT / POINT emotion
@@ -277,7 +276,6 @@ Chase runChase(starttest::Shared *st, int stance)
 	for (const auto &kv : logic.notedStopHits())
 	{
 		out.noted3802 = out.noted3802 || kv.first == guardStopLine();
-		out.noted5148 = out.noted5148 || kv.first == idleStanceStopLine();
 	}
 	return out;
 }
@@ -396,8 +394,9 @@ TEST_CASE("play4 stances retail: a fleeing enemy is chased out of the guarded sp
 	CHECK(hold.rangeAtAttack == hold.guardRange);
 	CHECK_FALSE(hold.sawReturn);
 	CHECK(hold.lastState == (unsigned)AI_ATTACK_OBJECT);
-	// stop S-5148: an idle stanced unit is not guarded again by the idle state's failure (Aggressive's horde idles and scans)
-	CHECK(aggressive.noted5148);
+	// S-5148 is CLOSED by Port 226 (the idle state's stance countdown, RW 0x7553AB / 0x7537E0): the idle state of a stanced unit fails every fifth update
+	// into AIGoingIdleState, whose StancesBehavior::onMoveEnd (RW 0x86228E) guards again only in Battle / HoldGround / Porcupine, so an Aggressive horde
+	// still idles and scans (its failure enters AIGoingIdleState and comes back to idle without a guard)
 	CHECK(battle.maxFromSpot <= battle.outerRange + battle.speed * brakingFrames);  // the outer state's leash: the vision range around the spot
 	CHECK(aggressive.maxFromSpot > battle.outerRange);                             // Aggressive: no guard, the plain attack follows the enemy without a leash
 	// stop S-3802 (only the LOCATION guard of the stances is ported) is reported by every game whose units guard; Aggressive does not guard

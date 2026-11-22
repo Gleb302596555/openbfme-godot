@@ -1,7 +1,9 @@
 // OpenBFME. GPL-3.0.
 // Derived from Command & Conquer Generals Zero Hour, (c) 2001-2003 Electronic Arts Inc., GPL-3.0.
 //
-// BeaconClientUpdate (ZH GameClient/Drawable/Update/BeaconClientUpdate.cpp; RotWK RW 0x8CDA41 .. 0x8CDCE9), lane CHAT-1: the multiplayer beacon's client
+// BeaconClientUpdate (ZH GameClient/Drawable/Update/BeaconClientUpdate.cpp; RotWK RW 0x008CD9FD getModuleName / DONOR BFME2 0x004C95C3,
+// RW 0x008CDA03 client xfer / DONOR BFME2 0x004C95C9: xferVersion(1) 0x404F15 + DrawableModule::xfer 0x7082E2 + IsLightCRC gate + m_particleSystemID +0x0C +
+// m_lastRadarPulse +0x10, client-only S-4190; RW 0x8CDA41 .. 0x8CDCE9), lane CHAT-1: the multiplayer beacon's client
 // module: the minimap pulse while the beacon is shown, and the hidden beacon of an enemy's screen.
 //
 // TARGET FACTS (RotWK game.dat, caveat S-001):

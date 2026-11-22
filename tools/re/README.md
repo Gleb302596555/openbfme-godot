@@ -76,6 +76,27 @@ GhidraMCP server with the named program loaded.
        python tools/re/inventory.py --bin <BFME2 game.dat> \
            --csv <open-bfme-2>/reverse/ghidra_functions.csv --out X/bfme2_functions.csv
 
+   Without Ghidra, RotWK's entries and extents come from the angr inventory of
+   `tools/mod/rw_function_map.py` (`workspace/rebuild/rw_function_blocks.json`, its cache path):
+
+       python tools/re/inventory.py --bin <RotWK game.dat> \
+           --angr workspace/rebuild/rw_function_blocks.json --out X/rotwk_functions.csv
+
+   How the extent rule maps onto the angr blocks (Ghidra's body vs angr's blocks): the entry
+   rule sizes a function from its entry to the next entry, minus int3 padding; `--angr` sizes
+   it from its blocks instead -- `size` is the total addresses in the blocks (a non-contiguous
+   body does not cover its gaps) and `start_block_size` the contiguous run of blocks that
+   starts at the entry, the same columns `ghidra/export_inventory.java` writes from Ghidra
+   bodies. An entry that has an angr body uses its blocks (measured beats the rule); other
+   entries keep the entry rule. What changes: switch jump tables and trailing padding that the
+   entry rule kept after the code are no longer inside the function, so they leave the masked
+   hash and tier A can fall where a pair's hashed bytes used to cover a trailing table; where
+   angr splits or merges functions differently than Ghidra the extents follow angr's blocks
+   (the merge limit above applies to whichever list names the entry); and the cache carries no
+   names, so RotWK names are empty unless another source names the entries. BFME2's side keeps
+   the decomp's Ghidra list and the entry rule, so the two sides' extents disagree exactly
+   where angr's blocks disagree with Ghidra's entries.
+
    (`ghidra/export_inventory.java` exports Ghidra bodies, string xrefs and vtables where Ghidra
    scripting is available; its extents are Ghidra bodies, so don't mix it with inventory.py.)
 2. The decomp ledger with provenance lanes: `python tools/re/ledger_lanes.py --clone <open-bfme-2> --out X/bfme2_ledger.csv`

@@ -6,6 +6,7 @@
 #include "Common/ModEngineFeatures.h"
 #include "GameClient/ControlBarCommands.h"
 #include "GameLogic/Object/Object.h"
+#include "GameLogic/Module/StructureToppleUpdate.h"
 #include "GameLogic/ScriptEngine/AttackPriority.h"
 #include "GameLogic/ScriptEngine/ScriptEngine.h"
 #include "GameLogic/Map/TerrainLogic.h"
@@ -51,6 +52,7 @@
 #include "Common/Thing/ThingTemplate.h"
 #include "Common/NumericState.h"
 #include "GameLogic/Combat/CombatNames.h"
+#include "GameLogic/Combat/CombatQueries.h"
 #include "GameLogic/Combat/CombatState.h"
 #include "GameLogic/Combat/ObjectWeapons.h"
 #include "GameLogic/Damage.h"
@@ -195,12 +197,22 @@ Object::~Object()
 			hooks->objectDestroyed(*this);
 		}
 	}
+	m_client = nullptr; // RW Object::~Object detaches the drawable before deleting modules (prevents post-DESTROYED events)
 	if (m_team)
 	{
 		m_team->friend_removeMember(this);
 		m_team = nullptr;
 	}
+	// RW 0x0069A8D7 .. 0x0069A8E9: cached module interface pointers (+0x258 .. +0x264) are cleared before deleting modules
+	m_ai = nullptr;
+	m_body = nullptr;
+	m_contain = nullptr;
+	m_attributePool = nullptr;
+	m_physics = nullptr;
+	m_slaved = nullptr;
+	m_moduleCachesBuilt = false;
 	m_moduleLookupsCached = false; // a lookup while the modules go scans what is left, as before the caches
+	m_collideModules.clear();
 	for (std::unique_ptr<BehaviorModule> &m : m_modules)
 	{
 		m.reset();
@@ -392,7 +404,8 @@ void Object::buildModules()
 	}
 	if (!kindOfByName(*this, "SHRUBBERY") && !kindOfByName(*this, "ROCK") && !kindOfByName(*this, "ROCK_VENDOR"))
 	{
-		helper("DefectionHelper", "ModuleTag_DefectionHelper");
+		m_modules.push_back(std::make_unique<DefectionHelper>(this));
+		++m_helperCount;
 	}
 	helper("GuardingHelper", "ModuleTag_GuardingHelper");
 	if (info.canPossiblyHaveAnyWeapon)
@@ -963,6 +976,14 @@ void Object::setTeam(Team *team)
 		Player *newOwner = getControllingPlayer();
 		if (oldOwner != newOwner)
 		{
+			if (oldOwner && oldOwner->hasActiveBattlePlans())
+			{
+				oldOwner->removeBattlePlanBonusesForObject(*this); // RW 0x6995C0 -> 0x6AD360
+			}
+			if (newOwner && newOwner->hasActiveBattlePlans())
+			{
+				newOwner->applyBattlePlanBonusesForObject(*this); // RW 0x6995D4 -> 0x6AD2B5
+			}
 			onOwnerChanged(oldOwner, newOwner);
 			if (m_client && oldOwner && newOwner)
 			{
@@ -1224,7 +1245,7 @@ void Object::setCapturedTeam(Team *team)
 	// owner's P-122), the unit in the doorway leaves for the old team and releaseLastExit frees a partial horde
 	if (ProductionUpdateInterface *production = getProductionUpdate())
 	{
-		production->cancelAndReleaseAllProduction(); // RW 0x69974D -> RW 0x8A1666
+		production->cancelAndReleaseAllProduction(); // RW 0x69974D -> getDie RW 0x008A18ED -> onDie RW 0x008A05A7 -> RW 0x8A1666
 	}
 	// S-1225, still unported: RW 0x699750 .. 0x6997A7 counts the structure in the old and the new player's score keeper (RW 0x79F0E1 on Player + 0x3DC,
 	// for two active players) and tells the client (RW 0x6D9A71, a local player only); RW 0x699792 sets the undetected-defector bit (+ 0x458 bit 1,
@@ -1337,6 +1358,20 @@ void Object::friend_onDie(const DieModuleInterface::Event &event)
 {
 	// RW 0x698F06 (the dead flag RW + 0x458 bit 0 first: from now on the object is no target and takes no more damage)
 	m_effectivelyDead = true;
+	// PORT-224 (issue #534, P-143): RW 0x698F17 .. 0x698F41 (DONOR BFME2 ObjectOnDie.cpp:204-208): when an object dies while
+	// ACTIVELY_BEING_CONSTRUCTED (model condition 0x45), set BUILD_BEING_CANCELED (status 0x56) and clear ACTIVELY_BEING_CONSTRUCTED
+	// before die modules run. RebuildHoleBehavior::update (RW 0x886BDC .. 0x886C40) reads status 0x56 on its reconstructing object to
+	// kill the masked hole with DEATH_FADED (0x16, suppressing CreateObjectDie ALL -FADED treasure) instead of letting the hole survive.
+	static const int kActivelyBeingConstructed = CombatNames::modelCondition("ACTIVELY_BEING_CONSTRUCTED"); // RW 0x45
+	static const int kBuildBeingCanceled = CombatNames::status("BUILD_BEING_CANCELED");                     // RW 0x56
+	if (kActivelyBeingConstructed >= 0 && testModelCondition(kActivelyBeingConstructed))
+	{
+		if (kBuildBeingCanceled >= 0)
+		{
+			setStatus((unsigned)kBuildBeingCanceled, true);
+		}
+		setModelConditionState(kActivelyBeingConstructed, false);
+	}
 	// WOTR2 milestone 7: RW 0x6991F3: an object with a Living World building id (+ 0x484) destroys that building of the strategic region (RW 0x6B3095 ->
 	// RW 0x60EC74 -> LivingWorldRegion::DestroyBuilding RW 0x7F32F4); the war applies it with the battle's result
 	if (m_logic.livingWorldTags().active)
@@ -1362,6 +1397,12 @@ void Object::friend_onDie(const DieModuleInterface::Event &event)
 		if (DieModuleInterface *d = m_modules[i]->getDie())
 		{
 			d->onDie(event);
+		}
+		// RW 0x00698FA3 .. 0x00698FB5: after DieModuleInterface::onDie, Object::onDie calls AIUpdateInterface vslot +0x24C
+		// (DozerAIUpdate RW 0x0088BF7A removes an unplaced phantom structure on builder death).
+		if (AIUpdateInterface *ai = m_modules[i]->getAIUpdateInterface())
+		{
+			ai->onOwnerDie();
 		}
 	}
 	removeFromPlayerCommandPoints(); // RW 0x698FD9
@@ -1482,6 +1523,74 @@ bool Object::isAbleToAttack() const
 	}
 	const SpawnBehaviorInterface *spawn = SpawnBehaviorInterface::of(const_cast<Object &>(*this));
 	return spawn && spawn->canAnySlavesAttack();
+}
+
+// PORT-198 (RW 0x68B5FA): Object::getAbleToUseWeaponAgainstTarget
+CanAttackResult Object::getAbleToUseWeaponAgainstTarget(AbleToAttackType attackType, const Object *victim, const Coord3D *pos, CommandSourceType source) const
+{
+	if (!victim && !pos)
+	{
+		return ATTACKRESULT_NOT_POSSIBLE;
+	}
+	if (m_weapons)
+	{
+		return m_weapons->getAbleToUseWeaponAgainstTarget(attackType, victim, pos, source);
+	}
+	static const int kContesting = CombatNames::status("CONTESTING_BUILDING");
+	if (testStatus((unsigned)kContesting) && (static_cast<unsigned>(attackType) & 8u) == 0u && !getContainedBy())
+	{
+		return ATTACKRESULT_INVALID_SHOT; // RW 0x6C86B1 .. 0x6C86B3
+	}
+	return ATTACKRESULT_INVALID_SHOT;
+}
+
+// PORT-198 (RW 0x68D6A6): Object::getAbleToAttackSpecificObject
+CanAttackResult Object::getAbleToAttackSpecificObject(AbleToAttackType attackType, const Object *victim, CommandSourceType source) const
+{
+	if (!victim)
+	{
+		return ATTACKRESULT_NOT_POSSIBLE;
+	}
+	if ((static_cast<unsigned>(attackType) & static_cast<unsigned>(ATTACK_CONTINUED_TARGET_NO_CONTAIN)) == 0u &&
+	    isKindOf((unsigned)CombatNames::kinds().horde) && m_contain && m_contain->getHordeContainInterface())
+	{
+		static const int kScalingWall = CombatNames::modelCondition("SCALING_WALL");
+		static const int kWallSegment = CombatNames::kindOf("WALL_SEGMENT");
+		if (testModelCondition(kScalingWall) && victim->isKindOf((unsigned)kWallSegment))
+		{
+			return ATTACKRESULT_NOT_POSSIBLE; // RW 0x68D740 .. 0x68D75A
+		}
+		const ContainModuleInterface::ContainedItemsList *items = m_contain->getContainedItemsList();
+		if (!items)
+		{
+			return ATTACKRESULT_NOT_POSSIBLE;
+		}
+		const Object *member = nullptr;
+		for (const Object *m : *items)
+		{
+			if (m && m != this && CombatQueries::isAlive(*m))
+			{
+				member = m;
+				break;
+			}
+		}
+		if (!member)
+		{
+			return ATTACKRESULT_NOT_POSSIBLE;
+		}
+		return member->getAbleToAttackSpecificObject(
+		    static_cast<AbleToAttackType>(static_cast<unsigned>(attackType) | static_cast<unsigned>(ATTACK_CONTINUED_TARGET_NO_CONTAIN)), victim, source);
+	}
+	if (m_weapons)
+	{
+		return m_weapons->getAbleToAttackSpecificObject(attackType, victim, source);
+	}
+	const bool forced = (static_cast<unsigned>(attackType) & 1u) != 0u;
+	if (!ObjectWeapons::canAttackObjectGates(*this, *victim, source, forced))
+	{
+		return ATTACKRESULT_NOT_POSSIBLE;
+	}
+	return getAbleToUseWeaponAgainstTarget(attackType, victim, victim->getPosition(), source);
 }
 
 Player *Object::getControllingPlayer() const
@@ -1609,9 +1718,24 @@ BehaviorModule *Object::findModule(std::string_view className) const
 {
 	for (const std::unique_ptr<BehaviorModule> &m : m_modules)
 	{
-		if (m->getModuleClassName() == className)
+		if (m && m->getModuleClassName() == className)
 		{
 			return m.get();
+		}
+	}
+	return nullptr;
+}
+
+// RW 0x68C3E6 / Object::rva0028BD17: the first module whose +0x80 slot
+// exposes the repair interface.  Keep this scan here so ActionManager and any
+// order path use the same module mechanism, rather than a class-name side path.
+RepairQueryInterface *Object::getRepairQueryInterface() const
+{
+	for (const std::unique_ptr<BehaviorModule> &m : m_modules)
+	{
+		if (RepairQueryInterface *repair = m->getRepairQueryInterface())
+		{
+			return repair;
 		}
 	}
 	return nullptr;
@@ -1621,7 +1745,7 @@ ExitInterface *Object::getObjectExitInterface() const
 {
 	for (const std::unique_ptr<BehaviorModule> &m : m_modules)
 	{
-		if (ExitInterface *e = m->getExitInterface())
+		if (ExitInterface *e = m ? m->getExitInterface() : nullptr)
 		{
 			return e;
 		}
@@ -1634,7 +1758,7 @@ DockUpdateInterface *Object::getDockUpdateInterface() const
 {
 	for (const std::unique_ptr<BehaviorModule> &m : m_modules)
 	{
-		if (DockUpdateInterface *d = m->getDockUpdateInterface())
+		if (DockUpdateInterface *d = m ? m->getDockUpdateInterface() : nullptr)
 		{
 			return d;
 		}
@@ -1646,7 +1770,7 @@ ProductionUpdateInterface *Object::getProductionUpdate() const
 {
 	for (const std::unique_ptr<BehaviorModule> &m : m_modules)
 	{
-		if (ProductionUpdateInterface *p = m->getProductionUpdateInterface())
+		if (ProductionUpdateInterface *p = m ? m->getProductionUpdateInterface() : nullptr)
 		{
 			return p;
 		}
@@ -1658,7 +1782,7 @@ BehaviorModule *Object::findModuleByTag(NameKeyType tagKey) const
 {
 	for (const std::unique_ptr<BehaviorModule> &m : m_modules)
 	{
-		if (m->getModuleTagNameKey() == tagKey)
+		if (m && m->getModuleTagNameKey() == tagKey)
 		{
 			return m.get();
 		}
@@ -1671,7 +1795,7 @@ const SpecialPowerModuleInterface *Object::findSpecialPowerModuleInterface(int p
 	// RW 0x691526: iterates modules, finds first with SpecialPowerModuleInterface whose template has powerType
 	for (const std::unique_ptr<BehaviorModule> &m : m_modules)
 	{
-		const SpecialPowerModuleInterface *sp = m->getSpecialPower();
+		const SpecialPowerModuleInterface *sp = m ? m->getSpecialPower() : nullptr;
 		if (!sp)
 		{
 			continue;
@@ -1840,6 +1964,10 @@ void Object::friend_initObject()
 		{
 			setReceivingDifficultyBonus(true);
 		}
+		if (Player *owner = getControllingPlayer(); owner && owner->hasActiveBattlePlans())
+		{
+			owner->applyBattlePlanBonusesForObject(*this); // RW 0x693D74 .. 0x693D8D -> 0x6AD2B5
+		}
 	}
 	m_logic.emotions().objectInitialized(*this); // RW 0x693E79 .. 0x693E95 (lane MODULES-2): a SCARY or HERO object joins TheEmotionSystem's list
 	// lane HERO-2: RW 0x693EE8 .. 0x693F06: a CREATE_A_HERO (not while a save game loads, GameLogic + 0x6F) takes its player's Create-a-Hero record (RW 0x61B17D)
@@ -1992,11 +2120,11 @@ void Object::giveUpgrade(const UpgradeTemplate *upgrade)
 	}
 	giveUpgradeSelf(upgrade);
 	ContainModuleInterface *contain = getContain();
-	if (!contain || !contain->getHordeContainInterface())
+	if (!contain)
 	{
-		return; // INFERENCE: only HordeContain's slot 0x174 (RW 0x87566B) was read; the other contain classes' slot is not ported (S-483)
+		return;
 	}
-	// RW 0x87566B: the templates of the set bits in bit order, then every member in list order (the second list at HordeContain + 0x150 is S-486)
+	// RW 0x006938B3 (contain slot 0x174): HordeContain RW 0x87566B and HordeTransportContain / HordeSiegeEngineContain RW 0x0087A988
 	std::vector<const UpgradeTemplate *> granted;
 	for (unsigned bit = 0; bit < UpgradeMaskType::BITS; ++bit)
 	{
@@ -2007,6 +2135,11 @@ void Object::giveUpgrade(const UpgradeTemplate *upgrade)
 				granted.push_back(t);
 			}
 		}
+	}
+	if (!contain->getHordeContainInterface())
+	{
+		contain->onContainerUpgrade(granted);
+		return;
 	}
 	if (const ContainModuleInterface::ContainedItemsList *items = contain->getContainedItemsList())
 	{
@@ -2210,20 +2343,75 @@ bool Object::hasAnyWeapon() const
 	return m_weapons && m_weapons->hasAnyWeapon();
 }
 
+// RW 0x0068C842: relationship via controlling player (default NEUTRAL when no team/player)
 Relationship Object::getRelationship(const Object &other) const
 {
-	if (!m_team || !other.m_team)
+	if (!m_team || !other.m_team || m_undetectable || other.m_undetectable)
 	{
 		return NEUTRAL;
 	}
 	return m_team->getRelationship(other.m_team);
 }
 
+void Object::setTemporarilyUndetectable(bool on)
+{
+	m_undetectable = on;
+}
+
+void Object::setInvulnerableTime(UnsignedInt frames)
+{
+	// RW 0x68C6C8: sets Object + 0x458 bit 1 (RW 0x68B303) and starts/clears DefectionHelper timer (RW 0x8E3ABB)
+	if (frames == 0)
+	{
+		setTemporarilyUndetectable(false);
+		for (const std::unique_ptr<BehaviorModule> &m : m_modules)
+		{
+			if (auto *dh = dynamic_cast<DefectionHelper *>(m.get()))
+			{
+				dh->startDefectionTimer(0, false);
+				break;
+			}
+		}
+		return;
+	}
+	setTemporarilyUndetectable(true);
+	for (const std::unique_ptr<BehaviorModule> &m : m_modules)
+	{
+		if (auto *dh = dynamic_cast<DefectionHelper *>(m.get()))
+		{
+			dh->startDefectionTimer(frames, false);
+			break;
+		}
+	}
+}
+
+bool Object::isSignificantlyAboveTerrain() const
+{
+	// RW 0x70C55D -> 0x70C50C(0.0f) (same predicate as ObjectPathfindAdapter::isSignificantlyAboveTerrain)
+	static const int kClimb = ObjectTemplateInfoBuilder::kindOfIndex("CAN_CLIMB_WALLS");
+	static const int kShip = ObjectTemplateInfoBuilder::kindOfIndex("SHIP");
+	if ((kClimb >= 0 && isKindOf((unsigned)kClimb)) || (kShip >= 0 && isKindOf((unsigned)kShip)))
+	{
+		return false;
+	}
+	const Coord3D &p = *getPosition();
+	const float above = SimMath::pc24Add(SimMath::pc24Sub(p.z, m_logic.getGroundHeight(p.x, p.y)), 0.0f);
+	return above > SimMath::pc24Mul(m_logic.settings().gravity, -9.0f);
+}
+
+// RW 0x008C3AAD (ActiveBody::setArmorSetFlag), RW 0x008C3ACC (ActiveBody::clearArmorSetFlag; DONOR BFME2 0x004BF930)
 void Object::setArmorSetFlag(int bit, bool on)
 {
 	if (bit < 0 || bit >= 32)
 	{
 		throw std::logic_error("Object::setArmorSetFlag: bit out of range");
+	}
+	// PORT-302: retail writes an armor-set condition through the body: ArmorUpgrade calls body slot 0x34 / 0x38
+	// (RW 0x8B761E, call at RW 0x8B76A5). InactiveBody's slots are the `ret 4` stub RW 0x9F3A3C and slot 0x3C
+	// returns zero flags (RW 0x8C1AC3), so the condition must not reach this object's mask.
+	if (getBodyModule() && getBodyModule()->ignoresArmorSetFlagChanges())
+	{
+		return;
 	}
 	if (on)
 	{
@@ -2328,6 +2516,11 @@ void Object::attemptHealing(float amount, const Object *source)
 }
 
 // RW 0x68C234 / RW 0x68C7E9 (see Object.h; lane DECOMP-1)
+float Object::getBaseShroudClearingRange() const
+{
+	return m_hasShroudClearingRange ? m_shroudClearingRange : ShroudManager::templateVision(*static_cast<const ThingTemplate *>(m_template)->getFinalOverride()).shroudClearingRange;
+}
+
 void Object::setShroudClearingRange(float range)
 {
 	ShroudManager *sm = m_logic.shroud();
@@ -2352,8 +2545,7 @@ void Object::updateShroudNow()
 	}
 }
 
-// RW 0x690584 (see Object.h). The tail of RW (template byte + 0x642: clear the RUBBLE model condition, and for a dead object set REALLYDAMAGED and revive it,
-// RW 0x6905F8 ff) is not ported: the field's name is not read (stop S-652); no retail template reaches it through this lane's callers while alive
+// PORT-231 (S-652): RW 0x00690584 (see Object.h), including the KeepSelectableWhenDead (+0x642) tail (RW 0x690626 .. 0x690672): clear RUBBLE, and when effectively dead set REALLYDAMAGED and revive.
 bool Object::attemptHealingFromSoleBenefactor(float amount, const Object *source, UnsignedInt duration)
 {
 	if (!source)
@@ -2379,6 +2571,34 @@ bool Object::attemptHealingFromSoleBenefactor(float amount, const Object *source
 		info.m_input.m_deathType = DEATH_NONE;
 		info.m_input.m_amount = amount;
 		m_body->attemptHealing(info);
+	}
+	bool keepSelectableWhenDead = false;
+	if (m_template)
+	{
+		if (const FieldValue *v = static_cast<const ThingTemplate *>(m_template)->getFinalOverride()->findField("KeepSelectableWhenDead"))
+		{
+			if (const bool *b = std::get_if<bool>(v))
+			{
+				keepSelectableWhenDead = *b;
+			}
+		}
+	}
+	if (keepSelectableWhenDead)
+	{
+		static const int kRubble = CombatNames::modelCondition("RUBBLE");
+		static const int kReallyDamaged = CombatNames::modelCondition("REALLYDAMAGED");
+		if (kRubble >= 0 && testModelCondition(kRubble))
+		{
+			setModelConditionState(kRubble, false);
+		}
+		if (m_effectivelyDead)
+		{
+			if (kReallyDamaged >= 0 && !testModelCondition(kReallyDamaged))
+			{
+				setModelConditionState(kReallyDamaged, true);
+			}
+			friend_setEffectivelyDead(false);
+		}
 	}
 	return true;
 }
@@ -2720,6 +2940,23 @@ void Object::removeAttributeModifier(const std::string &listName)
 	}
 }
 
+// RW 0x006998D0 (DONOR BFME2 0x00298E6A): if a HORDE, delegates to HordeContain vslot 0x1E0 (RW 0x00879106); otherwise erases AttributeModifierPoolUpdate's entry vector (+0x20)
+void Object::clearAllAttributeModifiers()
+{
+	if (m_contain) // RW 0x6998D3: contain vslot 0x7C
+	{
+		if (HordeContainInterface *h = m_contain->getHordeContainInterface())
+		{
+			h->clearAllAttributeModifiers(); // RW 0x6998EF -> vslot 0x1E0 (RW 0x00879106)
+			return;
+		}
+	}
+	if (AttributeModifierPool *pool = static_cast<AttributeModifierPool *>(attributeModifierPoolModule())) // RW 0x6998F7 -> RW 0x0068C4A6
+	{
+		pool->clearEntries(); // RW 0x699900..0x699908 -> RW 0x00698DC9
+	}
+}
+
 bool Object::attributeModifierSum(int type, const char *name, float &out) const
 {
 	const AttributeModifierPool *pool = static_cast<const AttributeModifierPool *>(attributeModifierPoolModule());
@@ -2780,6 +3017,10 @@ void Object::crcOmittingModules(StateHasher &h, const std::function<bool(const B
 	{
 		h.addU32(0x5C100000u); // lane BFME2CAMP1: only when set (a game without a campaign's carry-over keeps its hash)
 	}
+	if (m_singleUseCommandUsed)
+	{
+		h.addU32(0x5C450001u); // PORT-220: RW + 0x45B, the single-use command flag; hashed only when set (an object that never pressed one keeps its hash)
+	}
 	if (m_fireWeaponDeadline != 0)
 	{
 		h.addU32(0x5C200000u | m_fireWeaponDeadline); // BFME2 ObjectDoXfer.cpp:668, RW +0x478; hashed only when set
@@ -2793,6 +3034,12 @@ void Object::crcOmittingModules(StateHasher &h, const std::function<bool(const B
 	if (m_masked)
 	{
 		h.addU32(0x4A5Bu); // lane MODCOMPAT-MOD1: hashed only when set (a game without rebuild holes keeps its hash)
+	}
+	if (m_scriptThreatDeadline != 0)
+	{
+		h.addU32(0x7E4A0000u); // lane THREATLEVEL-1: the script threat cache, hashed once a refresh armed it (a game without threat scripts keeps its hash)
+		h.addU32(m_scriptThreatDeadline);
+		h.addFloat(m_scriptThreat);
 	}
 	if (m_geometrySource) // lane MODCOMPAT-MOD1: another template's GeometryInfo (setGeometryInfoFrom), hashed when set
 	{
@@ -2883,6 +3130,10 @@ void Object::crcOmittingModules(StateHasher &h, const std::function<bool(const B
 	}
 	h.addBool(m_scored);
 	h.addU32(m_experienceFlags);
+	if (m_undetectable)
+	{
+		h.addU32(0x5C300001u);
+	}
 	const Coord3D &p = *getPosition();
 	h.addFloat(p.x);
 	h.addFloat(p.y);
@@ -3058,7 +3309,11 @@ void Object::setScriptStatus(std::uint8_t bits, bool set)
 // (the Objects block's order) and the team links (the TeamFactory's post-process).
 void Object::xfer(Xfer &x)
 {
-	XferVersion version{ 1, 5 }; // v2 campaignCarryover, v3 fireWeaponDeadline, v4 PORT-5 Object + 0x251, v5 PORT-34 geometryHeights
+	// v2 campaignCarryover, v3 fireWeaponDeadline, v4 PORT-5 Object + 0x251, v5 PORT-34 geometryHeights, v6 PORT-237 m_undetectable, v7 PORT-220
+	// Object + 0x45B; v8 upstream lane THREATLEVEL-1's script threat cache (+ 0x464 / + 0x468; upstream's own version 3), written only once a
+	// refresh armed it (every other object keeps version 7's block, so the hash pins do not move)
+	const bool threatArmed = m_scriptThreatDeadline != 0 || m_scriptThreat != 0.0f;
+	XferVersion version{ 1, (std::uint8_t)(x.isLoading() || threatArmed ? 8 : 7) };
 	x.xferVersion(version);
 	// a load never reads its destination: the save-side values are built from the members only when saving (SAVES.md, rules for xfer authors)
 	const bool saving = !x.isLoading();
@@ -3150,6 +3405,15 @@ void Object::xfer(Xfer &x)
 	x.xferUnsignedByte(&scriptStatus);
 	SnapshotXfer::checkMask(scriptStatus, 0x1F, "an object's script status", "the five script status bits"); // ZH ObjectScriptStatusBit 1 .. 0x10
 	m_scriptStatus = scriptStatus;
+	if (version.current >= 7)
+	{
+		// PORT-220: RW + 0x45B (BFME2 ObjectDoXfer.cpp:556 transfers the same byte); an older snapshot keeps the constructor's clear (RW 0x699C88)
+		x.xferBool(&m_singleUseCommandUsed);
+	}
+	else if (x.isLoading())
+	{
+		m_singleUseCommandUsed = false;
+	}
 	if (version.current >= 2)
 	{
 		x.xferBool(&m_campaignCarryover);
@@ -3170,6 +3434,27 @@ void Object::xfer(Xfer &x)
 	{
 		x.xferBool(&m_hasChargeAttackAbility); // RW 0x630CCD loads into an object whose constructor has set + 0x251
 	} // older snapshots retain the value derived by the constructor
+	if (version.current >= 6)
+	{
+		x.xferBool(&m_undetectable);
+	}
+	else if (x.isLoading())
+	{
+		m_undetectable = false;
+	}
+	// lane THREATLEVEL-1 (Sol review): the script threat cache. RotWK's Object::xfer (RW 0x697F28) does not write it (a retail load starts from the
+	// constructor's cleared pair); BFME2 1.06's does (+ 0x448 then + 0x444, ObjectDoXfer.cpp:715-716). The OpenBFME snapshot keeps it in both editions:
+	// the state hash covers it, and a load must give the saved hash back (CommandLogLoad::beginSnapshot refuses anything else)
+	if (version.current >= 8)
+	{
+		x.xferUnsignedInt(&m_scriptThreatDeadline);
+		x.xferReal(&m_scriptThreat);
+	}
+	else if (x.isLoading())
+	{
+		m_scriptThreat = 0.0f;
+		m_scriptThreatDeadline = 0;
+	}
 	x.xferBool(&m_scriptSelectable);
 	x.xferBool(&m_masked); // lane MODCOMPAT-MOD1: RW + 0x459 bit 1
 	x.xferInt(&m_triggerCount);
@@ -3345,4 +3630,16 @@ void Object::xfer(Xfer &x)
 void Object::setFireWeaponDeadline()
 {
 	m_fireWeaponDeadline = m_logic.getFrame() + 10u * (UnsignedInt)LOGICFRAMES_PER_SECOND;
+}
+
+// RW 0x0068D58C (DONOR BFME2 0x0068CEBC)
+void Object::topple(const Coord3D *toppleDirection, float toppleSpeed, unsigned options)
+{
+	if (ToppleUpdate *t = dynamic_cast<ToppleUpdate *>(findModule("ToppleUpdate")))
+	{
+		if (t->isAbleToBeToppled())
+		{
+			t->applyTopplingForce(toppleDirection, toppleSpeed, options);
+		}
+	}
 }

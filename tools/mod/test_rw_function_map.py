@@ -340,3 +340,13 @@ def test_display_command_has_no_developer_machine_prefix():
     assert '/home/' not in command and '/Users/' not in command
     assert 'workspace/RotWK/game.dat' in command
     assert '/tmp/ennorath-ini-1.9.8.3.zip' in command
+
+
+def test_reports_accept_library_rows(tmp_path):
+    # 2026-11-21: build_rows gives library functions the status 'library'; write_reports refused them ("invalid map row") and the sb3 maps
+    # run failed at every main from 1cd735ca to c0388357
+    from rw_function_map import MapRow, write_reports
+    tsv, md = tmp_path / 'map.tsv', tmp_path / 'map.md'
+    rows = [MapRow('Low', 0, 0x401000, 'library', objects=1, instructions=20), MapRow('Low', 1, 0x401010, 'none', objects=1, instructions=5)]
+    write_reports(rows, tsv, md, 'example', {}, {}, 200)
+    assert '\tlibrary\t' in tsv.read_text(encoding='utf-8') and 'library 1' in md.read_text(encoding='utf-8')

@@ -74,6 +74,16 @@ const std::string kObjects = std::string(kSlaveUnit) + masterObject("SlvMaster",
 	"    MaxDelay = 1000\n"
 	"    Amount = 2\n"
 	"  End\n"
+	"End\n"
+	"Object OclEdgeSpawner\n"
+	"  KindOf = STRUCTURE\n"
+	"  Behavior = OCLUpdate ModuleTag_OCL\n"
+	"    OCL = OCL_MakeUnit\n"
+	"    MinDelay = 2000\n"
+	"    MaxDelay = 2000\n"
+	"    Amount = 1\n"
+	"    CreateAtEdge = Yes\n"
+	"  End\n"
 	"End\n";
 
 struct SlaveWorld : CombatWorld
@@ -185,9 +195,23 @@ TEST_CASE("modgap1 OCLUpdate: it makes its list every MinDelay, Amount times, an
 	CHECK(w.count("SlvUnit") == 2);  // and no more
 }
 
-TEST_CASE("modgap1 OCLUpdate: the stop line names CreateAtEdge")
+TEST_CASE("modgap1 OCLUpdate: S-5501 is closed, CreateAtEdge snaps to closest map edge and getCountdownPercent tracks progress")
 {
-	const std::string line = OCLUpdate::stopLine();
-	CHECK(line.compare(0, 8, "[S-5501]") == 0);
-	CHECK(line.find("CreateAtEdge") != std::string::npos);
+	CHECK(std::string(OCLUpdate::stopLine()).empty());
+	SlaveWorld w;
+	Object *spawner = w.unit("OclEdgeSpawner", 'A', 40.0f, 120.0f);
+	REQUIRE(spawner);
+	OCLUpdate *upd = dynamic_cast<OCLUpdate *>(spawner->findModule("OCLUpdate"));
+	REQUIRE(upd);
+	CHECK(upd->getCountdownPercent() == 0.0f);
+	w.frames(1); // first call schedules (10 frames: 2000ms)
+	CHECK(upd->nextFrame() == 11u);
+	w.frames(5);
+	CHECK(upd->getCountdownPercent() == 0.5f);
+	w.frames(10);
+	CHECK(w.count("SlvUnit") == 1);
+	for (const std::string &l : w.logic->report().stops)
+	{
+		CHECK(l.find("[S-5501]") == std::string::npos);
+	}
 }

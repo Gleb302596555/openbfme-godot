@@ -747,6 +747,10 @@ void GameLogic::update(int phase)
 		for (int i = 0; i < m_players.getPlayerCount(); ++i)
 		{
 			Player *p = m_players.getNthPlayer(i);
+			// LOCAL-94 (issue #720): RW 0x6AF27C .. 0x6AF288 (top of Player::update RW 0x6AF269): AIPlayer::update (RW 0x8F9705) -> updateBridgeRepair (RW 0x8F8F68)
+			p->updateAIPlayerRepair(*this);
+			// PORT-280: RW 0x6AF28E .. 0x6AF2DD (top of Player::update RW 0x6AF269, before generic scripts): tick active production speed bonus timers
+			p->updateProductionTimeTimers();
 			// lane CAMP-1H: RW 0x6AF2FA .. 0x6AF32B, before the score: the player's teams run their generic scripts (Team::updateGenericScripts RW 0x7A267D;
 			// a game without map scripts has none)
 			if (m_scriptEngine->loaded())
@@ -1151,6 +1155,8 @@ void GameLogic::reset()
 	m_buildableOverrides.clear(); // lane BFME2CAMP1 (review): a new game starts without the script's overrides (ZH GameLogic::reset clears its map; donor)
 	m_campaignCarryover.reset();  // lane BFME2CAMP1: the mission's start sets it again
 	m_showBehindBuildingMarkers = true; // lane OCCLUDE-1: GameLogic::reset RW 0x62D3D6 (+ 0x99 = 1)
+	m_showDrawableIconUI = true;        // LOCAL-94: GameLogic::reset RW 0x62D3DD (+ 0x9A = 1)
+	m_particleCapMode = true;           // LOCAL-94: GameLogic::reset RW 0x62D3E4 (+ 0x9B = 1)
 	m_rankLevelLimit = kDefaultRankLevelLimit; // PORT-43: RW 0x62A20D (startNewGame's init helper RW 0x62A11A; GameLogic::reset RW 0x62D232 leaves +0x118 untouched)
 	m_rankLevelLimitScripted = false;
 	m_nextObjectID = 1;
@@ -1835,9 +1841,9 @@ GameLogic::Report GameLogic::report() const
 	{
 		helpers += kv.second;
 	}
-	r.stops.push_back("[S-141] helper modules: " + std::to_string(helpers) + " live helper modules (SMC, Recovery, Repulsor, Defection, Guarding, WeaponStatus, FiringTracker) created in the retail order; the Recovery, Repulsor, Defection, Guarding and FiringTracker shells do nothing (the SMCHelper and the WeaponStatusHelper act: lanes PROD-1, PROJ-2)");
-	r.stops.push_back("[S-142] objects: creation steps not ported: the special power mask and "
-		"what else initObject (RW 0x693D0C, tier B edited, no decomp source) does beyond Object::friend_initObject; ported since (lane BACKLOG2 audit): the experience tracker (XP-1, RW 0x69A606), "
+	r.stops.push_back("[S-141] helper modules: " + std::to_string(helpers) + " live helper modules (SMC, Recovery, Repulsor, Defection, Guarding, WeaponStatus, FiringTracker) created in the retail order; the Recovery, Repulsor, Guarding and FiringTracker shells do nothing (SMCHelper, WeaponStatusHelper and DefectionHelper act: lanes PROD-1, PROJ-2, PORT-237)");
+	r.stops.push_back("[S-142] objects: creation steps not ported: Object + 0x3C0 m_specialPowerBits cache (ActionManager::hasSpecialPowerOfType walks modules) and "
+		"what else initObject (RW 0x693D0C, tier B edited, no decomp source) does beyond Object::friend_initObject (BattlePlan bonuses ported in PORT-237); ported since (lane BACKLOG2 audit): the experience tracker (XP-1, RW 0x69A606), "
 		"partition registration (MODULES-2, the world entry RW 0x69A6C6), the radar step (RW 0x69A66D -> Radar::addObject RW 0x6D9042: RADAR-1 applies its rules to the live objects at "
 		"every draw; the radar lists are client state), initObject's upgrade refresh and command points (RW 0x693D38 / 0x693D51), the safe occlusion frame (OCCLUDE-1: RW 0x69A687)");
 	r.stops.push_back("[S-146] players: a Player carries the index, name, faction template, type, colour, money, default team and relationships only; energy, sciences, upgrades, build list, AI, command points and the spell book belong to the lanes that port them");

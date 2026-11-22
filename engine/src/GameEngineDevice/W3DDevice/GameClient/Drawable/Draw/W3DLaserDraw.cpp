@@ -1,4 +1,5 @@
-// OpenBFME. GPL-3.0. See W3DLaserDraw.h (RW 0x4C917B / 0xBE1798 / 0x4C8A6C / 0x740659, donor BFME2 W3DLaserDraw*).
+// OpenBFME. GPL-3.0. See W3DLaserDraw.h (RW 0x004C917B / 0x00BE1798 / 0x004C8A6C / 0x00740659, donor BFME2 W3DLaserDraw*).
+// TARGET RW 0x004C93FD W3DLaserDraw scalar deleting destructor (~W3DLaserDraw RW 0x004C9229).
 
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DLaserDraw.h"
 #include "GameClient/LaserUpdate.h"

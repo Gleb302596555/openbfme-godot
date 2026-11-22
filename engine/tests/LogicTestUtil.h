@@ -6,9 +6,13 @@
 
 #pragma once
 
+#include "doctest.h"
+
 #include "HordeCompleteTestUtil.h"
 #include "Common/Upgrade.h"
 #include "ObjectTestUtil.h"
+
+#include "doctest.h" // the REQUIRE_MESSAGE calls below need the macro (the other test utility headers include it the same way)
 
 #include "Common/PlayerList.h"
 #include "Common/PlayerTemplate.h"

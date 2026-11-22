@@ -11,15 +11,33 @@ Entry sources (any number, unioned):
   --csv PATH[:rva_col[:name_col]]   any CSV with an RVA hex column (or a VA column named address), e.g. Open-BFME-2's
                                     reverse/ghidra_functions.csv (rva,name) or its ledger
                                     reverse/functions.csv (target_rva,name)
+  --angr PATH                       a tools/mod/rw_function_map.py angr cache (rw_function_blocks.json):
+                                    entries and extents from its CFGFast basic blocks, no Ghidra needed
 
-Names: the first source that names an entry wins (pass the most authoritative first).
+Names: the first source that names an entry wins (pass the most authoritative first). The angr
+cache carries no names, so its entries take names from the other sources.
 No retail bytes are written: only addresses, sizes and names.
+
+Extents -- the entry rule vs the angr blocks. The entry rule sizes an entry from its entry to the
+next one, minus int3 padding. An --angr function is sized from its blocks instead (the cache
+records VAs): size is the total addresses in the blocks (a non-contiguous body does not cover
+its gaps) and start_block_size the contiguous run of blocks that starts at the entry -- the same
+columns ghidra/export_inventory.java writes from Ghidra bodies. An entry with an angr body uses
+its blocks (measured beats the rule); the other entries keep the entry rule. What changes
+against a pure entry-rule build: switch jump tables and trailing padding that the "to the next
+entry, minus int3" extent kept after the code are no longer inside the function, so they leave
+the masked hash (tier A can fall where a pair's hashed bytes used to cover a trailing table),
+and where angr splits or merges differently than Ghidra the extents follow angr's blocks. If the
+cache records sha256 (rw_function_blocks.json does) it must match --bin.
 
   python tools/re/inventory.py --bin <game.dat> --ghidra-url http://127.0.0.1:8089 \
       --program rotwk201_game.exe --out rotwk_functions.csv
+  python tools/re/inventory.py --bin <game.dat> --angr workspace/rebuild/rw_function_blocks.json \
+      --out rotwk_functions.csv
 """
 import argparse
 import csv
+import hashlib
 import json
 import sys
 import urllib.parse
@@ -65,22 +83,69 @@ def csv_entries(spec, base):
     return out
 
 
-def build(img, entries):
-    """entries: [(rva, name)] -> sorted [(rva, size, blk, name)] for .text-resident entries."""
+def angr_entries(data, base):
+    """rw_function_blocks.json -> {rva: (size, start_block_size)}, extents from the blocks.
+
+    The cache records VAs (tools/mod/rw_function_map.py): every function lists its CFGFast
+    basic blocks as [va, size] pairs. size counts the addresses in the blocks; start_block_size
+    is the contiguous run of blocks that starts at the entry, the only part guaranteed to be
+    disassembled in one piece. Broken records (no blocks, no block at the entry, overlapping or
+    empty blocks, duplicate entries) are errors, not repairs.
+    """
+    out = {}
+    for f in data["functions"]:
+        va0 = int(f["address"])
+        blocks = sorted((int(va) - base, int(sz)) for va, sz in f["blocks"])
+        if not blocks:
+            raise ValueError(f"function 0x{va0:X}: no blocks")
+        rva = va0 - base
+        if rva in out:
+            raise ValueError(f"duplicate function entry 0x{va0:X}")
+        start, size = None, 0
+        for i, (va, sz) in enumerate(blocks):
+            if sz <= 0:
+                raise ValueError(f"function 0x{va0:X}: block 0x{va + base:X} has size {sz}")
+            if i and va < blocks[i - 1][0] + blocks[i - 1][1]:
+                raise ValueError(f"function 0x{va0:X}: overlapping block 0x{va + base:X}")
+            size += sz
+            if va == rva:
+                start = i
+        if start is None:
+            raise ValueError(f"function 0x{va0:X}: no block at its entry")
+        run = blocks[start][1]
+        cursor = start
+        while cursor + 1 < len(blocks) and blocks[cursor + 1][0] == blocks[cursor][0] + blocks[cursor][1]:
+            cursor += 1
+            run += blocks[cursor][1]
+        out[rva] = (size, run)
+    return out
+
+
+def build(img, entries, bodies=None):
+    """entries: [(rva, name)] -> sorted [(rva, size, blk, name)] for .text-resident entries.
+
+    Extent of an entry: bodies[rva] = (size, start_block_size) from angr_entries() when it has
+    an angr body, else the entry rule (to the next entry, minus int3 padding; start_block_size
+    equals size because that run is contiguous by construction).
+    """
     names = {}
     for rva, name in entries:
-        if rva not in names or (names[rva].startswith(("FUN_", "thunk_FUN_")) and name
-                                and not name.startswith(("FUN_", "thunk_FUN_"))):
+        if rva not in names or (not names[rva] and name) or \
+                (names[rva].startswith(("FUN_", "thunk_FUN_")) and name
+                 and not name.startswith(("FUN_", "thunk_FUN_"))):
             names[rva] = name
     t0, t1 = img.text
     rvas = sorted(r for r in names if t0 <= r < t1)
     out = []
     for i, rva in enumerate(rvas):
-        end = rvas[i + 1] if i + 1 < len(rvas) else t1
-        while end > rva + 1 and img.mem[end - 1] == 0xCC:
-            end -= 1
-        size = end - rva
-        out.append((rva, size, size, names[rva].replace(",", ";")))
+        if bodies and rva in bodies:
+            size, blk = bodies[rva]
+        else:
+            end = rvas[i + 1] if i + 1 < len(rvas) else t1
+            while end > rva + 1 and img.mem[end - 1] == 0xCC:
+                end -= 1
+            size = blk = end - rva
+        out.append((rva, size, blk, names[rva].replace(",", ";")))
     return out
 
 
@@ -92,10 +157,22 @@ def main():
     ap.add_argument("--ghidra-json")
     ap.add_argument("--save-json", help="also save the fetched Ghidra response here")
     ap.add_argument("--csv", action="append", default=[])
+    ap.add_argument("--angr", help="a tools/mod/rw_function_map.py angr cache (rw_function_blocks.json): "
+                                   "entries and extents from its CFGFast blocks")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
     img = relib.Image(args.bin)
     entries = []
+    bodies = {}
+    if args.angr:
+        record = json.loads(Path(args.angr).read_text(encoding="utf-8"))
+        if record.get("sha256"):
+            digest = hashlib.sha256(Path(args.bin).read_bytes()).hexdigest()
+            if record["sha256"] != digest:
+                raise SystemExit(f"{args.angr}: cache is bound to game.dat sha256 {record['sha256']}, "
+                                 f"--bin is {digest}")
+        bodies = angr_entries(record, img.base)
+        entries += [(rva, "") for rva in sorted(bodies)]
     if args.ghidra_url:
         data = fetch_ghidra(args.ghidra_url, args.program)
         if args.save_json:
@@ -107,7 +184,7 @@ def main():
         entries += csv_entries(spec, img.base)
     if not entries:
         raise SystemExit("no entry points given")
-    inv = build(img, entries)
+    inv = build(img, entries, bodies)
     with open(args.out, "w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh)
         w.writerow(["rva", "size", "start_block_size", "name"])

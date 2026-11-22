@@ -25,6 +25,13 @@
 // Not ported: the transition times' consumers, DodgePercent, the attribute modifiers, the
 // burning death behaviour, CheerRadius: the fields are parsed and kept (the FX names unresolved: the store is the client's, stop S-149);
 // PORT-78 reads the Grab fields on the existing vendor grab path (RW 0x85415C).
+// The body's last-healing timestamp (PORT-293): module + 0xC0, the body interface's slot 0x48 (RW 0x5DC48C `mov eax, [ecx + 0xB0]; ret`). The object's
+// constructor ORs it with -1 (RW 0x8C3897) and attemptHealing stamps the logic frame on every hit it applies (RW 0x8C30A9 .. 0x8C30BA, before the
+// health-up test of RW 0x8C30B1). Its one reader is AutoHealBehavior's NonStackable rule (RW 0x855777 .. 0x8557A2: the stamp plus the module's HealingDelay
+// against the current frame, unsigned). A body class without the writer answers the shared `or eax, -1` stub (InactiveBody RW 0x48DACD).
+// The body's veterancy notify (RW 0x8C261D, module vtable 0xC71B78 slot 0x30) is not ported: stop S-7521 -- its only caller is the experience lane's
+// Object::onVeterancyLevelChanged (RW 0x6957B9, the single `+ 0x25C` site that calls slot 0x30, RW 0x6957FD), and the ratio it stores through body slot 0x5C
+// needs the four GameData rows + 0xAD4 .. 0xAE0 (HealthBonus_Regular / _Veteran / _Elite / _Heroic) the port does not parse.
 // DamageCreationList (PORT-45): the parser RW 0x8C3F1F keeps the three tokens as a 12-byte record {OCL, FXTrigger index, death-side index};
 // doDamageFX creates the record whose FXTrigger matched the hit's and whose death side is 0 (RW 0x8C2F75 .. 0x8C2FB8). The other reader,
 // the structure's damage-side branch (RW 0x8C2EBD .. 0x8C2EEF, death sides 1-4 for FRONT / RIGHT / BACK / LEFT destroyed), has no ported
@@ -85,16 +92,24 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW primary vtable 0xC71B78: scalar deleting dtor RW 0x008C3B6D (DONOR BFME2 0x004BF9D1), loadPostProcess RW 0x008C35AF (DONOR BFME2 0x004BF40F; S-7408 / S-342),
+// getModuleName RW 0x008C3A2D (DONOR BFME2 0x004BF88D), getModuleNameKey RW 0x008C39E8 (DONOR BFME2 0x004BE1F0), isArmorOverridden RW 0x008C3A48 (DONOR BFME2 0x004BF8AC),
+// clearLastAttacker RW 0x008C3A89 (DONOR BFME2 0x004BF8ED). Body vtable 0xC720F0: getFrontCrushed RW 0x00932519 / getBackCrushed RW 0x008C3A53 (only caller CrushDie, S-1242);
+// setIndestructible RW 0x8C3326 -> BridgeBehavior::getBridgeBehaviorInterfaceFromObject RW 0x008595BA (S-161 / S-1282); onVeterancyLevelChanged promotion sounds
+// RW 0x008C22F2 / 0x008C230B / 0x008C2324 (S-7521); per-side damage sort helper RW 0x00970ED8 (S-149).
 class ActiveBody : public BehaviorModule, public BodyModuleInterface
 {
 public:
 	ActiveBody(Thing *thing, const ActiveBodyModuleData *data);
+	~ActiveBody() override = default; // RW 0x008C3AED (~ActiveBody), RW 0x008C3B6D (scalar deleting dtor, DONOR BFME2 0x004BF9D1)
 
 	BodyModuleInterface *getBody() override { return this; }
-	float getHealth() const override { return m_currentHealth; }
-	float getMaxHealth() const override { return m_maxHealth; }
+	// PORT-293: the interface's getters, each its own RW function (table RW 0xC720F0; the interface `this` is module + 0x10, as RW 0x8C1C51's
+	// `lea ecx, [esi - 0x10]` shows). 41 sites call the health getter, 58 the max-health one, 27 the damage state
+	float getHealth() const override { return m_currentHealth; }        ///< RW 0x5F2D41 (slot 0x10, `fld [ecx + 8]` = module + 0x18)
+	float getMaxHealth() const override { return m_maxHealth; }         ///< RW 0x6AA274 (slot 0x1C, `fld [ecx + 0x10]` = module + 0x20)
 	float getInitialHealth() const override { return m_initialHealth; }
-	float getPreviousHealth() const { return m_previousHealth; }
+	float getPreviousHealth() const { return m_previousHealth; }        ///< RW 0x49449C (slot 0x20, `fld [ecx + 0x1C]` = module + 0x2C)
 	// lane HERO-1 (Sol review): the reference the revive scales (RW 0x8C47DE reads body interface + 0x1C = module + 0x2C; RW 0x8C1CD5 setMaxHealth stores newMax
 	// there). Distinct from the previous health internalChangeHealth keeps (RW 0x8C31A5 writes interface + 0x0C); it starts at the actual initial health
 	float getReviveReference() const { return m_reviveReference; }
@@ -102,7 +117,8 @@ public:
 	void applyInitialDamageState() override { updateDamageState(true); }
 	// Body interface RW 0x8C1D53: apply the stored damage state even when health did not change (e.g. construction completion).
 	void evaluateVisualCondition();
-	void resetDamageState(int state = 0) override;
+	void resetDamageState(int state = 0) override; // RW 0x008C1BF9 (DONOR BFME2 0x004BDAA9)
+	void resetHealthToDamageState() override; // RW 0x008C1C75 (DONOR BFME2 0x004BDB25)
 	void setInitialHealth(int initialPercent) override;
 	// lane SUMMON-1: RW 0x8C47DE (vt[0x58]) with its second argument 0 (the ObjectCreationList's health)
 	void setInitialHealthPercent(float percent) override;
@@ -111,7 +127,7 @@ public:
 	// ---- lane COMBAT-1: the damage pipeline (RW 0x8C3FA3; scratch/weapon1/damage.md 2.7) ----
 	void attemptDamage(DamageInfo &info) override;
 	void setIndestructible(bool on) override { m_indestructible = on; } // lane SCRIPT-2 (RW 0x8C3326)
-	bool isIndestructible() const override { return m_indestructible; }
+	bool isIndestructible() const override { return m_indestructible; } // RW 0x008C3A74 (body slot 35 +0x8C, DONOR BFME2 0x004BF8D8)
 	void attemptHealing(DamageInfo &info) override;
 	// PORT-2 (RecoveryTime): RW 0x8C425D .. 0x8C4276, inside attemptDamage between the health change (branch 16) and the record (branch 18). The data's
 	// +0x24 (field row RW 0xC71DA8, parser RW 0x73A429) is read, a zero value skips the call (RW 0x8C4265), and `current frame (TheGameLogic + 0x40) +
@@ -135,7 +151,7 @@ public:
 	bool burningDeathCaps(const Object &obj, int damageType, const Object *container, const class ContainModuleInterface *hordeHelper) const;
 	void startBurningDeath(class ContainModuleInterface *hordeHelper);
 	float estimateDamage(const DamageInfoInput &input) const override;
-	float getDodgePercent() const override { return m_data->m_dodgePercent; }
+	float getDodgePercent() const override { return m_data->m_dodgePercent; } // RW 0x008C1DAD (body slot 36 +0x90, DONOR BFME2 0x004BDC41)
 	std::string getGrabObjectName() const override { return m_data->m_grabObject; } // RW 0x8C281E (lane BACKLOG-1)
 	const std::string *getGrabFXName() const override { return &m_data->m_grabFX; } // RW 0x8C1DB4
 	float getGrabDamage() const override { return m_data->m_grabDamage; } // RW 0x8C1DBB
@@ -149,12 +165,19 @@ public:
 	// the armour of the object's current armor set: the ArmorTemplate named by the best ArmorTemplateSet (RW 0x5D893C looks the name up per hit); null when the template has
 	// no ArmorSet; an armour name the store lacks is reported once (a logic error, PLAN rule 10) and counts as no armour
 	const ArmorTemplate *currentArmor() const;
+	// RW 0x008C3A48 (primary slot 14 +0x38, DONOR BFME2 0x004BF8AC -> RW 0x005D891E ArmorStore::isOverridden)
+	bool isArmorOverridden() const;
 	// ZH BodyModuleInterface::setDamageStateIgnoringBodyScalar: the body scalar (RW this + 4, multiplied in by body slot 0x6C): 1.0 by default
 	float bodyDamageScalar() const { return m_damageScalar; }
 	void setBodyDamageScalar(float s) { m_damageScalar = s; }
+	void applyDamageScalar(float scalar) override; // RW 0x8C329F (vt[0x6C])
 	// the last frame the body took a damaging hit and from whom (RW + 0xAC, the last damage record); 0xFFFFFFFF / INVALID_ID when never
 	UnsignedInt lastDamageFrame() const override { return m_lastDamageFrame; }
 	ObjectID lastDamager() const { return m_lastDamager; }
+	// PORT-293: body interface vslot 0x48 (RW 0x5DC48C: `mov eax, [ecx + 0xB0]; ret` = module + 0xC0) -- the frame of the last healing hit, -1 while the
+	// body was never healed (the object's constructor ORs the dword with -1, RW 0x8C3897). attemptHealing stamps the current logic frame on every hit it
+	// applies (RW 0x8C30A9 .. 0x8C30BA); AutoHealBehavior's NonStackable rule reads it (RW 0x855797)
+	UnsignedInt getLastHealingFrame() const override { return m_lastHealingFrame; }
 	// lane PLAY-4: body interface vslot 0x4C (RW 0x8C3A33): the last damage record's source once per record (+ 0xB6 set by the first call, cleared by the
 	// next damaging hit, RW 0x8C42FA); INVALID_ID when already taken (ZH getClearableLastAttacker + clearLastAttacker in one call). The guard machine's
 	// "attacked me" condition (RW 0x949994) asks it
@@ -167,6 +190,8 @@ public:
 		m_lastAttackerTaken = true;
 		return m_lastDamager;
 	}
+	// RW 0x008C3A89 (primary slot 16 +0x40, DONOR BFME2 0x004BF8ED): sets m_lastAttackerTaken (+0xC6) to true
+	void clearLastAttacker() { m_lastAttackerTaken = true; }
 	// lane CAMP-1: the last damage record's source player mask (RW body vslot 0x40 record + 0xC, DamageInfo::m_sourcePlayerMask; TEAM_ATTACKED_BY_PLAYER RW 0x7E7361)
 	std::uint32_t lastDamagerPlayerMask() const { return m_lastDamagerPlayerMask; }
 	// lane FX-4: body interface slot 0x40 (RW 0x715914: the last damage record, ActiveBody + 0x40, never null) and its damage type (+ 0x10; the record's
@@ -225,6 +250,7 @@ private:
 	BodyDamageType m_curDamageState = BODY_PRISTINE; // RW + 0x30
 	DamageInfo *m_currentInfo = nullptr;
 	UnsignedInt m_lastDamageFrame = 0xFFFFFFFFu; // RW + 0xAC (RW 0x8C3841: -1 = never; BUILD-2)
+	UnsignedInt m_lastHealingFrame = 0xFFFFFFFFu; // PORT-293: RW + 0xB0 (RW 0x8C3897: -1 = never; attemptHealing's stamp RW 0x8C30BA)
 	ObjectID m_lastDamager = INVALID_ID;
 	bool m_lastAttackerTaken = false; // RW + 0xB6 of the body interface (lane PLAY-4)
 	std::uint32_t m_lastDamagerPlayerMask = 0; // lane CAMP-1: the record's + 0xC
@@ -237,20 +263,24 @@ private:
 	UnsignedInt m_damageFXThrottleUntil = 0; // RW + 0x38
 };
 
-// RW vtable 0xC71FE0: health never drops below 1 (internalChangeHealth delta = max(delta, 1 - health), RW 0x8C4AB4)
+// RW vtable 0xC71FE0: getModuleName RW 0x008C4A34, getModuleNameKey RW 0x008C4A53, dtor RW 0x008C4A98;
+// health never drops below 1 (internalChangeHealth delta = max(delta, 1 - health), RW 0x8C4AB4)
 class ImmortalBody : public ActiveBody
 {
 public:
 	using ActiveBody::ActiveBody;
+	~ImmortalBody() override = default; // RW 0x008C4A98
 	void internalChangeHealth(float delta) override;
 	OBFME_MODULE_XFER(ImmortalBody) // lane SAVE-4b: ActiveBody's (no state of its own)
 };
 
-// RW vtable 0xC71ED0, attemptDamage RW 0x8C49C7: a hit never takes more than health - 1 unless UNRESISTABLE
+// RW vtable 0xC71ED0: getModuleName RW 0x008C4947, getModuleNameKey RW 0x008C4966, dtor RW 0x008C49AB;
+// attemptDamage RW 0x8C49C7: a hit never takes more than health - 1 unless UNRESISTABLE
 class HighlanderBody : public ActiveBody
 {
 public:
 	using ActiveBody::ActiveBody;
+	~HighlanderBody() override = default; // RW 0x008C49AB
 	void attemptDamage(DamageInfo &info) override;
 	OBFME_MODULE_XFER(HighlanderBody) // lane SAVE-4b: ActiveBody's (no state of its own)
 };

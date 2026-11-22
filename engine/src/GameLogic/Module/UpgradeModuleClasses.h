@@ -57,6 +57,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008B8A81 (getModuleName), RW 0x008B8A87 (getModuleNameKey), RW 0x008B8B1F / RW 0x008B8A61 (dtor)
 class StatusBitsUpgrade : public UpgradeModule
 {
 public:
@@ -81,6 +82,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008BA577 (getModuleName), RW 0x008BA57D (getModuleNameKey), RW 0x008BA64C / RW 0x008BA557 (dtor)
 class ModelConditionUpgrade : public UpgradeModule
 {
 public:
@@ -104,6 +106,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008B7586 (getModuleName), RW 0x008B758C (getModuleNameKey), RW 0x008B7602 / RW 0x008B7566 (dtor)
 class ArmorUpgrade : public UpgradeModule
 {
 public:
@@ -128,6 +131,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008B9838 (getModuleName), RW 0x008B983E (getModuleNameKey), RW 0x008B98D6 / RW 0x008B9818 (dtor)
 class WeaponSetUpgrade : public UpgradeModule
 {
 public:
@@ -150,6 +154,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008B7B85 (getModuleName), RW 0x008B7BB4 (getModuleNameKey), RW 0x008B7C4C / RW 0x008B7B65 (dtor)
 class CommandSetUpgrade : public UpgradeModule
 {
 public:
@@ -182,6 +187,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008B8D42 (getModuleName), RW 0x008B8D48 (getModuleNameKey), RW 0x008B8DE0 / RW 0x008B8D22 (dtor)
 class DoCommandUpgrade : public UpgradeModule
 {
 public:
@@ -229,6 +235,7 @@ public:
 	SubObjectsUpgrade(Thing *thing, const SubObjectsUpgradeModuleData *data) : UpgradeModule(thing, data), m_data(data) {}
 	bool hasShown() const { return m_shown; }
 	void crc(StateHasher &hasher) const override;
+	bool wouldUpgrade(const UpgradeMaskType &mask) const override; // RW 0x8B8FD7 is in implementation, not wouldUpgrade
 
 protected:
 	void upgradeImplementation() override;
@@ -256,6 +263,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008BC03F (getModuleName), RW 0x008BC05B (getModuleNameKey), RW 0x008BC0F3 / RW 0x008BC01F (dtor)
 class RemoveUpgradeUpgrade : public UpgradeModule
 {
 public:
@@ -313,6 +321,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008BD0CD (getModuleName), RW 0x008BD0EC (getModuleNameKey), RW 0x008BD142 (scalar deleting dtor -> RW 0x008BD0D3)
 class GrantUpgradeCreate : public BehaviorModule, public CreateModuleInterface
 {
 public:

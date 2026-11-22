@@ -19,7 +19,10 @@
 //   * UpdateTimer (default 10)
 // - AnimalAIUpdate:
 //   ctor RW 0x881DAA / BFME2 0x47ECA8,
-//   dtor RW 0x881E19 / BFME2 0x47ECE0,
+//   dtor RW 0x00881E07 (~AnimalAIUpdate) / RW 0x00881FB0 (scalar deleting destructor) / BFME2 0x47ECE0,
+//   getModuleName RW 0x00881E38, getModuleNameKey RW 0x00881EA9,
+//   isAfraidOfCastles RW 0x00881EEE (forwarded in AIUpdateCombat.cpp / CastleModules.cpp),
+//   makeStateMachine RW 0x00881EF8 (standard AIStateMachine with key 0xD7F450E0; DONOR BFME2 0x47EC69 AnimalAIUpdateMakeStateMachine.cpp),
 //   update RW 0x882058 / BFME2 0x47EDC9 (2,916 bytes; docs/re/rotwk/RW_0x882058.md),
 //   xfer RW 0x881E3E / BFME2 0x47EBAF.
 // - update's UpdateTimer gate (lane PORT-7): the enemy scan runs only when the logic frame is a multiple of

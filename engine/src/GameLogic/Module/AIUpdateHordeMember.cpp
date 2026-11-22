@@ -149,7 +149,8 @@ bool AIUpdateInterface::runsHordeMemberUpdate() const
 		return false;
 	}
 	const AIGoalType goal = m_mover->goalType();
-	const bool candidate = m_machine->isBusyState() || goal == AIGOAL_EXPLICIT || goal == AIGOAL_ANGLE || goal == AIGOAL_EXPLICIT_WITH_PATH;
+	// RW 0x66C7D0: AI vslot 0x1C4 (RW 0x00662B50), not the machine directly — the temporary state's busy flag counts here
+	const bool candidate = isBusyState() || goal == AIGOAL_EXPLICIT || goal == AIGOAL_ANGLE || goal == AIGOAL_EXPLICIT_WITH_PATH;
 	if (!candidate)
 	{
 		return false;

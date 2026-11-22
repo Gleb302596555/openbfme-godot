@@ -949,7 +949,40 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 	// times too far), PORT-114 (the global WeaponBonus set) and the merge of upstream 6b178a66 (the group's speed matching) on top of PORT-39; not separated.
 	// All three seeds stay open at 9000 (seed 7 was Mordor's defeat at 3049, seed 1234 Mordor's defeat at 7701), seed 2 with a new table. Engine pins, not
 	// retail values; that no game ends any more is for the night run (P-73)
-	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, -1, -1 }, Game{ "FactionMen", "FactionMordor", 7u, -1, -1 }, Game{ "FactionMordor", "FactionMen", 1234u, -1, -1 } })
+	// pin: the landing of 2026-11-17 (batch 16c: Ports 227, 228, 250, Local 78; the merge of upstream 16474d71), measured once on the merged tree (Linux GCC on
+	// Colab): main dbea96b5 already gave these values without the batch and the merge (an earlier landing moved them, not identified; both keep them): seed 7
+	// ends with Mordor's defeat (start position 1) at 3367 (was open at 9000), seeds 2 and 1234 stay open at 9000, seed 2 with a new table from the first window on
+	// pin: batch 2026-11-17a, Port 237 (#596: death / create modules, ObjectCreationList, OCLUpdate), measured once on the batch tree (Linux GCC on
+	// Colab); merge-point bisect: 6e3b8a16 (before #596) keeps the old values, 2ce6a623 (with it) moves them: seed 7 stays open at 9000 (was Mordor's
+	// defeat at 3367), seed 2 a new table from the first window on, seed 1234 open at 9000 as before
+	// pin: PR #619 (Port 226, #549) merged onto main 026fbc2f, measured once on the merged tree (Linux GCC on Colab): every fifth idle update of a unit with a StancesBehavior returns FAILURE (RW 0x7553AB -> RW 0x7537C7 / 0x7537E0), the unit goes to AIGoingIdleState -> onMoveEnd -> guardHere (RW 0x743864 -> 0x86228E -> RW 0x662A21): a guard machine main did not run: seed 2 ends with Mordor's defeat (start position 0) at 8197 (was open at 9000), seeds 7 and 1234 stay open at 9000
+	// pin: the landing of 2026-11-19 (the four local stations, PRs #681 / #682 / #683 / #709), measured on the merged tree and on main 4e9f0ad7 alone
+	// (Windows MSVC): both give the same three games, so the local PRs do not move them; main was already red here (the checker on Colab saw it red on
+	// main since 2026-11-18; an earlier landing moved it, not identified): seed 1234 ends with Mordor's defeat (start position 0) at 8887 (was open at
+	// 9000), seed 2 ends with Mordor's defeat at 8197 as before, seed 7 stays open
+	// pin: the PC batch of 2026-11-19 (batch 19f, Ports 300, 294, 270, 275, 459, 282, 272, 241, 277, 280, 136), measured on the merged tree (Windows MSVC)
+	// and bisected over its merge points (green after batch 19f, after Port 294 #723, red after PORT-459 #653): PORT-459's DualWeaponBehavior victim search
+	// (RW 0x85E0C2 -> RW 0x701443 flags 0x62: CAN_ATTACK | UNFOGGED | AUTO_ACQUIRE through the ported RW 0x7006D7 instead of the closest visible enemy)
+	// and its FiringTracker reset at the weapon mode's start (RW 0x8984B7): seed 2 stays open at 9000 (was Mordor's defeat at 8197), seed 7 ends with
+	// the Men's defeat (start position 1) at 4465 (was open), seed 1234 ends with Mordor's defeat at 5359 (was 8887)
+	// pin: the fork's merge of upstream 4a8d8272 (2026-11-19: lanes BUILDCLEAR-1, THREATLEVEL-1, PRs #325 / #340), measured once on the merged tree
+	// (Windows MSVC): BUILDCLEAR-1's isLocationClearOfObjects (RW 0x796D37, the options in RotWK's numbering) changes where the computer players place
+	// their structures (upstream's own perf1 pin names the same move); seed 7 still ends with the Men's defeat, now at 4571 (was 4465); seeds 2 and
+	// 1234 keep their results
+	// pin: the PC landing of Locals 96 / 97 / 98 (2026-11-21, MSVC): Local 96's WorkerAIUpdate::newTask sets WORKER_REPAIRING (status 0x61, in the object
+	// hash; RW 0x008AE4A9) and DozerAIUpdate::onDelete (RW 0x0088CF96) moves the workers' repairs: seed 7 still ends with the Men's defeat, now at 4538 (was
+	// 4571), seed 1234 with Mordor's defeat at 5163 (was 5359), seed 2 stays open; with Local 96's changes switched off on its branch the old pins pass. Engine pins.
+	// pin: Locals 118 and 120 (landed 2026-11-21 at c0388357, not re-measured then; found 2026-11-22 on Colab sb5, Linux GCC): Local 118's
+	// LargeGroupAudioUpdate::getDisabledTypesToProcess (RW 0x008AF0D0: DISABLEDMASK_ALL, disabled objects run their update) with Local 120's P-169
+	// (the held position's ground snap, RW 0x5E77AF .. 0x70BA76) and P-168 (ObjectCreationUpgrade onEnslave, RW 0x8B8464) move the three games;
+	// attributed by one build with those three switched off (green on c0388357 and on main eb44cdd3; each alone is not enough; the Locals 108-126 batch
+	// and Port 289 #721 do not move them): seed 2 now ends with the Men's defeat (start position 1) at 4483 (was open at 9000), seed 7 with the Men's
+	// defeat at 3173 (was 4538), seed 1234 with Mordor's defeat at 8765 (was 5163). Engine pins.
+	// pin: the bot's stacked batches 2026-11-22b..e (#582 Port 225 weapon delivery, #830 Port 315, #736 Port 198 spawn orders, #832 Port 318), measured
+	// once on the merged tree with Locals 127-130 (Colab sb4, Linux GCC; main + the batch alone gives the same three games, so the Locals move nothing):
+	// the batch's own perf1 / uber1 re-pins name #582 and #736 as its simulation movers, not split further here. Seed 2 now ends with the Men's defeat at
+	// 3941 (was 4483), seed 7 stays open at 9000 (was the Men's defeat at 3173), seed 1234 ends with Mordor's defeat at 8267 (was 8765). Engine pins.
+	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, 1, 3941 }, Game{ "FactionMen", "FactionMordor", 7u, -1, -1 }, Game{ "FactionMordor", "FactionMen", 1234u, 0, 8267 } })
 	{
 		INFO(g.a << " vs " << g.b << " seed " << g.seed);
 		VersusRun run;
@@ -1002,16 +1035,15 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 			// TOP20 #21 / r3 (station-1): a new table from frame 4000 on; the game stays open at 9000
 			// pin: Port 39 (#201, retail SideInfo AI gatherers from data/ini/default/aidata.ini, P-73): a new table from frame 1000 on; open at 9000
 			// pin: the fork's merge of upstream 1d505ac3 (2026-11-13, measured once on the merged tree, Windows MSVC): a new table from the first window on; the three games stay open at 9000
+			// pin: the landing of 2026-11-17 (see above; main dbea96b5 already gave this table): a new table from the first window on; open at 9000
+			// pin: batch 2026-11-17a, Port 237 (#596; see above): a new table from the first window on; open at 9000
+			// pin: PR #619 (Port 226, #549) merged onto main 026fbc2f, measured once on the merged tree (Linux GCC on Colab): every fifth idle update of a unit with a StancesBehavior returns FAILURE (RW 0x7553AB -> RW 0x7537C7 / 0x7537E0), the unit goes to AIGoingIdleState -> onMoveEnd -> guardHere (RW 0x743864 -> 0x86228E -> RW 0x662A21): a guard machine main did not run: a new table from the first window on, ending at 8000 (the game ends at 8197)
+			// pin: the PC batch of 2026-11-19 (PORT-459 #653, see above): a new table from the first window on; the game stays open at 9000
+			// pin: the batches 2026-11-22b..e (see the game table above): the table moves from the 3000 window on; the game ends at 3941
 			CHECK(run.progress ==
-			"frame 1000: [0 attacks 0 built 90u/8s destroyed 23u/1s] [1 attacks 1 built 90u/7s destroyed 17u/1s]\n"
-			"frame 2000: [0 attacks 3 built 268u/11s destroyed 179u/3s] [1 attacks 3 built 231u/10s destroyed 131u/1s]\n"
-			"frame 3000: [0 attacks 4 built 404u/13s destroyed 310u/4s] [1 attacks 6 built 383u/12s destroyed 292u/1s]\n"
-			"frame 4000: [0 attacks 6 built 694u/14s destroyed 435u/5s] [1 attacks 8 built 529u/14s destroyed 559u/3s]\n"
-			"frame 5000: [0 attacks 7 built 946u/15s destroyed 560u/7s] [1 attacks 11 built 681u/17s destroyed 782u/3s]\n"
-			"frame 6000: [0 attacks 10 built 1136u/20s destroyed 658u/9s] [1 attacks 13 built 773u/19s destroyed 1037u/4s]\n"
-			"frame 7000: [0 attacks 12 built 1404u/23s destroyed 776u/10s] [1 attacks 13 built 875u/22s destroyed 1272u/5s]\n"
-			"frame 8000: [0 attacks 15 built 1644u/25s destroyed 889u/10s] [1 attacks 13 built 988u/26s destroyed 1505u/5s]\n"
-			"frame 9000: [0 attacks 15 built 1841u/26s destroyed 1048u/10s] [1 attacks 13 built 1149u/27s destroyed 1686u/5s]\n");
+			"frame 1000: [0 attacks 0 built 71u/8s destroyed 23u/1s] [1 attacks 0 built 75u/7s destroyed 11u/1s]\n"
+			"frame 2000: [0 attacks 4 built 221u/11s destroyed 176u/4s] [1 attacks 3 built 198u/10s destroyed 63u/2s]\n"
+			"frame 3000: [0 attacks 4 built 375u/13s destroyed 270u/8s] [1 attacks 4 built 307u/12s destroyed 265u/3s]\n");
 		}
 	}
 }
