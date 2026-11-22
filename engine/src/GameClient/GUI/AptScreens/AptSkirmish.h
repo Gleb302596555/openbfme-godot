@@ -93,6 +93,7 @@ public:
 		return slot >= 0 && slot < MAX_SLOTS ? m_readyIcon[(size_t)slot] : none;
 	}
 	GameWindow *mapListWindow() const { return m_mapList; }
+	GameWindow *mapSearchWindow() const { return m_mapSearch; }
 	GameWindow *mapCapacityFilterWindow() const { return m_mapCapacityFilter; }
 	const std::vector<GameWindow *> &mapStartSpotWindows() const { return m_currentMapChildren; } // lane FB7-1 (tests)
 	// lane UI-2: the map preview window (MpGameSetup's CurrentMap, MpMapWindow.wnd) and its start-spot buttons
@@ -315,6 +316,7 @@ private:
 	int heroSide(int slot) const;                    ///< the slot's faction side as a Create-a-Hero faction index (-1: any)
 	bool heroUsable(int slot, const CreateAHeroHero &hero) const;
 	void populateMapList();
+	void updateMapSearchQuery(const std::u16string &rawText);
 	void createMapCapacityFilter();
 	void setMapSort(int mode);
 	void refreshAll();
@@ -398,6 +400,8 @@ private:
 	int m_firstVisibleSlot = 0;
 	int m_layoutCapacity = LEGACY_MAX_SLOTS;
 	GameWindow *m_mapList = nullptr;
+	GameWindow *m_mapSearch = nullptr; // PYSAGE 1.9.8.5 .mapsvar 0xF32004 (EnnorathLobbyMapSearch)
+	std::u16string m_mapSearchQuery;   // PYSAGE 1.9.8.5 .mapsvar 0xF32008 / 0xF3200C: trimmed, folded, max 256 UTF-16 units
 	GameWindow *m_mapCapacityFilter = nullptr;
 	bool m_largeMapsOnly = false;
 	std::vector<std::string> m_mapKeys;     // the map key of each MapList row (MpGameSetup +0x398)

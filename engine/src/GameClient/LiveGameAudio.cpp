@@ -386,16 +386,18 @@ std::uint8_t LiveGameAudio::templateAudio(const ThingTemplate &tt)
 	return kinds;
 }
 
+// RW 0x006787DA (reads BodyModuleInterface::getDamageState vslot 0x24 and resolves the ambient sound for that state)
 const std::string &LiveGameAudio::cachedAmbientSoundFor(const Object &obj)
 {
-	// lane PERF-1 r2: ambientSoundFor reads the template's sound rows (field lookups by name); its result depends on the template and the damage state
-	// alone, so update() asks it once per pair
+	// lane PERF-1 r2: ambientSoundFor depends on the template, damage state and construction flags (RW 0x006760CA), so update() asks it once per tuple
 	BodyDamageType dt = BODY_PRISTINE;
 	if (const BodyModuleInterface *body = obj.getBodyModule())
 	{
 		dt = body->getDamageState();
 	}
-	const auto key = std::make_pair(obj.getTemplate(), (int)dt);
+	// RW 0x006760CA: model condition bits 0x43 (AWAITING_CONSTRUCTION) or 0x45 (ACTIVELY_BEING_CONSTRUCTED)
+	const bool constructing = obj.testModelCondition(0x43) || obj.testModelCondition(0x45);
+	const auto key = std::make_pair(obj.getTemplate(), (int)dt | (constructing ? 0x100 : 0));
 	auto it = m_ambientByTemplate.find(key);
 	if (it == m_ambientByTemplate.end())
 	{
@@ -404,9 +406,12 @@ const std::string &LiveGameAudio::cachedAmbientSoundFor(const Object &obj)
 	return it->second;
 }
 
+// RW 0x00678578 (select ambient with pristine fallback for DAMAGED / REALLYDAMAGED, none for RUBBLE)
+// -> RW 0x00677898 (non-RUBBLE with RW 0x006760CA construction flags forces pristine SoundAmbient; else switch on BodyDamageType)
+// -> RW 0x00676B5A (0x25 SoundAmbient), RW 0x00676B73 (0x26 SoundAmbientDamaged),
+//    RW 0x00676B8C (0x27 SoundAmbientReallyDamaged), RW 0x00676BA5 (0x28 SoundAmbientRubble)
 std::string LiveGameAudio::ambientSoundFor(const Object &obj)
 {
-	// ZH Drawable::startAmbientSound(dt): the sound of the damage state, else for DAMAGED / REALLYDAMAGED the pristine one (RUBBLE has no fallback)
 	const ThingTemplate &tt = *obj.getTemplate();
 	BodyDamageType dt = BODY_PRISTINE;
 	if (const BodyModuleInterface *body = obj.getBodyModule())
@@ -414,7 +419,10 @@ std::string LiveGameAudio::ambientSoundFor(const Object &obj)
 		dt = body->getDamageState();
 	}
 	static const char *const kField[BODYDAMAGETYPE_COUNT] = { "SoundAmbient", "SoundAmbientDamaged", "SoundAmbientReallyDamaged", "SoundAmbientRubble" };
-	std::string s = soundField(tt, kField[dt]);
+	// RW 0x006760CA + RW 0x00677898: while AWAITING_CONSTRUCTION (0x43) or ACTIVELY_BEING_CONSTRUCTED (0x45) and not RUBBLE, use SoundAmbient
+	const bool constructing = obj.testModelCondition(0x43) || obj.testModelCondition(0x45);
+	const BodyDamageType pick = (dt != BODY_RUBBLE && constructing) ? BODY_PRISTINE : dt;
+	std::string s = soundField(tt, kField[pick]);
 	if (s.empty() && dt != BODY_PRISTINE && dt != BODY_RUBBLE)
 	{
 		s = soundField(tt, kField[BODY_PRISTINE]);
@@ -422,6 +430,7 @@ std::string LiveGameAudio::ambientSoundFor(const Object &obj)
 	return s;
 }
 
+// RW 0x006746FD (Drawable::stopAmbientSound: removes the ambient handle via TheAudio vslot 0x6C and resets it)
 void LiveGameAudio::stopAmbient(ObjectID, Ambient &a)
 {
 	if (a.handle >= AHSV_FirstHandle)
@@ -832,6 +841,7 @@ void LiveGameAudio::update()
 		}
 		Ambient &a = found != m_ambients.end() ? found->second : m_ambients[o->getID()];
 		a.seenPass = pass;
+		// RW 0x0067876B (Drawable::rva00278440: when the resolved ambient differs from the playing one, restart it)
 		if (a.event != want)
 		{
 			stopAmbient(o->getID(), a);

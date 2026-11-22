@@ -2404,7 +2404,7 @@ void ScriptEngine::executeMapReveal(const ScriptActionRec &action)
 }
 
 // ---- lane BACKLOG4 (S-529): the triggered special powers ---------------------------------------------------------------------------------------
-// RW 0x7ED86B -> CRC_String (BFME2 decomp WWLib/realcrc_one_arg.cpp, tier A): the CRC-32 of the name's bytes, case kept; 0 for an empty name
+// RW 0x7ED86B -> RW 0x007ED77A (CRC_String, IEEE 802.3 CRC-32 table 0xC4BF10, BFME2 decomp WWLib/realcrc_one_arg.cpp, tier A): 0 for an empty name
 std::uint32_t ScriptEngine::specialPowerNameCrc(const std::string &name)
 {
 	return name.empty() ? 0u : crc32Bytes(name.data(), name.size());

@@ -460,6 +460,11 @@ std::optional<float> Economy::brutalReduction(const Player &player, bool time) c
 	return 1.0f > r ? r : 1.0f;
 }
 
+void Economy::onUnitCreated(const Player &player, Object *factory, Object &unit)
+{
+	m_logic.skirmishAI().unitCreated(player, factory, unit);
+}
+
 namespace
 {
 // lane BIGBATTLE-1: ObjectFilterMatch::allows(filter, object, no other player) of the objects one player controls depends only on the object's

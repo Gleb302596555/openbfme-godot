@@ -571,6 +571,11 @@ void AIGroup::groupIdle(CommandSourceType source)
 		{
 			ai->aiIdle(source);
 		}
+		// PORT-198 (RW 0x77205F -> 0x68C3A3 slot 8 / 0x20: SpawnBehaviorInterface::orderSlavesToGoIdle)
+		if (SpawnBehaviorInterface *spawn = SpawnBehaviorInterface::of(*o))
+		{
+			spawn->orderSlavesToGoIdle(source);
+		}
 	}
 }
 
@@ -580,10 +585,11 @@ const char *AIGroup::forceAttackStopLine()
 {
 	return "[S-2480] force attack (lane PLAY-2, narrowed by PORT-208 issue #490): MSG_DO_FORCE_ATTACK_GROUND (RW 0x77AF93) and MSG_DO_FORCE_ATTACK_OBJECT "
 		"(RW 0x77AED3) run with the group's weapon locks, groupAttackPosition (RW 0x77229A: firing-container passengers via getAbleToUseWeaponAgainstTarget "
-		"RW 0x68B5FA -> 0x6C8652 and SpawnBehavior slaves via RW 0x863807), the clicked map tree stand-in 99999999 (RW 0x62F508 / 0x48ACF5 / 0x77AF18 / "
-		"0x77C1C2 with AIData AllowForestFires -> TerrainTrees::makeTreeObject RW 0x68449B) and the off-map refusal (Object + 0x458 bit 3, RW 0x66DE32 / "
-		"0x660E93); INFERENCE / not ported: PartitionFilterPossibleToAttack (RW 0x660CA4 -> 0x68D6A6) of the ContinueAttackRange search uses the non-forced "
-		"canAttackObject, and CONTESTING_BUILDING's getFiringOwner lookup (RW 0x6C86CF .. 0x6C86FB) in getAbleToUseWeaponAgainstTarget is not ported (S-1103)";
+		"RW 0x68B5FA -> 0x6C8652 and SpawnBehavior slaves via RW 0x863807 / SpawnBehaviorInterface slot 4 orderSlavesToAttackPosition, PORT-198 & PORT-208), "
+		"the clicked map tree stand-in 99999999 (RW 0x62F508 / 0x48ACF5 / 0x77AF18 / 0x77C1C2 with AIData AllowForestFires -> TerrainTrees::makeTreeObject "
+		"RW 0x68449B) and the off-map refusal (Object + 0x458 bit 3, RW 0x66DE32 / 0x660E93); INFERENCE / not ported: PartitionFilterPossibleToAttack "
+		"(RW 0x660CA4 -> 0x68D6A6) of the ContinueAttackRange search uses the non-forced canAttackObject, and CONTESTING_BUILDING's getFiringOwner lookup "
+		"(RW 0x6C86CF .. 0x6C86FB) in getAbleToUseWeaponAgainstTarget is not ported (S-1103)";
 }
 
 bool AIGroup::isIdle() const
@@ -670,21 +676,10 @@ void AIGroup::groupAttackPosition(const Coord3D &pos, int maxShotsToFire, Comman
 				}
 			}
 		}
-		// RW 0x772357 .. 0x772375 -> SpawnBehavior::orderSlavesAttackPosition (RW 0x863807, SpawnBehaviorInterface slot 4): every live slave in list order
+		// RW 0x772357 .. 0x772375 -> SpawnBehavior::orderSlavesToAttackPosition (RW 0x863807, SpawnBehaviorInterface slot 4): every live slave (incl. SpawnBehaviorUnion)
 		if (SpawnBehaviorInterface *spawn = SpawnBehaviorInterface::of(*o))
 		{
-			spawn->forEachSpawnID([&](ObjectID slaveId) {
-				if (Object *slave = m_logic.findObjectByID(slaveId))
-				{
-					if (!slave->isDestroyed())
-					{
-						if (AIUpdateInterface *sai = slave->getAIUpdateInterface())
-						{
-							sai->aiAttackPosition(pos, maxShotsToFire, source);
-						}
-					}
-				}
-			});
+			spawn->orderSlavesToAttackPosition(&pos, maxShotsToFire, source); // RW 0x772369 -> 0x68C3A3 slot 4 (0x10), PORT-198 & PORT-208
 		}
 		if (AIUpdateInterface *ai = o->getAIUpdateInterface())
 		{
