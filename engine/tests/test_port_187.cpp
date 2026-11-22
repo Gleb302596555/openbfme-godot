@@ -36,6 +36,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <map>
 #include <string>
 
 namespace
@@ -122,18 +123,120 @@ Object Port187Barracks
 End
 )ini";
 
+// The SAME machine with the numbers Ennorath 1.9.8.3 actually ships for Mordor's fell beast, which is the object the
+// owner reported circling after a strike (P-114). Every number below is copied from the mod, not invented:
+//   data/ini/locomotor.ini   `FellBeastSwoopLocomotor` (the SET_PANIC set the swoop flies in): Surfaces AIR,
+//                            **LookAheadMult = 2.0**, SlowTurnRadius 32, FastTurnRadius 48, TurnTime 3500,
+//                            TurnTimeDamaged 4500, Acceleration 400, Braking 1000, MinTurnSpeed 30%,
+//                            PreferredHeight 121, PreferredAttackHeight 5, CloseEnoughDist 2
+//   data/ini/object/evilfaction/units/mordor/fellbeast.ini   `MordorFellBeast`: Geometry CYLINDER,
+//                            GeometryMajorRadius 42.0, GeometryHeight 45.0, GeometryOffset Z:-10;
+//                            GiantBirdAIUpdate FollowThroughDistance 200, FollowThroughCheckStep 50,
+//                            FollowThroughGradient 1.0, SpecialContactPoints Swoop; LocomotorSet SET_PANIC ->
+//                            FellBeastSwoopLocomotor, Speed 160
+//   data/ini/includes/weapon.inc   `NazgulPlowAttackEdain` (TERTIARY, PreferredAgainst STRUCTURE MACHINE HORDE):
+//                            AttackRange 24.0, AcceptableAimDelta 5, **DelayBetweenShots 4000, FiringDuration 5000**,
+//                            CanSwoop Yes, ChaseWeapon Yes, and every damage nugget scales 0% against +STRUCTURE.
+// The two differences from the synthetic fixture that matter are LookAheadMult (the mover samples TWO half spheres
+// each way on the swoop) and the 4000-frame reload, which make the real object a different measurement.
+const char kPort187RealFixture[] = R"ini(
+Locomotor Port187RealSwoopLocomotor
+ Surfaces = AIR
+ LookAheadMult = 2.0
+ Appearance = GIANT_BIRD
+ TurnTime = 3500
+ TurnTimeDamaged = 4500
+ SlowTurnRadius = 32
+ FastTurnRadius = 48
+ Acceleration = 400
+ Braking = 1000
+ MinTurnSpeed = 30%
+ PreferredHeight = 121
+ PreferredAttackHeight = 5
+ CloseEnoughDist = 2
+ ZAxisBehavior = SURFACE_RELATIVE_HEIGHT
+End
+Weapon Port187RealPlow
+ AttackRange = 24.0
+ AcceptableAimDelta = 5
+ DelayBetweenShots = 4000
+ FiringDuration = 5000
+ MeleeWeapon = No
+ CanSwoop = Yes
+ ChaseWeapon = Yes
+ RadiusDamageAffects = ENEMIES NOT_SIMILAR
+ DamageNugget
+  Damage = 10
+  Radius = 45.0
+  DelayTime = 0
+  DamageType = SIEGE
+  DeathType = NORMAL
+ End
+End
+Object Port187RealBird
+ KindOf = HERO PRELOAD SELECTABLE SCORE NO_FREEWILL_ENTER SCARY MONSTER CANNOT_RETALIATE ARMY_SUMMARY GIANT_BIRD
+ Geometry = CYLINDER
+ GeometryMajorRadius = 42.0
+ GeometryHeight = 45.0
+ GeometryOffset = X:0 Y:0 Z:-10
+ GeometryIsSmall = No
+ WeaponSet
+  Conditions = None
+  ReadyStatusSharedWithinSet = Yes
+  Weapon = PRIMARY Port187RealPlow
+  PreferredAgainst = PRIMARY STRUCTURE MACHINE HORDE INFANTRY CAVALRY
+ End
+ Body = ActiveBody ModuleTag_Body
+  MaxHealth = 3500
+ End
+ Behavior = GiantBirdAIUpdate ModuleTag_AI
+  AutoAcquireEnemiesWhenIdle = No
+  SpecialContactPoints = Swoop
+  FollowThroughDistance = 200
+  FollowThroughCheckStep = 50
+  FollowThroughGradient = 1.0
+ End
+ LocomotorSet
+  Locomotor = Port187RealSwoopLocomotor
+  Condition = SET_PANIC
+  Speed = 160
+ End
+ LocomotorSet
+  Locomotor = Port187RealSwoopLocomotor
+  Condition = SET_NORMAL
+  Speed = 95
+ End
+End
+Object Port187RealBarracks
+ KindOf = STRUCTURE SELECTABLE IMMOBILE
+ Geometry = BOX
+ GeometryMajorRadius = 40
+ GeometryMinorRadius = 40
+ GeometryHeight = 40
+ GeometryContactPoint = X:0 Y:0 Z:40 Swoop
+ Body = ActiveBody ModuleTag_Body
+  MaxHealth = 2000
+ End
+End
+)ini";
+
+// the same arena over either fixture: the synthetic one, or the fell beast's shipped Ennorath numbers
 struct Port187Arena
 {
 	combattest::CombatWorld w;
 	Object *bird = nullptr;
 	GiantBirdAIUpdate *ai = nullptr;
 
-	Port187Arena()
+	explicit Port187Arena(const char *ini = nullptr, const char *birdName = nullptr, const char *barracksName = nullptr)
 	{
-		const std::string error = w.w.load(kPort187Fixture, INI_LOAD_OVERWRITE, "port187.ini");
+		ini = ini ? ini : kPort187Fixture;
+		birdName = birdName ? birdName : "Port187Bird";
+		barracksName = barracksName ? barracksName : "Port187Barracks";
+		barracksType = barracksName;
+		const std::string error = w.w.load(ini, INI_LOAD_OVERWRITE, "port187.ini");
 		REQUIRE_MESSAGE(error.empty(), error);
 		w.combat().setAutoAcquireEnabled(false);
-		bird = w.unit("Port187Bird", 'A', 200.0f, 200.0f);
+		bird = w.unit(birdName, 'A', 200.0f, 200.0f);
 		REQUIRE(bird != nullptr);
 		ai = dynamic_cast<GiantBirdAIUpdate *>(bird->getAIUpdateInterface());
 		REQUIRE(ai != nullptr);
@@ -141,6 +244,14 @@ struct Port187Arena
 		Coord3D air{ 200.0f, 200.0f, 121.0f };
 		bird->setPosition(&air);
 	}
+
+	// the barracks of whichever fixture the arena was built over
+	Object *barracks(float x, float y)
+	{
+		return w.unit(barracksType.c_str(), 'B', x, y);
+	}
+
+	std::string barracksType;
 };
 
 float normAngle(float a)
@@ -227,7 +338,7 @@ int stateOf(GiantBirdAIUpdate &ai)
 TEST_CASE("PORT-187 P-114 giant bird: after a strike the machine swoops again and the new path walks toward the goal, not away from it (RW 0x76975F / RW 0x778413 / RW 0x5E91E2)")
 {
 	Port187Arena a;
-	Object *barracks = a.w.unit("Port187Barracks", 'B', 400.0f, 200.0f);
+	Object *barracks = a.barracks(400.0f, 200.0f);
 	REQUIRE(barracks != nullptr);
 	a.bird->setOrientation(0.0f); // the bird faces +X, the barracks is east of it
 	REQUIRE(a.ai->aiAttackObject(barracks, CMD_FROM_PLAYER));
@@ -279,7 +390,7 @@ TEST_CASE("PORT-187 P-114 giant bird: after a strike the machine swoops again an
 TEST_CASE("PORT-187 P-117 giant bird: every swoop that reaches the barracks fires the plow once (RW 0x76B668 gate max(speed*3, 8.5) / RW 0x69200A)")
 {
 	Port187Arena a;
-	Object *barracks = a.w.unit("Port187Barracks", 'B', 400.0f, 200.0f);
+	Object *barracks = a.barracks(400.0f, 200.0f);
 	REQUIRE(barracks != nullptr);
 	a.bird->setOrientation(0.0f);
 	REQUIRE(a.ai->aiAttackObject(barracks, CMD_FROM_PLAYER));
@@ -333,7 +444,7 @@ TEST_CASE("PORT-187 P-117 giant bird: every swoop that reaches the barracks fire
 TEST_CASE("PORT-187 P-114 giant bird: no frame turns the bird further than RW 0x5E372D")
 {
 	Port187Arena a;
-	Object *barracks = a.w.unit("Port187Barracks", 'B', 400.0f, 200.0f);
+	Object *barracks = a.barracks(400.0f, 200.0f);
 	REQUIRE(barracks != nullptr);
 	a.bird->setOrientation(0.0f); // the bird faces +X, the barracks is east of it
 	REQUIRE(a.ai->aiAttackObject(barracks, CMD_FROM_PLAYER));
@@ -387,7 +498,7 @@ TEST_CASE("PORT-187 P-114 giant bird: no frame turns the bird further than RW 0x
 TEST_CASE("PORT-187 P-114 giant bird: the swoop's heading follows the path the mover is given (RW 0x5E91E2 / RW 0x5E3A81)")
 {
 	Port187Arena a;
-	Object *barracks = a.w.unit("Port187Barracks", 'B', 400.0f, 200.0f);
+	Object *barracks = a.barracks(400.0f, 200.0f);
 	REQUIRE(barracks != nullptr);
 	a.bird->setOrientation(0.0f);
 	REQUIRE(a.ai->aiAttackObject(barracks, CMD_FROM_PLAYER));
@@ -435,4 +546,63 @@ TEST_CASE("PORT-187 P-114 giant bird: the swoop's heading follows the path the m
 	// count follows the fixture's frame timing, so pinning it would break on any harmless path change
 	REQUIRE(measured > 0); // tolerance: a vacuity guard, the sign agreement below is the exact assertion
 	CHECK(agreed == measured); // RW 0x5E3A81: the orientation moves by the sign of the averaged angle (through the clamp)
+}
+
+// -----------------------------------------------------------------------------------------------------------------
+// P-114 over the numbers Ennorath 1.9.8.3 actually ships for the fell beast (the object the report came from)
+// -----------------------------------------------------------------------------------------------------------------
+
+// This is the measurement the earlier fixture could not make. Two of the mod's numbers change the picture:
+//   * the swoop flies in SET_PANIC -> `FellBeastSwoopLocomotor`, which sets **LookAheadMult = 2.0**, so the mover
+//     (RW 0x5E91E2) samples one BOUNDING SPHERE each way, not half of one (RW 0xBD869C * LookAheadMult);
+//   * `NazgulPlowAttackEdain` reloads for 4000 frames, so a pass cannot be followed by another straight away.
+// The pass geometry is measured, not asserted: the case requires only that the bird keeps flying a path and that its
+// turn stays inside the cap, so a regression shows up as a red case with the numbers printed.
+TEST_CASE("PORT-187 P-114 the fell beast as Ennorath ships it: the swoop flies on and stays inside RW 0x5E372D")
+{
+	Port187Arena a(kPort187RealFixture, "Port187RealBird", "Port187RealBarracks");
+	Object *barracks = a.barracks(400.0f, 200.0f);
+	REQUIRE(barracks != nullptr);
+	a.bird->setOrientation(0.0f);
+	REQUIRE(a.ai->aiAttackObject(barracks, CMD_FROM_PLAYER));
+
+	// the shipped LookAheadMult has to reach the mover, else this case measures the wrong geometry
+	const Locomotor *loco = a.ai->curLocomotor();
+	REQUIRE(loco != nullptr);
+	REQUIRE(loco->getTemplate().m_lookAheadMult == doctest::Approx(2.0)); // tolerance: the fixture sets exactly 2.0
+
+	const float cap = loco->getMaxTurnRate(a.ai->locomotorHost());
+	float largest = 0.0f;
+	int at = -1;
+	int turns = 0;
+	std::string stateHist;
+	std::map<int, int> framesPerState;
+	for (int frame = 0; frame < 1200; ++frame)
+	{
+		++framesPerState[(int)a.ai->currentStateId()];
+		const float before = a.bird->getOrientation();
+		a.w.frames(1);
+		const float turned = std::fabs(normAngle(a.bird->getOrientation() - before));
+		if (turned > 0.0f)
+		{
+			++turns;
+		}
+		if (turned > largest)
+		{
+			largest = turned;
+			at = frame;
+		}
+		// float32 orientation storage rounds the difference of two orientations by an ULP
+		CHECK_MESSAGE(turned <= cap + 1e-4f, "frame " << frame << " turned " << turned << " rad, the cap is " << cap); // tolerance: ULP of float32 storage
+	}
+	for (const auto &kv : framesPerState)
+	{
+		stateHist += "state " + std::to_string(kv.first) + ": " + std::to_string(kv.second) + " frames, ";
+	}
+	MESSAGE("shipped fell beast: " << turns << " turning frames, largest turn " << largest << " rad at frame " << at
+		<< " (" << largest * 57.2958f << " deg), the cap is " << cap << "; swoops " << a.ai->swoopsStarted()
+		<< ", strikes " << a.ai->strikes() << ", health " << a.w.health(barracks) << "\n" << stateHist);
+	// the bird has to keep flying: a machine stuck between states would turn on no frame at all
+	CHECK(turns > 0); // tolerance: a vacuity guard, the per-frame cap check above is the exact assertion
+	CHECK(a.ai->swoopsStarted() >= 1);
 }
