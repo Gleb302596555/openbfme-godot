@@ -141,6 +141,22 @@ TEST_CASE("PORT-320: killPlayer preserves the shared AI group's objects and mone
 	CHECK(aloneAsset->isEffectivelyDead());
 }
 
+TEST_CASE("PORT-320: a shared group's first AI is retained while a linked member is alive (RW 0x6ABE89 -> RW 0x6C7518)")
+{
+	Port320AIWorld world;
+	Player *first = world.player("C1");
+	Player *member = world.player("C2");
+	REQUIRE(first != nullptr);
+	REQUIRE(member != nullptr);
+	REQUIRE(world.logic->skirmishAI().findGroup(first->getPlayerIndex()) == world.logic->skirmishAI().findGroup(member->getPlayerIndex()));
+	const auto money = first->getMoney()->countMoney();
+	REQUIRE(money > 0);
+	world.logic->victory().killPlayer(first);
+	CHECK(first->isDefeated());
+	CHECK(first->getMoney()->countMoney() == money); // RW 0x6C7537..0x6C7569 finds the living AI member linked to this first player
+	CHECK_FALSE(member->isDefeated());
+}
+
 TEST_CASE("PORT-320: defeated player's whole map is permanently revealed and the surviving player's map is unchanged (RW 0x808F53 / RW 0x8090AA -> RW 0xB4D940 -> RW 0xB4F5D0)")
 {
 	Port320World world;
