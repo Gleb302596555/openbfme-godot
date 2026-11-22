@@ -222,7 +222,7 @@ public:
 		m_nextEnemyScanTime = logic.getFrame() + (unsigned)logic.random().getValue(0, (int)settingsOf(obj).guardEnemyScanRate, kGuardFile, 0x3F5);
 		return STATE_CONTINUE;
 	}
-	// RW 0x94A70A (the guarded object's / team's move test has nothing to test for a LOCATION guard; the crate: none in the port)
+	// RW 0x94A70A (the crate and guarded-object move test remain unported)
 	StateReturnType update() override
 	{
 		Object &obj = owner();
@@ -684,7 +684,7 @@ public:
 const char *guardStopLine()
 {
 	return "[S-3802] AI guard (RW 0x662A21 -> state 16, the guard machine RW 0x949A10): ported for the LOCATION guard of the stances and (lane BFME2CAMP1) the AREA "
-		   "and TEAM guards of the scripts; not ported: the object guard, the turret's target in lookForInnerTarget, the AI + 0x3CD layer flag, AI crates (lane WALLMELEE-1: the outer state's layer test, "
+		   "and TEAM guards of the scripts; not ported: the object guard, the AI + 0x3CD layer flag, AI crates (lane WALLMELEE-1: the outer state's layer test, "
 		   "RW 0x68BBE0 / 0x6FF7FA, is ported), the inner state's restart flag (lane TARGET-1: TheAI's closest enemy is RotWK's search, AIClosestEnemy.h)";
 }
 

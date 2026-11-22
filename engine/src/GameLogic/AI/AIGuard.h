@@ -21,7 +21,7 @@
 //     condition RW 0x949994 -> 5005; the first defined (5003) is the default.
 //   * RW 0x949994 (has attacked me): the body's last attacker once (body vslot 0x4C, RW 0x8C3A33), an enemy (RW 0x68D7AB), not dead, the owner able to attack
 //     (RW 0x691269) and getAbleToAttackSpecificObject(new target, it, CMD_FROM_AI) possible or possible after moving (RW 0x68D6A6).
-//   * lookForInnerTarget RW 0x949CA7: the AI's turret target when an enemy; a team that attacks a common target and has one; then around the guarded spot
+//   * lookForInnerTarget RW 0x949CA7: the AI machine's goal when an enemy; a team that attacks a common target and has one; then around the guarded spot
 //     (RW 0x949BD3: the guarded object's position, else the team's, else the guard position; the owner's when that is 0, 0) within getStdGuardRange
 //     (RW 0x949567 -> RW 0x6FF412: the vision range plus Object + 0xB8 (the bounding circle radius), times AIData AlertRangeModifier / AggressiveRangeModifier for an alert / aggressive
 //     computer unit, 0 asleep): an INVISIBLE_STEALTH object (model condition 0x222) finds nothing, an INVISIBLE_CAMOUFLAGE one (0x223) nothing in a stance of
@@ -33,7 +33,7 @@
 //     (+ 0x3C), GuardEnemyScanRate (+ 0x40), GuardEnemyReturnScanRate (+ 0x44) (table RW 0xC1CC00 .., parseDurationUnsignedInt RW 0x73A429).
 //
 // INFERENCE / NOT PORTED (stop S-3802, guardStopLine()): the LOCATION and (lane BFME2CAMP1) AREA and TEAM target types (the object guard is the script
-// commands' and is reported where met); a guarded team without members: retail divides by zero (RW 0x7A0ECD), the port guards the position to guard; (lane TARGET-1: TheAI's closest enemy is RotWK's search AI::findClosestEnemy with RW's qualifier word); the turret target, the
+// commands' and is reported where met); a guarded team without members: retail divides by zero (RW 0x7A0ECD), the port guards the position to guard; (lane TARGET-1: TheAI's closest enemy is RotWK's search AI::findClosestEnemy with RW's qualifier word); the
 // AI + 0x3CD layer flag, the crate state (the port has no AI crates: it succeeds at once), the inner state's +0x40 restart flag (no writer known); the
 // outer state's layer test (RW 0x68BBE0 / 0x6FF7FA) is ported (lane WALLMELEE-1); the vision range is RW 0x6FF412's (lane
 // TARGET-1: the vision range plus the bounding circle, AI::adjustedVisionRange).
