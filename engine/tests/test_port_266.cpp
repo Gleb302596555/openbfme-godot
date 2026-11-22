@@ -1,5 +1,7 @@
 // OpenBFME. GPL-3.0. PORT-266: synthetic GameData tests, no game files.
 #include "doctest.h"
+#include "LogicTestUtil.h"
+#include "GameLogic/Object/PartitionManager.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/ObjectFilter.h"
 #include "GameLogic/ObjectFilterMatch.h"
@@ -47,4 +49,45 @@ TEST_CASE("PORT-266 omitted switch keeps retail constructor default and later bl
 	CHECK(settings.allowTreeFading);
 	REQUIRE_MESSAGE(GameLogicSettingsLoader::scanGameData(gameData(" AllowTreeFading = No\n"), settings, &error), error);
 	CHECK_FALSE(settings.allowTreeFading);
+}
+
+// This is a partition/filter integration baseline, not a test of the missing tree fade runtime (S-7438).
+TEST_CASE("PORT-266 retail query inputs use 2D bounding circle and null filter player")
+{
+	logictest::LogicWorld world;
+	REQUIRE_MESSAGE(world.loadError.empty(), world.loadError);
+	const std::string error = world.w.load(
+		"Object InfantryProbe\n KindOf = INFANTRY\n Geometry = CYLINDER\n GeometryMajorRadius = 3\n GeometryHeight = 10\nEnd\n"
+		"Object HeroProbe\n KindOf = INFANTRY HERO\n Geometry = CYLINDER\n GeometryMajorRadius = 3\n GeometryHeight = 10\nEnd\n");
+	REQUIRE_MESSAGE(error.empty(), error);
+	world.logic->partition().setRegion(0.0f, 0.0f, 1000.0f, 1000.0f);
+	auto place = [&](const char *name, const Coord3D &p) {
+		Object *o = world.make(name, world.teamOf("Alice"));
+		o->setPosition(&p);
+		return o;
+	};
+	// RW 0x4ED508 -> mode 1 -> table RW 0xDBDAF8 -> RW 0xA3AE50: distance from 2D bounding-circle edge, not 3D centre.
+	Object *edge = place("InfantryProbe", Coord3D{ 112.0f, 100.0f, 500.0f }); // edge 9, within 10 even at high Z
+	Object *outside = place("InfantryProbe", Coord3D{ 114.0f, 100.0f, 0.0f }); // edge 11
+	Object *excluded = place("HeroProbe", Coord3D{ 100.0f, 100.0f, 0.0f });
+	world.logic->runLogicFrame(); // update moved partition entries
+	GameLogicSettings settings;
+	std::string parseError;
+	REQUIRE_MESSAGE(GameLogicSettingsLoader::scanGameData(gameData(" TreeFadeObjectFilter = ANY +INFANTRY -HERO\n"), settings, &parseError), parseError);
+	REQUIRE(settings.treeFadeObjectFilter.get() != nullptr);
+	// RW 0x4ED508 initializes wrapper +0xC to null; RW 0x66122D passes that as the reference player.
+	PartitionFilterFn filter([&](Object &o) { return ObjectFilterMatch::allows(*world.logic, *settings.treeFadeObjectFilter, o, nullptr); });
+	const Coord3D center{ 100.0f, 100.0f, 0.0f };
+	const PartitionHits hits = world.logic->partition().iterateObjectsInRange(center, 10.0f, FROM_BOUNDINGSPHERE_2D, { &filter }, ITER_FASTEST);
+	REQUIRE(hits.size() == 1);
+	CHECK(hits[0].object == edge);
+	CHECK(hits[0].object != outside);
+	CHECK(hits[0].object != excluded);
+	const PartitionHits wrong3d = world.logic->partition().iterateObjectsInRange(center, 10.0f, FROM_CENTER_3D, { &filter }, ITER_FASTEST);
+	CHECK(wrong3d.size() == 0);
+	// RW 0x763543: relationships need both players. The separate local-alliance check is not the filter reference.
+	REQUIRE_MESSAGE(GameLogicSettingsLoader::scanGameData(gameData(" TreeFadeObjectFilter = ALL SAME_PLAYER\n"), settings, &parseError), parseError);
+	REQUIRE(settings.treeFadeObjectFilter.get() != nullptr);
+	CHECK_FALSE(ObjectFilterMatch::allows(*world.logic, *settings.treeFadeObjectFilter, *edge, nullptr));
+	CHECK(ObjectFilterMatch::allows(*world.logic, *settings.treeFadeObjectFilter, *edge, edge->getControllingPlayer()));
 }
