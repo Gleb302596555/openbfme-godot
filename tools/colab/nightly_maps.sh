@@ -1,7 +1,7 @@
 #!/bin/bash
 # Maps (owner 2026-11-16; 2026-11-17: one run of all three tools on one main, after every landing; 2026-11-23: "все карты и свипы и аудиты
 # крутил один скрипт на 3 песочнице"): the script map, the button matrix and its grey explanation (MATRIX_GREY), the field audit, the map
-# sweep (every Ennorath map starts and plays, MAP_SWEEP), the RotWK function map, the modifier map and their joins (MATRIX_GAPS,
+# sweep (every Ennorath map starts and plays, MAP_SWEEP), the RotWK function map, the whole-image map (RW_BINARY_MAP), the modifier map and their joins (MATRIX_GAPS,
 # FIELD_GAPS), pushed to the branch auto/maps; GitHub Actions checks the commit and lands it on main (.github/workflows/maps-land.yml, owner
 # 2026-11-20; never into main from here), with one summary on the Drive (openbfme-runs/maps/<date>.md, and latest.md: the PR checker and the agents read it).
 #
@@ -58,6 +58,37 @@ decomp_map() {
       --bfme2-inv "$XMAP/bfme2_functions.csv" --bfme2-ledger "$XMAP/bfme2_ledger.csv" --decomp "$DECOMP2" --work "$XMAP/work" \
       --out-csv "$XMAP/rw_map.csv" --out-json "$XMAP/rw_summary.json" >> "$log" 2>&1 ||
     { rm -f "$XMAP/rw_map.csv"; echo "decomp map failed (column left empty): $log" >> "$LOG"; }
+}
+
+# The whole-image map (owner 2026-11-23, tools/rw_object_model/): every function of game.dat with its class, slot, callers, BFME2 pair
+# and port status -> docs/ennorath/RW_BINARY_MAP.*, RW_CLASSES.tsv, RW_VCALLS.tsv. The inventory and the per-function facts take hours:
+# they are cached on the Drive keyed by game.dat's SHA256 and the two tools' blob ids, so a night reruns only the BFME2 pairing over the
+# inventory (minutes) and the report (port status from this main's `RW 0x...` citations); a changed tool rebuilds the cache once.
+BINMAP=$DRIVE/openbfme-audit/binary-map
+binary_map() {
+  local key log=$RUNS/nightly_binmap.log
+  key="$(sha256sum "$RW_GAME_DAT" | cut -c1-16) $(git rev-parse HEAD:tools/rw_object_model/binary_map.py HEAD:tools/rw_object_model/class_map.py | tr '\n' ' ')"
+  mkdir -p workspace/rebuild "$BINMAP"
+  if [ "$(cat "$BINMAP/key" 2>/dev/null)" = "$key" ]; then
+    cp -f "$BINMAP/rw_binary_functions.json" "$BINMAP/rw_binary_facts.pickle" workspace/rebuild/ || return 1
+    echo "cached inventory and facts ($key)" > "$log"
+  else
+    echo "rebuilding the inventory and facts ($key)" > "$log"
+    { python3 tools/rw_object_model/binary_map.py functions && python3 tools/rw_object_model/class_map.py facts; } >> "$log" 2>&1 || return 1
+    cp -f workspace/rebuild/rw_binary_functions.json workspace/rebuild/rw_binary_facts.pickle "$BINMAP/" && echo "$key" > "$BINMAP/key"
+  fi
+  local xf=$PWD/workspace/rebuild/xmap-full; mkdir -p "$xf"; rm -f "$xf/rw_map.csv"
+  { python3 tools/rw_object_model/binary_map.py export-blocks --out workspace/rebuild/rw_binary_blocks.json &&
+    python3 tools/re/inventory.py --bin "$RW_GAME_DAT" --angr workspace/rebuild/rw_binary_blocks.json --out "$xf/rotwk_functions.csv"; } >> "$log" 2>&1 || return 1
+  # BFME2's side is decomp_map's (the same clone, the same night)
+  if [ -f "$XMAP/bfme2_functions.csv" ] && [ -f "$XMAP/bfme2_ledger.csv" ]; then
+    python3 tools/re/match_rotwk.py --rotwk "$RW_GAME_DAT" --rotwk-inv "$xf/rotwk_functions.csv" --bfme2 "$BFME2_INSTALL/game.dat" \
+        --bfme2-inv "$XMAP/bfme2_functions.csv" --bfme2-ledger "$XMAP/bfme2_ledger.csv" --decomp "$DECOMP2" --work "$xf/work" \
+        --out-csv "$xf/rw_map.csv" --out-json "$xf/rw_summary.json" >> "$log" 2>&1 || rm -f "$xf/rw_map.csv"
+  fi
+  local xm=()
+  if [ -f "$xf/rw_map.csv" ]; then xm=("--xmap=$xf/rw_map.csv"); else echo "no BFME2 pairing: the subsystem column stays empty" >> "$log"; fi
+  python3 tools/rw_object_model/class_map.py report "${xm[@]}" >> "$log" 2>&1
 }
 
 # The arena's audit archive (owner 2026-11-17: "сам заменял на гугл диске ennorath-audit.zip новым"): this run's audit + the newest hand
@@ -177,6 +208,8 @@ run() {
   cp -f "$INV" workspace/rebuild_inventory.json 2>/dev/null
   st "карты на main $rev: карта функций RotWK"
   decomp_map   # fills the map's decomp column (Port 240); a failure leaves the column empty, it never stops the night
+  st "карты на main $rev: карта всего бинарника (RW_BINARY_MAP)"
+  binary_map || echo "binary map failed at $rev (the run goes on): $RUNS/nightly_binmap.log" >> "$LOG"
   python3 tools/mod/rw_function_map.py --game "$RW_GAME_DAT" --ini "$INI" --inventory workspace/rebuild_inventory.json \
       --decomp "$XMAP/rw_map.csv" --out docs/ennorath/RW_FUNCTION_MAP > "$RUNS/nightly_map.log" 2>&1 || { echo "map failed at $rev" >> "$LOG"; return 1; }
   cmp -s workspace/rebuild_inventory.json "$INV" || cp -f workspace/rebuild_inventory.json "$INV"   # a new game.dat: share the new cache
@@ -214,12 +247,13 @@ run() {
       docs/ennorath/MATRIX_GAPS.tsv docs/ennorath/MATRIX_GAPS.md docs/ennorath/FIELD_GAPS.tsv docs/ennorath/PROGRESS.tsv docs/ennorath/MATRIX_FACTIONS.tsv docs/ennorath/MATRIX_REVIEW.md       docs/ennorath/SCRIPT_GRANTS.tsv docs/ennorath/SCRIPT_MAP.md docs/ennorath/GRANTS_INI.tsv \
       docs/ennorath/MODIFIER_MAP.md docs/ennorath/MODIFIER_READERS.tsv docs/ennorath/MODIFIER_PORT_READS.tsv docs/ennorath/MODIFIER_UNRESOLVED.tsv docs/ennorath/MODIFIER_MATRIX.tsv \
       docs/ennorath/MATRIX_GREY.tsv docs/ennorath/MATRIX_GREY.md docs/ennorath/MAP_SWEEP.tsv docs/ennorath/MAP_SWEEP.md \
+      docs/ennorath/RW_BINARY_MAP.tsv docs/ennorath/RW_BINARY_MAP.md docs/ennorath/RW_CLASSES.tsv docs/ennorath/RW_VCALLS.tsv \
       || { echo "$day: git add of the maps failed at $rev (nothing committed)" >> "$LOG"; return 1; }
   local red; red=$(python3 -c "import sys; sys.path.insert(0,'tools/mod'); import progress_snapshot as p; print(*p.matrix_counts(None))")
   if git diff --cached --quiet; then
     echo "$day: nothing changed at $rev" >> "$LOG"
   else
-    git commit -q -m "Nightly maps $day on main $rev: matrix, MATRIX_GREY, map sweep, function map, MATRIX_GAPS, FIELD_GAPS (red buttons / specific gaps: $red)" \
+    git commit -q -m "Nightly maps $day on main $rev: matrix, MATRIX_GREY, map sweep, function map, binary map, MATRIX_GAPS, FIELD_GAPS (red buttons / specific gaps: $red)" \
         -m "tools/colab/nightly_maps.sh (sandbox $SB); GitHub Actions lands it (maps-land.yml)." || { echo "commit refused at $rev" >> "$LOG"; return 1; }
     # the sandbox shell may have no GitHub credentials: the commit then waits on the Drive as a patch (Claude applies it on the PC, 2026-11-16)
     git format-patch -1 --stdout HEAD > "$RUNS/$day.patch"
@@ -229,7 +263,7 @@ run() {
   fi
   { echo "# Nightly maps $day (main $rev, sandbox $SB)"; echo; echo "red buttons / specific gaps: $red"; echo
     echo "stops since the previous progress row: $stops"; echo
-    echo '## Function map'; tail -3 "$RUNS/nightly_map.log"; echo; echo '## MATRIX_GAPS'; tail -2 "$RUNS/nightly_gaps.log"
+    echo '## Function map'; tail -3 "$RUNS/nightly_map.log"; echo; echo '## Whole-image map'; tail -2 "$RUNS/nightly_binmap.log"; echo; echo '## MATRIX_GAPS'; tail -2 "$RUNS/nightly_gaps.log"
     echo; echo '## FIELD_GAPS'; tail -2 "$RUNS/nightly_fgaps.log"; echo; echo '## Matrix'; tail -5 "$RUNS/nightly_matrix.log"
     echo; echo '## Map sweep'; grep -m1 '^Maps:' docs/ennorath/MAP_SWEEP.md 2>/dev/null; echo; echo '## MATRIX_GREY'; tail -2 "$RUNS/nightly_grey.log"
     echo; echo '## Field audit (changes against the previous run)'; head -40 "$AUDIT/field-audit-diff.md" 2>/dev/null
