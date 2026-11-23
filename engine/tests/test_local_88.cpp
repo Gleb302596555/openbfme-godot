@@ -219,17 +219,22 @@ TEST_CASE("LOCAL-88: W3DPropDrawState and W3DFloorDrawState triple visibility ga
 	floorData.m_hideIfModelConditions.push_back(hideMask);
 
 	W3DFloorDrawState floor(&floorData);
-	// RW 0x004CE91B seeds +0x15 (m_hiddenBySubObject) from StartHidden (+0x1E)
-	CHECK(floor.hiddenBySubObject());
-	CHECK_FALSE(floor.isFloorVisible());
+	// RW 0x004CE91B clears the three hide flags (RW 0x4CE93D..0x4CE94D) and copies StartHidden (+0x1E) into +0x14 (RW 0x4CE950..0x4CE955),
+	// which RW 0x004CEA6F tests before it adds the record - a StartHidden floor is added by the refresh RW 0x004CEADF instead.
+	CHECK_FALSE(floor.hiddenBySubObject());
+	CHECK(floor.isFloorVisible());
 
-	CHECK(floor.reactToTransformChange(1));
+	CHECK_FALSE(floor.reactToTransformChange(1));
 	CHECK(floor.registered());
-	CHECK(floor.activeWeatherTexture() == "GBBarracks_Bib_Snow.tga");
+	CHECK_FALSE(floor.recordAdded());
 
-	// Reveal via setSubObjectHidden(false) (RW 0x004CECA1)
+	// Reveal: RW 0x004CECA1 refreshes only on a change, so hide and unhide
+	floor.setSubObjectHidden(true);
+	CHECK_FALSE(floor.recordAdded());
 	floor.setSubObjectHidden(false);
 	CHECK(floor.isFloorVisible());
+	CHECK(floor.recordAdded());
+	CHECK(floor.activeWeatherTexture() == "GBBarracks_Bib_Snow.tga");
 
 	// Hide via model condition (RW 0x004CEB80)
 	ModelConditionFlags activeFlags;

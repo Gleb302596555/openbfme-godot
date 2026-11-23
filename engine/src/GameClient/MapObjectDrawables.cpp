@@ -509,9 +509,11 @@ void resolveDrawModel(MapDrawModule &m, const ModelConditionFlags &flags, const 
 				m.notDrawnReason = "W3DFloorDraw StartHidden (S-115)";
 				return;
 			}
+			// RW 0x4CE8CA (the test RW 0x4CEB80 runs per HideIfModelConditions line): (flags & mask) == mask word by word, no case for
+			// an empty mask - an empty set matches every flag set and hides the floor.
 			for (const ModelConditionFlags &hide : fl->m_hideIfModelConditions)
 			{
-				if (hide.any() && flags.testForAll(hide))
+				if (flags.testForAll(hide))
 				{
 					m.notDrawnReason = "W3DFloorDraw HideIfModelConditions";
 					return;
