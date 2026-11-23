@@ -10,6 +10,7 @@
 #include "Common/AsciiString.h"
 #include "Common/ModEngineFeatures.h"
 #include "Common/Player.h"
+#include "Common/Science.h"
 #include "Common/Upgrade.h"
 #include "GameClient/ControlBarCommands.h"
 
@@ -55,8 +56,12 @@ void parseAudioEventName(INI *ini, void *, void *store, const void *)
 	*static_cast<std::string *>(store) = ini->getNextToken();
 }
 
-// RW 0x73B4A0 (parseScienceVector): science names until the end of the line, stored by name and resolved when a player's sciences reset (S-145,
-// SPELL-1 S-521); "None" (stricmp) clears the list and ends the line, as in RW (RW 0x73B4B6)
+// RW 0x73B4A0 (parseScienceVector): science names until the end of the line. Retail resolves each name against TheScienceStore right here and raises
+// the INI error for an unknown one (RW 0x73B4B6 .. 0x73B4C6, the science store loads before the PlayerTemplate store); the science itself is stored by
+// name, not by pointer (resetSciences resolves it again, S-145, SPELL-1 S-521). "None" (stricmp) clears the list and ends the line, as in RW
+// (RW 0x73B4B6 is the gate's first call). An unknown science is therefore the INI error of RW 0x73A386, not the reset-time runtime error, when the
+// store is installed (every real load; SubsystemInitOrder loads TheScienceStore first). Without a store (unit fixtures that never install one) the
+// name is kept and the resolution happens at resetSciences, whose error names the field too
 void parseScienceNames(INI *ini, void *, void *store, const void *)
 {
 	std::vector<std::string> *v = static_cast<std::vector<std::string> *>(store);
@@ -67,6 +72,10 @@ void parseScienceNames(INI *ini, void *, void *store, const void *)
 		{
 			v->clear();
 			return;
+		}
+		if (TheScienceStore)
+		{
+			TheScienceStore->friend_lookupScience(t); // RW 0x73A386: INIException(3, "Science name %s not known! (Did you define it in Science.ini?)") for an unknown one
 		}
 		v->push_back(t);
 	}
@@ -354,9 +363,15 @@ std::vector<std::string> PlayerTemplateStore::unverified() const
 {
 	std::vector<std::string> out;
 	out.push_back("[S-144] PlayerTemplate: a load type 2 block replaces the stored data instead of linking an override (RW 0x5FE8A0), and the GlobalData-gated playable side exclusion (RW 0x5FE9AA .. 0x5FE9E6) is not modelled");
-	if (m_storedLabels || m_storedSciences || m_storedSounds)
+	if (m_storedLabels || m_storedSounds)
 	{
-		out.push_back("[S-145] PlayerTemplate: DisplayName labels (GameText), IntrinsicSciences names (Science block) and the three sound rows (AudioEvent) are stored by name, not looked up: retail throws for an unknown one");
+		out.push_back("[S-145] PlayerTemplate: DisplayName labels (GameText) and the three sound rows (AudioEvent) are stored by name, not looked up: retail throws for an unknown one");
+	}
+	if (m_storedSciences)
+	{
+		// S-521: the science names are looked up at parse time when TheScienceStore is installed (lane SPELL-1: the store loads first, RW 0x73B4A0 / 0x73A386);
+		// without one the error is deferred to the reset of a player's sciences (PlayerScience::resetSciences)
+		out.push_back("[S-145] PlayerTemplate: IntrinsicSciences names are stored by name; an unknown one is the INI error of RW 0x73A386 when TheScienceStore is installed, else the reset-time error of resetSciences");
 	}
 	return out;
 }

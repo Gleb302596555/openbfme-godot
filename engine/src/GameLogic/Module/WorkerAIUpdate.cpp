@@ -315,7 +315,7 @@ Object *closestOwnedOfKind(Object &obj, const Player &player, const char *kind)
 	Object *best = nullptr;
 	float bestD = FLT_MAX; // RW 0x6AA355
 	const Coord3D &p = *obj.getPosition();
-	for (Object *o = obj.logic().getFirstObject(); o; o = o->getNextObject()) // the player's objects (RW 0x6ABABD): the logic list in order (S-482)
+	for (Object *o = obj.logic().getFirstObject(); o; o = o->getNextObject()) // the player's objects: the logic list in order (the AI's regrouping scan; unrelated to the player-upgrade walk, stop S-482 now closed)
 	{
 		if (o->getControllingPlayer() != &player || !o->isKindOf((unsigned)bit))
 		{

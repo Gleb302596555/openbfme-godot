@@ -22,6 +22,7 @@
 #include "GameLogic/SkirmishAI/SkirmishAIData.h"
 #include "GameLogic/SkirmishAI/SkirmishAIManager.h"
 
+#include <memory>
 #include <stdexcept>
 #include <utility>
 #include <variant>
@@ -391,26 +392,41 @@ bool Economy::canAffordCommandPoints(const Player &player, const ThingTemplate &
 }
 
 // ---- what the players ask the world ---------------------------------------------------------------------------------------------
-void Economy::updateUpgradeModulesOfPlayer(const Player &player)
+// The walk of RW 0x6AE483 (Player::onUpgradeCompleted) and RW 0x6AE546 (Player::onUpgradeRemoved): the player's team prototypes in the order the
+// per-player list (Player + 0x34C, appended at TeamFactory::addToLists when the prototype was made, RW 0x6AE483) holds them, each prototype's team
+// instances newest first (RW 0x79FA5C -> RW 0x79F9D0 prepends a new team at the head of the prototype + 0x334 list; the port keeps them in creation order
+// in TeamPrototype::m_teams, so this walks the vector backwards), each team's members newest first (RW 0x68AD89 prepends every new member at the head;
+// Team::getLastMember + Object::friend_teamPrev). An object appears once per team it is on, in that order; an object on no team of the player's
+// prototypes is not reached, exactly as in retail (retail never consults the object list)
+template <typename Fn>
+void walkPlayerTeamMembers(const GameLogic &logic, const Player &player, Fn &&fn)
 {
-	for (Object *o = m_logic.getFirstObject(); o; o = o->getNextObject())
+	const TeamFactory &factory = logic.players().teams();
+	for (const std::unique_ptr<TeamPrototype> &proto : factory.prototypes())
 	{
-		if (o->getControllingPlayer() == &player)
+		if (proto->getControllingPlayer() != &player) // Player + 0x34C holds this player's prototypes only
 		{
-			o->updateUpgradeModules();
+			continue;
+		}
+		const std::vector<Team *> &teams = proto->teams();
+		for (auto it = teams.rbegin(); it != teams.rend(); ++it) // the newest instance first, as the retail prepend order
+		{
+			for (Object *m = (*it)->getLastMember(); m; m = m->friend_teamPrev()) // the newest member first, as in retail
+			{
+				fn(m);
+			}
 		}
 	}
 }
 
+void Economy::updateUpgradeModulesOfPlayer(const Player &player)
+{
+	walkPlayerTeamMembers(m_logic, player, [](Object *o) { o->updateUpgradeModules(); }); // RW 0x6AE483
+}
+
 void Economy::removeUpgradeFromObjectsOfPlayer(const Player &player, const UpgradeTemplate &upgrade)
 {
-	for (Object *o = m_logic.getFirstObject(); o; o = o->getNextObject())
-	{
-		if (o->getControllingPlayer() == &player)
-		{
-			o->removeUpgrade(&upgrade);
-		}
-	}
+	walkPlayerTeamMembers(m_logic, player, [&upgrade](Object *o) { o->removeUpgrade(&upgrade); }); // RW 0x6AE546
 }
 
 void Economy::reportUpgradeEva(const Player &player, const UpgradeTemplate &upgrade, bool gained)
