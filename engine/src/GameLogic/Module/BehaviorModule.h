@@ -428,6 +428,10 @@ public:
 	// RW Object::rva0028BD17: slot 32 (offset 0x80), the shared repair query.
 	virtual RepairQueryInterface *slot32() { return nullptr; }
 	RepairQueryInterface *getRepairQueryInterface() { return slot32(); }
+	// RW slot 37 (offset 0x94) of the +0xC interface: the bloodthirsty sacrifice interface (Object::getBloodthirstyUpdateInterface, RW 0x68C878).
+	// Of the 166 vtables RotWK writes at module + 0xC exactly one is not the null stub RW 0x00851E97: BloodthirstyUpdate's RW 0xC55688, whose slot 37
+	// is RW 0x008A18E0 (module + 0x20, the interface vtable RW 0xC55654: canSacrifice, isValidSacrifice, addSacrifice, sacrificeHorde, ...).
+	virtual class BloodthirstyUpdate *getBloodthirstyUpdateInterface() { return nullptr; }
 
 protected:
 	// lane SAVE-4b: BehaviorModule::xfer, version (1, 1) (RW 0x8CD4AA, the base xfer every UpdateModule / UpgradeModule xfer calls; inference: it is

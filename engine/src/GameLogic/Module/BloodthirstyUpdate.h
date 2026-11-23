@@ -40,6 +40,9 @@ public:
 	// RW 0x8B2A30 (the update interface vtable RW 0xC5567C, slot 1): 0x850F76(mask, 3, 4) = DISABLED_HELD | DISABLED_PARALYZED, so a held or
 	// paralyzed horde still runs update() (its victim-state cleanup and its 2 s + 1 frame sleep)
 	DisabledMaskType getDisabledTypesToProcess() const override { return (DisabledMaskType)((1u << 3) | (1u << 4)); }
+	// RW 0x008A18E0, slot 37 (offset 0x94) of the module's +0xC interface (table RW 0xC55688): module + 0x20, the sacrifice interface sub-object
+	// whose vtable is RW 0xC55654. Object::getBloodthirstyUpdateInterface (RW 0x68C878) asks every module for it.
+	BloodthirstyUpdate *getBloodthirstyUpdateInterface() override { return this; }
 	void crc(StateHasher &hasher) const override;
 	// OpenBFME native snapshot (S-4190), the crc's fields (retail's xfer, BFME2 BloodthirstyUpdate.cpp: the target, the sacrificer, a counter)
 	OBFME_MODULE_XFER(BloodthirstyUpdate) // lane SAVE-4b

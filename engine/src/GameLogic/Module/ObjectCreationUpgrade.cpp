@@ -291,7 +291,13 @@ std::vector<std::string> ObjectCreationUpgrade::acceptanceStops()
 			 std::to_string(s_stopUses) + " uses" };
 }
 
-// ---- lane SAVE-4b: the snapshot (OpenBFME native, S-4190; retail's ObjectCreationUpgrade::xfer RW 0x8B83A6 (1, 1) is bool, u32, UpdateModule::xfer, the mux)
+// ---- lane SAVE-4b: the snapshot (OpenBFME native, S-4190) ----------------------------------------------------------------------------------------
+// RW 0x8B83A6 ObjectCreationUpgrade::xfer, version (1, 1) through 0x404F15, read field by field. Its `this` is the sub-object at module + 8 (the
+// ctor 0x8B8221 runs the base ctor 0x8D26E6 on the module and 0x653114 on module + 8, which is why the mux xfer is called with `this - 8`): the
+// bool at this + 0x24 = module + 0x2C, the "the spawn is running" byte the ctor clears and 0x8B829E sets; the u32 at this + 0x20 = module + 0x28,
+// the wake frame 0x8B829B computes (TheGameLogic's frame + the data's Delay) and 0x8B87E1 puts back to 0x3FFFFFFF; then UpdateModule::xfer
+// (0x850C60) and the mux's own xfer (0x8D27E8: a version and the AsciiString at mux + 4, the upgrade's name). The snapshot covers every one of
+// those fields - the bool and the u32 in the other order - plus the bookkeeping the port's tests read.
 void ObjectCreationUpgrade::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

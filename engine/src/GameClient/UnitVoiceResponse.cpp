@@ -1235,7 +1235,9 @@ bool UnitVoiceResponse::pickAndPlay(const std::vector<ObjectID> &selection, int 
 				break;
 			case VOICE_EVENT_BLOODTHIRSTY:
 			{
-				BloodthirstyUpdate *module = dynamic_cast<BloodthirstyUpdate *>(obj.findModule("BloodthirstyUpdate"));
+				// RW 0x008DFD3B: the object's own sacrifice interface first (RW 0x68C878), and only when it has none the horde's (RW 0x693A1A then
+				// RW 0x68C878 again)
+				BloodthirstyUpdate *module = obj.getBloodthirstyUpdateInterface();
 				if (!module)
 				{
 					if (Object *horde = obj.getHordeObject(false); horde && horde != &obj)

@@ -18,6 +18,7 @@
 #include "GameLogic/Module/SpecialAbilityModules.h"
 #include "GameLogic/Object/EvaDamageNotice.h"
 #include "GameLogic/Object/ObjectGeometry.h"
+#include "GameLogic/Module/BloodthirstyUpdate.h"
 #include "GameLogic/Module/CollideModule.h"
 #include "GameLogic/Module/EmotionModules.h"
 #include "GameLogic/Module/PhysicsBehavior.h"
@@ -1773,6 +1774,22 @@ ProductionUpdateInterface *Object::getProductionUpdate() const
 		if (ProductionUpdateInterface *p = m ? m->getProductionUpdateInterface() : nullptr)
 		{
 			return p;
+		}
+	}
+	return nullptr;
+}
+
+// RW 0x68C878: the object's behavior-module array (RotWK Object + 0x24C, the NULL-terminated BehaviorModule **m_behaviors of BFME2's object.h:614,
+// which sits at + 0x244 there), each module asked through slot 37 (offset 0x94) of its + 0xC interface, the first non-null answer wins, else null.
+// Only BloodthirstyUpdate implements the slot (RW 0xC55688's slot 37 is RW 0x008A18E0 = module + 0x20; the other 165 vtables RotWK writes at
+// module + 0xC hold the null stub RW 0x00851E97 there), so this is the sacrifice interface of the object's own horde.
+BloodthirstyUpdate *Object::getBloodthirstyUpdateInterface() const
+{
+	for (const std::unique_ptr<BehaviorModule> &m : m_modules)
+	{
+		if (BloodthirstyUpdate *b = m ? m->getBloodthirstyUpdateInterface() : nullptr)
+		{
+			return b;
 		}
 	}
 	return nullptr;
