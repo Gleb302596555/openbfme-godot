@@ -112,7 +112,7 @@ std::vector<std::string> LinearCampaignManager::stopLines()
 	return {
 		"[S-1360] the campaign between missions: the auto-save after a won mission (RW 0x6DE8F1) and the saves of CampaignMenu.apt are OpenBFME saves of "
 		"the campaign's state (the campaign menu save point) with its carry-over (S-4903), not retail's GameState snapshot",
-		"[S-1364] the campaign presentation: MillisecondsAfterStartToStartFadeUp is not applied (its reader is not decoded); lane CAMP-2: the movies (OverallCampaignIntroMovie, "
+		"[S-1364] the campaign presentation: MillisecondsAfterStartToStartFadeUp is wired (Port 331, RW 0x5EACF9 -> RW 0x627062); lane CAMP-2: the movies (OverallCampaignIntroMovie, "
 		"IntroMovie, PLAY_MOVIE_IN_GAME) show their VP6 picture with their narration (S-2340)",
 		"[S-4900] the campaign menu's Save / Load: CampaignMenu.apt is pushed again once SaveLoad.apt has left the stack (INFERENCE: retail's refocus of the "
 		"covered menu was not read)",
