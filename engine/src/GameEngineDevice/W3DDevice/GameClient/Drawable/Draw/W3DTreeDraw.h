@@ -80,7 +80,7 @@ class W3DPropDrawModuleData : public ModuleData
 {
 public:
 	W3DPropDrawModuleData() = default;
-	~W3DPropDrawModuleData() override = default;
+	~W3DPropDrawModuleData() override = default; // RW 0x004CE715
 	static void buildFieldParse(MultiIniFieldParse &p);
 
 	std::string m_modelName;  ///< ModelName

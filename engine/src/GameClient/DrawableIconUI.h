@@ -77,6 +77,8 @@ struct IconUIOp
 	bool bottomRight = false;          ///< TEXT: x, y is the string's bottom right corner, not its top centre
 	float dropOffsetX = 1.0f;          ///< TEXT: drop shadow X offset (DrawGroupInfo.ini DropShadowOffsetX)
 	float dropOffsetY = 1.0f;          ///< TEXT: drop shadow Y offset (DrawGroupInfo.ini DropShadowOffsetY)
+	std::string fontName;              ///< TEXT: font family (DrawGroupInfo.ini FontName, RW 0x48FE84 -> 0x48FEB0)
+	bool fontIsBold = false;           ///< TEXT: bold flag (DrawGroupInfo.ini FontIsBold, RW 0x48FE84 -> 0x48FE9F)
 };
 
 // Retail Data\INI\DrawGroupInfo.ini (TheDrawGroupInfo, RW 0x00DE7720 / BFME2 0x00A01CD8, S-1950)

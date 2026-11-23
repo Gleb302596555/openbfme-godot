@@ -93,6 +93,7 @@ public:
 };
 
 // scalar deleting dtor RW 0x00889A8E
+// RW 0x00889AAA (dtor -> RW 0x0085FE9D)
 class RebuildHoleExposeDie : public BehaviorModule, public DieModuleInterface
 {
 public:

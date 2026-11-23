@@ -205,6 +205,7 @@ include(cmake/Port277.cmake)   # PORT-277: rangefinder reproduction
 include(cmake/Port205.cmake)   # PORT-205: a HordeAttackNugget's member pick and the contain slot 0x1C (fork issue 472; OPENBFME_PORT205_TESTS)
 include(cmake/Port265.cmake)   # PORT-265: HordeContain's own slot +0x7C, the once-every-5th-frame split check (fork issue 613; OPENBFME_PORT265_TESTS)
 include(cmake/Port307.cmake)   # PORT-307: the gates' and the wall hubs' uncited own functions (fork issue 699; OPENBFME_PORT307_TESTS)
+include(cmake/Port292.cmake)   # PORT-292: horde carry-over template
 include(cmake/Port217.cmake)   # PORT-217: a builder turns to face the structure it builds or repairs (fork issue 507; OPENBFME_PORT217_TESTS)
 include(cmake/Port282.cmake)   # PORT-282: the repair orders of the dozer and the worker (fork issue 649; OPENBFME_PORT282_TESTS)
 include(cmake/Port113.cmake)    # PORT-113: the light points of the War of the Ring (issue #280; appends to OPENBFME_SIM_SOURCES; OPENBFME_PORT113_TESTS)
@@ -577,10 +578,21 @@ include(cmake/Local105.cmake)   # LOCAL-105: FadeAndDieOrnamentUpdate and small 
 include(cmake/Local96.cmake)    # LOCAL-96: DozerAIUpdate and WorkerAIUpdate builder functions (fork issue 761; OPENBFME_LOCAL96_TESTS)
 include(cmake/Local99.cmake)    # LOCAL-99: unit behaviour modules uncited own functions (issue #764; OPENBFME_LOCAL99_TESTS)
 include(cmake/Local126.cmake)   # LOCAL-126: map sweep errors + DAMAGE_MULT / RESIST_FEAR readers (fork issue 810; OPENBFME_LOCAL126_TESTS)
+include(cmake/Local134.cmake)   # LOCAL-134: StoreObjects/TeleportToCaster same-map-status filter + free logic citations (fork issue 850; OPENBFME_LOCAL134_TESTS)
+include(cmake/Local136.cmake)   # LOCAL-136: shared RotWK helpers (fork issue 853; OPENBFME_LOCAL136_TESTS)
+include(cmake/Local132.cmake)   # LOCAL-132: InGameSpellBookModel CommandTrigger dispatch (fork issue 838; OPENBFME_LOCAL132_TESTS)
 include(cmake/Local127.cmake)   # LOCAL-127: Ennorath 1.9.8.5 paged options menu, hotkeys, and online delay fix (fork issue 811; OPENBFME_LOCAL127_TESTS)
 include(cmake/Local128.cmake)   # LOCAL-128: Ennorath 1.9.8.5 lobby map search (fork issue 812; OPENBFME_LOCAL128_TESTS)
 include(cmake/Local129.cmake)   # LOCAL-129: Ennorath 1.9.8.5 chat mute on PlayerTribute (.chatmut 0xEDB000; fork issue 813; OPENBFME_LOCAL129_TESTS)
+include(cmake/Local144.cmake)   # LOCAL-144: Ennorath 1.9.8.5 replays (tabs, chat, pause) and War of the Ring for 8 players (fork issue 861; OPENBFME_LOCAL144_TESTS)
 include(cmake/Local130.cmake)   # LOCAL-130: 50 most shared helpers + RW 0x6760CA / 0x677898 construction ambient (fork issue 829; OPENBFME_LOCAL130_TESTS)
+include(cmake/Local133.cmake)   # LOCAL-133: W3DLaserDraw width/fanWidth and tile factor clamps (fork issue 849; OPENBFME_LOCAL133_TESTS)
+include(cmake/Local139.cmake)   # LOCAL-139: global game data fields (fork issue 856; OPENBFME_LOCAL139_TESTS)
+include(cmake/Local140.cmake)   # LOCAL-140: object-level unread mod fields (fork issue 857; OPENBFME_LOCAL140_TESTS)
+include(cmake/Local141.cmake)   # LOCAL-141: S-7364 repeated press, S-704 VoiceCrush, S-1462 LW audio filter, S-1952 colours (fork issue 858; OPENBFME_LOCAL141_TESTS)
+include(cmake/Local131.cmake)   # LOCAL-131: matrix red buttons I (fork issue 837; OPENBFME_LOCAL131_TESTS)
+include(cmake/Local143.cmake)   # LOCAL-143: Ennorath 1.9.8.5 exe edits (11 pySAGE sections; fork issue 860; OPENBFME_LOCAL143_TESTS)
+include(cmake/Local142.cmake)   # LOCAL-142: open game-logic stops (fork issue 859; OPENBFME_LOCAL142_TESTS)
 include(cmake/Local101.cmake)   # LOCAL-101: special AI modules SiegeDockingBehavior & HordeWorkerAIUpdate (fork issue 771; OPENBFME_LOCAL101_TESTS)
 include(cmake/Local103.cmake)   # LOCAL-103: client draw modules (issue #773; OPENBFME_LOCAL103_TESTS)
 include(cmake/Local109.cmake)   # LOCAL-109: builders and walls second pass (fork issue 787; OPENBFME_LOCAL109_TESTS)
@@ -592,6 +604,7 @@ include(cmake/Local113.cmake)   # LOCAL-113: AutoAbilityBehavior (issue #797; OP
 include(cmake/Local114.cmake)   # LOCAL-114: AIUpdateInterface third pass (fork issue 798; OPENBFME_LOCAL114_TESTS)
 include(cmake/Local112.cmake)   # LOCAL-112: WeaponFireSpecialAbilityUpdate & special-weapon matrix probe/scene fixes (issue #796; OPENBFME_LOCAL112_TESTS)
 include(cmake/Local124.cmake)   # LOCAL-124: tail update/behavior modules (fork issue 808; OPENBFME_LOCAL124_TESTS)
+include(cmake/Local135.cmake)   # LOCAL-135: 205 shared RotWK helpers (fork issue 852; OPENBFME_LOCAL135_TESTS)
 include(cmake/Port224.cmake)    # PORT-224: destroying a creep lair or worker-rebuilt structure mid-rebuild fades the hole without money or treasure (issue #534; OPENBFME_PORT224_TESTS)
 include(cmake/Port222.cmake)    # PORT-222: a LevelGrantSpecialPower fills a horde's experience pool (fork issue 532; OPENBFME_PORT222_TESTS)
 include(cmake/Port301.cmake)    # PORT-301: ShareExperienceBehavior — the shared experience of a hero (fork issue 693; OPENBFME_PORT301_TESTS)
@@ -602,7 +615,9 @@ include(cmake/Port254.cmake)    # PORT-254: auras and passive buffs — Attribut
 include(cmake/Port267.cmake)    # PORT-267: the floor record's fade on death, W3DFloorDraw FloorFadeRateOnObjectDeath (fork issue 626; OPENBFME_PORT267_TESTS)
 include(cmake/Port263.cmake)    # PORT-263: EmotionTrackerUpdate (terror, fear, cheering, idle emotions) and BoredUpdate (issue #611; OPENBFME_PORT263_TESTS)
 include(cmake/Port269.cmake)    # PORT-269: the dropped One Ring's radar marker (issue #636 / P-154; OPENBFME_PORT269_TESTS)
+include(cmake/Port298.cmake)    # PORT-298: RespawnUpdate — the unread DeathAnimationTime, the cited xfer / name-key / name (issue #690; OPENBFME_PORT298_TESTS)
 include(cmake/Port226.cmake)    # PORT-226: the idle state's stance countdown (fork issue #549; OPENBFME_PORT226_TESTS)
+include(cmake/Port296.cmake)    # PORT-296: the castle's crew and CastleMemberBehavior's BeingBuiltSound (fork issue #688; OPENBFME_PORT296_TESTS)
 include(cmake/Port271.cmake)    # PORT-271: several units and heroes selected — the panel, portrait and voice are the senior hero's (issue #638, P-151; OPENBFME_PORT271_TESTS)
 include(cmake/Port290.cmake)
 include(cmake/Port294.cmake)    # PORT-294: ObjectCreationUpgrade's own mux slots — wouldUpgrade, postUpgradeCheck, isPermanent (fork issue #686; OPENBFME_PORT294_TESTS)
@@ -614,6 +629,8 @@ include(cmake/Port297.cmake)    # PORT-297: resources — SupplyWarehouseDockUpd
 include(cmake/Port293.cmake)    # PORT-293: ActiveBody's last-healing timestamp (body slot 0x48) and AutoHealBehavior NonStackable (issue #685; OPENBFME_PORT293_TESTS)
 include(cmake/Port309.cmake)    # PORT-309: ExperienceLevel level-up tint verdict re-check (issue #701, S-7196 / PORT-44; OPENBFME_PORT309_TESTS)
 include(cmake/Port318.cmake)    # PORT-318: the AerialPathfindNoFlyZone block and the no-fly zone test of flyers (issue #754; OPENBFME_PORT318_TESTS)
+include(cmake/Port316.cmake)    # PORT-316: the drawable's flush on the creation paths and before bone queries (fork issue 752, S-1583; OPENBFME_PORT316_TESTS)
+include(cmake/Port274.cmake)    # PORT-274: FIRE_WEAPON buttons with an object target press -> click -> MSG_DO_WEAPON_AT_OBJECT (issue #641; OPENBFME_PORT274_TESTS)
 add_library(openbfme_core STATIC
     ${OPENBFME_PLAY2_SOURCES}
     ${OPENBFME_APT_SOURCES}
@@ -1092,6 +1109,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT205_TESTS}
     ${OPENBFME_PORT265_TESTS}
     ${OPENBFME_PORT307_TESTS}
+    ${OPENBFME_PORT292_TESTS}
     ${OPENBFME_PORT217_TESTS}
     ${OPENBFME_PORT282_TESTS}
     ${OPENBFME_PORT102_TESTS}
@@ -1422,10 +1440,21 @@ add_executable(openbfme_tests
     ${OPENBFME_LOCAL96_TESTS}
     ${OPENBFME_LOCAL99_TESTS}
         ${OPENBFME_LOCAL126_TESTS}
+        ${OPENBFME_LOCAL134_TESTS}
+        ${OPENBFME_LOCAL132_TESTS}
     ${OPENBFME_LOCAL127_TESTS}
         ${OPENBFME_LOCAL128_TESTS}
         ${OPENBFME_LOCAL129_TESTS}
+    ${OPENBFME_LOCAL144_TESTS}
         ${OPENBFME_LOCAL130_TESTS}
+        ${OPENBFME_LOCAL133_TESTS}
+        ${OPENBFME_LOCAL136_TESTS}
+        ${OPENBFME_LOCAL139_TESTS}
+        ${OPENBFME_LOCAL140_TESTS}
+        ${OPENBFME_LOCAL141_TESTS}
+    ${OPENBFME_LOCAL131_TESTS}
+        ${OPENBFME_LOCAL143_TESTS}
+        ${OPENBFME_LOCAL142_TESTS}
     ${OPENBFME_LOCAL101_TESTS}
     ${OPENBFME_LOCAL103_TESTS}
     ${OPENBFME_LOCAL109_TESTS}
@@ -1437,6 +1466,7 @@ add_executable(openbfme_tests
     ${OPENBFME_LOCAL114_TESTS}
     ${OPENBFME_LOCAL112_TESTS}
     ${OPENBFME_LOCAL124_TESTS}
+    ${OPENBFME_LOCAL135_TESTS}
     ${OPENBFME_PORT224_TESTS}
     ${OPENBFME_PORT222_TESTS}
     ${OPENBFME_PORT206_TESTS}
@@ -1446,7 +1476,9 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT268_TESTS}
     ${OPENBFME_PORT263_TESTS}
     ${OPENBFME_PORT269_TESTS}
+    ${OPENBFME_PORT298_TESTS}
     ${OPENBFME_PORT226_TESTS}
+    ${OPENBFME_PORT296_TESTS}
     ${OPENBFME_PORT271_TESTS}
     ${OPENBFME_PORT290_TESTS}
     ${OPENBFME_PORT301_TESTS}
@@ -1459,6 +1491,8 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT302_TESTS}
     ${OPENBFME_PORT293_TESTS}
     ${OPENBFME_PORT309_TESTS}
+    ${OPENBFME_PORT316_TESTS}
+    ${OPENBFME_PORT274_TESTS}
     tests/test_main.cpp
     tests/test_big_archive.cpp
     tests/test_parser_fuzz_regressions.cpp

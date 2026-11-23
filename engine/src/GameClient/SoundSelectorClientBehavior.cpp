@@ -23,6 +23,10 @@
 
 namespace
 {
+// ModelConditionSoundSelectorClientBehavior: getModuleNameKey RW 0x0065492E, getModuleName RW 0x00654973,
+// VoicePriority interface thunk RW 0x008CF003, UnitSpecificSounds interface thunk RW 0x008CF0D2.
+// UpgradeSoundSelectorClientBehavior: getModuleNameKey RW 0x00652A80, getModuleName RW 0x00652AC5,
+// audio row accessor RW 0x008CF59D, UnitSpecificSounds lookup RW 0x008CF8C5.
 // RW 0xC26720: the audio table (33 voice rows parsed by RW 0x73ACEF, then 23 sound rows parsed by RW 0x73AD07)
 const char *const kRowNames[SoundSelector::AUDIO_ROW_COUNT] = {
 	"VoiceSelect", "VoiceSelectUnderConstruction", "VoiceSelectBattle", "VoiceMove", "VoiceMoveToHigherGround", "VoiceMoveOverWalls", "VoiceAttack",

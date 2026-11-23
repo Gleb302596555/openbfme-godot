@@ -20,6 +20,7 @@
 
 class ModuleFactory;
 
+// RW 0x008CCB05 (getModuleName), RW 0x008CCB0B (dtor -> RW 0x00897583), RW 0x008CCB24 (getModuleNameKey)
 class RepairSpecialPower : public SpecialPowerModule
 {
 public:

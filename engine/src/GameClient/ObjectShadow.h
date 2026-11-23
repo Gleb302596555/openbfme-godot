@@ -20,6 +20,7 @@
 //       ShadowForceDisable (RW 0x4C4EF8 / 0x4C5013): when true, no shadow is created.
 //   Visibility & corpse switch-off:
 //     Drawable::setShadowsEnabled (RW 0x672D28): false when dead with SlowDeathBehavior/ShadowWhenDead = No (TOP20 #24).
+//   ShadowTypeInfo (ctor RW 0x00478DC0, dtor RW 0x00478C89, operator= RW 0x00499E27).
 //   Shadow creation & parameters (W3DProjectedShadowManager::addShadow, RW 0x50BF6A):
 //     Texture defaults to "shadow" when length <= 1 (RW 0x50BF93).
 //     Size falls back to model bounding box if sizeX or sizeY is 0 (RW 0x50BFF3..0x50C066).

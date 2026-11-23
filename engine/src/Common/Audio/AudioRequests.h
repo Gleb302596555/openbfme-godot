@@ -20,6 +20,9 @@ namespace AudioApi
 bool reportEva(const std::string &eventName, const Coord3D *position, const Coord3D *position2 = nullptr);
 // Parsed EvaEventStore index (RW 0x5DD9EE); -1 is None. Uses the same audio-owner queue as named reports.
 bool reportEva(int eventIndex, const Coord3D *position, const Coord3D *position2 = nullptr);
+// Local 139: MiscEvaData camp-destroyed damage timeouts in logic frames (RW 0x799440: TheEva +0x84 / +0x88)
+unsigned enemyCampDestroyedDamageTimeoutFrames();
+unsigned friendlyCampDestroyedDamageTimeoutFrames();
 std::uint32_t playSoundForObject(const std::string &eventName, std::uint32_t objectId, int owningPlayerIndex = -1);
 // play a MiscAudio slot's sound for an object (e.g. DefectorTimerTickSound RW 0x852C40 .. 0x852C7F for capture tick)
 std::uint32_t playMiscAudioForObject(const std::string &slotName, std::uint32_t objectId, int owningPlayerIndex = -1);

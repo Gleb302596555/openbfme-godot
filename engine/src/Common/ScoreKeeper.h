@@ -102,6 +102,7 @@ public:
 	// RW 0x79EB10 (the switch is the logic's, it stays)
 	void reset(int playerIndex = -1);
 
+	// RW 0x0079DCCB (ScoreKeeper::addMoneyEarned; DONOR BFME2 0x0039B7AD)
 	void addMoneyEarned(std::int32_t amount)
 	{
 		if (m_enabled)

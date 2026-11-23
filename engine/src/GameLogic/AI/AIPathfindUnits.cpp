@@ -47,6 +47,8 @@ int angleToCode(float a)
 }
 } // namespace
 
+// PathfinderPosGoalManager unit cell records: Object::updatePathfindPos (RW 0x0068B44B), Object::removeFromPathfindMap (RW 0x0068B45B),
+// PathfinderPosGoalManager::removeObjFromCells (RW 0x008E1C70), and PathfinderPosGoalManager::freeNode (RW 0x008E1C5A).
 Pathfinder::UnitRecord &Pathfinder::unit(PathfindObjectID id)
 {
 	// performance (the same record): a unit already indexed is found through m_unitIndex, not the std::map of every unit (~32k nodes at 30k troops); it is

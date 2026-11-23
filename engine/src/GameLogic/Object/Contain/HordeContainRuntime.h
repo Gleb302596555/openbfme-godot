@@ -208,6 +208,9 @@ public:
 	// otherwise only the members that are affectedByUpgrade; every member that takes it flashes (RW 0x871B0F -> RW 0x70E013, the grey
 	// 0.99 colour at RW 0xBE53BC, pushed as `push 0xf; push 4; push 4` at RW 0x871B18)
 	virtual void giveUpgrade(const UpgradeTemplate *upgrade, bool allMembers) = 0;
+	// RW 0x86D6FD, interface slot 0x274: copy the module data's LivingWorldOverloadTemplate.
+	// Appended so the port's existing interface slots do not move.
+	virtual std::string livingWorldOverloadTemplate() const = 0;
 };
 
 class HordeContain : public UpdateModule, public ContainModuleInterface, public CreateModuleInterface, public HordeContainInterface
@@ -427,6 +430,7 @@ public:
 	// lane COMBAT-1: the typed data (RanksToReleaseWhenAttacking, MeleeBehavior, ...) and the melee engagement. While engaged the formation is frozen where the men stand: the member
 	// pass does not run (RW 0x86D75E beginMelee / 0x86C0F9 endMelee; horde spec 2.1 step 3), the horde AI's melee behaviour moves the members instead
 	const HordeContainModuleData &hordeData() const;
+	std::string livingWorldOverloadTemplate() const override;
 	bool meleeEngaged() const { return m_meleeEngaged; }
 
 	// ---- lane BACKLOG-8: wall scaling (HordeWallScaling.cpp) ----

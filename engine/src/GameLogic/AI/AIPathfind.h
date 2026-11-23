@@ -196,6 +196,8 @@ public:
 	void updateClosestSegment(const Coord3D &pos) override;
 	bool isNearPathEnd() const override;
 	bool hasExplicitZ() const override;
+	// RW 0x661E50: m_path && m_closest && m_closest->m_waypointID != PathNode::NO_WAYPOINT
+	bool isCurrentNodePortal() const;
 	float remainingDistanceFrom(const LocomotorPathPoint &point) const override;
 	int currentSpecialNodeType() const override;
 

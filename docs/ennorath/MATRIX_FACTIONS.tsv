@@ -1,12 +1,12 @@
 faction	pass	idle	red	red_top	unverified
 FactionAngmar	335	85	4	NO-FIRE 3, NO-EFFECT 1	1
-FactionArnor	435	99	3	LEFT-WORLD 1, FAIL 1, NO-RULE 1	6
-FactionDwarves	412	73	15	FAIL 12, NO-EFFECT 3	3
-FactionElves	316	95	9	NOT-ON-BAR 4, NO-EFFECT 2, GREY-BUG 1	5
-FactionEvilmen	333	122	8	NO-EFFECT 3, NO-SEND 2, STUCK 1	1
-FactionImladris	500	93	7	FAIL 3, NO-EFFECT 2, GREY-BUG 1	5
-FactionIsengard	250	84	1	NO-EFFECT 1	0
-FactionMen	497	75	12	GREY-BUG 4, NO-EFFECT 3, STUCK 2	7
-FactionMordor	427	83	5	FAIL 3, NO-EFFECT 1, NO-FIRE 1	4
-FactionRohan	536	90	12	NO-EFFECT 5, NO-SEND 3, FAIL 2	23
-FactionWild	381	66	11	NO-EFFECT 6, NO-SEND 2, NO-STANCE 2	7
+FactionArnor	436	100	1	LEFT-WORLD 1	6
+FactionDwarves	425	73	2	NO-EFFECT 2	3
+FactionElves	321	97	3	NO-EFFECT 1, GREY-BUG 1, NO-SEND 1	4
+FactionEvilmen	338	122	2	NO-SEND 2	2
+FactionImladris	504	93	3	NO-EFFECT 2, GREY-BUG 1	5
+FactionIsengard	239	84	12	FAIL 12	0
+FactionMen	501	76	7	GREY-BUG 4, NO-EFFECT 3	7
+FactionMordor	429	83	2	NO-EFFECT 1, NO-FIRE 1	5
+FactionRohan	538	91	7	NO-EFFECT 4, NO-SEND 3	25
+FactionWild	392	68	1	NO-EFFECT 1	4

@@ -65,6 +65,9 @@ public:
 	std::vector<Coord3D> takePlayedJumpPositions();
 	const MiscEvaData &miscEvaData() const { return m_ini.eva.miscEvaData(); }
 	float enemySightedMaxVoicePositionScanRange() const { return m_ini.eva.miscEvaData().enemySightedMaxVoicePositionScanRange; }
+	// Local 139: MiscEvaData EnemyCampDestroyedDamageTimeoutMS (+0x84) / FriendlyCampDestroyedDamageTimeoutMS (+0x88) (RW 0x799440)
+	unsigned enemyCampDestroyedDamageTimeoutFrames() const { return m_ini.eva.miscEvaData().enemyCampDestroyedDamageTimeoutFrames; }
+	unsigned friendlyCampDestroyedDamageTimeoutFrames() const { return m_ini.eva.miscEvaData().friendlyCampDestroyedDamageTimeoutFrames; }
 
 	struct Counters
 	{

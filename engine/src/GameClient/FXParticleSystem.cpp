@@ -624,6 +624,7 @@ const ModuleClassInfo *FindModuleClass(ModuleCategory category, const std::strin
 }
 
 // ---- ParticleSystemTemplate -------------------------------------------------------------------------------------
+// RW 0x005FB907 (ParticleSystemTemplate::ParticleSystemTemplate; inner sub-ctors RW 0x005FB451, RW 0x005FB0FF, RW 0x005F9D55, RW 0x005F886E, RW 0x0073ED06; null-system sentinel RW 0x005FC2FE)
 ParticleSystemTemplate::ParticleSystemTemplate(const std::string &name) : m_name(name) {}
 
 void ParticleSystemTemplate::setModule(ModuleCategory category, std::shared_ptr<ModuleData> module)

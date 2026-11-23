@@ -680,7 +680,7 @@ void checkRelationship(Relationship r)
 }
 
 // TARGET PlayerRelationMap::xfer RW 0x6AE9B7 (tier A, (1, 1)): the version, a u16 count, then per entry the player index (int) and the relationship
-// (XferRelationship RW 0x707407: a 4-byte enum); the entries in key order (INFERENCE: retail iterates its map from begin, RW 0x5E0A39 / 0x6BFEFD)
+// (XferRelationship RW 0x707407: a 4-byte enum); the entries in key order (INFERENCE: retail iterates its map from hashtable::begin 0x5E0A39 / RW 0x6BFEFD)
 void xferPlayerRelationMap(Xfer &x, std::map<int, Relationship> &m)
 {
 	XferVersion v{ 1, 1 };

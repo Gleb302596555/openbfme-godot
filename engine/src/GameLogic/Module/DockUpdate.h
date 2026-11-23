@@ -213,6 +213,9 @@ public:
 	// (AI vslot 0x17C), goes idle (aiIdle(CMD_FROM_AI), RW 0x5E821A with 2) and is forced into its wanting state (slot 0x2C, true). Then DockUpdate's flag
 	// (RW 0x991727), crippled or not.
 	void setDockCrippled(bool setting) override;
+	// RW 0x8AB64E: m_boxesStored = ceil(cashValue / ValuePerSupplyBox, GlobalData + 0xA5C),
+	// then dispatches drawable supply status (RW 0x671948 -> SUPPLY_STATUS client event).
+	void setCashValue(int cashValue);
 	int boxesStored() const { return m_boxesStored; }
 	int startingBoxes() const { return m_data->m_startingBoxes; }
 	void crc(StateHasher &hasher) const override;

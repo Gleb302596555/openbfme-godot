@@ -70,6 +70,8 @@ namespace W3DStreakDrawTables
 const FieldParse *streak() { return kStreakFieldParse; }
 }
 
+// StreakLineClass helpers ported in W3DStreakTrail / W3DStreakDraw: Set_Color RW 0x00567773, Set_Width RW 0x00567790,
+// Set_Point_Location RW 0x00567900, Get_Point_Location RW 0x00567947, Add_Point RW 0x00567EEE, Remove_Point RW 0x00567F18.
 void W3DStreakTrail::update(const W3DStreakDrawModuleData &data, const float position[3])
 {
 	W3DStreakPoint np;
