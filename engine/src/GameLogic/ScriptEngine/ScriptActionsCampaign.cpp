@@ -14,8 +14,10 @@
 //   * lane OWNERFIX-1: PLAYER_SET_MAX_SPELLPOINTS (player, points) RW 0x7BD15B: every player of the mask (RW 0x758F7C, RW 0x6A85EE) gets Player + 0x30
 //     (RW 0x70EB9A) = RW 0x6AA8EC (Player + 8 -> RW 0x782942: the rank whose cumulative SciencePurchasePointsGranted reaches the points). Player + 0x30 is
 //     the rank sub-object's + 0x28, the rank cap addSkillPoints (RW 0x782AA4) stops at (PlayerScience.h); MAP ANG Angmar caps the power points at 15.
-// NOT PORTED (S-1363): SET_PLAYER_KILLS_OF_TYPE_TO_COUNTER (RW 0x7C38F6: ScoreKeeper + 0x1FC, the per-player kills by template map, RW 0x79E4D8, is not
-// ported) stays unported (counted).
+// NOT PORTED (S-1363): NAMED_RECEIVE_UPGRADE on a horde runs the contain's slots 0xB4 / 0xB8 in retail; the port gives the horde object the upgrade through Object::giveUpgrade.
+//   SET_PLAYER_KILLS_OF_TYPE_TO_COUNTER (RW 0x7C38F6) IS ported since lane SCRIPT-4 (ScoreKeeper + 0x1FC, engine/src/GameLogic/ScriptEngine/ScriptActionsOrders.cpp:
+//   the one-player mask RW 0x6A85B6 -> the keeper of that player (Player + 0x3DC) -> RW 0x79E4D8, inlined as a walk of the 20 destroyed-by-template maps
+//   RW 0x79F303 fills -> the counter (get or create, RW 0x60817A)); the earlier note here was stale.
 
 #include "GameLogic/ScriptEngine/ScriptActions.h"
 
@@ -126,7 +128,7 @@ bool ScriptActions::executeCampaignAction(ScriptEngine &engine, const ScriptActi
 std::vector<std::string> ScriptActions::campaignStopLines()
 {
 	return {
-		"[S-1363] SET_PLAYER_KILLS_OF_TYPE_TO_COUNTER (RW 0x7C38F6: ScoreKeeper + 0x1FC, the kills by template) stays unported (counted); NAMED_RECEIVE_UPGRADE on a horde runs Object::giveUpgrade instead of the "
+		"[S-1363] SET_PLAYER_KILLS_OF_TYPE_TO_COUNTER (RW 0x7C38F6: ScoreKeeper + 0x1FC) is ported since lane SCRIPT-4; NAMED_RECEIVE_UPGRADE on a horde runs Object::giveUpgrade instead of the "
 		"contain's slots 0xB4 / 0xB8 (noted)",
 		"[S-1365] Team::updateState (RW 0x7A208C, lane CAMP-1H) runs the team scripts and flags except: the entered / exited flag + 0x5C (computed from the "
 		"members' enter / exit frames, RW 0x68DD46), teamEventsList (RW 0x7396E8 -> the members' AI RW 0x662597), the attacker records' expiry (RW "
