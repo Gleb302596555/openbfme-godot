@@ -113,6 +113,7 @@ public:
 };
 
 // getModuleName RW 0x008B2859, getModuleNameKey RW 0x008B28F0, dtor RW 0x008B299C
+// RW 0x008B2840 (dtor -> RW 0x0064A492)
 class DetachableRiderUpdate : public UpdateModule
 {
 public:
@@ -153,6 +154,7 @@ public:
 // getModuleName RW 0x008C5D78, getModuleNameKey RW 0x008C5D8E, dtor RW 0x008C5E99;
 // UpgradeMux accessors via base: getUpgradeActivationMasks RW 0x008C5DD3, requiresAllActivationUpgrades RW 0x008C5DFD,
 // requiresAllConflictingTriggers RW 0x008C5E0A, performUpgradeFX RW 0x008C5E17 (empty RW 0x009F3A3C).
+// RW 0x008C5D55 (dtor -> RW 0x008C3AED), RW 0x008C60BF (ActiveBody dtor thunk -> RW 0x008C35AF)
 class DetachableRiderBody : public ActiveBody, public UpgradeMux
 {
 public:

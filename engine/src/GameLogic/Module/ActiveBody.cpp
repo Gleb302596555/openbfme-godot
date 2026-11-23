@@ -259,6 +259,7 @@ void ActiveBody::crc(StateHasher &h) const
 	if (m_lastDamageType != DAMAGE_UNDEFINED)
 	{
 		h.addU32((std::uint32_t)m_lastDamageType ^ 0xFA40u); // lane FX-4: hashed only when a hit set it (a game without hits keeps its hash)
+		h.addFloat(m_lastDamageAmount); // lane PORT-296: the record's + 0x20, set by the same hit
 	}
 	if (m_lastDamageNoEffect)
 	{
@@ -654,6 +655,7 @@ void ActiveBody::attemptDamage(DamageInfo &info)
 			m_lastDamager = info.m_input.m_sourceID;
 			m_lastDamagerPlayerMask = info.m_input.m_sourcePlayerMask; // lane CAMP-1: record + 0xC
 			m_lastDamageType = info.m_input.m_damageType;               // lane FX-4: record + 0x10
+			m_lastDamageAmount = info.m_input.m_amount;                 // lane PORT-296: record + 0x20
 			m_lastDamageNoEffect = info.m_output.m_noEffect;           // RW 0x744203: record + 0x78
 			m_lastAttackerTaken = false;                               // RW 0x8C42FA: record + 0xB6 cleared with the record
 		}
@@ -1168,7 +1170,8 @@ void ActiveBody::attemptHealing(DamageInfo &info)
 // current DamageInfo pointer is null outside a hit (a snapshot is taken between frames); the armour report flag is the report's.
 void ActiveBody::xfer(Xfer &x)
 {
-	XferVersion v{ 1, 4 }; // 2: lane FX-4's last damage type, 3: Local 30's last damage no-effect, 4: PORT-293's last-healing frame
+	XferVersion v{ 1, 5 }; // 2: lane FX-4's last damage type, 3: Local 30's last damage no-effect, 4: PORT-293's last-healing frame,
+	                       // 5: lane PORT-296's last damage amount
 	x.xferVersion(v);
 	xferBehaviorModule(x); // BodyModule::xfer RW 0x00993419 (DONOR BFME2 0x0058B043) transfers BehaviorModule + m_damageScalar (+0x14)
 	x.xferReal(&m_currentHealth);
@@ -1211,6 +1214,14 @@ void ActiveBody::xfer(Xfer &x)
 	else
 	{
 		m_lastHealingFrame = 0xFFFFFFFFu;
+	}
+	if (v.current >= 5)
+	{
+		x.xferReal(&m_lastDamageAmount); // lane PORT-296: the record's + 0x20
+	}
+	else
+	{
+		m_lastDamageAmount = 0.0f;
 	}
 }
 

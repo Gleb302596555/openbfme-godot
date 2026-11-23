@@ -23,3 +23,13 @@ def test_a_field_counts_only_when_a_stop_proves_retail_never_reads_it():
     assert not ps.proven_unread("SlopeLimits", ["S-3"], STOPS)       # a verdict about something else, far from the name
     assert not ps.proven_unread("Foo", ["S-4"], STOPS)               # not ported is not proven unread
     assert not ps.proven_unread("Bar", ["S-1"], STOPS)               # the stop does not name the field
+
+
+def test_modules_missing_reads_the_live_module_queue(tmp_path):
+    # 2026-11-22: MODULE_GAPS.md (a 2026-10-30 snapshot) still said 10 missing classes, all ported by then; the maps run's live table says 1
+    audit = tmp_path / "field-audit.tsv"
+    audit.write_text("x\n", encoding="utf-8")
+    (tmp_path / "module-queue.tsv").write_text("class\tstatus\tdefinitions\ttype\nA\traw\t3\tBehavior\nB\tmissing\t1\tBehavior\n"
+                                               "C\tparsed-only\t2\tDraw\n", encoding="utf-8")
+    assert ps.modules_missing(audit, "| x | missing |\n| y | missing |\n") == 1
+    assert ps.modules_missing(None, "| x | missing |\n| y | missing |\n") == 2

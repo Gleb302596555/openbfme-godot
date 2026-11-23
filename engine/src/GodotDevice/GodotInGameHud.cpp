@@ -1174,28 +1174,38 @@ void HudDevice::drawIconOps(RID parent)
 			}
 			case IconUIOp::TEXT:
 			{
-				if (font.is_null())
-				{
-					continue;
-				}
 				const String text = String::utf8(op.text.c_str());
 				// a stage-sized text (the money texts) grows with the window as the HUD movies do: the window height over the 600 stage rows
 				const float stageScale = op.stageTextSize > 0.0f ? std::max(1.0f, (float)hud->windowHeight() / 600.0f) : 1.0f;
 				const int size_px = op.pixelTextSize > 0.0f ? (int)std::lround(op.pixelTextSize * k)
 					: op.stageTextSize > 0.0f ? (int)std::lround(op.stageTextSize * stageScale * k) : fontSize;
+				Ref<Font> textFont = font;
+				if (!op.fontName.empty() && player)
+				{
+					float drawSize = (float)size_px;
+					Ref<Font> resolved = player->font_for(op.fontName, (float)size_px, &drawSize, op.fontIsBold); // RW 0x48FE84 -> 0x6186E0
+					if (resolved.is_valid())
+					{
+						textFont = resolved;
+					}
+				}
+				if (textFont.is_null())
+				{
+					continue;
+				}
 				const float dropX = op.dropOffsetX, dropY = op.dropOffsetY;
-				const Vector2 size = font->get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px);
+				const Vector2 size = textFont->get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px);
 				// RW 0x677F1B: x - width / 2, the string's top at y; a bottom-right text (the group number, RW 0x673F6D) ends at x, y
-				const Vector2 at = op.bottomRight ? Vector2(op.x - std::ceil(size.x), op.y - size.y + font->get_ascent(size_px))
-												  : Vector2(op.x - std::floor(size.x / 2.0f), op.y + font->get_ascent(size_px));
+				const Vector2 at = op.bottomRight ? Vector2(op.x - std::ceil(size.x), op.y - size.y + textFont->get_ascent(size_px))
+												  : Vector2(op.x - std::floor(size.x / 2.0f), op.y + textFont->get_ascent(size_px));
 				// a money text's shadow is faint (35%): at full strength it made the small text read bold (the owner asked for a thinner text, PROBLEMS.md P-6)
 				Color dropColor = col(op.dropColor);
 				if (op.stageTextSize > 0.0f)
 				{
 					dropColor.a *= 0.35f;
 				}
-				font->draw_string(iconItem, at + Vector2(dropX, dropY), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, dropColor);
-				font->draw_string(iconItem, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, col(op.color));
+				textFont->draw_string(iconItem, at + Vector2(dropX, dropY), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, dropColor);
+				textFont->draw_string(iconItem, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, col(op.color));
 				break;
 			}
 		}

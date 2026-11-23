@@ -137,6 +137,7 @@ bool ThingTemplate::ModuleInfo::clearModuleDataWithTag(const std::string &tag, s
 // ---------------------------------------------------------------------------------------------
 // Overridable, copying
 // ---------------------------------------------------------------------------------------------
+// RW 0x0073C040 (ThingTemplate::getFinalOverride; DONOR BFME2 0x0033A68A)
 const ThingTemplate *ThingTemplate::getFinalOverride() const
 {
 	const ThingTemplate *t = this;

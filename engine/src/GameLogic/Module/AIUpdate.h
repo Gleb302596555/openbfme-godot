@@ -431,6 +431,9 @@ public:
 	// ---- queries ----
 	bool isIdle() const override;             // RW 0x6643FC
 	bool isMoving() const;                    // RW 0x664485
+	// RW 0x66288A (AIUpdateInterface vslot 0x228; DONOR BFME2 0x00262BA9): true while following a path (goal 1 or 4)
+	// with an active locomotor (+0x1F0) whose current or next optimised node carries a portal waypoint id (RW 0x5E2DF4 / 0x661E50).
+	bool isMovingAlongPortal() const;
 	// lane AI-2: RW vslot 0x1BC (RW 0x662B3C): the current state's slot 0x24 (AIState::isActive), true without a current state
 	bool isStateActive() const { return !m_machine || !m_machine->currentState() ? true : m_machine->currentState()->isActive(); }
 	// Port 257: RW vslot 0x1D0 (RW 0x662B28): the current state's slot 0x34 (AIState::isFollowThru), true without a current state

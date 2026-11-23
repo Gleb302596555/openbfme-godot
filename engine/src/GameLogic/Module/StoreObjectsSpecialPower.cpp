@@ -28,6 +28,7 @@ void StoreObjectsSpecialPowerModuleData::buildFieldParse(MultiIniFieldParse &p) 
     p.add(kFields);
 }
 
+// RW 0x008D1EA7
 void StoreObjectsSpecialPower::triggerAbilityEffect() {
     SpecialAbilityUpdate::triggerAbilityEffect();
     Object *source = getObject();
@@ -43,8 +44,8 @@ void StoreObjectsSpecialPower::triggerAbilityEffect() {
     PartitionFilterFn filter([&](Object &candidate) {
         return &candidate != source && !candidate.isEffectivelyDead()
             && !candidate.testStatus(38)
+            && candidate.isOffMap() == source->isOffMap() // RW 0x008D1F4C: PartitionFilterSameMapStatus (vtable RW 0x00C0F374, slot +4 RW 0x00660E93: Object +0x458 bit 3)
             && ObjectFilterMatch::allows(logic, allowed, candidate, source->getControllingPlayer());
-        // RW 0xC0F374: same off-map bit; the port has no off-map objects (S-856).
     });
     const auto hits = logic.partition().iterateObjectsInRange(m_targetPos, m_store->radius,
         FROM_CENTER_2D, { &filter }, ITER_SORTED_NEAR_TO_FAR);

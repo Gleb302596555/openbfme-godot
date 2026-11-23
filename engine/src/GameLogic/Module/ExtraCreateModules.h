@@ -81,6 +81,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008BD5B7 (dtor -> RW 0x008BCE1F)
 class InheritUpgradeCreate : public BehaviorModule, public CreateModuleInterface
 {
 public:

@@ -145,6 +145,7 @@ public:
 	std::vector<std::string> recordingErrors() const { return m_writer ? m_writer->errors() : std::vector<std::string>(); }
 
 	Network &network() { return *m_network; }
+	ReplayWriter *replayWriter() { return m_writer.get(); }
 	LockstepDriver &driver() { return *m_driver; }
 	Transport &transport() { return *m_transport; }
 	const NetworkConfig &config() const { return m_config; }

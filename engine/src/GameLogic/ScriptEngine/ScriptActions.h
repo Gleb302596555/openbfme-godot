@@ -15,7 +15,7 @@
 //   * PLAYER_RELATES_PLAYER (88, parameters SIDE, SIDE, RELATION) -> RW 0x7BC1C6(param 0, param 2's int, param 1): the first player of each mask
 //     (RW 0x6A85B6); the first player's relationship to the second becomes the relation.
 //   * UNIT_SET_TEAM (499) RW 0x7BF794: the unit and the team; the AI's vslot 0x54 with the team, then Object::setTeam (RW 0x69954A).
-//   * TEAM_TRANSFER_TO_PLAYER (156) RW 0x7C9B79: the team's controlling player becomes the player (RW 0x7A00DA / 0x7A0626); every member (and
+//   * TEAM_TRANSFER_TO_PLAYER (156) RW 0x007C9B79: the team's controlling player becomes the player (RW 0x007A00DA / RW 0x007A0626); every member (and
 //     the rider of a mounted member, + 0x27C, when its template has KindOf bit + 0x115 & 0x20) leaves and re-enters the world and goes idle.
 //   * VICTORY (3) RW 0x7C45E0, DEFEAT (4) RW 0x7BF15E, QUICKVICTORY (327) RW 0x7BE0A2: the end screens (the client's: END-1's EndGame).
 //   * MAP_REVEAL_ALL (105), MAP_REVEAL_ALL_PERM (233), MAP_REVEAL_ALL_UNDO_PERM (234), MAP_SHROUD_ALL (149): TheShroudManager per player of the

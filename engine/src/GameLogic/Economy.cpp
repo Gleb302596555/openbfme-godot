@@ -496,7 +496,7 @@ struct FilterByTemplate
 
 bool Economy::hasObjectMatching(const Player &player, const ObjectFilter &filter, bool completedOnly) const
 {
-	// RW 0x6ABD0B -> 0x7A19AB -> 0x7A075A over the player's teams' members
+	// RW 0x6ABD0B -> RW 0x007A19AB -> 0x7A075A over the player's teams' members
 	const Bits &b = bits();
 	FilterByTemplate byTemplate{ m_logic, filter, player, {} };
 	for (const Object *o = m_logic.getFirstObject(); o; o = o->getNextObject())

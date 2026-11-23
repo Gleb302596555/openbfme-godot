@@ -330,8 +330,9 @@ std::string W3DScriptedModelDraw::resolveLodAndStandardModelNames(const std::str
 	}
 	std::string candidate = baseName;
 
-	// RW 0x4C2576 / RW 0x004B617F ('M' / 'L' suffix): StaticModelLODMode (+0x135); the suffix number is RW 0x4B24C4 (the static LOD GlobalData + 0x1774: m_options.animationLodNumber,
-	// the same number for the horde draw, whose RW 0x47A20C calls this function too). Not ported: SwitchModelLODMode (+0x134, RW 0x4C2587 .. 0x4C25A4:
+	// RW 0x4C2576 / RW 0x004B617F ('M' / 'L' suffix): StaticModelLODMode (+0x135); the suffix number is RW 0x4B24C4
+	// (the static LOD GlobalData + 0x1774: m_options.animationLodNumber, the same number for the horde draw, whose RW 0x47A20C calls this function too).
+	// Not ported: SwitchModelLODMode (+0x134, RW 0x4C2587 .. 0x4C25A4:
 	// the number from RW 0x4B2506 with the draw's own + 0xBC) and the template flag + 0x114 & 0x20 that forces the "L" model with a warning
 	// (RW 0x4B24DC, RW 0x4C25EA .. 0x4C27C3); Ennorath sets no SwitchModelLODMode
 	if (m_data.m_staticModelLODMode)
@@ -1810,6 +1811,7 @@ float W3DScriptedModelDraw::currentTargetBearing()
 	return m_options.targetBearing();
 }
 
+// RW 0x004C216F (hidden sub-object record append) / RW 0x004BB69B (weapon bone resolution, on-demand in W3DModelDrawBones)
 void W3DScriptedModelDraw::setSubObjectHidden(const std::string &name, bool hide, bool permanent)
 {
 	stop("S-098", "scripts hide and show sub objects by name; the name match (full name or the part after the container dot) is inferred");

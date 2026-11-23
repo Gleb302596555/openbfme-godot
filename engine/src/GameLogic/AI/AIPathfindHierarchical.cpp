@@ -55,7 +55,8 @@
 
 namespace
 {
-const int kBlock = 16; // PathfindZoneManager block (RW 0x939226)
+// PathfindCellInfo open/closed list link (RW 0x0093450F), unlink (RW 0x006E8074), and pool release (RW 0x009346AC) are represented by the search containers below.
+const int kBlock = 16; // PathfindZoneManager block (RW 0x00939226)
 } // namespace
 
 float Pathfinder::hierarchicalClosestKey(int dx, int dy)
