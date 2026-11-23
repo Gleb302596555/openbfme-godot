@@ -376,7 +376,7 @@ void VictoryConditions::killPlayer(Player *p)
 		const AISkirmishGroup *group = manager.findGroup(playerIndex);
 		if (ai && group)
 		{
-			bool shared = !ai->firstOfGroup; // RW 0x6C7518's own +0x178 test
+			bool shared = !ai->firstOfGroup; // RW 0x6C7518's own +0x178 test; the group's member order mirrors the links rebuilt at RW 0x6C760A
 			if (!shared)
 			{
 				for (int memberIndex : group->members)
