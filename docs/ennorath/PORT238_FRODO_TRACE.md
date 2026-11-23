@@ -103,13 +103,16 @@ actual creation path.
   for a named trigger; port `HeroModules.cpp` mirrors it. A synthetic case,
   without granting the fixture level-one upgrade, checks the first pulse and a
   same-player in-range matching Sam modifier with damage multiplier 1.5; the
-  self, far Sam, enemy Sam and nearby other name get no modifier. **36/36**,
-  isolated suite **46/46 cases, 3057/3057 assertions** on matching `3f0105c8`
-  core/headers plus the separately compiled PORT-286 parser. Changing fixture
-  `StartsActive` to No fails **27/29** with early REQUIRE. This is a fixture
-  sensitivity control, not an engine-fix control. Distinct allied players,
-  target equivalence/inheritance, actual damage, expiry/refresh and visuals
-  remain untested.
+  self, far Sam, enemy Sam and nearby other name get no modifier. A second
+  pulse occurs after `13 + source ID % 5` frames (2500 ms rounded to frames,
+  RW `0x89F6BD`), and the matching target again has multiplier 1.5. Expanded
+  test **40/40**, isolated suite **46/46 cases, 3061/3061 assertions** on
+  matching `3f0105c8` core/headers plus the separately compiled PORT-286 parser.
+  Changing fixture `StartsActive` to No in the earlier version failed **27/29**
+  with early REQUIRE; changing only fixture RefreshDelay to 2000 ms in the
+  expanded version fails **39/40**. These are fixture sensitivity controls,
+  not engine-fix controls. Distinct allied players, target equivalence/
+  inheritance, actual damage, between-pulse expiry and visuals remain untested.
 * **Weapon toggle and ordinary orders — not read against RW in this trace.**
   The presence of their buttons is not proof of effective weapons or controls.
 

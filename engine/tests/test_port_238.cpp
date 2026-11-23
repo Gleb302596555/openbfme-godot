@@ -5352,4 +5352,12 @@ End
     float damageMultiplier = 1.0f;
     CHECK(sam->attributeModifierProduct(ATTRIBUTE_DAMAGE_MULT, nullptr, true, damageMultiplier));
     CHECK(damageMultiplier == 1.5f);
+    const unsigned firstPulse = w.logic->getFrame();
+    const unsigned expectedPeriod = 13u + frodo->getID() % 5u; // ceil(2500 ms / 200 ms), RW 0x89F6BD
+    for (unsigned i = 0; i < expectedPeriod + 1 && aura->pulses() == 1; ++i) w.frames(1);
+    REQUIRE(aura->pulses() == 2);
+    CHECK(w.logic->getFrame() - firstPulse == expectedPeriod);
+    damageMultiplier = 1.0f;
+    CHECK(sam->attributeModifierProduct(ATTRIBUTE_DAMAGE_MULT, nullptr, true, damageMultiplier));
+    CHECK(damageMultiplier == 1.5f);
 }
