@@ -106,6 +106,7 @@ TEST_CASE("PORT-341: StartHidden seeds the floor registration flag, so the first
 	data.m_weatherTextures.emplace_back(1, "KBHall_Bib_Snow.tga"); // angmarbarracks.ini:368 (SNOWY)
 
 	W3DFloorDrawState floor(&data);
+	floor.setMapWeather(1);                     // SNOWY: RW 0x4CEA1C reads RW 0xDE4364 + 0x138, the port passes it in
 	CHECK(floor.registered());                  // RW 0x4CE950..0x4CE955
 	CHECK_FALSE(floor.hiddenBySubObject());     // the three hide flags are cleared at RW 0x4CE93D..0x4CE94D
 	CHECK_FALSE(floor.hiddenByModule());
@@ -210,8 +211,8 @@ TEST_CASE("PORT-341: HideIfModelConditions drives the model-condition hide flag 
 	CHECK(floor.hiddenByModelCondition());
 	CHECK_FALSE(floor.recordAdded());
 
-	// A flags change that is not a hide (still AWAITING_CONSTRUCTION) changes nothing.
-	CHECK(floor.replaceModelConditionState(drawtest::flagsOf({ "AWAITING_CONSTRUCTION" })));
+	// A flags change that hides no less (still AWAITING_CONSTRUCTION) changes nothing (RW 0x4CEBB3).
+	CHECK_FALSE(floor.replaceModelConditionState(drawtest::flagsOf({ "AWAITING_CONSTRUCTION" })));
 	CHECK(floor.hiddenByModelCondition());
 	CHECK_FALSE(floor.recordAdded());
 

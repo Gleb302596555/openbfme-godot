@@ -191,12 +191,14 @@ bool W3DFloorDrawState::reactToTransformChange(int weather)
 	// a module without data is marked. Without data nothing is handed over (RW 0x4CEA8F); the arguments at RW 0x4CEAA0..0x4CEAB4 are
 	// the data's StaticModelLODMode (+0x1C), ForceToBack (+0x1D), the ModelName (+8) and the weather texture of RW 0x4CEA1C, and they
 	// go to the terrain visual's floor list through RW 0x467B4D.
+	// The weather index is kept for the refresh below (RW 0x4CEADF -> RW 0x4CEA1C reads it from RW 0xDE4364 + 0x138; the port takes it as
+	// an argument, so it is remembered here, before the RW 0x4CEA83 test, because a StartHidden floor never gets past that test).
+	m_weather = weather;
 	if (m_registered)
 	{
 		return false;
 	}
 	m_registered = true; // RW 0x4CEA8B
-	m_weather = weather;
 	if (!m_floorData) // RW 0x4CEA8F
 	{
 		return false;

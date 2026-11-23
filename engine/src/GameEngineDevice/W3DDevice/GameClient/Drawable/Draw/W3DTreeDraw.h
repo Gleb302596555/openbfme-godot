@@ -193,6 +193,9 @@ public:
 	// +0x14 from StartHidden (data +0x1E), so a StartHidden floor is NOT added here at all - it enters the list only through the
 	// refresh below. `weather` is the map's weather (RW 0x4CEA1C reads it from RW 0xDE4364 itself). True when a record was handed over.
 	bool reactToTransformChange(int weather = 0);
+	// The map's weather index, the port's stand-in for the global RW 0xDE4364 + 0x138 that RW 0x4CEA1C reads on every call (the port
+	// receives it as a parameter instead). Set before a hide-flag change so the refresh RW 0x004CEADF resolves the same texture.
+	void setMapWeather(int weather) { m_weather = weather; }
 	bool registered() const { return m_registered; }                  ///< +0x14
 	const W3DFloorDrawRecord &record() const { return m_floorRecord; } ///< the terrain visual's record for this floor
 	bool recordAdded() const { return m_floorRecord.added; }
