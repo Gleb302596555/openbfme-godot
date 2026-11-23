@@ -374,6 +374,7 @@ include(cmake/Port12.cmake) # PORT-12: BuildAssistant edge margin / SupplyBuildB
 include(cmake/Port15.cmake) # PORT-15: LockWeaponCreate/Object::setWeaponLock (OPENBFME_PORT15_TESTS)
 include(cmake/Port18.cmake) # PORT-18: hold fire
 include(cmake/Port20.cmake) # PORT-20: GarrisonContain/onSelling (OPENBFME_PORT20_TESTS)
+include(cmake/Port329.cmake) # PORT-329: the plain garrison's eviction (issue #846; OPENBFME_PORT329_TESTS)
 include(cmake/Port22.cmake) # PORT-22: the siege deploy's approach offset, Pathfinder::adjustMeleeOffset (OPENBFME_PORT22_TESTS)
 include(cmake/Port24.cmake) # PORT-24: Object/ForceLuaRegistration (OPENBFME_PORT24_TESTS)
 include(cmake/Port6.cmake) # PORT-6: StealthDetectorUpdate/CanDetectWhileGarrisoned (OPENBFME_PORT6_TESTS)
@@ -1158,6 +1159,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT1_TESTS}
     ${OPENBFME_PORT2_TESTS}
     ${OPENBFME_PORT20_TESTS}
+    ${OPENBFME_PORT329_TESTS}
     ${OPENBFME_PORT22_TESTS}
     ${OPENBFME_PORT24_TESTS}
     ${OPENBFME_PORT6_TESTS}
