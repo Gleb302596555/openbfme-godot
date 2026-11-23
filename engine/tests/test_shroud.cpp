@@ -919,7 +919,7 @@ TEST_CASE("shroud stops: S-560 .. S-567 are the exact stop lines and reach GameL
 		"added; their readers: the emotion tracker's threat and the unit voice's camp test (RW 0x8DD6F3) are ported; the channel search RW 0xB52740 is read "
 		"only by script action 261 SKIRMISH_ATTACK_NEAREST_GROUP_WITH_VALUE (RW 0x7C19D7, the editor's UNUSED, no retail map uses it), not ported; a body-less object's health threat is 0 (retail reads the body unchecked; no retail template gets there without one)",
 		"[S-561] ghost objects: the record is kept (PORT-314, RW 0xB4E190: a destroyed object with ghost data whose status is FOGGED for a player that has seen "
-		"it), its statuses come from its covered cells, and the client draws the frozen last snapshot record; narrowed: the port keeps no W3DGhostObject clone of "
+		"it), its statuses are frozen at the retention (the ghost's own partition data, RW 0xB4E239), and the client draws the frozen last snapshot record; narrowed: the port keeps no W3DGhostObject clone of "
 		"the render objects (the live drawable and the frozen ObjectSnapshot stand in for it, RW 0x462B9B family not ported) and retail's own release point (the "
 		"local orphan pass RW 0x707141 asking W3DGhostObject::getShroudStatus) is the port's update() pass",
 		"[S-562] shroud inference: the object statuses are evaluated eagerly in update() (retail on demand); the covered cells use the template's last geometry "

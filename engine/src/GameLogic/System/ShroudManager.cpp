@@ -1651,10 +1651,10 @@ void ShroudManager::update()
 	}
 	processPending(true);
 	const int players = playerCountLimit();
-	// PORT-314 / S-561 (RW 0xB4E190): a record retained past its object goes when its statuses no longer keep it — RW's own release is the next ask of the
-	// ghost's status (W3DGhostObject::getShroudStatus, the local orphan pass RW 0x707141) with the cells as the ghost left them: a cell that is looked at again
-	// makes the ghost's status CLEAR / PARTIAL_CLEAR, and a player with no fogged, ever-seen status cannot keep it. The statuses are recomputed here from the
-	// cells the record still covers (evaluate() without an object: RW 0xB4E890's cell branch, no `hidesWhenFogged` test).
+	// PORT-314 / S-561 (RW 0xB4E190): a record retained past its object goes when no player the retention test kept it for still has its cells fogged — RW's own
+	// release is the next ask of the ghost's status (W3DGhostObject::getShroudStatus, the local orphan pass RW 0x707141) with the cells as the ghost left them: a
+	// cell that is looked at again makes the ghost's status CLEAR / PARTIAL_CLEAR, and the ghost is no longer needed for that player. The statuses of the record
+	// are not written back (they are the ghost's frozen partition data); the cells are read through computeStatus, RW 0xB4E890's cell branch without an object.
 	for (size_t i = 0; i < m_registration.size();)
 	{
 		Record &r = m_records[m_registration[i]];
@@ -1663,23 +1663,18 @@ void ShroudManager::update()
 			++i;
 			continue;
 		}
+		// the record's statuses stay the retention's own (a ghost's partition data is written once, RW 0xB4E239): they are what the client draws and what the
+		// owner's own look leaves at CLEAR (the owner never re-freezes its own building). Only the cells are read again, for the players the retention test kept
+		// the record for (a nonzero seen byte with the retained FOGGED status, RW 0xB4E1B0): while their cells still compute FOGGED the ghost stands
+		bool keep = false;
 		for (int p = 0; p < players; ++p)
 		{
+			if (r.seen[(size_t)p] == 0 || r.status[(size_t)p] != OBJECTSHROUD_FOGGED)
+			{
+				continue;
+			}
 			int seen = -1;
-			r.status[(size_t)p] = computeStatus(r, p, nullptr, seen); // the write half of RW 0xB4E890 without the object (`previous` only with coverage)
-			if (seen >= 0)
-			{
-				r.seen[(size_t)p] = (std::uint8_t)seen;
-			}
-			if (!r.covered.empty())
-			{
-				r.previous[(size_t)p] = r.status[(size_t)p];
-			}
-		}
-		bool keep = false;
-		for (int p = 0; p < kMaxPlayers; ++p)
-		{
-			keep = keep || (r.seen[(size_t)p] != 0 && r.status[(size_t)p] == OBJECTSHROUD_FOGGED);
+			keep = keep || computeStatus(r, p, nullptr, seen) == OBJECTSHROUD_FOGGED;
 		}
 		if (keep)
 		{
@@ -1822,7 +1817,7 @@ std::vector<std::string> ShroudManager::stopLines()
 		"added; their readers: the emotion tracker's threat and the unit voice's camp test (RW 0x8DD6F3) are ported; the channel search RW 0xB52740 is read "
 		"only by script action 261 SKIRMISH_ATTACK_NEAREST_GROUP_WITH_VALUE (RW 0x7C19D7, the editor's UNUSED, no retail map uses it), not ported; a body-less object's health threat is 0 (retail reads the body unchecked; no retail template gets there without one)",
 		"[S-561] ghost objects: the record is kept (PORT-314, RW 0xB4E190: a destroyed object with ghost data whose status is FOGGED for a player that has seen "
-		"it), its statuses come from its covered cells, and the client draws the frozen last snapshot record; narrowed: the port keeps no W3DGhostObject clone of "
+		"it), its statuses are frozen at the retention (the ghost's own partition data, RW 0xB4E239), and the client draws the frozen last snapshot record; narrowed: the port keeps no W3DGhostObject clone of "
 		"the render objects (the live drawable and the frozen ObjectSnapshot stand in for it, RW 0x462B9B family not ported) and retail's own release point (the "
 		"local orphan pass RW 0x707141 asking W3DGhostObject::getShroudStatus) is the port's update() pass",
 		"[S-562] shroud inference: the object statuses are evaluated eagerly in update() (retail on demand); the covered cells use the template's last geometry "

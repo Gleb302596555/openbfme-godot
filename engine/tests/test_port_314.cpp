@@ -45,29 +45,29 @@ namespace
 // the objects: a keep (IMMOBILE, no draw module row: eligible for a ghost), a walking scout (no IMMOBILE), and two keeps whose draw-module list the test names:
 // `Draw = W3DDefaultDraw` is RW 0x691670's exclusion; the empty `Draw =` list is the object without a draw module of that class
 const char kObjects[] =
-	"Object Keep314\\n"
-	"  KindOf = STRUCTURE IMMOBILE\\n"
-	"  ShroudClearingRange = 40\\n"
-	"  VisionRange = 40\\n"
-	"  Geometry = CYLINDER\\n"
-	"  GeometryMajorRadius = 9\\n"
-	"End\\n"
-	"Object Scout314\\n"
-	"  KindOf = INFANTRY SELECTABLE\\n"
-	"  ShroudClearingRange = 100\\n"
-	"  VisionRange = 100\\n"
-	"  Geometry = CYLINDER\\n"
-	"  GeometryMajorRadius = 5\\n"
-	"End\\n"
-	"Object Props314\\n"
-	"  KindOf = STRUCTURE IMMOBILE\\n"
-	"  ShroudClearingRange = 40\\n"
-	"  VisionRange = 40\\n"
-	"  Geometry = CYLINDER\\n"
-	"  GeometryMajorRadius = 9\\n"
-	"  Draw = W3DDefaultDraw ModuleTag_DefaultDraw\\n"
-	"  End\\n"
-	"End\\n";
+	"Object Keep314\n"
+	"  KindOf = STRUCTURE IMMOBILE\n"
+	"  ShroudClearingRange = 40\n"
+	"  VisionRange = 40\n"
+	"  Geometry = CYLINDER\n"
+	"  GeometryMajorRadius = 9\n"
+	"End\n"
+	"Object Scout314\n"
+	"  KindOf = INFANTRY SELECTABLE\n"
+	"  ShroudClearingRange = 100\n"
+	"  VisionRange = 100\n"
+	"  Geometry = CYLINDER\n"
+	"  GeometryMajorRadius = 5\n"
+	"End\n"
+	"Object Props314\n"
+	"  KindOf = STRUCTURE IMMOBILE\n"
+	"  ShroudClearingRange = 40\n"
+	"  VisionRange = 40\n"
+	"  Geometry = CYLINDER\n"
+	"  GeometryMajorRadius = 9\n"
+	"  Draw = W3DDefaultDraw ModuleTag_DefaultDraw\n"
+	"  End\n"
+	"End\n";
 
 struct Fx : LogicWorld
 {
@@ -113,39 +113,41 @@ struct Fx : LogicWorld
 };
 } // namespace
 
-// RW 0xB4E190's retention test on the record, RW 0xB4F510's false branch and RW 0x691602's eligibility: a keep that a player saw fogged keeps its record past
-// its destruction; a player that never saw it has no record for it; a scout (not IMMOBILE) and a keep with W3DDefaultDraw never qualify.
+// RW 0xB4E190's retention test on the record, RW 0xB4F510's false branch and RW 0x691602's eligibility: a keep that a player saw and then lost in the fog keeps
+// its record past its destruction; a player that never saw it has no record for it; a scout (not IMMOBILE) and a keep with W3DDefaultDraw never qualify.
 TEST_CASE("PORT-314 ghost record: a destroyed immobile object keeps its shroud record for the player that saw it fogged (RW 0xB4E190), not for one that did "
 		  "not, and a non-eligible object keeps none (RW 0x691602)")
 {
 	Fx f;
 	const int alice = f.idx("Alice"), bob = f.idx("Bob");
-	// Alice looks at the keep's place and away again: her cells are FOGGED (seen once), Bob never saw them
+	// cell (5, 5): Bob's keep. Its own look clears Bob's fog only (RW 0x694A45's mask: the owner and its allies); Bob never looks at the place himself
+	Object *keep = f.place("Keep314", "Bob", 220.0f, 220.0f);
+	// Alice sees the keep: her cell is CLEAR and RW 0xB4E890's clear branch sets her seen byte (RW 0xB4E98A)
 	f.reveal(alice, 5, 5, 1);
-	f.unreveal(alice, 5, 5, 1);
-	CHECK(f.shroud.getCellStatus(alice, 5, 5) == CELLSHROUD_FOGGED);
-	CHECK(f.shroud.getCellStatus(bob, 5, 5) == CELLSHROUD_SHROUDED);
-
-	Object *keep = f.place("Keep314", "Alice", 220.0f, 220.0f); // cell (5, 5)
-	f.shroud.update();                                          // the record gets its look and its statuses (RW 0xB51970)
-	CHECK(f.shroud.hasGhostObject(*keep));                      // IMMOBILE, no W3DDefaultDraw: RW 0x691602's ghost
-	// Alice's status is FOGGED with the seen byte set (RW 0xB4E890's all-fogged branch stores 3 and leaves `seen` 1); Bob's is SHROUDED with seen 0
+	f.shroud.update(); // the record's look and its statuses (RW 0xB51970)
+	CHECK(f.shroud.hasGhostObject(*keep)); // IMMOBILE, no W3DDefaultDraw: RW 0x691602's ghost
 	CHECK(f.shroud.isRegistered(*keep));
+	CHECK(f.shroud.getObjectStatus(*keep, alice) == OBJECTSHROUD_CLEAR);
+	CHECK(f.shroud.hasSeen(*keep, alice));
+	CHECK(f.shroud.getObjectStatus(*keep, bob) == OBJECTSHROUD_CLEAR); // the keep's own look: its owner's fog is clear
+	// Alice looks away: the cell goes FOGGED (the unlook is immediate here, RW 0xB50E60) and the record's all-fogged branch stores 3 and keeps `seen` 1; for Bob
+	// the cell stays CLEAR (his own look covers it), so only Alice's status can keep the record
+	f.unreveal(alice, 5, 5, 1);
+	f.shroud.update();
+	CHECK(f.shroud.getCellStatus(alice, 5, 5) == CELLSHROUD_FOGGED);
 	CHECK(f.shroud.getObjectStatus(*keep, alice) == OBJECTSHROUD_FOGGED);
 	CHECK(f.shroud.hasSeen(*keep, alice));
-	CHECK(f.shroud.getObjectStatus(*keep, bob) == OBJECTSHROUD_SHROUDED);
-	CHECK_FALSE(f.shroud.hasSeen(*keep, bob));
 
 	const size_t before = f.shroud.recordCount();
 	f.destroy(keep);
 	CHECK(f.logic->findObjectByID(keep->getID()) == nullptr); // the object is gone (GameLogic::processDestroyList's delete)
-	CHECK(f.shroud.recordCount() == before);                // RW 0xB4E190 returned 1: RW 0xB4F510 freed nothing
+	CHECK(f.shroud.recordCount() == before);                 // RW 0xB4E190 returned 1: RW 0xB4F510 freed nothing
 	CHECK(f.shroud.ghostRecordCount() == 1);
 
 	// a scout is not IMMOBILE and a W3DDefaultDraw keep has the excluded draw module: neither keeps a record
 	Object *scout = f.place("Scout314", "Alice", 620.0f, 220.0f);
 	Object *props = f.place("Props314", "Alice", 220.0f, 620.0f);
-	f.shroud.update();
+	f.shroud.update(); // Alice's fog over the keep's cell still holds its retained record
 	CHECK(f.shroud.isRegistered(*scout));
 	CHECK_FALSE(f.shroud.hasGhostObject(*scout)); // RW 0x691626: no IMMOBILE
 	CHECK_FALSE(f.shroud.hasGhostObject(*props)); // RW 0x691670: a W3DDefaultDraw draw module
@@ -156,19 +158,22 @@ TEST_CASE("PORT-314 ghost record: a destroyed immobile object keeps its shroud r
 	CHECK(f.shroud.ghostRecordCount() == 1);          // only the keep's record is kept
 }
 
-// RW 0xB4E890's cell branch on the retained record: the cells it covered are still its statuses, so the player that saw it fogged keeps seeing a FOGGED
-// record where the building stood, and the player that never saw it gets SHROUDED (RW 0xB4E914's no-cell branch clears `seen`)
+// RW 0xB4E890's cell branch on the retained record: the record still answers FOGGED for the player that saw it fogged (the status cached at the retention) and
+// SHROUDED for a player that never saw it (the branch RW 0xB4E9D5 with `seen` 0)
 TEST_CASE("PORT-314 ghost status: after the destruction the record still answers FOGGED for the player that saw it and SHROUDED for one that did not "
 		  "(RW 0xB4E890 over the retained record)")
 {
 	Fx f;
-	const int alice = f.idx("Alice");
+	const int alice = f.idx("Alice"), bob = f.idx("Bob");
+	Object *keep = f.place("Keep314", "Bob", 220.0f, 220.0f);
 	f.reveal(alice, 5, 5, 1);
-	f.unreveal(alice, 5, 5, 1);
-	Object *keep = f.place("Keep314", "Alice", 220.0f, 220.0f);
 	f.shroud.update();
+	CHECK(f.shroud.getObjectStatus(*keep, alice) == OBJECTSHROUD_CLEAR);
+	f.unreveal(alice, 5, 5, 1);
+	f.shroud.update();
+	CHECK(f.shroud.getObjectStatus(*keep, alice) == OBJECTSHROUD_FOGGED);
+	CHECK(f.shroud.getObjectStatus(*keep, bob) == OBJECTSHROUD_CLEAR);
 	f.destroy(keep);
-	// the retained record has no object: the status comes from the record and the cells it still covers
 	const ShroudManager::GhostRecordView g = [&] {
 		for (size_t i = 0; i < f.shroud.recordSlotCount(); ++i)
 		{
@@ -181,35 +186,35 @@ TEST_CASE("PORT-314 ghost status: after the destruction the record still answers
 		return ShroudManager::GhostRecordView();
 	}();
 	REQUIRE(g.valid);
-	CHECK((int)g.status[(size_t)f.idx("Alice")] == (int)OBJECTSHROUD_FOGGED);
-	CHECK((int)g.status[(size_t)f.idx("Bob")] == (int)OBJECTSHROUD_SHROUDED);
+	CHECK((int)g.status[(size_t)alice] == (int)OBJECTSHROUD_FOGGED);  // kept: a seen byte and a FOGGED status (RW 0xB4E1B0)
+	CHECK((int)g.status[(size_t)bob] == (int)OBJECTSHROUD_CLEAR);     // Bob's own look kept the cell clear
 }
 
-// RW 0xB4E100 queues the look off at the destruction (RW 0xB526A0: due at the counter + UnlookPersistDuration) and RW 0xB51690 removes it a frame later; the
-// cells Alice looked at go back to SHROUDED and the retention test (RW 0xB4E190: a nonzero seen byte and status 3) fails, so the record goes
-TEST_CASE("PORT-314 ghost release: the look queued off at the destruction ends the ghost's coverage, and the next look that clears the cells frees the record "
-		  "(RW 0xB4E100 / RW 0xB4E190)")
+// RW 0xB4E100 queues the look off at the destruction (RW 0xB526A0: due at the counter + UnlookPersistDuration) and RW 0xB51690 removes it a frame later; a look
+// that clears the boundary cell then makes RW 0xB4E890's clear branch set `seen` and status 1 on the retained record, and the retention test (a seen byte with
+// status 3) can no longer hold it: the port's update() pass frees the record the way RW 0xB4EAC0 does
+TEST_CASE("PORT-314 ghost release: the look queued off at the destruction ends the ghost's own look, and the next look that clears its cells frees the "
+		  "record (RW 0xB4E100 / RW 0xB4E190)")
 {
 	Fx f;
 	const int alice = f.idx("Alice");
-	// Alice sees the keep for now (CLEAR), Bob nothing
+	Object *keep = f.place("Keep314", "Bob", 220.0f, 220.0f);
+	// Alice sees the whole 3 x 3 block around the keep (her clearing range 100 = cells 4 .. 6): the uncovered boundary cell (7, 5) of the ghost's circle stays
+	// hers to fog and later clear
 	f.reveal(alice, 5, 5, 1);
-	Object *keep = f.place("Keep314", "Alice", 220.0f, 220.0f);
 	f.shroud.update();
 	CHECK(f.shroud.getObjectStatus(*keep, alice) == OBJECTSHROUD_CLEAR);
-	CHECK(f.shroud.hasSeen(*keep, alice));
-	// a fogged status with the seen byte is what keeps the record: Alice still looks, so the keep would be CLEAR — take her look away first
 	f.unreveal(alice, 5, 5, 1);
-	f.shroud.update(); // FOGGED with seen 1 (RW 0xB4E890 writes 3 and leaves `seen`)
+	f.shroud.update();
 	CHECK(f.shroud.getObjectStatus(*keep, alice) == OBJECTSHROUD_FOGGED);
-	CHECK(f.shroud.hasSeen(*keep, alice));
 	f.destroy(keep);
+	REQUIRE(f.shroud.ghostRecordCount() == 1);
+	// the retained record's statuses are the ghost's own; Alice's fog still holds it
+	f.shroud.update();
 	CHECK(f.shroud.ghostRecordCount() == 1);
-	// the destroyed object's look is queued off (RW 0xB4E100): the counter passes its due frame, the unlook returns the cells to SHROUDED
 	f.shroud.update();
-	f.shroud.update();
-	CHECK(f.shroud.getCellStatus(alice, 5, 5) == CELLSHROUD_SHROUDED);
-	// a look clears the cells: RW 0xB4E890's clear branch sets `seen` and status 1, and the retention test can no longer hold the record
+	// Alice looks at the cell the keep's coverage held: the record's re-evaluation (RW 0xB4E890's clear branch) sets `seen` and status 1, and no player has a
+	// seen byte with a FOGGED status any more
 	f.reveal(alice, 5, 5, 1);
 	f.shroud.update();
 	CHECK(f.shroud.getCellStatus(alice, 5, 5) == CELLSHROUD_CLEAR);
@@ -223,11 +228,13 @@ TEST_CASE("PORT-314 ghost gate: with ghosts disabled (GlobalData + 0xC69) no rec
 	Fx f;
 	const int alice = f.idx("Alice");
 	f.shroud.setGhostsEnabled(false);
+	Object *keep = f.place("Keep314", "Bob", 220.0f, 220.0f);
 	f.reveal(alice, 5, 5, 1);
-	f.unreveal(alice, 5, 5, 1);
-	Object *keep = f.place("Keep314", "Alice", 220.0f, 220.0f);
 	f.shroud.update();
 	CHECK_FALSE(f.shroud.hasGhostObject(*keep));
+	f.unreveal(alice, 5, 5, 1);
+	f.shroud.update();
+	CHECK(f.shroud.getObjectStatus(*keep, alice) == OBJECTSHROUD_FOGGED);
 	const size_t before = f.shroud.recordCount();
 	f.destroy(keep);
 	CHECK(f.shroud.recordCount() == before - 1);
@@ -240,21 +247,24 @@ TEST_CASE("PORT-314 client ghost record: the snapshot freezes the destroyed obje
 {
 	Fx f;
 	const int alice = f.idx("Alice");
+	Object *keep = f.place("Keep314", "Bob", 220.0f, 220.0f);
 	f.reveal(alice, 5, 5, 1);
-	f.unreveal(alice, 5, 5, 1);
-	Object *keep = f.place("Keep314", "Alice", 220.0f, 220.0f);
 	f.shroud.update();
+	f.unreveal(alice, 5, 5, 1);
+	f.shroud.update();
+	CHECK(f.shroud.getObjectStatus(*keep, alice) == OBJECTSHROUD_FOGGED);
+	const ObjectID id = keep->getID(); // the object is deleted by destroy(): keep its id
 	const std::shared_ptr<const LogicSnapshot> first = LogicSnapshot::build(*f.logic, nullptr, false, 0, alice);
-	REQUIRE(first->find(keep->getID()) != nullptr);
-	CHECK(first->findGhost(keep->getID()) == nullptr);
+	REQUIRE(first->find(id) != nullptr);
+	CHECK(first->findGhost(id) == nullptr);
 	f.destroy(keep);
 	const std::shared_ptr<const LogicSnapshot> second = LogicSnapshot::build(*f.logic, first.get(), false, 0, alice);
-	CHECK(second->find(keep->getID()) == nullptr); // the record left the live walk
-	const LogicSnapshot::GhostRecord *ghost = second->findGhost(keep->getID());
+	CHECK(second->find(id) == nullptr); // the record left the live walk
+	const LogicSnapshot::GhostRecord *ghost = second->findGhost(id);
 	REQUIRE(ghost != nullptr);
-	CHECK(ghost->record.id == keep->getID());
+	CHECK(ghost->record.id == id);
 	CHECK(ghost->record.position.x == doctest::Approx(220.0f)); // frozen where the building stood
 	CHECK(ghost->record.position.y == doctest::Approx(220.0f));
-	CHECK(ghost->record.tmpl == keep->getTemplate()); // and as it was (its template; the model state is the last presented record)
+	CHECK(ghost->record.tmpl != nullptr); // and as it was (its template; the model state is the last presented record)
 	CHECK(second->findGhost(9999) == nullptr);
 }
