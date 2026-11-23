@@ -415,6 +415,15 @@ bool InGameHud::hoveredHelpButton(InGameHelpBox::Provider &p, ControlBarButton &
 	return false;
 }
 
+// RW entry 0x96F4FA constructs the stance item's provider with vtable
+// 0xC841CC. Slot +8 is RW 0x851E97 (xor eax,eax; ret), not the arc window's
+// delay getter. RW entry 0x807848 calls that slot at 0x8078C7 before comparing
+// now against hoverStart + delay. Keep the existing other-provider mapping.
+int InGameHud::helpProviderDelayMs(int bar, int commandWindowDelayMs)
+{
+	return bar == 3 || bar == 5 ? 0 : commandWindowDelayMs;
+}
+
 void InGameHud::updateHud6(ObjectID context, const std::string &faction, double seconds)
 {
 	m_hud6ClockMs += (std::uint32_t)(seconds * 1000.0); // the help's hover clock (retail: timeGetTime)
@@ -455,7 +464,7 @@ void InGameHud::updateHud6(ObjectID context, const std::string &faction, double 
 	}
 	// lane CAMPUI-1: a stance item of the toggle's radial: its help (RW 0x96F33E) is the toggle's TextLabel / DescriptLabel at the item stance's index in the
 	// toggle's Stances (RW 0x96F2DA), made as a command button help with no cost (RW 0x975070 with empty cost / command point texts); provider kind 5, keyed
-	// by the stance. INFERENCE: its delay is the arc's (the item provider's vslot 2 was not read)
+	// by the stance. Its provider returns zero delay (RW 0xC841CC +8 -> 0x851E97).
 	AptPalantir::StanceItemHit stanceItem;
 	if (!have && m_wm && m_palantirRef)
 	{
@@ -483,7 +492,7 @@ void InGameHud::updateHud6(ObjectID context, const std::string &faction, double 
 		const GameTextSource *text = m_config.gameText;
 		// the provider's delay (vslot 2): a command button's is its window's TOOLTIPDELAY (+ 0x1C8), 0 without a window (RW 0x8075E4, lane ROTWK-C), so the spell
 		// book's and the hero bar's command buttons (bar 3) show at once; a UnitHelpSource's (bar 4) is its + 0x08 (RW 0x9F9F16, its value not read: S-2703)
-		const int delay = p.bar == 3 ? 0 : m_tooltipDelayMs;
+		const int delay = helpProviderDelayMs(p.bar, m_tooltipDelayMs);
 		m_helpBox.showHelp(p, m_hud6ClockMs, delay, [&]() -> std::shared_ptr<CommandButtonHelp> {
 			if (p.bar == 4)
 			{

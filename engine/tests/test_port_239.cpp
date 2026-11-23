@@ -712,3 +712,37 @@ TEST_CASE("PORT-239 stance toggle: live context relationship not disabled clip s
 	}
 	CHECK(palantir->stanceErrors().empty());
 }
+
+
+#include "GameClient/InGameHud.h"
+
+TEST_CASE("PORT-239 stance item help: zero-delay provider preserves the strict hover boundary")
+{
+	// RW 0x96F4FA uses vtable 0xC841CC; provider slot +8 = 0x851E97 returns
+	// zero. RW 0x807848 calls +8 at 0x8078C7 and requires now > start+delay
+	// (0x8078EB/ED). Test the production HUD's delay selector and composition
+	// boundary, not APT rendering. The ordinary arc keeps its window delay.
+	for (int bar : { 0, 1, 2, 3, 4, 5 })
+	{
+		CAPTURE(bar);
+		const int delay = InGameHud::helpProviderDelayMs(bar, 500);
+		const bool immediate = bar == 3 || bar == 5;
+		CHECK(delay == (immediate ? 0 : 500));
+		InGameHelpBox help;
+		InGameHelpBox::Provider provider;
+		provider.bar = bar;
+		int compositions = 0;
+		auto compose = [&]() -> std::shared_ptr<CommandButtonHelp> { ++compositions; return nullptr; };
+		help.showHelp(provider, 100, delay, compose); // establishes provider/start
+		help.showHelp(provider, 100, delay, compose); // equality is not elapsed
+		CHECK(compositions == 0);
+		help.showHelp(provider, 101, delay, compose);
+		CHECK(compositions == (immediate ? 1 : 0));
+		help.showHelp(provider, 600, delay, compose);
+		CHECK(compositions == (immediate ? 1 : 0));
+		help.showHelp(provider, 601, delay, compose);
+		CHECK(compositions == 1);
+		help.showHelp(provider, 602, delay, compose);
+		CHECK(compositions == 1); // same provider is not composed twice
+	}
+}

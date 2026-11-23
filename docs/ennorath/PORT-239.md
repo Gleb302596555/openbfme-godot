@@ -7,7 +7,7 @@ This is an **interim investigation**, not a completed port or acceptance report.
 Input changes implemented so far: PLANNING CommandMap applicability and shared
 RotWK installation loading through the subsystem legend, then the root override.
 No new simulation state. No stop is closed yet; S-3803 is narrowed by the
-owner-notification verdict below. Thirteen asset-free PORT-239 tests are registered
+owner-notification verdict below. Fourteen asset-free PORT-239 tests are registered
 in the full target. They passed syntax validation only; the full target is still
 building. No passing execution or failing-before-fix result is claimed.
 
@@ -27,7 +27,7 @@ source of retail expectations. No game data or disassembly dumps are included.
 | S-287 | `CommandXlat.cpp` meta switch | Unresolved: compare entire switch with RW 0x81F8D8; do not remove the deliberate force-attack addition (S-1675) without the owner's decision. |
 | S-1201 | Context resume/repair | Unresolved: read retail ActionManager eligibility and context priority before changing builder clicks. |
 | S-3301 | `SelectionXlat`, `HudInput`; point collector / polygon test | Real missing mechanism indicated by current plain-box implementation; numerical branches read below, caller/class chain and integration still pending. |
-| S-3803 | `AptPalantir` stance submenu | Owner notifications proven no-ops; live press eligibility and unload lifecycle implemented; full execution/red-green and item-help delay proof pending. |
+| S-3803 | `AptPalantir` stance submenu | Owner notifications proven no-ops; live press eligibility and unload lifecycle implemented; full execution/red-green pending, including zero-delay item help. |
 | S-4360 | Same Ctrl-selection mechanism as S-3301 | Treat together with S-3301, not as a separate selection handler. S-1675 remains a distinct owner-decision row. |
 | S-4531 | `GUI/AptScreens/AptPalantir.cpp:477–490` | The ordinary left-press gate and disabled cue already exist in baseline. The old stop's statement “every press reaches ControlBar” is stale for this path. Verify synthetically before closing/narrowing; toggle-stance uses another virtual path. |
 
@@ -402,3 +402,26 @@ object and command-set identity, calls reset 0x92F990 at 0x93084E; reset release
 all six controller references at 0x92FA1D. Stance Impl destructor entry
 0x96FCCB checks its still-live menu and hides it at 0x96FD1A. Item-help delay
 remains unverified. No S-3803 closure is claimed before full execution.
+
+## S-3803 item-help delay resolved and corrected
+
+The last delay inference was **wrong**: stance-item help does not borrow the
+arc's tooltip delay. RW entry 0x96F4FA constructs its stack provider with vtable
+0xC841CC (0x96F510) before calling showHelp 0x807848. The four table slots are
+0x69BCFA, 0x96FA61, **0x851E97**, 0x96F33E. Slot +8 is exactly `xor eax,eax;
+ret`, so the delay is zero. Linear entry 0x807848 invokes provider slot +8
+at 0x8078C7, then compares now against start+delay at 0x8078EB/ED (strictly
+later, not equality). The donor stance TU helped identify the command-help
+composition at the last slot; the zero-delay conclusion is from target bytes.
+
+The existing updateHud6 delay selection now uses `helpProviderDelayMs`:
+kind 5 (stance item) joins the existing kind 3 immediate path; all other kinds
+retain their old command-window-delay input. No shared showHelp semantics were
+changed. New PORT-239 test drives this **production selector** into showHelp
+and checks the exact composition counts at the start, start+1, window deadline,
+deadline+1 and subsequent hover. It also covers all existing provider-kind
+neighbours; it tests composition timing, not rendered APT fidelity.
+
+Fourteen cases syntax-check with InGameHudHud6.cpp; no runtime result yet.
+The original build still runs; the queued sequential final-target build/test
+will consume the latest source. Do not run another Ninja in engine/build.

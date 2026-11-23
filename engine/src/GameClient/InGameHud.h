@@ -238,6 +238,8 @@ public:
 	// the device draws the help box's content clip (its `_type` is helpBox().renderName()) at (x, y, w, h) window pixels: RW 0x92E2AC
 	void helpBoxRender(float x, float y, float w, float h, std::vector<HelpDrawOp> &out);
 	int tooltipDelayMs() const { return m_tooltipDelayMs; }
+	// The delay selected by updateHud6 for a provider (stance item: RW 0xC841CC +8).
+	static int helpProviderDelayMs(int bar, int commandWindowDelayMs);
 	// lane PORT-189 (issue #455): ParasiticInGameCommandButton::Impl left/right click notifications
 	// (RW 0x9D2814 -> 0x9D282D / RW 0x9D288A -> 0x9D28A3; DONOR BFME2 Rva005C33DDWindowNotification.cpp):
 	// drop the control bar's help provider (RW 0x8079BB -> 0x8076CD) before sending GBM_SELECTED (0x4008)
