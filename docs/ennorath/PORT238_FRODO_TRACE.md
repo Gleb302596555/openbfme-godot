@@ -92,11 +92,24 @@ actual creation path.
   synthetic `AllowSelf` to No fails two self checks (**58/60**). This is fixture
   sensitivity, not a pre-fix control. It does not test effective child
   inheritance, actual level-grant, armor combat, expiry/refresh, FX or game.
-* **Sam leadership — not fully read:** the parent aura declares
-  `FrodoForSamBonus`, Level 1, range 200 and filter `NONE +RohanSam_mod ALLIES`;
-  its modifier declares `DAMAGE_MULT 150%` and 3000 ms. The command is a
-  NONPRESSABLE indicator. Actual activation, target inheritance and effects
-  still require verification.
+* **Sam leadership — bounded synthetic activation/targeting:** the parent aura
+  declares `StartsActive = Yes`, `TriggeredBy = Upgrade_Level_1`,
+  `FrodoForSamBonus`, refresh 2500 ms, range 200 and filter
+  `NONE +RohanSam_mod ALLIES` (`frodo.ini:2166–2174`); its modifier declares
+  `DAMAGE_MULT 150%` and 3000 ms (`includes/attributemodifier.inc:4400–4405`).
+  The command is a NONPRESSABLE indicator. The BFME2 donor
+  `AttributeModifierAuraUpdateCtor.cpp` leads to RW ctor `0x89ED5C`, whose
+  `StartsActive` branch `0x89EDAD–0x89EDBB` applies the upgrade without waiting
+  for a named trigger; port `HeroModules.cpp` mirrors it. A synthetic case,
+  without granting the fixture level-one upgrade, checks the first pulse and a
+  same-player in-range matching Sam modifier with damage multiplier 1.5; the
+  self, far Sam, enemy Sam and nearby other name get no modifier. **36/36**,
+  isolated suite **46/46 cases, 3057/3057 assertions** on matching `3f0105c8`
+  core/headers plus the separately compiled PORT-286 parser. Changing fixture
+  `StartsActive` to No fails **27/29** with early REQUIRE. This is a fixture
+  sensitivity control, not an engine-fix control. Distinct allied players,
+  target equivalence/inheritance, actual damage, expiry/refresh and visuals
+  remain untested.
 * **Weapon toggle and ordinary orders — not read against RW in this trace.**
   The presence of their buttons is not proof of effective weapons or controls.
 

@@ -5264,3 +5264,92 @@ End
     CHECK_FALSE(pool(otherTarget)->hasList("P238FrodoMithril"));
     CHECK_FALSE(pool(enemyTarget)->hasList("P238FrodoMithril"));
 }
+
+TEST_CASE("PORT-238 Frodo-style Sam leadership starts active and filters recipients")
+{
+    World w;
+    AttributeModifierStore modifiers;
+    AttributeModifierStore *savedModifiers = TheAttributeModifierStore;
+    struct RestoreModifiers
+    {
+        World &world;
+        AttributeModifierStore *saved;
+        ~RestoreModifiers() { world.logic->reset(); TheAttributeModifierStore = saved; }
+    } restore{w, savedModifiers};
+    TheAttributeModifierStore = &modifiers;
+    modifiers.registerBlock(w.w.fx.env.blocks);
+    HeroModules::registerAll(w.w.modules);
+    // frodo.ini:2166-2174, attributemodifier.inc:4400-4405.
+    // RW constructor 0x89ED5C activates StartsActive; filtered pulse 0x89F42D.
+    // Synthetic same-player vs enemy, no rank, actual child or rendered FX.
+    const char *data = R"ini(
+Upgrade Upgrade_P238FrodoLevelOne
+ Type = OBJECT
+End
+ModifierList P238FrodoForSam
+ Category = LEADERSHIP
+ Modifier = DAMAGE_MULT 150%
+ Duration = 3000
+End
+Object P238SamAuraFrodo
+ KindOf = INFANTRY HERO SELECTABLE
+ Body = ActiveBody Body
+  MaxHealth = 100
+ End
+ Behavior = AttributeModifierPoolUpdate Pool
+ End
+ Behavior = AttributeModifierAuraUpdate SamLeadership
+  StartsActive = Yes
+  BonusName = P238FrodoForSam
+  TriggeredBy = Upgrade_P238FrodoLevelOne
+  RefreshDelay = 2500
+  Range = 200
+  ObjectFilter = NONE +P238Sam ALLIES
+ End
+End
+Object P238Sam
+ KindOf = INFANTRY HERO SELECTABLE
+ Body = ActiveBody Body
+  MaxHealth = 100
+ End
+ Behavior = AttributeModifierPoolUpdate Pool
+ End
+End
+Object P238SamDifferent
+ KindOf = INFANTRY HERO SELECTABLE
+ Body = ActiveBody Body
+  MaxHealth = 100
+ End
+ Behavior = AttributeModifierPoolUpdate Pool
+ End
+End
+)ini";
+    const std::string error = w.w.load(data, INI_LOAD_OVERWRITE, "port238_frodo_sam.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    Object *frodo = w.unit("P238SamAuraFrodo", 'A', 300, 300);
+    Object *sam = w.unit("P238Sam", 'A', 450, 300);
+    Object *farSam = w.unit("P238Sam", 'A', 510, 300);
+    Object *enemySam = w.unit("P238Sam", 'B', 400, 300);
+    Object *other = w.unit("P238SamDifferent", 'A', 400, 300);
+    for (Object *obj : {frodo, sam, farSam, enemySam, other})
+    {
+        REQUIRE(obj != nullptr);
+        w.logic->partition().registerObject(*obj);
+    }
+    auto pool = [](Object *obj) { return dynamic_cast<AttributeModifierPool *>(obj->findModule("AttributeModifierPoolUpdate")); };
+    auto *aura = dynamic_cast<AttributeModifierAuraUpdate *>(frodo->findModule("AttributeModifierAuraUpdate"));
+    REQUIRE(aura != nullptr);
+    for (Object *obj : {frodo, sam, farSam, enemySam, other}) REQUIRE(pool(obj) != nullptr);
+    CHECK_FALSE(frodo->hasUpgrade("Upgrade_P238FrodoLevelOne"));
+    CHECK(aura->isAlreadyUpgraded());
+    for (int i = 0; i < 10 && !pool(sam)->hasList("P238FrodoForSam"); ++i) w.frames(1);
+    REQUIRE(pool(sam)->hasList("P238FrodoForSam"));
+    CHECK(aura->pulses() == 1);
+    CHECK_FALSE(pool(frodo)->hasList("P238FrodoForSam"));
+    CHECK_FALSE(pool(farSam)->hasList("P238FrodoForSam"));
+    CHECK_FALSE(pool(enemySam)->hasList("P238FrodoForSam"));
+    CHECK_FALSE(pool(other)->hasList("P238FrodoForSam"));
+    float damageMultiplier = 1.0f;
+    CHECK(sam->attributeModifierProduct(ATTRIBUTE_DAMAGE_MULT, nullptr, true, damageMultiplier));
+    CHECK(damageMultiplier == 1.5f);
+}
