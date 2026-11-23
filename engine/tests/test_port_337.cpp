@@ -5,6 +5,8 @@
 #include "IniTestUtil.h"
 #include "LogicTestUtil.h"
 #include "FxTestUtil.h"
+#include "Common/XferLoad.h"
+#include "Common/XferSave.h"
 #include "GameLogic/Map/FireLogicSystem.h"
 #include "GameLogic/Map/TerrainLogic.h"
 #include "GameLogic/Object/RetailObjectWorld.h"
@@ -175,4 +177,22 @@ TEST_CASE("PORT-337 fire particle capacity follows the unsigned retail cap")
         sim.step();
         CHECK(sim.particles(id).size() == item.second);
     }
+}
+
+TEST_CASE("PORT-337 terrain-derived cell state survives snapshot round trip")
+{
+    Grid g;
+    g.material(0, 0, 1);
+    g.newMap();
+    g.fire().changeBurnRate(0, 0, 0, 20, false);
+    g.fire().update();
+    XferSave save;
+    g.fire().xfer(save);
+    g.fire().changeBurnRate(0, 0, 0, -100, false);
+    XferLoad load(save.data());
+    g.fire().xfer(load);
+    CHECK(load.atEnd());
+    CHECK(g.fire().getCellFuel(0, 0) == 52);
+    CHECK(g.fire().getCellBurnRate(0, 0) == 18);
+    CHECK(g.fire().cellsBurningCount() == 1);
 }
