@@ -60,6 +60,39 @@ drop and respawn ordering in a live game.
 | `SpecialAbilityKingsFavor` | The ring-form object literally declares a LevelGrant power (`:2398–2422`) though it is not in the named ring command set. | Effective reachability, acceptance-filter expansion, XP gain and RW/port behavior are not read in this trace. |
 | Ring-form passive / combat / death modules | The object also declares other modules including Elven Gift healing, `BoromirRingHealth` upgrade, dual weapon, death and respawn (`:2077–2257`, `:2469–2487`). | Their upgrade provenance, values, transfer, actual appearance and behavior are not fully audited. Standard stance, capture, attack-move and stop controls are listed in `PORT238_COMMAND_CANDIDATES.md`; they are not individually verified here. |
 
+### Shield: bounded synthetic modifier and damage behavior
+
+`CREATE_A_HERO_INVULNERABILITY_MODIFIER` has two literal declarations in the
+1.9.8.3 archive: `_gamedata.inc:9899` lists `0% FORCE CRUSH SLASH PIERCE SIEGE
+STRUCTURAL FLAME HEALING WATER PENALTY FALLING TOPPLING REFLECTED PASSENGER
+MAGIC CHOP HERO SPECIALIST URUK HERO_RANGED FLY_INTO LOGICAL_FIRE CAVALRY
+CAVALRY_RANGED POISON`, while `createaherogamedata.inc:95` adds `FROST`. The
+effective preprocessing/load order is not established; neither variant can be
+asserted as the real match's final expansion from this scan alone.
+
+`PORT-238 Boromir-style shield*` uses both expanded variants in separate
+synthetic subcases, a directly granted OBJECT rank upgrade, paused starter and
+direct HeroMode intent. It checks a pre-shield SLASH hit, unpause and modifier
+application, then SLASH, FROST and UNRESISTABLE hits: the port ignores SLASH
+while the buff is active, ignores FROST only when it is named, and still takes
+UNRESISTABLE damage. Once the synthetic modifier expires, SLASH damages again.
+The test passes **52/52 assertions**, isolated `PORT-238*` **47/47 cases,
+3113/3113 assertions** with matching `3f0105c8` core/headers and a separately
+compiled PORT-286 parser. Removing only SLASH from the fixture's modifier
+produces **44/52** (some later health checks cascade), a fixture sensitivity
+control, not a pre-fix engine test.
+
+The donor HeroModeSpecialAbilityUpdate source leads to RW effect
+`0x8959B5` -> `0x68F1A8` and its timed condition; port
+`SpecialAbilityModules.cpp` implements this part. `Damage.cpp::AdjustDamage`
+models the UNRESISTABLE exception before immunity, and
+`ActiveBody.cpp::DamageHost::invulnerableTo` consults the modifier pool by
+damage type. The direct INVULNERABLE/ARMOR reads in the reference binary are
+community-section calls (S-636/S-001), so this fixture is **port behavior**,
+not a proven vanilla RW parity verdict. It does not test every damage type,
+actual modifier expansion, abilities/HUD, real combat, save state or visuals;
+Port 278 #645's separate horn work is untouched.
+
 The `origin/main` `68383364` automated matrix has PASS for the shield modifier
 and egg creation, NONPRESSABLE for leadership, and NO-EFFECT for horn. These
 observations are not a player run, do not establish effective Ennorath loading

@@ -5361,3 +5361,109 @@ End
     CHECK(sam->attributeModifierProduct(ATTRIBUTE_DAMAGE_MULT, nullptr, true, damageMultiplier));
     CHECK(damageMultiplier == 1.5f);
 }
+
+TEST_CASE("PORT-238 Boromir-style shield applies selected damage immunity until expiry")
+{
+    HealWorld w;
+    AttributeModifierStore modifiers;
+    AttributeModifierStore *savedModifiers = TheAttributeModifierStore;
+    struct RestoreModifiers
+    {
+        HealWorld &world;
+        AttributeModifierStore *saved;
+        ~RestoreModifiers() { world.logic->reset(); TheAttributeModifierStore = saved; }
+    } restore{w, savedModifiers};
+    TheAttributeModifierStore = &modifiers;
+    modifiers.registerBlock(w.w.fx.env.blocks);
+    HeroModules::registerAll(w.w.modules);
+    SpellEffectModules::registerAll(w.w.modules);
+    // gondorboromir.ini:2365-2387, includes/attributemodifier.inc:2152.
+    // Two archive definitions of CREATE_A_HERO_INVULNERABILITY_MODIFIER differ
+    // in FROST; effective preprocessing order is not established here.
+    // HeroMode trigger RW 0x8959B5; damage RW 0x5D893C, S-636 / S-001 caveat.
+    bool frostListed = false;
+    SUBCASE("gamedata macro without frost") {}
+    SUBCASE("create-a-hero macro with frost") { frostListed = true; }
+    std::string data = R"ini(
+Upgrade Upgrade_P238BoromirShieldLevel
+ Type = OBJECT
+End
+SpecialPower P238BoromirShieldPower
+ Enum = SPECIAL_GENERAL_TARGETLESS
+ ReloadTime = 120000
+End
+ModifierList P238BoromirShield
+ Category = BUFF
+ Modifier = INVULNERABLE 0% FORCE CRUSH SLASH PIERCE SIEGE STRUCTURAL FLAME HEALING WATER PENALTY FALLING TOPPLING REFLECTED PASSENGER MAGIC CHOP HERO SPECIALIST URUK HERO_RANGED FLY_INTO LOGICAL_FIRE CAVALRY CAVALRY_RANGED POISON)ini";
+    if (frostListed) data += " FROST";
+    data += R"ini(
+ Duration = 30000
+End
+Object P238BoromirShieldHero
+ KindOf = INFANTRY HERO SELECTABLE CAN_ATTACK
+ ArmorSet
+  Conditions = None
+  Armor = NoArmor
+ End
+ Body = ActiveBody Body
+  MaxHealth = 2000
+ End
+ Behavior = AIUpdateInterface AI
+ End
+ Behavior = AttributeModifierPoolUpdate Pool
+ End
+ Behavior = UnpauseSpecialPowerUpgrade ShieldUnlock
+  SpecialPowerTemplate = P238BoromirShieldPower
+  TriggeredBy = Upgrade_P238BoromirShieldLevel
+  ObeyRechageOnTrigger = Yes
+ End
+ Behavior = SpecialPowerModule ShieldStarter
+  SpecialPowerTemplate = P238BoromirShieldPower
+  StartsPaused = Yes
+ End
+ Behavior = HeroModeSpecialAbilityUpdate ShieldAbility
+  SpecialPowerTemplate = P238BoromirShieldPower
+  HeroAttributeModifier = P238BoromirShield
+  HeroEffectDuration = 30000
+  UnpackTime = 100
+  IgnoreFacingCheck = Yes
+ End
+End
+)ini";
+    const std::string error = w.w.load(data, INI_LOAD_OVERWRITE, "port238_boromir_shield.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    Object *hero = w.unit("P238BoromirShieldHero", 'A', 300, 300);
+    REQUIRE(hero != nullptr);
+    auto *pool = dynamic_cast<AttributeModifierPool *>(hero->findModule("AttributeModifierPoolUpdate"));
+    auto *starter = dynamic_cast<SpecialPowerModule *>(hero->findModuleByTag(w.w.keys.nameToKey("ShieldStarter")));
+    auto *ability = dynamic_cast<HeroModeSpecialAbilityUpdate *>(hero->findModule("HeroModeSpecialAbilityUpdate"));
+    REQUIRE(pool != nullptr);
+    REQUIRE(starter != nullptr);
+    REQUIRE(ability != nullptr);
+    CHECK(starter->pauseCount() == 1);
+    auto hit = [&](int type) {
+        DamageInfo damage;
+        damage.m_input.m_amount = 100.0f;
+        damage.m_input.m_damageType = type;
+        hero->attemptDamage(damage);
+    };
+    hit(DAMAGE_SLASH);
+    REQUIRE(hero->getBodyModule()->getHealth() == 1900.0f);
+    hero->giveUpgrade("Upgrade_P238BoromirShieldLevel");
+    CHECK(starter->pauseCount() == 0);
+    ability->initiateIntentToDoSpecialPower(ability->abilityData()->m_specialPowerTemplate, nullptr, nullptr, 0, 0);
+    for (int i = 0; i < 20 && !pool->hasList("P238BoromirShield"); ++i) w.frames(1);
+    REQUIRE(pool->hasList("P238BoromirShield"));
+    REQUIRE(ability->abilitiesTriggered() == 1);
+    hit(DAMAGE_SLASH);
+    CHECK(hero->getBodyModule()->getHealth() == 1900.0f);
+    hit(DAMAGE_FROST);
+    CHECK(hero->getBodyModule()->getHealth() == (frostListed ? 1900.0f : 1800.0f));
+    hit(DAMAGE_UNRESISTABLE);
+    const float afterUnresistable = frostListed ? 1800.0f : 1700.0f;
+    CHECK(hero->getBodyModule()->getHealth() == afterUnresistable);
+    for (int i = 0; i < 170 && pool->hasList("P238BoromirShield"); ++i) w.frames(1);
+    REQUIRE_FALSE(pool->hasList("P238BoromirShield"));
+    hit(DAMAGE_SLASH);
+    CHECK(hero->getBodyModule()->getHealth() == afterUnresistable - 100.0f);
+}
