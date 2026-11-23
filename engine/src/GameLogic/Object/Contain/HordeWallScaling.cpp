@@ -126,8 +126,9 @@ const char *HordeContain::wallScalingStopLine()
 {
 	return "[S-4461] horde wall scaling (lane BACKLOG-8): the wall kept by the horde (contain slots 0x238 / 0x23C, RW 0x86BD54 / 0x86BCF9), its collide entry "
 		   "(RW 0x86C61E), its end (RW 0x86D170), the climbing member's position (RW 0x86E214 through RW 0x871897) and the hub's branch (RW 0x87468B: "
-		   "RW 0x8747AE ..) are ported; NOT connected: nothing calls the collide entry in a game (the horde object itself cannot cross a wall: the locomotor's "
-		   "ScalesWalls look-ahead RW 0x5E8956 is S-084, the wall layer S-161), so a horde never starts to scale; INFERENCE: the wall's frame is its position "
+		   "RW 0x8747AE ..) are ported; the collide entry is connected via a static-wall contact stand-in (S-780), but a moving horde in a map-spanning wall "
+		   "fixture stops short of geometric contact, and end-to-end climbing remains unproved; the member AI exclusion S-1751 is also unverified for traversal. "
+		   "The locomotor's ScalesWalls look-ahead RW 0x5E8956 is S-084 and the wall layer S-161; INFERENCE: the wall's frame is its position "
 		   "and facing (RW: the object matrix), its major radius the template's first shape's, the destination layer the ground; not ported: the climber's stealth reveal (RW 0x7767A9), the wall owner's "
 		   "EVA event 15, the drawable's switch (RW 0x672A02) and the member call RW 0x68B531";
 }
