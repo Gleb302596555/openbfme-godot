@@ -624,6 +624,7 @@ include(cmake/Port275.cmake)    # PORT-275: the command set swap re-evaluates th
 include(cmake/Port280.cmake)    # PORT-280: ProductionSpeedBonus consumer on Player, calcTimeToBuild and ProductionUpdate (fork issue 647; OPENBFME_PORT280_TESTS)
 include(cmake/Threatlevel1.cmake) # THREATLEVEL-1: the map scripts' threat conditions and counters (appends to OPENBFME_SIM_SOURCES; OPENBFME_THREATLEVEL1_TESTS)
 include(cmake/Buildclear1.cmake) # BUILDCLEAR-1: the placement's clear-of-objects test RW 0x796D37 (OPENBFME_BUILDCLEAR1_TESTS)
+include(cmake/Bldgdebris1.cmake) # BLDGDEBRIS-1: the DamageCreationList debris and the siege side damage of ActiveBody (OPENBFME_BLDGDEBRIS1_TESTS)
 include(cmake/Port297.cmake)    # PORT-297: resources — SupplyWarehouseDockUpdate::setDockCrippled and the resource modules' own functions (fork issue 689; OPENBFME_PORT297_TESTS)
 include(cmake/Port293.cmake)    # PORT-293: ActiveBody's last-healing timestamp (body slot 0x48) and AutoHealBehavior NonStackable (issue #685; OPENBFME_PORT293_TESTS)
 include(cmake/Port309.cmake)    # PORT-309: ExperienceLevel level-up tint verdict re-check (issue #701, S-7196 / PORT-44; OPENBFME_PORT309_TESTS)
@@ -1487,6 +1488,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT280_TESTS}
     ${OPENBFME_THREATLEVEL1_TESTS}
     ${OPENBFME_BUILDCLEAR1_TESTS}
+    ${OPENBFME_BLDGDEBRIS1_TESTS}
     ${OPENBFME_PORT297_TESTS}
     ${OPENBFME_PORT302_TESTS}
     ${OPENBFME_PORT293_TESTS}
@@ -1724,7 +1726,9 @@ add_executable(openbfme_tests
     tests/test_econ_hash.cpp
     tests/test_econ_retail.cpp
     tests/test_falsedef_retail.cpp
-    tests/test_capcrash1.cpp)
+    tests/test_capcrash1.cpp
+    # lane VISIONDEF-1: the vision height bonus's ground reference (Object + 0x1C4)
+    tests/test_visiondef1_retail.cpp)
 target_sources(openbfme_tests PRIVATE
     tests/test_coverage_online_shell.cpp
     tests/test_coverage_simple_screens.cpp
@@ -1733,6 +1737,8 @@ target_sources(openbfme_tests PRIVATE
     tests/test_coverage_vp6.cpp
     tests/test_coverage_in_game_hud.cpp
     tests/test_coverage_mp3.cpp
+    tests/test_weapon_attribute_modifiers.cpp
+    tests/test_local_87.cpp
     tests/test_coverage_online_hub.cpp
     ${OPENBFME_PORT207_TESTS}
     ${OPENBFME_PORT285_TESTS})

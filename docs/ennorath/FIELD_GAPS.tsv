@@ -14,7 +14,7 @@ parsed-unused	meshnamematches		Instances	380	manual		no				no reader route imple
 parsed-unused	object		VoiceEnterStateMoveToCamp	353	manual		no				template getter route unavailable or field absent from the recovered table	
 parsed-unused	object		VoiceEnterStateRetreatToCastle	330	manual		no				template getter route unavailable or field absent from the recovered table	
 parsed-unused	experiencelevel		ShowLevelUpTint	261	manual	S-7196	no				no named getter candidate in entry blocks; not a no-reader verdict	getter
-parsed-unused	object	RespawnUpdate	DeathAnimationTime	232	struct	S-7323	yes	27	8	5	0x0061B379@1 0x006DA205@2 0x005488D4@3 0x00619A03@3 0x006198F6@4 0x0092C367@7 0x008211C0@8 0x0092BE94@8	module
+parsed-unused	object	RespawnUpdate	DeathAnimationTime	232	struct	S-7323	yes	24	8	5	0x0061B379@1 0x006DA205@2 0x005488D4@3 0x00619A03@3 0x006198F6@4 0x0092C367@7 0x008211C0@8 0x0092BE94@8	module
 parsed-unused	object	ToggleMountedSpecialAbilityUpdate	OpacityTarget	213	manual		yes	64	0	12	no specific none function: the reader is ported without a citation, shared, or in another class	module
 parsed-unused	weapon	/AttributeModifierNugget	DamageFXType	180	manual	S-188 S-7225	no				no reader route implemented for this nested top-level subtable	
 parsed-unused	locomotor		MinTurnSpeed	157	struct	S-7221	no				no named getter candidate in entry blocks; not a no-reader verdict	getter
@@ -137,7 +137,7 @@ not-read	fxparticlesystem		VolCylinderRadius	3	manual		no				no reader route imp
 parsed-unused	object		EvaEventDetectedAlly	3	by-name		no				no named getter candidate in entry blocks; not a no-reader verdict	getter
 parsed-unused	object		EvaEventDetectedEnemy	3	by-name		no				no named getter candidate in entry blocks; not a no-reader verdict	getter
 parsed-unused	object		EvaEventDetectedOwner	3	by-name		no				no named getter candidate in entry blocks; not a no-reader verdict	getter
-parsed-unused	object	CastleMemberBehavior	StoreUpgradePrice	3	struct	S-7360	yes	36	3	6	0x00660E31@0 0x0079B68F@0 0x00714A09@2	module
+parsed-unused	object	CastleMemberBehavior	StoreUpgradePrice	3	struct	S-7360	yes	34	3	6	0x00660E31@0 0x0079B68F@0 0x00714A09@2	module
 parsed-unused	object	HorseHordeContain	LivingWorldOverloadTemplate	3	manual		yes	34	16	3	0x0087990E@0 0x0087992C@0 0x008799AD@0 0x008799CF@0 0x00879FDB@0 0x0086C8F2@1 0x008798B7@1 0x00872BC5@2	module
 parsed-unused	object	ModelConditionSoundSelectorClientBehavior/SoundState	VoiceRetreatToCastle	3	manual		no				the owner is not a module class of the map (an INI block, or a class the mod's objects do not use)	
 parsed-unused	object	RespawnBody	ReallyDamagedAttributeModifier	3	struct		yes	3	0	3	no specific none function: the reader is ported without a citation, shared, or in another class	module
@@ -525,9 +525,6 @@ parsed-unused	object		SoundPromotedVeteran	1	manual		no				template getter route
 parsed-unused	object	ActiveBody	EnteringDamagedTransitionTime	1	struct		yes	33	11	12	0x008C1C87@0 0x008C234E@0 0x008C3A91@0 0x008C230B@1 0x008C2324@1 0x00463BDE@4 0x00463C0B@4 0x00463C38@4	module
 parsed-unused	object	ActiveBody	ReallyDamagedAttributeModifier	1	struct		yes	33	11	12	0x008C1C87@0 0x008C234E@0 0x008C3A91@0 0x008C230B@1 0x008C2324@1 0x00463BDE@4 0x00463C0B@4 0x00463C38@4	module
 parsed-unused	object	AutoAbilityBehavior	WorkingRadius	1	struct	S-7722	yes	55	3	11	0x006289E7@5 0x00629BCA@6 0x006A95E6@6	module
-parsed-unused	object	CastleBehavior	CrewPrepareFX	1	struct		yes	122	49	17	0x00797BCF@0 0x00797D86@0 0x00799CA5@0 0x00686BF5@1 0x0068D8D7@1 0x00799C6A@1 0x00646148@2 0x006461CA@2	module
-parsed-unused	object	CastleBehavior	CrewPrepareInterval	1	struct		yes	122	49	17	0x00797BCF@0 0x00797D86@0 0x00799CA5@0 0x00686BF5@1 0x0068D8D7@1 0x00799C6A@1 0x00646148@2 0x006461CA@2	module
-parsed-unused	object	CastleBehavior	CrewReleaseFX	1	struct		yes	122	49	17	0x00797BCF@0 0x00797D86@0 0x00799CA5@0 0x00686BF5@1 0x0068D8D7@1 0x00799C6A@1 0x00646148@2 0x006461CA@2	module
 parsed-unused	object	ModelConditionSoundSelectorClientBehavior/SoundState	SoundMoveLoop	1	manual		no				the owner is not a module class of the map (an INI block, or a class the mod's objects do not use)	
 parsed-unused	object	RespawnBody	DamagedAttributeModifier	1	struct		yes	3	0	3	no specific none function: the reader is ported without a citation, shared, or in another class	module
 parsed-unused	object	SalvageCrateCollide	PorterChance	1	struct	S-7234	yes	7	1	1	0x008C1432@2	module

@@ -1,8 +1,8 @@
 attribute	number	file	line	call	argument	in function
-ARMOR	1	src/GameLogic/Module/ActiveBody.cpp	425	attributeModifierSum	ATTRIBUTE_MODIFIER_ARMOR	armorModifierSum
+ARMOR	1	src/GameLogic/Module/ActiveBody.cpp	426	attributeModifierSum	ATTRIBUTE_MODIFIER_ARMOR	armorModifierSum
 DAMAGE_ADD	2	src/GameClient/UnitHelpSource.cpp	87	attributeModifierSum	2	displayDamage
 DAMAGE_ADD	2	src/GameLogic/Object/Damage.cpp	148	sourceAdditive	ATTRIBUTE_MODIFIER_DAMAGE_ADD	FillDamageInfo
-DAMAGE_MULT	3	src/GameClient/ControlBar.cpp	1763	attributeModifierProduct	3	isUnderConstructionContext
+DAMAGE_MULT	3	src/GameClient/ControlBar.cpp	1884	attributeModifierProduct	3	isUnderConstructionContext
 DAMAGE_MULT	3	src/GameClient/UnitHelpSource.cpp	103	attributeModifierProduct	3	displayDamage
 DAMAGE_MULT	3	src/GameLogic/Object/Damage.cpp	164	sourceMultiplicative	ATTRIBUTE_MODIFIER_DAMAGE_MULT	FillDamageInfo
 RESIST_FEAR	4	src/GameLogic/ScriptEngine/LuaBindings.cpp	528	objectAttributeModifier	4	luaObjectTestCanSufferFear
@@ -21,7 +21,7 @@ RECHARGE_TIME	12	src/GameLogic/Module/SiegeModules.cpp	660	attributeModifierProd
 RECHARGE_TIME	12	src/GameLogic/Module/SpecialPowerModules.cpp	543	attributeModifierProduct	ATTRIBUTE_RECHARGE_TIME	startPowerRecharge
 PRODUCTION	13	src/GameLogic/Economy.cpp	594	attributeModifierProduct	ATTRIBUTE_MODIFIER_PRODUCTION	productionMoneyProduct
 PRODUCTION	13	src/GameLogic/Module/AISpecialPowerDecisions.cpp	843	attributeModifierProduct	0xD	decideDebuffEconomy
-PRODUCTION	13	src/GameLogic/Module/DockUpdate.cpp	625	attributeModifierProduct	Economy::ATTRIBUTE_MODIFIER_PRODUCTION	computeDelivery
+PRODUCTION	13	src/GameLogic/Module/DockUpdate.cpp	626	attributeModifierProduct	Economy::ATTRIBUTE_MODIFIER_PRODUCTION	computeDelivery
 PRODUCTION	13	src/GameLogic/Module/ProductionUpdate.cpp	1186	attributeModifierProduct	ATTRIBUTE_PRODUCTION	update
 PRODUCTION	13	src/GameLogic/SkirmishAI/AITacticalAI.cpp	2890	attributeModifierProduct	ATTRIBUTE_PRODUCTION	selectFarmTarget
 PRODUCTION	13	src/GameLogic/SkirmishAI/AITacticalAI.cpp	2986	attributeModifierProduct	ATTRIBUTE_PRODUCTION	selectProductionTarget
@@ -44,6 +44,6 @@ CRUSHER_LEVEL	23	src/GameLogic/Object/Collide/SquishCollide.cpp	281	attributeMod
 COMMAND_POINT_BONUS	24	src/GameLogic/Economy.cpp	340	m_attributeSums	ATTRIBUTE_MODIFIER_COMMAND_POINT_BONUS	commandPointBonusOf
 CRUSHABLE_LEVEL	25	src/GameLogic/Object/Collide/SquishCollide.cpp	254	attributeModifierSum	kCrushableLevelModifier	crushableLevel
 CRUSHED_DECELERATE	26	src/GameLogic/Object/Collide/SquishCollide.cpp	369	attributeModifierProduct	kCrushedDecelerateModifier	onCrush
-INVULNERABLE	27	src/GameLogic/Module/ActiveBody.cpp	418	attributeModifierSum	ATTRIBUTE_MODIFIER_INVULNERABLE	invulnerableTo
+INVULNERABLE	27	src/GameLogic/Module/ActiveBody.cpp	419	attributeModifierSum	ATTRIBUTE_MODIFIER_INVULNERABLE	invulnerableTo
 #28	28	src/GameLogic/Economy.cpp	599	attributeModifierProduct	28	productionMoneyProduct
 #31	31	src/GameLogic/Module/DozerAIUpdate.cpp	1241	attributeModifierProduct	31	workOnBuild

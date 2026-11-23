@@ -1280,13 +1280,13 @@ void Pathfinder::removeGoal(PathfindObject &obj)
 	}
 }
 
-void Pathfinder::updatePos(PathfindObject &obj)
+bool Pathfinder::updatePos(PathfindObject &obj)
 {
 	// TARGET RW 0x8E26B7: a ground unit holds its position cell, moving or not; only one that follows a path with a special node (AI vtable + 0x228,
 	// RW 0x66288A, the port's isStationary false) releases it (lane PATHPRIO-1: the comment said "only a stationary unit")
 	if (!m_isMapReady)
 	{
-		return;
+		return false;
 	}
 	UnitRecord &u = unit(obj.getID());
 	if (!obj.hasAI() || !obj.isDoingGroundMovement() || !obj.isStationary())
@@ -1295,7 +1295,7 @@ void Pathfinder::updatePos(PathfindObject &obj)
 		{
 			releaseSlot(obj.getID(), u.pos);
 		}
-		return;
+		return false;
 	}
 	const PathfindOccupantKind kind = obj.isKindOf(PK_HORDE) ? OCC_HORDE_POSITION : OCC_POSITION;
 	const int angleCode = obj.isKindOf(PK_LARGE_RECTANGLE_PATHFIND) ? angleToCode(obj.getOrientation()) : 0;
@@ -1303,7 +1303,7 @@ void Pathfinder::updatePos(PathfindObject &obj)
 	const PathfindLayerEnum lyr = obj.getLayer();
 	if (u.pos.occupied && c.x == u.pos.cell.x && c.y == u.pos.cell.y && angleCode == u.pos.angleCode && lyr == u.pos.layer)
 	{
-		return;
+		return false;
 	}
 	if (u.pos.occupied)
 	{
@@ -1311,7 +1311,7 @@ void Pathfinder::updatePos(PathfindObject &obj)
 	}
 	if (!getCell(lyr, c.x, c.y))
 	{
-		return;
+		return false;
 	}
 	u.pos.occupied = true;
 	u.pos.cell = c;
@@ -1319,6 +1319,7 @@ void Pathfinder::updatePos(PathfindObject &obj)
 	u.pos.layer = lyr;
 	u.pos.kind = kind;
 	registerSlot(obj, u.pos);
+	return true; // RW 0x8E26B7 answers 1 only here, for a newly registered cell
 }
 
 void Pathfinder::removePos(PathfindObject &obj)

@@ -32,10 +32,7 @@
 // The body's veterancy notify (RW 0x8C261D, module vtable 0xC71B78 slot 0x30) is not ported: stop S-7521 -- its only caller is the experience lane's
 // Object::onVeterancyLevelChanged (RW 0x6957B9, the single `+ 0x25C` site that calls slot 0x30, RW 0x6957FD), and the ratio it stores through body slot 0x5C
 // needs the four GameData rows + 0xAD4 .. 0xAE0 (HealthBonus_Regular / _Veteran / _Elite / _Heroic) the port does not parse.
-// DamageCreationList (PORT-45): the parser RW 0x8C3F1F keeps the three tokens as a 12-byte record {OCL, FXTrigger index, death-side index};
-// doDamageFX creates the record whose FXTrigger matched the hit's and whose death side is 0 (RW 0x8C2F75 .. 0x8C2FB8). The other reader,
-// the structure's damage-side branch (RW 0x8C2EBD .. 0x8C2EEF, death sides 1-4 for FRONT / RIGHT / BACK / LEFT destroyed), has no ported
-// equivalent because the damage split over a structure's sides is not ported: stop S-149.
+// The damage creation list and the siege side damage run since upstream lane BLDGDEBRIS-1 (see ActiveBody.cpp).
 
 #pragma once
 
@@ -70,18 +67,17 @@ public:
 	float m_grabDamage = 200.0f;
 	Coord2D m_grabOffset;
 	bool m_useDefaultDamageSettings = true;
-	// PORT-45: RW parser 0x8C3F1F appends one 12-byte record to the vector at module data +0x58: the ObjectCreationList
-	// (RW 0x73A368 lookup, NULL for NONE / an unknown name), the damage index (scanIndexList over RW 0xDB2AF4: 0 NONE,
-	// 1 CATAPULT_ROCK, 2 TREBUCHET_ROCK) and the death-side index (scanIndexList over RW 0xDB2B04: 0 NONE, 1 FRONT_DESTROYED,
-	// 2 RIGHT_DESTROYED, 3 BACK_DESTROYED, 4 LEFT_DESTROYED). The second token is an FXTrigger (the Weapon field's list,
-	// RW 0xDA14FC), not a DamageType.
+	// lane BLDGDEBRIS-1: RW 0x8C3F1F (BFME2 0x4BFD83, decomp ActiveBody.cpp:2477 Rva004BFD83Parse): one 12-byte entry { ocl, rock, stage } per
+	// `DamageCreationList = <OCL> [<rock>] [<side>]` row (data + 0x58). The OCL is kept by name and looked up when created (RW 0x73A368: "None" and an unknown
+	// name are NULL, which the creating loops skip); rock is TheFXTriggerNames' index (RW 0xDB2AF4: NONE / CATAPULT_ROCK / TREBUCHET_ROCK), stage
+	// TheDamageSideNames' (RW 0xDB2B04: NONE / FRONT_DESTROYED / RIGHT_DESTROYED / BACK_DESTROYED / LEFT_DESTROYED); a missing token is 0
 	struct DamageCreation
 	{
-		std::string m_oclName;               ///< record +0x00 as the name; NULL (NONE / unknown) is an empty name
-		unsigned m_fxTrigger = 0;            ///< record +0x04, compared with DamageInfo input's FXTrigger
-		unsigned m_deathSide = 0;            ///< record +0x08, the damage stage the side branch (RW 0x8C2EC8) looks for
+		std::string ocl;
+		int rock = 0;
+		int stage = 0;
 	};
-	std::vector<DamageCreation> m_damageCreationList; ///< one entry per `DamageCreationList` line, in file order
+	std::vector<DamageCreation> m_damageCreationList;
 	std::string m_healingBuffFx;
 	bool m_healingBuffFxSet = false; ///< lane OWNERFIX-1: a HealingBuffFx row was read (else the GameData default, RW 0x8C373F)
 	std::string m_damagedAttributeModifier;
@@ -213,6 +209,10 @@ public:
 	bool lastDamageNoEffect() const { return m_lastDamageNoEffect; }
 	// lane COMBAT-2: the damage state the body last applied (RW + 0x30, written by setCorrectDamageState RW 0x8C2A5D)
 	BodyDamageType appliedDamageState() const { return m_curDamageState; }
+	// lane BLDGDEBRIS-1: the destroyed side stage (RW + 0x34) and the side values / flags (RW + 0xCC / + 0xDC), for tests and reports
+	int sideStage() const { return m_sideStage; }
+	float sideDamage(int side) const { return m_sideDamage[side]; }
+	bool sideDestroyed(int side) const { return m_sideDestroyed[side]; }
 	void crc(StateHasher &hasher) const override;
 	OBFME_MODULE_XFER(ActiveBody) // lane SAVE-4b (OpenBFME native, S-4190)
 	// TOP20 #20: RW 0x8C1E18, primary vslot 8 (see ActiveBody.cpp)
@@ -242,7 +242,14 @@ protected:
 private:
 	class DamageHost;
 	BodyDamageType calcDamageState() const;
-	void doDamageFX(const DamageInfo &info); // RW 0x8C2F02 (lane FX-2)
+	void doDamageFX(const DamageInfo &info); // RW 0x8C2F02 (lane FX-2; the DamageCreationList loop: lane BLDGDEBRIS-1)
+	void playDamageFX(const DamageInfo &info); // its throttled DamageFX part (lane FX-2)
+	// lane BLDGDEBRIS-1: RW 0x8C3E70 -> 0x8C3CB8 (BFME2 0x4BFCD4 -> 0x4BFB1C): SIEGE damage poured into the four side values, the sides facing `from` first
+	void distributeSideDamage(float amount, const Coord3D &from);
+	// lane BLDGDEBRIS-1: the side stage part of setCorrectDamageState (RW 0x8C2C5D .. 0x8C2EF1)
+	void updateSideStage(BodyDamageType oldState, bool arg);
+	// lane BLDGDEBRIS-1: create the OCL of every DamageCreationList entry that matches (RW 0x5F0126(object, 0, 0))
+	void createDamageOCL(const std::string &name);
 
 	const ActiveBodyModuleData *m_data;
 	float m_initialHealth = 0.0f;  // RW +0x1C
@@ -266,6 +273,11 @@ private:
 	// client output depends on them; not hashed (the event queue boundary of FXEvents.h)
 	int m_lastDamageFXType = 0;           // RW + 0x3C
 	UnsignedInt m_damageFXThrottleUntil = 0; // RW + 0x38
+	// lane BLDGDEBRIS-1: the destroyed side (RW + 0x34: 0 none, 1..4 FRONT / RIGHT / BACK / LEFT, XferBodySideDestroyedType), the four side damage values
+	// (RW + 0xCC) and their "side destroyed" flags (RW + 0xDC)
+	int m_sideStage = 0;
+	float m_sideDamage[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	bool m_sideDestroyed[4] = { false, false, false, false };
 };
 
 // RW vtable 0xC71FE0: getModuleName RW 0x008C4A34, getModuleNameKey RW 0x008C4A53, dtor RW 0x008C4A98;

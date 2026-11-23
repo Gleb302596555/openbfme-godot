@@ -132,20 +132,21 @@ TEST_CASE("PORT-45 parse: DamageCreationList keeps OCL, FXTrigger and death side
 	REQUIRE(d);
 	REQUIRE(d->m_damageCreationList.size() == 4);
 	// the OCL resolves through the store (RW 0x73A368); the trigger and side are the index lists' values (RW 0xDB2AF4 / RW 0xDB2B04)
-	CHECK(d->m_damageCreationList[0].m_oclName == "Port45Chunk");
-	CHECK(d->m_damageCreationList[0].m_fxTrigger == 1); // CATAPULT_ROCK, RW 0xDB2AF8
-	CHECK(d->m_damageCreationList[0].m_deathSide == 0); // the third token absent: 0 (RW 0x8C3F7E)
-	CHECK(d->m_damageCreationList[1].m_fxTrigger == 0); // NONE, RW 0xDB2AF4
-	CHECK(d->m_damageCreationList[2].m_fxTrigger == 2); // TREBUCHET_ROCK, RW 0xDB2AFC
-	CHECK(d->m_damageCreationList[2].m_deathSide == 1); // FRONT_DESTROYED, RW 0xDB2B08
-	// a name the store lacks is NULL in RotWK (RW 0x5EFFE7): an empty name, the line itself stays (RW 0x8C3F88)
-	CHECK(d->m_damageCreationList[3].m_oclName.empty());
-	CHECK(d->m_damageCreationList[3].m_fxTrigger == 1);
+	CHECK(d->m_damageCreationList[0].ocl == "Port45Chunk");
+	CHECK(d->m_damageCreationList[0].rock == 1); // CATAPULT_ROCK, RW 0xDB2AF8
+	CHECK(d->m_damageCreationList[0].stage == 0); // the third token absent: 0 (RW 0x8C3F7E)
+	CHECK(d->m_damageCreationList[1].rock == 0); // NONE, RW 0xDB2AF4
+	CHECK(d->m_damageCreationList[2].rock == 2); // TREBUCHET_ROCK, RW 0xDB2AFC
+	CHECK(d->m_damageCreationList[2].stage == 1); // FRONT_DESTROYED, RW 0xDB2B08
+	// a name the store lacks is NULL in RotWK (RW 0x5EFFE7): upstream lane BLDGDEBRIS-1 keeps the name and the creating loop skips the NULL lookup;
+	// the line itself stays (RW 0x8C3F88)
+	CHECK(d->m_damageCreationList[3].ocl == "Port45Missing");
+	CHECK(d->m_damageCreationList[3].rock == 1);
 	// the same table on a plain ActiveBody
 	const ActiveBodyModuleData *body = dynamic_cast<const ActiveBodyModuleData *>(w.w.get("Port45Target")->behaviorModules().find("ModuleTag_Body")->data.get());
 	REQUIRE(body);
 	REQUIRE(body->m_damageCreationList.size() == 1);
-	CHECK(body->m_damageCreationList[0].m_oclName == "Port45Other");
+	CHECK(body->m_damageCreationList[0].ocl == "Port45Other");
 }
 
 TEST_CASE("PORT-45 runtime: a hit carrying CATAPULT_ROCK makes the body's DamageCreationList objects, another trigger makes none (RW 0x8C2F75)")

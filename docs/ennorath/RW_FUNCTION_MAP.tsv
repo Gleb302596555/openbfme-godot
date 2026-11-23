@@ -6048,7 +6048,7 @@ BuildingBehavior	2	0x0064A492	ported	0x00859206			ObjectHelper::~ObjectHelper (t
 BuildingBehavior	2	0x00672823	ported	0x008592F0	vcall +0xa8		
 BuildingBehavior	3	0x007AEAFD	library	0x0064A492			SecondBase005D2111::~SecondBase005D2111 (tier A)
 CastleBehavior	0	0x0063F3BF	ported	0x004D0EAF			Region3D::~Region3D (tier A)
-CastleBehavior	0	0x00797BCF	none			callee 0x006E85FB (ported), callee 0x008B88B0 (ported)	Rva003956E8::loadPostProcess (tier A)
+CastleBehavior	0	0x00797BCF	ported				Rva003956E8::loadPostProcess (tier A)
 CastleBehavior	0	0x00797D86	none			callee 0x00441B7C (ported), callee 0x00A3CEF0 (ported), callee 0x00B4D9A0 (ported)	Rva0039585A::mapLoadPostProcess (tier A)
 CastleBehavior	0	0x00798238	ported				
 CastleBehavior	0	0x00798F2B	ported				
@@ -6109,7 +6109,7 @@ CastleBehavior	2	0x004D0EAF	ported	0x008B88B0			UVBufferClass::~UVBufferClass (t
 CastleBehavior	2	0x006267C7	ported	0x0062684D, 0x007006D7			
 CastleBehavior	2	0x0062BBAB	ported	0x00683955, 0x0079AC19, 0x0079CCF2	vcall +0x18, vcall +0x220		
 CastleBehavior	2	0x00646148	none	0x0079B0F1		caller 0x0079B0F1 (ported), caller 0x0085D930 (ported), caller 0x008E31A4 (ported)	Rva002AAC74PoolList::destroy (tier A)
-CastleBehavior	2	0x006461CA	none	0x0079B0F1		caller 0x0079B0F1 (ported), caller 0x0085D930 (ported), caller 0x008E31A4 (ported)	PAVDrawable::_List_base<>::_List_base<> (tier A)
+CastleBehavior	2	0x006461CA	ported	0x0079B0F1			PAVDrawable::_List_base<>::_List_base<> (tier A)
 CastleBehavior	2	0x0064631C	library	0x0079B0F1			VRva0024076D::list<>::insert (tier A)
 CastleBehavior	2	0x00662552	ported	0x0068B53C			AIUpdateInterface::wakeUpNow (tier A)
 CastleBehavior	2	0x00665342	ported	0x0079ADE9			Object::getPlanarDirectionTo (tier A)
@@ -6275,7 +6275,7 @@ CastleBehavior	3	0x00756C70	ported	0x008DEDBB			Rva0035516C::rva0035516C (tier A
 CastleBehavior	3	0x0075D0B9	ported	0x008DEDBB			Rva0035B456Owner::rva0035B456 (tier A)
 CastleBehavior	3	0x0079664F	ported	0x0079C78C	vcall +0x0		
 CastleBehavior	3	0x00798177	none	0x00798177, 0x007985AA		caller 0x007985AA (ported)	
-CastleBehavior	3	0x00798344	partial	0x0079A237			
+CastleBehavior	3	0x00798344	ported	0x0079A237			
 CastleBehavior	3	0x007987C4	ported	0x00799440			Rva003962E7::rva003962E7 (tier A)
 CastleBehavior	3	0x007987EE	ported	0x0079B903	vcall +0x10		
 CastleBehavior	3	0x00799021	ported	0x0079B881, 0x0079B903			Rva00396B0D::rva00396B0D (tier A)
@@ -7083,9 +7083,9 @@ CastleMemberBehavior	0	0x0048DACD	ported
 CastleMemberBehavior	0	0x004D0EAF	ported				UVBufferClass::~UVBufferClass (tier A)
 CastleMemberBehavior	0	0x00660DC6	ported				
 CastleMemberBehavior	0	0x00660E31	none			callee 0x0070C4FE (ported)	
-CastleMemberBehavior	0	0x00797CA7	none			callee 0x005487EC (ported), callee 0x00A3CEF0 (ported)	
+CastleMemberBehavior	0	0x00797CA7	ported				
 CastleMemberBehavior	0	0x00797CEC	none				
-CastleMemberBehavior	0	0x00797CF2	none		vcall +0x28		
+CastleMemberBehavior	0	0x00797CF2	ported		vcall +0x28		
 CastleMemberBehavior	0	0x00798026	library				CastleMemberBehavior::`scalar deleting destructor' (tier A)
 CastleMemberBehavior	0	0x0079A0ED	ported				
 CastleMemberBehavior	0	0x0079B68F	none			callee 0x004065AA (ported), callee 0x0068BDA5 (ported), callee 0x00714E6D (ported), callee 0x00797AC1 (ported), callee 0x0079AC19 (ported), callee 0x0097338F (ported), callee 0x00A3CEF0 (ported)	CastleMemberBehavior::mapLoadPostProcess (tier A)
@@ -32562,9 +32562,9 @@ RespawnBody	10	0x006E8074	ported	0x0093450F, 0x009346AC
 RespawnBody	10	0x0093450F	ported	0x009346AC			MixFileInfoBuffer::bfmeLinkInto (tier A)
 RespawnBody	10	0x00A3CF96	ported	0x0070CB46			_atoi (tier A)
 RespawnUpdate	0	0x008B310D	ported				RespawnUpdate::getPercentReady (tier A)
-RespawnUpdate	0	0x008B319D	none		vcall +0x28		
-RespawnUpdate	0	0x008B32C4	none			callee 0x005487EC (ported), callee 0x00A3CEF0 (ported)	RespawnUpdate::getModuleNameKey (tier B)
-RespawnUpdate	0	0x008B3309	none				
+RespawnUpdate	0	0x008B319D	ported		vcall +0x28		
+RespawnUpdate	0	0x008B32C4	ported				RespawnUpdate::getModuleNameKey (tier B)
+RespawnUpdate	0	0x008B3309	ported				
 RespawnUpdate	0	0x008B330F	ported				
 RespawnUpdate	0	0x008B3313	ported				
 RespawnUpdate	0	0x008B332D	library				EnragedBehavior::`scalar deleting destructor' (tier A)
