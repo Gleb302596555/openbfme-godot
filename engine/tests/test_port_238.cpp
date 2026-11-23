@@ -4894,6 +4894,26 @@ SpecialPower P238LegacyGanGood
  Enum = SPECIAL_GENERAL_TARGETLESS_TWO
  ReloadTime = 1000
 End
+SpecialPower SpecialAbilityIstariLight
+ Enum = SPECIAL_GENERAL_TARGETLESS
+ ReloadTime = 120000
+End
+SpecialPower SpecialAbilityWordOfPower
+ Enum = SPECIAL_GENERAL_TARGETLESS
+ ReloadTime = 120000
+End
+SpecialPower SpecialAbilityWizardBlast
+ Enum = SPECIAL_GENERAL_TARGETLESS
+ ReloadTime = 120000
+End
+SpecialPower SpecialAbilityLightningSword
+ Enum = SPECIAL_GENERAL_TARGETLESS
+ ReloadTime = 120000
+End
+SpecialPower SpecialAbilityWordOfPowerGandalf
+ Enum = SPECIAL_GENERAL_TARGETLESS
+ ReloadTime = 120000
+End
 CommandButton P238LegacyGanGoodButton
  Command = SPECIAL_POWER
  SpecialPower = P238LegacyGanGood
@@ -4934,6 +4954,7 @@ Object P238LegacyGanBase
  Behavior = ToggleMountedSpecialAbilityUpdate GoodToggle
   SpecialPowerTemplate = P238LegacyGanGood
   MountedTemplate = P238LegacyGanGoodForm
+  SynchronizeTimerOnSpecialPower = SpecialAbilityIstariLight SpecialAbilityWordOfPower SpecialAbilityWizardBlast SpecialAbilityLightningSword
   UnpackTime = 2000
   IgnoreFacingCheck = Yes
  End
@@ -4941,6 +4962,22 @@ Object P238LegacyGanBase
   TriggeredBy = Upgrade_P238LegacyGanWhite Upgrade_P238LegacyGanRing
   RequiresAllTriggers = Yes
   GetUpgradeCommandButtonName = P238LegacyGanGoodButton
+ End
+ Behavior = SpecialPowerModule Istari
+  SpecialPowerTemplate = SpecialAbilityIstariLight
+  StartsPaused = No
+ End
+ Behavior = SpecialPowerModule Blast
+  SpecialPowerTemplate = SpecialAbilityWizardBlast
+  StartsPaused = No
+ End
+ Behavior = SpecialPowerModule Lightning
+  SpecialPowerTemplate = SpecialAbilityLightningSword
+  StartsPaused = No
+ End
+ Behavior = SpecialPowerModule WordGandalf
+  SpecialPowerTemplate = SpecialAbilityWordOfPowerGandalf
+  StartsPaused = No
  End
  Behavior = CitadelSlaughterHordeContain RingEntry
   PassengerFilter = NONE +P238Ring
@@ -4957,6 +4994,22 @@ Object P238LegacyGanGoodForm
   MaxHealth = 500
  End
  Behavior = AIUpdateInterface AI
+ End
+ Behavior = SpecialPowerModule Istari
+  SpecialPowerTemplate = SpecialAbilityIstariLight
+  StartsPaused = No
+ End
+ Behavior = SpecialPowerModule Blast
+  SpecialPowerTemplate = SpecialAbilityWizardBlast
+  StartsPaused = No
+ End
+ Behavior = SpecialPowerModule Lightning
+  SpecialPowerTemplate = SpecialAbilityLightningSword
+  StartsPaused = No
+ End
+ Behavior = SpecialPowerModule WordGandalf
+  SpecialPowerTemplate = SpecialAbilityWordOfPowerGandalf
+  StartsPaused = No
  End
 End
 Object P238LegacyGanEvilForm
@@ -5001,6 +5054,19 @@ End
     REQUIRE(entry != nullptr);
     CHECK(goodPower->pauseCount() == 1);
     CHECK(evilPower->pauseCount() == 1);
+    auto power = [&](Object &obj, const char *name) {
+        const auto *t = w.powers.findSpecialPowerTemplate(name);
+        return t ? dynamic_cast<SpecialPowerModule *>(SpecialPowerModules::findModule(obj, t)) : nullptr;
+    };
+    const char *timerNames[] = {"SpecialAbilityIstariLight", "SpecialAbilityWizardBlast",
+                                "SpecialAbilityLightningSword", "SpecialAbilityWordOfPowerGandalf"};
+    const unsigned readyFrames[] = {400, 500, 600, 700};
+    for (int i = 0; i < 4; ++i)
+    {
+        auto *module = power(*hero, timerNames[i]);
+        REQUIRE(module != nullptr);
+        module->setReadyFrame(readyFrames[i]);
+    }
     const auto *white = Player::resolveUpgrade("Upgrade_P238LegacyGanWhite", true);
     REQUIRE(white != nullptr);
     auto giveWhite = [&]() { w.playerOf('A')->addUpgrade(white, Player::UPGRADE_STATUS_COMPLETE); };
@@ -5031,6 +5097,13 @@ End
         if (o->getTemplate() && o->getTemplate()->getName() == "P238LegacyGanGoodForm") good = o;
     REQUIRE(good != nullptr);
     CHECK(good->getControllingPlayer() == w.playerOf('A'));
+    for (int i = 0; i < 4; ++i)
+    {
+        auto *module = power(*good, timerNames[i]);
+        REQUIRE(module != nullptr);
+        if (i < 3) CHECK(module->getReadyFrame() == readyFrames[i]);
+        else CHECK(module->getReadyFrame() != readyFrames[i]); // the list names WordOfPower, not WordOfPowerGandalf
+    }
     CHECK(count("P238LegacyGanEvilForm") == 0);
     w.frames(3);
     CHECK(w.byId(heroId) == nullptr);
