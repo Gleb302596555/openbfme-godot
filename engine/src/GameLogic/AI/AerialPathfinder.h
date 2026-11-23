@@ -26,9 +26,19 @@
 //   * computeAerialPath (RW 0x778413, "computeAerialPath"): the control points (a point behind the flyer, the flyer, the goal, a terminal point beyond the
 //     goal, see the .cpp), then up to five corrective points where the sampled path hits something.
 //
-// NOT PORTED / INFERENCE (stops S-4041 and S-7338, AerialPathfinder::stopLines): the no-fly zones (S-7338: the map INI block AerialPathfindNoFlyZone is a
-// recording stub, the list is empty, RW 0x777E54 answers 0; no retail map defines one) and the x87 / CRT parity of the terminal search (S-081). The separation's
-// would-collide filter is RW 0x67C5F3 / 0x66139C: the two 3D shape lists through RW 0xAD2CE0 (NotifyCrushModules::geometriesOverlap), not the 2D footprints.
+//   * the no-fly zones of TheAerialPathfinder (RW 0xDE7958: the list at + 0x10 of {PolygonTrigger*, Real} pairs; RW 0x777F76 appends a pair, RW 0x777E54
+//     answers the highest zone height that contains the truncated sample point). The map INI block AerialPathfindNoFlyZone fills it, one pair per block over
+//     the block table row RW 0xD9E60C (name RW 0xBF8D54) whose parser is RW 0x60095C: the token "TriggerArea" (RW 0xBF8D48, RW 0x60096B) looked up in the
+//     map's polygon trigger list (TheTerrainLogic RW 0xDE4690, vslot 0x9C = RW 0x6825F6 over the list RW 0xDA21FC), then "Height" (RW 0xBF3598,
+//     RW 0x60099E) read whether or not the trigger exists, then RW 0x777F76 when it does. The parser reads exactly those two tokens off the line the
+//     top-level dispatcher (RW 0x42BDAD, which has no End row) hands it: nothing between RW 0x60095C and its ret at RW 0x6009DC reads a line, so a
+//     map.ini writes `AerialPathfindNoFlyZone TriggerArea = X Height = Y` on one line and no End follows (a field on the next line is refused by the
+//     token reader RW 0x42DD73 / RW 0x42DEED). The list is map state, not simulation state: no xfer reads it (the insert RW 0x777F76, the zone test
+//     RW 0x777E54 and the insert node RW 0x777F5C are the list's only users) and TheAerialPathfinder is a SubsystemInterface, so a load rebuilds it from
+//     the map's map.ini (DONOR BFME2: the constructor 0x0022C987 makes the list at + 0x10, the reset slot 9 at 0x0022C9D2 clears it).
+//
+// NOT PORTED (stop S-4041, AerialPathfinder::stopLines): the x87 / CRT parity of the terminal search (S-081). The separation's would-collide filter is
+// RW 0x67C5F3 / 0x66139C: the two 3D shape lists through RW 0xAD2CE0 (NotifyCrushModules::geometriesOverlap), not the 2D footprints.
 //
 // Determinism: binary32 SSE operations through SimMath in the retail order, the PC24 sqrt where retail uses fsqrt, no allocation per evaluation.
 
@@ -41,8 +51,10 @@
 #include <vector>
 
 class GameLogic;
+class INI;
 class Object;
 class StateHasher;
+struct TriggerArea;
 
 class AerialSpline
 {
@@ -124,6 +136,29 @@ struct Flyer
 
 // RW 0x777DAE
 bool query(AerialSpline &spline, float distance, Coord3D &out);
+
+// ---- TheAerialPathfinder's no-fly zones (RW 0xDE7958, the list at + 0x10; see the header's TARGET FACTS) --------
+// One block of a map.ini AerialPathfindNoFlyZone gives one pair: the map's polygon trigger and the height (the pair
+// the list node holds at node + 8 and node + 0xC, RW 0x777E91). Map state: refilled by resetNoFlyZones + the map's
+// map.ini at every load, never hashed or saved.
+struct NoFlyZone
+{
+	const TriggerArea *trigger = nullptr; ///< node + 8
+	float height = 0.0f;                  ///< node + 0xC
+};
+// TheAerialPathfinder's reset (DONOR BFME2 slot 9 at 0x0022C9D2 clears the list at + 0x10): a load starts from the
+// map's own blocks, so a zone of the previous map never outlives its triggers
+void resetNoFlyZones();
+// RW 0x777F76 (the block parser's call RW 0x6009BB): nothing for a null trigger (RW 0x777F7E)
+void addNoFlyZone(const TriggerArea *trigger, float height);
+// RW 0x777E54: 0 without a zone (RW 0xC1B594), else the largest height of the zones that contain the truncated sample
+// (RW 0xBDFFE0 = -9999 when none does)
+float noFlyZoneHeight(float x, float y);
+const std::vector<NoFlyZone> &noFlyZones();
+// RW 0x60095C: the map.ini block AerialPathfindNoFlyZone. `triggers` is the map's polygon trigger list (the list RW
+// 0x6825F6 searches, RW 0xDA21FC); a name it does not hold adds nothing, but "Height" is read all the same.
+void parseNoFlyZoneBlock(INI *ini, const std::vector<TriggerArea> *triggers);
+
 // RW 0x777ED7
 float flightGroundHeight(const GameLogic &logic, float x, float y);
 // RW 0x777F9F: true when nothing is in the way; `worst` the largest overlap, `push` the summed push

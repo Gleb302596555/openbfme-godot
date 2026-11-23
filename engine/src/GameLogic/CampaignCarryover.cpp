@@ -17,6 +17,7 @@
 #include "GameLogic/Module/GiantBirdAIUpdate.h"
 #include "GameLogic/Module/HeroModules.h"
 #include "GameLogic/Object/ExperienceTracker.h"
+#include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/SimMath.h"
 
@@ -77,7 +78,7 @@ Object *createSingleObject(GameLogic &logic, const Record &r, Player &player, st
 }
 
 // RW 0x6917BB: an object's record (without the statistics block)
-Record recordOf(const Object &o, std::vector<std::string> &stops)
+Record recordOf(const Object &o)
 {
 	Record r;
 	r.templateName = static_cast<const ThingTemplate *>(o.getTemplate())->getName();
@@ -94,7 +95,18 @@ Record recordOf(const Object &o, std::vector<std::string> &stops)
 	}
 	else if (o.isKindOfName("HORDE"))
 	{
-		stops.push_back("[S-4904] a carry-over horde (" + r.templateName + "): its LivingWorldOverloadTemplate name (RW 0x86D6FD) is not read");
+		// RW 0x6917BB, RW 0x69184B..0x6918B6: ask the horde interface slot 0x274;
+		// an empty answer or missing interface leaves the original template name.
+		ContainModuleInterface *contain = o.getContain();
+		HordeContainInterface *horde = contain ? contain->getHordeContainInterface() : nullptr;
+		if (horde)
+		{
+			const std::string overload = horde->livingWorldOverloadTemplate();
+			if (!overload.empty())
+			{
+				r.templateName = overload;
+			}
+		}
 	}
 	if (const ExperienceTracker *xp = o.getExperienceTracker())
 	{
@@ -481,13 +493,12 @@ SpawnResult addCarryoverStuffToMap(GameLogic &logic, PlayerList &players, State 
 
 void onCurrentMissionWon(GameLogic &logic, PlayerList &players, State &state)
 {
-	std::vector<std::string> stops;
 	// RW 0x5EBB2D ..: the logic's objects in list order: the carry-over flag and not effectively dead
 	for (const Object *o = logic.getFirstObject(); o; o = o->getNextObject())
 	{
 		if (o->isCampaignCarryover() && !o->isEffectivelyDead())
 		{
-			state.records.push_back(recordOf(*o, stops));
+			state.records.push_back(recordOf(*o));
 		}
 	}
 	// RW 0x5EBB9C ..: every player's revival list, entries with the flag (+ 0xB1; RW 0x780F9E)
@@ -543,10 +554,6 @@ void onCurrentMissionWon(GameLogic &logic, PlayerList &players, State &state)
 			}
 		}
 		state.bountyShare = player->getBountyPercent(); // Player + 0x334
-	}
-	for (const std::string &s : stops)
-	{
-		logic.noteStop(s);
 	}
 }
 

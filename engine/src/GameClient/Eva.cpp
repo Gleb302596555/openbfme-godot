@@ -44,11 +44,14 @@ void Eva::setEnabled(bool enabled)
 	m_enabled = enabled;
 }
 
+// Both editions: EvaReportArgs(const AsciiString&) RW 0x005DCA0A -> Eva::internalReportEvaEvent RW 0x005DCBB3
 bool Eva::reportEventByName(const std::string &name, const Coord3D *position, double nowMs, const Coord3D *jumpPosition)
 {
 	return reportEvent(m_ini.eva.findIndex(name, false), position, nowMs, jumpPosition);
 }
 
+// Both editions: Eva::internalReportEvaEvent RW 0x005DCBB3 -> EvaPendingEvent::tryReport RW 0x005DC50D
+// (with report descriptors EvaReportArgs RW 0x005DC91B and RW 0x005DC7CD)
 bool Eva::reportEvent(int index, const Coord3D *position, double nowMs, const Coord3D *jumpPosition)
 {
 	const EvaEventRecord *r = m_ini.eva.record(index, false);

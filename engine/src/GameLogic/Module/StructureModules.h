@@ -89,6 +89,7 @@ void registerAll(ModuleFactory &modules);
 
 // StructureBody: ActiveBody plus the constructor's object id (RW +0x100, ZH m_constructorObjectID);
 // getModuleName RW 0x008C4B1E, getModuleNameKey RW 0x008C4B51, dtor RW 0x008C4B96, xfer RW 0x008C4BB2
+// RW 0x008C4B24 (dtor -> RW 0x008C3AED)
 class StructureBody : public ActiveBody
 {
 public:
@@ -249,6 +250,7 @@ public:
 
 // RW: create 0x64EAB7 (0x48 bytes, vtable 0xC69310 / update 0xC69304 / die 0xC69300), data 0x6563F3, table 0xC69408. The reverse of
 // StructureCollapseUpdate: a rubble piece that was sunk under the terrain rises back to the ground once the object is POST_RUBBLE.
+// RW 0x008A8277 (dtor -> RW 0x0064A492), RW 0x008A8297 (getModuleName), RW 0x008A82E0 (getModuleNameKey)
 class RubbleRiseUpdate : public UpdateModule, public DieModuleInterface
 {
 public:
@@ -320,6 +322,7 @@ public:
 };
 
 // getModuleName RW 0x008C579B, getModuleNameKey RW 0x008C57C7, dtor RW 0x008C580C, xfer RW 0x008C5976
+// RW 0x008C57AE (dtor -> RW 0x008C54AA)
 class DelayedDeathBody : public RespawnBody
 {
 public:

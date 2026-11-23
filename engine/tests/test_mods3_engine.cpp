@@ -70,12 +70,18 @@ TEST_CASE("MODS-3: Ennorath 1.9.8.5's game.dat turns on ennorath.stance-keeps-mo
 	REQUIRE_MESSAGE(ModEngineFeatures::activate({ "fc32e4c4142b5c607b90972eaf448400" }, &error), error);
 	CHECK(ModEngineFeatures::activeProfiles() == std::vector<std::string>{ "Ennorath 1.9.8.5 game.dat" });
 	CHECK(ModEngineFeatures::identityFeatures() ==
-		std::vector<std::string>{ "mod-engine:ennorath.stance-keeps-moving", "mod-engine:ennorath.middle-click-camera", "mod-engine:ennorath.evacuate-containers" }); // a retail peer is refused
+		std::vector<std::string>{ "mod-engine:ennorath.stance-keeps-moving", "mod-engine:ennorath.middle-click-camera", "mod-engine:ennorath.evacuate-containers", "mod-engine:ennorath.options-pages", "mod-engine:ennorath.option-hotkeys", "mod-engine:ennorath.online-delay-fix", "mod-engine:ennorath.lobby-map-search", "mod-engine:ennorath.chat-mute", "mod-engine:ennorath.observer-command-range", "mod-engine:ennorath.commandset-64", "mod-engine:ennorath.upgrades-5120", "mod-engine:ennorath.building-limit-fix", "mod-engine:ennorath.spell-store-delay", "mod-engine:ennorath.select-all-buildings", "mod-engine:ennorath.replay-tabs-chat-pause", "mod-engine:ennorath.wotr-8-players", "mod-engine:ennorath.chat-clipboard" }); // a retail peer is refused
 	CHECK_FALSE(ModEngineFeatures::has(ModEngineFeature::EdainUnchainedHerobarKindOf));
 	const std::vector<std::string> lines = ModEngineFeatures::stopLines();
 	REQUIRE(lines.size() == 1);
 	CHECK(lines[0].rfind("S-5304: Ennorath 1.9.8.5 game.dat: rebuilt: ", 0) == 0);
-	CHECK(lines[0].find("not yet (docs/ennorath/ENNORATH_EXE.md): the map search in the lobby") != std::string::npos);
+	CHECK(lines[0].find("the map search in the lobby (.mapfind / .mapsvar)") != std::string::npos);
+	CHECK(lines[0].find("the option hotkeys and mod defaults (.hotkeys / .keydef / .keycmd)") != std::string::npos); // Local 127
+	CHECK(lines[0].find("per-player chat mute on the tribute screen (.chatmut 0xEDB000)") != std::string::npos); // Local 129
+	CHECK(lines[0].find("replays (tabs, chat, Ctrl+] pause: .rpchat / .rppause / .rppvar)") != std::string::npos); // Local 144
+	CHECK(lines[0].find("War of the Ring for 8 players (.wotrui / .wotrobs / .wtrview / .wtrdisp / .lobfac)") != std::string::npos); // Local 144
+	CHECK(lines[0].find("select all buildings (.bldgrp / .padsel / .bldext / .bldcan / .bldlvl), ") != std::string::npos); // Local 143
+	CHECK(lines[0].find("the text entry clipboard Ctrl+A / C / X / V (.txtclip); not yet (docs/ennorath/ENNORATH_EXE.md): the DirectX") != std::string::npos); // P-128 (owner 2026-11-23)
 }
 
 namespace
@@ -90,6 +96,23 @@ const char kStanceWalker[] =
 	" LocomotorSet\n  Locomotor = WalkerLoco\n  Condition = SET_NORMAL\n  Speed = 55\n End\n"
 	"End\n";
 } // namespace
+
+TEST_CASE("MODS-3: Ennorath 1.9.8.7's game.dat turns on the same features as 1.9.8.5 until its own edits are rebuilt, and its S-5304 line names them")
+{
+	// Ennorath 1.9.8.7 (the patch note's 1.9.8.6 and 1.9.8.7 ship one game.dat, md5 f222b925...): the 1.9.8.5 sections stay, plus .wmfeat / .wmkeys
+	Retail guard;
+	std::string error;
+	REQUIRE_MESSAGE(ModEngineFeatures::activate({ "fc32e4c4142b5c607b90972eaf448400" }, &error), error);
+	const std::vector<std::string> features1985 = ModEngineFeatures::identityFeatures();
+	ModEngineFeatures::reset();
+	REQUIRE_MESSAGE(ModEngineFeatures::activate({ "f222b925edf2a9553e574ad8445f2841" }, &error), error);
+	CHECK(ModEngineFeatures::activeProfiles() == std::vector<std::string>{ "Ennorath 1.9.8.7 game.dat" });
+	CHECK(ModEngineFeatures::identityFeatures() == features1985);
+	const std::vector<std::string> lines = ModEngineFeatures::stopLines();
+	REQUIRE(lines.size() == 1);
+	CHECK(lines[0].rfind("S-5304: Ennorath 1.9.8.7 game.dat: rebuilt: as Ennorath 1.9.8.5", 0) == 0);
+	CHECK(lines[0].find("not yet (docs/ennorath/ENNORATH_EXE.md): the 1.9.8.6 / 1.9.8.7 edits (.wmfeat / .wmkeys") != std::string::npos);
+}
 
 TEST_CASE("MODS-3: ennorath.stance-keeps-moving: HoldGround stops a walking unit in retail 2.01 (RW 0x86216B), with the feature only an idle one (PYSAGE 1.9.8.5 .stancem)")
 {

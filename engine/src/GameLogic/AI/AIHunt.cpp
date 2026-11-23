@@ -82,9 +82,10 @@ std::unique_ptr<AIState> makeHuntIdleState(AIStateMachine &m)
 
 const char *huntStopLine()
 {
-	return "[S-1188] AI hunt (TEAM_HUNT / NAMED_HUNT / PLAYER_HUNT, RW 0x741133): the crate pick-up (AI + 0x238) is not part of the port (lane TARGET-1: the "
-		   "attack priority info AI + 0x70 and RotWK's closest enemy search are); PLAYER_HUNT (RW 0x6AF4B1, lane DECOMP-2) walks the player's objects in "
-		   "object list order";
+	return "[S-1188] AI hunt (TEAM_HUNT / NAMED_HUNT / PLAYER_HUNT, RW 0x741133): attack priority info (AI + 0x70, RW 0x66F084) and closest enemy search "
+		   "(RW 0x701443) are ported; AI + 0x238 / state 0x27 crate pick-up is unreachable in RotWK 2.01 (RW 0x66810B clears + 0x238 before "
+		   "findObjectByID(0), CreateCrateDie S-7211; AI hordes collect crates via PickupStuffUpdate RW 0x8957B7); RW 0x66B1D0 client notification is "
+		   "not ported, and PLAYER_HUNT (RW 0x6AF4B1, lane DECOMP-2) walks the player's objects in object list order (INFERENCE)";
 }
 
 bool AIUpdateInterface::aiHunt(CommandSourceType source)

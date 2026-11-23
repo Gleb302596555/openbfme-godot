@@ -43,6 +43,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008652BA (getModuleName), RW 0x008652C0 (getModuleNameKey)
 class RunOffMapBehavior : public BehaviorModule
 {
 public:

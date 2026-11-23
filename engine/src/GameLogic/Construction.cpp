@@ -491,6 +491,10 @@ Object *Construction::buildObjectNow(GameLogic &logic, Object *builder, const Th
 			onStructureConstructionComplete(owner, builder, *obj, false);
 		}
 	}
+	else
+	{
+		owner.onUnitCreated(builder, obj); // PORT-198 (RW 0x79797E -> 0x6AA688)
+	}
 	// lane PORT-117 (issue #301, P-57): RW 0x7979D4 .. 0x797A02. A KindOf HORDE object is completed WITHOUT its producer. RotWK reads the new object's
 	// template (Object + 4) KindOf word + 0x114 for bit 0x2000 (RW 0x7979DC: KindOf bit 109 = HORDE in the name table RW 0xDA0E68) and, when it is set, calls
 	// Object::setProducer(NULL) (RW 0x7979E8 -> RW 0x68B6A1), then Object::onBuildComplete (RW 0x7979EF -> RW 0x68D252), then tests the bit again
@@ -526,8 +530,8 @@ std::vector<std::string> Construction::stopLines()
 		"BUILD-1's dozer completion sets CONSTRUCTION_COMPLETE, which RW 0x88DEE0 does not",
 		"[S-652] closed by PORT-231: Object::attemptHealingFromSoleBenefactor (RW 0x00690584) reads ThingTemplate KeepSelectableWhenDead (+0x642), clearing RUBBLE and reviving effectively dead objects (REALLYDAMAGED)",
 		"[S-653] GettingBuiltBehavior: calls not identified and not ported: Player + 0x3DC's RW 0x79F0E1(object, 1) and Object + 0x456 at a rebuild's start, the body's slot "
-		"0x94 after a heal (RW 0x8C1D53), RW 0x68C3A3's slot 0x28 at a build's end (RW 0x8569C7; the production update's slot 0x60 before it is setFactoryDisabled(false), "
-		"lane PLAY-4): noted at runtime where reached. Lane BACKLOG2 ported BuildAssistant::moveObjectsForConstruction RW 0x797465 (the rebuild's start RW 0x85679D, a "
+		"0x94 after a heal (RW 0x8C1D53): noted at runtime where reached. RW 0x68C3A3's slot 0x28 reEnslaveSlaves (RW 0x8569C7) and the production update's slot 0x60 "
+		"setFactoryDisabled(false) are ported by PORT-198 / PLAY-4. Lane BACKLOG2 ported BuildAssistant::moveObjectsForConstruction RW 0x797465 (the rebuild's start RW 0x85679D, a "
 		"wall segment crossing 20 % health RW 0x85805E, buildObjectNow RW 0x797807 with clearRemovableForConstruction RW 0x796576 for the plots' builds); its "
 		"inference: an object's own geometry is its template's shapes with its active flags",
 		"[S-654] RebuildWhenDead: the DisallowRebuildFilter scan (RW 0x857873) is ported over the object list (3D centre distance, any match blocks); a template without the "

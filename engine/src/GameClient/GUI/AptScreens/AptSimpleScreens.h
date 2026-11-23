@@ -20,6 +20,7 @@
 #include "GameNetwork/GameInfo.h"
 #include "GameClient/GUI/AptScreen.h"
 #include "GameClient/GUI/AptScreens/AptMapPreview.h"
+#include "GameClient/EnnorathOptions.h"
 #include "GameClient/GUI/AptScreens/OpenBFMEOptionsPage.h"
 #include "GameClient/GUI/MenuNavigator.h"
 #include "GameClient/GameLODManager.h"
@@ -153,6 +154,8 @@ private:
 	void pageUnloaded(const std::string &name);
 	void rowShown(const std::string &params);
 	void rowHidden(const std::string &params);
+	// ennorath.chat-mute (PYSAGE 1.9.8.5 .chatmut 0x00EDB01C / 0x00EDB037 -> 0x00EDB058): handles cmq= / cmt= on _OnRowShown
+	bool handleChatMute(bool isTributePage, const std::string &params);
 	void dropStatusPage();
 	std::string statusPrefix() const { return "_level" + std::to_string(level()) + "." + m_status->path; }
 
@@ -160,6 +163,7 @@ private:
 	struct TRow
 	{
 		int playerIndex = -1;
+		int slot = -1;
 		std::string name; ///< UTF-8
 		std::uint32_t cash = 0;
 		std::uint32_t color = 0;
@@ -313,6 +317,10 @@ public:
 	const std::string &customTemplate() const { return m_customTemplate; }
 	int masterOption() const { return m_masterOption; }
 	int pageState() const { return m_state; }
+	// Ennorath 1.9.8.5 paged options (PYSAGE 1.9.8.5 .optui / .dlyfix, fork issue 811)
+	int etPage() const { return m_etPage; }
+	const EnnorathOptionsState &etOptionsState() const { return m_etState; }
+	bool etGadgetHidden(const std::string &name) const;
 	// RW 0x6446A1's text: Version:Format2 with the build's 2 and 1
 	static std::u16string versionText(const GameTextSource *text);
 
@@ -475,6 +483,20 @@ private:
 	bool m_openOnDetail = false; // the main menu's CUSTOM SETTINGS opened it (AdvancedOnly): the detail settings' tab first
 	std::vector<std::string> m_mirroredAtOpen; // Options.ini's ScrollFactor, AllHealthBars, AlternateMouseSetup when the page opened // Main.SubTitle's text fields when the page opened
 	static void setFieldText(AptTextInst *field, const std::string &text);
+	// Ennorath 1.9.8.5 paged options state (PYSAGE 1.9.8.5 .optui 0xF23000 / .dlyfix 0xF35000)
+	void etBegin();
+	void etCancel();
+	void etReset();
+	void etSelectPage(int page);
+	void etSyncVisibility();
+	bool etInitGadget(const std::string &shortName, GameWindow *w);
+	void etSave(OptionPreferences &prefs);
+	int m_etPage = 0;       // PYSAGE 1.9.8.5 .optui 0xF2767C (0..4, 9 Advanced)
+	bool m_etHasDraft = false; // PYSAGE 1.9.8.5 .optui 0xF27670
+	EnnorathOptionsState m_etState;
+	std::array<int, EnnorathOptions::kEntryCount> m_etDraft{};
+	std::array<GameWindow *, EnnorathOptions::kEntryCount> m_etWindows{};
+	GameWindow *m_etDelayFixWindow = nullptr; // PYSAGE 1.9.8.5 .dlyfix 0xF352DC
 };
 
 // Palantir.apt (CodePrefix AptPalantir) is lane HUD-1's AptPalantir (AptPalantir.h); the factory below creates it.

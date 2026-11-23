@@ -302,6 +302,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008553A9 (dtor -> RW 0x0064A492)
 class AutoHealBehavior : public UpdateModule, public UpgradeMux, public DamageModuleInterface
 {
 public:
@@ -344,6 +345,7 @@ public:
 };
 
 // scalar deleting dtor RW 0x008BC4AA
+// RW 0x008BC3EC (dtor -> RW 0x0086393B)
 class BuildableHeroListUpgrade : public UpgradeModule
 {
 public:

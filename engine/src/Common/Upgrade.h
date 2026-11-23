@@ -57,7 +57,11 @@ struct UpgradeMaskType
 {
 	static constexpr unsigned WORDS = 0x24;
 	static constexpr unsigned BITS = WORDS * 32;
-	static constexpr unsigned CAPACITY_WORDS = 0x40;
+	// PYSAGE 1.9.8.5 .upg5k 0xEDF000 (mask limit 0x480 -> 0x1400): 0xA0 words = 5120 bits when EnnorathUpgrades5120 is on;
+	// without it, UpgradeCenter::newUpgrade keeps the 0x40-word (2048-bit) S-5303 cap.
+	static constexpr unsigned RETAIL_MOD_CAPACITY_WORDS = 0x40;
+	static constexpr unsigned RETAIL_MOD_CAPACITY_BITS = RETAIL_MOD_CAPACITY_WORDS * 32;
+	static constexpr unsigned CAPACITY_WORDS = 0xA0;
 	static constexpr unsigned CAPACITY_BITS = CAPACITY_WORDS * 32;
 	std::array<std::uint32_t, CAPACITY_WORDS> words{};
 	// the words the state hash and the saves carry: WORDS, or as many as the loaded upgrades need (TheUpgradeCenter's next mask bit)
