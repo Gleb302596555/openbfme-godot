@@ -4867,3 +4867,173 @@ End
     CHECK(infantry->getBodyModule()->getHealth() == 4000.0f);
     CHECK(far->getBodyModule()->getHealth() == 4000.0f);
 }
+
+TEST_CASE("PORT-238 legacy Gandalf-style PLAYER white and OBJECT ring jointly unlock the good form")
+{
+    HealHudWorld w;
+    HeroModules::registerAll(w.w.modules);
+    // men/gandalf.ini:1511-1567,1586-1600, upgrade.ini:181,198,1062.
+    // RW Object upgrade update 0x6936FE combines player and object masks;
+    // mux 0x8D26F3 checks all triggers, unpause 0x8B9676 and auto-command
+    // 0x8B8E2E lead to replacement 0x8B1690. No real UI or inheritance.
+    const char *data = R"ini(
+Upgrade Upgrade_P238LegacyGanRing
+ Type = OBJECT
+End
+Upgrade Upgrade_P238LegacyGanFortress
+ Type = OBJECT
+End
+Upgrade Upgrade_P238LegacyGanWhite
+ Type = PLAYER
+End
+SpecialPower P238LegacyGanEvil
+ Enum = SPECIAL_GENERAL_TARGETLESS
+ ReloadTime = 1000
+End
+SpecialPower P238LegacyGanGood
+ Enum = SPECIAL_GENERAL_TARGETLESS_TWO
+ ReloadTime = 1000
+End
+CommandButton P238LegacyGanGoodButton
+ Command = SPECIAL_POWER
+ SpecialPower = P238LegacyGanGood
+ InPalantir = Yes
+End
+Object P238LegacyGanBase
+ KindOf = INFANTRY HERO SELECTABLE COMMANDCENTER CAN_ATTACK
+ Body = ActiveBody Body
+  MaxHealth = 500
+ End
+ Behavior = AIUpdateInterface AI
+ End
+ Behavior = UnpauseSpecialPowerUpgrade EvilEnable
+  SpecialPowerTemplate = P238LegacyGanEvil
+  TriggeredBy = Upgrade_P238LegacyGanRing
+ End
+ Behavior = SpecialPowerModule EvilPower
+  SpecialPowerTemplate = P238LegacyGanEvil
+  UpdateModuleStartsAttack = Yes
+  StartsPaused = Yes
+ End
+ Behavior = ToggleMountedSpecialAbilityUpdate EvilToggle
+  SpecialPowerTemplate = P238LegacyGanEvil
+  MountedTemplate = P238LegacyGanEvilForm
+  UnpackTime = 2000
+  IgnoreFacingCheck = Yes
+ End
+ Behavior = UnpauseSpecialPowerUpgrade GoodEnable
+  SpecialPowerTemplate = P238LegacyGanGood
+  TriggeredBy = Upgrade_P238LegacyGanWhite Upgrade_P238LegacyGanRing
+  RequiresAllTriggers = Yes
+ End
+ Behavior = SpecialPowerModule GoodPower
+  SpecialPowerTemplate = P238LegacyGanGood
+  UpdateModuleStartsAttack = Yes
+  StartsPaused = Yes
+ End
+ Behavior = ToggleMountedSpecialAbilityUpdate GoodToggle
+  SpecialPowerTemplate = P238LegacyGanGood
+  MountedTemplate = P238LegacyGanGoodForm
+  UnpackTime = 2000
+  IgnoreFacingCheck = Yes
+ End
+ Behavior = DoCommandUpgrade GoodCommand
+  TriggeredBy = Upgrade_P238LegacyGanWhite Upgrade_P238LegacyGanRing
+  RequiresAllTriggers = Yes
+  GetUpgradeCommandButtonName = P238LegacyGanGoodButton
+ End
+ Behavior = CitadelSlaughterHordeContain RingEntry
+  PassengerFilter = NONE +P238Ring
+  ObjectStatusOfContained = UNSELECTABLE ENCLOSED
+  ContainMax = 1
+  StatusForRingEntry = HOLDING_THE_RING
+  UpgradeForRingEntry = Upgrade_P238LegacyGanRing Upgrade_P238LegacyGanFortress
+  ObjectToDestroyForRingEntry = NONE +P238Ring
+ End
+End
+Object P238LegacyGanGoodForm
+ KindOf = INFANTRY HERO SELECTABLE CAN_ATTACK
+ Body = ActiveBody Body
+  MaxHealth = 500
+ End
+ Behavior = AIUpdateInterface AI
+ End
+End
+Object P238LegacyGanEvilForm
+ KindOf = INFANTRY HERO SELECTABLE CAN_ATTACK
+ Body = ActiveBody Body
+  MaxHealth = 500
+ End
+ Behavior = AIUpdateInterface AI
+ End
+End
+)ini";
+    const std::string error = w.w.load(data, INI_LOAD_OVERWRITE, "port238_legacy_gandalf.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    bool whiteFirst = false;
+    SUBCASE("ring first") {}
+    SUBCASE("white first") { whiteFirst = true; }
+    Object *hero = w.unit("P238LegacyGanBase", 'A', 300, 300);
+    Object *carrier = w.unit("P238Carrier", 'A', 300, 300);
+    Object *ring = w.unit("P238Ring", 'A', 300, 300);
+    Object *other = w.unit("P238LegacyGanBase", 'B', 600, 600);
+    REQUIRE(hero != nullptr);
+    REQUIRE(carrier != nullptr);
+    REQUIRE(ring != nullptr);
+    REQUIRE(other != nullptr);
+    auto count = [&](const char *name) {
+        int result = 0;
+        for (Object *o = w.logic->getFirstObject(); o; o = o->getNextObject())
+            if (o->getTemplate() && o->getTemplate()->getName() == name) ++result;
+        return result;
+    };
+    const ObjectID heroId = hero->getID();
+    const ObjectID ringId = ring->getID();
+    auto *goodPower = dynamic_cast<SpecialPowerModule *>(hero->findModuleByTag(w.w.keys.nameToKey("GoodPower")));
+    auto *evilPower = dynamic_cast<SpecialPowerModule *>(hero->findModuleByTag(w.w.keys.nameToKey("EvilPower")));
+    auto *goodEnable = dynamic_cast<UnpauseSpecialPowerUpgrade *>(hero->findModuleByTag(w.w.keys.nameToKey("GoodEnable")));
+    auto *goodCommand = dynamic_cast<DoCommandUpgrade *>(hero->findModuleByTag(w.w.keys.nameToKey("GoodCommand")));
+    auto *entry = dynamic_cast<CitadelSlaughterHordeContain *>(hero->findModule("CitadelSlaughterHordeContain"));
+    REQUIRE(goodPower != nullptr);
+    REQUIRE(evilPower != nullptr);
+    REQUIRE(goodEnable != nullptr);
+    REQUIRE(goodCommand != nullptr);
+    REQUIRE(entry != nullptr);
+    CHECK(goodPower->pauseCount() == 1);
+    CHECK(evilPower->pauseCount() == 1);
+    const auto *white = Player::resolveUpgrade("Upgrade_P238LegacyGanWhite", true);
+    REQUIRE(white != nullptr);
+    auto giveWhite = [&]() { w.playerOf('A')->addUpgrade(white, Player::UPGRADE_STATUS_COMPLETE); };
+    auto giveRing = [&]() {
+        deliver(*entry, *carrier);
+        REQUIRE(w.byId(ringId) != nullptr);
+        CHECK(w.byId(ringId)->isDestroyed());
+    };
+    if (whiteFirst) giveWhite(); else giveRing();
+    w.frames(5);
+    REQUIRE(w.byId(heroId) != nullptr);
+    CHECK_FALSE(goodEnable->isAlreadyUpgraded());
+    CHECK_FALSE(goodCommand->isAlreadyUpgraded());
+    CHECK(goodPower->pauseCount() == 1);
+    CHECK(evilPower->pauseCount() == (whiteFirst ? 1 : 0));
+    CHECK(count("P238LegacyGanGoodForm") == 0);
+    CHECK(count("P238LegacyGanEvilForm") == 0);
+    if (whiteFirst) giveRing(); else giveWhite();
+    CHECK(hero->hasUpgrade("Upgrade_P238LegacyGanRing"));
+    CHECK(hero->hasUpgrade("Upgrade_P238LegacyGanFortress"));
+    CHECK(goodEnable->isAlreadyUpgraded());
+    CHECK(goodCommand->isAlreadyUpgraded());
+    CHECK(goodPower->pauseCount() == 0);
+    for (int i = 0; i < 50 && count("P238LegacyGanGoodForm") == 0; ++i) w.frames(1);
+    REQUIRE(count("P238LegacyGanGoodForm") == 1);
+    Object *good = nullptr;
+    for (Object *o = w.logic->getFirstObject(); o; o = o->getNextObject())
+        if (o->getTemplate() && o->getTemplate()->getName() == "P238LegacyGanGoodForm") good = o;
+    REQUIRE(good != nullptr);
+    CHECK(good->getControllingPlayer() == w.playerOf('A'));
+    CHECK(count("P238LegacyGanEvilForm") == 0);
+    w.frames(3);
+    CHECK(w.byId(heroId) == nullptr);
+    CHECK_FALSE(w.playerOf('B')->hasUpgradeComplete("Upgrade_P238LegacyGanWhite"));
+    CHECK(w.byId(other->getID()) == other);
+}
