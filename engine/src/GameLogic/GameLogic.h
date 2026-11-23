@@ -22,12 +22,16 @@
 //       phase 1: logic-debug-frame helper; freeze gate; ++frame; command-only transition (flag +0x125); frame-2 object block;
 //                Pathfinder queue (RW 0x6F2364) and setFPMode; subsystem updates (script engine, Lua, terrain logic, victory system);
 //                CRC, recorder, statistics; command list; per object the drawable callback; then (after the scheduler work below and
-//                the deferred-entries drain RW 0x629DA6) the end-of-frame checks of every object: disabled expiry (RW 0x690A42),
-//                IGNORE_AI_COMMAND (0x690AB9), NO_COLLISIONS (0x690AE5), updatePendingDamage (0x697EB6);
+//                the deferred-entries drain RW 0x629DA6) the end-of-frame checks of every object, in one pass over the object list:
+//                disabled expiry (RW 0x690A42), IGNORE_AI_COMMAND (0x690AB9), NO_COLLISIONS (0x690AE5), and then, for that same object
+//                and before the pass moves on, updatePendingDamage (RW 0x697EB6 at RW 0x62EC9B, unguarded: the function itself returns
+//                when the queue is empty);
 //       phase 2: partition and collision managers; every object whose recorded frame is not the frame records its transform (RW 0x6260E1);
 //       phase 3: updates[0] over [0, size / 2); phase 4: updates[0] over [size / 2, size), then FOREVER migration (reverse scan,
 //                swap-pop, into `sleeping`); phase 5: updates[1], updates[2] (same migration), then the AI update (RW 0xDE4B40 vslot
-//                0x28), the deferred-entries drain, the subsystem batch, processDestroyList (RW 0x62A2C9); phase 6: updates[3] + migration.
+//                0x28 = TheAI::update RW 0x6FEC63: the pathfinder queue RW 0x6F2364 again, then ThePlayerList->update RW 0x6A84DB,
+//                whose Player::update RW 0x6AF269 records the per-frame score statistics), the deferred-entries drain, the subsystem
+//                batch, processDestroyList (RW 0x62A2C9); phase 6: updates[3] + migration.
 //     The loop: `i` walks the vector by index while it can grow; the phase 3 stop and the phase 4 start are `size() / 2` evaluated
 //     as the code evaluates them (RW 0x62EA12 .. 0x62EA1E / 0x62E9D4 .. 0x62E9E4). Per module: skip when next call frame > frame;
 //     sleep = NONE; if the object has no disabled types, or its mask intersects getDisabledTypesToProcess: current = u; sleep =
@@ -1218,6 +1222,8 @@ private:
 	void prepareWeaponStatusWork(const std::vector<UpdateModule *> &vec); // lane PERF-WS: the final list's conditions on the logic job pool
 	void migrateForeverModules(int vectorIndex);
 	void endOfFrameObjectChecks();
+	// RW 0x6A84DB (ThePlayerList->update, called by TheAI::update RW 0x6FEC63 in phase 5): Player::update (RW 0x6AF269) for every player, slot order
+	void updatePlayerList();
 	void buildPhaseWorkTable();
 	void removeUpdateModule(UpdateModule *u);
 

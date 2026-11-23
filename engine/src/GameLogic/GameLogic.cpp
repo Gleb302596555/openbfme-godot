@@ -572,13 +572,13 @@ void GameLogic::buildPhaseWorkTable()
 		{ 2, "partitionAndCollision", "RW 0x62E93B .. 0x62E94E: the partition manager and the collision manager update (vslot 0x28)", false },
 		{ 2, "recordTransforms", "RW 0x62E951 .. 0x62E97E: every object whose recorded frame is not the frame records its transform (RW 0x6260E1)", true },
 		{ 0, "scheduler", "RW 0x62E982 .. 0x62EB63: the sleepy update vectors (phases 3 .. 6)", true },
-		{ 5, "aiUpdate", "RW 0x62EB63 .. 0x62EB71: TheAI vslot 0x28", false },
+		{ 5, "aiUpdate", "RW 0x62EB63 .. 0x62EB71: TheAI vslot 0x28 = TheAI::update RW 0x6FEC63, which processes the pathfinder queue (RW 0x6F2364, a second pass of this phase: the pathfinderQueue row runs in every phase) and then calls ThePlayerList->update (RW 0x6A84DB -> Player::update RW 0x6AF269, the per-frame score statistics)", false },
 		{ 0, "deferredEntriesDrain", "RW 0x62EB74 (-> 0x629DA6): deletes the entries appended to GameLogic + 0x164 during the phase", false },
 		{ 5, "subsystemsBeforeDestroy", "RW 0x62EB85 .. 0x62EBAE: four subsystem updates (vslot 0x28) before the destroy list", false },
 		{ 5, "processDestroyList", "RW 0x62EBB1 (-> 0x62A2C9)", true },
 		{ 5, "subsystemsAfterDestroy", "RW 0x62EBB8 .. 0x62EC0B: eight more subsystem updates (a group audio, weapon / locomotor stores, victory conditions, the experience level system, ...)", false },
 		{ 1, "endOfFrameObjectChecks", "RW 0x62EC55 .. 0x62ECAA: per object disabled expiry (0x690A42), IGNORE_AI_COMMAND (0x690AB9), NO_COLLISIONS (0x690AE5)", true },
-		{ 1, "updatePendingDamage", "RW 0x62EC9D (-> 0x697EB6): per object, the queued damage whose delay passed is applied (lane COMBAT-1)", true },
+		{ 1, "updatePendingDamage", "RW 0x62EC9B (-> 0x697EB6), inside the per-object end-of-frame pass and after that object's three status checks: the queued damage whose delay passed is applied (lane COMBAT-1)", true },
 		{ 1, "logicTimeNotify", "RW 0x62ECC3 .. 0x62EE39: frame * 10 to a client subsystem and the mission save thumbnail", false },
 	};
 	static_assert(sizeof(rows) / sizeof(rows[0]) == (size_t)ROW_COUNT, "the phase work rows and the Row enum must agree");
@@ -705,7 +705,12 @@ void GameLogic::update(int phase)
 		runModules(phase);
 		if (phase == 5)
 		{
+			// RW 0x62EB63 .. 0x62EB71: TheAI vslot 0x28 = TheAI::update (RW 0x6FEC63), which first processes the pathfinder queue once more
+			// (RW 0x6F2364; the pathfinderQueue row above already ran in this phase, RW 0x62E69F) and then calls ThePlayerList->update
+			// (RW 0x6A84DB). The AI world installs the queue's half of the row (AIWorld::attach); the player list is the logic's own, so its
+			// half runs here even in a game without an AI world. Both run before the deferred-entries drain (RW 0x62EB74).
 			runRow(ROW_AI_UPDATE);
+			updatePlayerList(); // RW 0x6A84DB -> Player::update RW 0x6AF269
 		}
 	}
 	runRow(ROW_DEFERRED_DRAIN);
@@ -728,37 +733,11 @@ void GameLogic::update(int phase)
 	if (phase == 1)
 	{
 		endOfFrameObjectChecks();
-		// RW 0x62EC9D (-> 0x697EB6): object list order; an object that dies from a pending hit stays in the list until the destroy list
-		for (Object *o = m_objectHead; o; o = o->getNextObject())
-		{
-			if (o->pendingDamageCount() != 0)
-			{
-				o->updatePendingDamage();
-			}
-		}
 		runRow(ROW_PENDING_DAMAGE);
 		runRow(ROW_LOGIC_TIME_NOTIFY);
 	}
 	if (phase == 6)
 	{
-		// lane END-1: Player::update (RW 0x6AF269, from PlayerList::update RW 0x6A84DB over the 20 player slots) records each player's per-frame score
-		// statistics (ScoreKeeper::recordPerFrameStats RW 0x79F704, RW 0x6AF3AD with the frame). The PlayerList's update was not found in the frame (its
-		// caller is a subsystem table): the end of the frame is INFERENCE (S-1061)
-		for (int i = 0; i < m_players.getPlayerCount(); ++i)
-		{
-			Player *p = m_players.getNthPlayer(i);
-			// LOCAL-94 (issue #720): RW 0x6AF27C .. 0x6AF288 (top of Player::update RW 0x6AF269): AIPlayer::update (RW 0x8F9705) -> updateBridgeRepair (RW 0x8F8F68)
-			p->updateAIPlayerRepair(*this);
-			// PORT-280: RW 0x6AF28E .. 0x6AF2DD (top of Player::update RW 0x6AF269, before generic scripts): tick active production speed bonus timers
-			p->updateProductionTimeTimers();
-			// lane CAMP-1H: RW 0x6AF2FA .. 0x6AF32B, before the score: the player's teams run their generic scripts (Team::updateGenericScripts RW 0x7A267D;
-			// a game without map scripts has none)
-			if (m_scriptEngine->loaded())
-			{
-				m_scriptEngine->updateGenericScripts(*p);
-			}
-			p->getScoreKeeper().recordPerFrameStats(*this, *p, m_frame);
-		}
 		// lane SDK-2: the OpenBFME end-of-frame listeners (mod scripts); a copy, as a listener may remove itself
 		if (!m_endOfFrameHooks.empty())
 		{
@@ -771,6 +750,38 @@ void GameLogic::update(int phase)
 	}
 	m_inUpdate = wasInUpdate;
 	--m_depth;
+}
+
+// RW 0x6A84DB: ThePlayerList->update, which TheAI::update (RW 0x6FEC63) calls at the end of the AI row of phase 5 (RW 0x62EB71). Retail walks
+// its 20 fixed player slots at PlayerList + 0x18 (a countdown of 0x14, ecx = slot[i]) and runs Player::update (RW 0x6AF269) on each; the port
+// keeps only the slots the game created, so the same walk is the port's player count in slot order. Player::update, in retail order:
+//   1. RW 0x6AF279 .. 0x6AF28B: the player's AI player (Player + 0x2FC) updates itself (vslot 0x14, lane LOCAL-94: the bridge repair);
+//   2. RW 0x6AF28E .. 0x6AF2DD: the production speed bonus timers (Player + 0x2DC) count down, an expired one is removed from both maps;
+//   3. RW 0x6AF2E6 .. 0x6AF32B: every team of the player (Player + 0x34C) runs its generic scripts (RW 0x7A267D) when the team has a script
+//      (the team record + 0x334 is not null; the port's script engine holds the map scripts, so a game without them has nothing to run);
+//   4. RW 0x6AF3AD: the per-frame score statistics (ScoreKeeper::recordPerFrameStats RW 0x79F704) for the current frame.
+// S-1061's "Player::update's caller was not found" is answered by this row: it runs in phase 5, before the deferred-entries drain and the destroy list.
+void GameLogic::updatePlayerList()
+{
+	for (int i = 0; i < m_players.getPlayerCount(); ++i)
+	{
+		Player *p = m_players.getNthPlayer(i);
+		if (!p)
+		{
+			continue;
+		}
+		// LOCAL-94 (issue #720): RW 0x6AF27C .. 0x6AF288 (top of Player::update RW 0x6AF269): AIPlayer::update (RW 0x8F9705) -> updateBridgeRepair (RW 0x8F8F68)
+		p->updateAIPlayerRepair(*this);
+		// PORT-280: RW 0x6AF28E .. 0x6AF2DD (top of Player::update RW 0x6AF269, before generic scripts): tick active production speed bonus timers
+		p->updateProductionTimeTimers();
+		// lane CAMP-1H: RW 0x6AF2FA .. 0x6AF32B, before the score: the player's teams run their generic scripts (Team::updateGenericScripts RW 0x7A267D;
+		// a game without map scripts has none)
+		if (m_scriptEngine->loaded())
+		{
+			m_scriptEngine->updateGenericScripts(*p);
+		}
+		p->getScoreKeeper().recordPerFrameStats(*this, *p, m_frame);
+	}
 }
 
 void GameLogic::runModules(int phase)
@@ -934,7 +945,11 @@ void GameLogic::migrateForeverModules(int vectorIndex)
 	}
 }
 
-// RW 0x62EC55 .. 0x62ECAA
+// RW 0x62EC55 .. 0x62ECAA: one pass over the object list. Per object, in retail's order: the disabled expiry (RW 0x9325B4 on Object + 0x1C8 answers
+// whether the object has a disabled type, then RW 0x690A42 clears the types whose frame arrived), IGNORE_AI_COMMAND (RW 0x44DDEC(0x4A) then RW
+// 0x690AB9), NO_COLLISIONS (RW 0x44DDEC(4) then RW 0x690AE5) and then, unconditionally and for that same object, the pending damage (RW 0x697EB6,
+// which returns at once when the queue is empty). The next object is read after the four calls (RW 0x62ECA2), so an object the pending damage appends
+// to the list tail is visited by this same pass. An object that dies from a pending hit stays in the list until the destroy list of phase 5.
 void GameLogic::endOfFrameObjectChecks()
 {
 	for (Object *o = m_objectHead; o; o = o->getNextObject())
@@ -951,6 +966,8 @@ void GameLogic::endOfFrameObjectChecks()
 		{
 			o->checkNoCollisionsStatus(m_frame);
 		}
+		// RW 0x62EC9B (-> 0x697EB6): the same object, before the pass moves on; no guard (the function returns on an empty queue)
+		o->updatePendingDamage();
 	}
 }
 

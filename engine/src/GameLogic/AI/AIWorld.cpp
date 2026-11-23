@@ -867,6 +867,9 @@ void AIWorld::attach()
 	m_hooksToken = m_logic.addWorldHooks([this](Object &o) { objectEnteredWorld(o); }, [this](Object &o) { objectLeftWorld(o); });
 	m_hashToken = m_logic.addStateHashContributor([this](StateHasher &h) { crc(h); }, "pathfinder and AI movers");
 	m_logic.installPhaseWork("pathfinderQueue", [this]() { processPathfindQueue(); });
+	// RW 0x6FEC63 (TheAI::update, the aiUpdate row of phase 5, RW 0x62EB63 .. 0x62EB71): the AI's update processes the pathfinder queue once more
+	// (RW 0x6F2364 on TheAI + 0x10) before ThePlayerList->update (RW 0x6A84DB); the player list's half is GameLogic's (updatePlayerList).
+	m_logic.installPhaseWork("aiUpdate", [this]() { processPathfindQueue(); });
 	m_logic.installPhaseWork("partitionAndCollision", [this]() {
 		processCollisions();
 		processCrateContacts();     // lane MODCOMPAT-MOD1: the crates' contacts, after the AI units' pass (S-780)
@@ -948,6 +951,7 @@ void AIWorld::detach()
 	m_logic.removeStateHashContributor(m_hashToken);
 	m_hooksToken = m_hashToken = 0;
 	m_logic.installPhaseWork("pathfinderQueue", std::function<void()>());
+	m_logic.installPhaseWork("aiUpdate", std::function<void()>());
 	m_logic.installPhaseWork("partitionAndCollision", std::function<void()>());
 	if (m_logic.aiWorld() == this)
 	{
