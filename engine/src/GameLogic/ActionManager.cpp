@@ -916,7 +916,7 @@ bool canDoSpecialPowerAtLocation(Object &obj, const Coord3D &loc, const SpecialP
 		// RW 0x82DFB7, 0x82E93C..0x82EA56; DONOR BFME2 0x0041D60B
 		// (ActionManagerCanDoSpecialPowerAtLocation.cpp): live allied STRUCTUREs,
 		// within the integer-truncated radius in 2D, must have a damaged body.
-		const float radius = (float)SimMath::truncToInt32(t.m_radiusCursorRadius);
+		const float radius = (float)SimMath::truncToInt32(t.m_radiusCursorRadius); // RW 0x82E93C..0x82E95C
 		static const int kStructure = kindBit("STRUCTURE");
 		PartitionFilterFn alive([](Object &o) { return !o.isEffectivelyDead(); });
 		PartitionFilterFn structure([](Object &o) { return hasKindBit(o, kStructure); });
