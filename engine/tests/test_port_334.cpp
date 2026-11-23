@@ -3,6 +3,7 @@
 // (OCL countdown is gated by UNDER_CONSTRUCTION); native snapshots stay D3/S-4190.
 #include "doctest.h"
 #include "CombatTestUtil.h"
+#include "GameLogic/Object/PartitionManager.h"
 #include "GameClient/BeaconClientUpdate.h"
 #include "GameLogic/Module/AutoPickUpUpdate.h"
 #include "GameLogic/Module/OCLUpdate.h"
@@ -50,6 +51,10 @@ End
 Object Port334Victim
  KindOf = INFANTRY SELECTABLE
  TransportSlotCount = 1
+ ArmorSet
+  Conditions = None
+  Armor = NoArmor
+ End
  Geometry = CYLINDER
  GeometryMajorRadius = 1
  GeometryHeight = 10
@@ -68,12 +73,14 @@ TEST_CASE("PORT-334 AutoThrow: a contained thrower with one passenger fires at c
   CombatWorld w;
   REQUIRE(w.w.load(kObjects, INI_LOAD_OVERWRITE, "port334.ini").empty());
   w.combat().setAutoAcquireEnabled(false);
+  w.logic->partition().setRegion(0, 0, 1000, 1000); // RW 0x62FCCD: a map-backed scan, not the zero-extent world
   Object *carrier = w.unit("Port334Holder", 'A', 200, 200);
   Object *thrower = w.unit("Port334Holder", 'A', 200, 200);
   Object *passenger = w.unit("Port334Victim", 'A', 200, 200);
   Object *near = w.unit("Port334Victim", 'B', 240, 200);
   Object *far = w.unit("Port334Victim", 'B', 280, 200);
   REQUIRE(carrier); REQUIRE(thrower); REQUIRE(passenger); REQUIRE(near); REQUIRE(far);
+  w.frames(2); // publish placed objects to the partition and finish the weapon's initial reload
   auto *outer = dynamic_cast<TransportContain *>(carrier->getContain());
   auto *inner = dynamic_cast<TransportContain *>(thrower->getContain());
   REQUIRE(outer); REQUIRE(inner);
@@ -194,13 +201,17 @@ TEST_CASE("PORT-334 EntEnraged: suppression overrides forced rage and clears its
 TEST_CASE("PORT-334 Attach: no matching parent keeps scanning without moving")
 {
  CombatWorld w;
- REQUIRE(w.w.load(kObjects, INI_LOAD_OVERWRITE, "port334.ini").empty());
- Object *obj = w.unit("Port334Victim", 'A', 200, 200);
+ const std::string objects = std::string(kObjects) +
+  "ChildObject Port334Attachment Port334Victim\n"
+  " Behavior = AttachUpdate AttachTag\n ScanRange = 1\n ObjectFilter = NONE\n End\nEnd\n";
+ REQUIRE(w.w.load(objects, INI_LOAD_OVERWRITE, "port334.ini").empty());
+ Object *obj = w.unit("Port334Attachment", 'A', 200, 200);
  REQUIRE(obj);
- AttachUpdateModuleData data;
- data.m_scanRange = 1;
- AttachUpdate update(obj, &data);
- CHECK(update.update() == UPDATE_SLEEP_NONE);
+ // Attach's ctor wakes its scheduler slot; it must be created as an owned module,
+ // not as a detached stack module on an already registered Object.
+ auto *update = dynamic_cast<AttachUpdate *>(obj->findModule("AttachUpdate"));
+ REQUIRE(update);
+ CHECK(update->update() == UPDATE_SLEEP_NONE);
  CHECK(obj->getPosition()->x == 200);
  CHECK(obj->getPosition()->y == 200);
 }
