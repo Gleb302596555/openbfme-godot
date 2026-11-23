@@ -334,6 +334,34 @@ def vtable_slots(b: Binary, funcs):
     return out
 
 
+def close_noreturn(b: Binary, funcs, entries, noreturn, extras):
+    """The noreturn set's fixed point without a new discovery: a function with no return path, no tail call and no unresolved
+    jump never returns; its callers are decoded again with it (only theirs), which can make them noreturn in turn. Decoding a
+    caller again here is a trial only: the blocks it would lose are re-attributed by the full rebuild the caller runs next."""
+    nr = set(noreturn)
+    trial = dict(funcs)
+    callers: dict[int, set[int]] = {}
+    for f, r in trial.items():
+        for c in r[1]:
+            callers.setdefault(c, set()).add(f)
+    new = {f for f, r in trial.items() if not r[5] and not r[2] and not r[4]} - nr
+    while new:
+        nr |= new
+        redo = set()
+        for f in new:
+            redo |= callers.get(f, set())
+        new = set()
+        for f in redo:
+            try:
+                r = decode_function(b, f, entries, nr, tuple(sorted(extras.get(f, ()))))
+            except MapError:
+                continue
+            trial[f] = r
+            if not r[5] and not r[2] and not r[4] and f not in nr:
+                new.add(f)
+    return nr
+
+
 def build(b: Binary):
     """Stage 1: the PE entry and its direct-call closure, to a noreturn fixed point. Stage 2: candidates from code
     immediates and data words. A candidate that decodes cleanly and owns no decoded instruction is a new function. One
@@ -416,8 +444,8 @@ def build(b: Binary):
                 tier.setdefault(s, "vtable-slot")
             closure(b, entries, noreturn, funcs, errors, extras)
             settle(b, funcs, entries, noreturn, extras, tier, rejected, errors, protected=vtable_slots(b, funcs))
-        nr = {f for f, r in funcs.items() if not r[5] and not r[2] and not r[4]}
-        log(f"noreturn check: {len(nr - noreturn)} new noreturn functions")
+        nr = close_noreturn(b, funcs, entries, noreturn, extras)
+        log(f"noreturn check: {len(nr - noreturn)} new noreturn functions (after the callers' fixed point)")
         if nr <= noreturn:
             called = set()
             for r in funcs.values():
