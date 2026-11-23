@@ -425,3 +425,38 @@ neighbours; it tests composition timing, not rendered APT fidelity.
 Fourteen cases syntax-check with InGameHudHud6.cpp; no runtime result yet.
 The original build still runs; the queued sequential final-target build/test
 will consume the latest source. Do not run another Ninja in engine/build.
+
+## S-1201 resume/repair: retail predicates read, implementation outstanding
+
+DONOR BFME2 `Common/RTS/ActionManager.cpp::canResumeConstructionOf` and
+`ActionManagerSpecialPowerChecks.cpp::canRepairObject` guided the read.
+Both RotWK entries were disassembled linearly through return, independently:
+
+- **RW 0x82C84C** (resume): both objects; source template +0x109 bit 0x40;
+  source-to-target relationship via 0x68D7AB must be 2 (ALLIES); target status
+  2 via 0x44DDEC set; source +0x458 bit 0 clear; target's sole-healing
+  benefactor via 0x68B8D3 is absent or equals source ID +0x74.
+  The command-source parameter is not read by this body. There is no
+  source/target controlling-player pointer equality test.
+- **RW 0x82D7F2** (repair): both objects; rejects one named source-template
+  comparison; requires ALLIES; an effectively dead target is permitted only
+  with target-template byte +0x642. Rejects target kind mask 0x01400000,
+  construction status on either object, target kind byte +0x10C bit 0x40;
+  requires source kind byte +0x109 bit 0x40 and target STRUCTURE (bit 7).
+  Body health and max-health virtuals are compared (not just the port's
+  current `health < max` stand-in). Rejects target template +0x11A bit 0x40,
+  target module from 0x68C3E6 returning true at slot +0x24, shroud predicate
+  0x82C167, contained source (+0x27C), and another sole-healing benefactor.
+  Unknown field identities are deliberately left as offsets, not guessed.
+
+Current readers audited: `CommandXlat.cpp::evaluateContextCommand` uses a
+same-owner DOZER shorthand; `DozerAIUpdate.cpp::resumeConstruction` uses
+sameOwnerUnfinished and repair uses its own stand-in (plus a healer check);
+`ActionManager.cpp`'s special-power type 0x8A still reports the missing shared
+canRepairObject. Thus patching only the context-click condition would leave
+contradictory eligibility across existing action paths. The task explicitly
+names these predicates; this research is not a claim they are out of scope.
+Before implementation, resolve target-template flags/module identity, confirm
+the shared shroud/benefactor helpers, and read context priority/dispatch from
+entry 0x81E60B. No canRepairObject shim, guessed field, or partial ALLIES patch
+was introduced. S-1201/S-286/S-1282 remain open and have no new passing tests.
