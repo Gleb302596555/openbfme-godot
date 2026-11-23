@@ -111,7 +111,7 @@ RetailObjectWorld::State::State(ArchiveFileSystem &fs)
 		"LinearCampaign", // CAMP-1: TheLinearCampaignManager (RW 0x5ECCB9)
 		"MissionObjectiveList", // CAMPUI-1: TheMissionObjectiveTracker's block (RW 0x836497)
 		"AerialPathfindNoFlyZone", // PORT-318: TheAerialPathfinder's block (RW 0x60095C -> RW 0x777F76)
-		"GlowEffect", "Fire" }; // GLOW-1: RW 0x70B734 (GlowEffectStore); Fire: RW 0x70C77C
+		"GlowEffect", "Fire", "FireLogicSystem" }; // GLOW-1: RW 0x70B734 (GlowEffectStore); Fire: RW 0x70C77C
 	// AUDIO-1: the audio blocks (AudioEvent, DialogEvent, MusicTrack, ..., EvaEvent, AudioSettings, MiscAudio) are parsed for real
 	skip.insert(skip.end(), AudioIniState::blockKeywords().begin(), AudioIniState::blockKeywords().end());
 	// AI-1: the skirmish AI blocks are parsed for real (GameLogic/SkirmishAI/SkirmishAIData.h)
@@ -148,6 +148,7 @@ RetailObjectWorld::State::State(ArchiveFileSystem &fs)
 	m_emotions.registerBlock(m_env.blocks); // MODULES-2: TheEmotionSystem (RW 0xDE8C88; EmotionNugget RW 0x8E0D59)
 	m_createAHero.registerBlock(m_env.blocks); // HERO-2: TheCreateAHeroSystem (RW 0xDE3D84)
 	m_glow.registerBlock(m_env.blocks);        // GLOW-1: the GlowEffect block (RW 0x70B734)
+	m_env.blocks.registerBlock("FireLogicSystem", [this](INI *ini) { m_fireLogicConfig.parseINI(ini); }); // RW 0x6860E0
 	m_fire.registerBlock(m_env.blocks);        // the Fire block (RW 0x70C77C)
 	SpellStores::registerBlocks(m_env.blocks); // SPELL-1
 	m_linearCampaigns.registerBlock(m_env.blocks); // CAMP-1

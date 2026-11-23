@@ -71,6 +71,8 @@ public:
 	float getGroundHeight(float x, float y, Coord3D *normal = nullptr) const;
 	// BFME1/ZH getClipHeight: raw 16-bit height of the clamped cell.
 	std::uint16_t getClipHeight(int x, int y) const;
+	// RW 0x462520 -> RW 0x466AC3 -> RW 0x4ADC78: map flammability byte at world point.
+	std::uint8_t fireTerrainType(float x, float y) const;
 
 	// lane LOS-1: W3DTerrainLogic vslot 0x3C (RW 0x46231F, vtable RW 0xBDB810) -> BaseHeightMapRenderObjClass::isClearLineOfSight (RW 0x466289; tier A, the BFME2
 	// decomp's BaseHeightMapIsClearLineOfSight.cpp, byte-matched; read again here from the RotWK disassembly). The terrain line from `pos` to `posOther`: the
