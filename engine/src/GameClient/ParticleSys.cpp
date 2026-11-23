@@ -1894,9 +1894,9 @@ void FXParticleSystem::ParticleSystem::emitTerrainFire(int count)
 		return;
 	}
 
-	// RW 0x005F32FF..0x005F332D: slot capacity is maxCellsBurning * 3 clamped to [128, 2048]
-	const int maxBurning = env.maxCellsBurning();
-	const int cap = std::clamp(maxBurning * 3, 128, 2048);
+	// RW 0x005F32FF: 32-bit product, 128 only when zero; otherwise cap at 2048 unsigned.
+	const std::uint32_t product = static_cast<std::uint32_t>(env.maxCellsBurning()) * 3u;
+	const int cap = product == 0 ? 128 : static_cast<int>(std::min(product, 2048u));
 
 	W3DDrawRandom &rng = env.clientRandom();
 	float emissionChance = 0.0f; // RW 0x005F4B1D: ParticleSystem::getCellEmissionChance returns 0.0f when m_volume == nullptr

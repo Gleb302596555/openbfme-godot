@@ -4,6 +4,7 @@
 #include "doctest.h"
 #include "IniTestUtil.h"
 #include "LogicTestUtil.h"
+#include "FxTestUtil.h"
 #include "GameLogic/Map/FireLogicSystem.h"
 #include "GameLogic/Map/TerrainLogic.h"
 #include "GameLogic/Object/RetailObjectWorld.h"
@@ -155,4 +156,23 @@ TEST_CASE("PORT-337 world loader and map override use the same fire configuratio
     CHECK(world.fireLogicConfig().maxCellsBurning == 2);
     CHECK(world.fireLogicConfig().materials[1].fuel == 43);
     CHECK(world.fireLogicConfig().materials[2].fuel == 90);
+}
+
+TEST_CASE("PORT-337 fire particle capacity follows the unsigned retail cap")
+{
+    // RW 0x5F32FF -> RW 0x7B13A5. One burning cell is visited 200 times.
+    const char ini[] =
+        "FXParticleSystem FireCap\n System\n Priority = ALWAYS_RENDER\n Type = GPU_TERRAINFIRE\n"
+        " Lifetime = 25 25\n BurstDelay = 100 100\n BurstCount = 200 200\n End\n"
+        " EmissionVolume = TerrainFireEmission\n CellEmissionChance = 1.0\n End\n"
+        " EmissionVelocity = OrthoEmissionVelocity\n End\n Draw = GpuDraw\n End\nEnd\n";
+    for (auto item : { std::pair<int, unsigned>{ 1, 3 }, { 0, 128 }, { 100, 200 }, { -1, 200 } })
+    {
+        fxtest::Sim sim(ini);
+        sim.env.maxBurning = item.first;
+        sim.env.burning.insert({ 5, 5 });
+        auto id = sim.spawn("FireCap");
+        sim.step();
+        CHECK(sim.particles(id).size() == item.second);
+    }
 }
