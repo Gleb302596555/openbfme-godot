@@ -60,6 +60,31 @@ drop and respawn ordering in a live game.
 | `SpecialAbilityKingsFavor` | The ring-form object literally declares a LevelGrant power (`:2398–2422`) though it is not in the named ring command set. | Effective reachability, acceptance-filter expansion, XP gain and RW/port behavior are not read in this trace. |
 | Ring-form passive / combat / death modules | The object also declares other modules including Elven Gift healing, `BoromirRingHealth` upgrade, dual weapon, death and respawn (`:2077–2257`, `:2469–2487`). | Their upgrade provenance, values, transfer, actual appearance and behavior are not fully audited. Standard stance, capture, attack-move and stop controls are listed in `PORT238_COMMAND_CANDIDATES.md`; they are not individually verified here. |
 
+### Leadership: bounded synthetic aura
+
+The literal ring-form aura is initially inactive, requires `Upgrade_Level_1`,
+refreshes every 2000 ms, and scans radius 200 for infantry/cavalry with named
+KindOf exclusions and `-GondorBoromirGuard` (`gondorboromir.ini:2310–2319`).
+Its `BoromirRingLeadership` modifier includes ARMOR 50%, RESIST_FEAR 100%,
+RESIST_TERROR 100%, duration 3000 ms and `IgnoreIfAnticategoryActive = Yes`
+(`includes/attributemodifier.inc:8084–8094`). It does **not** declare an active
+`AntiCategory` field in the aura (the line is commented).
+
+Synthetic `PORT-238 Boromir-style ring leadership*` checks the initial sleep,
+then directly grants a stand-in level upgrade and observes the first pulse:
+nearby same-player infantry and cavalry get the modifier, while source, a
+stand-in named guard, a hero, enemy infantry and far infantry do not. It
+queries the applied values 0.5, 1.0, 1.0 from the infantry modifier pool.
+**50/50 assertions**, isolated `PORT-238*` **48/48 cases, 3163/3163 assertions**
+on matching `3f0105c8` core/headers plus separately compiled PORT-286 parser.
+Removing only the stand-in guard exclusion from the fixture fails the guard
+check (**49/50**), a fixture sensitivity control rather than an engine-fix
+control. RW aura scan/apply `0x89F42D` / `0x89F114` is ported in
+`HeroModules.cpp`. The test does not measure real combat/fear behavior,
+distinct allied players, all KindOf exclusions, anticategory suppression,
+expiry/refresh, actual upgrade granting, user interface, FX or game. S-856,
+S-636 and the indicator-name mismatch remain separate questions.
+
 ### Shield: bounded synthetic modifier and damage behavior
 
 `CREATE_A_HERO_INVULNERABILITY_MODIFIER` has two literal declarations in the

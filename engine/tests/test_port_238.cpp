@@ -5467,3 +5467,125 @@ End
     hit(DAMAGE_SLASH);
     CHECK(hero->getBodyModule()->getHealth() == afterUnresistable - 100.0f);
 }
+
+TEST_CASE("PORT-238 Boromir-style ring leadership filters allies and applies three modifiers")
+{
+    World w;
+    AttributeModifierStore modifiers;
+    AttributeModifierStore *savedModifiers = TheAttributeModifierStore;
+    struct RestoreModifiers
+    {
+        World &world;
+        AttributeModifierStore *saved;
+        ~RestoreModifiers() { world.logic->reset(); TheAttributeModifierStore = saved; }
+    } restore{w, savedModifiers};
+    TheAttributeModifierStore = &modifiers;
+    modifiers.registerBlock(w.w.fx.env.blocks);
+    HeroModules::registerAll(w.w.modules);
+    // gondorboromir.ini:2300-2319, includes/attributemodifier.inc:8084-8094.
+    // RW aura 0x89F42D filtered scan, 0x89F114 applies modifier;
+    // no actual level lifecycle, anticategory suppression or real INI loading.
+    const char *data = R"ini(
+Upgrade Upgrade_P238BoromirLeadershipLevel
+ Type = OBJECT
+End
+ModifierList P238BoromirLeadership
+ Category = LEADERSHIP
+ Modifier = ARMOR 50%
+ Modifier = RESIST_FEAR 100%
+ Modifier = RESIST_TERROR 100%
+ Duration = 3000
+ IgnoreIfAnticategoryActive = Yes
+End
+Object P238BoromirAuraHero
+ KindOf = INFANTRY HERO SELECTABLE
+ Body = ActiveBody Body
+  MaxHealth = 100
+ End
+ Behavior = AttributeModifierPoolUpdate Pool
+ End
+ Behavior = AttributeModifierAuraUpdate Leadership
+  StartsActive = No
+  BonusName = P238BoromirLeadership
+  TriggeredBy = Upgrade_P238BoromirLeadershipLevel
+  RefreshDelay = 2000
+  Range = 200
+  ObjectFilter = ANY +INFANTRY +CAVALRY -MACHINE -IMMOBILE -DOZER -HARVESTER -HERO -STRUCTURE -BASE_FOUNDATION -HORDE -CREEP -SUBMARINE -P238BoromirGuard
+ End
+End
+Object P238BoromirInfantry
+ KindOf = INFANTRY SELECTABLE
+ Body = ActiveBody Body
+  MaxHealth = 100
+ End
+ Behavior = AttributeModifierPoolUpdate Pool
+ End
+End
+Object P238BoromirCavalry
+ KindOf = CAVALRY SELECTABLE
+ Body = ActiveBody Body
+  MaxHealth = 100
+ End
+ Behavior = AttributeModifierPoolUpdate Pool
+ End
+End
+Object P238BoromirGuard
+ KindOf = INFANTRY SELECTABLE
+ Body = ActiveBody Body
+  MaxHealth = 100
+ End
+ Behavior = AttributeModifierPoolUpdate Pool
+ End
+End
+Object P238BoromirOtherHero
+ KindOf = INFANTRY HERO SELECTABLE
+ Body = ActiveBody Body
+  MaxHealth = 100
+ End
+ Behavior = AttributeModifierPoolUpdate Pool
+ End
+End
+)ini";
+    const std::string error = w.w.load(data, INI_LOAD_OVERWRITE, "port238_boromir_leadership.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    Object *source = w.unit("P238BoromirAuraHero", 'A', 300, 300);
+    Object *infantry = w.unit("P238BoromirInfantry", 'A', 350, 300);
+    Object *cavalry = w.unit("P238BoromirCavalry", 'A', 350, 300);
+    Object *guard = w.unit("P238BoromirGuard", 'A', 350, 300);
+    Object *hero = w.unit("P238BoromirOtherHero", 'A', 350, 300);
+    Object *enemy = w.unit("P238BoromirInfantry", 'B', 350, 300);
+    Object *far = w.unit("P238BoromirInfantry", 'A', 550, 300);
+    for (Object *obj : {source, infantry, cavalry, guard, hero, enemy, far})
+    {
+        REQUIRE(obj != nullptr);
+        w.logic->partition().registerObject(*obj);
+    }
+    auto pool = [](Object *obj) { return dynamic_cast<AttributeModifierPool *>(obj->findModule("AttributeModifierPoolUpdate")); };
+    auto *aura = dynamic_cast<AttributeModifierAuraUpdate *>(source->findModule("AttributeModifierAuraUpdate"));
+    REQUIRE(aura != nullptr);
+    for (Object *obj : {source, infantry, cavalry, guard, hero, enemy, far}) REQUIRE(pool(obj) != nullptr);
+    w.frames(5);
+    CHECK(aura->pulses() == 0);
+    CHECK_FALSE(pool(infantry)->hasList("P238BoromirLeadership"));
+    source->giveUpgrade("Upgrade_P238BoromirLeadershipLevel");
+    for (int i = 0; i < 10 && aura->pulses() == 0; ++i) w.frames(1);
+    REQUIRE(aura->pulses() == 1);
+    CHECK(pool(infantry)->hasList("P238BoromirLeadership"));
+    CHECK(pool(cavalry)->hasList("P238BoromirLeadership"));
+    CHECK_FALSE(pool(source)->hasList("P238BoromirLeadership"));
+    CHECK_FALSE(pool(guard)->hasList("P238BoromirLeadership"));
+    CHECK_FALSE(pool(hero)->hasList("P238BoromirLeadership"));
+    CHECK_FALSE(pool(enemy)->hasList("P238BoromirLeadership"));
+    CHECK_FALSE(pool(far)->hasList("P238BoromirLeadership"));
+    float value = 0.0f;
+    CHECK(infantry->attributeModifierSum(ATTRIBUTE_ARMOR, nullptr, value));
+    CHECK(value == 0.5f);
+    REQUIRE(std::string(TheAttributeModifierTypeNames[4]) == "RESIST_FEAR"); // RW 0xDA6D28
+    REQUIRE(std::string(TheAttributeModifierTypeNames[5]) == "RESIST_TERROR");
+    value = 0.0f;
+    CHECK(infantry->attributeModifierSum(4, nullptr, value));
+    CHECK(value == 1.0f);
+    value = 0.0f;
+    CHECK(infantry->attributeModifierSum(5, nullptr, value));
+    CHECK(value == 1.0f);
+}
