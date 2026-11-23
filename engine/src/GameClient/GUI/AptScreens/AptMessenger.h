@@ -36,6 +36,9 @@ public:
 	AptMessenger(WindowManager &windows, Shell &shell, ShellEnvironment &environment);
 	void setRows(int tab, const std::vector<Row> &rows);
 	void setChat(int tab, const std::vector<std::u16string> &lines);
+	// PYSAGE 1.9.8.5 .rpchat 0x00ED7EA0 / 0x00ED7E60 / 0x00ED7E70 (hook RW 0x9177DD): read-only Messenger tabs in replay playback
+	void setReadOnlyReplay(bool readOnly) { m_readOnlyReplay = readOnly; m_buttonsDirty = true; }
+	bool readOnlyReplay() const { return m_readOnlyReplay; }
 	void acknowledgeMessage(const std::u16string &text);
 	int activeTab() const { return m_tab; }
 	bool closing() const { return m_closing; }
@@ -73,6 +76,7 @@ private:
 	std::array<bool, 2> m_buttonEnabled{};     ///< lane ONLINEMENU-1: what the movie's two buttons were last told (tests)
 	bool m_inviteEnabled = false;
 	bool m_inRoom = false;
+	bool m_readOnlyReplay = false;
 	GameWindow *m_entry = nullptr;
 	int m_tab = 0;
 	bool m_maximized = true, m_dragging = false, m_closing = false, m_buttonsDirty = true, m_initialized = false;

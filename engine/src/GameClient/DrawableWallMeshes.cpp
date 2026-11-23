@@ -45,6 +45,8 @@ void DrawableWallMeshes::problem(const std::string &p)
 	}
 }
 
+// Both editions: queries Drawable::getWallBoundsMesh (RW 0x006728A1), Drawable::getRaisedWallMesh (RW 0x006728D7),
+// Drawable::getRampMesh1 (RW 0x006729A3), Drawable::getRampMesh2 (RW 0x006729E9), and WallClassificationInfo ctor (RW 0x0067C694).
 bool DrawableWallMeshes::build(const ThingTemplate &tt, const ModelConditionFlags &flags, ModelSurfaces &out)
 {
 	for (const ThingTemplate::Nugget &n : tt.drawModules().nuggets())

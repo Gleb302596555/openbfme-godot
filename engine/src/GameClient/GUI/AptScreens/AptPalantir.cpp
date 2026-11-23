@@ -145,6 +145,12 @@ void AptPalantir::hook(const std::string &name)
 		{
 			m_spellStoreOpen();
 		}
+		else if (name == "AptPalantir::OnBttnMessenger")
+		{
+			// RW 0x9179DE & PYSAGE 1.9.8.5 .rpchat 0x00ED7E40: open Messenger.apt (enabled in replays under ennorath.replay-tabs-chat-pause)
+			if (m_services)
+				m_services->request(ShellRequest{ ShellAction::PalantirMessenger, arg });
+		}
 		else if (name == "AptPalantir::OnBttnObjectives")
 		{
 			m_objFlash = false; // lane CAMPUI-1: RW 0x6D40C9 clears + 0xE5 (the flag's flash)
@@ -1543,4 +1549,14 @@ bool AptPalantir::requestObjectives()
 	}
 	m_services->request(ShellRequest{ ShellAction::PalantirObjectives, std::string() });
 	return true;
+}
+
+void AptPalantir::setMessengerAvailable(bool available)
+{
+	// RW 0x6D7AA4 / 0x6D7AB3 & PYSAGE 1.9.8.5 .rpchat 0x00ED7E30
+	if (m_messengerStateSent && m_messengerAvailable == available)
+		return;
+	m_messengerAvailable = available;
+	if (call("", "SetMessengerButtonState", { available ? "_up" : "_unused" }))
+		m_messengerStateSent = true;
 }

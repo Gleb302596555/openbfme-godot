@@ -86,6 +86,7 @@ public:
 		}
 		return out;
 	}
+	// Both editions: RW 0x00804D80 (DONOR BFME2 0x004031C9 AttributeModifierPoolUpdate::rva004031C9)
 	int categoryCount(int category) const { return (category >= 0 && category < 15) ? m_categoryCount[(size_t)category] : 0; }
 	// the expiry frame of the entry of `listName` (RW 0x805A8E: frame + duration, 0x3FFFFFFF when it never expires); 0 when the pool has no such entry.
 	// Read by the button matrix (MATRIX_TODO 2: an effect must end after its Duration)

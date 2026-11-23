@@ -113,6 +113,7 @@ public:
 
 // RW InvisibilityUpdate: getModuleName RW 0x008A6EEA, getModuleNameKey RW 0x008A6F38, dtors RW 0x008A6EFC / 0x008A6F18,
 // xfer RW 0x008A6FFA, +0x20 slot 0 startsActive RW 0x008A7082 (DONOR BFME2 0x004A3A09; no external caller in RotWK 2.01).
+// RW 0x008A6F18 (dtor -> RW 0x0064A492)
 class InvisibilityUpdate : public UpdateModule
 {
 public:
@@ -156,6 +157,7 @@ public:
 
 // RW StealthDetectorUpdate: getModuleName RW 0x008A628C, getModuleNameKey RW 0x008A6316, dtors RW 0x008A63CF / 0x008A6273,
 // xfer RW 0x008A62D2.
+// RW 0x008A6273 (dtor -> RW 0x0064A492)
 class StealthDetectorUpdate : public UpdateModule
 {
 public:
@@ -228,6 +230,7 @@ public:
 // RW StealthUpdate (create RW 0x64E90D, constructor RW 0x776E3D, 0x16C bytes; getModuleName RW 0x00776068,
 // getModuleNameKey RW 0x00776023, dtors RW 0x00776278 / 0x0077600A, xfer RW 0x00776C7D,
 // loadPostProcess RW 0x00776E23, onObjectCreated RW 0x0077730B -> 0x776BF8, update RW 0x7779E3 -> 0x777310)
+// RW 0x0077600A (dtor -> RW 0x0064A492)
 class StealthUpdate : public UpdateModule
 {
 public:

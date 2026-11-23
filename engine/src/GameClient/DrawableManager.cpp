@@ -76,11 +76,18 @@ std::string DrawableManager::fadeStopLine()
 
 std::string DrawableManager::flushStopLine()
 {
-	return "[S-1583] model condition flush (lane ANIM-1): a drawable's changed flags reach its draw modules at the end of the logic frame (RW 0x6759C4, the first "
-		"client frame of a logic frame) and at the pre-fire flush (RW 0x69213E -> 0x67449C); the other callers of RW 0x67449C (object creation paths RW 0x4B3609, "
-		"0x5F0EE6, 0x67651E, 0x695A06, 0x78142F, 0x793372, 0x79350E, 0x7987EE, 0x799F0F: their flags reach the draw at the end of the frame instead) and the "
-		"flushes before a bone query (RW 0x674673, 0x6756A1, 0x674B1F: the launch bones are computed from the object's flags, DrawableLaunchBones) are not "
-		"reproduced; the draw scripts' target record is the one at the flush event, not read live";
+	// PORT-316 (issue #752, S-1583 narrowed): the creation transfer RW 0x690F02 is ported (the CREATED event carries the object's whole set,
+	// Drawable::setModelConditionFlags gives it to the draw modules at once) and so are the forced callers; what is left of the row is named
+	// with the stop it moved to.
+	return "[S-1583] model condition flush (lane ANIM-1, narrowed by PORT-316 / issue #752): a drawable takes the object's whole set at creation "
+		"(RW 0x690F02 -> RW 0x68D607 -> RW 0x679512: the CREATED event carries it) and its later changes reach the draw modules at the end of the logic "
+		"frame (RW 0x6759C4, the first client frame of a logic frame), at the pre-fire flush (RW 0x69213E -> 0x67449C) and at the forced callers "
+		"(RW 0x67651E, RW 0x5F0EE6 -> 0x5F13C8, castle unpack RW 0x7987EE and members RW 0x799F0F); RW 0x695A06 (the drawable's instance scale, read by "
+		"the device at draw time, and objectTime / objectWeather on the object's bits), RW 0x78142F (forced right after creating an object: the "
+		"creation transfer covers it), RW 0x793372 / 0x79350E (conditions set mid-frame: the frame's flush follows and nothing reads the draw modules "
+		"in between) and RW 0x674B1F (the per-frame gather RW 0x62E908, not a flush) need no port call; not reproduced: the flush before the barrel "
+		"count (RW 0x674673, S-7646: no barrel-count reader, S-320) and the one of the camera LOD switch (RW 0x4B3609, S-7647: no per-frame LOD pick); "
+		"the draw scripts' target record is the one at the flush event, not read live";
 }
 
 std::string DrawableManager::textureSwapStopLine()

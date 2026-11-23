@@ -150,6 +150,7 @@ GarrisonContain::GarrisonContain(Thing *thing, const ModuleData *data, const Gar
 	getObject()->logic().noteStop(GarrisonRules::stopLine());
 }
 
+// RW 0x0087D3C5 (HordeGarrisonContain dtor -> RW 0x0087B312)
 // RW 0x0087B8A9 (GarrisonContain scalar deleting dtor), RW 0x0087D3A9 (HordeGarrisonContain scalar deleting dtor),
 // RW 0x006576FF (HordeGarrisonContainModuleData scalar deleting dtor), RW 0x0088395E (CitadelSlaughterHordeContain scalar deleting dtor)
 GarrisonContain::~GarrisonContain() = default;

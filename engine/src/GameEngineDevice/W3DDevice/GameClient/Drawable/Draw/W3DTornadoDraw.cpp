@@ -36,6 +36,7 @@ const FieldParse *tornado()
 }
 } // namespace W3DTornadoDrawTables
 
+// RW 0x004D0F54 (W3DTornadoDraw decal list cleanup)
 W3DTornadoDrawModuleData::W3DTornadoDrawModuleData()
 	: m_decalCount(0), m_decalMaxRadius(200.0f)
 {

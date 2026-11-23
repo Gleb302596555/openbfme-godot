@@ -42,6 +42,7 @@ public:
 };
 
 // scalar deleting dtor RW 0x008B78D2
+// RW 0x008B7796 (dtor -> RW 0x0086393B), RW 0x008B78EE (ModuleData dtor)
 class BaseUpgrade : public UpgradeModule
 {
 public:

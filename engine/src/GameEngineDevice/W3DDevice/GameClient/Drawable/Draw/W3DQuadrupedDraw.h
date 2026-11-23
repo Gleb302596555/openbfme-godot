@@ -34,6 +34,7 @@
 class DrawableLaunchBones;
 class Xfer;
 
+// RW 0x004C9831 (~W3DQuadrupedDraw)
 class W3DQuadrupedDraw : public W3DScriptedModelDraw
 {
 public:

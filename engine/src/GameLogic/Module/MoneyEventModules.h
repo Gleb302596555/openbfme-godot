@@ -83,6 +83,7 @@ public:
 };
 
 // scalar deleting dtor RW 0x008881CD
+// RW 0x008881E9 (dtor -> RW 0x00888180)
 class PillageModule : public BehaviorModule
 {
 public:

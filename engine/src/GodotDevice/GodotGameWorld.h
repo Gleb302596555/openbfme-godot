@@ -648,6 +648,8 @@ public:
 	Dictionary net_chat_send(const String &line, int64_t mask);
 	int64_t net_chat_mask(int64_t mode) const; ///< InGameChat::recipientMask of the window's mode over net_chat_info's slots (RW 0x8ECF3E)
 	Array net_chat_take();
+	Array replay_chat_take();
+	bool toggle_replay_pause_key(bool ctrl, bool shift, bool alt, bool echo, bool modal_open);
 	void net_chat_set_muted(int64_t slot, bool muted);
 	Dictionary net_chat_stats() const;
 	// lane CHAT-1: the disconnect screen's chat (Network::sendDisconnectChat; NETCOMMANDTYPE_DISCONNECTCHAT): send a line { ok | error }, take the lines

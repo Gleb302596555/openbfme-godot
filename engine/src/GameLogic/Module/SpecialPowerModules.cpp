@@ -1125,7 +1125,7 @@ void SpecialPowerModule::doSpecialPower(unsigned options)
 	effectAtLocation(pos, nullptr);
 }
 
-// RW 0x8980EF + the subclass (at the target's position, RW 0x8CC5A6)
+// RW 0x8980EF + the subclass (e.g. PlayerHealSpecialPower::doSpecialPowerAtObject RW 0x008CC594, at the target's position RW 0x8CC5A6)
 void SpecialPowerModule::doSpecialPowerAtObject(Object *target, unsigned options)
 {
 	if (!target)
@@ -1141,7 +1141,7 @@ void SpecialPowerModule::doSpecialPowerAtObject(Object *target, unsigned options
 	effectAtLocation(pos, target);
 }
 
-// RW 0x89816C + the subclass
+// RW 0x89816C + the subclass (e.g. PlayerHealSpecialPower::doSpecialPowerAtLocation RW 0x008CC574)
 void SpecialPowerModule::doSpecialPowerAtLocation(const Coord3D &loc, unsigned options)
 {
 	baseDo(&loc, nullptr, options);

@@ -201,6 +201,7 @@ std::vector<FieldParse> buildTable()
 }
 } // namespace
 
+// TransitionDamageFX: getModuleName RW 0x008BE57A, getModuleNameKey RW 0x008BE580, ~TransitionDamageFX RW 0x008BE5C5.
 void TransitionDamageFXModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	static const std::vector<FieldParse> table = buildTable();
