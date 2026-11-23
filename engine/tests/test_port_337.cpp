@@ -97,7 +97,9 @@ TEST_CASE("PORT-337 burning set cap and zero terrain survive")
     g.material(0, 0, 1);
     g.material(0, 2, 2);
     g.newMap();
-    g.fire().setMaxCellsBurning(1);
+    INIEnvironment env;
+    env.blocks.registerBlock("FireLogicSystem", [&g](INI *ini) { g.fire().parseINI(ini); });
+    REQUIRE(initest::loadError(env, "cap.ini", "FireLogicSystem\n MaxCellsBurning = 1\nEnd\n").empty());
     g.fire().changeBurnRate(0, 0, 0, 20, false);
     g.fire().changeBurnRate(0, 0, 2, 20, false);
     g.fire().update(); // RW 0x6886E0 processes descending y: y=2 is admitted first
@@ -105,6 +107,25 @@ TEST_CASE("PORT-337 burning set cap and zero terrain survive")
     CHECK(g.fire().getCellBurnRate(0, 2) == 13);
     CHECK(g.fire().getCellBurnRate(0, 0) == 0);
     CHECK(g.fire().getCellFuel(0, 1) == 0);
+}
+
+TEST_CASE("PORT-337 burnout regenerates using the current terrain type")
+{
+    Grid g;
+    g.material(0, 0, 1);
+    INIEnvironment env;
+    env.blocks.registerBlock("FireLogicSystem", [&g](INI *ini) { g.fire().parseINI(ini); });
+    REQUIRE(initest::loadError(env, "fuel.ini", "FireLogicSystem\n TerrainCellType 1\n Fuel = 3\n Decay = 0\n End\nEnd\n").empty());
+    g.newMap();
+    g.fire().changeBurnRate(0, 0, 0, 4, false);
+    g.fire().update();
+    CHECK(g.fire().getCellFuel(0, 0) == 0);
+    g.material(0, 0, 2);
+    g.fire().update(); // RW 0x6886E0: type 2's target fuel (90), regeneration amount 3
+    CHECK(g.fire().getCellFuel(0, 0) == 3);
+    g.material(0, 0, 0);
+    g.fire().resetCellToOriginalFlammability(0, 0); // RW 0x685EB0: type zero clears fuel
+    CHECK(g.fire().getCellFuel(0, 0) == 0);
 }
 
 TEST_CASE("PORT-337 indexed table rejects values outside retail limits")
