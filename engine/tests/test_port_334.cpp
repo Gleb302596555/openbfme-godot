@@ -62,7 +62,7 @@ End
 
 TEST_CASE("PORT-334 AutoThrow: a contained thrower with one passenger fires at closest visible enemy")
 {
- for (int scenario = 0; scenario < 5; ++scenario)
+ for (int scenario = 0; scenario < 7; ++scenario)
  {
   CAPTURE(scenario);
   CombatWorld w;
@@ -79,6 +79,14 @@ TEST_CASE("PORT-334 AutoThrow: a contained thrower with one passenger fires at c
   REQUIRE(outer); REQUIRE(inner);
   if (scenario != 1) REQUIRE(outer->addToContain(thrower));
   if (scenario != 2) REQUIRE(inner->addToContain(passenger));
+  if (scenario == 5)
+  {
+   Object *second = w.unit("Port334Victim", 'A', 200, 200);
+   REQUIRE(second);
+   REQUIRE(inner->addToContain(second));
+  }
+  const ObjectID nearId = near->getID();
+  if (scenario == 6) near->kill(DAMAGE_UNRESISTABLE, DEATH_NORMAL);
   AutoPickUpUpdateModuleData data;
   data.m_autoThrowObject = scenario != 3;
   data.m_scanDelayTime = 0;
@@ -88,11 +96,12 @@ TEST_CASE("PORT-334 AutoThrow: a contained thrower with one passenger fires at c
    Coord3D out{500, 200, 0}; near->setPosition(&out); far->setPosition(&out);
   }
   AutoPickUpUpdate update(thrower, &data);
-  const float before = w.health(near);
+  const float before = w.byId(nearId) ? w.health(w.byId(nearId)) : 0.0f;
   CHECK(update.update() == UPDATE_SLEEP_NONE);
   // RW 0x89960F / 0x89962C / 0x8996DE: contained, count == 1, vision range.
-  CHECK(w.health(near) == before - (scenario == 0 ? 20.0f : 0.0f));
-  CHECK(w.health(far) == 1000.0f);
+  const float after = w.byId(nearId) ? w.health(w.byId(nearId)) : 0.0f;
+  CHECK(after == before - (scenario == 0 ? 20.0f : 0.0f));
+  CHECK(w.health(far) == (scenario == 6 ? 980.0f : 1000.0f));
  }
 }
 

@@ -330,10 +330,13 @@ UpdateSleepTime AutoPickUpUpdate::update()
 		PartitionFilterFn visible([&](Object &o) { // RW 0x660D71, vtable RW 0xC0F19C, flag false
 			return EmotionModules::visibleToScans(o) || (owner && owner->getPlayerType() == PLAYER_COMPUTER && InvisibilityManager::isFiring(o));
 		});
-		PartitionFilterFn seen([&](Object &o) { return EmotionModules::canSeeObject(*obj, o, -1.0f); }); // RW 0x6612AC, vtable RW 0xC1D66C
+		// RW 0x68FA3D resolves the filter's -1 range through RW 0x68E43B.
+		// The port's geometric canSeeObject API takes the resolved range.
+		const float vision = AIUpdateInterface::objectVisionRangeOf(*obj);
+		PartitionFilterFn seen([&](Object &o) { return EmotionModules::canSeeObject(*obj, o, vision); }); // RW 0x6612AC, vtable RW 0xC1D66C
 		PartitionFilterFn alive([](Object &o) { return !o.isEffectivelyDead(); }); // RW 0x660E71
 		PartitionFilterFn enemy([&](Object &o) { return obj->getRelationship(o) == ENEMIES; }); // RW 0xC1676C, mask 4
-		if (Object *target = partition.getClosestObject(*obj->getPosition(), AIUpdateInterface::objectVisionRangeOf(*obj), FROM_CENTER_2D,
+		if (Object *target = partition.getClosestObject(*obj->getPosition(), vision, FROM_CENTER_2D,
 		                                              { &enemy, &alive, &seen, &visible }))
 		{
 			if (ObjectWeapons *weapons = obj->getWeapons())
