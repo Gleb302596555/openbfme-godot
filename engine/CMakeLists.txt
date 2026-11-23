@@ -188,6 +188,7 @@ include(cmake/Port228.cmake)    # PORT-228: the Locomotor rudder, swoop and thru
 include(cmake/Port304.cmake)    # PORT-304: GiantBirdSlowDeathBehavior CrashAvoidStrength / NeedToMaintainFlailingHeight, parsed and never read (fork issue 696; OPENBFME_PORT304_TESTS)
 include(cmake/Port315.cmake)    # PORT-315: AI hunt state (0x11) attack priority info (AI + 0x70) and crate pick-up verdict (fork issue 751; OPENBFME_PORT315_TESTS)
 include(cmake/Port330.cmake)    # PORT-330: the FXList Sound / EvaEvent parse-time name checks against TheAudio / TheEva (fork issue 847; OPENBFME_PORT330_TESTS)
+include(cmake/Port332.cmake)    # PORT-332: the small containers' uncited own functions (issue #887; OPENBFME_PORT332_TESTS)
 include(cmake/MapSweep.cmake)  # the Ennorath map sweep, one map per run (tools/maps/map_sweep.py; OPENBFME_MAPSWEEP_TESTS)
 include(cmake/Port99.cmake)     # PORT-99: PlayerTemplate/LightPointsUpSound, its only reader is the light-point (WOTR) action (issue #259; OPENBFME_PORT99_TESTS)
 include(cmake/Port214.cmake) # PORT-214: a hero's voice volume is his own Volume / MinVolume pair (fork issue 504; OPENBFME_PORT214_TESTS)
@@ -1064,6 +1065,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT304_TESTS}
     ${OPENBFME_PORT315_TESTS}
     ${OPENBFME_PORT330_TESTS}
+    ${OPENBFME_PORT332_TESTS}
     ${OPENBFME_MAPSWEEP_TESTS}
     ${OPENBFME_PORT165_TESTS}
     ${OPENBFME_WIN1_TESTS}
