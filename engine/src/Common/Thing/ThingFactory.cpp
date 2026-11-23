@@ -808,6 +808,33 @@ void ThingFactory::parseField(INI *ini, void *instance, void *, const void *user
 				if (exp && *exp) valStr = exp;
 				int val = std::atoi(valStr.c_str());
 				if (AsciiStringUtil::compareNoCase(key, "Fuel") == 0) fl.fuel = (unsigned short)val;
+				else if (AsciiStringUtil::compareNoCase(key, "FuelFactor") == 0)
+				{
+					// RW 0x0073D711 -> RW 0x0073D0FD (DONOR BFME2 0x0033B677 ThingTemplateFuelFactorProvider.cpp):
+					// scan behavior modules for the first Body (vslot 7 / bfmeSlot7Predicate, RW 0x0073D12D), multiply
+					// FuelFactor by BodyModuleData::m_maxHealth (+8, RW 0x0073D185), truncate to int (RW 0x0073D188),
+					// and validate unsigned <= 0xFFFF (RW 0x0073D18D..0x0073D1AA).
+					const ModuleData *bodyData = nullptr;
+					for (const ThingTemplate::Nugget &n : tt->behaviorModules().nuggets())
+					{
+						if (n.data && n.data->bfmeSlot7Predicate())
+						{
+							bodyData = n.data.get();
+							break;
+						}
+					}
+					if (!bodyData)
+					{
+						throw INIException(3, "Can't use FuelFactor without defining Body first");
+					}
+					const float factor = std::strtof(valStr.c_str(), nullptr);
+					const int computed = (int)(factor * bodyData->bfmeBodyMaxHealth());
+					if ((unsigned)computed > 0xFFFFu)
+					{
+						throw INIException(3, "value out of range, expected 0..%d instead of %d", 0xFFFF, computed);
+					}
+					fl.fuel = (unsigned short)computed;
+				}
 				else if (AsciiStringUtil::compareNoCase(key, "MaxBurnRate") == 0) fl.maxBurnRate = val;
 				else if (AsciiStringUtil::compareNoCase(key, "Decay") == 0) fl.decay = val;
 				else if (AsciiStringUtil::compareNoCase(key, "Resistance") == 0) fl.resistance = val;

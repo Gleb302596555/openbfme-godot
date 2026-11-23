@@ -2,6 +2,7 @@
 // See Common/BuildAssistant.h.
 
 #include "Common/BuildAssistant.h"
+#include "Common/ModEngineFeatures.h"
 
 #include "Common/AsciiString.h"
 #include "Common/GameCommon.h"
@@ -533,7 +534,12 @@ CanMakeType BuildAssistant::canMakeUnit(Object &builder, const ThingTemplate *wh
 	const int maxOfType = what ? maxSimultaneousOfType(*what) : 0;
 	if (what && maxOfType != 0)
 	{
-		// RW 0x794054 countObjectsByThingTemplate + 0x79406E the player's queued units of the type (callback RW 0x793D12)
+		// RW 0x794054 countObjectsByThingTemplate (RW 0x7A047A skips isEffectivelyDead()) + 0x79406E queued units (callback RW 0x793D12).
+		// PYSAGE 1.9.8.5 .bldcap 0xF21000 wraps RW 0x793D12 to count effectively-dead objects carrying PENDING_CONSTRUCTION (0x57) and
+		// PHANTOM_STRUCTURE (0x58) so in-flight phantom buildings count toward MaxSimultaneousOfType.
+		static const int kPendingConstruction = ObjectTemplateInfoBuilder::objectStatusIndex("PENDING_CONSTRUCTION");
+		static const int kPhantomStructure = ObjectTemplateInfoBuilder::objectStatusIndex("PHANTOM_STRUCTURE");
+		const bool countPhantoms = ModEngineFeatures::has(ModEngineFeature::EnnorathBuildingLimitFix);
 		int count = 0, queued = 0;
 		for (const Object *o = logic.getFirstObject(); o; o = o->getNextObject())
 		{
@@ -541,7 +547,10 @@ CanMakeType BuildAssistant::canMakeUnit(Object &builder, const ThingTemplate *wh
 			{
 				continue;
 			}
-			if (isEquivalentTo(what, o->getTemplate()))
+			const bool effDead = o->isEffectivelyDead();
+			const bool isPhantom = effDead && kPendingConstruction >= 0 && kPhantomStructure >= 0
+				&& o->testStatus((unsigned)kPendingConstruction) && o->testStatus((unsigned)kPhantomStructure);
+			if ((!effDead || (countPhantoms && isPhantom)) && isEquivalentTo(what, o->getTemplate()))
 			{
 				++count;
 			}

@@ -866,26 +866,56 @@ bool WeaponIsWithinTargetPitch(const WeaponTemplate &t, bool pitchLimited, float
 // =============================================================================================================================
 // FiringTracker
 // =============================================================================================================================
-// RW 0x8E302A
+namespace
+{
+// PORT-225: one bit of the 19-word model condition set the tracker's coolDown / speedUp clear and set.
+void setModelConditionBit(ModelConditionBits &bits, int bit)
+{
+	if (bit >= 0 && bit < (int)(bits.size() * 32))
+	{
+		bits[(size_t)bit >> 5] |= 1u << (bit & 31);
+	}
+}
+}
+
+// RW 0x8E302A FiringTracker::coolDown(forceReset), re-read 2026-11-17 from game.dat 2.01 (md5 daed3668…); DONOR BFME2 0x004DEC88
+// (FiringTrackerXfer.cpp). The non-forced FAST|MEAN arm 0x8E305B sets SLOW ([ebp-0x24]+0xE |= 0x08 at 0x8E3076) and clears MEAN and
+// FAST ([ebp+0x28]+0xE |= 0x30 at 0x8E308B); the else arm 0x8E3091 clears all three (|= 0x38 at 0x8E30A8), zeroes the cool-down frame
+// [this+0x3C] at 0x8E30AC and the last shot position [this+0x48..0x50] at 0x8E30AF..0x8E30B9. Both arms end in one call 0x68D607 at
+// 0x8E30BE (Object::clearAndSetModelConditionFlags, cleared mask pushed first) and then zero the count / victim at 0x8E30CE / 0x8E30D1.
 void FiringTracker::reset(FiringTrackerHost &host, bool hard)
 {
 	const std::uint32_t bits = (1u << CONDITION_CONTINUOUS_FIRE_MEAN) | (1u << CONDITION_CONTINUOUS_FIRE_FAST);
 	const std::uint32_t mask = host.weaponBonusConditionMask();
-	if (hard || (mask & bits) == 0)
+	ModelConditionBits clr{}, set{};
+	if (!hard && (mask & bits) != 0)
 	{
+		// DONOR 0x004DEC88, the `!forceReset && (FAST || MEAN)` arm: straight to zero from wherever it is — CONTINUOUS_FIRE_SLOW is
+		// set, MEAN and FAST are cleared, and the cooldown frame the tracker holds stays where it is.
+		setModelConditionBit(set, MODELCOND_CONTINUOUS_FIRE_SLOW);
+		setModelConditionBit(clr, MODELCOND_CONTINUOUS_FIRE_MEAN);
+		setModelConditionBit(clr, MODELCOND_CONTINUOUS_FIRE_FAST);
+		host.setWeaponBonusConditionMask(mask & ~bits);
+	}
+	else
+	{
+		// DONOR 0x004DEC88, the else arm: all three conditions cleared, the cooldown frame and the last shot position dropped.
+		setModelConditionBit(clr, MODELCOND_CONTINUOUS_FIRE_FAST);
+		setModelConditionBit(clr, MODELCOND_CONTINUOUS_FIRE_MEAN);
+		setModelConditionBit(clr, MODELCOND_CONTINUOUS_FIRE_SLOW);
 		host.setWeaponBonusConditionMask(mask & ~bits);
 		m_coastEnd = 0;
 		m_lastOwnerPosition = Coord3D{};
 	}
-	else
-	{
-		host.setWeaponBonusConditionMask(mask & ~bits);
-	}
+	host.clearAndSetModelConditions(clr, set); // DONOR 0x004DEC88: one clearAndSet at the end of coolDown
 	m_count = 0;
 	m_victimID = 0;
 }
 
-// RW 0x8E3174
+// RW 0x8E31A4 FiringTracker::speedUp — the start the function map knows (the SEH prologue sits at 0x8E3174, the body that reads the
+// shadow word at 0x8E31A7), re-read 2026-11-17 from game.dat 2.01 (md5 daed3668…).
+// The entry reads the shadow word [owner+0x39C]: bit 3 (0x8) set -> already FAST, nothing changes (0x8E31AD..0x8E31B8); bit 2 (0x4) clear
+// -> the MEAN arm at 0x8E3234; otherwise the MEAN -> FAST transition at 0x8E31C8.
 void FiringTracker::speedUp(FiringTrackerHost &host)
 {
 	const std::uint32_t mean = 1u << CONDITION_CONTINUOUS_FIRE_MEAN;
@@ -896,19 +926,31 @@ void FiringTracker::speedUp(FiringTrackerHost &host)
 		// RW 0x8E31AD .. 0x8E31B8: already in CONTINUOUS_FIRE_FAST
 		return;
 	}
+	ModelConditionBits clr{}, set{};
 	if (mask & mean)
 	{
-		// RW 0x8E31C8 .. 0x8E3205: transition MEAN -> FAST posts 0x7DC (VoiceRapidFire) for { self->getDrawable() }
+		// RW 0x8E31C8 .. 0x8E322D: MEAN -> FAST posts 0x7DC (push 0x7DC at 0x8E31FF, call 0x8DEDBB at 0x8E3205), sets FAST
+		// ([ebp-0xB4]+0xE |= 0x20 at 0x8E3211) and clears MEAN and SLOW ([ebp-0x68]+0xE |= 0x18 at 0x8E321F); the shadow word gains FAST
+		// at 0x8E320A and loses MEAN at 0x8E3218. DONOR 0x004DEDD2 (VoiceRapidFire for the owner's drawable).
 		if (const std::uint32_t ownerId = host.ownerObjectID())
 		{
 			AudioApi::postUnitVoice(0x7DC, ownerId);
 		}
 		host.setWeaponBonusConditionMask((mask & ~mean) | fast);
+		setModelConditionBit(set, MODELCOND_CONTINUOUS_FIRE_FAST);
+		setModelConditionBit(clr, MODELCOND_CONTINUOUS_FIRE_MEAN);
+		setModelConditionBit(clr, MODELCOND_CONTINUOUS_FIRE_SLOW);
 	}
 	else
 	{
+		// RW 0x8E3234: neither bit set -> MEAN ([ebp-0xB4]+0xE |= 0x10), FAST and SLOW cleared ([ebp-0x68]+0xE |= 0x28); the shadow
+		// word gains MEAN and loses FAST. DONOR 0x004DEDD2.
 		host.setWeaponBonusConditionMask(mask | mean);
+		setModelConditionBit(set, MODELCOND_CONTINUOUS_FIRE_MEAN);
+		setModelConditionBit(clr, MODELCOND_CONTINUOUS_FIRE_FAST);
+		setModelConditionBit(clr, MODELCOND_CONTINUOUS_FIRE_SLOW);
 	}
+	host.clearAndSetModelConditions(clr, set); // RW 0x8E325B (call 0x68D607): one clearAndSet at the end of speedUp
 }
 
 // RW 0x8E2E12
@@ -1002,26 +1044,34 @@ void FiringTracker::shotFired(FiringTrackerHost &host, const Weapon &weapon, uns
 	}
 }
 
-// RW 0x8E30DD
+// DONOR BFME2 0x004DED3B (Code/GameEngine/Source/GameLogic/Object/FiringTrackerXfer.cpp, the unit's retail-matched body; RW 0x8E30DD
+// is this function in game.dat 2.01; its step 1 is `push 1; call 0x8E302A` at 0x8E30FC..0x8E3101). Retail runs four steps in this order: (1) the owner left the last shot position -> a hard
+// coolDown; (2) the forced auto-reload (frame + 0x40), which clears its own frame; (3) the looped fire sound (+ 0x54; the port keeps
+// that state on its audio side, S-712); (4) ONLY while a cooldown frame is pending (+ 0x3C != 0) and the frame is past it -> push the
+// frame LogicFramesPerSecond ahead, coolDown(false), and sleep exactly that many frames. The earlier body ran step 4 without the gate
+// (so a weapon with ContinuousFireCoast = 0, whose + 0x3C stays 0, had its consecutive shot count wiped within a few frames), ran it
+// before the reload, and reported UPDATE_SLEEP_FOREVER unless the reload was pending (so a pending cooldown never woke it, unlike
+// calcTimeToSleep, DONOR 0x004DEAB0: FOREVER only when none of the three frames is pending).
 std::uint32_t FiringTracker::update(FiringTrackerHost &host)
 {
 	const std::uint32_t now = host.currentFrame();
 	const Coord3D pos = host.ownerPosition();
 	if (pos.x != m_lastOwnerPosition.x || pos.y != m_lastOwnerPosition.y || pos.z != m_lastOwnerPosition.z)
 	{
-		reset(host, true); // the owner moved
-	}
-	if (now > m_coastEnd)
-	{
-		m_coastEnd = now + COAST_POLL_FRAMES;
-		reset(host, false);
+		reset(host, true); // step 1: the owner moved off the last shot position
 	}
 	if (m_autoReloadDeadline != 0 && now >= m_autoReloadDeadline)
 	{
-		host.reloadAllWeapons();
+		host.reloadAllWeapons(); // step 2: reloadAllAmmo(false), before the cooldown step
 		m_autoReloadDeadline = 0;
 	}
-	return m_autoReloadDeadline != 0 ? 1u : 0x3FFFFFFFu;
+	if (m_coastEnd != 0 && now > m_coastEnd)
+	{
+		m_coastEnd = now + COAST_POLL_FRAMES; // step 4: now + LogicFramesPerSecond
+		reset(host, false);
+		return COAST_POLL_FRAMES; // UPDATE_SLEEP(LogicFramesPerSecond)
+	}
+	return (m_autoReloadDeadline != 0 || m_coastEnd != 0) ? 1u : 0x3FFFFFFFu; // calcTimeToSleep (DONOR 0x004DEAB0)
 }
 
 // =============================================================================================================================

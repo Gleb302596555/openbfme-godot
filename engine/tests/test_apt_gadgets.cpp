@@ -6,6 +6,7 @@
 #include "doctest.h"
 #include "AptPlayerTestUtil.h"
 #include "AptRetail.h"
+#include "Common/ModEngineFeatures.h"
 
 #include "GameClient/GUI/AptGadgetLayer.h"
 #include "GameClient/GUI/AptScreen.h"
@@ -942,6 +943,344 @@ TEST_CASE("TextEntry: typed characters (IME chars) fill the text up to MAXLEN (R
 	CHECK_FALSE(BitTest(n->winGetInstanceData()->getState(), WIN_STATE_SELECTED));
 }
 
+namespace
+{
+std::string longEntry(bool secret = false)
+{
+	return entryWnd(400, 25, std::string("MAXLEN: 64,\n SECRETTEXT: ") + (secret ? "1" : "0") + ",\n NUMERICALONLY: 0,\n ALPHANUMERICALONLY: 0,\n ASCIIONLY: 0");
+}
+
+const EntryData &entryOf(GameWindow *e) { return *static_cast<EntryData *>(e->winGetUserData()); }
+
+void typeText(GadgetFx &fx, const char *s)
+{
+	for (; *s; ++s)
+	{
+		fx.gwm.winProcessChar((char16_t)*s);
+	}
+}
+
+struct FakeClipboard final : TextEntryClipboard
+{
+	UnicodeString text;
+	bool has = true;
+	bool refuse = false;
+	int writes = 0;
+	bool read(UnicodeString &out) override
+	{
+		if (!has)
+		{
+			return false;
+		}
+		out = text;
+		return true;
+	}
+	bool write(const UnicodeString &t) override
+	{
+		++writes;
+		if (refuse)
+		{
+			return false;
+		}
+		text = t;
+		has = true;
+		return true;
+	}
+};
+
+// the clipboard keys are Ennorath's (.txtclip): owner 2026-11-23, on only with an Ennorath profile (ennorath.chat-clipboard); `profile` false keeps retail 2.01
+struct ClipboardScope
+{
+	TextEntryClipboard *before;
+	explicit ClipboardScope(TextEntryClipboard *c, bool profile = true) : before(GadgetTextEntryGetClipboard())
+	{
+		GadgetTextEntrySetClipboard(c);
+		ModEngineFeatures::reset();
+		std::string error;
+		if (profile)
+		{
+			REQUIRE_MESSAGE(ModEngineFeatures::activate({ "f222b925edf2a9553e574ad8445f2841" }, &error), error); // Ennorath 1.9.8.7 game.dat
+		}
+	}
+	~ClipboardScope()
+	{
+		GadgetTextEntrySetClipboard(before);
+		ModEngineFeatures::reset();
+	}
+};
+
+constexpr std::uint8_t kDown = KEY_STATE_DOWN, kShift = KEY_STATE_DOWN | KEY_STATE_LSHIFT, kCtrl = KEY_STATE_DOWN | KEY_STATE_LCONTROL;
+constexpr std::uint8_t kCtrlShift = KEY_STATE_DOWN | KEY_STATE_LCONTROL | KEY_STATE_LSHIFT;
+constexpr std::uint8_t kKeyA = 0x1E, kKeyC = 0x2E, kKeyX = 0x2D, kKeyV = 0x2F;
+} // namespace
+
+TEST_CASE("P-128 TextEntry: RotWK's cursor and selection (RW 0x722745): Home / End / arrows, Shift selects, Ctrl+Left / Right words, Del, Backspace, typing replaces the selection")
+{
+	GadgetFx fx;
+	GameWindow *e = fx.load(longEntry(), 50, 50);
+	GadgetTextEntrySetText(e, UnicodeString());
+	REQUIRE(fx.click(60, 60));
+	typeText(fx, "hello world");
+	CHECK(entryOf(e).charPos == 11);
+	CHECK(entryOf(e).selectPos == 11);
+	// Home (RW 0x722CA7) and an insert in the middle (RW 0x72260B)
+	fx.gwm.winProcessKey(KEY_HOME, kDown);
+	CHECK(entryOf(e).charPos == 0);
+	typeText(fx, "X");
+	CHECK(narrow(GadgetTextEntryGetText(e)) == "Xhello world");
+	CHECK(entryOf(e).charPos == 1);
+	// End, then Ctrl+Left to the start of the word (RW 0x722B11)
+	fx.gwm.winProcessKey(KEY_END, kDown);
+	CHECK(entryOf(e).charPos == 12);
+	fx.gwm.winProcessKey(KEY_LEFT, kCtrl);
+	CHECK(entryOf(e).charPos == 7);
+	fx.gwm.winProcessKey(KEY_LEFT, kCtrl);
+	CHECK(entryOf(e).charPos == 0);
+	// Ctrl+Right: spaces, a word, spaces (RW 0x722A92)
+	fx.gwm.winProcessKey(KEY_RIGHT, kCtrl);
+	CHECK(entryOf(e).charPos == 7);
+	CHECK(entryOf(e).selectPos == 7);
+	// Shift+Right twice selects "wo"; a typed character replaces it (RW 0x72263B -> 0x7224D8)
+	fx.gwm.winProcessKey(KEY_RIGHT, kShift);
+	fx.gwm.winProcessKey(KEY_RIGHT, kShift);
+	CHECK(entryOf(e).selectPos == 7);
+	CHECK(entryOf(e).charPos == 9);
+	typeText(fx, "Z");
+	CHECK(narrow(GadgetTextEntryGetText(e)) == "Xhello Zrld");
+	CHECK(entryOf(e).charPos == 8);
+	// Del takes the character after the cursor, Backspace the one before (RW 0x722CE2 / 0x722C3D)
+	fx.take();
+	fx.gwm.winProcessKey(KEY_DEL, kDown);
+	CHECK(narrow(GadgetTextEntryGetText(e)) == "Xhello Zld");
+	fx.gwm.winProcessKey(KEY_BACKSPACE, kDown);
+	CHECK(narrow(GadgetTextEntryGetText(e)) == "Xhello ld");
+	CHECK(GadgetFx::count(fx.take(), GEM_UPDATE_TEXT) == 2);
+	CHECK(entryOf(e).charPos == 7);
+	// Backspace at the start and Del at the end delete nothing and report nothing
+	fx.gwm.winProcessKey(KEY_HOME, kDown);
+	fx.gwm.winProcessKey(KEY_BACKSPACE, kDown);
+	fx.gwm.winProcessKey(KEY_END, kDown);
+	fx.gwm.winProcessKey(KEY_DEL, kDown);
+	CHECK(narrow(GadgetTextEntryGetText(e)) == "Xhello ld");
+	CHECK(GadgetFx::count(fx.take(), GEM_UPDATE_TEXT) == 0);
+	// Shift+Home selects to the start; Backspace deletes the selection
+	fx.gwm.winProcessKey(KEY_LEFT, kDown);
+	fx.gwm.winProcessKey(KEY_HOME, kShift);
+	CHECK(entryOf(e).charPos == 0);
+	CHECK(entryOf(e).selectPos == 8);
+	fx.gwm.winProcessKey(KEY_BACKSPACE, kDown);
+	CHECK(narrow(GadgetTextEntryGetText(e)) == "d");
+	// Up and Down are taken and do nothing (RotWK; ZH tabbed with them)
+	CHECK(fx.gwm.winProcessKey(KEY_UP, kDown) == WIN_INPUT_USED);
+	CHECK(fx.gwm.winGetFocus() == e);
+	// the secret text keeps one star per character through the deletions
+	CHECK(entryOf(e).sText.size() == 1);
+}
+
+TEST_CASE("P-128 TextEntry: focus selects the whole text (RW 0x722362), loss ends the selection (RW 0x7222B7), SET_TEXT puts the cursor by the focus (RW 0x7221E2), a click places it")
+{
+	GadgetFx fx;
+	GameWindow *e = fx.load(longEntry(), 50, 50);
+	GadgetTextEntrySetText(e, u("draft"));
+	CHECK(entryOf(e).charPos == 0); // no focus: the start
+	fx.gwm.winSetFocus(e);
+	CHECK(entryOf(e).charPos == 5);
+	CHECK(entryOf(e).selectPos == 0);
+	typeText(fx, "n");
+	CHECK(narrow(GadgetTextEntryGetText(e)) == "n");
+	GadgetTextEntrySetText(e, u("again"));
+	CHECK(entryOf(e).charPos == 5); // focused: the end
+	CHECK(entryOf(e).selectPos == 5);
+	fx.gwm.winSetFocus(nullptr);
+	CHECK(entryOf(e).charPos == 5);
+	CHECK(entryOf(e).selectPos == 5);
+	// a click at the window's left edge puts the cursor before the first character, one past the text at its end (RW 0x722854)
+	int x = 0, y = 0;
+	e->winGetScreenPosition(&x, &y);
+	REQUIRE(fx.click(x + 1, y + 5));
+	CHECK(entryOf(e).charPos == 0);
+	CHECK(entryOf(e).selectPos == 0);
+	CHECK(fx.gwm.winGetCapture() == nullptr); // released on the button's release (RW 0x722827)
+	REQUIRE(fx.click(x + 390, y + 5));
+	CHECK(entryOf(e).charPos == 5);
+}
+
+TEST_CASE("P-128 TextEntry: Ennorath 1.9.8.3's Ctrl+A / C / X / V (pySAGE text-entry-clipboard) select all, copy, cut and paste through the host clipboard")
+{
+	FakeClipboard clip;
+	ClipboardScope scope(&clip);
+	GadgetFx fx;
+	GameWindow *e = fx.load(longEntry(), 50, 50);
+	GadgetTextEntrySetText(e, UnicodeString());
+	REQUIRE(fx.click(60, 60));
+	typeText(fx, "hello world");
+	// Ctrl+A: the cursor at the end, the other end at the start
+	CHECK(fx.gwm.winProcessKey(kKeyA, kCtrl) == WIN_INPUT_USED);
+	CHECK(entryOf(e).charPos == 11);
+	CHECK(entryOf(e).selectPos == 0);
+	// Ctrl+C copies the selection and leaves the text
+	CHECK(fx.gwm.winProcessKey(kKeyC, kCtrl) == WIN_INPUT_USED);
+	CHECK(narrow(clip.text) == "hello world");
+	CHECK(narrow(GadgetTextEntryGetText(e)) == "hello world");
+	// Ctrl+Shift+Left selects "world"; Ctrl+X cuts it (Shift does not disable the keys)
+	fx.gwm.winProcessKey(KEY_END, kDown);
+	fx.gwm.winProcessKey(KEY_LEFT, kCtrlShift);
+	fx.take();
+	CHECK(fx.gwm.winProcessKey(kKeyX, kCtrlShift) == WIN_INPUT_USED);
+	CHECK(narrow(clip.text) == "world");
+	CHECK(narrow(GadgetTextEntryGetText(e)) == "hello ");
+	CHECK(GadgetFx::count(fx.take(), GEM_UPDATE_TEXT) == 1);
+	// an empty selection copies and cuts nothing
+	const int writes = clip.writes;
+	fx.gwm.winProcessKey(kKeyC, kCtrl);
+	fx.gwm.winProcessKey(kKeyX, kCtrl);
+	CHECK(clip.writes == writes);
+	CHECK(narrow(GadgetTextEntryGetText(e)) == "hello ");
+	// Ctrl+V pastes at the cursor; tab, CR, LF and surrogates are skipped, a NUL ends it
+	clip.text = u("a\tb\r\nc");
+	clip.text.push_back(0xD83D);
+	clip.text.push_back(0xDE00);
+	clip.text.push_back(u'ä');
+	clip.text.push_back(0);
+	clip.text.push_back(u'z');
+	CHECK(fx.gwm.winProcessKey(kKeyV, kCtrl) == WIN_INPUT_USED);
+	CHECK(GadgetTextEntryGetText(e) == u"hello abcä");
+	// pasting over a selection replaces it
+	fx.gwm.winProcessKey(KEY_HOME, kDown);
+	fx.gwm.winProcessKey(KEY_RIGHT, kCtrlShift);
+	clip.text = u("bye ");
+	fx.gwm.winProcessKey(kKeyV, kCtrl);
+	CHECK(GadgetTextEntryGetText(e) == u"bye abcä");
+	// a refused copy cuts nothing
+	clip.refuse = true;
+	fx.gwm.winProcessKey(kKeyA, kCtrl);
+	fx.gwm.winProcessKey(kKeyX, kCtrl);
+	CHECK(GadgetTextEntryGetText(e) == u"bye abcä");
+	clip.refuse = false;
+	// Alt (AltGr) with Ctrl is not the entry's: offered to the parents
+	CHECK(entryOf(e).selectPos == 0);
+	fx.gwm.winProcessKey(kKeyA, KEY_STATE_DOWN | KEY_STATE_LCONTROL | KEY_STATE_RALT);
+	CHECK(GadgetTextEntryGetText(e) == u"bye abcä");
+	// key releases do nothing
+	fx.gwm.winProcessKey(KEY_END, kDown);
+	fx.gwm.winProcessKey(kKeyV, KEY_STATE_UP | KEY_STATE_LCONTROL);
+	CHECK(GadgetTextEntryGetText(e) == u"bye abcä");
+}
+
+TEST_CASE("P-128 TextEntry: without an Ennorath profile Ctrl+A / C / X / V are not the entry's (retail 2.01; ennorath.chat-clipboard)")
+{
+	FakeClipboard clip;
+	ClipboardScope scope(&clip, false);
+	GadgetFx fx;
+	GameWindow *e = fx.load(longEntry(), 50, 50);
+	GadgetTextEntrySetText(e, UnicodeString());
+	REQUIRE(fx.click(60, 60));
+	typeText(fx, "hello world");
+	fx.gwm.winProcessKey(KEY_END, kDown);
+	const int charPos = entryOf(e).charPos;
+	const int selectPos = entryOf(e).selectPos;
+	fx.gwm.winProcessKey(kKeyA, kCtrl); // retail RW 0x722A8A: Ctrl with A is no key of the entry
+	CHECK(entryOf(e).charPos == charPos);
+	CHECK(entryOf(e).selectPos == selectPos);
+	clip.text = u("pasted");
+	fx.gwm.winProcessKey(kKeyV, kCtrl);
+	fx.gwm.winProcessKey(kKeyC, kCtrl);
+	fx.gwm.winProcessKey(kKeyX, kCtrl);
+	CHECK(narrow(GadgetTextEntryGetText(e)) == "hello world");
+	CHECK(clip.writes == 0);
+}
+
+TEST_CASE("P-128 TextEntry: the clipboard keys never copy out of a secret entry, respect MAXLEN on paste, and do nothing without a host clipboard")
+{
+	FakeClipboard clip;
+	{
+		ClipboardScope scope(&clip);
+		GadgetFx fx;
+		GameWindow *s = fx.load(longEntry(true), 50, 50);
+		GadgetTextEntrySetText(s, u("secret"));
+		fx.gwm.winSetFocus(s);
+		clip.text = u("keep");
+		CHECK(fx.gwm.winProcessKey(kKeyC, kCtrl) == WIN_INPUT_USED);
+		CHECK(fx.gwm.winProcessKey(kKeyX, kCtrl) == WIN_INPUT_USED);
+		CHECK(narrow(clip.text) == "keep");
+		CHECK(narrow(GadgetTextEntryGetText(s)) == "secret");
+		// paste into it works (the patch refuses only copy and cut)
+		fx.gwm.winProcessKey(KEY_END, kDown);
+		fx.gwm.winProcessKey(kKeyV, kCtrl);
+		CHECK(narrow(GadgetTextEntryGetText(s)) == "secretkeep");
+		CHECK(entryOf(s).sText == u"**********");
+		// MAXLEN 8: a paste stops where typing would
+		GameWindow *n = fx.load(entryWnd(160, 25), 300, 50);
+		GadgetTextEntrySetText(n, UnicodeString());
+		fx.gwm.winSetFocus(n);
+		clip.text = u("0123456789");
+		fx.gwm.winProcessKey(kKeyV, kCtrl);
+		CHECK(narrow(GadgetTextEntryGetText(n)) == "01234567");
+	}
+	{
+		ClipboardScope none(nullptr);
+		GadgetFx fx;
+		GameWindow *e = fx.load(longEntry(), 50, 50);
+		GadgetTextEntrySetText(e, u("text"));
+		fx.gwm.winSetFocus(e);
+		CHECK(fx.gwm.winProcessKey(kKeyX, kCtrl) == WIN_INPUT_USED);
+		CHECK(fx.gwm.winProcessKey(kKeyV, kCtrl) == WIN_INPUT_USED);
+		CHECK(narrow(GadgetTextEntryGetText(e)) == "text");
+	}
+}
+
+TEST_CASE("P-128 TextEntry: the draw shows the selection inverted over a box and the 3-pixel cursor at charPos (RW 0x49F7BC)")
+{
+	GadgetFx fx;
+	GameWindow *e = fx.load(longEntry(), 50, 50);
+	GadgetTextEntrySetText(e, u("abcdef"));
+	fx.gwm.winSetFocus(e);
+	fx.gwm.winProcessKey(KEY_HOME, kDown);
+	fx.gwm.winProcessKey(KEY_RIGHT, kDown);
+	fx.gwm.winProcessKey(KEY_RIGHT, kShift);
+	fx.gwm.winProcessKey(KEY_RIGHT, kShift);
+	REQUIRE(entryOf(e).selectPos == 1);
+	REQUIRE(entryOf(e).charPos == 3);
+	fx.gwm.setTimeMs(0x200);
+	GadgetDrawList list;
+	fx.gwm.winRepaint(list);
+	int x = 0, y = 0;
+	e->winGetScreenPosition(&x, &y);
+	const int textX = x + 5 + 2;
+	GameFont *font = e->winGetFont();
+	const int w1 = fx.gwm.winTextWidth(font, u"a"), w3 = fx.gwm.winTextWidth(font, u"abc");
+	int texts = 0;
+	bool box = false, cursor = false, black = false;
+	for (const auto &c : list.commands)
+	{
+		if (c.kind == GadgetDrawCommand::Kind::Text && c.text == u"abcdef")
+		{
+			++texts;
+			black = black || c.color == (Color)0xFF000000u;
+		}
+		if (c.kind == GadgetDrawCommand::Kind::FillRect && c.x0 == textX + w1 && c.x1 == textX + w3)
+		{
+			box = true;
+		}
+		if (c.kind == GadgetDrawCommand::Kind::FillRect && c.x0 == textX + w3 && c.x1 == textX + w3 + 3)
+		{
+			cursor = true;
+		}
+	}
+	CHECK(texts == 3); // before, the selection, after
+	CHECK(black);
+	CHECK(box);
+	CHECK(cursor);
+	// the other half of the blink: no cursor
+	fx.gwm.setTimeMs(0);
+	GadgetDrawList off;
+	fx.gwm.winRepaint(off);
+	for (const auto &c : off.commands)
+	{
+		CHECK_FALSE((c.kind == GadgetDrawCommand::Kind::FillRect && c.x1 - c.x0 == 3));
+	}
+}
+
 TEST_CASE("onlinemenufix3 text entries: translated fields keep text, caret and hit rectangle inside their frame")
 {
 	// RW 0x49FD32 / 0x49F7BC -> BFME2 W3DTextEntry.cpp RVAs 0xA03BF / 0x9FE49 (tier A): five-pixel body inset plus two for text.
@@ -968,14 +1307,14 @@ TEST_CASE("onlinemenufix3 text entries: translated fields keep text, caret and h
 			CHECK(y + h <= frameY + frameH); // tolerance: the child may use any height within the parent.
 			REQUIRE(fx.click(x + w - 4, y + h / 2));
 			fx.gwm.winSetFocus(entry);
-			fx.gwm.setTimeMs(266); // caret's visible phase
+			fx.gwm.setTimeMs(0x200); // caret's visible phase (P-128: RotWK blinks on timeGetTime & 0x200, RW 0x49FC81; ZH's 266 ms phase is gone)
 			GadgetDrawList list;
 			fx.gwm.winRepaint(list);
 			const GadgetDrawCommand *text = nullptr, *caret = nullptr, *clip = nullptr;
 			for (const auto &command : list.commands)
 			{
 				if (command.kind == GadgetDrawCommand::Kind::Text && command.text == u"Test") text = &command;
-				if (command.kind == GadgetDrawCommand::Kind::FillRect && command.x1 - command.x0 == 2) caret = &command;
+				if (command.kind == GadgetDrawCommand::Kind::FillRect && command.x1 - command.x0 == 3) caret = &command; // P-128: RW 0x49FC9E, cursorPos + 3
 				if (command.kind == GadgetDrawCommand::Kind::ClipBegin) clip = &command;
 			}
 			REQUIRE(text);

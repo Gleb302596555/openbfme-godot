@@ -432,6 +432,17 @@ int Player::applyHandicapMoney(int amount) const
 	return host().applyHandicapMoney(*this, amount);
 }
 
+// RW 0x6AA688: the script's object-change frame is implicit in this port; AIPlayer vslot 0x1C remains unported (S-1425).
+// The skirmish-AI half forwards the notified player, factory and unit to RW 0x6C77C9 -> RW 0x8F06FF(..., 0).
+void Player::onUnitCreated(Object *factory, Object *unit)
+{
+	if (!unit || !m_host)
+	{
+		return;
+	}
+	m_host->onUnitCreated(*this, factory, *unit); // PORT-198 (RW 0x6AA688 -> 0x6C77C9)
+}
+
 void Player::addCostModifier(std::shared_ptr<const ObjectFilter> filter, const std::vector<float> &percents, ObjectID source, bool slaughter)
 {
 	CostModifier c; // RW 0x6AD845: a new entry at the end of the list
@@ -669,7 +680,7 @@ void checkRelationship(Relationship r)
 }
 
 // TARGET PlayerRelationMap::xfer RW 0x6AE9B7 (tier A, (1, 1)): the version, a u16 count, then per entry the player index (int) and the relationship
-// (XferRelationship RW 0x707407: a 4-byte enum); the entries in key order (INFERENCE: retail iterates its map from begin, RW 0x5E0A39 / 0x6BFEFD)
+// (XferRelationship RW 0x707407: a 4-byte enum); the entries in key order (INFERENCE: retail iterates its map from hashtable::begin 0x5E0A39 / RW 0x6BFEFD)
 void xferPlayerRelationMap(Xfer &x, std::map<int, Relationship> &m)
 {
 	XferVersion v{ 1, 1 };

@@ -14,6 +14,7 @@
 class Matrix3D;
 class Xfer;
 
+// RW 0x004D00C8 (~W3DSailModelDraw)
 class W3DSailModelDraw final : public W3DScriptedModelDraw
 {
 public:

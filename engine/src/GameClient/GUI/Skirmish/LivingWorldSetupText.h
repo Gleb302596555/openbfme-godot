@@ -47,4 +47,8 @@ std::u16string territoryDescription(const LivingWorldSetupCampaign &campaign, in
 std::u16string regionDescription(const LivingWorldSetupCampaign &campaign, int regionIndex, const GameTextSource *text);
 // `victoryType` < 0: no game info (the description alone)
 std::u16string scenarioDescription(const LivingWorldScenarioEntry &scenario, int victoryType, const GameTextSource *text);
+// PYSAGE 1.9.8.5 .wtrdisp 0x00F2F0E8 (hooks RW 0x9760B4, RW 0x9765B3, RW 0x976BA8): when ennorath.wotr-8-players is active and scenario.maxPlayers == 8,
+// rewrites 2-6 -> 2-8 (and WOTRScenario042/043 2-2 / (2) / (1vs1) / (1v1) / ': 2' -> 2–8).
+std::u16string adjustScenarioTextFor8Players(const std::u16string &text, const LivingWorldScenarioEntry &scenario, bool isTitle);
+std::u16string scenarioDisplayName(const LivingWorldScenarioEntry &scenario, const GameTextSource *text);
 } // namespace LivingWorldSetupText

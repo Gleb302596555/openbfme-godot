@@ -658,7 +658,7 @@ bool SpecialAbilityUpdate::allowsSpecialPowerUse(const Coord3D *loc) const
 		getObject()->logic().noteStop("[S-1043] SpecialAbilityUpdate: the grab enums' room test (RW 0x851BA2) of a contain that is not an OpenContain is not ported; the power is refused");
 		return false;
 	}
-	return (int)c->getContainCount() < open->getContainMax();
+	return c->getContainCount() < static_cast<unsigned>(open->getContainMax()); // RW 0x851BC4..0x851BC6: cmp edi, eax; jb
 }
 
 // RW 0x851551
@@ -1936,13 +1936,20 @@ void SpecialAbilityUpdate::startPacking(bool success)
 	}
 	if (success && t)
 	{
-		const int type = t->getFinalOverride()->m_type; // RW 0x85365C / 0x85366A -> 0x688D3C, + 0x1C
+		const SpecialPowerTemplate *fo = t->getFinalOverride(); // RW 0x85365C / 0x85366A / 0x8536A8 -> 0x688D3C
+		const int type = fo->m_type; // + 0x1C
 		if (type == 0x1A || type == 0x1D)
 		{
 			// RW 0x853661 .. 0x85368D: SPECIAL_BLACKLOTUS_CAPTURE_BUILDING (0x1A) / SPECIAL_INFANTRY_CAPTURE_BUILDING (0x1D) -> 0x7DD (VoiceCaptureBuildingComplete)
 			AudioApi::postUnitVoice(0x7DD, obj->getID(), t);
 		}
-		// RW 0x853679 (0x7DE VoiceTaskComplete on other powers) and RW 0x8536BD (EvaEventToPlayOnSuccess) remain outside Port 86
+		// RW 0x853679 (0x7DE VoiceTaskComplete on other powers) remains outside Port 86
+		// RW 0x853468 (0x853692 .. 0x8536BD): Local 139 (fork issue 856) — if controlling player is local player, report SpecialPowerTemplate::m_evaEventToPlayOnSuccess (+0x44)
+		const Player *owner = obj->getControllingPlayer();
+		if (owner && owner == obj->logic().players().getLocalPlayer() && !fo->m_evaEventToPlayOnSuccess.empty())
+		{
+			AudioApi::reportEva(fo->m_evaEventToPlayOnSuccess, obj->getPosition()); // RW 0x8536BD -> 0x5DD9EE
+		}
 	}
 }
 

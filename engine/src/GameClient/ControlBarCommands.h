@@ -147,6 +147,7 @@ enum CommandOption : std::uint32_t
 	COMMAND_OPTION_MOUNTED_ONLY = 0x4000000,              ///< lane FACT-A: index 26
 	COMMAND_OPTION_UNMOUNTED_ONLY = 0x8000000,            ///< lane FACT-A: index 27
 	COMMAND_OPTION_NONPRESSABLE = 0x10000000,            ///< lane HUD-5: index 28 (RW 0xDA4C88)
+	COMMAND_OPTION_ON_GROUND_ONLY = 0x40000000,          ///< Local 142: index 30 (RW 0xDA4C88); RW 0x9427EB test ecx, 0x40000000
 	COMMAND_OPTION_CANCELABLE = 0x80000000u
 };
 

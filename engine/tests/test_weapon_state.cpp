@@ -846,7 +846,9 @@ TEST_CASE("FiringTracker: continuous fire speeds up past ContinuousFireOne / Two
 	CHECK(host.mask == 0u);
 	CHECK(host.reloads == 1);
 	CHECK(tracker.autoReloadDeadline() == 0);
-	CHECK(sleep == 0x3FFFFFFFu);
+	// PORT-225: past the cooldown frame the cooldown step wakes the module for its five-frame poll (DONOR BFME2 0x004DED3B's
+	// UPDATE_SLEEP(LogicFramesPerSecond)); the frame stays awake because the cooldown frame it just pushed ahead is pending.
+	CHECK(sleep == 5u);
 	// a moving owner hard-resets
 	host.pos = Coord3D{ 50, 50, 50 };
 	tracker.update(host);

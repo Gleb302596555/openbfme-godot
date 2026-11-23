@@ -322,7 +322,7 @@ bool LuaScriptEngine::startNewGame(LuaFileSource &files, const std::string &mapF
 std::string LuaScriptEngine::objectGlobalName(int id)
 {
 	char buf[32];
-	std::snprintf(buf, sizeof buf, "ObjID#%08x", (unsigned)id); // RW 0xC244BC, builder 0x734C93
+	std::snprintf(buf, sizeof buf, "ObjID#%08x", (unsigned)id); // RW 0x00C244BC, builder RW 0x00734C93
 	return buf;
 }
 

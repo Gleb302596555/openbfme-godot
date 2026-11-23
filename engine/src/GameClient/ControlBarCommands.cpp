@@ -359,7 +359,10 @@ const FieldParse *commandSetFieldParse()
 {
 	static const SetTable retail(CommandSet::MAX_BUTTONS);
 	static const SetTable extended(CommandSet::STORAGE);
-	return ModEngineFeatures::has(ModEngineFeature::EdainUnchainedCommandSetLimit) ? extended.rows : retail.rows;
+	// PYSAGE 1.9.8.5 .cmdext 0xED6000 (hook RW 0x943E11): 64 CommandSet slots.
+	const bool extLimit = ModEngineFeatures::has(ModEngineFeature::EdainUnchainedCommandSetLimit)
+		|| ModEngineFeatures::has(ModEngineFeature::EnnorathCommandSet64);
+	return extLimit ? extended.rows : retail.rows;
 }
 } // namespace
 
@@ -373,7 +376,9 @@ CommandButton::CommandButton() = default;
 
 int CommandSet::slotCapacity()
 {
-	return ModEngineFeatures::has(ModEngineFeature::EdainUnchainedCommandSetLimit) ? (int)STORAGE : (int)MAX_BUTTONS;
+	const bool extLimit = ModEngineFeatures::has(ModEngineFeature::EdainUnchainedCommandSetLimit)
+		|| ModEngineFeatures::has(ModEngineFeature::EnnorathCommandSet64);
+	return extLimit ? (int)STORAGE : (int)MAX_BUTTONS;
 }
 
 const CommandButton *CommandButton::getFinalOverride() const

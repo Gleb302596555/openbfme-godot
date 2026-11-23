@@ -396,6 +396,7 @@ private:
 };
 
 // RW vtable 0x00C64D14; name/key RW 0x00895836 / 0x0089585C; s1 no-op RW 0x008E38D8
+// RW 0x0089583C (dtor -> RW 0x00854D9A)
 class HeroModeSpecialAbilityUpdate : public SpecialAbilityUpdate
 {
 public:
@@ -412,6 +413,7 @@ private:
 };
 
 // Local 87: RW 0x008C6D2B (getModuleName), RW 0x008C6DAD (getModuleNameKey), RW 0x008C6E46 (data dtor).
+// RW 0x008C6E62 (dtor -> RW 0x00854D9A)
 class LevelGrantSpecialPower : public SpecialAbilityUpdate
 {
 public:
@@ -436,6 +438,7 @@ private:
 };
 
 // RW vtable 0x00C64C54; name/key RW 0x008943FC / 0x00894422; s1 no-op RW 0x008E38D8
+// RW 0x00894402 (dtor -> RW 0x00854D9A)
 class ModelConditionSpecialAbilityUpdate : public SpecialAbilityUpdate
 {
 public:
@@ -462,6 +465,7 @@ private:
 // pulse (RW 0x8B2584), ToggleMounted's finishAfterPacking (RW 0x8B202A) and initiate (RW 0x8B1FDA), ModelCondition's startUnpacking (RW 0x89455B), a
 // finishAbility of both (RW 0x8B208A), and the base continuePreparation (RW 0x852A3E: no early out at the second trigger).
 // RW 0x008B1E94 (getModuleName), RW 0x008B1F14 (getModuleNameKey), RW 0x008B1FA3 (scalar deleting dtor -> 0x008B1E6A).
+// RW 0x008B1E6A (dtor -> RW 0x00854D9A)
 class SummonReplacementSpecialAbilityUpdate : public SpecialAbilityUpdate, public CreateModuleInterface
 {
 public:
@@ -496,6 +500,7 @@ private:
 // ends it from SPECIAL_SMITE_CANCELDISGUISE's unpack (RW 0x8538DD), SPECIAL_ATTRIBUTEMOD_CANCELDISGUISE's trigger (RW 0x8549DD) and attribute modifier power
 // (RW 0x897840), a stealth detector (RW 0x8A6644) and the mount toggles' CancelDisguiseWhenDismounting (RW 0x8B17C2 / 0x8B26BB).
 // RW 0x008B42E0 (getModuleName), RW 0x008B429B (getModuleNameKey), RW 0x008B43F4 (scalar deleting dtor -> 0x008B4271).
+// RW 0x008B4271 (dtor -> RW 0x00854D9A)
 class SpecialDisguiseUpdate : public SpecialAbilityUpdate, public CreateModuleInterface
 {
 public:

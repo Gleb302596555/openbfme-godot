@@ -72,6 +72,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x00889F27 (dtor -> RW 0x0085FE9D), RW 0x00889F40 (getModuleName), RW 0x00889F46 (getModuleNameKey)
 class KeepObjectDie : public BehaviorModule, public DieModuleInterface
 {
 public:

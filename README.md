@@ -1,11 +1,11 @@
 <div align="center">
 
-# OpenBFME — Ennorath 1.9.8.5 Port
+# OpenBFME — Ennorath 1.9.8.7 Port
 
-**The Battle for Middle-earth II: The Rise of the Witch-king 2.01 & the [Ennorath 1.9.8.5](https://ennorathmod.ru/) overhaul mod, rebuilt in Godot 4.7.**[cite: 2, 3]
+**The Battle for Middle-earth II: The Rise of the Witch-king 2.01 & the [Ennorath 1.9.8.7](https://ennorathmod.ru/) overhaul mod, rebuilt in Godot 4.7.**[cite: 2, 3]
 
 [![Upstream Fork](https://img.shields.io/badge/Fork%20of-Gleb302596555%2Fopenbfme--godot-blue?logo=github)](https://github.com/Gleb302596555/openbfme-godot)
-[![Target Mod](https://img.shields.io/badge/Target%20Mod-Ennorath%201.9.8.5-darkred)](https://ennorathmod.ru/)
+[![Target Mod](https://img.shields.io/badge/Target%20Mod-Ennorath%201.9.8.7-darkred)](https://ennorathmod.ru/)
 [![Latest Ennorath build](https://img.shields.io/github/v/release/Gleb302596555/openbfme-godot?include_prereleases&label=Ennorath%20build)](https://github.com/Gleb302596555/openbfme-godot/releases)
 [![Licence: GPL-3.0](https://img.shields.io/github/license/Open-BFME/openbfme-godot)](LICENSE)
 [![Godot 4.7](https://img.shields.io/badge/Godot-4.7-478cbf?logo=godotengine&logoColor=white)](https://godotengine.org)
@@ -26,18 +26,18 @@
 This repository is a dedicated fork of **[Gleb302596555/openbfme-godot](https://github.com/Gleb302596555/openbfme-godot)** (built on **[Open-BFME/openbfme-godot](https://github.com/Open-BFME/openbfme-godot)**)[cite: 2].
 
 * **Main upstream repository ([Gleb302596555/openbfme-godot](https://github.com/Gleb302596555/openbfme-godot)):** Focuses on porting vanilla **The Battle for Middle-earth II: The Rise of the Witch-king 2.01** and starting support for several other mods[cite: 2].
-* **This fork:** Specifically targets porting the **[Ennorath 1.9.8.5](https://ennorathmod.ru/)** overhaul mod[cite: 3].
+* **This fork:** Specifically targets porting the **[Ennorath 1.9.8.7](https://ennorathmod.ru/)** overhaul mod[cite: 3].
 
-**Goal:** **Ennorath 1.9.8.5** on the OpenBFME engine behaves the same way it does on **RotWK 2.01**[cite: 3]. The mod itself is not modified; instead, we fix and implement the general mechanisms of the engine[cite: 3].
+**Goal:** **Ennorath 1.9.8.7** on the OpenBFME engine behaves the same way it does on **RotWK 2.01**[cite: 3]. The mod itself is not modified; instead, we fix and implement the general mechanisms of the engine[cite: 3].
 
 ---
 
 ## Ennorath port specification
 
-### Baseline: Ennorath 1.9.8.5
-* **Base version:** **Ennorath 1.9.8.5** as of 2026-11-21 (before: 1.9.8.4 from 2026-11-20, 1.9.8.3 from 2026-11-15, 1.9.8.2 from 2026-11-04, 1.9.8.1 from 2026-11-03; owner decisions).
-* **Mod archives and patch notes:** 1.9.8.5 came out on 2026-11-21: it again changes only the pySAGE-patched `game.dat` (md5 `fc32e4c4…`: war wagons and the Witch-king unload through the common evacuate command, the defensive stance no longer stops units, a map search in the lobby, basic hotkeys added and fixed in the options, an option to switch the online lag fix on and off, the middle mouse button resets the camera again), the interface archives `apt/MpGameSetup.big`, `apt/Options.big`, `apt/PlayerTribute.big` and `lang/englishpatch201.big`; the mod's INI data (`____enrth_data.big`), textures, models, sounds and maps did not change. Like 1.9.8.4, these are exe behaviours of the patched game: fork only (PROCESS 12). 1.9.8.4 came out on 2026-11-20: it changes the game's `game.dat` through pySAGE (replays, chat blocking, select all buildings, every resolution, a 30 / 60 FPS option, the building-limit fix, War of the Ring for 8 players; CommandSet 33 → 64 slots and 1152 → 5120 upgrades for modders), adds `############enrth_data_wotr8.big` (three War of the Ring scenarios) and updates `lang/englishpatch201.big`; the mod's INI data (`____enrth_data.big`) and textures did not change. These are exe behaviours of the patched game, not of `game.dat` 2.01: they belong to the fork only (PROCESS 12). 1.9.8.3 came out on 2026-11-15; the owner put the updated `____enrth_data.big`, `lang/englishpatch201.big` and the new `############bugfixtextures.big` in `RotWK/` and updated the patch note document `docs/ennorath/Ennorath mod Patch Note.docx` (it has a 1.9.8.3 section). 1.9.8.3 also patches the game's `game.dat` (60 FPS, chat hotkeys Ctrl+C / V / X / A); the RotWK reference for `RW 0x...` addresses stays the vanilla 2.01 `game.dat` (md5 `daed3668…`, `workspace/games-en/Vanilla_(2.01)/install/game.dat`; `RotWK/game.dat` is the patched one since 1.9.8.3). The port keeps its own frame rate; the chat hotkeys are tracked as P-128.
-* **Source of truth:** Test and verification expectations are taken from **1.9.8.5**. The patch note is treated as the truth for how the mod should work: every item in it is verified, and any discrepancy between the port and the patch note is treated as a bug to investigate. However, the final word belongs to the mod's actual files (INI files, scripts, and archive data of the current version) and the RotWK code: if a patch note item conflicts with the mod files, the files are considered correct and the discrepancy is recorded in the report. Within the patch notes, the newest section (currently 1.9.8.5) governs, superseding older descriptions of the same mechanic. Faction registries and tables captured before a base change were made on an older version; when they differ from current mod files, the current files take precedence.
+### Baseline: Ennorath 1.9.8.7
+* **Base version:** **Ennorath 1.9.8.7** as of 2026-11-23 (before: 1.9.8.5 from 2026-11-21, 1.9.8.4 from 2026-11-20, 1.9.8.3 from 2026-11-15, 1.9.8.2 from 2026-11-04, 1.9.8.1 from 2026-11-03; owner decisions).
+* **Mod archives and patch notes:** 1.9.8.7 (patch note sections 1.9.8.6 and 1.9.8.7, one `game.dat`) became the base on 2026-11-23: against 1.9.8.5 only the pySAGE-patched `game.dat` (md5 `f222b925…`), `apt/Options.big` and `lang/englishpatch201.big` changed; the INI data did not. Its exe edits are fork only (`docs/ennorath/ENNORATH_EXE.md`, fork issue 871). 1.9.8.5 came out on 2026-11-21: it again changes only the pySAGE-patched `game.dat` (md5 `fc32e4c4…`: war wagons and the Witch-king unload through the common evacuate command, the defensive stance no longer stops units, a map search in the lobby, basic hotkeys added and fixed in the options, an option to switch the online lag fix on and off, the middle mouse button resets the camera again), the interface archives `apt/MpGameSetup.big`, `apt/Options.big`, `apt/PlayerTribute.big` and `lang/englishpatch201.big`; the mod's INI data (`____enrth_data.big`), textures, models, sounds and maps did not change. Like 1.9.8.4, these are exe behaviours of the patched game: fork only (PROCESS 12). 1.9.8.4 came out on 2026-11-20: it changes the game's `game.dat` through pySAGE (replays, chat blocking, select all buildings, every resolution, a 30 / 60 FPS option, the building-limit fix, War of the Ring for 8 players; CommandSet 33 → 64 slots and 1152 → 5120 upgrades for modders), adds `############enrth_data_wotr8.big` (three War of the Ring scenarios) and updates `lang/englishpatch201.big`; the mod's INI data (`____enrth_data.big`) and textures did not change. These are exe behaviours of the patched game, not of `game.dat` 2.01: they belong to the fork only (PROCESS 12). 1.9.8.3 came out on 2026-11-15; the owner put the updated `____enrth_data.big`, `lang/englishpatch201.big` and the new `############bugfixtextures.big` in `RotWK/` and updated the patch note document `docs/ennorath/Ennorath mod Patch Note.docx` (it has a 1.9.8.3 section). 1.9.8.3 also patches the game's `game.dat` (60 FPS, chat hotkeys Ctrl+C / V / X / A); the RotWK reference for `RW 0x...` addresses stays the vanilla 2.01 `game.dat` (md5 `daed3668…`, `workspace/games-en/Vanilla_(2.01)/install/game.dat`; `RotWK/game.dat` is the patched one since 1.9.8.3). The port keeps its own frame rate; the chat hotkeys are tracked as P-128.
+* **Source of truth:** Test and verification expectations are taken from **1.9.8.7**. The patch note is treated as the truth for how the mod should work: every item in it is verified, and any discrepancy between the port and the patch note is treated as a bug to investigate. However, the final word belongs to the mod's actual files (INI files, scripts, and archive data of the current version) and the RotWK code: if a patch note item conflicts with the mod files, the files are considered correct and the discrepancy is recorded in the report. Within the patch notes, the newest section (currently 1.9.8.7) governs, superseding older descriptions of the same mechanic. Faction registries and tables captured before a base change were made on an older version; when they differ from current mod files, the current files take precedence.
 * **Git policy:** Neither the mod files nor the patch note are stored in Git, and branches do not carry them; they are never copied or replaced across branches or worktrees[cite: 3].
 
 ### Order of work
@@ -208,7 +208,7 @@ the original are still missing[cite: 2].
 not reinvent it[cite: 2]. Where the evidence runs out and the team has to make an
 educated guess, that guess is not hidden: it is recorded as an *acceptance
 stop* in [docs/STOPS.md](docs/STOPS.md), reported by the game at runtime and
-pinned by a test. There are **990 open stops** today. Some are big
+pinned by a test. There are **986 open stops** today. Some are big
 (retail save files), most are small details waiting for better evidence. The plan to
 get to a 1:1 game is in [docs/ROADMAP.md](docs/ROADMAP.md).
 

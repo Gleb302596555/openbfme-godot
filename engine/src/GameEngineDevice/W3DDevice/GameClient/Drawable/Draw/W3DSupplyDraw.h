@@ -24,6 +24,7 @@ class ThingTemplate;
 class W3DScriptedModelDraw;
 class Xfer;
 
+// RW 0x004CA69F (~W3DSupplyDraw), RW 0x004CA70E (~W3DSupplyDrawModuleData)
 class W3DSupplyDraw
 {
 public:

@@ -16,6 +16,7 @@
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/GameMessage.h"
 #include "GameLogic/Module/ProductionUpdate.h"
+#include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/ExperienceTracker.h"
 #include "GameLogic/ObjectTemplateInfo.h"
@@ -188,6 +189,18 @@ ButtonState ControlBar::evaluate(const CommandButton &b, Object &obj, bool &comm
 	if ((b.hasOption(COMMAND_OPTION_MOUNTED_ONLY) && !obj.testModelCondition(mounted)) || (b.hasOption(COMMAND_OPTION_UNMOUNTED_ONLY) && obj.testModelCondition(mounted)))
 	{
 		return ButtonState::Restricted;
+	}
+	// RW 0x9427EB .. 0x942807: ON_GROUND_ONLY (option bit 30, 0x40000000) calls Object->m_ai (+0x260) vslot 0x228 (RW 0x66288A);
+	// a nonzero result jumps to RW 0x9438C8 (availability 0, ButtonState::Restricted).
+	if (b.hasOption(COMMAND_OPTION_ON_GROUND_ONLY))
+	{
+		if (const AIUpdateInterface *ai = obj.getAIUpdateInterface())
+		{
+			if (ai->isMovingAlongPortal())
+			{
+				return ButtonState::Restricted;
+			}
+		}
 	}
 	// RW 0x942490: each mask is an ANY intersection. SPECIAL_POWER defers this check until after readiness (RW 0x9435C3 / 0x9435DC).
 	if (b.m_command != GUI_COMMAND_SPECIAL_POWER && !modelConditionsAllow(b, obj))
@@ -1000,21 +1013,21 @@ void ControlBar::update()
 	// availability across non-IGNORED_IN_GUI selected objects, and processCommandUI (RW 0x9404D0..0x940511) uses
 	// the first non-IGNORED_IN_GUI selected object as m_source.
 	static const unsigned kSoldStatus = (unsigned)ObjectTemplateInfoBuilder::objectStatusIndex("SOLD");
-	std::vector<Object *> liveSelected;
-	liveSelected.reserve(m_ctx.ui.selected().size());
-	for (ObjectID selId : m_ctx.ui.selected())
-	{
-		if (Object *sel = m_ctx.logic.findObjectByID(selId); sel && !sel->isDestroyed())
-		{
-			liveSelected.push_back(sel);
-		}
-	}
+	std::vector<Object *> liveSelected = collectLiveSelected();
+	const bool ennorathBldSel = ModEngineFeatures::has(ModEngineFeature::EnnorathSelectAllBuildings);
+	const bool allStructuresGroup = ennorathBldSel && allSelectedStructures(liveSelected);
+	Object *sameBuildingRep = ennorathBldSel ? findSelectedSameBuildingGroup(liveSelected) : nullptr;
 	bool multiSelectCommon = false;
 	bool multiSelectHero = false;
 	std::vector<Object *> commonObjects;
 	std::vector<Object *> evalObjects;
 	Object *obj = liveSelected.empty() ? nullptr : liveSelected.front();
-	if (liveSelected.size() > 1 && obj && HudObjects::isLocallyControlled(m_ctx, *obj))
+	if (sameBuildingRep)
+	{
+		// PYSAGE 1.9.8.5 .bldgrp 0xEDA172 (hook RW 0x71ED96) + .bldlvl 0xF364DF: show single-building context for a same-type building group.
+		obj = sameBuildingRep;
+	}
+	else if (liveSelected.size() > 1 && obj && HudObjects::isLocallyControlled(m_ctx, *obj))
 	{
 		Object *firstNonIgnored = nullptr;
 		Object *bestHero = nullptr;
@@ -1062,7 +1075,7 @@ void ControlBar::update()
 	}
 	// PORT-213 (issue #503): AptPalantir::setDrawable receives the single selected object (RW 0x9443BD -> 0x6D4671)
 	// or the senior qualifying HERO picked by populateMultiSelect (RW 0x94482B), and INVALID_ID otherwise (RW 0x9448FC).
-	const ObjectID contextId = (obj && (liveSelected.size() == 1 || multiSelectHero))
+	const ObjectID contextId = (obj && (liveSelected.size() == 1 || multiSelectHero || sameBuildingRep != nullptr))
 		? obj->getID()
 		: (ObjectID)INVALID_ID;
 
@@ -1114,7 +1127,8 @@ void ControlBar::update()
 		std::array<const CommandButton *, CommandSet::STORAGE> commonSlots{};
 		if (multiSelectCommon && !commonObjects.empty())
 		{
-			const bool extLimit = ModEngineFeatures::has(ModEngineFeature::EdainUnchainedCommandSetLimit);
+			const bool extLimit = ModEngineFeatures::has(ModEngineFeature::EdainUnchainedCommandSetLimit)
+				|| ModEngineFeatures::has(ModEngineFeature::EnnorathCommandSet64);
 			const int cap = extLimit ? (int)CommandSet::STORAGE : (int)CommandSet::MAX_BUTTONS;
 			const int rStart = m_rangeStack.back().first, rCount = m_rangeStack.back().second;
 			auto visibleSlotOf = [&](const CommandSet &cs, int s) -> const CommandButton * {
@@ -1170,7 +1184,8 @@ void ControlBar::update()
 			const int start = m_rangeStack.back().first, count = m_rangeStack.back().second;
 			const int initial = (!multiSelectCommon && m_rangeStack.size() == 1) ? std::min(set->m_initialVisible, (int)CommandSet::MAX_BUTTONS) : count;
 			int shown = (!multiSelectCommon && m_rangeStack.size() == 1) ? initial : count, end = CommandSet::MAX_BUTTONS;
-			if (ModEngineFeatures::has(ModEngineFeature::EdainUnchainedCommandSetLimit))
+			if (ModEngineFeatures::has(ModEngineFeature::EdainUnchainedCommandSetLimit)
+				|| ModEngineFeatures::has(ModEngineFeature::EnnorathCommandSet64))
 			{
 				// lane MODS-3: edain-unchained.commandset-limit's populate hook (its 0xED447D after RW 0x71CF0A): 33 windows over 64 slots, a range
 				// past the end shows nothing
@@ -1329,6 +1344,22 @@ void ControlBar::update()
 				else
 				{
 					cb.state = evaluate(*b, *obj, cb.commandPointsShort);
+					// PYSAGE 1.9.8.5 .bldlvl 0xF365BA (hook RW 0x942733): for a level-2/3 upgrade in a multi-building selection,
+					// enable the button if any selected building can still purchase its matching level upgrade.
+					const int lvlTarget = allStructuresGroup ? levelUpgradeTarget(b) : 0;
+					if (lvlTarget != 0 && cb.state != ButtonState::Enabled && cb.state != ButtonState::Active)
+					{
+						for (Object *sel : liveSelected)
+						{
+							ButtonState st = ButtonState::Hidden;
+							if (findLevelUpgradeButton(*sel, lvlTarget, &st) && (st == ButtonState::Enabled || st == ButtonState::Active))
+							{
+								cb.state = st;
+								cb.commandPointsShort = false;
+								break;
+							}
+						}
+					}
 					// lane HUD-6: RW 0x943B39 .. 0x943B4C: a disabled button (availability 0) with the option HIDE_WHILE_DISABLED (CommandButton + 0x1E & 0x40,
 					// option bit 22 of RW 0xDA4C88) is hidden (3): the Mordor fortress's spire fireball before its upgrade. Lane OWNERFIX-3: the exception (bl,
 					// RW 0x943B18) is only for a button updateContextCommand itself turned to 0 in a foreign view (foreignDisable): one whose own availability was
@@ -1493,6 +1524,96 @@ void ControlBar::update()
 				cb.drawBorder = (!b->m_radial) && draw && ((cb.borderColor & 0x00FFFFFFu) != 0x00FFFFFFu);
 				foreignDisable(cb);
 				place(cb, start);
+			}
+			// PYSAGE 1.9.8.5 .bldlvl 0xF362F3 (hooks RW 0x71DAB7, RW 0x944834, RW 0x9448EB): ensure level 2 and level 3
+			// upgrade buttons from any selected building appear on the bar when multiple structures are selected.
+			if (allStructuresGroup)
+			{
+				for (int targetLvl : { 2, 3 })
+				{
+					bool alreadyShown = false;
+					for (const ControlBarButton &existing : m_palantir)
+					{
+						if (levelUpgradeTarget(existing.button) == targetLvl)
+						{
+							alreadyShown = true;
+							break;
+						}
+					}
+					if (!alreadyShown)
+					{
+						for (const ControlBarButton &existing : m_side)
+						{
+							if (levelUpgradeTarget(existing.button) == targetLvl)
+							{
+								alreadyShown = true;
+								break;
+							}
+						}
+					}
+					if (alreadyShown)
+					{
+						continue;
+					}
+					const CommandButton *bestBtn = nullptr;
+					ButtonState bestState = ButtonState::Hidden;
+					Object *bestOwner = nullptr;
+					for (Object *sel : liveSelected)
+					{
+						ButtonState st = ButtonState::Hidden;
+						const CommandButton *cand = findLevelUpgradeButton(*sel, targetLvl, &st);
+						if (!cand)
+						{
+							continue;
+						}
+						if (st == ButtonState::Enabled || st == ButtonState::Active)
+						{
+							bestBtn = cand;
+							bestState = st;
+							bestOwner = sel;
+							break;
+						}
+						if (!bestBtn && st != ButtonState::Hidden)
+						{
+							bestBtn = cand;
+							bestState = st;
+							bestOwner = sel;
+						}
+					}
+					if (!bestBtn || !bestOwner)
+					{
+						continue;
+					}
+					int freeSlot = -1;
+					for (int s = start; s < start + (int)CommandSet::MAX_BUTTONS && s < end; ++s)
+					{
+						if (!find(s, bestBtn->m_inPalantir))
+						{
+							freeSlot = s;
+							break;
+						}
+					}
+					if (freeSlot < 0)
+					{
+						continue;
+					}
+					ControlBarButton cb;
+					cb.slot = freeSlot;
+					cb.button = bestBtn;
+					cb.state = bestState;
+					cb.inPalantir = bestBtn->m_inPalantir;
+					if (const std::string *img = bestBtn->getButtonImage())
+					{
+						cb.image = *img;
+					}
+					cb.textLabel = bestBtn->getTextLabel();
+					cb.descriptLabel = bestBtn->getDescriptLabel();
+					cb.borderType = bestBtn->getButtonBorderType();
+					bool draw = false;
+					cb.borderColor = borderColorForType(cb.borderType, &draw);
+					cb.drawBorder = (!bestBtn->m_radial) && draw && ((cb.borderColor & 0x00FFFFFFu) != 0x00FFFFFFu);
+					place(cb, start);
+				}
 			}
 			// RW 0x943D6F: a contain that shows its riders on the control bar (contain slot 0xC8) fills the set's EXIT_CONTAINER buttons
 			if (!multiSelectCommon)
@@ -2108,4 +2229,201 @@ std::vector<std::string> ControlBar::acceptanceStops()
 		"hotkey registration is ported (RW 0x96F890, BFME2 0x00967DA6; RW 0x96FCCB, BFME2 0x0096820D; S-280); not ported: "
 		"the sub-menu owner's notifications (vslots 4 / 8), the press's context object checks (RW 0x449681 / 0x6A8803)",
 	};
+}
+
+// ---- PYSAGE 1.9.8.5 .bldgrp / .padsel / .bldext / .bldcan / .bldlvl (EnnorathSelectAllBuildings) ----
+
+int ControlBar::levelUpgradeTarget(const CommandButton *b)
+{
+	// PYSAGE 1.9.8.5 .bldlvl 0xF360E9: OBJECT_UPGRADE (7), clickable, UPGRADE_TYPE_OBJECT (1),
+	// name ending with (level|lvl|rank)_?[23] (ASCII case-insensitive).
+	if (!b || b->m_command != GUI_COMMAND_OBJECT_UPGRADE || !b->m_isClickable || !TheUpgradeCenter || b->m_upgradeName.empty())
+	{
+		return 0;
+	}
+	const UpgradeTemplate *u = TheUpgradeCenter->findUpgrade(b->m_upgradeName);
+	if (!u || u->getUpgradeType() != UPGRADE_TYPE_OBJECT)
+	{
+		return 0;
+	}
+	const std::string &name = u->getUpgradeName();
+	if (name.empty())
+	{
+		return 0;
+	}
+	const char last = name.back();
+	if (last != '2' && last != '3')
+	{
+		return 0;
+	}
+	size_t end = name.size() - 1;
+	if (end > 0 && name[end - 1] == '_')
+	{
+		--end;
+	}
+	auto endsWithNoCase = [&](const char *suffix, size_t len) {
+		if (end < len)
+		{
+			return false;
+		}
+		for (size_t i = 0; i < len; ++i)
+		{
+			char c = name[end - len + i];
+			if (c >= 'A' && c <= 'Z')
+			{
+				c = (char)(c - 'A' + 'a');
+			}
+			if (c != suffix[i])
+			{
+				return false;
+			}
+		}
+		return true;
+	};
+	if (endsWithNoCase("level", 5) || endsWithNoCase("lvl", 3) || endsWithNoCase("rank", 4))
+	{
+		return last - '0';
+	}
+	return 0;
+}
+
+bool ControlBar::isActiveBuildingForGroup(const Object &o)
+{
+	// PYSAGE 1.9.8.5 .bldgrp 0xEDA07E: not UNDER_CONSTRUCTION (status 2) and not KindOf 0xDB.
+	return !o.testStatus(OBJECT_STATUS_UNDER_CONSTRUCTION) && !o.isKindOf(0xDB);
+}
+
+std::vector<Object *> ControlBar::collectLiveSelected() const
+{
+	std::vector<Object *> out;
+	out.reserve(m_ctx.ui.selected().size());
+	for (ObjectID selId : m_ctx.ui.selected())
+	{
+		if (Object *sel = m_ctx.logic.findObjectByID(selId); sel && !sel->isDestroyed())
+		{
+			out.push_back(sel);
+		}
+	}
+	return out;
+}
+
+bool ControlBar::allSelectedStructures(const std::vector<Object *> &liveSelected) const
+{
+	// PYSAGE 1.9.8.5 .bldlvl 0xF36000: >= 2 locally-controlled STRUCTURE objects.
+	if (liveSelected.size() < 2)
+	{
+		return false;
+	}
+	for (Object *o : liveSelected)
+	{
+		if (!o || !o->isKindOfName("STRUCTURE") || !HudObjects::isLocallyControlled(m_ctx, *o))
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+const CommandButton *ControlBar::findLevelUpgradeButton(Object &obj, int targetLevel, ButtonState *outState)
+{
+	// PYSAGE 1.9.8.5 .bldlvl 0xF361C7: scan the object's CommandSet for a level-2/3 upgrade button.
+	const CommandStore *store = m_ctx.commands;
+	const std::string &setName = obj.getCommandSetName();
+	const CommandSet *set = (store && !setName.empty()) ? store->findCommandSet(setName) : nullptr;
+	if (!set)
+	{
+		if (outState)
+		{
+			*outState = ButtonState::Hidden;
+		}
+		return nullptr;
+	}
+	const int cap = CommandSet::slotCapacity();
+	const CommandButton *fallbackBtn = nullptr;
+	ButtonState fallbackState = ButtonState::Hidden;
+	for (int s = 0; s < cap; ++s)
+	{
+		const CommandButton *b = set->getCommandButton(s);
+		if (levelUpgradeTarget(b) != targetLevel)
+		{
+			continue;
+		}
+		bool cpShort = false;
+		ButtonState st = evaluate(*b, obj, cpShort);
+		if (st == ButtonState::Enabled || st == ButtonState::Active)
+		{
+			const UpgradeTemplate *u = TheUpgradeCenter ? TheUpgradeCenter->findUpgrade(b->m_upgradeName) : nullptr;
+			if (u && obj.hasUpgrade(u))
+			{
+				st = ButtonState::Restricted;
+			}
+			else
+			{
+				if (outState)
+				{
+					*outState = st;
+				}
+				return b;
+			}
+		}
+		if (!fallbackBtn && st != ButtonState::Hidden)
+		{
+			fallbackBtn = b;
+			fallbackState = st;
+		}
+	}
+	if (outState)
+	{
+		*outState = fallbackState;
+	}
+	return fallbackBtn;
+}
+
+Object *ControlBar::findSelectedSameBuildingGroup(const std::vector<Object *> &liveSelected)
+{
+	// PYSAGE 1.9.8.5 .bldgrp 0xEDA0A7 + .padsel 0xEDE074 + .bldlvl 0xF364DF:
+	// >= 2 selectable locally-controlled STRUCTUREs of the same template (or matching ExpansionPad).
+	if (liveSelected.size() < 2)
+	{
+		return nullptr;
+	}
+	const ThingTemplate *firstTmpl = nullptr;
+	Object *rep = nullptr;
+	bool foundActive = false;
+	for (Object *o : liveSelected)
+	{
+		if (!o || !o->getTemplate() || !o->isKindOfName("STRUCTURE")
+			|| !HudObjects::isLocallyControlled(m_ctx, *o)
+			|| !HudObjects::isSelectable(*o, m_ctx.ui.getGUICommand()))
+		{
+			return nullptr;
+		}
+		if (!firstTmpl)
+		{
+			firstTmpl = o->getTemplate();
+			rep = o;
+		}
+		else if (o->getTemplate() != firstTmpl && !InGameUI::isSameExpansionPad(m_ctx.logic, o->getTemplate(), firstTmpl))
+		{
+			return nullptr;
+		}
+		if (!foundActive && isActiveBuildingForGroup(*o))
+		{
+			rep = o;
+			foundActive = true;
+		}
+	}
+	// .bldlvl 0xF364DF: prefer a building with an available level-2 (then level-3) upgrade.
+	for (int targetLvl : { 2, 3 })
+	{
+		for (Object *o : liveSelected)
+		{
+			ButtonState st = ButtonState::Hidden;
+			if (findLevelUpgradeButton(*o, targetLvl, &st) && (st == ButtonState::Enabled || st == ButtonState::Active))
+			{
+				return o;
+			}
+		}
+	}
+	return rep;
 }

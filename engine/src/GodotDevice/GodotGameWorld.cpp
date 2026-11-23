@@ -449,6 +449,8 @@ void GameWorld::_bind_methods()
 	ClassDB::bind_method(D_METHOD("net_chat_info"), &GameWorld::net_chat_info); // lane CHAT-1
 	ClassDB::bind_method(D_METHOD("net_chat_send", "line", "mask"), &GameWorld::net_chat_send);
 	ClassDB::bind_method(D_METHOD("net_chat_take"), &GameWorld::net_chat_take);
+	ClassDB::bind_method(D_METHOD("replay_chat_take"), &GameWorld::replay_chat_take);
+	ClassDB::bind_method(D_METHOD("toggle_replay_pause_key", "ctrl", "shift", "alt", "echo", "modal_open"), &GameWorld::toggle_replay_pause_key);
 	ClassDB::bind_method(D_METHOD("net_chat_mask", "mode"), &GameWorld::net_chat_mask);
 	ClassDB::bind_method(D_METHOD("net_chat_set_muted", "slot", "muted"), &GameWorld::net_chat_set_muted);
 	ClassDB::bind_method(D_METHOD("net_chat_stats"), &GameWorld::net_chat_stats);
@@ -5850,9 +5852,15 @@ Dictionary GameWorld::lan_war_battle(const Dictionary &message, const Array &lob
 	}
 	if (battle.localSlot < 0)
 	{
-		// RW 0x6B5E3E vs the 0x6A7 tally: a network battle is fought in real time only when every live human of the war is in it
-		r["error"] = "the local player has no slot in the battle";
-		return r;
+		if (!ModEngineFeatures::has(ModEngineFeature::EnnorathWotr8Players))
+		{
+			// RW 0x6B5E3E vs the 0x6A7 tally: a network battle is fought in real time only when every live human of the war is in it
+			r["error"] = "the local player has no slot in the battle";
+			return r;
+		}
+		// PYSAGE 1.9.8.5 .wotrobs 0x00F291BB / .wtrview 0x00F2A000 (hooks RW 0x627C41 / RW 0x62FE9C): non-participating human watches as ReplayObserver
+		battle.spectatorIndex = 0;
+		r["observer"] = true;
 	}
 	m_warStart = m_netStart;
 	m_netStart = battle;
@@ -6411,10 +6419,57 @@ Array GameWorld::net_chat_take()
 		// RW 0x8D54D1: the sender's Player (by the slot's name); its colour (Player + 0x2A0); none: the plain message line
 		const ::Player *p = m_game && (size_t)l.slot < names.size() && !names[(size_t)l.slot].empty()
 			? m_game->logic().players().findPlayerWithName(names[(size_t)l.slot]) : nullptr;
-		d["color"] = p ? (int64_t)(p->getPlayerColor() & 0xFFFFFFu) : (int64_t)-1;
+		const int colorVal = p ? (int)(p->getPlayerColor() & 0xFFFFFFu) : -1;
+		d["color"] = (int64_t)colorVal;
+		// PYSAGE 1.9.8.5 .rpchat 0x00ED7B40 (hook RW 0x78419D): log chat lines into the active replay recording
+		if (ModEngineFeatures::has(ModEngineFeature::EnnorathReplayControls) && m_game)
+		{
+			ReplayWriter *w = m_netSession ? m_netSession->replayWriter() : m_localWriter.get();
+			if (w && w->isOpen())
+			{
+				const String senderStr = d["name"];
+				const String textStr = d["text"];
+				w->recordChat(m_game->logic().getFrame(), l.slot, colorVal, senderStr.utf8().get_data(), textStr.utf8().get_data());
+			}
+		}
 		out.push_back(d);
 	}
 	return out;
+}
+
+Array GameWorld::replay_chat_take()
+{
+	Array out;
+	if (!m_replayPlayback || !m_game || !ModEngineFeatures::has(ModEngineFeature::EnnorathReplayControls))
+	{
+		return out;
+	}
+	for (const ReplayFile::ChatRecord &c : m_replayPlayback->takeChatsUpTo(m_game->logic().getFrame()))
+	{
+		Dictionary d;
+		d["frame"] = (int64_t)c.frame;
+		d["slot"] = (int64_t)c.slot;
+		d["name"] = toGodot(c.sender);
+		d["text"] = toGodot(c.text);
+		d["color"] = (int64_t)c.color;
+		out.push_back(d);
+	}
+	return out;
+}
+
+bool GameWorld::toggle_replay_pause_key(bool ctrl, bool shift, bool alt, bool echo, bool modal_open)
+{
+	int flags = ReplayPauseInput::kStateDown;
+	if (ctrl) flags |= 0x04;
+	if (shift) flags |= 0x10;
+	if (alt) flags |= 0x40;
+	if (echo) flags |= ReplayPauseInput::kStateAutoRepeat;
+	if (!ReplayPauseInput::shouldToggle(ReplayPauseInput::kKeyRightBracket, flags, m_replayPlayback != nullptr, modal_open))
+	{
+		return false;
+	}
+	set_paused(!m_paused);
+	return true;
 }
 
 void GameWorld::net_chat_set_muted(int64_t slot, bool muted)
@@ -8066,9 +8121,22 @@ public:
 		{
 			return out;
 		}
-		auto row = [](const ::Player &p, bool isLocal) {
+		const LiveGame::Report report = m_w.m_game->report();
+		auto slotOf = [&](const ::Player &p) -> int {
+			// PYSAGE 1.9.8.5 .chatmut 0x00EDB12C .. 0x00EDB15C: resolve the player's GameSlot 0..7
+			for (int i = 0; i < MAX_SLOTS && (size_t)i < report.startSlotPlayers.size(); ++i)
+			{
+				if (!report.startSlotPlayers[(size_t)i].empty() && logic.players().findPlayerWithName(report.startSlotPlayers[(size_t)i]) == &p)
+				{
+					return i;
+				}
+			}
+			return -1;
+		};
+		auto row = [&](const ::Player &p, bool isLocal) {
 			TributePlayerRow r;
 			r.playerIndex = p.getPlayerIndex();
+			r.slot = slotOf(p);
 			r.name = p.getPlayerDisplayName();
 			r.cash = p.getMoney()->countMoney();
 			r.local = isLocal;
@@ -8101,9 +8169,53 @@ public:
 		m.appendIntegerArgument((int)amount);
 		m_w.m_game->commands().append(m); // (waits for the logic worker: a completed frame)
 	}
+	bool chatMuted(int slot) const override
+	{
+		if (slot < 0 || slot > 7)
+		{
+			return false;
+		}
+		if (m_w.m_netSession)
+		{
+			return m_w.m_netSession->network().chatMuted(slot);
+		}
+		// RW 0x62D232 -> PYSAGE 1.9.8.5 .chatmut 0x00EDB257: cleared on game reset
+		if (m_w.m_game.get() != m_mutedForGame)
+		{
+			return false;
+		}
+		return (m_localChatMuted >> slot & 1u) != 0;
+	}
+	void setChatMuted(int slot, bool muted) override
+	{
+		if (slot < 0 || slot > 7)
+		{
+			return;
+		}
+		if (m_w.m_netSession)
+		{
+			m_w.m_netSession->network().setChatMuted(slot, muted);
+			return;
+		}
+		if (m_w.m_game.get() != m_mutedForGame)
+		{
+			m_mutedForGame = m_w.m_game.get();
+			m_localChatMuted = 0;
+		}
+		if (muted)
+		{
+			m_localChatMuted |= 1u << slot;
+		}
+		else
+		{
+			m_localChatMuted &= ~(1u << slot);
+		}
+	}
 
 private:
 	GameWorld &m_w;
+	const LiveGame *m_mutedForGame = nullptr;
+	std::uint32_t m_localChatMuted = 0;
 };
 
 TributeSource *GameWorld::tribute_source()
@@ -8126,7 +8238,7 @@ Dictionary GameWorld::get_quit_menu_context()
 	GameLogic &logic = m_game->logic();
 	d["mode"] = m_netSession ? 1 : logic.economy().context().gameMode;
 	d["kind"] = m_netSession ? 1 : logic.economy().context().gameKind;
-	d["replay"] = false; // replays are not played back by this host
+	d["replay"] = m_replayPlayback != nullptr;
 	const ::Player *local = logic.players().getLocalPlayer();
 	d["local_defeated"] = local && local->isDefeated(); // Player + 0x754 (RW 0x6AAC4B)
 	d["allied_victory"] = logic.victory().localAlliedVictory(); // vslot 0x48 (RW 0x921891)

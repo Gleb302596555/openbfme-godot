@@ -2100,20 +2100,24 @@ void AIBaseBuilder::onDozerIdle(GameLogic &logic, AISkirmishPlayer &ai, Object &
 	}
 }
 
-void AIBaseBuilder::onStructureBuilt(GameLogic &logic, AISkirmishPlayer &ai, const Object &builder, const Object &structure, bool built)
+void AIBaseBuilder::onStructureBuilt(GameLogic &logic, AISkirmishPlayer &ai, const Object *builder, const Object &structure, bool built)
 {
 	// RW 0x8F06FF(builder, structure, built): the first request in progress (state 1) of the builder (+ 8) whose template name (+ 0xC) is the structure's is
-	// complete; the created-object call (built false, Player::onStructureCreated RW 0x6AA688) skips a HORDE (template + 0x115 & 0x20) and every call skips a
-	// PENDING_CONSTRUCTION structure
+	// complete; the created-object call (built false, Player::onStructureCreated / onUnitCreated RW 0x6AA688) skips a HORDE (template + 0x115 & 0x20) and every
+	// call skips a PENDING_CONSTRUCTION structure or a null builder (RW 0x8F0703)
 	static const int horde = kindIndex("HORDE");
 	(void)logic;
+	if (!builder)
+	{
+		return;
+	}
 	if (!built && isKind(structure, horde))
 	{
 		return;
 	}
 	for (auto &r : ai.build.inProgress)
 	{
-		if (r->state != 1 || r->producer != builder.getID())
+		if (r->state != 1 || r->producer != builder->getID())
 		{
 			continue;
 		}
@@ -2124,6 +2128,10 @@ void AIBaseBuilder::onStructureBuilt(GameLogic &logic, AISkirmishPlayer &ai, con
 		if (structure.getTemplate() && structure.getTemplate()->getName() == r->templateName)
 		{
 			r->state = 2;
+			if (r->unit)
+			{
+				++ai.build.units.queued;
+			}
 			return;
 		}
 	}

@@ -159,7 +159,7 @@ public:
 	// ZH ControlBar::processCommandUI: the press of the button in `slot`. Returns false when the slot has no usable button (counted, reported through ui messages).
 	// PORT-426: `shift` is Keyboard::isShift (RW 0x63F122, called at RW 0x940BB3). RW 0x940BC2..0x940BE2 turns it into the batch flag of
 	// MSG_QUEUE_UNIT_CREATE (RW 0x940C3E); the right press has carried the same state since lane HUD-6 (RW 0x940CD0).
-	bool pressButton(int slot, bool inPalantir, bool shift = false);
+	bool pressButton(int slot, bool inPalantir, bool shift = false, bool repeated = false);
 	// lane CAMPUI-1: the stance toggle's SetStance (RW 0x96F53C): MSG_CHANGE_STANCE with `stance` (a stance item of the Palantir's radial, a SET_STANCE button)
 	bool sendChangeStance(int stance, const char *site = "ControlBar:SET_STANCE");
 	// lane PORT-143 (the owner's P-25): RW 0x96F53C .. 0x96F567, the first half of the same SetStance: the ordered stance becomes the toggle button's own
@@ -269,6 +269,13 @@ private:
 	// preClickIndex or the bar's context/dirty state changes.
 	static bool usesToggleIndex(const CommandButton &b);
 	void applyPredictedToggle(const CommandButton &b, const Object *obj);
+	// PYSAGE 1.9.8.5 .bldgrp / .padsel / .bldext / .bldcan / .bldlvl (EnnorathSelectAllBuildings)
+	static int levelUpgradeTarget(const CommandButton *b);
+	static bool isActiveBuildingForGroup(const Object &o);
+	std::vector<Object *> collectLiveSelected() const;
+	bool allSelectedStructures(const std::vector<Object *> &liveSelected) const;
+	Object *findSelectedSameBuildingGroup(const std::vector<Object *> &liveSelected);
+	const CommandButton *findLevelUpgradeButton(Object &obj, int targetLevel, ButtonState *outState);
 	struct PendingToggle
 	{
 		int preClickIndex = 0;

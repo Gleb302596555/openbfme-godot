@@ -378,7 +378,7 @@ TEST_CASE("castle1: two identical worlds give the same hash every frame through 
 	CHECK(a[30] != c[30]);
 }
 
-TEST_CASE("castle1: stops S-950 .. S-952 are in the live report, and the unported crew notes S-951 at runtime")
+TEST_CASE("castle1: stops S-950 .. S-952 are in the live report, and a wall that FilterCrew takes is held as the prepared crew (PORT-296)")
 {
 	CastleFx f;
 	const GameLogic::Report rep = f.logic->report();
@@ -393,7 +393,7 @@ TEST_CASE("castle1: stops S-950 .. S-952 are in the live report, and the unporte
 		INFO(tag);
 		CHECK(found);
 	}
-	// a castle whose FilterCrew takes the wall: the wall joins the crew list and the unported preparation is noted
+	// a castle whose FilterCrew takes the wall: the wall joins the crew list and is prepared (PORT-296, RW 0x798397)
 	f.load("Object CCrewFortress\n  KindOf = IMMOBILE BASE_FOUNDATION CASTLE_CENTER\n  Behavior = CastleBehavior ModuleTag_castle\n    CastleToUnpackForFaction = Alpha Base_K\n"
 		   "    FilterValidOwnedEntries = ANY +STRUCTURE +BASE_FOUNDATION\n    FilterCrew = ANY +STRUCTURE\n    InstantUnpack = Yes\n  End\nEnd\n");
 	Object *c = f.castle("CCrewFortress", "Alice", 1000.0f, 1000.0f);
@@ -401,12 +401,14 @@ TEST_CASE("castle1: stops S-950 .. S-952 are in the live report, and the unporte
 	CastleBehavior *b = f.cb(c);
 	CHECK(b->crew().size() == 1);
 	CHECK(b->members().empty());
-	bool noted = false;
-	for (const std::string &line : f.logic->report().stops)
-	{
-		noted = noted || (line.rfind("[S-951]", 0) == 0 && line.find("0x798397") != std::string::npos && line.find("crew member") != std::string::npos);
-	}
-	CHECK(noted);
+	// RW 0x798398 / 0x7983A6 / 0x7983BC / 0x7983CF / 0x7983DA: the castle is its producer, it is held and the preparation shows
+	Object *crewWall = b->crew().empty() ? nullptr : f.byId(b->crew()[0]);
+	REQUIRE(crewWall != nullptr);
+	CHECK(crewWall->getProducerID() == c->getID());
+	CHECK(crewWall->isDisabledByType(DISABLED_HELD));
+	CHECK(crewWall->testModelCondition(CombatNames::modelCondition("PREPARING")));
+	CHECK(crewWall->testStatus((unsigned)CombatNames::status("UNSELECTABLE")));
+	CHECK(crewWall->testStatus((unsigned)CombatNames::status("DO_NOT_PICK_ME")));
 }
 
 TEST_CASE("castle1: PreBuiltList builds one instant structure per entry on the pad of that index (clamped; -2: the first free pad) for PreBuiltPlyr (RW 0x79C265 / 0x79A5EC / 0x79A518)")

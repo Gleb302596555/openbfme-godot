@@ -230,6 +230,7 @@ TEST_CASE("uber1: the Uber battle hashes as its pin vector in every frame with 1
 	const bool regen = regenEnv && *regenEnv == '1';
 	// Ambient movement: target idle wandering adds RNG draws and origin state,
 	// so these engine references are measured again for this simulation change.
+	// pin: the hand batch of 2026-11-23 (station-0, Windows MSVC: Locals 142-144, Ports 274 / 296 / 298) re-measured it once (OPENBFME_UBER1_REGEN=1); the one cause is Port 296's ActiveBody::crc of m_lastDamageAmount (the last damage record's + 0x20, new state hashed with its hit, PROCESS 15.5): one build with that line alone switched off matched the old vectors; the vector moves from frame 11
 	const std::vector<std::uint32_t> pin = readUberHashes("battle3000_40.hashes");
 	if (!regen)
 	{

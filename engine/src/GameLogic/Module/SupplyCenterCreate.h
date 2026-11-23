@@ -25,6 +25,7 @@ public:
 };
 
 // scalar deleting dtor RW 0x008BCF50
+// RW 0x008BCEF2 (dtor -> RW 0x008BCE1F)
 class SupplyCenterCreate : public BehaviorModule, public CreateModuleInterface
 {
 public:
@@ -45,6 +46,7 @@ private:
 // last (+ 0x14 - 1) down to 0 that has a ResourceGatheringManager (Player + 0x304) gets addSupplyWarehouse(object) (RW 0x8FAA31). Ennorath's supply rocks
 // (SupplyRocksPile*) are warehouses: without this the stoneworkers' harvesters found none. The xfer is the create module base's, as SupplyCenterCreate's.
 // scalar deleting dtor RW 0x008BD047
+// RW 0x008BCFE9 (dtor -> RW 0x008BCE1F)
 class SupplyWarehouseCreate : public BehaviorModule, public CreateModuleInterface
 {
 public:
