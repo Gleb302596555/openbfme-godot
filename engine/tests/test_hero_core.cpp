@@ -500,7 +500,7 @@ TEST_CASE("hero determinism: the same recruit / death / revive script gives the 
 // RW 0x68F37F is tier A to the decomp's Object::rva0028EC68 (the outermost container's tracker), as EmotionTrackerUpdate::requestEmotion does; what the emotion
 // does is S-1021 / S-1022 / S-1027's. S-854 is closed by PORT-233 (issue #556): the respawn health above 100 % raises the max health (RW 0x8C47F6), so the
 // port has no stop line for it any more; the row stays in docs/STOPS.md as closed
-TEST_CASE("hero stops: S-850 .. S-863 (but S-853, S-854, S-857 and S-862, closed) are reported and have a row in docs/STOPS.md")
+TEST_CASE("hero stops: S-850 .. S-863 (but S-853, S-857 and S-862, closed) are reported and have a row in docs/STOPS.md")
 {
 	const std::vector<std::string> lines = HeroSystem::stopLines();
 	std::ifstream in(std::string(OPENBFME_DOCS_DIR) + "/STOPS.md");
