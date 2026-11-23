@@ -9,7 +9,7 @@
 //
 // An exhaustive scan of every vtable slot of the class (main vtable RW 0xC678F4, UpgradeMux vtable RW 0xC677E0, update-interface
 // vtable RW 0xC67828) and the UpgradeMux helpers (RW 0x8D26BF / 0x8D278A / 0x8D286F) finds no reachable reader of data + 0xC. The
-// field is parsed-unused, the same verdict as Port 42 / S-7186 (ScoreKeeper victory rating, no reachable consumer).
+// field is parsed-unused, the same verdict as Port 42 / S-7907 (ScoreKeeper victory rating, no reachable consumer).
 //
 // The neighbouring behaviour these tests hold: the field is parsed into m_whichSpecialPower (the port keeps the parse line at
 // EmotionModules.cpp:108); the default is -1; and the fear pulses run identically regardless of the value, because the binary does

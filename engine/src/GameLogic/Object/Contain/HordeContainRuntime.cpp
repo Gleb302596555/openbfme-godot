@@ -5,6 +5,7 @@
 #include "GameLogic/Combat/CombatQueries.h"
 #include "GameLogic/ObjectFilterMatch.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
+#include "GameLogic/Object/Contain/TransportContainRuntime.h"
 #include "GameLogic/SnapshotXfer.h"
 #include "GameLogic/Module/HordeAIUpdate.h"
 #include "GameLogic/SimMath.h"
@@ -72,6 +73,7 @@ HordeContain::HordeContain(Thing *thing, const HordeContainBehaviorData *data)
 	}
 }
 
+// RW 0x00872BC5 (HordeContain::~HordeContain, called from scalar deleting destructor RW 0x8736EF)
 HordeContain::~HordeContain() = default;
 
 const char *HordeContain::movementStop()
@@ -86,6 +88,7 @@ const char *HordeContain::movementStop()
 		"explicit-goal validity check ignores the factory's footprint for that member until the mover clears the ignore (its ignore timer), whatever the member's position";
 }
 
+// RW 0x00872A69 (getModuleName -> "HordeContain"), RW 0x00872B24 (getModuleNameKey)
 void HordeContain::registerClasses(ModuleFactory &modules)
 {
 	for (const char *name : { "HordeContain", "HorseHordeContain" })
@@ -421,6 +424,112 @@ bool HordeContain::shadowWhileContainedAllowed() const
 	const Object *outer = getObject()->getContainedBy();
 	const ContainModuleInterface *c = outer ? outer->getContain() : nullptr;
 	return c ? c->shadowWhileContainedAllowed() : true;
+}
+
+// RW 0x0086C758 (contain slot 0x98, shared epilogue RW 0x0086C77A): rejects HORDE (template +0x115 bit 0x20),
+// otherwise applies TransportContain::isValidContainerFor (RW 0x86A002 -> OpenContain RW 0x86603B).
+bool HordeContain::isValidContainerFor(const Object &obj, bool checkCapacity, bool checkPath) const
+{
+	static const int kHorde = CombatNames::kindOf("HORDE");
+	static const int kTempDefected = ObjectTemplateInfoBuilder::objectStatusIndex("TEMPORARILY_DEFECTED");
+	static const int kChunkVendor = CombatNames::kindOf("CHUNK_VENDOR");
+	if (obj.isKindOf((unsigned)kHorde))
+	{
+		return false; // RW 0x86C75F .. 0x86C76A
+	}
+	if (kTempDefected >= 0 && obj.testStatus((unsigned)kTempDefected))
+	{
+		return false; // RW 0x86A01A
+	}
+	const TransportContainModuleData &td = m_data->horde.m_transport;
+	if (td.m_conditionForEntry != -1 && !getObject()->testModelCondition(td.m_conditionForEntry))
+	{
+		return false; // RW 0x86A02A
+	}
+	if (!OpenContain::openContainAllowsFor(*getObject(), td.m_open, true, obj))
+	{
+		return false; // RW 0x86A06A -> RW 0x86603B
+	}
+	(void)checkPath;
+	const int maxSlots = getSlotCapacity();
+	if (obj.isKindOf((unsigned)kChunkVendor) && td.m_canGrabStructure)
+	{
+		return getContainCount() < (unsigned)maxSlots; // RW 0x86A07D
+	}
+	const int slots = TransportContain::transportSlotCount(obj);
+	if (slots == 0)
+	{
+		return false;
+	}
+	if (!checkCapacity)
+	{
+		return true;
+	}
+	return (unsigned)((int)getContainCount() + slots) <= (unsigned)maxSlots; // RW 0x86A0C6
+}
+
+// RW 0x0086C8B9 (contain slot 0x68, DONOR BFME2 rva004697A8): forward to the outer container's slot 0x68 when this horde is contained.
+void HordeContain::onContainedAboutToTakeDamage(Object *rider, const void *damageSource, DamageInfo *info)
+{
+	Object *self = getObject();
+	Object *outer = self ? self->getContainedBy() : nullptr;
+	ContainModuleInterface *outerContain = outer ? outer->getContain() : nullptr;
+	if (outerContain)
+	{
+		outerContain->onContainedAboutToTakeDamage(rider, damageSource, info);
+	}
+}
+
+// RW 0x0087104A (contain slot 0x110): when (flags & 0x10) != 0, resolve and visit m_garrisonEntering IDs (RW 0x449681);
+// otherwise delegate to OpenContain::iterateContained semantics (RW 0x008666A1) over m_members.
+void HordeContain::iterateContained(const std::function<void(Object *)> &fn, unsigned flags)
+{
+	if (!fn)
+	{
+		return;
+	}
+	if ((flags & 0x10u) != 0)
+	{
+		GameLogic &logic = getObject()->logic();
+		const std::vector<ObjectID> entering(m_garrisonEntering.begin(), m_garrisonEntering.end());
+		for (ObjectID id : entering)
+		{
+			fn(logic.findObjectByID(id));
+		}
+		return;
+	}
+	if ((flags & 1u) == 0)
+	{
+		return;
+	}
+	if ((flags & 8u) != 0)
+	{
+		if (!m_members.empty())
+		{
+			auto cur = std::prev(m_members.end());
+			for (;;)
+			{
+				Object *o = *cur;
+				const bool done = (cur == m_members.begin());
+				auto prevIt = done ? m_members.begin() : std::prev(cur);
+				fn(o);
+				if (done)
+				{
+					break;
+				}
+				cur = prevIt;
+			}
+		}
+	}
+	else
+	{
+		for (auto it = m_members.begin(); it != m_members.end();)
+		{
+			Object *o = *it;
+			++it;
+			fn(o);
+		}
+	}
 }
 
 bool HordeContain::addToContain(Object *obj)
@@ -1104,7 +1213,7 @@ Object *HordeContain::combineWith(Object *target)
 	fresh->m_dirty = true;
 	fresh->updateFormation();
 	fresh->applyFormationModifiers();
-	// RW 0x87566B (slot 0x174) at RW 0x8769D4: the new horde's upgrades reach its members
+	// RW 0x87566B (contain slot 0x174; horde slot 0xBC thunk RW 0x0087737A) at RW 0x8769D4: the new horde's upgrades reach its members
 	for (Object *m : fresh->m_members)
 	{
 		m->friend_orUpgradeMask(made->getUpgradeMask());
@@ -1488,6 +1597,7 @@ void HordeContain::crc(StateHasher &h) const
 // The members as ids in contain order (the Objects block has made them), the core, then the crc's fields and the flags the crc leaves out. The stance's
 // MeleeBehavior (slot 0x260) is template data the stance selected: its configuration travels by value and a load keeps a copy (only its fields are read;
 // the AI's melee runtime is the AI update's, SAVE-4c). The pass, exit and attack statistics are the report's.
+// RW 0x008780E4 (primary slot 0x0C): native OpenBFME xfer (S-4190; formation identity byte +0x2C5 deferred under S-7520)
 void HordeContain::xfer(Xfer &x)
 {
 	XferVersion v{ 1, 2 }; // PORT-90: the inherited OpenContain sound state

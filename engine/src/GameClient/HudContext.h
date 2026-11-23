@@ -61,6 +61,9 @@ struct HudContext
 	// PORT-87: the unit voice a translator asks for one object (RW 0x83EAA0: RotWK's placement translator calls the voice picker RW 0x8DEDBB itself, with the
 	// builder alone and the click's world position, RW 0x8DD5FF). The HUD installs it (UnitVoiceResponse::pickAndPlay); empty: the post is counted, not dropped
 	std::function<void(int msgType, ObjectID object, const Coord3D &position)> playObjectVoice;
+	// PYSAGE 1.9.8.7 .hotkeys 0xF38490 / 0xF38510 (ennorath.option-hotkeys-1987): route 0x5F / 0xAB to InGameHeroSelect
+	std::function<void(bool noCamera)> selectNearestBuilder;
+	std::function<void()> selectAllHeroes;
 
 	const ControlBarSchemeStore *schemes = nullptr; ///< the control bar schemes (RW 0x721BA1)
 	const FormationAssistant *formations = nullptr;

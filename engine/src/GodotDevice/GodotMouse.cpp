@@ -59,9 +59,9 @@ void GodotMouse::loadCursorTable(ArchiveFileSystem &fs, const String &installRoo
 	else
 	{
 		auto arrow = m_cursorTable.find(kArrowCursorName);
-		if (arrow == m_cursorTable.end() || arrow->second.image.empty())
+		if (arrow == m_cursorTable.end() || arrow->second.texture.empty())
 		{
-			m_cursorErrors.push_back("mouse.ini: missing image for cursor Arrow");
+			m_cursorErrors.push_back("mouse.ini: missing texture for cursor Arrow");
 		}
 	}
 	// Target: RW 0x5EDC1F initializes and resets the mouse to cursor 2 (Arrow).
@@ -75,7 +75,7 @@ void GodotMouse::updateCursor(double delta, const std::string &wanted, float scr
 		return;
 	}
 	auto it = m_cursorTable.find(wanted);
-	if (it == m_cursorTable.end() || it->second.image.empty())
+	if (it == m_cursorTable.end() || it->second.texture.empty())
 	{
 		// Target: RW 0x4413E3 uses SetCursor(null) for Mouse.ini entries without a resource.
 		// Donor: BFME2 Win32Mouse.cpp::setCursor, RVA 0x41A83 (tier A).
@@ -100,8 +100,8 @@ void GodotMouse::updateCursor(double delta, const std::string &wanted, float scr
 	if (!set.loaded)
 	{
 		set.loaded = true;
-		// Donor: BFME2 Win32Mouse.cpp::initCursorResources, RVA 0x41BA6 (tier A); target call site RW 0x441506.
-		const std::string file = CursorFileName(it->second.image, dirs, direction);
+		// Donor: BFME2 Win32Mouse.cpp::initCursorResources, RVA 0x41BA6 (tier A); target RW 0x441506 reads CursorInfo::textureName (+0x28, Texture, RW 0xBF6108).
+		const std::string file = CursorFileName(it->second.texture, dirs, direction);
 		const std::string path = FindFileNoCase(m_cursorDir, file);
 		std::string error;
 		std::vector<std::uint8_t> bytes;

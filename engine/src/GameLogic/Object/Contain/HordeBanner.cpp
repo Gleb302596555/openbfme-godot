@@ -722,7 +722,7 @@ bool HordeContain::handOverBannerCarrier(Object &carrier, bool walksIn)
 	// RW 0x876431 -> RW 0x876394: the id (RW 0x8763A9: H + 0x26C = carrier + 0x74) before the contain takes the carrier in (RW 0x8763C9: the contain interface's
 	// slot 0x9C), so the join already knows which member the banner is. The morph (RW 0x87643F -> RW 0x86BF96 -> RW 0x89A5C5) runs inside the port's accept
 	// (bannerCarrierMorph), with the FX unless the combine's latch H + 0x2B4 is set (RW 0x876560)
-	m_bannerCarrier = carrier.getID();
+	m_bannerCarrier = carrier.getID(); // RW 0x00872AD2 (slot 0x120 setBannerCarrier); getter RW 0x00872ACB (slot 0x11C), resolved RW 0x00870655 (slot 0x118)
 	bool joined;
 	if (walksIn)
 	{

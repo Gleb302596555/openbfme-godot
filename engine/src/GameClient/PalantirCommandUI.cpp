@@ -35,6 +35,12 @@ std::string objectPortrait(const Object &obj)
 	{
 		return upgraded;
 	}
+	// PYSAGE 1.9.8.7 .wmfeat 0xF3A111 (hook RW 0x694F06, ennorath.portrait-upgrade): PortraitUpgrade's Portrait
+	upgraded = PortraitUpgrade::imageOf(obj, true);
+	if (!upgraded.empty())
+	{
+		return upgraded;
+	}
 	// RW 0x694F06 -> 0x73D0A3 -> 0x73CF31: the template's SelectPortrait (template +0x74)
 	const ThingTemplate *t = obj.getTemplate();
 	if (!t)

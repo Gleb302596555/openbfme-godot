@@ -14,7 +14,7 @@
 //         what was taken, Money::deposit(taken, receiver's ScoreKeeper, sound) (RW 0x7B18B8); then the giver's ScoreKeeper + 0x10 += taken (RW 0x79DD01) and
 //         the receiver's + 0xC += taken (RW 0x79DCE9).
 //   * RW 0x6264E1 does not compare the message's player with the giver, nor test that the two are allies: neither does this port.
-// INFERENCE (stop S-1922): Player + 0x754 is taken as the port's Player::isDefeated (which also covers + 0x35A).
+// TARGET FACT (Port 331, S-1922 closed): RW 0x6AAC4B (Player::isDefeated) reads byte [this + 0x754], matching Player::isDefeated().
 #pragma once
 
 class GameLogic;

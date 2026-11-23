@@ -79,6 +79,7 @@ class SpawnBehaviorInterface
 {
 public:
 	virtual ~SpawnBehaviorInterface() = default;
+	virtual bool maySpawnSelfTaskAI(float maxSelfTaskersRatio) const = 0;                     // slot 0 (RW 0x00862351)
 	virtual void onSpawnDeath(ObjectID deadSpawn, const DieModuleInterface::Event *info) = 0; // slot 1 (RW 0x862DAB)
 	virtual Object *getClosestSlave(const Coord3D *pos) = 0;                                  // slot 2 (RW 0x86292C)
 	virtual void orderSlavesToAttackTarget(Object *target, int maxShotsToFire, CommandSourceType source) = 0;     // slot 3 (RW 0x8637BE)
@@ -129,6 +130,13 @@ class SpawnBehavior : public UpdateModule, public UpgradeMux, public DieModuleIn
 public:
 	OBFME_MODULE_XFER(SpawnBehavior) // lane SAVE-4b
 	SpawnBehavior(Thing *thing, const SpawnBehaviorModuleData *data); // RW 0x862606
+	// RW 0x00862783 (~SpawnBehavior, via scalar deleting dtor 0x00863388): clears m_replacementFrames / m_spawnIDs
+	~SpawnBehavior() override = default;
+	// RW 0x008623E0 (primary vslot 1, loadPostProcess): calls UpdateModule::loadPostProcess (RW 0x4D0EAF -> 0x63F3BF) and UpgradeMux::loadPostProcess (RW 0x63F3BF) — no-op
+	void loadPostProcess() {}
+	// RW 0x00862772 (BehaviorInterface vslot 10 +0x28): null-preserving cast to UpgradeMux (+0x30);
+	// UpgradeMux slots: 11 getUpgradeActivationMasks RW 0x008624BD, 12/15 no-op RW 0x008624C8 (-> 0x9F3A3C),
+	// 13 requiresAllTriggers RW 0x008624D7 (+0x188), 14 requiresAllConflictingTriggers RW 0x008624E1 (+0x189)
 	UpgradeMux *getUpgrade() override { return this; }
 	DieModuleInterface *getDie() override { return this; }
 	DamageModuleInterface *getDamage() override { return this; }
@@ -137,6 +145,10 @@ public:
 	void onDie(const DieModuleInterface::Event &event) override;         // RW 0x862865
 	void onDamage(const DamageInfo &info) override;                      // RW 0x862EA3
 	void onBodyDamageStateChange(const DamageInfo *info, BodyDamageType oldState, BodyDamageType newState) override; // RW 0x863585
+	bool maySpawnSelfTaskAI(float maxSelfTaskersRatio) const override;                       // RW 0x00862351
+	// RW 0x00862EFA (SpawnExtraBase vslot 0 at +0x2C, BehaviorInterface vslot 42 RW 0x00862765): walks m_spawnIDs,
+	// filters objects with SlavedUpdateInterface (RW 0x8A4ED8), runs cb(obj, userData) until false (returns true if all pass)
+	bool iterateSlavedSpawns(int (*callback)(Object *, void *), void *userData) const;
 	void onSpawnDeath(ObjectID deadSpawn, const DieModuleInterface::Event *info) override;   // RW 0x862DAB
 	Object *getClosestSlave(const Coord3D *pos) override;                                  // RW 0x86292C
 	void orderSlavesToAttackTarget(Object *target, int maxShotsToFire, CommandSourceType source) override;     // RW 0x8637BE

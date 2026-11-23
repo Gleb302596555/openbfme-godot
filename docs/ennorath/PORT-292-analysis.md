@@ -123,3 +123,84 @@ The port carries `m_flankers` and `m_canFlank` in both crc and xfer but never re
 - **Поля:** `FIELD_GAPS.tsv` помечает `HordeContain.RanksToJustFreeWhenAttacking` (82 определения) и `HordeContain.LivingWorldOverloadTemplate` (21) как `parsed-unused`. Первый остаётся без поведенческого читателя по разбору PORT-81; у второго установлены два независимых читателя: запись кампании исправлена в этой ветке, оценка AI остаётся S-7518. Там же у `HorseHordeContain.LivingWorldOverloadTemplate` три определения: наследуемый accessor проверен синтетическим тестом кавалерии. Статус таблицы автоматически пересчитывается после landing, вручную её не менять.
 - **Функции:** исходный `RW_FUNCTION_MAP.tsv`, HordeContain depth 0, содержал 62 `none` и 4 `partial`; все 66 начал перечислены выше, но некоторые сравнения и вызовы пока открыты. На `origin/main` `c6cbb9a7a` карта показывает 58 `none` и 4 `partial` среди собственных функций: сравнительно с `d4a29087` ещё RW 0x86D3F3 и RW 0x86F9CA помечены `ported` после Local 101. Однако первый его вызывающий путь использует ENCLOSED вместо MOVING, а второй разрешает только портовый `membersEntering` и требует сопоставления множеств (см. строки выше). RW 0x86DF44 действительно перенесён Port 265, а RW 0x870D4E стал `ported` из-за цитаты в `Drawable.h` о retail-вызывающем, а не из-за переноса самого обхода HordeContain. Такие статусы карты не доказывают полную эквивалентность; вызывающая цепочка decal и клиентское событие остаются открыты. `none` тоже не доказывает отсутствие поведения; запись кампании и getter исправлены здесь, остальные пробелы разделены по областям и стопам.
 - **Кнопки:** `MATRIX.tsv` содержит записи об ордах и их способностях, но эта правка вызывается при победе кампании, а не отдельной кнопкой. Заявлять по ней закрытие какой-либо строки матрицы или эффект на атаку из RanksToJustFreeWhenAttacking нет оснований. Матрица здесь не меняется.
+## Local 149 (issue #882) — second pass over all 68 uncited own functions
+
+Every one of the 68 `HordeContain` own functions (56 depth-0 + 12 depth-1) still uncited in `docs/ennorath/RW_FUNCTION_MAP.tsv` after Port 292 was read from `game.dat` 2.01 (`rw.py dis`), mapped to its vtable slot (`0xC5B5F8` primary, `0xC5B480` Contain, `0xC5B1F8` HordeContainInterface), and classified below.
+
+### Depth 0 (56 functions)
+
+| RW start | Vtable / slot | Outcome | Port location or stop |
+|---|---|---|---|
+| `0x0086BD7D` | Horde `+0x244` | not ported (stop) | Saved rally position setter; shared factory-exit / `HordeAIUpdate` hand-off (`S-7519`, `#650`). |
+| `0x0086BD98` | Horde `+0x248` | not ported (stop) | Saved rally position consume-once getter (`S-7519`, `#650`). |
+| `0x0086BDC0` | Horde `+0xB4` | not ported (stop) | Member-only upgrade query delegating to slot `+0xB0` (`RW 0x86EC2D`); map-list caller `RW 0x693A9A` (`S-486`, `S-7505`). |
+| `0x0086BE2E` | Horde `+0x88` | not ported (stop) | Delegates to owner AI slot `+0x1C8` (`RW 0x662B58`); AI state predicate / caller unresolved (`S-7505`, `#650`). |
+| `0x0086BE49` | Horde `+0x8C` | not ported (stop) | Delegates to owner AI slot `+0x1CC` (`RW 0x662B6C`); AI state predicate / caller unresolved (`S-7505`, `#650`). |
+| `0x0086BE64` | Contain `+0x138` | not ported (stop) | `Weapon::isWithinAttackRange` (`RW 0x6CC653`) wrapper; caller & weapon-slot equivalence open (`S-7505`). |
+| `0x0086C0BC` | Horde `+0x194` | partial (stop) | Selection indicator colour (`RW 0x6916CD`, `-1` on null); disguise / controller branches in `S-2522` / `S-2456` / PR `#863`. |
+| `0x0086C192` | Horde `+0x20C` | not ported (stop) | Sets owner orientation (`RW 0x70C31E`), marks dirty, wakes update (`RW 0x850C32`); caller unresolved (`S-7505`). |
+| `0x0086C758` | Contain `+0x98` | **ported (Local 149)** | `HordeContain::isValidContainerFor` (`HordeContainRuntime.cpp`): rejects `HORDE`, delegates to `TransportContain` (`RW 0x86A002`) / `OpenContain::openContainAllowsFor` (`RW 0x86603B`). |
+| `0x0086C8B9` | Contain `+0x68` | **ported (Local 149)** | `HordeContain::onContainedAboutToTakeDamage` (`HordeContainRuntime.cpp`): forwards to `owner->getContainedBy()->getContain()` slot `+0x68`. |
+| `0x0086C8F2` | Primary `+0x04` | not ported (stop) | `loadPostProcess` formation-identity mismatch check & `toggleFormation`; persistent save state / pin impact (`S-7520`). |
+| `0x0086C9E7` | Horde `+0x200` | **cited (already ported)** | Returns `&m_splitHorde` (`data +0x1A4`): `HordeContain::hordeData()` (`HordeContainRuntime.h`). |
+| `0x0086C9F3` | Horde `+0x204` | **cited (already ported)** | Returns `&m_rankInfo` (`data +0x18C`): `HordeContain::hordeData()` (`HordeContainRuntime.h`). |
+| `0x0086CA78` | Horde `+0x208` | not ported (stop) | Wall / ramp cell `SiegeDockingBehavior` alignment (`S-1500`, `S-7505`). |
+| `0x0086D1FE` | Horde `+0x270` | not ported (stop) | `endMove`: idles members then horde AI if moving (`RW 0x664485` / `0x662A0E`); caller in HORDE locomotor special path (`RW 0x5E6FF4`, `S-084`, `#650`). |
+| `0x0086D438` | Horde `+0x148` | **cited partial** | `areAllMembersAttackingObject`: `AIHordePositionWaitState::update` (`AIAttackHordePosition.cpp`), horde-target contain order still open (`S-7505`). |
+| `0x0086D4CD` | Horde `+0x140` | not ported (stop) | `isAnyMemberAttackingObject` (OR quantifier over live AI members); shared member AI (`S-7505`). |
+| `0x0086D5BB` | Horde `+0x144` | not ported (stop) | `isAnyMemberAttacking` (AI slot `+0x1BC`); shared member AI (`S-7505`). |
+| `0x0086D7E6` | Horde `+0x1CC` | not ported (stop) | Climb-portal completion query (`AI +0x140`, goal type 4); HORDE locomotor special path (`RW 0x5E6CDB`, `S-084`, `#650`). |
+| `0x0086E13E` | Primary `+0x88` | not ported (stop) | Unindexed contained-member sweep (`assignSpotToUnit`); called from `onContaining` (`RW 0x872DB1`, `S-7505`). |
+| `0x0086F60A` | Horde `+0xE0` | not ported (stop) | Removes selection feedback via `Drawable` (`RW 0x672F0D`); client thread boundary & `onDelete` (`S-7505`, PR `#863`). |
+| `0x0086F6E1` | Horde `+0xD4` | not ported (stop) | Propagates `SELECTED` model condition (`RW 0x690B11`) and flushes local drawable (`RW 0x67449C`); `S-7181`, `S-7505`. |
+| `0x0086F7A3` | Horde `+0xDC` | not ported (stop) | Per-update member MOVING clear + primary slot `+0x80` (`RW 0x875F18`); called by `HordeAIUpdate::update` (`RW 0x89E40D`, `S-222`, `#650`). |
+| `0x0086F8BA` | Horde `+0xE8` | not ported (stop) | Speech-leader search (`Object +0x46C`) for script condition `TEAM_IS_LED_BY_UNIT` (ordinal 123, `S-1180`, `S-7505`). |
+| `0x0086F93F` | Horde `+0x9C` | not ported (stop) | Entering-member readiness predicate for `teamReady` (`RW 0x7A0A4F`, `S-1365`, `#755`). |
+| `0x0086FE0F` | Horde `+0x4C` | not ported (stop) | Random contained/entering member selection with logic RNG for `EmotionNugget` (`S-1021`, `S-7505`). |
+| `0x0086FEAD` | Horde `+0x54` | not ported (stop) | Most-experienced non-BANNER member for `PalantirCommandUI::objectPortrait` (`RW 0x694F16`, `S-760`, PR `#863`). |
+| `0x0086FFD2` | Horde `+0x64` | **ported (Local 149)** | `HordeContain::canSetFormation` (`HordeFormation.cpp`): counts live contained + entering members (`RW 0x008704DA`), checks `AlternateFormation` & `MinimumHordeSize`; wired into `MSG_HORDE_SET_FORMATION` (`RW 0x77BF40`). |
+| `0x00870655` | Horde `+0x118` | **cited (already ported)** | Resolves `m_bannerCarrier` via `findObjectByID` (`RW 0x449681`): `HordeBanner.cpp` / `HordeContainRuntime.cpp` / `SpecialAbilityModules.cpp`. |
+| `0x008707A0` | Horde `+0x190` | not ported (stop) | Visual average position across member drawables (`RW 0x68DB5B`); client presentation (`S-7505`, PR `#863`). |
+| `0x00870AEE` | Horde `+0x1C4` | not ported (stop) | 2D proximity check (`dist^2 <= 100`) for contained non-entering members; callers unverified (`S-7505`). |
+| `0x0087104A` | Contain `+0x110` | **ported (Local 149)** | `HordeContain::iterateContained` (`HordeContainRuntime.cpp`): `flags & 0x10` resolves/visits `m_garrisonEntering`; otherwise delegates to `OpenContain::iterateContained` (`RW 0x008666A1`) on `m_members`. |
+| `0x008710A8` | Horde `+0x1D4` | not ported (stop) | Appends portal path node to non-entering members (`AI +0x218`); HORDE locomotor special path (`RW 0x5E6EDA`, `S-084`, `#650`). |
+| `0x00871110` | Horde `+0x1EC` | not ported (stop) | Per-member `FXList::doFXObj` (`RW 0x4B1B5A`) for `DominateEnemySpecialPower` / `TeleportToCasterSpecialPower` (`S-6003`, `S-7505`). |
+| `0x00871184` | Horde `+0x228` | not ported (stop) | Consuming `takeLastAttacker` (`Body +0x4C`) across members for `AIGuardAttackAggressorState` (`RW 0x94C3E3`, `S-3802`, PR `#851`, `#685`). |
+| `0x0087159F` | Horde `+0x250` | not ported (stop) | Resets `m_canFlank` and clears `m_flankers` on attack-machine destruction (`RW 0x7414FC` / `0x741593`); new stop `S-7864` (`#650`, `S-582`). |
+| `0x00871844` | Primary `+0x20` | not ported (stop) | `HordeContain::onDelete`: selection feedback removal (`RW 0x86F60A`), `+0x270` cleanup, `OpenContain::onDelete` (`RW 0x86708F`); client boundary & lifecycle (`S-7505`). |
+| `0x00871F8B` | Horde `+0x1BC` | not ported (stop) | Dispatches contained members through `moveThroughPortalWithMicropath` (`RW 0x665777`); HORDE climb-portal (`RW 0x5E6CBB`, `S-084`, `S-1620`, `#650`). |
+| `0x00872A69` | Primary `+0x08` | **cited (plumbing)** | `getModuleName` (`"HordeContain"`): `HordeContain::registerClasses` (`HordeContainRuntime.cpp`). |
+| `0x00872A8D` | Horde `+0x174` | **cited (already ported)** | `setBannerCountdown` (`m_bannerCountdown = 1`): `HordeContain::expediteBannerRespawn` (`HordeContainRuntime.h`). |
+| `0x00872A9A` | Horde `+0x178` | **cited (already ported)** | `getBannerCountdown`: `HordeContain::expediteBannerRespawn` / `bannerCountdown` (`HordeContainRuntime.h`). |
+| `0x00872AAE` | Horde `+0x104` | **cited (already ported)** | `lastMemberEnteredFrame`: `HordeContainRuntime.h` / `HordeGarrisonLink.cpp` (fixed missing `RW ` prefix). |
+| `0x00872ACB` | Horde `+0x11C` | **cited (already ported)** | `bannerCarrier` getter: `HordeBanner.cpp` / `HordeContainRuntime.h`. |
+| `0x00872AD2` | Horde `+0x120` | **cited (already ported)** | `setBannerCarrier` setter: `HordeBanner.cpp::handOverBannerCarrier`. |
+| `0x00872AE7` | Horde `+0x12C` | **cited (already ported)** | `isGarrisoned`: `HordeContainRuntime.h` / `HordeGarrisonLink.cpp` (fixed missing `RW ` prefix). |
+| `0x00872AEE` | Horde `+0x16C` | **cited (already ported)** | `meleeTargetId` getter: `SquishCollide.cpp` (`HordeMemberCollide::onCollide`, `RW 0x8C0560` / `0x8C0576`). |
+| `0x00872AF5` | Horde `+0x198` | not ported (stop) | Stores `objectInitialHealth` (`+0x2A8`) for `createPayload` member trimming (`RW 0x695AD8` -> `RW 0x871C2B`); shared map-object / payload path (`S-149`). |
+| `0x00872B02` | Horde `+0x218` | **cited (plumbing)** | Interface `this - 0x11C` adjustment: `HordeContain::getHordeContainInterface` (`HordeContainRuntime.h`). |
+| `0x00872B24` | Primary `+0x10` | **cited (plumbing)** | `getModuleNameKey`: `HordeContain::registerClasses` (`HordeContainRuntime.cpp`). |
+| `0x00872B76` | Horde `+0x128` | **cited (already ported)** | Clears `m_garrisoned` and wakes update: `HordeContain::setGarrisoned` (`HordeContainRuntime.h` / `HordeGarrisonLink.cpp`, fixed missing `RW ` prefix). |
+| `0x00873262` | Horde `+0x21C` | not ported (stop) | Classifies contained members before/on/after invalid portal (`RW 0x668C05`); deferred in `AIWorld.cpp::notifyPathHasInvalidPortals` (`S-4852`). |
+| `0x0087545C` | Horde `+0x08` | not ported (stop) | Released-rank nearby-enemy member attack (`RanksToReleaseWhenAttacking` `+0x1B8`, `RW 0x701443` / `RW 0x66C536`); `S-7505`. |
+| `0x00875F18` | Primary `+0x80` | not ported (stop) | Applies rank `grantedWeaponConditions` / `revokedWeaponConditions`; only caller is `RW 0x86F7A3` from `HordeAIUpdate::update` (`#650`, `S-222`, `S-7505`). |
+| `0x008762DD` | Horde `+0x150` | not ported (stop) | Member busy-to-idle / idle check (`AI +0x1C4` / `+0x1B8`), called from `Object` `RW 0x68D2FE`; `S-7505`. |
+| `0x0087737A` | Horde `+0xBC` | **cited (already ported)** | This-adjusting thunk (`sub ecx, 0xfc; jmp 0x87566b`) to `onContainerUpgrade`: `HordeContainRuntime.cpp`. |
+| `0x008780E4` | Primary `+0x0C` | **cited partial** | `HordeContain::xfer` (`HordeContainRuntime.cpp`): native snapshot xfer (`S-4190`), formation identity byte `+0x2C5` deferred (`S-7520`). |
+
+### Depth 1 (12 functions)
+
+| RW start | Called from | Outcome | Port location or stop |
+|---|---|---|---|
+| `0x00690B11` | `0x0086F6E1` | not ported (stop) | `Object::onSelected` setting `SELECTED` model condition (`+0x120 bit 10`) and recursing into horde slot `+0xD4` (`S-7181`). |
+| `0x00691F2A` | `0x0086DC6B`, `0x00875847` | **cited (already ported)** | `std::list::size()` on contained list: `HordeContainCore::getSlotWorldPos` (`HordeContainCore.cpp`). |
+| `0x0085D1F9` | `0x0086CA78` | not ported (stop) | `BfmeThingBQA::bfmeGoBQA` wall-cell query helper (`S-1500`). |
+| `0x008666A1` | `0x0087104A` | **ported (Local 149)** | `OpenContain::iterateContained` (`OpenContainRuntime.cpp`): forward/reverse traversal of `m_contained` by `flags & 1` / `flags & 8`. |
+| `0x0086C0CE` | `0x0086C0BC` | not ported (tail) | Shared `ret 4` epilogue of `RW 0x0086C0BC` (`S-2522` / `S-2456`). |
+| `0x0086C77A` | `0x0086C758` | **ported (Local 149)** | Shared `ret 0xc` epilogue of `RW 0x0086C758` (`HordeContain::isValidContainerFor`). |
+| `0x0086C997` | `0x0086D056` | not ported (stop) | Applies module-data `AttributeModifiers` (`+0x22C`) to one joining member (`RW 0x68F1A8`); joining-member path (`S-1600`). |
+| `0x0086DA02` | `0x00872D0A` | **cited partial** | Sets `PRIMARY_FORMATION` / `ALTERNATE_FORMATION` model conditions & `ALTERNATE_FORMATION` armor set (bit 5): `HordeFormation.cpp::applyFormationState` (initial `onContaining` `RW 0x872D62` call deferred under `S-589` to avoid shifting all horde `perf1`/`uber1` pins). |
+| `0x0087210B` | `0x00877751` | **cited (already ported)** | `std::vector<Slot>::reserve` in `HordeContainCore::buildSlots` (`HordeContainCore.cpp`). |
+| `0x00872BC5` | `0x008736EF` | **cited (lifecycle)** | `HordeContain::~HordeContain` (`HordeContainRuntime.cpp`). |
+| `0x00875619` | `0x0087566B` | not ported (stop) | Rank `UnitType` filter in `onContainerUpgrade` (`RW 0x87566B`) when arg2 (`unitType`) is non-null; all known ported callers (`RW 0x6938AA`, `0x875835`, `0x8769D2`) pass `nullptr` (`S-7505`). |
+| `0x008771B9` | `0x00878905` | **cited (already ported)** | `std::map<ObjectID, BackUpEntry>::operator[]` in `HordeContain::recordBackUp` (`HordeEmotion.cpp`). |

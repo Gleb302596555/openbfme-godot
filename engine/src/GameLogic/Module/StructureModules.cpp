@@ -693,6 +693,29 @@ void DelayedDeathBody::crc(StateHasher &h) const
 }
 
 // ---- SymbioticStructuresBody -----------------------------------------------------------------------------------------------------------------
+void SymbioticStructuresBody::setSymbiote(ObjectID id)
+{
+	if (m_symbioteId != INVALID_ID && m_symbioteId != id)
+	{
+		if (Object *oldObj = getObject()->logic().findObjectByID(m_symbioteId))
+		{
+			if (ActiveBody *oldBody = dynamic_cast<ActiveBody *>(oldObj->getBodyModule()))
+			{
+				if (oldBody->symbiotePartnerId() == getObject()->getID())
+				{
+					oldBody->setSymbiotePartner(INVALID_ID);
+				}
+			}
+		}
+	}
+	m_symbioteId = id;
+	if (m_symbioteId != INVALID_ID)
+	{
+		(void)symbioteBody(); // RW 0x008C4EE0: bind ActiveBody +0xEC back-reference immediately
+	}
+}
+
+// RW 0x008C4EE0 (refreshSymbiote): resolves symbiote object by ID (+0x104) and writes this object's ID into ActiveBody +0xEC
 BodyModuleInterface *SymbioticStructuresBody::symbioteBody() const
 {
 	if (m_symbioteId == INVALID_ID)
@@ -700,7 +723,85 @@ BodyModuleInterface *SymbioticStructuresBody::symbioteBody() const
 		return nullptr;
 	}
 	Object *o = getObject()->logic().findObjectByID(m_symbioteId);
-	return o ? o->getBodyModule() : nullptr;
+	BodyModuleInterface *b = o ? o->getBodyModule() : nullptr;
+	if (ActiveBody *ab = dynamic_cast<ActiveBody *>(b))
+	{
+		if (const Object *self = getObject())
+		{
+			ab->setSymbiotePartner(self->getID()); // RW 0x8C4F1D .. 0x8C4F29
+		}
+	}
+	return b;
+}
+
+// RW 0x008C5304 (primary vslot 1, loadPostProcess): find first object whose name equals m_symbiote (+0x64),
+// copy its transform (RW 0x70BA76), store its ID at +0x104, and sync model/dead/rubble/pathfind (RW 0x008C4CF4).
+void SymbioticStructuresBody::loadPostProcess()
+{
+	Object *self = getObject();
+	if (!self)
+	{
+		return;
+	}
+	GameLogic &logic = self->logic();
+	if (m_symbioticData && !m_symbioticData->m_symbiote.empty())
+	{
+		for (Object *o = logic.getFirstObject(); o; o = o->getNextObject())
+		{
+			if (o->getName() == m_symbioticData->m_symbiote)
+			{
+				self->setTransform(o->getPosition(), o->getBasis()); // RW 0x8C5371 -> 0x70BA76
+				m_symbioteId = o->getID();                           // RW 0x8C537B
+				break;
+			}
+		}
+	}
+	syncFromSymbiote(); // RW 0x8C5388 -> 0x008C4CF4
+}
+
+// RW 0x008C4CF4 (syncFromSymbiote): copies symbiote's model conditions (RW 0x5E3BA5), sets effectivelyDead from
+// getHealth() <= 0 (RW 0x68D950), updates geometry height & NO_COLLISIONS for RUBBLE vs live (RW 0x8C4D4F..0x8C4DBA),
+// and re-enters the object in the pathfinder map (RW 0x6E85FB / 0x6E85E9).
+void SymbioticStructuresBody::syncFromSymbiote()
+{
+	if (m_symbioteId == INVALID_ID)
+	{
+		return;
+	}
+	Object *self = getObject();
+	if (!self)
+	{
+		return;
+	}
+	GameLogic &logic = self->logic();
+	Object *symbiote = logic.findObjectByID(m_symbioteId);
+	if (!symbiote)
+	{
+		return;
+	}
+	Object::ModelConditionBits emptyClear{};
+	self->clearAndSetModelConditionFlags(emptyClear, symbiote->getModelConditionBits()); // RW 0x8C4D28 -> 0x5E3BA5 -> 0x68D607
+	self->friend_setEffectivelyDead(getHealth() <= 0.0f);                                // RW 0x8C4D31 .. 0x8C4D45 -> 0x68D950
+	const BodyDamageType dmgState = getDamageState();                                    // RW 0x8C4D4F
+	const ThingTemplate *tt = self->getTemplate();
+	if (dmgState == BODY_RUBBLE)
+	{
+		const std::int8_t tplRubble = tt ? tt->structureRubbleHeight() : 0; // RW 0x8C4D7D: movsx byte [tt + 0x607]
+		const float rubbleHeight = tplRubble > 0 ? static_cast<float>(tplRubble) : logic.settings().defaultStructureRubbleHeight; // RW 0x8C4D8B..0x8C4DA2
+		self->setGeometryMaxHeight(rubbleHeight);                                        // RW 0x8C4DAE -> 0x68B2CB
+		self->setStatus((unsigned)CombatNames::statuses().noCollisions, true);           // RW 0x8C4DB3..0x8C4DBA -> 0x62684D(4, 1)
+	}
+	else
+	{
+		const float maxH = tt ? ObjectGeometry::maxHeightAbovePosition(ObjectGeometry::cachedShapesOf(*tt->getFinalOverride())) : 0.0f;            // RW 0x8C4D63 -> 0xAD1920
+		self->setGeometryMaxHeight(maxH);                                                // RW 0x8C4D6E -> 0x68B2CB
+		self->setStatus((unsigned)CombatNames::statuses().noCollisions, false);          // RW 0x8C4D73..0x8C4DBA -> 0x62684D(4, 0)
+	}
+	if (AIWorld *world = logic.aiWorld(); world && world->mapReady())
+	{
+		world->removeObjectFromPathfindMap(*self); // RW 0x8C4DCA -> 0x6E85FB
+		world->addObjectToPathfindMap(*self);      // RW 0x8C4DDA -> 0x6E85E9
+	}
 }
 
 // RW 0x008C4F2D
@@ -708,6 +809,18 @@ float SymbioticStructuresBody::getHealth() const
 {
 	BodyModuleInterface *b = symbioteBody();
 	return b ? b->getHealth() : 0.0f;
+}
+// RW 0x008C4EA4 (body vslot +0x14)
+float SymbioticStructuresBody::getHealthPercent() const
+{
+	BodyModuleInterface *b = symbioteBody();
+	return b ? b->getHealthPercent() : 0.0f;
+}
+// RW 0x008C4F84 (body vslot +0x70)
+float SymbioticStructuresBody::getPreviousHealth() const
+{
+	BodyModuleInterface *b = symbioteBody();
+	return b ? b->getPreviousHealth() : 0.0f;
 }
 // RW 0x008C51EE
 float SymbioticStructuresBody::getMaxHealth() const
@@ -794,6 +907,83 @@ UnsignedInt SymbioticStructuresBody::lastDamageFrame() const
 {
 	BodyModuleInterface *b = symbioteBody();
 	return b ? b->lastDamageFrame() : 0xFFFFFFFFu;
+}
+// RW 0x008C5123 (body vslot +0x48)
+UnsignedInt SymbioticStructuresBody::getLastHealingFrame() const
+{
+	BodyModuleInterface *b = symbioteBody();
+	return b ? b->getLastHealingFrame() : 0xFFFFFFFFu;
+}
+// RW 0x008C519A (body vslot +0x4C)
+ObjectID SymbioticStructuresBody::takeLastAttacker()
+{
+	BodyModuleInterface *b = symbioteBody();
+	return b ? b->takeLastAttacker() : INVALID_ID;
+}
+// RW 0x008C501C (body vslot +0x3C)
+std::uint32_t SymbioticStructuresBody::getArmorSetFlags() const
+{
+	BodyModuleInterface *b = symbioteBody();
+	return b ? b->getArmorSetFlags() : 0u;
+}
+// RW 0x008C53AF (body vslot +0xA0): applies symbiote's damage state model conditions to this object (RW 0x6903B6)
+void SymbioticStructuresBody::onSymbioteDamageStateChanged(BodyDamageType newState)
+{
+	Object *self = getObject();
+	if (!self)
+	{
+		return;
+	}
+	Object::ModelConditionBits clear{}, set{};
+	const int damaged = CombatNames::modelCondition("DAMAGED");
+	const int really = CombatNames::modelCondition("REALLYDAMAGED");
+	const int rubble = CombatNames::modelCondition("RUBBLE");
+	for (int bit : { damaged, really, rubble })
+	{
+		clear[(size_t)bit >> 5] |= 1u << (bit & 31);
+	}
+	const int on = newState == BODY_DAMAGED ? damaged : newState == BODY_REALLYDAMAGED ? really : newState == BODY_RUBBLE ? rubble : -1;
+	if (on >= 0)
+	{
+		set[(size_t)on >> 5] |= 1u << (on & 31);
+	}
+	self->clearAndSetModelConditionFlags(clear, set); // RW 0x8C53BF -> 0x6903B6
+}
+// RW 0x008C53D0 (body vslot +0xA4): syncs from symbiote (RW 0x008C4CF4); at full health clears DAMAGED/REALLYDAMAGED/RUBBLE
+// (0x43..0x45) and UNDER_CONSTRUCTION (2) / RECONSTRUCTING (0x15); when playHealFx is true plays HealingBuffFx (+0x48).
+void SymbioticStructuresBody::onSymbioteHealthChanged(float, bool playHealFx)
+{
+	syncFromSymbiote(); // RW 0x8C53E7 -> 0x008C4CF4
+	Object *self = getObject();
+	if (!self)
+	{
+		return;
+	}
+	if (getHealth() == getMaxHealth()) // RW 0x8C53EC .. 0x8C540A
+	{
+		Object::ModelConditionBits clear{}, emptySet{};
+		const int damaged = CombatNames::modelCondition("DAMAGED");       // 0x43
+		const int really = CombatNames::modelCondition("REALLYDAMAGED");  // 0x44
+		const int rubble = CombatNames::modelCondition("RUBBLE");         // 0x45
+		for (int bit : { damaged, really, rubble })
+		{
+			clear[(size_t)bit >> 5] |= 1u << (bit & 31);
+		}
+		self->clearAndSetModelConditionFlags(clear, emptySet); // RW 0x8C5421 -> 0x5E3B79
+		static const int kUnderConstruction = CombatNames::statuses().underConstruction; // 2
+		static const int kReconstructing = CombatNames::status("RECONSTRUCTING");        // 0x15
+		self->setStatus((unsigned)kUnderConstruction, false); // RW 0x8C542C -> 0x62684D(2, 0)
+		self->setStatus((unsigned)kReconstructing, false);    // RW 0x8C5437 -> 0x62684D(0x15, 0)
+	}
+	if (playHealFx && m_symbioticData) // RW 0x8C543C .. 0x8C5455
+	{
+		GameLogic &logic = self->logic();
+		const std::string &fx = m_symbioticData->m_healingBuffFxSet ? m_symbioticData->m_healingBuffFx : logic.settings().defaultUnitHealingBuffFxList;
+		if (FXEventLog::isFXName(fx))
+		{
+			logic.fxEvents().emit(FXEventLog::objectEvent(FXEvent::OBJECT_FX, "HealingBuffFx", logic.getFrame(), fx, *self)); // RW 0x4B1B5A
+		}
+	}
 }
 void SymbioticStructuresBody::crc(StateHasher &h) const
 {

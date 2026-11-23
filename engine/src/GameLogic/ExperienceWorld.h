@@ -75,6 +75,9 @@ public:
 	bool awardSkillPointsForDamage(Object &attacker, Object &victim, float fraction);
 	// RW 0x6AB0D0 (on the victim's player)
 	bool awardSkillPointsForLoss(Player &victimPlayer, Object *killer, Object &victim);
+	// PYSAGE 1.9.8.7 .wmfeat 0xF3A34C (ennorath.cant-earn-powerpoints): true when obj, its HORDE container,
+	// or a PASS_EXPERIENCE_TO_PRODUCER producer chain (up to 16 hops) carries KindOf CANT_EARN_POWERPOINTS.
+	static bool cantEarnPowerPoints(const Object *obj);
 
 	struct Counters
 	{
