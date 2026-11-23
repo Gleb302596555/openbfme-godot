@@ -231,6 +231,7 @@ TEST_CASE("uber1: the Uber battle hashes as its pin vector in every frame with 1
 	// Ambient movement: target idle wandering adds RNG draws and origin state,
 	// so these engine references are measured again for this simulation change.
 	// pin: the hand batch of 2026-11-23 (station-0, Windows MSVC: Locals 142-144, Ports 274 / 296 / 298) re-measured it once (OPENBFME_UBER1_REGEN=1); the one cause is Port 296's ActiveBody::crc of m_lastDamageAmount (the last damage record's + 0x20, new state hashed with its hit, PROCESS 15.5): one build with that line alone switched off matched the old vectors; the vector moves from frame 11
+	// pin: the fork's merge of upstream f24af7fe (2026-11-23: the rebuild sync with lane BLDGDEBRIS-1's siege side stages, VISIONDEF-1's per-object vision ground reference and HOVER-2; PR 353 / 354 not taken) re-measured once on the merged tree (OPENBFME_UBER1_REGEN=1, Windows MSVC, station-0); an upstream merge is its own cause (PROCESS 7.5)
 	const std::vector<std::uint32_t> pin = readUberHashes("battle3000_40.hashes");
 	if (!regen)
 	{

@@ -4,9 +4,9 @@ FactionArnor	436	100	1	LEFT-WORLD 1	6
 FactionDwarves	425	73	2	NO-EFFECT 2	3
 FactionElves	321	97	3	NO-EFFECT 1, GREY-BUG 1, NO-SEND 1	4
 FactionEvilmen	338	122	2	NO-SEND 2	2
-FactionImladris	504	93	3	NO-EFFECT 2, GREY-BUG 1	5
-FactionIsengard	239	84	12	FAIL 12	0
-FactionMen	501	76	7	GREY-BUG 4, NO-EFFECT 3	7
+FactionImladris	504	92	4	NO-EFFECT 2, GREY-BUG 1, FAIL 1	5
+FactionIsengard	250	84	1	NO-RULE 1	0
+FactionMen	501	76	7	FAIL 4, NO-EFFECT 3	7
 FactionMordor	429	83	2	NO-EFFECT 1, NO-FIRE 1	5
 FactionRohan	538	91	7	NO-EFFECT 4, NO-SEND 3	25
 FactionWild	392	68	1	NO-EFFECT 1	4

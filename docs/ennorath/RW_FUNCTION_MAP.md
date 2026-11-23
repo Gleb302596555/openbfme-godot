@@ -2,7 +2,7 @@
 
 Command: `python tools/mod/rw_function_map.py --game /content/game_assets/bfme_assets/RotWK/game.dat --ini /content/drive/MyDrive/for-arena/ennorath-ini-1.9.8.7.zip --inventory workspace/rebuild_inventory.json --decomp workspace/rebuild/xmap/rw_map.csv --out docs/ennorath/RW_FUNCTION_MAP`
 
-Rows: 52638; ported 33758, partial 648, none 3781, library 14451.
+Rows: 52638; ported 33766, partial 647, none 3774, library 14451.
 library: code the port replaces wholesale (STL, strings, the C runtime, the Lua VM, compiler-generated destructors, the INI / Xfer
 infrastructure): tools/mod/rw_library_functions.tsv, made by tools/mod/rw_library_functions.py; a citation still wins (ported).
 Counts are per module/function pair, not unique functions.
@@ -4531,8 +4531,6 @@ calls; their targets are not followed.
 | FireWeaponWhenDeadBehavior | 508 | 3 | 0x004380C0 | 12 | library | _bfme_debugRecordCallsite (tier D) |
 | FireWeaponWhenDeadBehavior | 508 | 3 | 0x007AEAFD | 2 | library | SecondBase005D2111::~SecondBase005D2111 (tier A) |
 | CastleMemberBehavior | 463 | 0 | 0x0079B68F | 65 | none | CastleMemberBehavior::mapLoadPostProcess (tier A) |
-| CastleMemberBehavior | 463 | 0 | 0x00797CA7 | 15 | none |  |
-| CastleMemberBehavior | 463 | 0 | 0x00797CF2 | 15 | none |  |
 | CastleMemberBehavior | 463 | 0 | 0x00798026 | 11 | library | CastleMemberBehavior::`scalar deleting destructor' (tier A) |
 | CastleMemberBehavior | 463 | 0 | 0x00660E31 | 10 | none |  |
 | CastleMemberBehavior | 463 | 0 | 0x00797CEC | 2 | none |  |
@@ -5154,10 +5152,7 @@ calls; their targets are not followed.
 | W3DFloorDraw | 375 | 4 | 0x00A3CE04 | 1 | library | __CxxThrowException@8 (tier A) |
 | W3DFloorDraw | 375 | 5 | 0x00406307 | 28 | library | D::StringBase<>::compare (tier A) |
 | W3DFloorDraw | 375 | 7 | 0x00A3D01A | 1 | library | _strncat (tier A) |
-| RespawnUpdate | 363 | 0 | 0x008B32C4 | 15 | none | RespawnUpdate::getModuleNameKey (tier B) |
-| RespawnUpdate | 363 | 0 | 0x008B319D | 14 | none |  |
 | RespawnUpdate | 363 | 0 | 0x008B332D | 11 | library | EnragedBehavior::`scalar deleting destructor' (tier A) |
-| RespawnUpdate | 363 | 0 | 0x008B3309 | 2 | none |  |
 | RespawnUpdate | 363 | 1 | 0x00435D50 | 42 | library |  |
 | RespawnUpdate | 363 | 1 | 0x004374E0 | 30 | library | D::StringBase<>::StringBase<> (tier A) |
 | RespawnUpdate | 363 | 1 | 0x0061B379 | 9 | none | CreateAHeroManager::GetButtonImageName (tier A) |
@@ -7152,7 +7147,6 @@ calls; their targets are not followed.
 | CastleBehavior | 126 | 0 | 0x00797D86 | 50 | none | Rva0039585A::mapLoadPostProcess (tier A) |
 | CastleBehavior | 126 | 0 | 0x00799CA5 | 41 | none | Rva00397791::rva00397791 (tier A) |
 | CastleBehavior | 126 | 0 | 0x0079AA5C | 15 | none | CastleBehavior::rva0003955DA (tier A) |
-| CastleBehavior | 126 | 0 | 0x00797BCF | 11 | none | Rva003956E8::loadPostProcess (tier A) |
 | CastleBehavior | 126 | 0 | 0x0079B865 | 11 | library | CastleBehavior::`scalar deleting destructor' (tier A) |
 | CastleBehavior | 126 | 0 | 0x00862772 | 6 | none |  |
 | CastleBehavior | 126 | 0 | 0x0079AAA1 | 2 | none |  |
@@ -7169,7 +7163,6 @@ calls; their targets are not followed.
 | CastleBehavior | 126 | 2 | 0x004374E0 | 30 | library | D::StringBase<>::StringBase<> (tier A) |
 | CastleBehavior | 126 | 2 | 0x006F1FED | 19 | library | $$CBHURva002F0B8AElement::HU?$pair::_Rb_tree<>::~_Rb_tree<> (tier D) |
 | CastleBehavior | 126 | 2 | 0x00798DDE | 19 | none |  |
-| CastleBehavior | 126 | 2 | 0x006461CA | 16 | none | PAVDrawable::_List_base<>::_List_base<> (tier A) |
 | CastleBehavior | 126 | 2 | 0x006CF86E | 16 | library |  |
 | CastleBehavior | 126 | 2 | 0x0044A2A5 | 15 | library | BfmeWideResult::~BfmeWideResult (tier A) |
 | CastleBehavior | 126 | 2 | 0x0068D8A8 | 15 | none | Object::rva0028D253 (tier A) |
@@ -7189,7 +7182,6 @@ calls; their targets are not followed.
 | CastleBehavior | 126 | 3 | 0x005E0A39 | 28 | library | QBVGameWindow::U?$pair::hashtable<>::begin (tier A) |
 | CastleBehavior | 126 | 3 | 0x006799A2 | 28 | none |  |
 | CastleBehavior | 126 | 3 | 0x00678816 | 27 | partial |  |
-| CastleBehavior | 126 | 3 | 0x00798344 | 27 | partial |  |
 | CastleBehavior | 126 | 3 | 0x00825C45 | 26 | none | CrowdResponseTemplate::getCrowdResponseDataForThreshold (tier A) |
 | CastleBehavior | 126 | 3 | 0x008E3B71 | 26 | none | Rva004DF7DB::rva004DF7DB (tier A) |
 | CastleBehavior | 126 | 3 | 0x0067A343 | 25 | none |  |

@@ -33,8 +33,9 @@
 //     slot 0x258, RW 0x872B9E, module data + 0x274) override when that value is above 0 (RW 0x694B82 .. 0x694B8B / 0x694BB2), lane PORT-25.
 //   * getShroudClearingRange RW 0x68E4E2: ShroudClearingRange (object + 0x1B4) * (1 + the vision attribute modifier 0x14), the geometry's bounding radius
 //     (+ 0xB8) while UNDER_CONSTRUCTION, then times 1 + clamp((z - groundRef) * VisionBonusPercentPerFoot, MinVisionBonusPercent, MaxVisionBonusPercent)
-//     when VisionBonusPercentPerFoot > 0; groundRef (object + 0x1C4, RW 0x69264D) is the mean ground height of VisionBonusTestSegments points on a circle of
-//     VisionBonusTestRadius around the object, recomputed when its integer position changes.
+//     when VisionBonusPercentPerFoot > 0; groundRef is the object's + 0x1C4 (Object::visionGroundReference, lane VISIONDEF-1): its z at its first move,
+//     then the mean ground height of VisionBonusTestSegments points on a circle of VisionBonusTestRadius around it each time the pathfinder gives the
+//     unit a new position cell (RW 0x69355D / 0x69264D).
 //   * The status of an object for a player (RW 0xB4E890, through Object RW 0x68D8F7: 0 = always visible when the object has no record or is ALWAYS_VISIBLE):
 //     over the cells its geometry covers: none or all shrouded -> SHROUDED (4); some clear and some not -> PARTIAL_CLEAR (2); all clear -> CLEAR (1); else
 //     FOGGED (3), and FOGGED becomes SHROUDED when the object hides when fogged (RW 0x68EDD0: not DONT_HIDE_IF_FOGGED and a drawable, and either mobile or
@@ -105,8 +106,9 @@ public:
 	struct TemplateVision
 	{
 		float shroudClearingRange = 0.0f, visionSide = 1.0f, visionRear = 1.0f;
-		float bonusPerFoot = 0.0f, bonusTestRadius = 0.0f, maxBonus = 0.0f, minBonus = 0.0f;
-		int bonusTestSegments = 0;
+		// RW 0x73FB7A ThingTemplate constructor: +0x4CC 0, +0x4D0 0.5, +0x4D4 -0.5, +0x4D8 100.0, +0x554 8
+		float bonusPerFoot = 0.0f, bonusTestRadius = 100.0f, maxBonus = 0.5f, minBonus = -0.5f;
+		int bonusTestSegments = 8;
 		bool small = false;
 		ObjectGeometry::Shape shape; ///< the default shape when the template has no geometry row
 		// the channel rows (RW 0x68EC3B reads them directly: + 0x5EA BuildCost and + 0x5EE ThreatValue u16, + 0x540 ThreatRadius, + 0x5E4 CampnessValue,
@@ -134,8 +136,6 @@ public:
 	};
 
 	static TemplateVision templateVision(const ThingTemplate &finalOverride);
-	// RW 0x69264D: object + 0x1C4, the mean ground height of the VisionBonus test circle, recomputed only when the object's truncated integer position changed
-	float groundReferenceFor(const Object &obj, const TemplateVision &tv);
 
 	explicit ShroudManager(GameLogic &logic);
 	~ShroudManager();
@@ -277,9 +277,6 @@ private:
 		std::array<std::uint8_t, kMaxPlayers> status{};         ///< RW + 0x24 (0 = invalid)
 		std::array<std::uint8_t, kMaxPlayers> previous{};       ///< RW + 0x74
 		std::array<std::uint8_t, kMaxPlayers> seen{};           ///< RW + 0xC4
-		bool groundValid = false;                               ///< RW object + 0x418 / + 0x41C (the integer position) and + 0x1C4
-		int groundX = 0, groundY = 0;
-		float groundRef = 0.0f;
 		// lane UBER-3W (Uber only, derived, not hashed): templateVision of the template it was read for (prepareRecord read it for every processing: a
 		// geometry list built per record and frame, 1.2% of a one-thread 30,000-troop clash frame)
 		const ThingTemplate *tvTemplate = nullptr;

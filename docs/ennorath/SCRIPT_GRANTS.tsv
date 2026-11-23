@@ -409,8 +409,8 @@ science	SCIENCE_CloudBreakImladris	PLAYER_PURCHASE_SCIENCE	libraries\ai_men of t
 science	SCIENCE_CloudBreakMen	PLAYER_PURCHASE_SCIENCE	libraries\ai_men of the west\ai_men of the west.map	Men of the West Spell List 01 - Norm - Purchase Cloud Break	no	SCIENCE_CloudBreakMen	yes
 science	SCIENCE_CloudBreakMen	PLAYER_PURCHASE_SCIENCE	libraries\ai_men of the west\ai_men of the west.map	Men of the West Spell List 02 - Hard - Purchase Cloud Break	no	SCIENCE_CloudBreakMen	yes
 science	SCIENCE_CloudBreakMen	PLAYER_PURCHASE_SCIENCE	libraries\ai_men of the west\ai_men of the west.map	Men of the West Spell List 03 - Norm - Purchase Cloud Break	no	SCIENCE_CloudBreakMen	yes
-science	SCIENCE_COMMANDER_VIEW	PLAYER_SCIENCE_AVAILABILITY	libraries\multiplayer_human\multiplayer_human.map	Grant Powers	yes		yes
 science	SCIENCE_COMMANDER_VIEW	PLAYER_GRANT_SCIENCE	libraries\multiplayer_human\multiplayer_human.map	Grant Powers	yes		yes
+science	SCIENCE_COMMANDER_VIEW	PLAYER_SCIENCE_AVAILABILITY	libraries\multiplayer_human\multiplayer_human.map	Grant Powers	yes		yes
 science	SCIENCE_COMMANDER_VIEW	PLAYER_GRANT_SCIENCE	libraries\multiplayer_human\multiplayer_human.map	Imladris22	no		yes
 science	SCIENCE_Crebain	PLAYER_PURCHASE_SCIENCE	libraries\ai_men of the west\ai_men of the west.map	IS1.3__1	yes	SCIENCE_Crebain	yes
 science	SCIENCE_Crebain	PLAYER_PURCHASE_SCIENCE	libraries\ai_men of the west\ai_men of the west.map	Isengard Spell List 01 - Hard - Purchase Crebain	no	SCIENCE_Crebain	yes
@@ -777,8 +777,8 @@ science	SCIENCE_GandalftheWhite	PLAYER_PURCHASE_SCIENCE	libraries\ai_men of the 
 science	SCIENCE_GandalftheWhite	PLAYER_PURCHASE_SCIENCE	libraries\ai_men of the west\ai_men of the west.map	Men of the West Spell List 01 - Norm - Purchase Hobbit Allies	no	SCIENCE_GandalftheWhite	yes
 science	SCIENCE_GandalftheWhite	PLAYER_PURCHASE_SCIENCE	libraries\ai_men of the west\ai_men of the west.map	Men of the West Spell List 02 - Hard - Purchase Arrow Volley	no	SCIENCE_GandalftheWhite	yes
 science	SCIENCE_GandalftheWhite	PLAYER_PURCHASE_SCIENCE	libraries\ai_men of the west\ai_men of the west.map	Men of the West Spell List 03 - Norm - Purchase Tom Bombadil	no	SCIENCE_GandalftheWhite	yes
-science	SCIENCE_GENERAL_VIEW	PLAYER_SCIENCE_AVAILABILITY	libraries\multiplayer_human\multiplayer_human.map	Grant Powers	yes		yes
 science	SCIENCE_GENERAL_VIEW	PLAYER_GRANT_SCIENCE	libraries\multiplayer_human\multiplayer_human.map	Grant Powers	yes		yes
+science	SCIENCE_GENERAL_VIEW	PLAYER_SCIENCE_AVAILABILITY	libraries\multiplayer_human\multiplayer_human.map	Grant Powers	yes		yes
 science	SCIENCE_GesangLuthiens	PLAYER_PURCHASE_SCIENCE	libraries\ai_men of the west\ai_men of the west.map	Elves Spell List 01 - Norm - Purchase Enshrouding Mists	no	SCIENCE_GesangLuthiens	yes
 science	SCIENCE_GesangLuthiens	PLAYER_PURCHASE_SCIENCE	libraries\ai_men of the west\ai_men of the west.map	Elves Spell List 02 - Norm - Purchase Ent Allies	no	SCIENCE_GesangLuthiens	yes
 science	SCIENCE_GesangLuthiens	PLAYER_PURCHASE_SCIENCE	libraries\ai_men of the west\ai_men of the west.map	Elves Spell List 03 - Easy - Purchase Elven Wood	no	SCIENCE_GesangLuthiens	yes

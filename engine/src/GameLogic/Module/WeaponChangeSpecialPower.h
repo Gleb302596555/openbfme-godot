@@ -26,6 +26,8 @@
 //                       doSpecialPowerAtLocation, which the class does not override;
 //   0x4B612F            a static helper of the module data that builds a string from the constant RW 0xDC62B8 (RW 0x435F30) and returns its argument;
 //   0x464A09            returns the constant RW 0xBDBA8C, the SAME function in the other ModuleData table RW 0xC651C0: a shared data-class helper, not this class's.
+//   * the target / location forms (doSpecialPowerAtObject RW 0x8C82E2, doSpecialPowerAtLocation RW 0x8C82EE) forward the options to
+//     doSpecialPower and ignore the target (overrides below).
 
 #pragma once
 
