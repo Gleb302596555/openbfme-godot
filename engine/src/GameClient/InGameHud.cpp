@@ -3,6 +3,7 @@
 
 #include "Common/BfmeGame.h"
 #include "GameClient/InGameHud.h"
+#include "GameClient/MouseoverTooltip.h"
 #include "GameClient/BeaconClientUpdate.h"
 #include "Common/Audio/AudioEntryPoints.h"
 #include "GameClient/Eva.h"
@@ -239,6 +240,11 @@ InGameHud::~InGameHud()
 		m_config.game.setScriptLocalView(nullptr); // lane BFME2CAMP1
 	}
 	m_config.game.drawables().destroyClientDrawable(m_rallyPointDrawable);
+	// lane HOVER-2 (review #404): the shell's window manager outlives a shell-hosted HUD; its world tool tip must not stay over the score screen and the menus
+	if (m_wm)
+	{
+		m_wm->setWorldTooltip(std::u16string());
+	}
 	// lane SPELL-2 (review r2): an open spell store is a screen of the window manager below: it goes first, without sending its pending purchases
 	m_store.reset();
 	if (m_palantirRef)
@@ -274,6 +280,9 @@ bool InGameHud::boot(std::string *error)
 	{
 		m_errors.push_back("rally marker: " + (settingsError.empty() ? std::string("GameData has no DownwindAngle") : settingsError));
 	}
+	// lane HOVER-2: GameData's DebugAI, which the mouse-over tool tip reads (absent: reported by the tool tip, S-7187)
+	m_debugAI = gameData.debugAI;
+	m_haveDebugAI = gameData.haveDebugAI;
 	// lane CHAT-1: the message lines' InGameUI rows (data\ini\ingameui.ini + language.ini's MessageFont)
 	{
 		InGameUIMessageSettings ms;
@@ -379,6 +388,18 @@ bool InGameHud::boot(std::string *error)
 	}
 	// lane UI-4: the hero bar (InGameHeroSelect.h): AptPalantir::OnHeroSelectLoaded hands the movie's clip path (InGameHeroSelectInterface ctor RW 0x92DDE7)
 	m_heroSelect = std::make_unique<InGameHeroSelect>(m_input->context(), builderCycleTimeoutMs);
+	m_input->context().selectNearestBuilder = [this](bool noCamera) {
+		if (m_heroSelect)
+		{
+			m_heroSelect->selectNearestBuilder(noCamera);
+		}
+	};
+	m_input->context().selectAllHeroes = [this]() {
+		if (m_heroSelect)
+		{
+			m_heroSelect->selectAllHeroes();
+		}
+	};
 	m_config.game.drawables().setHeroAttackedHandler([this](ObjectID id) { m_heroSelect->onHeroAttacked(id); });
 	m_config.game.drawables().setDeselectHandler([this](ObjectID id) { m_input->ui().deselectObject(id); }); // TOP20 rampage (RW 0x6257E5)
 	m_input->ui().setSelectHandler([this](ObjectID id) { m_config.game.drawables().flashAsSelected(id); }); // LOCAL-3: RW 0x81DC79 / 0x81E0A7
@@ -668,6 +689,7 @@ void InGameHud::update(double seconds)
 		}
 	}
 	part(m_updateParts.input);
+	updateMouseoverTooltip(); // lane HOVER-2: after the translators set this frame's mouse-over hint
 	// lane INPUT-1: the SPELL_STORE meta (the ` key): RW 0x71C6AF closes the open store, else opens it (the Palantir's powers button path)
 	while (m_spellToggleSeen < m_input->ui().spellStoreToggles())
 	{
@@ -726,8 +748,8 @@ void InGameHud::update(double seconds)
 		local.skillPointsNext = sc.getSkillPointsLevelUp();
 		local.skillPointsThis = sc.getSkillPointsLevelDown();
 		local.storeOpen = m_store != nullptr;
-		// ControlBar RW 0x71FA12 (BFME2 decomp ControlBar.cpp, tier A): button i of the player's purchase set has a science the player does not
-		// own, has the prerequisites of and can pay for (RW 0x5FED5B). INFERENCE (S-923): the set is the template's PurchaseScienceCommandSet(MP), as the store's
+		// ControlBar RW 0x71FA12 -> RW 0x71F933 (Port 331, S-923 closed): PurchaseScienceCommandSetMP (+0x13C) in skirmish/MP else
+		// PurchaseScienceCommandSet (+0x138); button i has a science the player does not own, has the prerequisites of and can pay for (RW 0x5FED5B).
 		const CommandSet *set = (pt && TheCommandStore)
 			? TheCommandStore->findCommandSet(sc.mode().skirmishOrMultiplayer ? pt->m_purchaseScienceCommandSetMP : pt->m_purchaseScienceCommandSet)
 			: nullptr;
@@ -890,6 +912,44 @@ bool InGameHud::selectionRegionOp(const InGameUI &ui, IconUIOp &out)
 void InGameHud::noteJumpPosition(const Coord3D &position)
 {
 	m_radar->noteEvaPosition(position, m_config.game.logic().getFrame());
+}
+
+// lane HOVER-2: RW 0x69F637's tool tip (MouseoverTooltip.h) for the object under the pointer; over the HUD, while scrolling or selecting, while a script
+// has the input off (DISABLE_INPUT: no pointer, InGameUI::applyScriptInput) and with no object the request is empty (INFERENCE S-7187: ZH's window manager
+// clears it on every mouse event before createMouseoverHint runs).
+// The object: ZH's Mouse::createStreamMessages appends MSG_RAW_MOUSE_POSITION in every client frame ("basic position messages are always created"), so
+// the selection translator's hover pick (RW 0x83CC13) follows an object that moves under a still pointer. The port posts the position only when the
+// pointer moves (S-137), so the tool tip picks again here each frame with the translator's rule (HudObjects::pickForHover; a dead object only when
+// ALWAYS_SELECTABLE)
+void InGameHud::updateMouseoverTooltip()
+{
+	InGameUI &ui = m_input->ui();
+	UnicodeString text;
+	if (m_pointerSeen && !m_modal && ui.getInputEnabled() && !ui.scriptMouseHidden() && !ui.isScrolling() && !ui.isSelecting() &&
+		!isOverGui(m_pointerX, m_pointerY))
+	{
+		GameLogic &logic = m_config.game.logic();
+		const Object *obj = HudObjects::pickForHover(m_input->context(), { m_pointerX, m_pointerY });
+		if (obj && HudObjects::isEffectivelyDead(*obj) && !obj->isKindOfName("ALWAYS_SELECTABLE"))
+		{
+			obj = nullptr;
+		}
+		if (obj)
+		{
+			MouseoverTooltip::Inputs in;
+			in.localPlayer = m_config.game.players().getLocalPlayer();
+			in.networkGame = ui.networkGame();
+			in.debugAI = m_debugAI;
+			in.haveDebugAI = m_haveDebugAI;
+			const ICoord2D pixel{ m_pointerX, m_pointerY };
+			in.groundUnderPointer = [this, &logic, pixel](Coord3D &out) { return m_config.view.screenToTerrain(pixel, logic, out); };
+			MouseoverTooltip::Result r = MouseoverTooltip::compose(*obj, logic, m_config.gameText, in);
+			text = r.text;
+			m_mouseoverUnported.insert(r.unported.begin(), r.unported.end());
+		}
+	}
+	m_mouseoverTooltip = text;
+	m_wm->setWorldTooltip(text);
 }
 
 void InGameHud::updateRadarEvents()
@@ -1228,9 +1288,9 @@ void InGameHud::updateRadiusCursor()
 	m_radiusCursor.update(at, m_clientFrames, m_decalSettings.drawIconUI);
 }
 
-// RW 0x9312B9's slot pass: the spell book command set's visible buttons in order. INFERENCE (S-923): ControlBar::getCommandAvailability (RW 0x942733) for a
-// SPELL_BOOK button is taken as: hidden (3) while none of the power's sciences is owned; disabled (4) when the power cannot be used; not ready (5, with the
-// recharge percent) while it recharges; else available (1): _up, or _static for a NONPRESSABLE button
+// RW 0x9312B9's slot pass: the spell book command set's visible buttons in order. TARGET FACTS (Port 331, S-923 closed; ControlBar::getCommandAvailability
+// RW 0x942733 case 0x26 RW 0x943343..0x943407): hidden (3) while none of the power's sciences is owned; disabled (4) when the first owned required science is
+// disabled/hidden or the power cannot be used; not ready (5, with the recharge percent) while it recharges; else available (1): _up, or _static for NONPRESSABLE.
 void InGameHud::syncSpellBook()
 {
 	Player *local = m_config.game.players().getLocalPlayer();
@@ -1825,6 +1885,14 @@ std::vector<std::string> InGameHud::stops() const
 	std::vector<std::string> out = m_input->stops();
 	out.push_back("[S-6101] player message log: BFME2 recovered six-entry message, positioning and fade routines ported; independent RotWK display-routine verification remains outstanding");
 	out.push_back(DrawablePick::stopLine()); // lane QA-1: the HUD's pick is the drawn-model ray test, not S-284's geometry volumes
+	for (const std::string &l : MouseoverTooltip::acceptanceStops()) // lane HOVER-2
+	{
+		out.push_back(l);
+	}
+	for (const std::string &u : m_mouseoverUnported)
+	{
+		out.push_back("[S-7187] met: " + u);
+	}
 	out.push_back("[S-1201] context commands (lane QA-1): a click with a builder on our rising structure is MSG_RESUME_CONSTRUCTION, on our damaged finished structure "
 				  "MSG_DO_REPAIR (CommandTranslator::evaluateContextCommand), by ZH ActionManager::canResumeConstructionOf / canRepairObject (a DOZER of the same player); "
 				  "RotWK's ActionManager checks and the order of its context checks are not read");

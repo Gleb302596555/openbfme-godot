@@ -887,6 +887,21 @@ bool GarrisonContain::getNaturalRallyPoint(Coord3D &out) const
 // RW 0x0087CF74 (HordeGarrisonContain::onDie): no DieMux check; if shouldKillContainedOnDie (RW 0x0086588C) kills hordes & members (RW 0x00990F0A), else orders exit
 void GarrisonContain::onDie(const DieModuleInterface::Event &event)
 {
+	// PYSAGE 1.9.8.7 .wmfeat 0xF3A95F .. 0xF3A9B1 (hook RW 0x87CF94, ennorath.garrison-hero-survive):
+	// For a STRUCTURE GarrisonContain with !KillPassengersOnDeath, evacuate alive non-HORDE HERO passengers first.
+	if (ModEngineFeatures::has(ModEngineFeature::EnnorathGarrisonHeroSurvive) &&
+		!openData().m_killPassengersOnDeath && getObject() && getObject()->isKindOfName("STRUCTURE"))
+	{
+		const std::vector<Object *> riders(m_contained.begin(), m_contained.end());
+		for (Object *r : riders)
+		{
+			if (r && r->getBodyModule() && !r->isDestroyed() && !r->isEffectivelyDead() &&
+				!r->isKindOfName("HORDE") && r->isKindOfName("HERO") && r->getContainedBy() == getObject())
+			{
+				removeFromContain(r, false); // .wmfeat 0xF3A9A7 -> RW 0x87CDD6
+			}
+		}
+	}
 	if (!isHordeGarrison())
 	{
 		OpenContain::onDie(event);

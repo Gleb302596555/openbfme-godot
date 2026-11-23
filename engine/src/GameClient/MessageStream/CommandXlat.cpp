@@ -2,6 +2,7 @@
 // See CommandXlat.h.
 
 #include "GameClient/MessageStream/CommandXlat.h"
+#include "Common/ModEngineFeatures.h"
 #include "GameLogic/Module/StancesBehavior.h"
 
 #include "Common/Team.h"
@@ -1093,9 +1094,26 @@ MessageDisposition CommandTranslator::translate(const ClientMessage &msg)
 			case CMSG_META_SELECT_ALL:
 				selectAllUnits();
 				return MessageDisposition::Destroy;
+			case CMSG_META_SELECT_NEXT_WORKER:
+				// PYSAGE 1.9.8.7 .hotkeys 0xF38009 / 0xF38490 (ennorath.option-hotkeys-1987): route ETKeyBuilder (0x5F) to InGameHeroSelect::selectNearestBuilder
+				if (ModEngineFeatures::has(ModEngineFeature::EnnorathOptionHotkeys1987) && m_ctx.selectNearestBuilder)
+				{
+					m_ctx.selectNearestBuilder(false);
+					return MessageDisposition::Destroy;
+				}
+				m_retailNoOp[metaNameOf(t)]++;
+				return MessageDisposition::Keep;
+			case CMSG_META_SELECT_ALL_HEROES:
+				// PYSAGE 1.9.8.7 .hotkeys 0xF38510 (hook RW 0x81F983, ennorath.option-hotkeys-1987): route ETKeySelectAllHeroes (0xAB) to InGameHeroSelect::selectAllHeroes
+				if (ModEngineFeatures::has(ModEngineFeature::EnnorathOptionHotkeys1987) && m_ctx.selectAllHeroes)
+				{
+					m_ctx.selectAllHeroes();
+					return MessageDisposition::Destroy;
+				}
+				m_retailNoOp[metaNameOf(t)]++;
+				return MessageDisposition::Keep;
 			case CMSG_META_SELECT_NEXT_UNIT:
 			case CMSG_META_SELECT_PREV_UNIT:
-			case CMSG_META_SELECT_NEXT_WORKER:
 			case CMSG_META_SELECT_PREV_WORKER:
 				// lane HUD-4 (S-1673): RW 0x81F8D8 has no case for 0x5D .. 0x60: the message is kept and nobody acts on it
 				m_retailNoOp[metaNameOf(t)]++;

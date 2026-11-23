@@ -76,6 +76,10 @@ struct WeatherSetting
 	float hardwareFogEnd = 1500.0f;              ///< +0xA0
 	Coord2D cloudTextureSize{ 660.0f, 660.0f };  ///< +0xA4
 	Coord2D cloudOffsetPerSecond{ -0.012f, -0.018f }; ///< +0xAC
+
+	// RW 0x4E2521 (DONOR BFME2 W3DTerrainFXVectorParams.cpp:303 ScaleUVOffsetPerSecondUV):
+	// out = { 1 / cloudTextureSize.x, 1 / cloudTextureSize.y, cloudOffsetPerSecond.x, cloudOffsetPerSecond.y }.
+	void cloudScaleOffset(float out[4]) const;
 };
 
 // RW 0xC22CF8 order; RW 0xDB0074 is the same list for ChangeWeather

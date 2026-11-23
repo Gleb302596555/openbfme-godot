@@ -127,7 +127,7 @@ void HordeContainCore::buildSlots(bool fromScratch)
 	{
 		total += r.positions.size();
 	}
-	m_slots.reserve(total);
+	m_slots.reserve(total); // RW 0x0087210B (std::vector<Slot>::reserve, called at RW 0x8777AE)
 
 	for (const RankInfo &r : m_data.m_rankInfo)
 	{
@@ -452,7 +452,7 @@ Coord3D HordeContainCore::getSlotWorldPos(ObjectId member, const Placement &owne
 	if (idx >= 0 && (unsigned)idx < (unsigned)m_slots.size())
 	{
 		float ox, oy;
-		if (member == m_bannerCarrierId && m_members.size() == 1)
+		if (member == m_bannerCarrierId && m_members.size() == 1) // RW 0x00691F2A (list::size, called at RW 0x8758C0)
 		{
 			ox = 0.0f;
 			oy = 0.0f;

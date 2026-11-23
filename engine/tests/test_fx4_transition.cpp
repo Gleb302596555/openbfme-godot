@@ -386,7 +386,7 @@ TEST_CASE("fx4 bones: RandomBone draws the logic random among the drawable's bon
 	w.combat().setLaunchOffsets(nullptr);
 }
 
-TEST_CASE("fx4 save: the last damage record's type round-trips in ActiveBody's xfer version 5; versions 1 to 4 load with defaults")
+TEST_CASE("fx4 save: the last damage record's type round-trips in ActiveBody's xfer version 6; versions 1 to 5 load with defaults")
 {
 	FxWorld w;
 	Object *a = w.unit("TdfxProbe", 'B', 400, 300);
@@ -407,7 +407,7 @@ TEST_CASE("fx4 save: the last damage record's type round-trips in ActiveBody's x
 	XferSave saved;
 	ba->xfer(saved);
 	REQUIRE_FALSE(saved.data().empty());
-	CHECK(saved.data()[0] == 5); // includes the record's noEffect byte, PORT-293's last-healing frame and PORT-296's amount
+	CHECK(saved.data()[0] == 6); // the record's noEffect byte, PORT-293's last-healing frame, PORT-296's amount, upstream BLDGDEBRIS-1's side stage and values (24 bytes)
 	XferLoad load(saved.data());
 	bb->xfer(load);
 	REQUIRE(load.atEnd());
@@ -421,8 +421,16 @@ TEST_CASE("fx4 save: the last damage record's type round-trips in ActiveBody's x
 	XferSave again;
 	bb->xfer(again);
 	CHECK(again.data() == saved.data());
+	// version 5 (before upstream's side stage): without the trailing stage and four value / flag pairs (24 bytes)
+	std::vector<std::uint8_t> v5 = saved.data();
+	v5[0] = 5;
+	v5.resize(v5.size() - 24);
+	XferLoad oldV5(v5);
+	bc->xfer(oldV5);
+	REQUIRE(oldV5.atEnd());
+	CHECK(bc->sideStage() == 0);
 	// version 4 (before PORT-296): without the trailing amount (loads cleanly with the default zero); the noEffect byte and PORT-293's frame stay
-	std::vector<std::uint8_t> v4 = saved.data();
+	std::vector<std::uint8_t> v4 = v5;
 	v4[0] = 4;
 	v4.resize(v4.size() - 4);
 	XferLoad oldV4(v4);

@@ -123,6 +123,10 @@ public:
 		}
 		return any;
 	}
+	bool maySpawnSelfTaskAI(float maxSelfTaskersRatio) const override // slot 0 (RW 0x00862351)
+	{
+		return each([&](SpawnBehaviorInterface &s) { return s.maySpawnSelfTaskAI(maxSelfTaskersRatio); });
+	}
 	void onSpawnDeath(ObjectID deadSpawn, const DieModuleInterface::Event *info) override // slot 1 (0xEDC093)
 	{
 		each([&](SpawnBehaviorInterface &s) { s.onSpawnDeath(deadSpawn, info); return false; });
@@ -266,6 +270,58 @@ const SpawnBehaviorInterface *SpawnBehaviorInterface::of(const Object &obj)
 		}
 	}
 	return first;
+}
+
+// RW 0x00862351 (SpawnBehaviorInterface slot 0, maySpawnSelfTaskAI): false if m_spawnCount == 0,
+// maxSelfTaskersRatio == 0.0f, owner has no AI or AI lastCommandSource != CMD_FROM_AI (2);
+// else returns maxSelfTaskersRatio > (double)(unsigned)m_selfTaskingSpawnCount / (double)m_spawnCount.
+bool SpawnBehavior::maySpawnSelfTaskAI(float maxSelfTaskersRatio) const
+{
+	if (m_spawnCount == 0 || maxSelfTaskersRatio == 0.0f)
+	{
+		return false;
+	}
+	const Object *obj = getObject();
+	if (!obj)
+	{
+		return false;
+	}
+	const AIUpdateInterface *ai = obj->getAIUpdateInterface();
+	if (!ai || ai->lastCommandSource() != CMD_FROM_AI)
+	{
+		return false;
+	}
+	const double currentRatio = static_cast<double>(static_cast<unsigned>(m_selfTaskingSpawnCount)) / static_cast<double>(m_spawnCount);
+	return static_cast<double>(maxSelfTaskersRatio) > currentRatio;
+}
+
+// RW 0x00862EFA (SpawnExtraBase slot 0, reached via BehaviorInterface slot 42 RW 0x00862765):
+// walks m_spawnIDs, resolves each object (RW 0x449681), skips objects without SlavedUpdateInterface (RW 0x8A4ED8),
+// invokes callback(obj, userData) and returns false on the first 0 return, else true.
+bool SpawnBehavior::iterateSlavedSpawns(int (*callback)(Object *, void *), void *userData) const
+{
+	if (!callback)
+	{
+		return true;
+	}
+	const Object *owner = getObject();
+	if (!owner)
+	{
+		return true;
+	}
+	GameLogic &logic = owner->logic();
+	for (ObjectID id : m_spawnIDs)
+	{
+		Object *spawn = logic.findObjectByID(id);
+		if (spawn && spawn->slavedModule() != nullptr)
+		{
+			if (!callback(spawn, userData))
+			{
+				return false;
+			}
+		}
+	}
+	return true;
 }
 
 void SpawnBehavior::forEachSpawnID(const std::function<void(ObjectID)> &fn) const
@@ -934,6 +990,8 @@ void SpawnBehavior::crc(StateHasher &h) const
 	h.addU32((std::uint32_t)m_nextTemplateName);
 }
 
+// RW 0x00862752 (primary vslot 2, getModuleName -> "SpawnBehavior" 0xC0BCF4),
+// RW 0x0086270D (primary vslot 4, getModuleNameKey lazy cache).
 void SpawnBehavior::registerClass(ModuleFactory &modules)
 {
 	const char *name = "SpawnBehavior";

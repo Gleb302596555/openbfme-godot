@@ -263,7 +263,7 @@ ActiveBody	2	0x008C18AC	library	0x008C3AED
 ActiveBody	2	0x0090BE00	ported	0x008C3CB8			PBVModuleData::vector<>::push_back (tier A)
 ActiveBody	2	0x00917B0D	library	0x0044A2A5			
 ActiveBody	2	0x00936B7D	ported	0x006E85E9, 0x006E85FB			
-ActiveBody	2	0x00970ED8	partial	0x008C3CB8			PBVModuleData::vector<>::insert (tier A)
+ActiveBody	2	0x00970ED8	ported	0x008C3CB8			PBVModuleData::vector<>::insert (tier A)
 ActiveBody	2	0x00A39570	ported	0x0068B244			
 ActiveBody	2	0x00A3C4E0	ported	0x00A39340			
 ActiveBody	2	0x00A3CD14	library	0x00A3CE22, 0x00A3CE80, 0x00A3D28E			__SEH_prolog (tier A)
@@ -354,7 +354,7 @@ ActiveBody	3	0x0093496C	ported	0x00936B7D			Rva0052E001::rva0052E001 (tier A)
 ActiveBody	3	0x00934E34	ported	0x00936B7D			
 ActiveBody	3	0x00935FAA	ported	0x00936B7D			
 ActiveBody	3	0x00937D96	ported	0x00936B7D			PathfindZoneManager::MarkDirty (tier A)
-ActiveBody	3	0x00A34550	none	0x00970ED8		caller 0x00970ED8 (partial)	
+ActiveBody	3	0x00A34550	none	0x00970ED8		caller 0x00970ED8 (ported)	
 ActiveBody	3	0x00A39490	ported	0x00A3C4E0	vcall +0x8		
 ActiveBody	3	0x00A3A190	library	0x00A3C4E0			
 ActiveBody	3	0x00A3AD30	ported	0x00A3C4E0			
@@ -3521,7 +3521,7 @@ AttributeModifierPoolUpdate	5	0x0067866C	ported	0x0067876B
 AttributeModifierPoolUpdate	5	0x0068BB4B	ported	0x0062B921			Object::isInList (tier A)
 AttributeModifierPoolUpdate	5	0x00794353	library	0x005FFFBF			
 AttributeModifierPoolUpdate	5	0x00A340B0	library	0x0083228C			
-AttributeModifierPoolUpdate	5	0x00A34550	none	0x0083228C		caller 0x00970ED8 (partial)	
+AttributeModifierPoolUpdate	5	0x00A34550	none	0x0083228C		caller 0x00970ED8 (ported)	
 AttributeModifierPoolUpdate	5	0x00B4E390	ported	0x00B4FB20			
 AttributeModifierPoolUpdate	6	0x004355D0	library	0x00436030			
 AttributeModifierPoolUpdate	6	0x004A86AC	library	0x00645716, 0x006750FA, 0x00678578			Rva0036CA00Str::Rva0036CA00Str (tier A)
@@ -6048,7 +6048,7 @@ BuildingBehavior	2	0x0064A492	ported	0x00859206			ObjectHelper::~ObjectHelper (t
 BuildingBehavior	2	0x00672823	ported	0x008592F0	vcall +0xa8		
 BuildingBehavior	3	0x007AEAFD	library	0x0064A492			SecondBase005D2111::~SecondBase005D2111 (tier A)
 CastleBehavior	0	0x0063F3BF	ported	0x004D0EAF			Region3D::~Region3D (tier A)
-CastleBehavior	0	0x00797BCF	none			callee 0x006E85FB (ported), callee 0x008B88B0 (ported)	Rva003956E8::loadPostProcess (tier A)
+CastleBehavior	0	0x00797BCF	ported				Rva003956E8::loadPostProcess (tier A)
 CastleBehavior	0	0x00797D86	none			callee 0x00441B7C (ported), callee 0x00A3CEF0 (ported), callee 0x00B4D9A0 (ported)	Rva0039585A::mapLoadPostProcess (tier A)
 CastleBehavior	0	0x00798238	ported				
 CastleBehavior	0	0x00798F2B	ported				
@@ -6109,7 +6109,7 @@ CastleBehavior	2	0x004D0EAF	ported	0x008B88B0			UVBufferClass::~UVBufferClass (t
 CastleBehavior	2	0x006267C7	ported	0x0062684D, 0x007006D7			
 CastleBehavior	2	0x0062BBAB	ported	0x00683955, 0x0079AC19, 0x0079CCF2	vcall +0x18, vcall +0x220		
 CastleBehavior	2	0x00646148	none	0x0079B0F1		caller 0x0079B0F1 (ported), caller 0x0085D930 (ported), caller 0x008E31A4 (ported)	Rva002AAC74PoolList::destroy (tier A)
-CastleBehavior	2	0x006461CA	none	0x0079B0F1		caller 0x0079B0F1 (ported), caller 0x0085D930 (ported), caller 0x008E31A4 (ported)	PAVDrawable::_List_base<>::_List_base<> (tier A)
+CastleBehavior	2	0x006461CA	ported	0x0079B0F1			PAVDrawable::_List_base<>::_List_base<> (tier A)
 CastleBehavior	2	0x0064631C	library	0x0079B0F1			VRva0024076D::list<>::insert (tier A)
 CastleBehavior	2	0x00662552	ported	0x0068B53C			AIUpdateInterface::wakeUpNow (tier A)
 CastleBehavior	2	0x00665342	ported	0x0079ADE9			Object::getPlanarDirectionTo (tier A)
@@ -6275,7 +6275,7 @@ CastleBehavior	3	0x00756C70	ported	0x008DEDBB			Rva0035516C::rva0035516C (tier A
 CastleBehavior	3	0x0075D0B9	ported	0x008DEDBB			Rva0035B456Owner::rva0035B456 (tier A)
 CastleBehavior	3	0x0079664F	ported	0x0079C78C	vcall +0x0		
 CastleBehavior	3	0x00798177	none	0x00798177, 0x007985AA		caller 0x007985AA (ported)	
-CastleBehavior	3	0x00798344	partial	0x0079A237			
+CastleBehavior	3	0x00798344	ported	0x0079A237			
 CastleBehavior	3	0x007987C4	ported	0x00799440			Rva003962E7::rva003962E7 (tier A)
 CastleBehavior	3	0x007987EE	ported	0x0079B903	vcall +0x10		
 CastleBehavior	3	0x00799021	ported	0x0079B881, 0x0079B903			Rva00396B0D::rva00396B0D (tier A)
@@ -6852,7 +6852,7 @@ CastleBehavior	7	0x009618E3	ported	0x0090D16A			Rva00506FE9Hit::unRegisterWithBu
 CastleBehavior	7	0x009A0383	ported	0x009A0838			AIUnitBuilder::getAI (tier A)
 CastleBehavior	7	0x009A1BC0	ported	0x008F0BBC			Rva005996FF::unRegisterDozer (tier A)
 CastleBehavior	7	0x009BC76C	ported	0x0090D16A			Rva005AD99C::rva005AD99C (tier A)
-CastleBehavior	7	0x00A34550	none	0x00429900		caller 0x00970ED8 (partial)	
+CastleBehavior	7	0x00A34550	none	0x00429900		caller 0x00970ED8 (ported)	
 CastleBehavior	7	0x00A3BDB0	ported	0x00A39090			
 CastleBehavior	7	0x00A3C6F0	ported	0x00A39420	vcall +0xc		
 CastleBehavior	7	0x00A3CD70	library	0x00436680			
@@ -7083,9 +7083,9 @@ CastleMemberBehavior	0	0x0048DACD	ported
 CastleMemberBehavior	0	0x004D0EAF	ported				UVBufferClass::~UVBufferClass (tier A)
 CastleMemberBehavior	0	0x00660DC6	ported				
 CastleMemberBehavior	0	0x00660E31	none			callee 0x0070C4FE (ported)	
-CastleMemberBehavior	0	0x00797CA7	none			callee 0x005487EC (ported), callee 0x00A3CEF0 (ported)	
+CastleMemberBehavior	0	0x00797CA7	ported				
 CastleMemberBehavior	0	0x00797CEC	none				
-CastleMemberBehavior	0	0x00797CF2	none		vcall +0x28		
+CastleMemberBehavior	0	0x00797CF2	ported		vcall +0x28		
 CastleMemberBehavior	0	0x00798026	library				CastleMemberBehavior::`scalar deleting destructor' (tier A)
 CastleMemberBehavior	0	0x0079A0ED	ported				
 CastleMemberBehavior	0	0x0079B68F	none			callee 0x004065AA (ported), callee 0x0068BDA5 (ported), callee 0x00714E6D (ported), callee 0x00797AC1 (ported), callee 0x0079AC19 (ported), callee 0x0097338F (ported), callee 0x00A3CEF0 (ported)	CastleMemberBehavior::mapLoadPostProcess (tier A)
@@ -25978,7 +25978,7 @@ LargeGroupAudioUpdate	4	0x00762977	ported	0x006CD142, 0x006CD298			ObjectFilter:
 LargeGroupAudioUpdate	4	0x00828D5C	library	0x006D01C1			
 LargeGroupAudioUpdate	4	0x0082F0FF	library	0x004E64C2, 0x008EA106			_STL::PAPAXIPAX::fill_n<> (tier B)
 LargeGroupAudioUpdate	4	0x008EA106	library	0x004E64C2			
-LargeGroupAudioUpdate	4	0x00A34550	none	0x004E64C2		caller 0x00970ED8 (partial)	
+LargeGroupAudioUpdate	4	0x00A34550	none	0x004E64C2		caller 0x00970ED8 (ported)	
 LargeGroupAudioUpdate	5	0x00423450	library	0x00425280			
 LargeGroupAudioUpdate	5	0x00423470	library	0x00425280			
 LargeGroupAudioUpdate	5	0x00423FA0	library	0x00425280			_STL::_N::_Rb_global<>::_Rotate_left (tier A)
@@ -32562,9 +32562,9 @@ RespawnBody	10	0x006E8074	ported	0x0093450F, 0x009346AC
 RespawnBody	10	0x0093450F	ported	0x009346AC			MixFileInfoBuffer::bfmeLinkInto (tier A)
 RespawnBody	10	0x00A3CF96	ported	0x0070CB46			_atoi (tier A)
 RespawnUpdate	0	0x008B310D	ported				RespawnUpdate::getPercentReady (tier A)
-RespawnUpdate	0	0x008B319D	none		vcall +0x28		
-RespawnUpdate	0	0x008B32C4	none			callee 0x005487EC (ported), callee 0x00A3CEF0 (ported)	RespawnUpdate::getModuleNameKey (tier B)
-RespawnUpdate	0	0x008B3309	none				
+RespawnUpdate	0	0x008B319D	ported		vcall +0x28		
+RespawnUpdate	0	0x008B32C4	ported				RespawnUpdate::getModuleNameKey (tier B)
+RespawnUpdate	0	0x008B3309	ported				
 RespawnUpdate	0	0x008B330F	ported				
 RespawnUpdate	0	0x008B3313	ported				
 RespawnUpdate	0	0x008B332D	library				EnragedBehavior::`scalar deleting destructor' (tier A)

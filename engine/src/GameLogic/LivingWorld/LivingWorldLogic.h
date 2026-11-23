@@ -73,6 +73,7 @@ struct UnitInfo
 	int commandPoints = 0; // ThingTemplate CommandPoints
 	bool hero = false;     // KindOf HERO
 	bool createAHero = false; // lane WOTR-2: KindOf CREATE_A_HERO (0xBE: canBuildUnit WB 0xD98FE0 hides it without a Create-a-Hero profile)
+	bool cantEarnPowerPoints = false; // PYSAGE 1.9.8.7 .wmfeat 0xF3A40F (hook RW 0x8FE8C6): KindOf CANT_EARN_POWERPOINTS
 	int strength = 0;      // the HUD's army strength estimate (presentation: the BuildCost, a hero counts double; the AI does not read it)
 
 	// ---- autoresolve (lane WOTR-2; the ThingTemplate rows of the field table RW 0xDA3DF8) ----
@@ -322,6 +323,15 @@ struct BattleSpawn
 	std::vector<std::string> upgrades;
 	std::string spawnId; // the entry's + 0xD0, the object's + 0x480 (RW 0x80EDF1): the survivors' entries keep it
 };
+// Allied region award dispute (RW 0x900E58 / RW 0x6BB99F / RW 0x6BEE5B, Ennorath 1.9.8.4 / 1.9.8.5 .wtrdisp 0x00F2F078):
+// when two or more allied players occupy a newly conquered region, one deciding player chooses who receives it via MSG_LW_RESOLVE_REGION_AWARD_DISPUTE (0x6B7).
+struct RegionAwardDispute
+{
+	int region = -1;
+	std::vector<int> contenders; // distinct player indices in discovery order
+	bool resolved = false;
+};
+
 struct BattleSetup
 {
 	int battleIndex = -1;
@@ -578,6 +588,17 @@ public:
 	const std::vector<RegionState> &regions() const { return m_regions; }
 	const std::vector<Army> &armies() const { return m_armies; }
 	const std::vector<Battle> &battles() const { return m_battles; }
+	const std::vector<RegionAwardDispute> &awardDisputes() const { return m_awardDisputes; }
+	int hostPlayer() const { return m_hostPlayer; }
+	void setHostPlayer(int player) { m_hostPlayer = player; }
+	// RW 0x900E58 (RegionAwardDispute::getDecidingPlayerId) + PYSAGE 1.9.8.5 .wtrdisp 0x00F2F078 (hook RW 0x900EBA):
+	// 0 humans -> contenders[0]; 1 human -> that human; 2+ humans -> hostPlayer if among contenders, else -1 in retail 2.01
+	// or the first human contender under ennorath.wotr-8-players.
+	int disputeDecidingPlayer(const RegionAwardDispute &dispute) const;
+	// RW 0x6B68B3: true when any unresolved dispute names `player` as its deciding player.
+	bool hasUnresolvedDisputeForPlayer(int player) const;
+	// RW 0x6BEE5B -> RW 0x6BB99F (HandleResolveRegionAwardDispute): awards `region` to `recipient` if `sender` is the deciding player.
+	bool resolveRegionAwardDispute(int sender, int region, int recipient, std::string *error = nullptr);
 	// WOTR2 milestone 5: the notices recorded so far (not saved, not in the state hash; the host takes them after each update)
 	const std::vector<StrategicNotice> &notices() const { return m_notices; }
 	void clearNotices() { m_notices.clear(); }
@@ -778,6 +799,8 @@ private:
 	std::vector<RegionState> m_regions;
 	std::vector<Army> m_armies;
 	std::vector<Battle> m_battles;
+	std::vector<RegionAwardDispute> m_awardDisputes; // RW 0x6B68B3 / 0x6BB99F / 0x900E58
+	int m_hostPlayer = 0; // slot 0 (TheGameInfo->getConstSlot(0) at RW 0x900ED2)
 	std::vector<BattleSetup> m_pendingBattleSetups; // WOTR2 milestone 8: real-time votes the host has not taken yet (not saved: taken at once)
 	std::vector<StrategicEvent> m_events;
 	int m_turn = 0;

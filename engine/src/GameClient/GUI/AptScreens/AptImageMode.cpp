@@ -6,7 +6,10 @@
 
 AptImageMode parseAptImageMode(const std::string &mode)
 {
-	// 0x412AF3: the six (mode, name) pairs of C39814 .. C39844 with _strcmpi; no match or no value: ALPHA
+	// RW 0x815814 (BFME2 0x412AF3): the six (mode, name) pairs with _strcmpi; no match or no value: ALPHA.
+	// Verified in RotWK 2.01 (Port 331, S-5016 closed): W3DDisplay::drawImageCore (RW 0x44704F) maps 0->0 (OPAQUE),
+	// 1->3 (ALPHA+GRAY), 2->2 (ALPHA), 3->1 (ADDITIVE), 4->4 (OPAQUE+GRAY), 5->6 (SOLID_TEXTURE); Render2DClass::Render
+	// (RW 0x51A44D .. 0x51A5EA) applies Dot3 grey (TFACTOR 0x8092A587) for modes 3/4 and SOLID_TEXTURE alpha blend at RW 0x51A4D5.
 	static const struct
 	{
 		AptImageMode mode;

@@ -59,7 +59,7 @@ std::vector<FoldedName> buildFolded(const char *const *names)
 	return t;
 }
 
-const char *const *extendedNames()
+const char *const *edainNames()
 {
 	static const std::vector<const char *> table = [] {
 		std::vector<const char *> t;
@@ -75,17 +75,49 @@ const char *const *extendedNames()
 	return table.data();
 }
 
+const char *const *ennorathNames()
+{
+	static const std::vector<const char *> table = [] {
+		std::vector<const char *> t;
+		for (int i = 0; TheKindOfNames[i]; ++i)
+		{
+			t.push_back(TheKindOfNames[i]);
+		}
+		t.push_back("CANT_EARN_POWERPOINTS"); // bit 222 (PYSAGE 1.9.8.7 .wmfeat 0xF3A5C0, bounds 0xDF)
+		t.push_back(nullptr);
+		return t;
+	}();
+	return table.data();
+}
+
 const std::vector<FoldedName> &foldedNames()
 {
 	static const std::vector<FoldedName> retail = buildFolded(TheKindOfNames);
-	static const std::vector<FoldedName> extended = buildFolded(extendedNames());
-	return ModEngineFeatures::has(ModEngineFeature::EdainUnchainedHerobarKindOf) ? extended : retail;
+	static const std::vector<FoldedName> edain = buildFolded(edainNames());
+	static const std::vector<FoldedName> ennorath = buildFolded(ennorathNames());
+	if (ModEngineFeatures::has(ModEngineFeature::EdainUnchainedHerobarKindOf))
+	{
+		return edain;
+	}
+	if (ModEngineFeatures::has(ModEngineFeature::EnnorathCantEarnPowerPoints))
+	{
+		return ennorath;
+	}
+	return retail;
 }
 } // namespace
 
 const char *const *KindOfTokens::names()
 {
-	return ModEngineFeatures::has(ModEngineFeature::EdainUnchainedHerobarKindOf) ? extendedNames() : TheKindOfNames;
+	if (ModEngineFeatures::has(ModEngineFeature::EdainUnchainedHerobarKindOf))
+	{
+		return edainNames();
+	}
+	if (ModEngineFeatures::has(ModEngineFeature::EnnorathCantEarnPowerPoints))
+	{
+		return ennorathNames();
+	}
+	return TheKindOfNames;
 }
 
 int KindOfTokens::indexOf(std::string_view name)
