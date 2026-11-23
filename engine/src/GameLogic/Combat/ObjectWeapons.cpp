@@ -148,6 +148,7 @@ public:
 	// RW 0x6CA4B5); null when no GameData block of the load set named WeaponBonus, which is RW's own null test
 	const WeaponBonusSet *globalWeaponBonusSet() override { return m_w.owner().logic().settings().globalWeaponBonusSet.get(); }
 	// RW 0x6CEF6D (Weapon::privateFireWeapon) -> RW 0x6CF042: source->getAttributeModifierProduct(0x15, &factor, nullptr, true) (RW 0x68C82D).
+	// Both editions: BFME2 1.06 game.dat has the same call (push 0x15 at 0x6CE3DB -> 0x68C15E, the factor passed to getDelayBetweenShots 0x6C9322),
 	// Pure const read on the owner's pool (safe on the PERF-WS logic job pool).
 	float rateOfFireAttributeProduct() override
 	{
@@ -277,6 +278,7 @@ public:
 	Object &m_owner;
 	ObjectWeapons *m_set;
 	// RW 0x6CA61F (WeaponRangeScale) -> RW 0x6CA641: source->getAttributeModifierSum(7, &sum, nullptr) (RW 0x68C818).
+	// Both editions: BFME2 1.06 game.dat 0x6C98E2 is the same body (push 7, call 0x68C149 at 0x6C9904, scale = sum + 1.0f); RANGE is type 7 in both.
 	// Pure const read on the owner's pool (safe on the PERF-WS logic job pool).
 	bool rangeAttributeSum(float &sum) override { return m_owner.attributeModifierSum(ATTRIBUTE_RANGE, nullptr, sum); }
 	// lane GARRISON-1: GameData GarrisonedRangeMultiplier (RW + 0x1224; RW 0x6CA61F applies it when >= 0 and the source is INSIDE_GARRISON)

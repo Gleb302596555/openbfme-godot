@@ -7,7 +7,7 @@ Layer 2 (lint) flags verdicts the mod's own data contradicts; layer 3 lists ever
 By rule: L1 66, L4 3
 
 
-## Changes since 6bdf1f83: 17 buttons moved, 1 turned red
+## Changes since 2ffb0928: 17 buttons moved, 1 turned red
 
 - Imladris `LindonTower` `Command_PurchaseUpgradeLindonReinforcement`: DISABLED -> FAIL — DISABLED: disabled by model USER_8
 - Isengard `spell` `SpellBookBndnissderzweiTime`: FAIL -> PASS

@@ -244,6 +244,8 @@ public:
 	// or GBM_SELECTED_RIGHT (0x4009) to ControlBar.
 	static bool dispatchPalantirButtonPress(InGameHelpBox &helpBox, ControlBar &bar, int slot, bool inPalantir, bool shift = false);
 	static bool dispatchPalantirRightButtonPress(InGameHelpBox &helpBox, ControlBar &bar, int slot, bool inPalantir, bool shift = false);
+	// lane HOVER-2: the mouse-over tool tip of this frame (MouseoverTooltip.h; "" none), also handed to the window manager's world tool tip
+	const UnicodeString &mouseoverTooltip() const { return m_mouseoverTooltip; }
 	// lane DEVPORT-8 (FALSEDEF-1): ControlBar.wnd:WinUAttack, the window of the control bar's under-attack blink (ControlBar::AttackFlash; RW 0x71E1E7 keeps
 	// it at ControlBar + 0x2A0), read from window\controlbar.wnd at boot: its SCREENRECT, STATUS and the first image of its enabled / disabled draw data
 	// ("NoImage" = none, as the WND loader reads it). Its look is the default draw's image branch (W3DGameWinDefaultDraw, ZH): the enabled or the
@@ -379,6 +381,11 @@ private:
 	void updateRadiusCursor();
 	bool m_wasPlacing = false; ///< updateResourceFeedback: the placement started this frame
 	void updateResourceFeedback(); // lane OWNERFIX-2
+	// lane HOVER-2: InGameUI::createMouseoverHint's tool tip (RW 0x69F637, MouseoverTooltip.h) for the object under the pointer
+	void updateMouseoverTooltip();
+	UnicodeString m_mouseoverTooltip;
+	bool m_debugAI = false, m_haveDebugAI = false; ///< GameData DebugAI (GlobalData + 0x9B8)
+	std::set<std::string> m_mouseoverUnported;    ///< what the tool tips met that is not ported (S-7187), once each
 	TerrainResourceFeedback m_resourceFeedback;
 	PlayerMessageLog m_playerMessages;
 	unsigned m_messageClientFrame = 0;

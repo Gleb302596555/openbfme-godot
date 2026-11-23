@@ -1588,8 +1588,8 @@ upgrade	Upgrade_AngmarStructureWightlairBuild	GIVE_PLAYER_UPGRADE	libraries\mult
 upgrade	Upgrade_AngmarStructureWitcherBuild	GIVE_PLAYER_UPGRADE	libraries\ai_men of the west\ai_men of the west.map	5 ofen	no	IsengardFurnacePlayer	yes
 upgrade	Upgrade_ArnorCardolanUpgrade	GIVE_PLAYER_UPGRADE	libraries\multiplayer_human\multiplayer_human.map	Hobbit_hero	no	SCIENCE_HealingOfTheOld	yes
 upgrade	Upgrade_ArnorhoobitsUpgrade	GIVE_PLAYER_UPGRADE	libraries\multiplayer_human\multiplayer_human.map	NumenorMastery	yes	SCIENCE_NumenorMastery	yes
-upgrade	Upgrade_ClanBreitschultern	AI_PLAYER_BUILD_UPGRADE	libraries\ai_men of the west\ai_men of the west.map	EredLuin?	no		yes
 upgrade	Upgrade_ClanBreitschultern	TEAM_UPGRADE	libraries\ai_men of the west\ai_men of the west.map	EredLuin?	no		yes
+upgrade	Upgrade_ClanBreitschultern	AI_PLAYER_BUILD_UPGRADE	libraries\ai_men of the west\ai_men of the west.map	EredLuin?	no		yes
 upgrade	Upgrade_ClanBreitschultern	GIVE_PLAYER_UPGRADE	libraries\ai_men of the west\ai_men of the west.map	EredLuin?	no		yes
 upgrade	Upgrade_DurbutzKrone	GIVE_PLAYER_UPGRADE	libraries\ai_men of the west\ai_men of the west.map	Azog_check	yes	WildAzogGundabad WildFortressCitadel	yes
 upgrade	Upgrade_DwarvenBasicTraining	TEAM_UPGRADE	libraries\ai_men of the west\ai_men of the west.map	Upgrades0.	yes		yes

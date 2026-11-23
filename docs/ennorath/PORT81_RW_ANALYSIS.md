@@ -2,7 +2,7 @@
 
 Verdict: **no reachable reader of module data `+0x1C4` exists in RotWK 2.01**, so there is no behaviour to port. The field is
 parsed and stored exactly like its neighbour `RanksToReleaseWhenAttacking` (`+0x1B8`), whose readers *are* in the binary; the
-two fields differ only in that the `+0x1C4` set is never consulted. This is the same class of stop as Port 42 (`S-7186`) and
+two fields differ only in that the `+0x1C4` set is never consulted. This is the same class of stop as Port 42 (`S-7907`) and
 the `RadiateFearUpdate/WhichSpecialPower` verdict (`S-7193`), and the port already parses the field
 (`engine/src/GameLogic/Object/Contain/HordeContain.cpp:440`, member `engine/src/GameLogic/Module/HordeContain.h:128`).
 
