@@ -647,6 +647,7 @@ include(cmake/Port316.cmake)    # PORT-316: the drawable's flush on the creation
 include(cmake/Port274.cmake)    # PORT-274: FIRE_WEAPON buttons with an object target press -> click -> MSG_DO_WEAPON_AT_OBJECT (issue #641; OPENBFME_PORT274_TESTS)
 include(cmake/Port331.cmake)    # PORT-331: Shell, online and Living World stop fixes (issue #848; OPENBFME_PORT331_TESTS)
 include(cmake/Port313.cmake)    # PORT-313: the hold-fire / auto-acquire button image toggle and the related object's flag (issue #749, S-1983 / S-1992; OPENBFME_PORT313_TESTS)
+include(cmake/Port335.cmake)    # PORT-335: the legend loader's exclusion vector and return byte, the bloodthirsty interface scan, the pool and upgrade xfer citations (fork issue 890; OPENBFME_PORT335_TESTS)
 add_library(openbfme_core STATIC
     ${OPENBFME_PLAY2_SOURCES}
     ${OPENBFME_APT_SOURCES}
@@ -1525,6 +1526,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT316_TESTS}
     ${OPENBFME_PORT274_TESTS}
     ${OPENBFME_PORT313_TESTS}
+    ${OPENBFME_PORT335_TESTS}
     tests/test_main.cpp
     tests/test_big_archive.cpp
     tests/test_parser_fuzz_regressions.cpp

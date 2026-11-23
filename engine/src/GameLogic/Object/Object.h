@@ -519,6 +519,8 @@ public:
 	class DockUpdateInterface *getDockUpdateInterface() const;
 	// RW 0x68C327: the ProductionUpdate's queue interface, or null
 	ProductionUpdateInterface *getProductionUpdate() const;
+	// RW 0x68C878: the first behavior module whose slot 37 (offset 0x94) answers with the bloodthirsty sacrifice interface, or null
+	class BloodthirstyUpdate *getBloodthirstyUpdateInterface() const;
 	BehaviorModule *findModuleByTag(NameKeyType tagKey) const;
 	// RW 0x691526: the first special power module interface whose template matches powerType (or null)
 	const class SpecialPowerModuleInterface *findSpecialPowerModuleInterface(int powerType) const;

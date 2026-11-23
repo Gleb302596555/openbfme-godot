@@ -457,8 +457,13 @@ void AttributeModifierPool::crc(StateHasher &hasher) const
 	}
 }
 
-// ---- lane SAVE-4b: the snapshot (OpenBFME native, S-4190; retail's AttributeModifierPoolUpdate::xfer RW 0x805E89 (1, 3) is an attempt in the decomp, its
-// fields not identified one by one): the entries in order (each list's store index and name), the wake frame and the category tables --------------------
+// ---- lane SAVE-4b: the snapshot (OpenBFME native, S-4190) ----------------------------------------------------------------------------------------
+// RW 0x805E89 AttributeModifierPoolUpdate::xfer, version (1, 3), read field by field: the entry deque at this + 0x20 (its size from 0x698DC9, every
+// 0x10-byte entry through 0x804DAA: the name AsciiString at entry + 4 when the version is 3 or higher, then the u32 at entry + 8, the expiry frame,
+// and the u32 at entry + 0xC, the delayed-grant frame), and then 15 dwords, this + 0x30 .. this + 0x68, one per attribute-modifier category: the
+// frame that category stays disabled until. The snapshot covers every one of those fields, in the same order, plus the two retail derives at load
+// instead of saving: the wake frame this + 0x2C (retail's update recomputes it as min(0x804D01(), 0x3FFFFFFF) at 0x8059D0) and the 15 per-category
+// counters at this + 0x6C.
 void AttributeModifierPool::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 2, 2); // 2: an update module, with the entries' delayed grants

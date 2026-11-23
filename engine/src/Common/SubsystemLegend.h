@@ -89,14 +89,15 @@ public:
 	// B1 SubsystemLegend.cpp parseLoadSubsystem: LoadSubsystem <name> ... End.
 	void parseLoadSubsystem(INI *ini);
 
-	// B1 SubsystemLegend.cpp findEntry: AsciiString compare, i.e. case-sensitive.
+	// RW 0x005B41D0, B1 SubsystemLegend.cpp findEntry: AsciiString compare (RW 0x004065AA), i.e. case-sensitive.
 	const SubsystemLegendEntry *findEntry(const std::string &name) const;
 	const std::vector<SubsystemLegendEntry> &entries() const { return m_entries; }
 	// lane BFME2CAMP1: puts back entries taken with entries() (LoadBfme2CampaignsFromLegend reads another legend into this one for a moment)
 	void restoreEntries(std::vector<SubsystemLegendEntry> entries) { m_entries = std::move(entries); }
 
-	// B1 SubsystemInterface.cpp loadIniFilesFromLegend. Returns true when the legend named any
-	// file or path (the hard-coded paths are then skipped by the caller).
+	// RW 0x005B4B9A / B1 SubsystemInterface.cpp loadIniFilesFromLegend. True when a legend load actually RAN: an InitFile the exclusion vector names
+	// never counts, and retail also needs the load call to have returned true (S-7886: RW 0x0042D97D returns false for a file it cannot open and the
+	// walk continues; the port's INI::load throws instead, so that branch is not reachable here). The caller skips the hard-coded paths when true.
 	bool loadIniFilesFromLegend(const std::string &subsystemName, INI &ini, const SubsystemLoadOptions &options, SubsystemLoadReport *report) const;
 
 private:
