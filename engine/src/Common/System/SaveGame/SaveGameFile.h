@@ -15,7 +15,7 @@
 // Layout (little-endian, NetPacket's byte writer):
 //   "OBFMESAV"                          8 bytes
 //   u32 container version               3 (1/2 still load; 1 has no LWLD part)
-//   four required parts "HEAD", "LOG ", "SNAP", "LWLD", then optional "CLNT" in version 3; each: 4-byte tag, u32 length, 32-byte SHA-256 of the payload, payload
+//   four parts "HEAD", "LOG ", "SNAP", "LWLD", then required "CLNT" in version 3; each: 4-byte tag, u32 length, 32-byte SHA-256 of the payload, payload
 //   HEAD payload: u32 header version 1, str build version (BuildVersion::kVersion), str engine id (ProfileIdentity::buildId), str commit (provenance), str
 //                 profile identity text, str execution profile (the identity's "profile" line), u32 game kind (SaveLoad.apt's type: 1 Campaign, 2 Skirmish),
 //                 u32 frame F, u32 state hash at F, str description (the name the player typed, UTF-8), str map (path), str map display label, str date
@@ -38,7 +38,7 @@
 //                 (LivingWorldCampaign) in `campaign`, the state hash its LivingWorldLogic::stateHash, frame 0, no commands, empty LOG and SNAP.
 //                 WOTR2 milestone 6: save point 3 is a War of the Ring battle (retail mode 3): game kind 8, the scenario, the battle's frame, log and
 //                 snapshot (a point 0 game) plus the strategic game and its session (a point 2 save); the replay format 12 log carries the battle's start
-//   CLNT payload: optional versioned client snapshot bytes, absent in older files and when no client state is provided.
+//   CLNT payload: versioned client snapshot bytes, empty when no client state is provided; absent in older files.
 // Reading never defaults: a bad magic, an unknown version, a part out of order, a truncated part or a digest that does not match is a named error.
 //
 // Not simulation code: it is read and written around the game, never part of the logic state.
@@ -80,7 +80,7 @@ struct SaveGameHeader
 
 struct SaveGameFile
 {
-	static constexpr std::uint32_t kContainerVersion = 3; // PORT-266: optional client snapshot part; versions 1 and 2 still load
+	static constexpr std::uint32_t kContainerVersion = 3; // PORT-266: client snapshot part; versions 1 and 2 still load
 	static constexpr std::uint32_t kHeaderVersion = 4; // 3 adds the build date, 4 the campaign carry-over (lane BFME2CAMP1); 1 to 3 still read
 	static constexpr const char *kExtension = ".obfmesave";
 	// the most a part may declare (checked before it is read: a larger one is a named refusal, never an allocation)

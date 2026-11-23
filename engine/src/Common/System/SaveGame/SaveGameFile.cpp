@@ -23,7 +23,7 @@ namespace
 const char kMagic[8] = { 'O', 'B', 'F', 'M', 'E', 'S', 'A', 'V' };
 // container version 2 (lane WOTR2 milestone 3) adds the fourth part, the War of the Ring strategic game
 // PORT-266, RW 0x6DF73E: GameState registers client-side chunks independently of logic.
-// This native container uses an optional separate part, not the retail stream layout.
+// This native container uses a separate part, not the retail stream layout.
 const char *const kPartTags[5] = { "HEAD", "LOG ", "SNAP", "LWLD", "CLNT" };
 const char *const kPartNames[5] = { "header", "command log", "snapshot", "War of the Ring", "client snapshot" };
 
@@ -135,10 +135,7 @@ std::vector<std::uint8_t> SaveGameFile::encode() const
 		lw.bytes(livingWorldSession);
 	}
 	putPart(out, 3, lw.data());
-	if (!clientSnapshot.empty())
-	{
-		putPart(out, 4, clientSnapshot);
-	}
+	putPart(out, 4, clientSnapshot);
 	return out;
 }
 
@@ -232,20 +229,12 @@ bool SaveGameFile::parseFrom(Source &src, SaveGameFile &out, std::string *error,
 	{
 		return failWith(error, "save container version " + std::to_string(version) + " (this build reads versions 1 to " + std::to_string(kContainerVersion) + ")");
 	}
-	const int partCount = version == 1 ? 3 : version == 2 ? 4 : 5; // v3 may omit an empty client part
+	const int partCount = version == 1 ? 3 : version == 2 ? 4 : 5; // v1 lacks LWLD; v1/v2 lack CLNT
 	const std::uint64_t limits[5] = { kMaxHeaderBytes, kMaxLogBytes, kMaxSnapshotBytes, kMaxLivingWorldBytes, kMaxClientSnapshotBytes };
 	std::vector<std::uint8_t> parts[5];
 	std::uint64_t pos = 12;
 	for (int i = 0; i < partCount; ++i)
 	{
-		if (i == 4 && pos == size)
-		{
-			break; // v3 without client state
-		}
-		if (i == 4 && size - pos < 40)
-		{
-			return failWith(error, "the save is damaged (" + std::to_string(size - pos) + " bytes after its last part)");
-		}
 		std::uint8_t ph[40];
 		if (size - pos < 40 || !src.read(pos, ph, 40))
 		{
