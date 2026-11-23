@@ -222,3 +222,55 @@ TEST_CASE("PORT-210 moving horde contacts a pathfinding wall obstacle")
     CHECK(contacted);
     CHECK(horde->getPosition()->x > 310.0f); // tolerance: verifies progress past the obstacle, not an exact path
 }
+
+// Diagnostic barrier scenario: adjacent wall pieces span the synthetic map.
+// RW 0x86C61E expects a valid contact to set the scaling wall. In the port
+// pathfinding currently stops this fixture short of contact (S-4461); the
+// assertions below record that boundary, not retail climbing behaviour.
+namespace
+{
+void barrierScenario(bool canScale)
+{
+    Fixture f;
+    f.combat().setAutoAcquireEnabled(false);
+    f.store.findLocomotorTemplate("Port210Loco")->m_scalesWalls = canScale;
+    Object *horde = f.unit("Port210Horde", 'A', 230, 500);
+    const auto members = f.membersOf(horde);
+    REQUIRE(members.size() == 1);
+    auto *contain = dynamic_cast<HordeContain *>(horde->getContain());
+    REQUIRE(contain != nullptr);
+    for (int y = 0; y <= 1000; y += 20)
+    {
+        Object *wall = f.unit("Port210Wall", 'B', 310, static_cast<float>(y));
+        f.ai->addObjectToPathfindMap(*wall);
+    }
+    const int player = f.playerIndex("Alice");
+    f.select(player, { horde });
+    f.moveTo(player, 400, 500);
+    bool contacted = false;
+    bool climbed = false;
+    bool crossed = false;
+    for (int frame = 0; frame < 300; ++frame)
+    {
+        f.frames(1);
+        contacted = contacted || contain->wallToScale() != 0;
+        climbed = climbed || members[0]->getPosition()->z > 0.0f;
+        crossed = crossed || members[0]->getPosition()->x > 330.0f;
+    }
+    CHECK_FALSE(contacted); // S-4461: the fixture stopped before the contact pass could dispatch.
+    CHECK_FALSE(climbed);
+    CHECK_FALSE(crossed);
+    CHECK(horde->getPosition()->x < 290.0f); // tolerance: wall's near face, not an exact stopping position
+}
+}
+
+TEST_CASE("PORT-210 diagnostic scaling horde stops short of map-spanning wall")
+{
+    barrierScenario(true);
+}
+
+// RW 0x86C676..0x86C680 rejects a horde without ScalesWalls.
+TEST_CASE("PORT-210 non-scaling horde stops at map-spanning wall")
+{
+    barrierScenario(false);
+}
