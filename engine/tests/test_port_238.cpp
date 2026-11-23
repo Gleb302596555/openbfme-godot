@@ -33,6 +33,7 @@
 #include "GameLogic/Module/SpecialAbilityModules.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/SpellCommands.h"
+#include "GameLogic/System/EmotionSystem.h"
 #include "GameLogic/SkirmishAI/AITacticalAI.h"
 #include "GameLogic/SkirmishAI/SkirmishAIData.h"
 
@@ -5564,9 +5565,19 @@ End
     auto *aura = dynamic_cast<AttributeModifierAuraUpdate *>(source->findModule("AttributeModifierAuraUpdate"));
     REQUIRE(aura != nullptr);
     for (Object *obj : {source, infantry, cavalry, guard, hero, enemy, far}) REQUIRE(pool(obj) != nullptr);
+    EmotionNuggetTemplate fearTemplate;
+    fearTemplate.type = EMOTION_FEAR;
+    EmotionNuggetTemplate terrorTemplate;
+    terrorTemplate.type = EMOTION_TERROR;
+    EmotionNugget infantryFear(*infantry, fearTemplate), infantryTerror(*infantry, terrorTemplate);
+    EmotionNugget guardFear(*guard, fearTemplate), guardTerror(*guard, terrorTemplate);
     w.frames(5);
     CHECK(aura->pulses() == 0);
     CHECK_FALSE(pool(infantry)->hasList("P238BoromirLeadership"));
+    CHECK(infantryFear.canApply(0, 0, nullptr));
+    CHECK(infantryTerror.canApply(0, 0, nullptr));
+    CHECK(guardFear.canApply(0, 0, nullptr));
+    CHECK(guardTerror.canApply(0, 0, nullptr));
     source->giveUpgrade("Upgrade_P238BoromirLeadershipLevel");
     for (int i = 0; i < 10 && aura->pulses() == 0; ++i) w.frames(1);
     REQUIRE(aura->pulses() == 1);
@@ -5577,6 +5588,11 @@ End
     CHECK_FALSE(pool(hero)->hasList("P238BoromirLeadership"));
     CHECK_FALSE(pool(enemy)->hasList("P238BoromirLeadership"));
     CHECK_FALSE(pool(far)->hasList("P238BoromirLeadership"));
+    // RW EmotionNugget::canApply 0x8E143B..0x8E14B8: resistance >= 0.5 blocks.
+    CHECK_FALSE(infantryFear.canApply(0, 0, nullptr));
+    CHECK_FALSE(infantryTerror.canApply(0, 0, nullptr));
+    CHECK(guardFear.canApply(0, 0, nullptr));
+    CHECK(guardTerror.canApply(0, 0, nullptr));
     float value = 0.0f;
     CHECK(infantry->attributeModifierSum(ATTRIBUTE_ARMOR, nullptr, value));
     CHECK(value == 0.5f);

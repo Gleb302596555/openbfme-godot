@@ -75,15 +75,26 @@ then directly grants a stand-in level upgrade and observes the first pulse:
 nearby same-player infantry and cavalry get the modifier, while source, a
 stand-in named guard, a hero, enemy infantry and far infantry do not. It
 queries the applied values 0.5, 1.0, 1.0 from the infantry modifier pool.
-**50/50 assertions**, isolated `PORT-238*` **48/48 cases, 3163/3163 assertions**
-on matching `3f0105c8` core/headers plus separately compiled PORT-286 parser.
-Removing only the stand-in guard exclusion from the fixture fails the guard
-check (**49/50**), a fixture sensitivity control rather than an engine-fix
-control. RW aura scan/apply `0x89F42D` / `0x89F114` is ported in
-`HeroModules.cpp`. The test does not measure real combat/fear behavior,
-distinct allied players, all KindOf exclusions, anticategory suppression,
-expiry/refresh, actual upgrade granting, user interface, FX or game. S-856,
-S-636 and the indicator-name mismatch remain separate questions.
+It directly calls synthetic FEAR and TERROR `EmotionNugget::canApply` on the
+infantry and guard before/after the aura: both are initially allowed; afterward
+the protected infantry refuses both, while the excluded guard still allows
+both. This is an admission test, not a full fear request/animation or horde
+exercise. RW `0x8E143B–0x8E14B8` selects resistance 4/5, checks the pool and
+rejects a value at or above 0.5; the port models this in
+`GameLogic/System/EmotionSystem.cpp`.
+
+Expanded test **58/58 assertions**, isolated `PORT-238*` **48/48 cases,
+3171/3171 assertions** on matching `3f0105c8` core/headers plus separately
+compiled PORT-286 parser. Removing only the stand-in guard exclusion from the
+earlier fixture failed the guard check (**49/50**); setting fixture
+`RESIST_FEAR` to 0% in the expanded test fails the direct fear-admission and
+value checks (**56/58**). These are fixture sensitivity controls rather than
+engine-fix controls. RW aura scan/apply `0x89F42D` / `0x89F114` is ported in
+`HeroModules.cpp`. The test does not measure real combat, actual emotion
+requests and AI/animation, distinct allied players, all KindOf exclusions,
+anticategory suppression, expiry/refresh, actual upgrade granting, user
+interface, FX or game. S-856, S-636 and the indicator-name mismatch remain
+separate questions.
 
 ### Shield: bounded synthetic modifier and damage behavior
 
