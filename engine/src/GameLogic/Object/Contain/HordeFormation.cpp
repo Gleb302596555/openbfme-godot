@@ -61,6 +61,7 @@ const ThingTemplate *alternateTemplate(GameLogic &logic, const HordeContainModul
 	return data.m_alternateFormation.empty() ? nullptr : logic.things().findTemplate(data.m_alternateFormation);
 }
 
+// RW 0x0086DA02 (called by adoptMembers RW 0x876AB4; onContaining RW 0x872D62 / banner RW 0x8763FB deferred under S-589)
 void applyFormationState(Object &member, bool main)
 {
 	member.setModelConditionState(CombatNames::modelCondition("PRIMARY_FORMATION"), main);
@@ -79,16 +80,32 @@ const ThingTemplate *HordeContain::alternateFormationTemplate() const
 	return alternateTemplate(getObject()->logic(), m_data->horde);
 }
 
-// RW 0x8700AC
-bool HordeContain::canToggleFormation() const
+// RW 0x008704DA (slot 0x10C): contained members followed by each live resolved entering-member ID.
+std::vector<Object *> HordeContain::getMembersWithEntering() const
 {
-	const unsigned count = (unsigned)m_members.size();
+	std::vector<Object *> out(m_members.begin(), m_members.end());
+	GameLogic &logic = getObject()->logic();
+	for (ObjectID id : m_garrisonEntering)
+	{
+		if (Object *obj = logic.findObjectByID(id))
+		{
+			out.push_back(obj);
+		}
+	}
+	return out;
+}
+
+// RW 0x0086FFD2 (slot 0x64): checks >= 1 live member (slot 0x10C RW 0x008704DA), target == AlternateFormation,
+// and non-main alternate's MinimumHordeSize.
+bool HordeContain::canSetFormation(const ThingTemplate *target) const
+{
+	const unsigned count = (unsigned)getMembersWithEntering().size();
 	if (count == 0)
 	{
 		return false;
 	}
 	const ThingTemplate *alt = alternateTemplate(getObject()->logic(), m_data->horde);
-	if (!alt)
+	if (!alt || alt != target)
 	{
 		return false;
 	}
@@ -101,6 +118,13 @@ bool HordeContain::canToggleFormation() const
 		}
 	}
 	return true;
+}
+
+// RW 0x8700AC (slot 0x5C)
+bool HordeContain::canToggleFormation() const
+{
+	const ThingTemplate *alt = alternateTemplate(getObject()->logic(), m_data->horde);
+	return alt && canSetFormation(alt);
 }
 
 // RW 0x86C7F6 -> RW 0x875FB2
@@ -226,7 +250,7 @@ namespace HordeCommands
 // the dispatcher case RW 0x77BE83
 void registerHandlers(GameLogicDispatch &d)
 {
-	// RW dispatcher case 0x460 / canSetFormation 0x86FFD2: only THIS horde's next formation is accepted.
+	// RW dispatcher case 0x460 (RW 0x77BF40 -> slot 0x64 RW 0x0086FFD2): only THIS horde's next formation is accepted.
 	d.registerHandler(MSG_HORDE_SET_FORMATION, "HORDE-2", [](GameLogic &logic, const GameMessage &m) {
 		const GameMessageArgument *object = m.getArgument(0);
 		const GameMessageArgument *formation = m.getArgument(1);
@@ -237,7 +261,7 @@ void registerHandlers(GameLogicDispatch &d)
 		const ThingTemplate *target = logic.things().findByTemplateID((unsigned short)formation->integer);
 		Object *horde = GameLogicDispatch::issuerObject(logic, m, object->objectID); // review DEVPORT-7e: only the issuer's horde
 		auto *hc = horde ? dynamic_cast<HordeContain *>(horde->getContain()) : nullptr;
-		if (target && hc && hc->alternateFormationTemplate() == target && hc->canToggleFormation())
+		if (target && hc && hc->canSetFormation(target))
 		{
 			hc->toggleFormation();
 		}

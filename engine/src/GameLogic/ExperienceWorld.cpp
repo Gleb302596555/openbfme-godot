@@ -7,6 +7,7 @@
 #include "GameLogic/FXEvents.h"
 
 #include "Common/GameCommon.h"
+#include "Common/ModEngineFeatures.h"
 #include "Common/Player.h"
 #include "Common/StateHash.h"
 #include "GameLogic/SnapshotXfer.h"
@@ -163,8 +164,48 @@ void ExperienceWorld::award(Player &player, float value)
 	m_sink->addSkillPoints(player, value); // RW 0x782AA4(value, 1)
 }
 
+bool ExperienceWorld::cantEarnPowerPoints(const Object *obj)
+{
+	// PYSAGE 1.9.8.7 .wmfeat 0xF3A34C .. 0xF3A3B8: up to 16 hops (edi = 0x10)
+	if (!ModEngineFeatures::has(ModEngineFeature::EnnorathCantEarnPowerPoints))
+	{
+		return false;
+	}
+	const Object *cur = obj;
+	for (int hops = 0; hops < 16 && cur; ++hops)
+	{
+		if (cur->isKindOfName("CANT_EARN_POWERPOINTS"))
+		{
+			return true;
+		}
+		if (const Object *container = cur->getContainedBy())
+		{
+			if (container->isKindOfName("HORDE") && container->isKindOfName("CANT_EARN_POWERPOINTS"))
+			{
+				return true;
+			}
+		}
+		if (!cur->isKindOfName("PASS_EXPERIENCE_TO_PRODUCER"))
+		{
+			break;
+		}
+		const ObjectID producer = cur->getProducerID();
+		if (producer == INVALID_ID || producer == cur->getID())
+		{
+			break;
+		}
+		cur = cur->logic().findObjectByID(producer);
+	}
+	return false;
+}
+
 bool ExperienceWorld::awardSkillPointsForDamage(Object &attacker, Object &victim, float fraction)
 {
+	// PYSAGE 1.9.8.7 .wmfeat 0xF3A3B9 (hook RW 0x6AAFC3): killer with CANT_EARN_POWERPOINTS earns no skill points
+	if (cantEarnPowerPoints(&attacker))
+	{
+		return false;
+	}
 	Player *player = attacker.getControllingPlayer(); // RW 0x68BE1B
 	if (!player)
 	{
@@ -222,6 +263,11 @@ bool ExperienceWorld::awardSkillPointsForDamage(Object &attacker, Object &victim
 
 bool ExperienceWorld::awardSkillPointsForLoss(Player &victimPlayer, Object *killer, Object &victim)
 {
+	// PYSAGE 1.9.8.7 .wmfeat 0xF3A3D7 (hook RW 0x6AB0D0): victim with CANT_EARN_POWERPOINTS earns no loss skill points
+	if (cantEarnPowerPoints(&victim))
+	{
+		return false;
+	}
 	if (!killer)
 	{
 		return false;

@@ -31,7 +31,8 @@ bool DecodeCursorFile(const std::vector<std::uint8_t> &bytes, CursorImage &out, 
 // `MouseCursor <Name>` blocks of Mouse.ini: name -> image file stem and the INI's hot spot (-1 -1: the cursor file's own)
 struct MouseCursorEntry
 {
-	std::string image;
+	std::string image;   ///< +0x2C (RW 0xBF60F8): W3DMouse mapped-image name (unused in Win32Mouse)
+	std::string texture; ///< +0x28 (RW 0xBF6108): Win32Mouse::initCursorResources (RW 0x441506) cursor file stem
 	int hotX = -1, hotY = -1;
 	int directions = 0;
 };

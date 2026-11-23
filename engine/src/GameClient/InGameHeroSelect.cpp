@@ -2,6 +2,8 @@
 // See GameClient/InGameHeroSelect.h for the target facts.
 
 #include "GameClient/InGameHeroSelect.h"
+#include "Common/Audio/AudioEntryPoints.h"
+#include "GameClient/ControlBarCommands.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDraw.h"
 
 #include "Common/ArchiveFileSystem.h"
@@ -256,6 +258,12 @@ std::string InGameHeroSelect::buttonImage(const Object &obj)
 	{
 		return upgraded;
 	}
+	// PYSAGE 1.9.8.7 .wmfeat 0xF3A1A3 -> 0xF3A12F (hook RW 0x92D052, ennorath.portrait-upgrade): PortraitUpgrade's ButtonImage
+	upgraded = PortraitUpgrade::imageOf(obj, false);
+	if (!upgraded.empty())
+	{
+		return upgraded;
+	}
 	// RW 0x73D0BA -> RW 0x73CFEF: the template's ButtonImage (+ 0x78)
 	if (const FieldValue *v = obj.getTemplate()->findField("ButtonImage"))
 	{
@@ -273,7 +281,7 @@ bool InGameHeroSelect::isSelectableHero(const HudContext &ctx, const Object &obj
 	return p && p == ctx.localPlayer() && !obj.testStatus(kStatusNoHeroProperties);
 }
 
-bool InGameHeroSelect::isReadyBuilder(const HudContext &, const Object &obj)
+bool InGameHeroSelect::isReadyBuilder(const HudContext &ctx, const Object &obj)
 {
 	// RW 0x92BAD7: a drawable (RW 0x70E013: every logic object has one in the port), not effectively dead (+ 0x458 bit 0), selectable (RW 0x68DE58), and a dozer
 	// AI interface (AI + 0x260 vslot 0x170) with no task pending (its vslot 0x20)
@@ -282,7 +290,34 @@ bool InGameHeroSelect::isReadyBuilder(const HudContext &, const Object &obj)
 		return false;
 	}
 	const DozerAIUpdate *dozer = dynamic_cast<const DozerAIUpdate *>(obj.getAIUpdateInterface());
-	return dozer && !dozer->isAnyTaskPending();
+	if (!dozer || dozer->isAnyTaskPending())
+	{
+		return false;
+	}
+	// PYSAGE 1.9.8.7 .wmfeat 0xF3AA56 .. 0xF3AAB8 (ennorath.builder-fixes): exclude lumber-mill / quarry workers
+	// whose CommandSet has no GUI_COMMAND_DOZER_CONSTRUCT (0x35) button.
+	if (ModEngineFeatures::has(ModEngineFeature::EnnorathBuilderFixes) && ctx.commands)
+	{
+		const CommandSet *cs = ctx.commands->findCommandSet(obj.getCommandSetName());
+		if (!cs)
+		{
+			return false;
+		}
+		bool hasConstruct = false;
+		for (int slot = 0; slot < CommandSet::slotCapacity(); ++slot)
+		{
+			if (const CommandButton *btn = cs->getCommandButton(slot); btn && btn->m_command == GUI_COMMAND_DOZER_CONSTRUCT)
+			{
+				hasConstruct = true;
+				break;
+			}
+		}
+		if (!hasConstruct)
+		{
+			return false;
+		}
+	}
+	return true;
 }
 
 // ---- the data -----------------------------------------------------------------------------------------------------------------------------------
@@ -1022,6 +1057,11 @@ void InGameHeroSelect::selectNearestBuilder(bool noCamera)
 	m.appendBoolean(true);
 	m.appendObjectID(builder->getID());
 	m_ctx.ui.selectObject(builder->getID());
+	// PYSAGE 1.9.8.7 .hotkeys 0xF384D6 (hook RW 0x92DB1F, ennorath.builder-fixes): play Gui_PalantirCommandButtonClick
+	if (ModEngineFeatures::has(ModEngineFeature::EnnorathBuilderFixes))
+	{
+		AudioApi::playUiSound("Gui_PalantirCommandButtonClick");
+	}
 	if (!noCamera && !onScreen(m_ctx, *builder))
 	{
 		m_ctx.view.lookAt(*builder->getPosition());

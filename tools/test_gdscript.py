@@ -151,7 +151,7 @@ DENYLIST = {
     **dict.fromkeys(scripts("""
         apt_canvas_pixel building_damage_fx building_render fx_render gamma_composite glow hud_image_mode_pixel
         menu_backdrop_resize object_shadow_building object_shadow_instances object_shadow_render online_branding
-        pro_camera pro_camera_bokeh radial_background render4 road_shader shader tangent_convention
+        pro_camera pro_camera_bokeh radial_background raised_overlay render4 road_shader shader tangent_convention
     """), "manual: GPU/window/render readback required (some also need retail assets)"),
     "pingwheel_test.gd": "manual: mixed UI/timer checks and retail skirmish/hash runs; not wholly asset-free",
     "replay_refusal_test.gd": "manual: mixed stub checks and retail replay subprocess; not wholly asset-free",

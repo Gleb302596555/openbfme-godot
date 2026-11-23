@@ -257,10 +257,16 @@ bool LivingWorldLogic::dispatchOrder(const ::GameMessage &m, int sender, std::st
 		return true;
 	case MSG_LW_OPENBFME_SAVE: // WOTR2 milestone 8 (step 4): RotWK's NETCOMMANDTYPE_SAVE_GAME (RW 0x629750) as a strategic order [S-1344]
 		return saveMessage(m, sender, error);
+	case MSG_LW_RESOLVE_REGION_AWARD_DISPUTE: // 0x6B7 (RW 0x6BEE5B -> RW 0x6BB99F): (region, recipient player)
+		if (!argInt(m, 0, a0) || !argInt(m, 1, a1))
+		{
+			return bad("the arguments are not (region, player)");
+		}
+		return resolveRegionAwardDispute(sender, a0, a1, error);
 	case MSG_LW_REQUEST_ENDGAME: // 0x6B9: the leave-for-now vote after a LAN war's save: (yes, request)
 		return leaveVoteMessage(m, sender, error);
 	default:
-		// 0x6A5 / 0x6B9 .. 0x6BB (sessions, the exit vote, the battle barriers) come with the network steps; 0x6B2 .. 0x6B5, 0x6B7, 0x6BD / 0x6BE
+		// 0x6A5 / 0x6B9 .. 0x6BB (sessions, the exit vote, the battle barriers) come with the network steps; 0x6B2 .. 0x6B5, 0x6BD / 0x6BE
 		// are not ported (S-1336); 0x6B6 / 0x6BC have no case in retail either
 		return bad("not ported (S-1336)");
 	}

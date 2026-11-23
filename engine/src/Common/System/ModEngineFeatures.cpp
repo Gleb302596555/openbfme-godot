@@ -63,6 +63,13 @@ const char *ModEngineFeatures::name(ModEngineFeature f)
 	case F::EnnorathReplayControls: return "ennorath.replay-tabs-chat-pause";
 	case F::EnnorathWotr8Players: return "ennorath.wotr-8-players";
 	case F::EnnorathChatClipboard: return "ennorath.chat-clipboard";
+	case F::EnnorathOptionHotkeys1987: return "ennorath.option-hotkeys-1987";
+	case F::EnnorathBuilderFixes: return "ennorath.builder-fixes";
+	case F::EnnorathPortraitUpgrade: return "ennorath.portrait-upgrade";
+	case F::EnnorathFilteredHordeRespawn: return "ennorath.filtered-horde-respawn";
+	case F::EnnorathCantEarnPowerPoints: return "ennorath.cant-earn-powerpoints";
+	case F::EnnorathToggleMountedZeroSpeed: return "ennorath.toggle-mounted-zero-speed";
+	case F::EnnorathGarrisonHeroSurvive: return "ennorath.garrison-hero-survive";
 	case F::Count: break;
 	}
 	return "?";
@@ -116,12 +123,14 @@ const std::vector<ModEngineFeatures::Profile> &ModEngineFeatures::knownBinaries(
 			  F::EnnorathOptionsPages, F::EnnorathOptionHotkeys, F::EnnorathOnlineDelayFix, F::EnnorathLobbyMapSearch, F::EnnorathChatMute,
 			  F::EnnorathObserverCommandRange, F::EnnorathCommandSet64, F::EnnorathUpgrades5120, F::EnnorathBuildingLimitFix,
 			  F::EnnorathSpellStoreDelay, F::EnnorathSelectAllBuildings,
-			  F::EnnorathReplayControls, F::EnnorathWotr8Players, F::EnnorathChatClipboard },
-			"rebuilt: as Ennorath 1.9.8.5 (stance .stancem, middle click camera .camfix, evacuate all .keydef, paged options .optui / .optfix, option "
-			"hotkeys .hotkeys / .keydef / .keycmd, online lag fix .dlyfix, lobby map search .mapfind, chat mute .chatmut, replays .rpchat / .rppause, War of the Ring 8p .wotrui / .wotrobs / .wtrview / .wtrdisp, the text entry clipboard .txtclip); not yet "
-			"(docs/ennorath/ENNORATH_EXE.md): the 1.9.8.6 / 1.9.8.7 edits (.wmfeat / .wmkeys: the builder camera fix, select all units / all heroes / "
-			"planning mode hotkeys, workers out of the builder hotkey, more than two builders, the builder click sound, 127 factions, the resurrection "
-			"filter, portrait / icon change, CANT_EARN_POWERPOINTS, ToggleMounted at speed 0), and the 1.9.8.5 edits still open there" },
+			  F::EnnorathReplayControls, F::EnnorathWotr8Players, F::EnnorathChatClipboard,
+			  F::EnnorathOptionHotkeys1987, F::EnnorathBuilderFixes, F::EnnorathPortraitUpgrade,
+			  F::EnnorathFilteredHordeRespawn, F::EnnorathCantEarnPowerPoints, F::EnnorathToggleMountedZeroSpeed,
+			  F::EnnorathGarrisonHeroSurvive },
+			"rebuilt: as Ennorath 1.9.8.5 plus 1.9.8.6 / 1.9.8.7 (.wmkeys / .hotkeys / .camfix: select all units / all heroes / planning mode hotkeys, "
+			"builder camera on-screen check, builder click sound, workers out of builder hotkey; .wmfeat: PortraitUpgrade, FilteredHordeRespawnBehavior, "
+			"CANT_EARN_POWERPOINTS, ToggleMounted at speed 0, garrison hero survival; 127 factions and >2 builders have no limit in OpenBFME); not yet "
+			"(docs/ennorath/ENNORATH_EXE.md): the 1.9.8.5 edits still open there (.ressort S-1913 / S-3401; .fxrate 30/60 FPS left out by decision)" },
 		{ "f7ce90438eb50da4ce63804ba2688b6b", "RJ-RotWK launcher (a Qt program that starts the game, not a game binary)", {}, "" },
 		{ "243edd56bb09405626bb455a67b5aa46", "RJ-RotWK file.dat (the launcher's settings)", {}, "" },
 	};

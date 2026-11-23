@@ -4,10 +4,15 @@
 #include "GameClient/GUI/PlayerStatusInfo.h"
 
 #include "Common/ExtendedPlayerColors.h"
+#include "Common/Player.h"
 
 #include "GameClient/GUI/GameTextSource.h"
 #include "GameClient/GUI/LoadScreenInfo.h"
 #include "GameClient/GUI/Skirmish/SkirmishSetup.h"
+#include "GameClient/GUI/TributeInfo.h"
+#include "GameLogic/GameLogic.h"
+#include "GameLogic/SkirmishAI/AIStatCollector.h"
+#include "GameLogic/SkirmishAI/SkirmishAIManager.h"
 
 namespace
 {
@@ -152,4 +157,19 @@ PlayerStatusInfo makePlayerStatusInfo(const PlayerStatusInput &in, const Skirmis
 		info.rows.push_back(row);
 	}
 	return info;
+}
+
+std::uint32_t tributeDisplayCash(const GameLogic &logic, const Player &player)
+{
+	// RW 0x9155C2 (AptPlayerTribute::refreshRow): Player + 0x94 (Money) + if TheSkirmishAIManager->hasAIPlayer(player) (RW 0x6A950B)
+	// then TheSkirmishAIManager->record(player)->reserve() (RW 0x6A9999 -> + 0x0C -> + 0x14).
+	std::uint32_t cash = player.getMoney()->countMoney();
+	if (logic.skirmishAI().findAI(player.getPlayerIndex()))
+	{
+		if (const AIStatCollector *rec = logic.skirmishAI().record(player.getPlayerIndex()))
+		{
+			cash += rec->reserve();
+		}
+	}
+	return cash;
 }

@@ -138,6 +138,7 @@ void LogicModules::registerAll(ModuleFactory &modules)
 	SupplyWarehouseCreate::registerClass(modules);  // the warehouses' (Ennorath's supply rocks), RW 0x8BD063
 	SupplyCenterDockUpdate::registerClass(modules); // lane LUMBER1: the lumber mills' dock (the income of a delivery)
 	SupplyWarehouseDockUpdate::registerClass(modules); // a supply source's boxes (Ennorath's supply rocks), RW 0x8AB53D
+	SupplyWarehouseCripplingBehavior::registerClass(modules); // Local 142 (S-7533): RW 0x64C16D / 0x886C76 / 0x886D8D / 0x886DBA
 	ConstructionModules::registerAll(modules);
 	WallSpan::registerModules(modules); // lane BUILD-2: WallHubBehavior
 	CastleModules::registerAll(modules);

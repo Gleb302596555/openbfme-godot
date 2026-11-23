@@ -702,6 +702,23 @@ bool ScriptActions::executeUnitAction(ScriptEngine &engine, const ScriptActionRe
 		}
 		return true;
 	}
+	if (name == "TEAM_WANDER_IN_PLACE")
+	{
+		// Local 142: RW 0x7C95FE (action 237): each team member with an AI switches to LOCOMOTORSET_WANDER (3)
+		// (RW 0x7C9640..0x7C9644, AI vslot 0x238) and issues aiWanderInPlace(CMD_FROM_SCRIPT) (RW 0x7C964A..0x7C964F -> RW 0x7C82EF).
+		if (Team *t = ScriptConditions::team(engine, param(a, 0).stringValue))
+		{
+			for (Object *o : ScriptConditions::members(*t))
+			{
+				if (AIUpdateInterface *ai = o->getAIUpdateInterface())
+				{
+					ai->chooseLocomotorSet(LOCOMOTORSET_WANDER);
+					ai->aiWanderInPlace(CMD_FROM_SCRIPT);
+				}
+			}
+		}
+		return true;
+	}
 	if (name == "NAMED_FOLLOW_WAYPOINTS" || name == "NAMED_FOLLOW_WAYPOINTS_EXACT" || name == "NAMED_ATTACK_FOLLOW_WAYPOINTS")
 	{
 		// RW 0x7C9196 / 0x7C928D / 0x7C920F: the waypoint of the label closest to the unit, then AI command 6 / 0x32 / 0x10 (lane WARG-1: RW 0x754A3C with

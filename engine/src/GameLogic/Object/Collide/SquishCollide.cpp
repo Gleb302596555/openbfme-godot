@@ -652,7 +652,7 @@ void HordeMemberCollide::onCollide(Object *other, const Coord3D *, const Coord3D
 	{
 		return;
 	}
-	const ObjectID tid = h->meleeTargetId();
+	const ObjectID tid = h->meleeTargetId(); // RW 0x00872AEE (horde slot 0x16C, called at RW 0x8C0560 / 0x8C0576)
 	if (other->getID() == tid)
 	{
 		h->refreshMeleeReadiness(*other);
