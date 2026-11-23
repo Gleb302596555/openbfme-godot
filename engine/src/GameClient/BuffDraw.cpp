@@ -2,8 +2,8 @@
 // See BuffDraw.h (lane SPELL-4). Client-only.
 
 // TARGET W3DBuffDraw: RW 0x004B1B3F xfer, RW 0x004B612F getModelName, RW 0x004CE5CF GetSnapshotName,
-//   RW 0x004CE5D5 getModuleNameKey, RW 0x004CE672 ModuleData scalar deleting dtor.
-// TARGET TBuff: RW 0x004D13A7 GetSnapshotName, RW 0x004D187F scalar deleting dtor, RW 0x004D18E9 xfer.
+//   RW 0x004CE5D5 getModuleNameKey, RW 0x004CE62B ~W3DBuffDrawModuleData, RW 0x004CE672 ModuleData scalar deleting dtor.
+// TARGET TBuff: RW 0x004D13A7 GetSnapshotName, RW 0x004D13AD ~TBuff (via RW 0x00707F3E BuffLogic::removeBuff), RW 0x004D187F scalar deleting dtor, RW 0x004D18E9 xfer.
 #include "GameClient/BuffDraw.h"
 #include "Common/Xfer.h"
 #include "GameLogic/SnapshotXfer.h"
@@ -70,6 +70,7 @@ void ClientBuffs::updateFade(int &state, float &opacity)
 	}
 }
 
+// Both editions: RW 0x0082A4A8 (DONOR BFME2 0x00419A99 Rva00419A99Cleanup / TBuff::release)
 void ClientBuffs::release(std::map<std::pair<ObjectID, int>, Buff>::iterator it)
 {
 	auto t = m_perTemplate.find(it->second.thing);
@@ -123,7 +124,7 @@ bool ClientBuffs::turnOn(ObjectID object, int type, const std::string &thing, co
 
 void ClientBuffs::turnOff(ObjectID object, int type, bool immediate)
 {
-	// BuffManager::TurnOffBuff -> BuffInstance::TurnOff
+	// Both editions: BuffManager::TurnOffBuff (RW 0x00764337) -> BuffInstance::TurnOff (RW 0x00764293)
 	auto it = m_buffs.find(std::make_pair(object, type));
 	if (it == m_buffs.end())
 	{

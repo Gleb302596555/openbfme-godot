@@ -67,6 +67,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008B9ED8 (dtor -> RW 0x0086393B)
 class SpellRechargeModifierUpgrade : public UpgradeModule, public CreateModuleInterface
 {
 public:

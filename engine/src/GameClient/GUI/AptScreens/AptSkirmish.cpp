@@ -1621,13 +1621,15 @@ void AptSkirmish::setGameMapType(const std::string &type)
 		}
 		m_setup->setWarScenario(m_scenario); // WOTR2 milestone 8: GT / SI of the game (a restored game's too)
 	}
+	// RW 0x840A91 / RW 0x84692B: retail hides strategic slots >= 6; Ennorath 1.9.8.5 raises the limit to 8 (ennorath.wotr-8-players)
+	const int strategicSlotLimit = ModEngineFeatures::has(ModEngineFeature::EnnorathWotr8Players) ? MAX_SLOTS : 6;
 	for (int slot = 0; slot < MAX_SLOTS; ++slot)
 	{
 		for (GameWindow *w : m_slots[slot])
 		{
 			if (w && slot >= 6)
 			{
-				w->winHide(m_strategic);
+				w->winHide(m_strategic && slot >= strategicSlotLimit);
 			}
 		}
 	}
@@ -1849,7 +1851,9 @@ void AptSkirmish::initMpGameSetupGadget(const std::string &name, GameWindow *win
 	m_slots[index][which] = window;
 	m_slotGadgets[window] = SlotGadget{ (int)index, (Leaf)which };
 	populateSlotGadget((int)index, (Leaf)which, window);
-	if (index >= 6 && m_strategic)
+	// RW 0x840A91 / RW 0x84692B: retail hides strategic slots >= 6; Ennorath 1.9.8.5 allows all 8
+	const int strategicSlotLimit = ModEngineFeatures::has(ModEngineFeature::EnnorathWotr8Players) ? MAX_SLOTS : 6;
+	if (index >= strategicSlotLimit && m_strategic)
 	{
 		window->winHide(true);
 	}
@@ -1929,7 +1933,7 @@ void AptSkirmish::populateScenarioCombo()
 	for (size_t i = 0; i < m_livingWorld->scenarios.size(); ++i)
 	{
 		const LivingWorldScenarioEntry &e = m_livingWorld->scenarios[i];
-		const int row = GadgetComboBoxAddEntry(m_scenarioCombo, fetchOrMissing(m_env.gameText, e.displayLabel), 0xFFFFFFFFu);
+		const int row = GadgetComboBoxAddEntry(m_scenarioCombo, LivingWorldSetupText::scenarioDisplayName(e, m_env.gameText), 0xFFFFFFFFu);
 		GadgetComboBoxSetItemData(m_scenarioCombo, row, itemData((int)i));
 		if (e.name == m_scenario)
 		{
@@ -1996,9 +2000,15 @@ void AptSkirmish::populateSlotGadget(int slot, Leaf leaf, GameWindow *combo)
 			fillCombo(combo, m_setup->playerEntries(slot));
 			break;
 		case Leaf::PlayerTemplate:
+		{
 			fillCombo(combo, m_setup->templateEntries());
-			GadgetComboBoxSetMaxDisplay(combo, std::max(8 - slot, 4)); // RW 0x844F3C -> 0x72414F, argument RW 0x8402C1
+			int maxDisp = std::max(8 - slot, 4); // RW 0x844F3C -> 0x72414F, argument RW 0x8402C1
+			// PYSAGE 1.9.8.5 .wotrui 0x00F28000 (hook RW 0x841691): in 8-player WotR clamp slots 4..7 dropdown height to 5 - (slot - 4)
+			if (m_strategic && ModEngineFeatures::has(ModEngineFeature::EnnorathWotr8Players) && slot >= 4 && slot <= 7)
+				maxDisp = std::min(maxDisp, 5 - (slot - 4));
+			GadgetComboBoxSetMaxDisplay(combo, maxDisp);
 			break;
+		}
 		case Leaf::Team:
 			fillCombo(combo, m_setup->teamEntries());
 			break;
@@ -2012,7 +2022,12 @@ void AptSkirmish::populateSlotGadget(int slot, Leaf leaf, GameWindow *combo)
 				fillCombo(combo, m_setup->handicapEntries());
 				GadgetComboBoxSetSelectedPos(combo, 0, false);
 			}
-			GadgetComboBoxSetMaxDisplay(combo, std::max(8 - slot, 4)); // RW 0x840C40 -> 0x72414F
+			{
+				int maxDisp = std::max(8 - slot, 4); // RW 0x840C40 -> 0x72414F
+				if (m_strategic && ModEngineFeatures::has(ModEngineFeature::EnnorathWotr8Players) && slot >= 4 && slot <= 7)
+					maxDisp = std::min(maxDisp, 5 - (slot - 4));
+				GadgetComboBoxSetMaxDisplay(combo, maxDisp);
+			}
 			break;
 		case Leaf::Hero:
 			fillHeroCombo(slot, combo); // lane CAH-1
@@ -3089,7 +3104,10 @@ void AptSkirmish::fillHeroCombo(int slot, GameWindow *combo)
 	{
 		return; // without TheCreateAHeroSystem RW 0x842C93 leaves the combo empty
 	}
-	GadgetComboBoxSetMaxDisplay(combo, std::max(8 - slot, 4)); // RW 0x842F92 -> 0x72414F; independent of the number of heroes
+	int maxDisp = std::max(8 - slot, 4); // RW 0x842F92 -> 0x72414F; independent of the number of heroes
+	if (m_strategic && ModEngineFeatures::has(ModEngineFeature::EnnorathWotr8Players) && slot >= 4 && slot <= 7)
+		maxDisp = std::min(maxDisp, 5 - (slot - 4));
+	GadgetComboBoxSetMaxDisplay(combo, maxDisp);
 	if (!m_heroStopReported)
 	{
 		m_heroStopReported = true;

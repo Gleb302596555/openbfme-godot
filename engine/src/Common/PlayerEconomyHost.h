@@ -1,3 +1,4 @@
+// Both editions: SkirmishAIManager::findAIForPlayer (RW 0x008EDCBA, DONOR BFME2 0x004E95D4)
 // OpenBFME. GPL-3.0.
 //
 // PlayerEconomyHost (lane ECON-1): the questions a Player cannot answer alone because they need the world (its objects, GameData, the game's mode). The

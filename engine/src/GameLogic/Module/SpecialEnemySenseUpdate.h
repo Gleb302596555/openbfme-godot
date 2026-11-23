@@ -19,6 +19,7 @@ public:
 
 // RW SpecialEnemySenseUpdate: getModuleName RW 0x0089D70D, getModuleNameKey RW 0x0089D713,
 // dtors RW 0x0089D7A9 / 0x0089D6F4, xfer RW 0x0089D7C5.
+// RW 0x0089D6F4 (dtor -> RW 0x0064A492)
 class SpecialEnemySenseUpdate : public UpdateModule
 {
 public:

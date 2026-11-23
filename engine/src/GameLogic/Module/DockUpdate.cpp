@@ -25,6 +25,7 @@
 #include "GameLogic/SnapshotXfer.h"
 #include "Libraries/WWVegas/WWMath/quat.h"
 
+#include <cmath>
 #include <cstddef>
 #include <stdexcept>
 
@@ -771,6 +772,26 @@ void SupplyWarehouseDockUpdate::setDockCrippled(bool setting)
 		}
 	}
 	DockUpdate::setDockCrippled(setting); // RW 0x8AB759: RW 0x991727
+}
+
+// RW 0x8AB64E (called by script action 216 WAREHOUSE_SET_VALUE RW 0x7C191A)
+void SupplyWarehouseDockUpdate::setCashValue(int cashValue)
+{
+	Object *dock = getObject();
+	if (!dock)
+	{
+		return;
+	}
+	const int perBox = dock->logic().economy().settings().valuePerSupplyBox; // GlobalData + 0xA5C
+	if (perBox <= 0)
+	{
+		return;
+	}
+	m_boxesStored = static_cast<int>(std::ceil(static_cast<double>(cashValue) / static_cast<double>(perBox)));
+	if (ObjectClientHooks *client = dock->clientHooks())
+	{
+		client->supplyStatusChanged(*dock, m_boxesStored, m_data->m_startingBoxes); // RW 0x671948
+	}
 }
 
 void SupplyWarehouseDockUpdate::crc(StateHasher &h) const

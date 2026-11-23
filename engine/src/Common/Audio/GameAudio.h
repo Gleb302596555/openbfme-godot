@@ -79,6 +79,12 @@ struct AudioWorldQueries
 	// RW 0x4533A9 / RW 0x6DB566; BFME2 0x004533A9 / BFME2 0x006DB192: owning player of object / drawable when owner is not passed in the event
 	std::function<int(std::uint32_t objectId)> objectOwner;
 	std::function<int(std::uint32_t drawableId)> drawableOwner;
+	// Local 141 (S-1462): RW 0x453488..0x4534C8 Living World owner filter (VIEW_LIVING_WORLD = 1):
+	// TheLivingWorld->getLocalPlayerIndex (RW 0x6B3557), localPlayer->isAlly(owner) (RW 0x6E1EC4),
+	// and optional event owner resolution (RW 0x6DADCC; defaults to event.getPlayerIndex()).
+	std::function<int()> livingWorldLocalPlayerIndex;
+	std::function<bool(int owner)> livingWorldIsAlly;
+	std::function<int(const AudioEventRTS &)> livingWorldEventOwner;
 
 	// Lane AUDIO-4 (QA-1 U21): the player list outside a live game (the shell, the lobby, the score screen). The port has no player list there; the
 	// sounds requested there (APT PlaySound, the shell's gadgets: RW 0x72937E -> 0x815772) carry no owner (player index -1), and for an ownerless event

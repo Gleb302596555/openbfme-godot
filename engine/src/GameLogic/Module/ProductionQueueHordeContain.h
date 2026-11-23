@@ -40,6 +40,7 @@ public:
 };
 
 // Module class size 0x9E4 (RW 0x0064BE3D, ctor RW 0x0088459B): derives from HordeGarrisonContain (GarrisonContain with isHordeGarrison() == true)
+// RW 0x00884492 (dtor -> RW 0x0087B312)
 class ProductionQueueHordeContain : public GarrisonContain
 {
 public:

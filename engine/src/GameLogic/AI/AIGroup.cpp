@@ -36,7 +36,7 @@ AIGroup::AIGroup(GameLogic &logic, const std::vector<ObjectID> &ids)
 	for (ObjectID id : ids)
 	{
 		Object *o = logic.findObjectByID(id);
-		// PORT-208 (issue #490): RW 0x6AAB85 -> 0x8DB249 -> 0x770917 adds every live selected object to the AIGroup so garrisonable structures without an
+		// PORT-208 (issue #490): RW 0x006AAB85 -> RW 0x008DB249 -> RW 0x00770917 adds every live selected object to the AIGroup so garrisonable structures without an
 		// AIUpdate (e.g. civilian buildings, RohanBattleTower) and spawner structures without an AIUpdate (e.g. AngForStronghold) reach groupAttackPosition
 		// (RW 0x77229A) and weapon-lock forwarding; non-firing AI-less structures stay excluded so movement / planning group counts are unchanged
 		if (o && !o->isDestroyed() &&

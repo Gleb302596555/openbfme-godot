@@ -262,6 +262,7 @@ struct W3DLodOptions // one row of Horde LodOptions (RW 0xBDCA20)
 // W3DModelDrawModuleData: the RotWK table of 57 rows (RW 0xBE1320). Named after ZH's class; the binary names only
 // W3DScriptedModelDraw (the string "W3DModelDraw" is not in game.dat), which is the registered module.
 // Derives from the ModuleData of Common/Module.h so ModuleFactory::bindTypedData<T> can bind the three draw classes (OBJ-1 contract).
+// RW 0x004C82DA (~W3DModelDrawModuleData)
 class W3DModelDrawModuleData : public ModuleData
 {
 public:

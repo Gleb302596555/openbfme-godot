@@ -31,6 +31,7 @@ public:
 // initiateVoice RW 0x851003, sacrificeHorde RW 0x851080, cancelSacrifice RW 0x8511B5, update RW 0x85123F, xfer RW 0x850CD0
 // (verified against workspace/RotWK/game.dat; matches BFME2 donor Code/GameEngine/Source/GameLogic/Object/Update/BloodthirstyUpdate.cpp).
 // MSG_SACRIFICE (1056): the dispatcher gives the selected group's FRONT member's interface the target, source 0.
+// RW 0x00850CAA (dtor -> RW 0x0064A492)
 class BloodthirstyUpdate : public UpdateModule
 {
 public:

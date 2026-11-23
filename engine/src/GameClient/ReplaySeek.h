@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 #pragma once
 
+#include "Common/ModEngineFeatures.h"
 #include "Common/Recorder.h"
 #include "GameClient/CommandLogLoad.h"
 #include "GameClient/LiveGame.h"
@@ -74,5 +75,29 @@ struct ReplaySeek
 		}
 		result.ready = result.error.empty() && result.reached == target;
 		return result;
+	}
+};
+
+// PYSAGE 1.9.8.5 .rppause 0x00F2E000 / .rppvar 0x00F2D000 (hooks RW 0x63F1B9, RW 0x6325D5, RW 0x77F66B):
+// Ctrl+] toggles pause during replay playback when ennorath.replay-tabs-chat-pause is active.
+struct ReplayPauseInput
+{
+	static constexpr int kKeyRightBracket = 0x1B; // DIK_RBRACKET (.rppause 0x00F2E000)
+	static constexpr int kStateDown = 0x02;
+	static constexpr int kStateCtrlMask = 0x0C;     // LCTRL | RCTRL (.rppause 0x00F2E009)
+	static constexpr int kStateShiftAltMask = 0xF0; // Shift | Alt (.rppause 0x00F2E00D)
+	static constexpr int kStateAutoRepeat = 0x100;  // (.rppause 0x00F2E036)
+
+	static bool shouldToggle(int keyCode, int keyStateFlags, bool isReplayPlayback, bool modalOpen)
+	{
+		if (!ModEngineFeatures::has(ModEngineFeature::EnnorathReplayControls))
+			return false;
+		if (!isReplayPlayback || modalOpen)
+			return false;
+		if (keyCode != kKeyRightBracket)
+			return false;
+		if ((keyStateFlags & kStateCtrlMask) == 0 || (keyStateFlags & kStateShiftAltMask) != 0)
+			return false;
+		return (keyStateFlags & (kStateAutoRepeat | kStateDown)) == kStateDown;
 	}
 };

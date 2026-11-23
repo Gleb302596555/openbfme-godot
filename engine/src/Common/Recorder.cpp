@@ -27,7 +27,8 @@ enum : std::uint8_t
 	RECORD_END = 3,
 	RECORD_LOST = 4,
 	RECORD_PROFILE = 5, // lane SAVE-2
-	RECORD_VIEW = 6     // lane ANTICHEAT-1
+	RECORD_VIEW = 6,    // lane ANTICHEAT-1
+	RECORD_CHAT = 7     // Ennorath 1.9.8.5 .rpchat (PYSAGE 1.9.8.5 .rpchat 0x00ED7B40)
 };
 bool failWith(std::string *error, const std::string &why)
 {
@@ -442,6 +443,17 @@ bool parseReplay(const std::vector<std::uint8_t> &bytes, ReplayFile &out, std::s
 			}
 			out.views.push_back(v);
 		}
+		else if (kind == RECORD_CHAT && version >= 2)
+		{
+			// PYSAGE 1.9.8.5 .rpchat 0x00ED7C80 (hook RW 0x77DE0F): recorded in-game chat line (never enters MessageStream)
+			ReplayFile::ChatRecord c;
+			c.frame = r.u32();
+			c.slot = r.i32();
+			c.color = r.i32();
+			c.sender = r.str();
+			c.text = r.str();
+			out.chats.push_back(std::move(c));
+		}
 		else if (kind == RECORD_LOST)
 		{
 			const UnsignedInt frame = r.u32();
@@ -716,6 +728,47 @@ void ReplayWriter::recordView(const ReplayFile::View &v)
 	write(w.data());
 }
 
+namespace
+{
+// PYSAGE 1.9.8.5 .rpchat 0x00ED7B96..0x00ED7BB6: cap recorded chat text at 0x1F8 (504) UTF-16 code units without splitting a surrogate pair
+std::string capUtf8ToUtf16Units(const std::string &s, size_t maxUnits)
+{
+	size_t units = 0;
+	size_t i = 0;
+	while (i < s.size())
+	{
+		const unsigned char c = (unsigned char)s[i];
+		size_t bytes = 1;
+		size_t u16 = 1;
+		if ((c & 0x80u) == 0) { bytes = 1; u16 = 1; }
+		else if ((c & 0xE0u) == 0xC0u) { bytes = 2; u16 = 1; }
+		else if ((c & 0xF0u) == 0xE0u) { bytes = 3; u16 = 1; }
+		else if ((c & 0xF8u) == 0xF0u) { bytes = 4; u16 = 2; }
+		if (i + bytes > s.size()) break;
+		if (units + u16 > maxUnits) break;
+		units += u16;
+		i += bytes;
+	}
+	return s.substr(0, i);
+}
+} // namespace
+
+void ReplayWriter::recordChat(UnsignedInt frame, int slot, int color, const std::string &sender, const std::string &text)
+{
+	if (!m_open || text.empty())
+	{
+		return;
+	}
+	NetByteWriter w;
+	w.u8(RECORD_CHAT);
+	w.u32(frame);
+	w.i32(slot);
+	w.i32(color);
+	w.str(sender);
+	w.str(capUtf8ToUtf16Units(text, 0x1F8u));
+	write(w.data());
+}
+
 void ReplayWriter::recordHash(UnsignedInt frameAfter, std::uint32_t hash)
 {
 	if (!m_open)
@@ -818,4 +871,14 @@ void ReplayPlayback::completed(const FrameCompletion &c)
 			m_first.played = played;
 		}
 	}
+}
+
+std::vector<ReplayFile::ChatRecord> ReplayPlayback::takeChatsUpTo(UnsignedInt frame)
+{
+	std::vector<ReplayFile::ChatRecord> out;
+	while (m_chatCursor < m_replay.chats.size() && m_replay.chats[m_chatCursor].frame <= frame)
+	{
+		out.push_back(m_replay.chats[m_chatCursor++]);
+	}
+	return out;
 }

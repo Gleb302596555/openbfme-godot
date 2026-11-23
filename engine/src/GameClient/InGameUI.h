@@ -23,6 +23,7 @@
 
 class CommandButton;
 class GameLogic;
+class ThingTemplate;
 class FormationAssistant;
 class MessageStream;
 struct HudContext;
@@ -97,6 +98,8 @@ public:
 	void setTargetFlashHandler(std::function<void(ObjectID)> handler) { m_targetFlashHandler = std::move(handler); }
 	void flashSpecialPowerTarget(ObjectID id) { if (m_targetFlashHandler) m_targetFlashHandler(id); }
 	int selectMatching(HudContext &ctx, bool acrossMap);
+	// PYSAGE 1.9.8.5 .padsel 0xEDE094 / 0xEDE128: STRUCTURE + BASE_FOUNDATION + EXPANSION_PAD templates match if equivalent or share '<Prefix>ExpansionPad' before 'Side'/'Corner'.
+	static bool isSameExpansionPad(GameLogic &logic, const ThingTemplate *a, const ThingTemplate *b);
 
 	// ---- the GUI command (ZH setGUICommand / getGUICommand: the command button waiting for a target) ----
 	const CommandButton *getGUICommand() const { return m_guiCommand; }

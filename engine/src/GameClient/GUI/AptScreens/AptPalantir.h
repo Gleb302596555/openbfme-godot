@@ -273,6 +273,9 @@ public:
 	// `shown`: the tracker's shown flags in list order; `flashableGame`: neither a skirmish nor a network game; `screenOpen`: the objectives or tribute screen
 	void syncObjectiveFlash(const std::vector<bool> &shown, bool flashableGame, bool screenOpen);
 	void flashButton(int slot, int seconds); ///< RW 0x6D455F (slot 0 PlayerMagic, 1 Objectives, 2 PlanningMode)
+	// RW 0x6D7AA4 / 0x6D7AB3 & PYSAGE 1.9.8.5 .rpchat 0x00ED7E30: SetMessengerButtonState("_up" / "_unused")
+	void setMessengerAvailable(bool available);
+	bool messengerAvailable() const { return m_messengerAvailable; }
 	void tickFlashTimers(double seconds);    ///< RW 0x6D72DF on the client clock (30 counts a second)
 	bool objectivesFlashing() const { return m_objFlash; }
 	bool buttonFlashing(int slot) const { return slot >= 0 && slot < 3 && m_flashOn[slot]; }
@@ -355,6 +358,7 @@ private:
 	float m_rankProgress = -1.0f;                 ///< + 0x14
 	std::vector<std::string> m_rankCalls;
 	bool m_buttonsStateSent = false, m_buttonsStateEvil = false, m_magicEnabledSent = false, m_commandContext = false, m_commandShown = false;
+	bool m_messengerAvailable = false, m_messengerStateSent = false;
 	// lane HUD-5: UpdatePlayerStats' cache (Palantir::Impl + 0x7E bits 0 / 4, + 0x80 / + 0x84 / + 0x88, + 0xD0 .. + 0xE4; reset RW 0x6D76D3: -1, 1, cleared)
 	bool m_rankSent = false, m_magicHighlightedSent = false, m_highlighted = false;
 	int m_lastLevel = -1, m_lastRank = 0, m_lastProgress = 1;
