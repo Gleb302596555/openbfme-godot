@@ -2078,8 +2078,9 @@ std::vector<std::string> ControlBar::acceptanceStops()
 		"availability (RW 0x942733 case 0x17: the weapon of WeaponSlot and its clip) and press (RW 0x940435 case 0x17: MSG_DO_WEAPON with WeaponSlot and "
 		"MaxShotsToFire, a targeted one through the GUI command's issueFireWeaponCommand) are not ported, nor the logic's MSG_DO_WEAPON / _AT_LOCATION / "
 		"_AT_OBJECT and the AI's attack-position state (S-325): the buttons show restricted",
-		"[S-1992] TOGGLE_NO_AUTO_ACQUIRE buttons (lane FACT-B: the catapult's and ballista's auto-acquire toggle): the press (RW 0x940435 case 0x30: "
-		"MSG_TOGGLE_NO_AUTO_ACQUIRE 1115 with the object, then the button image RW 0x75D366) and the logic's flag are not ported: the buttons show restricted",
+		"[S-1992] TOGGLE_NO_AUTO_ACQUIRE buttons (lane FACT-B, closed by PORT-313: the catapult's and ballista's auto-acquire toggle): the press (RW 0x940435 "
+		"case 0x30: MSG_TOGGLE_NO_AUTO_ACQUIRE 1115 with the object, then the button image RW 0x75D366 -> RW 0x75D22E) and the logic's flag are ported; the image "
+		"follows each press and the logic's agreement, and a button without TOGGLE_IMAGE_ON_WEAPON keeps its picture",
 		"[S-1260] transport inventory (lane UI-1): the riders on a container's EXIT_CONTAINER buttons (RW 0x94251F), the press as MSG_EXIT (RW 0x940FEF), EVACUATE while "
 		"someone is inside (RW 0x942733) and the garrison inventory of context 2 (RW 0x94518D) are ported; not reproduced: the hide on Object + 0x1C8 bit 5 (unidentified), "
 		"retail's overrun of a rider's slots past the last EXIT_CONTAINER button, context 3 (contested garrisons, MSG_EVACUATE_CONTESTERS), the radial menu, the "
