@@ -540,6 +540,7 @@ bool PartitionManager::isRegistered(const Object &obj) const
 	return id < m_byId.size() && m_byId[id] && m_byId[id]->object == &obj;
 }
 
+// RW 0x00B4F460 / DONOR BFME2 PartitionDirtyListOwner::prependDirtyModule (+0x34 head, +0x14 prev, +0x18 next)
 void PartitionManager::markDirty(Object &obj)
 {
 	// RW 0xA39570

@@ -114,6 +114,7 @@ Path::Path(bool laterLegOnTie)
 {
 }
 
+// RW 0x007666FF (Path::~Path; DONOR BFME2 Path::~Path)
 Path::~Path()
 {
 	PathNode *node, *nextNode;
@@ -681,6 +682,12 @@ bool Path::hasExplicitZ() const
 	}
 	const PathNode *n = m_closest->m_nextOpti ? m_closest->m_nextOpti : m_closest;
 	return n->m_waypointID != PathNode::NO_WAYPOINT;
+}
+
+// RW 0x661E50: m_path && m_closest && m_closest->m_waypointID != NO_WAYPOINT
+bool Path::isCurrentNodePortal() const
+{
+	return m_path && m_closest && m_closest->m_waypointID != PathNode::NO_WAYPOINT;
 }
 
 float Path::remainingFrom(const PathNode *node, const Coord3D &pos) const

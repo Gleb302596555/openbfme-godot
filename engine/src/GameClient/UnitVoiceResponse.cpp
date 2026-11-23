@@ -3,6 +3,7 @@
 
 #include "GameClient/UnitVoiceResponse.h"
 #include "GameClient/InGameUI.h"
+#include "GameLogic/AI/AIAttackMelee.h"
 
 #include "Common/AsciiString.h"
 #include "Common/Audio/AudioEntryPoints.h"
@@ -731,8 +732,25 @@ void UnitVoiceResponse::moveVoices(Object &obj, int msgType, const Info *info, C
 	{
 		return;
 	}
-	// VoiceCrush remains S-704 (InGameUI +0x8B9, not GameData).
-	if (!enterState && msgType == MSG_DO_SALVAGE)
+	// Local 141 (S-704): RW 0x8DE97E..0x8DE9D6 (DONOR BFME2 PickAndPlayUnitVoiceResponse.cpp:1049):
+	// VoiceCrush when !enterState, InGameUI +0x8B9 (force-move mode) is on, the controlling player is
+	// not in planning mode (+0x770 == 2), and the target passes Object::canCrushOrSquish(target, 2) (RW 0x69519A).
+	const Player *player = obj.getControllingPlayer();
+	if (!enterState && m_ui && m_ui->isInForceMoveToMode() && !(player && player->orderMode() == 2))
+	{
+		if (info && info->target != INVALID_ID)
+		{
+			Object *victim = m_logic.findObjectByID(info->target);
+			if (victim && AttackCrushPolicy(obj, *victim))
+			{
+				if (fillName(c, obj, "VoiceCrush"))
+				{
+					rank.special = 1;
+				}
+			}
+		}
+	}
+	else if (!enterState && msgType == MSG_DO_SALVAGE)
 	{
 		if (fillName(c, obj, "VoiceSalvage"))
 		{
@@ -1618,7 +1636,7 @@ std::vector<std::string> UnitVoiceResponse::acceptanceStops()
 		"[S-703] unit voice: message types of RW 0x8DEDBB not answered here: weapon modes (0x43A), "
 		"the planned action queue (0x46A), the Ring voices (0x7E4, 0x7E5); combine hordes (0x423, RW 0x8DF2EB) is answered (PORT-84); 0x7DB .. 0x7DD are answered (PORT-86); "
 		"0x7EA (RW 0x8DFD0D) and 0x7EB (RW 0x8DFE7B) are answered (PORT-87), the post of 0x7EA is stop S-7226",
-		"[S-704] unit voice: VoiceCrush (InGameUI + 0x8B9, crushable target) is not ported; planning and waypoint movement gates are ported (PORT-462)",
+		"[S-704] unit voice: closed — VoiceCrush (RW 0x8DE97E..0x8DE9D6), planning and waypoint movement gates are ported (PORT-462, Local 141)",
 		"[S-705] unit voice: the candidate order is selection then member order (retail iterates a hash map keyed by Object pointers) and a count tie between "
 		"two sounds goes to the lower-case name order (retail: the lower audio info POINTER, RW 0x8DE522's unsigned compare): which sound wins a tie and "
 		"which object of a bucket speaks may differ from retail. A hero's level is its experience tracker's rank (PORT-271)",

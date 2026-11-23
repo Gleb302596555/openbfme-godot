@@ -2,6 +2,7 @@
 // See GameClient/GUI/Skirmish/LivingWorldSetupText.h.
 
 #include "GameClient/GUI/Skirmish/LivingWorldSetupText.h"
+#include "Common/ModEngineFeatures.h"
 
 #include <algorithm>
 
@@ -142,9 +143,87 @@ std::u16string regionDescription(const LivingWorldSetupCampaign &campaign, int r
 	return out;
 }
 
+namespace
+{
+bool endsWithAscii(const std::u16string &s, const char *suffix, size_t suffixLen)
+{
+	if (s.size() < suffixLen) return false;
+	const size_t start = s.size() - suffixLen;
+	for (size_t i = 0; i < suffixLen; ++i)
+		if (s[start + i] != (char16_t)(unsigned char)suffix[i]) return false;
+	return true;
+}
+} // namespace
+
+std::u16string adjustScenarioTextFor8Players(const std::u16string &text, const LivingWorldScenarioEntry &scenario, bool isTitle)
+{
+	// PYSAGE 1.9.8.5 .wtrdisp 0x00F2F0E8..0x00F2F3BA (hooks RW 0x9760B4, RW 0x9765B3, RW 0x976BA8)
+	if (!ModEngineFeatures::has(ModEngineFeature::EnnorathWotr8Players) || scenario.maxPlayers != 8 || text.size() > 0x200)
+	{
+		return text;
+	}
+	const bool is042Or043 = scenario.displayLabel == "LWScenario:WOTRScenario042" || scenario.displayLabel == "LWScenario:WOTRScenario043";
+	// Pass 1 (.wtrdisp 0x00F2F15D..0x00F2F20D): scan for standalone '2' + ('-' | U+2013 | U+2014) + ('8' | '6' | '2')
+	for (size_t i = 2; i < text.size(); ++i)
+	{
+		if (text[i - 2] != u'2') continue;
+		const char16_t dash = text[i - 1];
+		if (dash != u'-' && dash != (char16_t)0x2013 && dash != (char16_t)0x2014) continue;
+		if (i > 2 && text[i - 3] >= u'0' && text[i - 3] <= u'9') continue;
+		if (i + 1 < text.size() && text[i + 1] >= u'0' && text[i + 1] <= u'9') continue;
+		const char16_t upper = text[i];
+		if (upper == u'8') return text;
+		if (upper == u'6' || (upper == u'2' && is042Or043))
+		{
+			std::u16string out = text;
+			out[i] = u'8';
+			return out;
+		}
+	}
+	// Pass 2 (.wtrdisp 0x00F2F212..0x00F2F390): fallback for WOTRScenario042 / WOTRScenario043
+	if (!is042Or043 || text.empty()) return text;
+	if (isTitle)
+	{
+		size_t baseLen = text.size();
+		if (endsWithAscii(text, " (2)", 4)) baseLen -= 4;
+		else if (endsWithAscii(text, " (1vs1)", 7)) baseLen -= 7;
+		else if (endsWithAscii(text, " (1v1)", 6)) baseLen -= 6;
+		std::u16string out = text.substr(0, baseLen);
+		out.push_back(u' ');
+		out.push_back(u'(');
+		out.push_back(u'2');
+		out.push_back((char16_t)0x2013);
+		out.push_back(u'8');
+		out.push_back(u')');
+		return out;
+	}
+	// Description mode (.wtrdisp 0x00F2F2E4..0x00F2F38D): first line ending with ": 2" -> ": 2\u20138"
+	size_t eol = 0;
+	while (eol < text.size() && text[eol] != u'\r' && text[eol] != u'\n') ++eol;
+	while (eol > 0 && (text[eol - 1] == u' ' || text[eol - 1] == u'\t')) --eol;
+	if (eol == 0 || text[eol - 1] != u'2') return text;
+	size_t colon = eol - 1;
+	while (colon > 0 && (text[colon - 1] == u' ' || text[colon - 1] == u'\t')) --colon;
+	if (colon <= 1 || text[colon - 1] != u':') return text;
+	std::u16string out;
+	out.reserve(text.size() + 2);
+	out.append(text, 0, eol);
+	out.push_back((char16_t)0x2013);
+	out.push_back(u'8');
+	out.append(text, eol, std::u16string::npos);
+	return out;
+}
+
+std::u16string scenarioDisplayName(const LivingWorldScenarioEntry &scenario, const GameTextSource *text)
+{
+	const std::u16string name = scenario.displayLabel.empty() ? std::u16string() : fetchOrMissing(text, scenario.displayLabel);
+	return adjustScenarioTextFor8Players(name, scenario, true);
+}
+
 std::u16string scenarioDescription(const LivingWorldScenarioEntry &scenario, int victoryType, const GameTextSource *text)
 {
-	const std::u16string description = scenario.descriptionLabel.empty() ? std::u16string() : fetchOrMissing(text, scenario.descriptionLabel);
+	const std::u16string rawDescription = scenario.descriptionLabel.empty() ? std::u16string() : fetchOrMissing(text, scenario.descriptionLabel);
+	const std::u16string description = adjustScenarioTextFor8Players(rawDescription, scenario, false);
 	if (victoryType < 0 || scenario.victoryTypes.empty())
 	{
 		return description; // no game info (RW 0x97606B's first branch); a campaign without victory types has nothing to show

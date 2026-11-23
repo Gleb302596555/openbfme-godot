@@ -69,6 +69,7 @@ public:
 	float m_laserLifetime = 0.0f;          ///< +0x18 LaserLifetime (parseReal RW 0x42ED00, ms)
 };
 
+// RW 0x00764BB3 (getModuleName)
 class LaserUpdate : public DrawableModule
 {
 public:

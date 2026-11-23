@@ -43,7 +43,7 @@
 //     0x93, 0x97 yes; 0x39, 0x44, 0x45, 0x90 the target is not AIRBORNE_TARGET (Object + 0x94 bit 6); 0x82 an ENEMY, or an ALLY / NEUTRAL that
 //     is DEPLOYED_MINE (template + 0x11D bit 4); 0x27 / 0x28 the grab test (RW 0x82DB6A .. 0x82DC80, lane MODCOMPAT-MOD1: see grabObjectTest; its
 //     fake tree branch RW 0x82DB01 is S-7140); 0x33 uses shared canGiveUpgrade (RW 0x82D780, PORT-109; contained provider S-7318); 0x1D the capture test RW 0x82D0A1, 0x8A a
-//     STRUCTURE's RW 0x82D7F2 (canRepairObject): not ported (S-7140, answer no, counted per type); any other type no.
+//     STRUCTURE's RW 0x82D7F2 (canRepairObject, PORT-289); any other type no.
 // Each type test this file does not port answers no, counted and reported as stop S-1874 (stopLines()); the object form's as S-7140. TheTerrainLogic vslot 0x54 is the third bit plane
 // of the map (WorldHeightMap + 0x74, PathfindTerrain::thirdPlane).
 
@@ -81,6 +81,9 @@ bool canDoSpecialPower(Object &obj, const SpecialPowerTemplate *power);
 // RW 0x82D925 (see above); `unported` (when given) is set when the answer no came from a per-type test this file does not port (S-7140)
 // RW 0x82D780: shared action-0x12 / power-type-0x33 target predicate (PORT-109).
 bool canGiveUpgrade(Object *source, Object *target);
+// RW 0x82D7F2: the shared repair target predicate used by the special-power
+// availability check and by the dozer repair order (PORT-289).
+bool canRepairObject(const Object *source, const Object *target, CommandSourceType sourceType);
 bool canDoSpecialPowerAtObject(Object &obj, Object *target, CommandSourceType source, const SpecialPowerTemplate *power, unsigned options,
                                bool checkSourceRequirements, bool *unported = nullptr);
 

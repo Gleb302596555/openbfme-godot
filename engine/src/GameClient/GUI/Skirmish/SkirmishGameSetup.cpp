@@ -3,6 +3,7 @@
 // See GameClient/GUI/Skirmish/SkirmishGameSetup.h.
 
 #include "GameClient/GUI/Skirmish/SkirmishGameSetup.h"
+#include "Common/ModEngineFeatures.h"
 #include "GameClient/LocalizedText.h"
 #include "Common/ExtendedPlayerColors.h"
 
@@ -718,9 +719,11 @@ SkirmishGameSetup::StartCheck SkirmishGameSetup::checkStart(int flags, bool will
 	// RW 0x843245 .. 0x843276: the maximum (RW 0x9758E3: in the War of the Ring the scenario's MaxPlayers (+ 0x10), else the map's player count; 0
 	// without either; above 8 the constant 8 at RW 0xC53F2C) and the minimum (RW 0x97597F: the scenario's MinPlayers (+ 0x14), 0 outside the War of the Ring)
 	int maxPlayers = wotr ? (m_haveScenario ? m_scenario.maxPlayers : 0) : (md ? (int)md->numPlayers : 0);
-	if (maxPlayers > MAX_SLOTS)
+	// RW 0x840A91 / RW 0x84692B: retail War of the Ring caps at 6 players; Ennorath 1.9.8.5 raises the limit to 8
+	const int slotCap = (wotr && !ModEngineFeatures::has(ModEngineFeature::EnnorathWotr8Players)) ? 6 : MAX_SLOTS;
+	if (maxPlayers > slotCap)
 	{
-		maxPlayers = MAX_SLOTS;
+		maxPlayers = slotCap;
 	}
 	const int minPlayers = wotr && m_haveScenario ? m_scenario.minPlayers : 0;
 	if (maxPlayers < 1 || maxPlayers < minPlayers)

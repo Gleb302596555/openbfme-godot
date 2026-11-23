@@ -44,6 +44,7 @@
 #pragma once
 
 #include "Common/Thing/Thing.h"
+#include "GameLogic/SimMath.h"
 #include "GameLogic/Module/BehaviorModule.h"
 #include "GameLogic/Module/DieModule.h"
 #include "GameLogic/ObjectTypes.h"
@@ -52,6 +53,7 @@
 #include "GameLogic/ArmorSet.h"
 #include "GameLogic/BitFlags.h"
 #include "GameLogic/Damage.h"
+#include "GameLogic/WeaponSet.h"
 #include "Common/Player.h"
 #include "Common/Upgrade.h"
 
@@ -164,6 +166,9 @@ public:
 	bool isUnderConstruction() const { return testStatus(OBJECT_STATUS_UNDER_CONSTRUCTION); }
 	// lane DECOMP-3: RW 0x691269 Object::isAbleToAttack (BFME2 decomp Object_isAbleToAttack.cpp, tier B same-shape: RotWK's offsets); see Object.cpp
 	bool isAbleToAttack() const;
+	// PORT-198 (RW 0x68D6A6 / 0x68B5FA): per-target / per-weapon attack eligibility (CanAttackResult)
+	CanAttackResult getAbleToAttackSpecificObject(AbleToAttackType attackType, const Object *victim, CommandSourceType source) const;
+	CanAttackResult getAbleToUseWeaponAgainstTarget(AbleToAttackType attackType, const Object *victim, const Coord3D *pos, CommandSourceType source) const;
 	// RW + 0x33C: what the owner paid for this object (a float; ProductionUpdate stores the entry's cost, RW 0x8A1B9F); RefundDie refunds a share of it
 	float getBuildCostPaid() const { return m_buildCostPaid; }
 	// lane UPGRADE-1: RW + 0x340, the money queued OBJECT upgrades cost (ProductionUpdate::queueUpgrade RW 0x8A10C8 adds to it)
@@ -322,7 +327,7 @@ public:
 	// RW 0x692443: a set type: other than HELD resumes the countdowns (RW 0x68B961(0)), a rider held forever by it is cleared too, the expiry and the bit go,
 	// USER_PARALYZED / USER_FROZEN clear PARALYZED (and notify), then checkDisabledStatus runs
 	void clearDisabled(unsigned type);
-	bool isDisabledByType(unsigned type) const { return type < DISABLED_TYPE_COUNT && (m_disabled & (1u << type)) != 0; }
+	bool isDisabledByType(unsigned type) const { return type < DISABLED_TYPE_COUNT && (m_disabled & (1u << type)) != 0; } ///< RW 0x005E42B6
 	// RW 0x68B961: every module's special power interface pauses (true) or resumes (false) its countdown
 	void pauseAllSpecialPowers(bool pause);
 	// lane SCRIPT-2: the script status byte (RW Object + 0x457, ZH ObjectScriptStatusBit: 1 SCRIPT_DISABLED, 2 SCRIPT_UNPOWERED, 4 SCRIPT_UNSELLABLE,
@@ -483,6 +488,9 @@ public:
 	BodyModuleInterface *getBodyModule() const { return m_body; }
 	ContainModuleInterface *getContain() const { return m_contain; }
 	AIUpdateInterface *getAIUpdateInterface() const { return m_ai; }
+	// RW 0x68C3E6 / Object::rva0028BD17: one shared typed scan of module slot 32
+	// (+0x80), in module order, for the repair query.
+	RepairQueryInterface *getRepairQueryInterface() const;
 	// lane UBER-2B: the modules whose getCollide answers, in module order (ObjectCollide::onCollide walked every module per contact pair: 4% of a 10k battle)
 	const std::vector<CollideModuleInterface *> &collideModules() const { return m_collideModules; }
 	bool collideModulesKnown() const { return m_collideModulesKnown; } ///< every collide module answers pairFactsKnown (ObjectCollide::PairFacts)
@@ -555,7 +563,7 @@ public:
 	// ---- the object list (GameLogic keeps it; spec 5.4: append at the tail) -----------------------------------------------
 	Object *getNextObject() const { return m_next; }
 	Object *getPrevObject() const { return m_prev; }
-	// ZH Object::isInList(Object **pListHead)
+	// RW 0x0068BB4B / DONOR BFME2 Object::isInList(Object **pListHead)
 	bool isInList(Object *const *listHead) const { return m_next != nullptr || m_prev != nullptr || *listHead == this; }
 
 	// ---- the recorded transform (client interpolation data) ----------------------------------------------------------------
@@ -569,6 +577,16 @@ public:
 	float getRecordedOrientation() const { return m_recordedAngle; }
 	const float *getRecordedBasis() const { return m_recordedBasis; } ///< row major, as Thing::getBasis (read by the client's RenderInterpolation)
 	const Coord3D &getPreviousPosition() const { return m_previousPosition; }
+
+	// RW 0x00665342 (Object::getPlanarDirectionTo -> RW 0x006635F4 Thing::getPlanarDirectionTo; DONOR BFME2 Object::getPlanarDirectionTo; both BFME2 1.06 and RotWK 2.01):
+	// returns (other->pos.x - this->pos.x, other->pos.y - this->pos.y, 0.0f) in float32 (subss).
+	Coord3D getPlanarDirectionTo(const Object *other) const
+	{
+		if (!other) return Coord3D{ 0.0f, 0.0f, 0.0f };
+		const Coord3D *a = getPosition();
+		const Coord3D *b = other->getPosition();
+		return Coord3D{ SimMath::subf32(b->x, a->x), SimMath::subf32(b->y, a->y), 0.0f };
+	}
 
 	// lane BACKLOG4 (S-1222): RW 0x693919 (BFME2 decomp ObjectRva00293105.cpp Object::rva00293105 is the donor, tier B edited: RotWK adds the status
 	// test). Nothing with the status 0x66 (SUMMONING_REPLACEMENT, + 0xA0 bit 6); every module whose special power update interface (behaviour slot 0x64)

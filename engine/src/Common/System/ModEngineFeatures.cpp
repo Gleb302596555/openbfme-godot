@@ -49,6 +49,20 @@ const char *ModEngineFeatures::name(ModEngineFeature f)
 	case F::EnnorathStanceKeepsMoving: return "ennorath.stance-keeps-moving";
 	case F::EnnorathMiddleClickCamera: return "ennorath.middle-click-camera";
 	case F::EnnorathEvacuateContainers: return "ennorath.evacuate-containers";
+	case F::EnnorathOptionsPages: return "ennorath.options-pages";
+	case F::EnnorathOptionHotkeys: return "ennorath.option-hotkeys";
+	case F::EnnorathOnlineDelayFix: return "ennorath.online-delay-fix";
+	case F::EnnorathLobbyMapSearch: return "ennorath.lobby-map-search";
+	case F::EnnorathChatMute: return "ennorath.chat-mute";
+	case F::EnnorathObserverCommandRange: return "ennorath.observer-command-range";
+	case F::EnnorathCommandSet64: return "ennorath.commandset-64";
+	case F::EnnorathUpgrades5120: return "ennorath.upgrades-5120";
+	case F::EnnorathBuildingLimitFix: return "ennorath.building-limit-fix";
+	case F::EnnorathSpellStoreDelay: return "ennorath.spell-store-delay";
+	case F::EnnorathSelectAllBuildings: return "ennorath.select-all-buildings";
+	case F::EnnorathReplayControls: return "ennorath.replay-tabs-chat-pause";
+	case F::EnnorathWotr8Players: return "ennorath.wotr-8-players";
+	case F::EnnorathChatClipboard: return "ennorath.chat-clipboard";
 	case F::Count: break;
 	}
 	return "?";
@@ -80,14 +94,34 @@ const std::vector<ModEngineFeatures::Profile> &ModEngineFeatures::knownBinaries(
 		// Ennorath 1.9.8.5's pySAGE-patched game.dat: the MD5 of the mod's RotWK\game.dat and the All In One service's Ennorath 1.9.8.5 package
 		// ("engine_edits": "Ennorath: game.dat md5 fc32e4c4..."). Its sections are named by patch; docs/ennorath/ENNORATH_EXE.md maps each to its hooks
 		// in the retail code. The features below rebuild the edits the owner took; the line below names what is left out.
-		{ "fc32e4c4142b5c607b90972eaf448400", "Ennorath 1.9.8.5 game.dat", { F::EnnorathStanceKeepsMoving, F::EnnorathMiddleClickCamera, F::EnnorathEvacuateContainers },
+		{ "fc32e4c4142b5c607b90972eaf448400", "Ennorath 1.9.8.5 game.dat",
+			{ F::EnnorathStanceKeepsMoving, F::EnnorathMiddleClickCamera, F::EnnorathEvacuateContainers,
+			  F::EnnorathOptionsPages, F::EnnorathOptionHotkeys, F::EnnorathOnlineDelayFix, F::EnnorathLobbyMapSearch, F::EnnorathChatMute,
+			  F::EnnorathObserverCommandRange, F::EnnorathCommandSet64, F::EnnorathUpgrades5120, F::EnnorathBuildingLimitFix,
+			  F::EnnorathSpellStoreDelay, F::EnnorathSelectAllBuildings,
+			  F::EnnorathReplayControls, F::EnnorathWotr8Players, F::EnnorathChatClipboard },
 			"rebuilt: the defensive stance that keeps a moving unit going (.stancem), the middle click camera reset by time (.camfix), war wagons and "
-			"the Witch-king leaving a tunnel by evacuate all (.keydef 0xF39580); not yet (docs/ennorath/ENNORATH_EXE.md): the map search in the lobby (.mapfind), the option hotkeys (.hotkeys / .keydef / .keycmd), the online lag fix "
-			"option (.dlyfix / .optfix), replays (.rpchat / .rppause), the chat mute (.chatmut), select all buildings (.bldgrp / .padsel / "
-			".bldext / .bldcan / .bldlvl / .bldcap), every resolution (.optui), the building limit fix, War of the Ring for 8 players (.wotrui / "
-			".wotrobs / .wtrview / .wtrdisp), 64 CommandSet slots (.cmdext) and 5120 upgrades (.upg5k), the text entry clipboard (.txtclip, P-128), "
-			"the observer's command range (.obscmd); the 30 / 60 FPS choice (.fxrate / .fpsvar / .fpsdraw) is left out by decision: OpenBFME keeps "
-			"its own frame rate" },
+			"the Witch-king leaving a tunnel by evacuate all (.keydef 0xF39580), the paged options menu (.optui / .optfix), the option hotkeys and mod "
+			"defaults (.hotkeys / .keydef / .keycmd), the online lag fix option (.dlyfix), the map search in the lobby (.mapfind / .mapsvar), per-player chat mute on the tribute screen (.chatmut 0xEDB000), "
+			"the observer's command range (.obscmd), 64 CommandSet slots (.cmdext), 5120 upgrades (.upg5k), the building limit fix (.bldcap), spell store open delay (.spstore), "
+			"select all buildings (.bldgrp / .padsel / .bldext / .bldcan / .bldlvl), "
+			"replays (tabs, chat, Ctrl+] pause: .rpchat / .rppause / .rppvar), War of the Ring for 8 players (.wotrui / .wotrobs / .wtrview / .wtrdisp / .lobfac), the text entry clipboard Ctrl+A / C / X / V (.txtclip); not yet "
+			"(docs/ennorath/ENNORATH_EXE.md): the DirectX resolution sort (.ressort) has no display mode list in OpenBFME (S-1913 / S-3401); "
+			"the 30 / 60 FPS choice (.fxrate / .fpsvar / .fpsdraw; ETFrameRate shown in Options) is left out by decision: OpenBFME keeps its own frame rate" },
+		// Ennorath 1.9.8.7 (2026-11-22; the patch note's 1.9.8.6 and 1.9.8.7 are one game.dat, md5 f222b925...): the 1.9.8.5 sections stay (some edited:
+		// .camfix, .hotkeys, .keycmd, .keydef, .optui, .rpchat, .chatmut), plus .wmfeat / .wmkeys. Until their features are rebuilt it turns on what
+		// 1.9.8.5 has, so the mod's package keeps its stance, camera, evacuate, options, map search and chat mute with the new game.dat.
+		{ "f222b925edf2a9553e574ad8445f2841", "Ennorath 1.9.8.7 game.dat",
+			{ F::EnnorathStanceKeepsMoving, F::EnnorathMiddleClickCamera, F::EnnorathEvacuateContainers,
+			  F::EnnorathOptionsPages, F::EnnorathOptionHotkeys, F::EnnorathOnlineDelayFix, F::EnnorathLobbyMapSearch, F::EnnorathChatMute,
+			  F::EnnorathObserverCommandRange, F::EnnorathCommandSet64, F::EnnorathUpgrades5120, F::EnnorathBuildingLimitFix,
+			  F::EnnorathSpellStoreDelay, F::EnnorathSelectAllBuildings,
+			  F::EnnorathReplayControls, F::EnnorathWotr8Players, F::EnnorathChatClipboard },
+			"rebuilt: as Ennorath 1.9.8.5 (stance .stancem, middle click camera .camfix, evacuate all .keydef, paged options .optui / .optfix, option "
+			"hotkeys .hotkeys / .keydef / .keycmd, online lag fix .dlyfix, lobby map search .mapfind, chat mute .chatmut, replays .rpchat / .rppause, War of the Ring 8p .wotrui / .wotrobs / .wtrview / .wtrdisp, the text entry clipboard .txtclip); not yet "
+			"(docs/ennorath/ENNORATH_EXE.md): the 1.9.8.6 / 1.9.8.7 edits (.wmfeat / .wmkeys: the builder camera fix, select all units / all heroes / "
+			"planning mode hotkeys, workers out of the builder hotkey, more than two builders, the builder click sound, 127 factions, the resurrection "
+			"filter, portrait / icon change, CANT_EARN_POWERPOINTS, ToggleMounted at speed 0), and the 1.9.8.5 edits still open there" },
 		{ "f7ce90438eb50da4ce63804ba2688b6b", "RJ-RotWK launcher (a Qt program that starts the game, not a game binary)", {}, "" },
 		{ "243edd56bb09405626bb455a67b5aa46", "RJ-RotWK file.dat (the launcher's settings)", {}, "" },
 	};

@@ -53,6 +53,7 @@ class ModuleFactory;
 class ThingTemplate;
 struct TransportContainModuleData;
 
+// RW 0x0086AF85 (dtor -> RW 0x00867947)
 class TransportContain : public OpenContain
 {
 public:

@@ -252,6 +252,8 @@ void AptMessenger::fillChat(int tab)
 
 void AptMessenger::action(Action::Kind kind)
 {
+	// PYSAGE 1.9.8.5 .rpchat 0x00ED7E60 / 0x00ED7E70: in replay playback Messenger is read-only (tabs and chat history only)
+	if (m_readOnlyReplay && kind != Action::Select) return;
 	const auto id = selectedPlayer();
 	// lane ONLINEMENU-1: ENTER with nobody selected still hands the text on (a friend code typed into the entry adds that friend)
 	if (id.empty() && kind != Action::Send) return;

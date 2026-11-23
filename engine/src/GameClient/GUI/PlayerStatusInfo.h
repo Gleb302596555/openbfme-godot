@@ -18,7 +18,9 @@
 //     observer, the original colour for an enemy while ShowRandomColor, else the slot's colour; MultiplayerSettings::getColor(index) + 0x10.
 // INFERENCE / port: TheVictoryConditions vslot 0x40 counts every true answer in retail (a hashed counter, S-1063's family); the screen asks the const query
 // (VictoryConditions::wouldBeDefeated) so opening it never changes the state hash. The random / observer colours of MultiplayerSettings (+0x84 / +0x44) are
-// constructed in retail; their value is not read (stop S-1952): `randomColor` / `observerColor` are the host's.
+// constructed by MultiplayerSettings::MultiplayerSettings (RW 0x7836C0, DONOR BFME2 Rva 0x003811FB) via MultiplayerColorDefinition::MultiplayerColorDefinition
+// (RW 0x783136, DONOR BFME2 Rva 0x00380C4E), which sets m_color (+0x10) and m_nightColor (+0x20) to 0xFFFFFFFF (RW 0x783171 / 0x783174);
+// MultiplayerSettings::getColor (RW 0x78385B) returns +0x84 for -1 and +0x44 for -2 (closes S-1952).
 
 #pragma once
 
@@ -43,6 +45,7 @@ struct PlayerStatusInfo
 {
 	std::vector<PlayerStatusRow> rows;
 	bool inSkirmish = false; ///< TheGameLogic + 0x110 == 2
+	int localSlot = -1;      ///< TheGameInfo's local slot (used by ennorath.chat-mute, PYSAGE 1.9.8.5 .chatmut 0x00EDB167)
 };
 
 // The live facts of one slot (the host reads them from the logic and the network)
@@ -63,7 +66,7 @@ struct PlayerStatusInput
 	PlatformKind platforms[MAX_SLOTS] = {}; ///< lane PLATFORMICON-1: each slot's player's system (display data; a computer's is None)
 	int gameMode = 2;                       ///< TheGameLogic + 0x110
 	bool showRandomPlayerTemplate = true, showRandomColor = true; ///< MultiplayerSettings (VisionSettings carries them)
-	std::uint32_t randomColor = 0xFFFFFFFFu, observerColor = 0xFFFFFFFFu; ///< MultiplayerSettings +0x84 / +0x44 colours (S-1952)
+	std::uint32_t randomColor = 0xFFFFFFFFu, observerColor = 0xFFFFFFFFu; ///< MultiplayerSettings +0x84 / +0x44 colours (RW 0x7836C0 -> RW 0x783136: 0xFFFFFFFF)
 };
 
 // The rows of the Status page (RW 0x9151C3 + RW 0x915BF6). `setup` gives the factions' DisplayName labels and the colours; `text` the game text.

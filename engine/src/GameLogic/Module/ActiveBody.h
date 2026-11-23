@@ -54,6 +54,8 @@ class ActiveBodyModuleData : public ModuleData
 public:
 	ActiveBodyModuleData() = default;
 
+	float bfmeBodyMaxHealth() const override { return m_maxHealth; }
+
 	// RW 0xC71D68, in the binary's order
 	float m_maxHealth = 0.0f;
 	float m_initialHealth = -1.0f;
@@ -173,6 +175,8 @@ public:
 	void applyDamageScalar(float scalar) override; // RW 0x8C329F (vt[0x6C])
 	// the last frame the body took a damaging hit and from whom (RW + 0xAC, the last damage record); 0xFFFFFFFF / INVALID_ID when never
 	UnsignedInt lastDamageFrame() const override { return m_lastDamageFrame; }
+	// lane PORT-296: the record's + 0x20 (see BodyModuleInterface::lastDamageAmount)
+	float lastDamageAmount() const override { return m_lastDamageAmount; }
 	ObjectID lastDamager() const { return m_lastDamager; }
 	// PORT-293: body interface vslot 0x48 (RW 0x5DC48C: `mov eax, [ecx + 0xB0]; ret` = module + 0xC0) -- the frame of the last healing hit, -1 while the
 	// body was never healed (the object's constructor ORs the dword with -1, RW 0x8C3897). attemptHealing stamps the current logic frame on every hit it
@@ -251,6 +255,7 @@ private:
 	DamageInfo *m_currentInfo = nullptr;
 	UnsignedInt m_lastDamageFrame = 0xFFFFFFFFu; // RW + 0xAC (RW 0x8C3841: -1 = never; BUILD-2)
 	UnsignedInt m_lastHealingFrame = 0xFFFFFFFFu; // PORT-293: RW + 0xB0 (RW 0x8C3897: -1 = never; attemptHealing's stamp RW 0x8C30BA)
+	float m_lastDamageAmount = 0.0f;             // lane PORT-296: the record's + 0x20 (the hit's input amount)
 	ObjectID m_lastDamager = INVALID_ID;
 	bool m_lastAttackerTaken = false; // RW + 0xB6 of the body interface (lane PLAY-4)
 	std::uint32_t m_lastDamagerPlayerMask = 0; // lane CAMP-1: the record's + 0xC
@@ -265,6 +270,7 @@ private:
 
 // RW vtable 0xC71FE0: getModuleName RW 0x008C4A34, getModuleNameKey RW 0x008C4A53, dtor RW 0x008C4A98;
 // health never drops below 1 (internalChangeHealth delta = max(delta, 1 - health), RW 0x8C4AB4)
+// RW 0x008C4A3A (dtor -> RW 0x008C3AED)
 class ImmortalBody : public ActiveBody
 {
 public:
@@ -276,6 +282,7 @@ public:
 
 // RW vtable 0xC71ED0: getModuleName RW 0x008C4947, getModuleNameKey RW 0x008C4966, dtor RW 0x008C49AB;
 // attemptDamage RW 0x8C49C7: a hit never takes more than health - 1 unless UNRESISTABLE
+// RW 0x008C494D (dtor -> RW 0x008C3AED)
 class HighlanderBody : public ActiveBody
 {
 public:

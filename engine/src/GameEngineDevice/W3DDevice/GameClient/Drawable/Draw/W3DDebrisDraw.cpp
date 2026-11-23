@@ -1,5 +1,5 @@
 // OpenBFME. GPL-3.0. See GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DDebrisDraw.h (issue #285, LOCAL-35; Local 88 #714).
-// TARGET RW 0x004B15BC getModuleNameKey, RW 0x004B1601 GetSnapshotName, RW 0x004B17F4 scalar deleting destructor.
+// TARGET RW 0x004B15BC getModuleNameKey, RW 0x004B1601 GetSnapshotName, RW 0x004B17F4 scalar deleting destructor, RW 0x00499E84 shadow release.
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DDebrisDraw.h"
 
 #include "Common/AsciiString.h"

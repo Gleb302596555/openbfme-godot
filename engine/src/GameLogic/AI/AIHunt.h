@@ -30,10 +30,13 @@
 //     difficulty (RW 0x6AA61B: its AI's, else the script engine's) is not 0).
 // DONOR: ZH AIStates.cpp AIHuntState (7043-7240), AIAttackThenIdleStateMachine.
 //
-// INFERENCE / NOT PORTED (stop S-1188, docs/STOPS.md): the crate pick-up (no AI + 0x238 crate in the port); (lane TARGET-1: the attack priority info
-// AI + 0x70 and TheAI's closest enemy are RotWK's, AIClosestEnemy.h); (lane DECOMP-2: the player-wide hunt flag + 0x35D is PLAYER_HUNT's, RW 0x6AF4B1);
-// GiantBirdAIUpdate is the GIANT_BIRD KindOf; a computer side's difficulty is its skirmish level, else
-// the script engine's.
+// INFERENCE / NOT PORTED (stop S-1188, docs/STOPS.md): RW 0x66B1D0's client attack notification on first victim acquisition (RW 0x7481A0);
+// the crate pick-up (AI + 0x238 and state 0x27, RW 0x74458E) is unreachable dead code in RotWK 2.01 (checkForCrateToPickup RW 0x66810B clears
+// AI + 0x238 before calling GameLogic::findObjectByID(0) RW 0x449681, sole writer CreateCrateDie::onDie RW 0x888A24 has 0 INI uses S-7211, and
+// skirmish AI armies collect crates via PickupStuffUpdate RW 0x8957B7 S-1422); (lane TARGET-1: the attack priority info AI + 0x70 and TheAI's
+// closest enemy are RotWK's, AIClosestEnemy.h); (lane DECOMP-2: the player-wide hunt flag + 0x35D is PLAYER_HUNT's, RW 0x6AF4B1, INFERENCE:
+// walked in object list order); GiantBirdAIUpdate is the GIANT_BIRD KindOf (INFERENCE); a computer side's difficulty is its skirmish level, else
+// the script engine's (INFERENCE).
 
 #pragma once
 

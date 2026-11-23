@@ -55,6 +55,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008BAD8B (dtor -> RW 0x0086393B), RW 0x008BB0B0 (ModuleData dtor)
 class GeometryUpgrade : public UpgradeModule
 {
 public:

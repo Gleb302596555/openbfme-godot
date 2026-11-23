@@ -98,7 +98,7 @@ std::vector<std::string> AudioManager::unverified()
 		"linear distance falloff, submix sliders); the RW routines for killLowestPriority / limits / stream pools and the first special handle value are not individually verified",
 		"S-241: AudioSettings constructor defaults of fields an INI omits are not read from the binary",
 		"S-242: the processing step is 33.33 ms off a caller clock; the exact rate retail calls the manager update at is not decoded",
-		"S-243: volume model: view state defaults, VolumeSliderMultiplier ducking ramp, owner dependent mute (RW 0x6DB221) are inferred from the INI documentation",
+		"S-243: volume model: VolumeSliderMultiplier ducking ramp and owner dependent mute (RW 0x6DB221) are inferred (view state defaults 1.0f verified at RW 0x4599EA)",
 		"S-244: the IMA ADPCM decoder uses the reference step arithmetic (inferred from Miles' encoder and the retail block predictors) and the MP3 decoder is not Miles' mssmp3.asi (within 2 LSB peak of mpg123 / ffmpeg)",
 		"S-245: Miles specifics (reverb / EAX, occlusion low pass) are not modelled; Godot's MP3 decoder plays the streams",
 		"S-246: Living World owners (OwnerType 3-5), the music script system (AR_PushMusic / AR_PopMusic ...) are not ported",
@@ -904,8 +904,25 @@ bool AudioManager::shouldPlayLocally(const AudioEventRTS &event)
 	}
 	if (event.getViewType() == VIEW_LIVING_WORLD)
 	{
-		noteMissingHook("Living World owner filter (S-1462)");
-		return true;
+		// Local 141 (S-1462): RW 0x453488..0x4534C8: resolve Living World event owner (RW 0x6DADCC),
+		// compare against TheLivingWorld local player index (RW 0x6B3557); if equal test ST_PLAYER,
+		// else if local player exists and isAlly(owner) (RW 0x6E1EC4) test ST_ALLIES, else ST_ENEMIES.
+		if (!m_queries.livingWorldLocalPlayerIndex || !m_queries.livingWorldIsAlly)
+		{
+			noteMissingHook("Living World owner filter (S-1462)");
+			return true;
+		}
+		const int owner = m_queries.livingWorldEventOwner ? m_queries.livingWorldEventOwner(event) : event.getPlayerIndex();
+		const int local = m_queries.livingWorldLocalPlayerIndex();
+		if (owner == local)
+		{
+			return (ei->type & ST_PLAYER) != 0;
+		}
+		if (local >= 0 && m_queries.livingWorldIsAlly(owner))
+		{
+			return (ei->type & ST_ALLIES) != 0;
+		}
+		return (ei->type & ST_ENEMIES) != 0;
 	}
 	if (event.getViewType() != VIEW_TACTICAL)
 	{
