@@ -429,8 +429,11 @@ public:
 	virtual RepairQueryInterface *slot32() { return nullptr; }
 	RepairQueryInterface *getRepairQueryInterface() { return slot32(); }
 	// RW slot 37 (offset 0x94) of the +0xC interface: the bloodthirsty sacrifice interface (Object::getBloodthirstyUpdateInterface, RW 0x68C878).
-	// Of the 166 vtables RotWK writes at module + 0xC exactly one is not the null stub RW 0x00851E97: BloodthirstyUpdate's RW 0xC55688, whose slot 37
-	// is RW 0x008A18E0 (module + 0x20, the interface vtable RW 0xC55654: canSacrifice, isValidSacrifice, addSacrifice, sacrificeHorde, ...).
+	// Scanning RotWK for the write pattern `mov dword ptr [reg + 0xC], imm32` gives 166 candidate tables in .rdata, with 89 distinct values at + 0x94:
+	// exactly one holds RW 0x008A18E0 (an adjustor to module + 0x20) - the table RW 0xC55688 that BloodthirstyUpdate's constructor (0x00850CB0) and
+	// destructor (0x00850DA9) write - and 65 hold the null stub RW 0x00851E97; the rest are text, null, `ret 4` / `ret 8` stubs or unrelated code, so
+	// the pattern also catches writes that are not behavior interface tables. Module + 0x20 is the interface vtable RW 0xC55654: canSacrifice,
+	// isValidSacrifice, addSacrifice, sacrificeHorde, ...
 	virtual class BloodthirstyUpdate *getBloodthirstyUpdateInterface() { return nullptr; }
 
 protected:

@@ -11,6 +11,7 @@
 #include "CombatTestUtil.h"
 #include "IniTestUtil.h"
 
+#include "Common/AsciiString.h"
 #include "Common/INI/INIBlockStubs.h"
 #include "Common/StateHash.h"
 #include "Common/SubsystemLegend.h"
@@ -47,12 +48,27 @@ struct LegendWorld : initest::Fixture
 	}
 };
 
-std::set<std::string> lowered(const Strs &v)
+std::set<std::string> lowerSet(const Strs &v)
 {
 	std::set<std::string> out;
 	for (const std::string &s : v)
 	{
-		out.insert(s.size() >= 1 ? std::string(s) : s);
+		out.insert(AsciiStringUtil::lowered(s));
+	}
+	return out;
+}
+
+// one line per loaded file, so a mismatch names the files instead of doctest's {?}
+std::string joined(const Strs &v)
+{
+	std::string out;
+	for (const std::string &s : v)
+	{
+		if (!out.empty())
+		{
+			out += " | ";
+		}
+		out += s;
 	}
 	return out;
 }
@@ -103,7 +119,8 @@ TEST_CASE("PORT-335 legend: an ExcludePath names a single InitFile too, not only
 
 	// RW builds ONE exclusion vector (0x005B4C06 .. 0x005B4C42) and tests every InitFile against it (0x005B4C6E), so the InitFile the entry excludes
 	// by name is not loaded; the port used to run only the IncludePathCinematics part of the vector over the InitFile list.
-	CHECK(lowered(ini.loadedFiles()) == std::set<std::string>{ "Data\\INI\\Default\\Object.ini", "Data\\INI\\Object\\Units.ini" });
+	INFO("loaded: " << joined(ini.loadedFiles()));
+	CHECK(lowerSet(ini.loadedFiles()) == std::set<std::string>{ "data\\ini\\default\\object.ini", "data\\ini\\object\\units.ini" });
 	// the directory walk prunes with the same vector (RW 0x005B4CAE hands it to RW 0x0042E343): the excluded file inside InitPath is not loaded either
 	CHECK(report.skippedCinematics.empty()); // the entry has no IncludePathCinematics, so nothing is reported as a cinematic skip
 }
@@ -167,11 +184,11 @@ const char *const kBloodObjects =
 	"  Body = ActiveBody BodyTag\n   MaxHealth = 100\n  End\n"
 	"  Behavior = AIUpdateInterface AiTag\n  End\n"
 	"  LocomotorSet\n   Locomotor = WalkerLoco\n   Condition = SET_NORMAL\n   Speed = 55\n  End\n"
-	"  Behavior = BloodthirstyUpdate BloodTag\n   SacrificeFilter = ALL\n   NumToSacrifice = 2\n  End\n"
+	"  Behavior = BloodthirstyUpdate BloodTag\n   SacrificeFilter = ALL\n  End\n"
 	"End\n";
 
 const char *const kPoolObjects =
-	"ModifierList Pool335Leadership\n  Category = LEADERSHIP\n  Duration = 600000\n  Modifier = ARMOR 150%\nEnd\n"
+	"ModifierList Pool335Leadership\n  Category = LEADERSHIP\n  Duration = 600000\n  IgnoreIfAnticategoryActive = Yes\n  Modifier = ARMOR 150%\nEnd\n"
 	"ModifierList Pool335Weapon\n  Category = WEAPON\n  Duration = 20000\n  Modifier = RECHARGE_TIME 50%\nEnd\n"
 	"Object Pool335\n"
 	"  KindOf = INFANTRY SELECTABLE CAN_ATTACK\n"
@@ -200,8 +217,10 @@ TEST_CASE("PORT-335 bloodthirsty: the object asks every module for interface slo
 	REQUIRE(horde);
 
 	// RW 0x0068C878 walks the object's NULL-terminated BehaviorModule array (Object + 0x24C in RotWK, m_behaviors + 0x244 in the BFME2 donor) and calls
-	// slot 37 (offset 0x94) of each module's + 0xC interface, taking the first non-null answer. Of the 166 vtables RotWK writes at module + 0xC exactly
-	// one holds anything but the null stub RW 0x00851E97 there: BloodthirstyUpdate's RW 0xC55688, whose slot 37 is RW 0x008A18E0 (module + 0x20).
+	// slot 37 (offset 0x94) of each module's + 0xC interface, taking the first non-null answer. Of the 166 candidate tables RotWK's write pattern
+	// `mov dword ptr [reg + 0xC], imm32` gives, slot 37 holds RW 0x008A18E0 (module + 0x20) in exactly one - BloodthirstyUpdate's RW 0xC55688, written
+	// by its constructor 0x00850CB0 and its destructor 0x00850DA9 - and the null stub RW 0x00851E97 in 65, so the walk can only answer with a
+	// sacrifice interface.
 	CHECK(plain->getBloodthirstyUpdateInterface() == nullptr);
 	BloodthirstyUpdate *found = horde->getBloodthirstyUpdateInterface();
 	REQUIRE(found != nullptr);
@@ -261,20 +280,47 @@ TEST_CASE("PORT-335 pool: the snapshot carries every field retail's xfer saves (
 	pool->xfer(save);
 	REQUIRE(!save.data().empty());
 
-	// a second, untouched pool of the same template takes the snapshot: the store is the same INI, so the entries' indices resolve
+	// the same module, emptied first: its base registration state (UpdateModule::crc's m_indexInLogic and m_phaseInLogic, which no snapshot carries)
+	// stays the one the saved crc was taken with, so an equal crc afterwards says the snapshot carried every field the pool itself owns
+	pool->clearEntries(); // RW 0x006998D0: the entry vector goes in place, without the per-entry removal of RW 0x8052FB
+	pool->disableCategories(0x7FFFu, 0u);
+	REQUIRE(pool->entryCount() == 0);
+	REQUIRE(pool->categoryDisabledUntil(1) == 0u);
+
+	XferLoad load(save.data());
+	pool->xfer(load);
+	CHECK(load.atEnd());
+
+	// the deque retail saves at this + 0x20 (entry size 0x10; RW 0x00805F39 reads the count as (this + 0x24 - this + 0x20) >> 4)
+	CHECK(pool->listNames() == Strs{ "Pool335Leadership", "Pool335Weapon" });
+	CHECK(pool->expireOf("Pool335Leadership") == leadershipExpire);
+	CHECK(pool->expireOf("Pool335Weapon") == weaponExpire);
+	// the 15 category frames, this + 0x30 .. this + 0x68: the four the mask named, and the eleven it did not
+	for (int c = 0; c < 4; ++c)
+	{
+		CHECK(pool->categoryDisabledUntil(c) == until);
+	}
+	for (int c = 4; c < 15; ++c)
+	{
+		CHECK(pool->categoryDisabledUntil(c) == 0u);
+	}
+	StateHasher after;
+	pool->crc(after);
+	CHECK(after.value() == before.value());
+
+	// a second, untouched pool of the same template takes the same snapshot: the store is the same INI, so the entries' indices resolve, and the
+	// restored category frames answer the suppressed test of RW 0x804D27 (lane SPELL-2) - LEADERSHIP is category 1, WEAPON category 4
 	World335 g(kPoolObjects);
 	Object *o2 = g.unit("Pool335", 'A', 100, 100);
 	REQUIRE(o2);
 	AttributeModifierPool *loaded = poolOf(o2);
 	REQUIRE(loaded->entryCount() == 0);
-	XferLoad load(save.data());
-	loaded->xfer(load);
-
-	// the deque retail saves at this + 0x20 (entry size 0x10, RW 0x00805F39 reads the count as (this + 0x24 - this + 0x20) >> 4)
+	XferLoad second(save.data());
+	loaded->xfer(second);
+	CHECK(second.atEnd());
 	CHECK(loaded->listNames() == Strs{ "Pool335Leadership", "Pool335Weapon" });
 	CHECK(loaded->expireOf("Pool335Leadership") == leadershipExpire);
 	CHECK(loaded->expireOf("Pool335Weapon") == weaponExpire);
-	// the 15 category frames: the four the mask named, and the eleven it did not
 	for (int c = 0; c < 4; ++c)
 	{
 		CHECK(loaded->categoryDisabledUntil(c) == until);
@@ -283,11 +329,13 @@ TEST_CASE("PORT-335 pool: the snapshot carries every field retail's xfer saves (
 	{
 		CHECK(loaded->categoryDisabledUntil(c) == 0u);
 	}
-	// the whole state: the crc covers the entries, the wake frame this + 0x2C and both category tables, so an equal crc says nothing was dropped
-	StateHasher after;
-	loaded->crc(after);
-	CHECK(after.getCRC() == before.getCRC());
-
-	// and the loaded pool behaves like the saved one: the suppressed category still refuses a list of its own (RW 0x00804D27's test, lane SPELL-2)
-	CHECK(loaded->categoryCount(0) == pool->categoryCount(0));
+	// the counters at this + 0x6C: retail derives them at load (RW 0x008059D0's walk), the snapshot carries them, and both pools agree
+	CHECK(loaded->categoryCount(1) == pool->categoryCount(1));
+	CHECK(loaded->categoryCount(1) == 1);
+	CHECK(loaded->categoryCount(4) == 1);
+	// and the loaded pool behaves like the saved one: the LEADERSHIP list, whose IgnoreIfAnticategoryActive is set, is refused while its category
+	// frame is in the future; the WEAPON list, whose category the mask did not name, is not
+	CHECK_FALSE(loaded->add("Pool335Leadership", -1));
+	CHECK(loaded->categoryCount(1) == 1);
+	CHECK(loaded->add("Pool335Weapon", -1));
 }
