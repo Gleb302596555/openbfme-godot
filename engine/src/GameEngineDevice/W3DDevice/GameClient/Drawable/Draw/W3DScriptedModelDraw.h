@@ -645,7 +645,8 @@ private:
 	std::vector<std::string> m_log;
 };
 
-// W3DHordeModelDraw (RotWK registers it as a W3DScriptedModelDraw subclass, spec 4.7): the LodOptions row of the object's current
+// W3DHordeModelDraw (RotWK registers it as a W3DScriptedModelDraw subclass, spec 4.7; ~W3DHordeModelDraw RW 0x00478429,
+// xfer RW 0x00478461, horde handle register/update/clear RW 0x00479F6C / RW 0x00478246 / RW 0x00478231): the LodOptions row of the object's current
 // detail level (0 LOW, 1 MEDIUM, 2 HIGH; the dynamic game LOD, supplied by the caller) limits the weighted animation pick of
 // states that are not idle-like (RW 0x478A6C) and scales a RANDOMSTART start frame by RandomStartFramePercent (RW 0x478A74).
 // AllowMultipleModels, MaxRandomTextures and MaxAnimFrameDelta (RW 0x478A05) belong to the horde / formation code, not to one draw

@@ -89,6 +89,16 @@ struct ReplayFile
 		std::uint8_t flags = 0;
 	};
 	std::vector<View> views;
+	// PYSAGE 1.9.8.5 .rpchat 0x00ED7B40 / 0x00ED7C80 (hooks RW 0x78419D, RW 0x77DE0F): in-game chat line recorded in a replay
+	struct ChatRecord
+	{
+		UnsignedInt frame = 0;
+		int slot = -1;
+		int color = -1;
+		std::string sender;
+		std::string text;
+	};
+	std::vector<ChatRecord> chats;
 	// "" when the replay was recorded by this profile, else why not (PLAN: different identifiers refuse to play)
 	// (lane UBER-1: the game's simulation profile must be the running identity's too, whatever the identity text says)
 	std::string profileMismatch(const ProfileIdentity &running) const
@@ -138,6 +148,8 @@ public:
 	void recordFrame(UnsignedInt frame, const CommandList &commands);
 	void recordHash(UnsignedInt frameAfter, std::uint32_t hash);
 	void recordView(const ReplayFile::View &v); ///< lane ANTICHEAT-1: a VIEW record (version 8)
+	// PYSAGE 1.9.8.5 .rpchat 0x00ED7B40 (hook RW 0x78419D): record a chat line (capped at 0x1F8 = 504 UTF-16 code units)
+	void recordChat(UnsignedInt frame, int slot, int color, const std::string &sender, const std::string &text);
 	// lane UBER-2C: the last hash recorded is that of `frame` (an Uber recording holds every 5th frame's)
 	bool hasHashOf(UnsignedInt frame) const { return m_anyHash && m_lastHashFrame == frame; }
 	// lane SAVE-2: the game goes on under `profile` from the batch of `frame` on (a loaded save of the other execution profile)
@@ -188,6 +200,9 @@ public:
 	unsigned long long hashesCompared() const { return m_compared; }
 	unsigned long long mismatches() const { return m_mismatches; }
 	unsigned long long localInputIgnored() const { return m_ignored; }
+	// PYSAGE 1.9.8.5 .rpchat 0x00ED7C80 / 0x00ED7E00 (hooks RW 0x77DE0F / RW 0x77F7B7): return recorded chat lines up to `frame` once each
+	std::vector<ReplayFile::ChatRecord> takeChatsUpTo(UnsignedInt frame);
+	void resetChatCursor() { m_chatCursor = 0; }
 
 private:
 	const ReplayFile &m_replay;
@@ -196,4 +211,5 @@ private:
 	unsigned long long m_compared = 0, m_mismatches = 0, m_ignored = 0;
 	UnsignedInt m_protocolFrame = 0;
 	bool m_pumped = false;
+	size_t m_chatCursor = 0;
 };

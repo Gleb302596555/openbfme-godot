@@ -456,6 +456,26 @@ float enemySightedMaxVoicePositionScanRange()
 	return 1100.0f;
 }
 
+unsigned enemyCampDestroyedDamageTimeoutFrames()
+{
+	Eva *eva = nullptr;
+	{
+		std::lock_guard<std::mutex> lock(g_bindMutex);
+		eva = g_eva;
+	}
+	return eva ? eva->enemyCampDestroyedDamageTimeoutFrames() : 0u;
+}
+
+unsigned friendlyCampDestroyedDamageTimeoutFrames()
+{
+	Eva *eva = nullptr;
+	{
+		std::lock_guard<std::mutex> lock(g_bindMutex);
+		eva = g_eva;
+	}
+	return eva ? eva->friendlyCampDestroyedDamageTimeoutFrames() : 0u;
+}
+
 std::string reportEvaDamage(const std::string &event, const std::string &second, bool farFrameDue, const Coord3D &position)
 {
 	// lane EVADAMAGE-1: the TheEva half of RW 0x67B644 .. 0x67B6A4 on the Eva's thread (a report made elsewhere waits like reportEva's, S-814)

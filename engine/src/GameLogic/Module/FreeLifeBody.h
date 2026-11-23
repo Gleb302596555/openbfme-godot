@@ -36,6 +36,7 @@ public:
 };
 
 // getModuleName RW 0x008C5A29, getModuleNameKey RW 0x008C5A2F, dtor RW 0x008C5ACA, xfer RW 0x008C5B1E
+// RW 0x008C5A10 (dtor -> RW 0x008C54AA)
 class FreeLifeBody : public RespawnBody
 {
 public:

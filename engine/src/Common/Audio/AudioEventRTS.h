@@ -99,6 +99,7 @@ struct AudioEventEnv
 	const AudioOwnerResolver *owners = nullptr;
 };
 
+// ~AudioEventRTS RW 0x006DABCB
 class AudioEventRTS
 {
 public:

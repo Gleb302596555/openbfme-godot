@@ -32,7 +32,8 @@
 //     same mask (RW 0x780156). The object is placed by the placer only.
 //   * onCurrentMissionWon RW 0x5EBAEE (from the VICTORY / QUICKVICTORY actions, RW 0x7C45F8 / 0x7BE0C6, with a current campaign): every live object of
 //     the logic's list (in list order) with the carry-over flag becomes a record appended to + 0xB4 (RW 0x6917BB: the name, for a HERO its
-//     RespawnUpdate's RespawnAsTemplate when set; experience = tracker + 0x10, rank = tracker + 0x24, the upgrade mask Object + 0x28C, quantity 1), then
+//     RespawnUpdate's RespawnAsTemplate when set, or for a non-hero HORDE its non-empty LivingWorldOverloadTemplate, RW 0x86D6FD; experience = tracker + 0x10,
+//     rank = tracker + 0x24, the upgrade mask Object + 0x28C, quantity 1), then
 //     every player's revival list (in player order, then list order) adds a record for each entry with the flag (+ 0xB1; RW 0x780F9E: the entry's
 //     template name, experience, rank, mask); the used records + 0xC4 are cleared; the first human player's skill points (+ 0x10 = Player + 0x14),
 //     grantable sciences (+ 0x14, in the player's order), upgrades with PersistsInCampaign (+ 0x20) and bounty share (+ 0xB0) are kept. Records are
@@ -43,8 +44,7 @@
 //     quantity is 1 or less (else - 1); the action places the object at the waypoint (setPosition) and names it; HAS_DELAYED_CARRYOVER_UNIT_OF_TYPE
 //     (RW 0x7EB69A -> RW 0x5EA817) answers whether a record of + 0xB4 has one of the names (the player and the quantity are not read).
 // WHAT THIS PORT DOES NOT (stop S-4904, S-852): the record's statistics block (+ 0xA4, Object + 0x488: missions, kills) is not kept (Object + 0x488 is not
-// ported); a HORDE's LivingWorldOverloadTemplate name (RW 0x86D6FD) is not read (its own name is recorded, reported); the hero count + 0xC0 (no reader
-// found) is not kept. INFERENCE: the formation of more than one object placed at the start is its slot 0 for each (S-4460, reported). The keep-score
+// ported); the hero count + 0xC0 (no reader found) is not kept. INFERENCE: the formation of more than one object placed at the start is its slot 0 for each (S-4460, reported). The keep-score
 // switch is not toggled: the score counts only from the game start's last step (ScoreKeeper::setCounting), after the spawn. TheAI's group of
 // PlaceObjects (RW 0x70042A / 0x6FFB68) has no state in the port.
 #pragma once

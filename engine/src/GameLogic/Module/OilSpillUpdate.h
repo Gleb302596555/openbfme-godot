@@ -49,6 +49,7 @@ public:
 	std::string m_oilSpillFX;             ///< +0x1C OilSpillFX (parseFXList)
 };
 
+// RW 0x0088F8C4 (getModuleName)
 class OilSpillUpdate : public FireWeaponUpdate
 {
 public:

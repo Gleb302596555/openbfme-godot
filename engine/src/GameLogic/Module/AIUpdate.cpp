@@ -2005,6 +2005,22 @@ float AIUpdateInterface::curLocomotorSpeed() const
 // RW 0x00662B50 (AI vslot 0x1C4): the machine (AI + 0x30) and its vslot 0x30 (RW 0x741724) — the temporary state's busy flag first (RW 0x8BD372 is true
 // for AIBusyState), the current state's otherwise (RW 0x8DB6BD). RotWK dereferences the machine here (the constructor RW 0x0066ECFE makes it); the port
 // answers false without one, as its other machine queries do.
+// RW 0x66288A (AIUpdateInterface vslot 0x228; DONOR BFME2 0x00262BA9)
+bool AIUpdateInterface::isMovingAlongPortal() const
+{
+	if (!m_curLocomotor || !m_mover)
+	{
+		return false;
+	}
+	const AIGoalType goal = m_mover->goalType();
+	if (goal != AIGOAL_ON_PATH && goal != AIGOAL_EXPLICIT_WITH_PATH)
+	{
+		return false;
+	}
+	const Path *p = m_mover->path();
+	return p && (p->hasExplicitZ() || p->isCurrentNodePortal());
+}
+
 bool AIUpdateInterface::isBusyState() const
 {
 	return m_machine ? m_machine->isBusyState() : false;

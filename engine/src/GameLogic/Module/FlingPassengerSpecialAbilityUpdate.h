@@ -16,6 +16,7 @@ public:
 };
 
 // RW vtable 0x00C652D4; name/key RW 0x008986A3 / 0x008986C9; s1 no-op RW 0x008E38D8
+// RW 0x008986A9 (dtor -> RW 0x00854D9A)
 class FlingPassengerSpecialAbilityUpdate : public SpecialAbilityUpdate {
 public:
     OBFME_MODULE_XFER(FlingPassengerSpecialAbilityUpdate)

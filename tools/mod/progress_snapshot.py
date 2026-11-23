@@ -7,7 +7,9 @@ Columns:
   fields_total     Ennorath INI fields in the last field audit (tools/mod/field_audit.py)
   fields_open      fields with work left: parsed-unused, not-read, stub-block, missing-module, parsed-only-module, no-table-row, less the
                    fields proven unread in RotWK (from 2026-11-17: fields_proven_unread)
-  modules_missing  docs/ennorath/MODULE_GAPS.md rows with state `missing`
+  modules_missing  module classes the mod's data uses that the engine does not port (`missing`) in the maps run's live table
+                   module-queue.tsv next to --audit (tools/colab/nightly_maps.sh, from 2026-11-22); without it the old hand snapshot
+                   docs/ennorath/MODULE_GAPS.md (2026-10-30, stale: its 10 "missing" classes were all ported by 2026-11-22)
   problems_total   docs/ennorath/PROBLEMS.md entries (### P-N)
   problems_done    entries whose status line is checked ([x])
   stops_open       docs/STOPS.md rows not `closed` (tools/stops_count.py)
@@ -116,6 +118,15 @@ def audit_counts(tsv: Path, stops_text: str = "") -> tuple[int, int, int]:
     open_rows = [r for r in rows if r["status"] in OPEN_STATUSES]
     proven = sum(1 for r in open_rows if proven_unread(r["field"], re.findall(r"S-\d+\b", r.get("stop") or ""), stops))
     return len(rows), len(open_rows) - proven, proven
+
+
+def modules_missing(audit: Path | None, gaps_md: str) -> int:
+    """Module classes the mod uses and the engine lacks: the live module-queue.tsv beside the audit, else the 2026-10-30 snapshot."""
+    queue = audit.parent / "module-queue.tsv" if audit else None
+    if queue and queue.exists():
+        rows = list(csv.DictReader(queue.read_text(encoding="utf-8").splitlines(), delimiter="\t"))
+        return sum(1 for r in rows if r.get("status") == "missing")
+    return sum(1 for l in gaps_md.splitlines() if "| missing |" in l)
 
 
 def matrix_counts(rev: str | None) -> tuple[str, str]:
@@ -274,7 +285,7 @@ def main() -> int:
         return 0
     rev = a.rev or subprocess.run(["git", "-C", str(REPO), "rev-parse", "--short=8", "HEAD"], capture_output=True, text=True).stdout.strip()
     total, done = problems(read("docs/ennorath/PROBLEMS.md", a.rev))
-    missing = sum(1 for l in read("docs/ennorath/MODULE_GAPS.md", a.rev).splitlines() if "| missing |" in l)
+    missing = modules_missing(a.audit, read("docs/ennorath/MODULE_GAPS.md", a.rev))
     stops = stops_count.open_count(read("docs/STOPS.md", a.rev))
     if a.audit:
         ftotal, fopen, fproven = audit_counts(a.audit, read("docs/STOPS.md", a.rev))

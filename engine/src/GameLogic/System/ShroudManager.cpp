@@ -162,7 +162,7 @@ void ShroudManager::init(float cellSize, unsigned unlookPersistFrames)
 
 void ShroudManager::setExtent(float loX, float loY, float hiX, float hiY, float cellSize)
 {
-	// RW 0xB520F0: a non-positive size keeps the current one; a negative extent is ignored
+	// RW 0x00B520F0 (Region2D copy RW 0x00462AC3, worldToCell RW 0x00B4E390): a non-positive size keeps the current one; a negative extent is ignored
 	if (cellSize <= 0.0f)
 	{
 		cellSize = m_cellSize;

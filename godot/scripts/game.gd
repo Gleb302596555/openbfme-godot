@@ -4108,6 +4108,12 @@ func _end_game_tick() -> void:
 
 func _input(event: InputEvent) -> void:
 	# lane END-2: Esc toggles the quit menu (the options meta command, RW 0x9DB877 -> ToggleQuitMenu RW 0x921C9D), as the Palantir's options button does
+	# PYSAGE 1.9.8.5 .rppause 0x00F2E000 (hook RW 0x63F1B9): Ctrl+] toggles replay pause under ennorath.replay-tabs-chat-pause
+	if _state == State.PLAYING and _replay_active and event is InputEventKey and event.pressed and event.keycode == KEY_BRACKETRIGHT:
+		var modal := _quit_open or (_shell != null and _shell.has_method("ingame_chat_has_keys") and _shell.ingame_chat_has_keys())
+		if _world != null and _world.has_method("toggle_replay_pause_key") and _world.toggle_replay_pause_key(event.ctrl_pressed, event.shift_pressed, event.alt_pressed, event.echo, modal):
+			get_viewport().set_input_as_handled()
+			return
 	if (_state == State.PLAYING or _state == State.STRATEGIC) and event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
 		# lane CHAT-1: Esc closes the chat window (its input procedure, RW 0x8ECB8F, through the HUD's key path), never the quit menu behind it
 		if _shell != null and _shell.has_method("ingame_chat_has_keys") and _shell.ingame_chat_has_keys():
@@ -7197,6 +7203,10 @@ func _replay_tick() -> void:
 	var st: Dictionary = _world.replay_status()
 	if not st.get("active", false):
 		return
+	if _world != null and _world.has_method("replay_chat_take"):
+		for l in _world.replay_chat_take():
+			var shown := "[%s] %s" % [String(l.name), String(l.text)] if not String(l.name).is_empty() else String(l.text)
+			_hud.add_chat_line(shown, int(l.color))
 	if _replay_menu_test and str(st.get("path", "")) != _replay_menu_recorded_path:
 		_fail("the Replays menu loaded a different recording: " + str(st.get("path", "")))
 		return

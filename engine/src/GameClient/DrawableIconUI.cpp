@@ -992,6 +992,9 @@ void DrawableIconUI::build(GameLogic &logic, const DrawableManager &drawables, c
 			op.dropColor = dgi.colorForTextDropShadow;
 			op.dropOffsetX = (float)dgi.dropShadowOffsetX;
 			op.dropOffsetY = (float)dgi.dropShadowOffsetY;
+			// RW 0x48FE84 (0x48FE9F FontIsBold, 0x48FEB0 FontName -> TheFontLibrary::getFont 0x6186E0)
+			op.fontName = dgi.fontName;
+			op.fontIsBold = dgi.fontIsBold;
 			// the owner's choice (2026-11-03): the number is 8 window pixels high, not DrawGroupInfo.ini's FontSize 12 (dgi.fontSize)
 			op.pixelTextSize = kGroupNumberPixels;
 			out.push_back(op);

@@ -68,10 +68,10 @@ CATEGORIES = [
     ("NO-TARGET", re.compile(r"^NO-TARGET")),                         # the scene has no fitting target: not tested
     ("MOD-DATA", re.compile(r"^MOD-DATA")),                           # the mod gives the button no module: RotWK presses it to no effect too
     ("NO-SELECT", re.compile(r"could not be selected")),
+    ("DISABLED", re.compile(r"\(not enabled\)|^DISABLED: needs")),    # the button stays greyed at the top level: a requirement the test or the port misses
     ("LEFT-WORLD", re.compile(r"left the world")),
     ("INVENTORY", re.compile(r"does not exist")),
     ("GREY-BUG", re.compile(r"^GREY-BUG")),                          # still grey with every condition met (PORT-530): the port's availability rule differs from RotWK's
-    ("DISABLED", re.compile(r"\(not enabled\)|^DISABLED: needs")),    # the button stays greyed at the top level: a requirement the test or the port misses
     ("NOT-APPLIED", re.compile(r"not on the unit after")),            # an upgrade button whose upgrade never lands
     ("NO-MODULE", re.compile(r"no module of the unit")),              # the power has no module on the unit to run it
     ("NO-SEND", re.compile(r"sent nothing")),                         # the press or its target click sent no message
@@ -202,7 +202,7 @@ def cmd_recheck(a) -> None:
             continue
         for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
             parts = line.split("\t")
-            if len(parts) == 5 and parts[2] and category(parts[3], parts[4]) not in NOT_RED and not parts[4].startswith("CRASH"):
+            if len(parts) == 5 and parts[1] != "(inventory)" and category(parts[3], parts[4]) not in NOT_RED and not parts[4].startswith("CRASH"):
                 red[f][(parts[1], parts[2])] = category(parts[3], parts[4])
     passed = collections.defaultdict(set)
     for f in a.factions:

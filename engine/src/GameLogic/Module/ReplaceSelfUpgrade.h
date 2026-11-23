@@ -48,6 +48,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008BB21A (dtor -> RW 0x0086393B), RW 0x008BBAA9 (ModuleData dtor)
 class ReplaceSelfUpgrade : public UpgradeModule
 {
 public:

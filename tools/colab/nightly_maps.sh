@@ -20,7 +20,7 @@ REPO=/content/sandbox/openbfme-godot
 # its own tree (2026-11-17): a run after a landing comes in the day, while Claude works in station 3
 T=${MAPS_TREE:-$REPO/workspace/wt/maps}
 DRIVE=/content/drive/MyDrive
-INI=$DRIVE/for-arena/ennorath-ini-1.9.8.3.zip
+INI=$DRIVE/for-arena/ennorath-ini-1.9.8.7.zip   # the mod's INI view: Ennorath 1.9.8.7 since 2026-11-23 (1.9.8.3 before)
 INV=$DRIVE/openbfme-audit/rw_function_blocks.json
 INV_FULL=$DRIVE/openbfme-audit/rw_function_blocks_full.json   # the whole-image inventory (Port 241): more readers for FIELD_GAPS
 AUDIT=$DRIVE/openbfme-audit/field-audit-auto                  # this run's field audit (the numbered vN stay hand releases)

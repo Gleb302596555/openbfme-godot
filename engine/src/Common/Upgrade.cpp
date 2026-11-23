@@ -6,6 +6,7 @@
 #endif
 
 #include "Common/Upgrade.h"
+#include "Common/ModEngineFeatures.h"
 #include "Common/SnapshotProbe.h"
 #include "Common/Xfer.h"
 
@@ -260,10 +261,14 @@ UpgradeTemplate *UpgradeCenter::newUpgrade(const std::string &name, bool assignB
 	{
 		// lane MODS-3 (stop S-5303): retail keeps counting past the mask's 1152 bits (its masks then overflow); the port holds CAPACITY_BITS and
 		// refuses only beyond that
-		if (m_nextBit >= (int)UpgradeMaskType::CAPACITY_BITS)
+		// PYSAGE 1.9.8.5 .upg5k 0xEDF000: 5120 upgrades (0x1400 bits) with EnnorathUpgrades5120, 2048 without.
+		const unsigned limitBits = ModEngineFeatures::has(ModEngineFeature::EnnorathUpgrades5120)
+			? UpgradeMaskType::CAPACITY_BITS
+			: UpgradeMaskType::RETAIL_MOD_CAPACITY_BITS;
+		if (m_nextBit >= (int)limitBits)
 		{
 			throw INIException(3, "Upgrade %s: more than %u upgrades (OpenBFME holds %u; retail's mask has %u bits, RW 0x8D2835)", name.c_str(),
-				UpgradeMaskType::CAPACITY_BITS, UpgradeMaskType::CAPACITY_BITS, UpgradeMaskType::BITS);
+				limitBits, limitBits, UpgradeMaskType::BITS);
 		}
 		t->m_maskBit = m_nextBit++;
 	}

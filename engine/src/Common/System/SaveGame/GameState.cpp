@@ -448,7 +448,7 @@ std::vector<std::string> GameState::stopLines()
 		"again at a load, ZH saves none); retail import (SAVE-7) needs a translator per block",
 		"[S-4122] snapshots: a load is stricter than retail (INFERENCE: retail skips an unknown or bad block and its untagged endBlock checks nothing): an "
 		"unknown, missing or repeated block, a block read short or long and bytes after the end are named errors; the relation maps are transferred in "
-		"ascending key order (INFERENCE from RW 0x5E0A39 / 0x6BFEFD)",
+		"ascending key order (INFERENCE from hashtable::begin 0x5E0A39 / RW 0x6BFEFD)",
 	};
 }
 

@@ -46,8 +46,8 @@ struct EconomySettings
 	float resourceBonusMultiplier = 0.0f, resourceMultiplierLimit = 0.0f;
 	float multiPlayMoneyMult[20]; ///< MP1 .. MP8 as parsed; the rest 1.0 (INFERENCE: GlobalData's constructor value, S-255)
 	// lane XP-1: MultiPlayUnitXPMult (row RW 0xC00C8C, parse RW 0x6422D2, GlobalData + 0xEC4 + 0x50) and MultiPlayBuildingXPMult (RW 0xC00C9C, RW 0x642408,
-	// + 0xA0): the same `MPn:value` grammar; the lookups RW 0x64201C / 0x642037 read index n - 1 in [0, 20), 1.0 outside. Not required (1.0 when absent:
-	// the same constructor inference, S-255)
+	// + 0xA0): the same `MPn:value` grammar; not required (1.0 when absent: the same constructor inference, S-255).
+	// Lookups RW 0x0064201C (unit) / RW 0x00642037 (building) read index n - 1 in [0, 20), 1.0 outside.
 	float multiPlayUnitXPMult[20];
 	float multiPlayBuildingXPMult[20];
 	// lane PLAY-1: NumMinutesBeforePlayersCanTransferMoney (row RW 0xC011E0, parseInt RW 0x42EC5E, GlobalData + 0x122C; the constructor's value 5, RW 0x6439B7):

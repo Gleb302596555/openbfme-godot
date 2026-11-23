@@ -53,6 +53,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008B1882 (getModuleName), RW 0x008B1888 (dtor -> RW 0x00854D9A), RW 0x008B18A8 (getModuleNameKey)
 class ToggleHiddenSpecialAbilityUpdate : public SpecialAbilityUpdate
 {
 public:
@@ -92,6 +93,7 @@ public:
 };
 
 // Local 87: RW 0x008C657D (getModuleName), RW 0x008C6588 (getModuleNameKey), RW 0x006548BC / RW 0x008C6697 (dtors), RW 0x008C6583 (base dtor thunk), RW 0x004B612F (empty-string helper).
+// RW 0x008C66B3 (ModuleData dtor -> RW 0x00896AE3)
 class InvisibilitySpecialPower : public SpecialPowerModule
 {
 public:

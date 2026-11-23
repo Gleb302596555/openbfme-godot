@@ -105,6 +105,7 @@ void TeleportToCasterSpecialPower::triggerAbilityEffect() {
             static const int kHorde = ObjectTemplateInfoBuilder::kindOfIndex("HORDE");
             PartitionFilterFn filter([&](Object &o) {
                 return !o.testStatus(0x26) && ObjectFilterMatch::allows(logic, allowed, o, source->getControllingPlayer())
+                    && o.isOffMap() == source->isOffMap() // RW 0x008D1BAE: PartitionFilterSameMapStatus (vtable RW 0x00C0F374, slot +4 RW 0x00660E93: Object +0x458 bit 3)
                     && source->getRelationship(o) == ALLIES && !(o.isKindOf((unsigned)kStructure) && o.isKindOf((unsigned)kMoveOnly))
                     && !o.isEffectivelyDead() && &o != source;
             });

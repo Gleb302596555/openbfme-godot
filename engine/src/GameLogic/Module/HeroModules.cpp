@@ -1424,7 +1424,9 @@ void BuildableHeroListUpgrade::processUpgradeRemoval()
 
 void HeroModules::registerAll(ModuleFactory &modules)
 {
-	bindRuntime<RespawnUpdate, RespawnUpdateModuleData>(modules, "RespawnUpdate");
+	bindRuntime<RespawnUpdate, RespawnUpdateModuleData>(modules, "RespawnUpdate"); // RW 0x64F68C (create; vtables 0xC6C360 / 0xC67300 / 0xC6C354);
+	// the class name key (RW 0x8B32C4 getModuleNameKey, primary slot 4: TheNameKeyGenerator key of "RespawnUpdate" RW 0xC0B098, cached in RW 0xDE97BC)
+	// and the snapshot name (RW 0x8B3309 name, primary slot 2: returns "RespawnUpdate") are the factory's m_classNameKey / m_className here
 	bindRuntime<BuildableHeroListUpgrade, BuildableHeroListUpgradeModuleData>(modules, "BuildableHeroListUpgrade"); // GetSnapshotName RW 0x008BC40C, getModuleNameKey RW 0x008BC412
 	bindRuntime<UnpauseSpecialPowerUpgrade, UnpauseSpecialPowerUpgradeModuleData>(modules, "UnpauseSpecialPowerUpgrade");
 	bindRuntime<AttributeModifierAuraUpdate, AttributeModifierAuraUpdateModuleData>(modules, "AttributeModifierAuraUpdate");
@@ -1445,7 +1447,9 @@ void BuildableHeroListUpgrade::xfer(Xfer &x)
 	UpgradeModule::xfer(x);
 }
 
-// OpenBFME native (S-4190): each class's fields in its crc's order
+// RW 0x8B319D (primary vtable 0xC6C360 slot 3 / +0x0C): version (1, 1), UpdateModule::xfer (RW 0x850C60), then +0x2C the state (labelled int,
+// RW 0x7078CF), +0x30 the respawnAt ObjectID (RW 0x707887), +0x34 / +0x38 int (Xfer slot 0x7C), +0x40 bool (slot 0x90), +0x3C int, +0x20 the health
+// real (slot 0x70), +0x41 bool; OpenBFME keeps its native crc order (S-4190), the same eight fields
 void RespawnUpdate::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);
