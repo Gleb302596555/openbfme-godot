@@ -72,13 +72,26 @@ actual creation path.
   The newly merged code and regression have not yet been run on this branch;
   no in-game effect has been measured. The earlier S-856 wording that the bit
   is never set is stale for current port. Issue #645 is a different modifier path.
-* **Mithril — not fully read:** the parent declares an initially inactive
+* **Mithril — bounded self/scan behavior:** the parent declares an initially inactive
   `AttributeModifierAuraUpdate` gated by `Upgrade_Level_10`, range 1,
-  `AllowSelf=Yes`, filter `NONE +RohanFrodo_mod` (`frodo.ini:2180–2187`).
-  `FrodoMithrilhemd` is LEADERSHIP, `ARMOR 100%`, duration 3000 ms
-  (`includes/attributemodifier.inc:2708`); its command is a NONPRESSABLE
-  indicator for `SpecialAbilityFakeLeadership2`. A child's name matching that
-  filter, real modifier result and aura/visual behavior are not established.
+  `AllowSelf=Yes`, filter `NONE +RohanFrodo_mod` (`frodo.ini:2180–2187`);
+  the separate `RohanFrodoRing` directly declares the same aura fields
+  (`:3479–3487`). `FrodoMithrilhemd` is LEADERSHIP, `ARMOR 100%`, duration
+  3000 ms (`includes/attributemodifier.inc:2708`); its command is a
+  NONPRESSABLE indicator for `SpecialAbilityFakeLeadership2`. RW `0x89F42D`
+  runs the filtered partition query at `0x89F677`, then if `AllowSelf` is set
+  appends the source at `0x89F688–0x89F692`; the apply step `0x89F114` does
+  not repeat that named ObjectFilter test. The port's `HeroModules.cpp`
+  implements this separation. Synthetic `PORT-238 Frodo-style Mithril*`
+  directly grants a stand-in level upgrade to two separately named source
+  templates: the source receives the modifier even when its own template name
+  is not the scan filter; a nearby matching same-player target receives it,
+  while a different-name target and an enemy matching target do not. **60/60**
+  assertions, isolated suite **45/45 cases, 3021/3021 assertions** on matched
+  `3f0105c8` core/headers with separately compiled PORT-286 parser; changing
+  synthetic `AllowSelf` to No fails two self checks (**58/60**). This is fixture
+  sensitivity, not a pre-fix control. It does not test effective child
+  inheritance, actual level-grant, armor combat, expiry/refresh, FX or game.
 * **Sam leadership — not fully read:** the parent aura declares
   `FrodoForSamBonus`, Level 1, range 200 and filter `NONE +RohanSam_mod ALLIES`;
   its modifier declares `DAMAGE_MULT 150%` and 3000 ms. The command is a

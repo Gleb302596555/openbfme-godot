@@ -5179,3 +5179,88 @@ End
     CHECK(entry->isValidContainerFor(*summon, true, false));
     CHECK_FALSE(entry->isValidContainerFor(*enemyHero, true, false));
 }
+
+TEST_CASE("PORT-238 Frodo-style Mithril aura applies to self outside its named scan filter")
+{
+    World w;
+    AttributeModifierStore modifiers;
+    AttributeModifierStore *savedModifiers = TheAttributeModifierStore;
+    struct RestoreModifiers
+    {
+        World &world;
+        AttributeModifierStore *saved;
+        ~RestoreModifiers() { world.logic->reset(); TheAttributeModifierStore = saved; }
+    } restore{w, savedModifiers};
+    TheAttributeModifierStore = &modifiers;
+    modifiers.registerBlock(w.w.fx.env.blocks);
+    HeroModules::registerAll(w.w.modules);
+    // frodo.ini:2180-2187, 3479-3487; attributemodifier.inc:2708-2715.
+    // RW 0x89F42D: after the filtered partition query 0x89F677, AllowSelf
+    // appends the source at 0x89F688-0x89F692, then 0x89F114 applies it.
+    // No ChildObject inheritance, level-up lifecycle or mod loading here.
+    std::string data = R"ini(
+Upgrade Upgrade_P238FrodoLevelTen
+ Type = OBJECT
+End
+ModifierList P238FrodoMithril
+ Category = LEADERSHIP
+ Modifier = ARMOR 100%
+ Duration = 3000
+End
+)ini";
+    for (const char *name : {"P238FrodoBase", "P238FrodoRingForm"})
+    {
+        data += std::string("Object ") + name + R"ini(
+ KindOf = INFANTRY HERO SELECTABLE
+ Geometry = CYLINDER
+ GeometryMajorRadius = 5
+ GeometryHeight = 10
+ Body = ActiveBody Body
+  MaxHealth = 100
+ End
+ Behavior = AttributeModifierPoolUpdate Pool
+ End
+ Behavior = AttributeModifierAuraUpdate Mithril
+  StartsActive = No
+  BonusName = P238FrodoMithril
+  TriggeredBy = Upgrade_P238FrodoLevelTen
+  RefreshDelay = 2000
+  Range = 1
+  AllowSelf = Yes
+  ObjectFilter = NONE +P238FrodoBase
+ End
+End
+)ini";
+    }
+    const std::string error = w.w.load(data, INI_LOAD_OVERWRITE, "port238_frodo_mithril.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    bool ringForm = false;
+    SUBCASE("base source") {}
+    SUBCASE("separately named ring source") { ringForm = true; }
+    Object *source = w.unit(ringForm ? "P238FrodoRingForm" : "P238FrodoBase", 'A', 300, 300);
+    Object *baseTarget = w.unit("P238FrodoBase", 'A', 300, 300);
+    Object *otherTarget = w.unit("P238FrodoRingForm", 'A', 300, 300);
+    Object *enemyTarget = w.unit("P238FrodoBase", 'B', 300, 300);
+    for (Object *obj : {source, baseTarget, otherTarget, enemyTarget})
+    {
+        REQUIRE(obj != nullptr);
+        w.logic->partition().registerObject(*obj);
+    }
+    w.frames(5);
+    auto *aura = dynamic_cast<AttributeModifierAuraUpdate *>(source->findModule("AttributeModifierAuraUpdate"));
+    auto pool = [](Object *obj) { return dynamic_cast<AttributeModifierPool *>(obj->findModule("AttributeModifierPoolUpdate")); };
+    REQUIRE(aura != nullptr);
+    REQUIRE(pool(source) != nullptr);
+    REQUIRE(pool(baseTarget) != nullptr);
+    REQUIRE(pool(otherTarget) != nullptr);
+    REQUIRE(pool(enemyTarget) != nullptr);
+    CHECK(aura->pulses() == 0);
+    CHECK_FALSE(pool(source)->hasList("P238FrodoMithril"));
+    source->giveUpgrade("Upgrade_P238FrodoLevelTen");
+    for (int i = 0; i < 10 && aura->pulses() == 0; ++i) w.frames(1);
+    REQUIRE(aura->pulses() == 1);
+    CHECK(pool(source)->hasList("P238FrodoMithril"));
+    CHECK(pool(baseTarget)->hasList("P238FrodoMithril"));
+    CHECK_FALSE(pool(otherTarget)->hasList("P238FrodoMithril"));
+    CHECK_FALSE(pool(enemyTarget)->hasList("P238FrodoMithril"));
+}
