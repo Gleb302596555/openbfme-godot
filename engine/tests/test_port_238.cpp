@@ -5110,3 +5110,72 @@ End
     CHECK_FALSE(w.playerOf('B')->hasUpgradeComplete("Upgrade_P238LegacyGanWhite"));
     CHECK(w.byId(other->getID()) == other);
 }
+
+TEST_CASE("PORT-238 Erebor throne-style passenger filter has a separate own-player ring admission")
+{
+    World w;
+    // civilian/ereborbuildings.ini:5594-5612,6081-6099; _gamedata.inc:35.
+    // Simplified KindOf portion only: the real macro also excludes many named
+    // templates. RW Citadel 0x88397F calls inherited admission 0x8838C3 first,
+    // then checks same player and ring status; checkPath is intentionally false.
+    const char *data = R"ini(
+Object P238EreborThrone
+ KindOf = STRUCTURE SELECTABLE COMMANDCENTER
+ Body = ActiveBody Body
+  MaxHealth = 20000
+ End
+ Behavior = CitadelSlaughterHordeContain RingEntry
+  PassengerFilter = ANY +INFANTRY +CAVALRY -HERO -DOZER -SUMMONED
+  ObjectStatusOfContained = UNSELECTABLE ENCLOSED
+  CashBackPercent = 200%
+  ContainMax = 99
+  AllowEnemiesInside = No
+  AllowAlliesInside = No
+  AllowNeutralInside = No
+  AllowOwnPlayerInsideOverride = Yes
+  StatusForRingEntry = HOLDING_THE_RING
+  UpgradeForRingEntry = Upgrade_P238Ring
+  ObjectToDestroyForRingEntry = NONE +P238Ring
+ End
+End
+Object P238EreborInfantry
+ KindOf = INFANTRY SELECTABLE
+ Body = ActiveBody Body
+  MaxHealth = 100
+ End
+End
+Object P238EreborSummoned
+ KindOf = INFANTRY SUMMONED SELECTABLE
+ Body = ActiveBody Body
+  MaxHealth = 100
+ End
+End
+)ini";
+    const std::string error = w.w.load(data, INI_LOAD_OVERWRITE, "port238_erebor.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    Object *throne = w.unit("P238EreborThrone", 'A', 300, 300);
+    Object *hero = w.unit("P238Carrier", 'A', 300, 300);
+    Object *enemyHero = w.unit("P238Carrier", 'B', 300, 300);
+    Object *troop = w.unit("P238EreborInfantry", 'A', 300, 300);
+    Object *summon = w.unit("P238EreborSummoned", 'A', 300, 300);
+    REQUIRE(throne != nullptr);
+    REQUIRE(hero != nullptr);
+    REQUIRE(enemyHero != nullptr);
+    REQUIRE(troop != nullptr);
+    REQUIRE(summon != nullptr);
+    auto *entry = dynamic_cast<CitadelSlaughterHordeContain *>(throne->getContain());
+    REQUIRE(entry != nullptr);
+    CHECK(entry->openContainAllows(*troop));
+    CHECK(entry->isValidContainerFor(*troop, true, false));
+    CHECK_FALSE(entry->openContainAllows(*hero));
+    CHECK_FALSE(entry->isValidContainerFor(*hero, true, false));
+    CHECK_FALSE(entry->openContainAllows(*summon));
+    CHECK_FALSE(entry->isValidContainerFor(*summon, true, false));
+    const unsigned holding = (unsigned)CombatNames::status("HOLDING_THE_RING");
+    hero->setStatus(holding, true);
+    enemyHero->setStatus(holding, true);
+    summon->setStatus(holding, true);
+    CHECK(entry->isValidContainerFor(*hero, true, false));
+    CHECK(entry->isValidContainerFor(*summon, true, false));
+    CHECK_FALSE(entry->isValidContainerFor(*enemyHero, true, false));
+}
