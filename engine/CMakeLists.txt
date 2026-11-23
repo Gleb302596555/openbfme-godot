@@ -604,6 +604,7 @@ include(cmake/Buildclear1.cmake) # BUILDCLEAR-1: the placement's clear-of-object
 include(cmake/Port297.cmake)    # PORT-297: resources — SupplyWarehouseDockUpdate::setDockCrippled and the resource modules' own functions (fork issue 689; OPENBFME_PORT297_TESTS)
 include(cmake/Port293.cmake)    # PORT-293: ActiveBody's last-healing timestamp (body slot 0x48) and AutoHealBehavior NonStackable (issue #685; OPENBFME_PORT293_TESTS)
 include(cmake/Port309.cmake)    # PORT-309: ExperienceLevel level-up tint verdict re-check (issue #701, S-7196 / PORT-44; OPENBFME_PORT309_TESTS)
+include(cmake/Port314.cmake)    # PORT-314: ghost objects — a destroyed building stays in the fog (issue #750, S-561; OPENBFME_PORT314_TESTS)
 add_library(openbfme_core STATIC
     ${OPENBFME_PLAY2_SOURCES}
     ${OPENBFME_APT_SOURCES}
@@ -1439,6 +1440,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT302_TESTS}
     ${OPENBFME_PORT293_TESTS}
     ${OPENBFME_PORT309_TESTS}
+    ${OPENBFME_PORT314_TESTS}
     tests/test_main.cpp
     tests/test_big_archive.cpp
     tests/test_parser_fuzz_regressions.cpp

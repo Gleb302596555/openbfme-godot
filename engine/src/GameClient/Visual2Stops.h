@@ -11,8 +11,9 @@ inline std::vector<std::string> visual2StopLines()
 		"[S-4970] drawable shroud look: RW 0x64849E's fully obscured flag and its 2 s / 5 s grace are ported (GameClient/DrawableShroud.h); INFERENCE: the "
 		"clear frame is stored for every presented CLEAR status, in or out of the view (retail's renderOneObject stores it for drawn objects), and is dropped "
 		"when the shroud's viewer changes (a caster's POV switch hides at once); a FOGGED "
-		"object is drawn as its live drawable lit by the fogged light (RW 0x46DFBA, FogAlpha / ClearAlpha) standing in for retail's ghost object (S-561): "
-		"it shows the current model state, not the state of its last sight, and the scene fog colour is not scaled for it",
+		"object is drawn as its live drawable lit by the fogged light (RW 0x46DFBA, FogAlpha / ClearAlpha); narrowed (PORT-314 closed S-561): a destroyed "
+		"object is drawn from its frozen last presented record (LogicSnapshot::ghosts), so a fogged object still alive shows the current model state; the scene "
+		"fog colour is not scaled for it",
 		"[S-4971] effects in the shroud: the FX and particle code asks the shroud the presented snapshot shows the local player (RW 0xB4D990 / 0x5E2282 / "
 		"0x5FA2CE on the picture's cells and records, not the logic's live ones); an object the presented snapshot does not hold yet asks its position's "
 		"cell; an object without a shroud record (a contained one: no partition data) asks its position's cell (RW 0x5E22C4); r2: a system does not emit "

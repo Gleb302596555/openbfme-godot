@@ -130,7 +130,8 @@ InGameHud::InGameHud(Config config)
 			if (const ObjectSnapshot *rec = snap->find(o.getID()))
 			{
 				// a FOGGED object is retail's ghost: W3DGhostObject draws a snapshot of the render object without the drawable's user data, so the pick
-				// meets no drawable there (ZH W3DGhostObject; the ghosts themselves are S-561). The device here still draws the real drawable.
+				// meets no drawable there (ZH W3DGhostObject; PORT-314 keeps the frozen ObjectSnapshot for the shroud look, this pick keeps the rule).
+				// The device here still draws the real drawable of an object that lives.
 				if (rec->shroudedForLocal || rec->objectShroud >= (int)OBJECTSHROUD_FOGGED || rec->drawableHidden || d->stealthHidden())
 				{
 					return DrawablePick::Result::NotDrawn;

@@ -54,7 +54,7 @@ void xferU64(Xfer &x, unsigned long long &v)
 
 void ShroudManager::xferState(Xfer &x)
 {
-	XferVersion v{ 1, 1 };
+	XferVersion v{ 1, 2 }; // PORT-314 / S-561 (S-561 closure): the records carry the ghost (+ 8) and retained (RW 0xB4E190) bytes
 	x.xferVersion(v);
 	const bool loading = x.isLoading();
 	x.xferUnsignedInt(&m_counter);
@@ -190,6 +190,8 @@ void ShroudManager::xferState(Xfer &x)
 			AIXfer::inRange(r.previous[(size_t)p], 0, OBJECTSHROUD_SHROUDED, "shroud: a record's previous status");
 			AIXfer::inRange(r.seen[(size_t)p], 0, 1, "shroud: a record's seen flag");
 		}
+		x.xferBool(&r.ghost);    // PORT-314: RW record + 8
+		x.xferBool(&r.retained); // PORT-314: RW 0xB4E190 kept the record past its object
 		x.xferBool(&r.groundValid);
 		x.xferInt(&r.groundX);
 		x.xferInt(&r.groundY);
@@ -295,7 +297,8 @@ void ShroudManager::loadPostProcess()
 	std::unique_ptr<ShroudManager> p = std::move(m_pendingLoad);
 	for (const Record &r : p->m_records)
 	{
-		if (r.inUse && !m_logic.findObjectByID(r.id))
+		// PORT-314 / S-561: a retained record (RW 0xB4E190) has no object by design; its ghost stands in for it
+		if (r.inUse && !r.retained && !m_logic.findObjectByID(r.id))
 		{
 			throw XferException("shroud: the record of object " + std::to_string(r.id) + " has no object in the loaded game");
 		}
