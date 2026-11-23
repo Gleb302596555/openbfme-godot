@@ -7,7 +7,21 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 
-def write_reports(b, rec, m, ty, vc, out_dir: Path, src: Path = Path("engine/src")):
+def load_xmap(path):
+    """tools/re/match_rotwk.py's rw_map.csv over this inventory: {va: (name, subsystem, tier)}; {} when absent."""
+    import csv
+    if not path or not Path(path).exists():
+        return {}
+    out = {}
+    with open(path, encoding="utf-8", newline="") as fh:
+        for r in csv.DictReader(fh):
+            va = 0x400000 + int(r["rotwk_rva"], 16)
+            out[va] = ((r.get("decomp_name") or r.get("rotwk_name") or "").strip(), (r.get("subsystem") or "").strip(),
+                       (r.get("tier") or "").strip())
+    return out
+
+
+def write_reports(b, rec, m, ty, vc, out_dir: Path, src: Path = Path("engine/src"), xmap_path=None):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "mod"))
     from rw_function_map import scan_citations
     from rw_library_functions import load as load_library
@@ -29,12 +43,30 @@ def write_reports(b, rec, m, ty, vc, out_dir: Path, src: Path = Path("engine/src
             if k != "conflicts":
                 table_owner.setdefault(v, c)
 
+    xmap = load_xmap(xmap_path)
+    # the instruction right after `mov eax, handler; call _EH_prolog` was a function start in the old angr inventory: a citation of
+    # it is a citation of the function (8 such in engine/src on 2026-11-23)
+    seh_after = {}
+    for fn in rec["functions"]:
+        a = fn["address"]
+        i = b.insn(a)
+        j = b.insn(a + i.size) if i is not None and i.mnemonic == "mov" else None
+        if j is not None and j.mnemonic == "call" and j.operands and j.operands[0].imm == 0xA3CEF0:
+            seh_after[a] = a + i.size + j.size
+
     def status(a):
-        return cites.get(a, "library" if a in library else "none")
+        if a in cites:
+            return cites[a]
+        if a in seh_after and seh_after[a] in cites:
+            return cites[seh_after[a]]
+        if a in library or xmap.get(a, ("", "", ""))[1] == "library":
+            return "library"
+        return "none"
 
     out_dir.mkdir(parents=True, exist_ok=True)
     counts = Counter()
-    rows = ["function\tsize\tevidence\tstatus\tclass\tslot\tdirect callers\tresolved virtual callers"]
+    by_sub = defaultdict(Counter)
+    rows = ["function\tsize\tevidence\tstatus\tclass\tslot\tdirect callers\tresolved virtual callers\tsubsystem\tBFME2 name\tmatch tier"]
     for fn in rec["functions"]:
         a = fn["address"]
         st = status(a)
@@ -47,7 +79,9 @@ def write_reports(b, rec, m, ty, vc, out_dir: Path, src: Path = Path("engine/src
             cls, slot = (f"0x{owner:X}" if owner else ""), f"0x{v:X}[{n}]"
         elif a in m.class_of_fn:
             cls, slot = f"0x{m.class_of_fn[a]:X}", "ctor/dtor"
-        rows.append(f"0x{a:08X}\t{fn['size']}\t{tier.get(a, '')}\t{st}\t{cls}\t{slot}\t{callers.get(a, 0)}\t{resolved_in.get(a, 0)}")
+        name, sub, mt = xmap.get(a, ("", "", ""))
+        by_sub[sub.rstrip("?").strip() or "unclassified"][st] += 1
+        rows.append(f"0x{a:08X}\t{fn['size']}\t{tier.get(a, '')}\t{st}\t{cls}\t{slot}\t{callers.get(a, 0)}\t{resolved_in.get(a, 0)}\t{sub}\t{name}\t{mt}")
     (out_dir / "RW_BINARY_MAP.tsv").write_text("\n".join(rows) + "\n", encoding="utf-8")
 
     rows = ["class\ttables (offset:vtable)\tctors/dtors\tbases (offset:class)\tdescendants\tvirtual methods\tported\tnone"]
@@ -76,7 +110,7 @@ def write_reports(b, rec, m, ty, vc, out_dir: Path, src: Path = Path("engine/src
     (out_dir / "RW_VCALLS.tsv").write_text("\n".join(rows) + "\n", encoding="utf-8")
 
     total = len(rec["functions"])
-    ev = Counter(tier.values())
+    ev = Counter(tier.get(fn["address"], "") for fn in rec["functions"])
     md = [
         "# RotWK whole-image map (tools/rw_object_model/binary_map.py, class_map.py)",
         "",
@@ -86,8 +120,8 @@ def write_reports(b, rec, m, ty, vc, out_dir: Path, src: Path = Path("engine/src
         "",
         f"{total} functions (evidence: {', '.join(f'{k} {v}' for k, v in sorted(ev.items()))}). Status by `RW 0x…` citations in engine/src: "
         f"ported {counts['ported']}, partial {counts['partial']}, library {counts['library']}, none {counts['none']}.",
-        "`library` is the proven list (tools/mod/rw_library_functions.tsv, made for the module map); most of the C runtime, STLport, Lua",
-        "and the middleware outside the modules are not on it yet and count as `none` here.",
+        "`library`: the proven list (tools/mod/rw_library_functions.tsv) and the functions match_rotwk.py labels `library` (see below).",
+        "`none` means no `RW 0x...` citation: the client side (draw, audio, UI, network) is rebuilt on Godot rather than ported line by line, so there `none` is not a to-do count.",
         "",
         "Exact by construction: an entry has code evidence (the PE entry, a direct call, a slot of a table code installs) or is a data /",
         "code pointer that decodes cleanly and owns no other function's instruction; a switch is followed only when its `cmp` / `ja` guard",
@@ -107,6 +141,16 @@ def write_reports(b, rec, m, ty, vc, out_dir: Path, src: Path = Path("engine/src
         "A call is resolved only when its receiver's type is proven: a method's this (the class and its descendants), an object a",
         "constructor or `new` in the same function built, a global / field whose every store holds a proven type, a return value or an",
         "argument when all the function's call sites are known. A store through an unproven pointer is not counted (no alias analysis).",
+        "",
+        "## By subsystem",
+        "",
+        "The label of tools/re/match_rotwk.py (RotWK paired with BFME2 1.06 and its decomp) over this inventory, `?` labels folded in;",
+        "`library` there is code the port replaces wholesale." if xmap else "No match file given (--xmap): every function is `unclassified`.",
+        "",
+        "| subsystem | functions | ported | partial | library | none |",
+        "|---|---:|---:|---:|---:|---:|",
+        *[f"| {s} | {sum(c.values())} | {c['ported']} | {c['partial']} | {c['library']} | {c['none']} |"
+          for s, c in sorted(by_sub.items(), key=lambda kv: -sum(kv[1].values()))],
         "",
         "Tables: RW_BINARY_MAP.tsv (one row per function), RW_CLASSES.tsv, RW_VCALLS.tsv.",
         "",

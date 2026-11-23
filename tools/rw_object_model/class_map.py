@@ -884,5 +884,6 @@ if __name__ == "__main__":
         idx = reader_index(m, ty)
         print("reader keys", len(idx), f"{time.time() - t:.0f}s")
         from binary_report import write_reports
-        counts, vcount = write_reports(b, rec, m, ty, vc, Path("docs/ennorath"))
+        xm = next((a.split("=", 1)[1] for a in sys.argv if a.startswith("--xmap=")), None)
+        counts, vcount = write_reports(b, rec, m, ty, vc, Path("docs/ennorath"), xmap_path=xm)
         print("reports written:", dict(counts), dict(vcount))

@@ -455,9 +455,17 @@ def build(b: Binary):
                     tier[f] = "call"
                 else:
                     tier.setdefault(f, "data")
-            for s in vtable_slots(b, funcs):
-                if tier.get(s) in ("data", "code-imm"):
-                    tier[s] = "vtable-slot"
+            slots = vtable_slots(b, funcs)
+            for f in funcs:
+                if tier.get(f) == "call":
+                    continue
+                if f in slots:
+                    tier[f] = "vtable-slot"
+                elif tier.get(f) not in ("data", "code-imm"):
+                    tier[f] = "data"  # a function never carries the label of a folded block
+            for f in list(tier):
+                if f not in funcs and tier[f] not in ("extra-block",):
+                    del tier[f]
             build.extras = extras
             return funcs, noreturn, tier, rejected, errors
         noreturn |= nr  # re-decode: blocks after calls to the new noreturn functions belong elsewhere
