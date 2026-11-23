@@ -333,7 +333,8 @@ void FireLogicSystem::update()
 
 	// 3. Spreading heat to neighbours and regrowing burnt fuel
 	int spreadStart = (startRow > 0) ? startRow - 1 : 0;
-	int spreadEnd = (endRow + 1 < m_numRows) ? endRow + 1 : m_numRows;
+	// RW 0x6886E0 (0x688A7E..0x688A87): retail decrements, not increments, this end when it is not at the last row.
+	int spreadEnd = (endRow + 1 < m_numRows) ? endRow - 1 : endRow;
 
 	struct PendingHeat
 	{
