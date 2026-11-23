@@ -4,7 +4,7 @@
 // BezierProjectileBehavior (RW 0x0085FAD7), SlowDeathBehavior (RW 0x0068BF44).
 // Source of expectations: RotWK 2.01 game.dat disassembly (all 6 are xfer / getters).
 
-#include <doctest/doctest.h>
+#include "doctest.h"
 
 TEST_CASE("PORT-333: classified RW functions are xfer/getters with no missing simulation behaviour") {
     // RW 0x00861D51 (ShipSlowDeathBehavior::xfer)
