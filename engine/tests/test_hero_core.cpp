@@ -498,7 +498,8 @@ TEST_CASE("hero determinism: the same recruit / death / revive script gives the 
 // S-857 is closed (lane DECOMP-1): the weather-based trigger branch RW 0x71A13D / 0x71A04F / 0x71A024 / 0x71A09E / 0x719C69 is tier A to the BFME2 decomp's
 // byte-matched GlobalWeatherSystem bodies (Rva00318333.cpp) and the port follows them; what stays open is S-922's. S-862 is closed too: the emotion request
 // RW 0x68F37F is tier A to the decomp's Object::rva0028EC68 (the outermost container's tracker), as EmotionTrackerUpdate::requestEmotion does; what the emotion
-// does is S-1021 / S-1022 / S-1027's
+// does is S-1021 / S-1022 / S-1027's. S-854 is closed by PORT-233 (issue #556): the respawn health above 100 % raises the max health (RW 0x8C47F6), so the
+// port has no stop line for it any more; the row stays in docs/STOPS.md as closed
 TEST_CASE("hero stops: S-850 .. S-863 (but S-853, S-857 and S-862, closed) are reported and have a row in docs/STOPS.md")
 {
 	const std::vector<std::string> lines = HeroSystem::stopLines();
@@ -507,7 +508,7 @@ TEST_CASE("hero stops: S-850 .. S-863 (but S-853, S-857 and S-862, closed) are r
 	std::stringstream ss;
 	ss << in.rdbuf();
 	const std::string docs = ss.str();
-	REQUIRE(lines.size() == 11);
+	REQUIRE(lines.size() == 10);
 	CHECK(lines[2].find("forced drawable model-condition refresh on creation") != std::string::npos);
 	size_t k = 0;
 	for (int i = 0; i < 14; ++i)
@@ -516,6 +517,12 @@ TEST_CASE("hero stops: S-850 .. S-863 (but S-853, S-857 and S-862, closed) are r
 		if (id == "S-853" || id == "S-857" || id == "S-862")
 		{
 			CHECK(docs.find("| " + id + " |") == std::string::npos);
+			continue;
+		}
+		if (id == "S-854")
+		{
+			// closed by PORT-233 (issue #556): the row stays, the stop line is gone
+			CHECK_MESSAGE(docs.find("| " + id + " |") != std::string::npos, id << " has no row in docs/STOPS.md");
 			continue;
 		}
 		CHECK(lines[k++].rfind("[" + id + "]", 0) == 0);

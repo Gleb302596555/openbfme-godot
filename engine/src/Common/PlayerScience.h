@@ -62,12 +62,16 @@ class PlayerTemplate;
 class PlayerRankInfo;
 class ScoreKeeper;
 class StateHasher;
+struct ExperienceScalarTable;
 
 // How the game the player is in reads the spell book rules (RotWK reads these from TheGameLogic; the game start sets them)
 struct SpellGameMode
 {
 	bool skirmishOrMultiplayer = false; ///< GameLogic + 0x110 == 2 or RW 0x441B7C: MP costs, IntrinsicSciencesMP, MaxLevelMP
 	bool campaign = false;              ///< RW 0x5FF924 (SkillPointsNeededCampaign)
+	// GameLogic + 0x114 (the game's kind; the constructor RW 0x6301D3 writes 3 and nothing else changes it on a normal new game, stop S-525). 3 is a
+	// skirmish: the skill point scalar table is skipped in it (RW 0x782AD0: `cmp dword ptr [eax + 0x114], 3; je`)
+	int gameKind = 3;
 };
 
 class PlayerScience : public ScienceOwner
@@ -178,6 +182,9 @@ private:
 	float m_skillPointsModifier = 1.0f;          // +0x10
 	int m_rankLevel = 1;                         // +0x14
 	int m_scalarBaseRank = 1;                    // +0x18
+	// +0x08: the PlayerSkillPointsScalarTable (the constructor RW 0x782A0C looks it up by name in the store RW 0xDE4704; without the store the
+	// pointer stays null and the points are never scaled)
+	const ExperienceScalarTable *m_skillPointScalars = nullptr;
 	int m_sciencePurchasePoints = 0;             // +0x1C
 	int m_skillPointsNextRank = 0x7fffffff;      // +0x20
 	int m_skillPointsThisRank = 0;               // +0x24

@@ -9,7 +9,7 @@
 //       + 4 money earned, + 8 money spent (ECON-1), + 0xC / + 0x10 the money received from / given to allies (RW 0x79DCE9 / 0x79DD01: the tribute, RW 0x6264E1),
 //       + 0x14 / + 0x18 / + 0x1C the money spent on units / structures / heroes (RW 0x79DFC2, lane END-2), + 0x20 units destroyed [20] (by the VICTIM's player index), + 0x70 units built,
 //       + 0x74 units lost, + 0x78 structures destroyed [20], + 0xC8 structures built, + 0xCC structures lost, + 0xD0 / + 0xD4 heroes / units vetted
-//       (RW 0x79DB50 / 0x79DB6B, no caller ported), + 0xD8 science purchase points earned (SPELL-1), + 0xE0 / E4 / E8 Living World region terms,
+//       (RW 0x79DB50 / 0x79DB6B, PORT-233: the ExperienceTracker's level grant), + 0xD8 science purchase points earned (SPELL-1), + 0xE0 / E4 / E8 Living World region terms,
 //       + 0xEC the last calculated score, + 0xF0 the end frame (0 = still running), + 0xF4 the per-frame entry index of the first hero (RW 0x79F1FE),
 //       + 0xF8 skill points earned (SPELL-1, float), + 0xFC the elimination bonus (float, RW 0x79DBC6), + 0x100 the owner's player index, + 0x104 the
 //       index of the last other playable player that hurt one of ours (-1), + 0x108 / + 0x10C the units / structures alive, + 0x110 "count" (the built /
@@ -150,6 +150,23 @@ public:
 			m_skillPointsEarned = NumericState::sseAdd(points, m_skillPointsEarned);
 		}
 	}
+	// PORT-233 (issue #556, S-630 / S-631): the level-up counts of the owner's keeper. RW 0x79DB50 (+ 0xD0 += the heroes vetted) and RW 0x79DB6B
+	// (+ 0xD4 += the units vetted), both behind the keep-score switch (TheGameLogic + 0x98). The ExperienceTracker's level grant calls them
+	// (RW 0x79DB1D .. 0x79DB25 for a hero, RW 0x79DB3E .. 0x79DB46 for a unit that is not a horde member)
+	void addHeroVetted(std::int32_t amount = 1)
+	{
+		if (m_enabled)
+		{
+			m_heroesVetted += amount;
+		}
+	}
+	void addUnitVetted(std::int32_t amount = 1)
+	{
+		if (m_enabled)
+		{
+			m_unitsVetted += amount;
+		}
+	}
 	// RW 0x79DBC6
 	void addEliminationBonus(float value)
 	{
@@ -193,6 +210,9 @@ public:
 	std::uint32_t moneyEarnedSecond() const { return m_moneyEarnedSecond; }
 	std::uint32_t sciencePurchasePointsEarned() const { return m_purchasePointsEarned; }
 	float skillPointsEarned() const { return m_skillPointsEarned; }
+	// PORT-233: the level-up counts (RW + 0xD0 / + 0xD4)
+	int heroesVetted() const { return m_heroesVetted; }
+	int unitsVetted() const { return m_unitsVetted; }
 	float eliminationBonus() const { return m_eliminationBonus; }
 	int unitsBuilt() const { return m_unitsBuilt; }
 	int unitsLost() const { return m_unitsLost; }
@@ -274,6 +294,8 @@ private:
 	int m_structuresBuilt = 0;                   // RW + 0xC8
 	int m_structuresLost = 0;                    // RW + 0xCC
 	std::uint32_t m_purchasePointsEarned = 0;    // RW + 0xD8 (SPELL-1)
+	int m_heroesVetted = 0;                      // RW + 0xD0 (PORT-233, RW 0x79DB50)
+	int m_unitsVetted = 0;                       // RW + 0xD4 (PORT-233, RW 0x79DB6B)
 	int m_currentScore = 0;                      // RW + 0xEC
 	unsigned m_endFrame = 0;                     // RW + 0xF0
 	int m_firstHeroEntry = 0;                    // RW + 0xF4
