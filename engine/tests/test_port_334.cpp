@@ -113,11 +113,14 @@ TEST_CASE("PORT-334 OCL: construction blocks initial scheduling and due creation
  REQUIRE(obj);
  OCLUpdateModuleData data;
  data.m_minDelay = data.m_maxDelay = 1;
+ data.m_amount = 1;
  OCLUpdate update(obj, &data);
  obj->setStatus(2, true); // RW 0x89EBAC: UNDER_CONSTRUCTION
  const auto before = w.logic->random().seedArray();
  CHECK(update.update() == UPDATE_SLEEP_NONE);
  CHECK(w.logic->random().seedArray() == before);
+ CHECK(update.nextFrame() == 0); // RW 0x89EC59 skips schedule entirely while building
+ CHECK(update.created() == 0);
  CHECK(update.getCountdownPercent() == 0.0f);
  obj->setStatus(2, false);
  CHECK(update.update() == UPDATE_SLEEP_NONE); // neighbour: first completed update only schedules
@@ -127,8 +130,11 @@ TEST_CASE("PORT-334 OCL: construction blocks initial scheduling and due creation
  const auto due = w.logic->random().seedArray();
  CHECK(update.update() == UPDATE_SLEEP_NONE);
  CHECK(w.logic->random().seedArray() == due);
+ CHECK(update.nextFrame() == 1);
+ CHECK(update.created() == 0);
  obj->setStatus(2, false);
- CHECK(update.update() == UPDATE_SLEEP_NONE);
+ CHECK(update.update() == UPDATE_SLEEP_FOREVER); // RW 0x89ECC5: Amount reached only after construction
+ CHECK(update.created() == 1);
  CHECK(update.getCountdownPercent() == 0.0f); // resumed: schedule advanced to now + 1
 }
 
