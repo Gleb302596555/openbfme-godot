@@ -37,3 +37,20 @@ The static filter wrapper initialized by RW 0x4ED508 at 0x4ED578–0x4ED5B2 hold
 ## Client alpha save / load
 
 RW 0x4ED7F6 installs tree-buffer vtable 0xBE4E80, whose +0xC slot is RW 0x4ECE3E. That routine transfers the two per-record alpha words (RW 0x4ED1F0–0x4ED201) and, after recreating the record, restores them to +0xE0 / +0xE4 (RW 0x4ED3F8–0x4ED404). DONOR BFME2 `W3DTreeBufferXfer.cpp` identifies the corresponding entry as `xfer` and its early-return mode as light CRC. Consequently client ownership does not mean retail drops opacity on save/load: a complete implementation needs a client tree-buffer persistence path, without putting per-view values in synchronized `TerrainTrees` or the logic hash. The current `TreeTopple` client records have no xfer method; the appropriate client save integration and compatibility need separate verification, and adding just an alpha field without that path would lose state.
+
+## Shared-client user audit (before implementation)
+
+The owner authorized changes limited to client visibility, cadence and alpha persistence, with separate narrow regression tests. This is a baseline inventory, not a claim that any fade has been implemented or revalidated:
+
+| User | Current path | Current effect of this branch |
+| --- | --- | --- |
+| Trees / shrubs | `GameWorld::build_static_layer`, `TreeTopple`, `morphTree`, `updateMorphs`, `set_instance_opacity` | Tree fade is still absent; morph writes both instances independently. `TreeTopple` also holds shrubs, which are a distinct retail buffer and must not inherit tree-only fade. |
+| Floor on death | `W3DFloorDrawModuleData::m_floorFadeRateOnObjectDeath`; `GodotW3DMaterial.h` notes floor-death path | Field still parsed but no consumer was found; this branch does not implement Port 246's floor fade. |
+| `SubObjectsUpgrade` | `UpgradeModuleClasses.cpp` parses `WaitBeforeFadeInSeconds`; stop S-484 | Fade remains unimplemented; this branch does not implement it. |
+| Summon / dismount | `test_port_46.cpp` pins the ToggleMounted opacity path and the distinct `SummonReplacement` field with no RW reader; `DrawableFade.cpp`, `ClientEvents` / `DrawableManager` route other drawable fades | No shared opacity or drawable path changed. Do not infer the summon's opacity from the mounted case. |
+| Stealth | `StealthLook.cpp`, `DrawableManager.cpp`, `GodotGameWorld.cpp` (`StealthLook::drawOpacity` then dynamic instance opacity) | No change in this branch; existing composition and pulse remain distinct from tree alpha. |
+| Other instance opacity writers | `GodotPlacementGhost.cpp`, `GodotFXPlayer.cpp`, `GodotGameWorld.cpp` buffs and tree/shrub morphs | No change in this branch; any modification of the shared setter must cover these callers too. |
+| Shared visibility | `W3DInstancer::instance_outside` is used by `GameWorld` occlusion; `cull_frustum` also drives instancer pose/draw culling | No change in this branch. An exact tree sphere path must not silently replace their deliberately padded S-1730 sphere. |
+| Save envelope | `SaveGameFile` v2 contains HEAD / LOG / SNAP / LWLD; `GameWorld::buildSave` currently writes the logic snapshot into SNAP, and replay/log-only saves exist | There is no distinct persisted client snapshot in this envelope today. Client alpha persistence needs a versioned client part and old-version reads, without altering SNAP or changing logic xfer/hash; also account for campaign, War of the Ring and kept-game rollback. |
+
+The baseline above is source inspection, not proof that downstream callers remain equivalent after a future shared change. Each such change needs its own narrow negative-control test and the requested regression suite; re-audit all rows as that change is made.
