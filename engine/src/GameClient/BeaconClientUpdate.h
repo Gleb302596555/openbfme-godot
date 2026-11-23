@@ -15,7 +15,7 @@
 //   * hideBeacon (RW 0x8CDC11): the drawable hidden (+ 0x43D), its shadows off, deselected; the smoke particle system stopped.
 //   * the smoke (RW 0x8CDAAE): FXParticleSystem "BeaconSmoke%6.6X" of the indicator colour, else "BeaconSmokeFFFFFF" (untinted). INFERENCE (S-5151): no
 //     retail player colour has such a system and there is no BeaconSmokeFFFFFF, so retail shows no smoke; the port makes none.
-// INFERENCE: the last pulse starts at the first client update's logic frame (ZH's constructor reads TheGameLogic's frame; RotWK's was not read).
+// RW 0x8CD9D2: last pulse starts at the module's creation logic frame. DrawableManager supplies the creation event's frame (PORT-334).
 
 #pragma once
 
@@ -44,6 +44,9 @@ public:
 	// pulseSeconds()); the frame is remembered
 	bool pulseDue(std::uint32_t frame);
 	float pulseSeconds() const { return (float)m_data->m_radarPulseDuration * 0.2f; }
+	// RW 0x8CD9D2: the constructor stamps the creation frame, not the first HUD update.
+	// DrawableManager supplies the recorded frame without reading the simulation thread.
+	void setCreationFrame(std::uint32_t frame) { m_lastRadarPulse = frame; m_started = true; }
 	// RW 0x8CDC11 (the drawable's hidden flag is the caller's: Drawable::setClientHidden)
 	void hideBeacon() { m_hidden = true; }
 	bool hidden() const { return m_hidden; }

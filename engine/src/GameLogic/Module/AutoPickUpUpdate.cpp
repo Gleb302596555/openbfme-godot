@@ -17,6 +17,10 @@
 #include "Common/Thing/ThingTemplate.h"
 #include "Common/Xfer.h"
 #include "GameLogic/GameLogic.h"
+#include "GameLogic/Combat/ObjectWeapons.h"
+#include "GameLogic/Module/AIUpdate.h"
+#include "GameLogic/Module/EmotionModules.h"
+#include "GameLogic/Module/InvisibilityModules.h"
 #include "GameLogic/Map/TerrainTrees.h"
 #include "GameLogic/Module/BehaviorModule.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
@@ -38,8 +42,8 @@ typedef AutoPickUpUpdateModuleData Data;
 
 const char *const kStop =
 	"[S-7160] AutoPickUpUpdate (lane MODCOMPAT-MOD1, ported: RW 0x89958F / 0x899562, the WAKE_AUTO_PICKUP button and message RW 0x9412F8 / 0x77B51F / 0x68C8DE, the grab / eat through "
-	"the object's SPECIAL_GRAB_PASSENGER power, GrabPassengerSpecialPower): NOT ported: AutoThrowObject's throw at the closest enemy (RW 0x8995FB .. "
-	"0x89978F; no 2.01 template sets it); the tree pick-up runs the power at the map tree's point since lane LOCAL-42 (RW 0x89994B); an unported "
+	"the object's SPECIAL_GRAB_PASSENGER power, GrabPassengerSpecialPower; PORT-334: AutoThrowObject RW 0x89958F fires at the closest visible living enemy): "
+	"the tree pick-up runs the power at the map tree's point since lane LOCAL-42 (RW 0x89994B); NOT ported: an unported "
 	"special power module met before the power (it may be the power) is reported and the step goes on without it";
 
 const int kMcAttacking = 0x25;      // RW 0x8995C6 (TheModelConditionNames ATTACKING)
@@ -318,10 +322,26 @@ UpdateSleepTime AutoPickUpUpdate::update()
 	const Player *owner = obj->getControllingPlayer(); // RW 0x68B678
 	const auto &partition = logic.partition();
 	ContainModuleInterface *contain = obj->getContain(); // Object + 0x258
-	// 1. AutoThrowObject (RW 0x8995FB): not ported (S-7160); the step goes on as when no enemy is found
+	// RW 0x89958F: AutoThrowObject precedes pickup. RW 0x899601 .. 0x89971D:
+	// only a contained thrower holding exactly one passenger; query at vision range,
+	// not ScanDistance, then fire the current weapon directly (no AI attack order).
 	if (m_data->m_autoThrowObject && obj->getContainedBy() && contain && contain->getContainCount() == 1)
 	{
-		logic.noteStop(kStop);
+		PartitionFilterFn visible([&](Object &o) { // RW 0x660D71, vtable RW 0xC0F19C, flag false
+			return EmotionModules::visibleToScans(o) || (owner && owner->getPlayerType() == PLAYER_COMPUTER && InvisibilityManager::isFiring(o));
+		});
+		PartitionFilterFn seen([&](Object &o) { return EmotionModules::canSeeObject(*obj, o, -1.0f); }); // RW 0x6612AC, vtable RW 0xC1D66C
+		PartitionFilterFn alive([](Object &o) { return !o.isEffectivelyDead(); }); // RW 0x660E71
+		PartitionFilterFn enemy([&](Object &o) { return obj->getRelationship(o) == ENEMIES; }); // RW 0xC1676C, mask 4
+		if (Object *target = partition.getClosestObject(*obj->getPosition(), AIUpdateInterface::objectVisionRangeOf(*obj), FROM_CENTER_2D,
+		                                              { &enemy, &alive, &seen, &visible }))
+		{
+			if (ObjectWeapons *weapons = obj->getWeapons())
+			{
+				weapons->fireCurrentWeapon(target, nullptr); // RW 0x69200A at RW 0x899718
+			}
+			return UPDATE_SLEEP_NONE; // target found ends the scan, even if the weapon cannot fire
+		}
 	}
 	// 2. contained with an empty contain (RW 0x8997A0 .. 0x8997DB): the closest ORC that PickUpFilter allows
 	if (obj->getContainedBy() && contain && contain->getContainCount() == 0)

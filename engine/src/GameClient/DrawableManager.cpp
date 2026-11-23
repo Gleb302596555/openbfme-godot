@@ -6,6 +6,7 @@
 #include "GameClient/ClientEvents.h"
 #include "GameClient/EvaAnnounceClientCreate.h"
 #include "GameClient/EvaSighting.h"
+#include "GameClient/BeaconClientUpdate.h"
 #include "Common/Audio/AudioRequests.h"
 
 #include "Common/AsciiString.h"
@@ -258,6 +259,15 @@ void DrawableManager::created(const ClientEvent &ev)
 	const DrawableID id = (DrawableID)m_slots.size();
 	std::vector<std::string> problems;
 	std::unique_ptr<Drawable> d(new Drawable(m_services, ev.tmpl, id, ev.object, ev.clientModules, problems, ev.variation));
+	// RW 0x8CD9D2 / RW 0x8CDCE9: start the beacon's pulse clock at creation,
+	// even when the first presented update arrives after several logic frames.
+	for (const auto &module : d->clientModules())
+	{
+		if (auto *beacon = dynamic_cast<BeaconClientUpdate *>(module.get()))
+		{
+			beacon->setCreationFrame(ev.frame);
+		}
+	}
 	for (const std::string &p : problems)
 	{
 		m_sink.message(ev.tmpl->getName(), std::string(), p);

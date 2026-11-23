@@ -41,8 +41,8 @@
 //   * the snapshot is OpenBFME native (S-4190): RW's fields in RW's order.
 // The power the update uses is the object's GrabPassengerSpecialPower (every retail user's SPECIAL_GRAB_PASSENGER, lane MODCOMPAT-MOD1): the Watcher's
 // head grabs and eats a soldier, the trolls grab an orc or a goblin.
-// NOT PORTED (stop S-7160, noted when reached): step 1 (AutoThrowObject: no 2.01 template sets it) and step 5's terrain tree point (RW 0x67F52B,
-// unported as in FlammableUpdate; step 5 then goes on as without a tree point); an unported special power module met before the power is reported.
+// PORT-334: AutoThrowObject is ported (RW 0x89958F); LOCAL-42 ported the terrain tree point.
+// NOT PORTED (stop S-7160, noted when reached): an unported special power module met before the power is reported.
 
 #pragma once
 

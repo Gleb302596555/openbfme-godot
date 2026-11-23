@@ -87,7 +87,7 @@ UpdateSleepTime OCLUpdate::update()
 {
 	Object *obj = getObject();
 	GameLogic &logic = obj->logic();
-	if (logic.getFrame() < m_nextFrame) // RW 0x89EB99 (the creation frame is not reached)
+	if (logic.getFrame() < m_nextFrame || obj->testStatus(2)) // RW 0x89EB99: not due, or UNDER_CONSTRUCTION (RW 0x89EBAC)
 	{
 		return UPDATE_SLEEP_NONE;
 	}
