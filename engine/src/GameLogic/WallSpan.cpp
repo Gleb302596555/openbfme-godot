@@ -93,6 +93,19 @@ float toAngle(float x, float y)
 	return 0.0f <= y ? a : -a;
 }
 
+// S-1770: 2D angle (from +x, clockwise, as RW 0x405406 Coord2D::toAngle) - the arrow's direction of a line ghost
+float toAngle2d(float x, float y)
+{
+	const float len = SimMath::length2d(x, y);
+	if (len == 0.0f)
+	{
+		return 0.0f;
+	}
+	const float c = x / len;
+	const float a = (float)SimMath::acosDet((double)c);
+	return y < 0.0f ? -a : a;
+}
+
 // RW 0x403175 Coord3D::normalize: len = (float)RW 0x403111; unless 0, each component times (1 / len) (SSE)
 void normalize(Coord3D &v)
 {
@@ -425,6 +438,39 @@ bool WallSpan::plan(GameLogic &logic, Object &hub, const Coord3D &start, const C
 	}
 	out.tiles.clear();
 	return false;
+}
+
+bool WallSpan::ghostSegments(GameLogic &logic, Object &hub, const Coord3D &end, unsigned options, std::vector<GhostSegment> &out)
+{
+	Plan plan;
+	if (!WallSpan::plan(logic, hub, *hub.getPosition(), end, options, plan) || plan.tiles.empty())
+	{
+		return false;
+	}
+	// RW 0x478CBE / 0x6B00F3: the line ghost draws the segments along the line - the port's list is the plan's
+	// tiles, each a segment from the tile centre toward the drag end by the tile half extent
+	Coord3D dir{};
+	dir.x = SimMath::subf32(end.x, hub.getPosition()->x);
+	dir.y = SimMath::subf32(end.y, hub.getPosition()->y);
+	normalize(dir);
+	out.clear();
+	for (const Tile &t : plan.tiles)
+	{
+		if (!t.tmpl)
+		{
+			continue;
+		}
+		const float half = halfExtentY(*t.tmpl);
+		GhostSegment s;
+		s.a.x = SimMath::subf32(t.pos.x, SimMath::mulf32(dir.x, half));
+		s.a.y = SimMath::subf32(t.pos.y, SimMath::mulf32(dir.y, half));
+		s.a.z = 0.0f;
+		s.b.x = SimMath::addf32(t.pos.x, SimMath::mulf32(dir.x, half));
+		s.b.y = SimMath::addf32(t.pos.y, SimMath::mulf32(dir.y, half));
+		s.b.z = 0.0f;
+		out.push_back(s);
+	}
+	return !out.empty();
 }
 
 bool WallSpan::build(GameLogic &logic, Object &hub, const Coord3D &start, const Coord3D &end, Player &owner, unsigned options, std::vector<ObjectID> *made)
