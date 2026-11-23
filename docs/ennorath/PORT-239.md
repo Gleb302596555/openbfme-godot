@@ -460,3 +460,20 @@ Before implementation, resolve target-template flags/module identity, confirm
 the shared shroud/benefactor helpers, and read context priority/dispatch from
 entry 0x81E60B. No canRepairObject shim, guessed field, or partial ALLIES patch
 was introduced. S-1201/S-286/S-1282 remain open and have no new passing tests.
+
+Further identities resolved (still research, no behavior changed): template
++0x642 is `KeepSelectableWhenDead` (checked-in object field-table offset 1602);
+kind bits 14/24/26/38/150 are DOZER/BRIDGE_TOWER/PRELOAD/REBUILD_HOLE/WALL_UPGRADE
+respectively (`BitFlagNames.cpp`). The named source comparison at 0xC523D0
+is `MordorWorker`. RW 0x68B8D3 returns zero iff now > benefactor expiry,
+otherwise stored benefactor ID: existing Object accessors expose both.
+RW 0x82C167 exempts fake-tree IDs and script source, then only human-owner
+object shroud status >=3 rejects; the existing `ShroudManager::isShroudedForAction`
+implements the human-owner/status portion, leaving exemptions to the caller.
+RW 0x68C3E6 scans behavior interfaces at virtual +0x80; GettingBuiltBehavior's
+ctor 0x857399 installs interface 0xC56BF0 at module +0x20. Its slot +0x24
+is 0x8564F6, reading module-data +0x14 via 0x401E64 (empty-string test).
+Thus this repair rejection tests **empty WorkerName**, not `rebuilding()` or
+`isConstructing()`. The existing module data exposes m_workerName. These reads
+remove the previously unknown module/flag identities; integration, context
+priority and asset-free runtime regression coverage are still outstanding.
