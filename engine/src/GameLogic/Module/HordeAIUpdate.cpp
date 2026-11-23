@@ -171,7 +171,7 @@ void HordeAIUpdate::updateBeforeBase()
 	{
 		const unsigned frame = horde->logic().getFrame();
 		const unsigned lastShot = horde->getWeapons() ? horde->getWeapons()->firingTracker().lastShotFrame() : 0u; // RW 0x68B645
-		if (lastShot < frame - (unsigned)LOGICFRAMES_PER_SECOND)
+		if (frame > (unsigned)LOGICFRAMES_PER_SECOND && lastShot < frame - (unsigned)LOGICFRAMES_PER_SECOND)
 		{
 			bool regroup = true;
 			bool canReturn = true;
