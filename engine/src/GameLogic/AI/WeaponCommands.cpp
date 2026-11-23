@@ -279,6 +279,7 @@ std::vector<std::string> WeaponCommands::acceptanceStops()
 		"MaxShotsToFire; not ported: the riders of a container (RW 0x77229A / 0x77208A hand "
 		"the order to riders allowed to fire) and the members' distance order of groupAttackObject",
 		"[S-1983] MSG_TOGGLE_NO_AUTO_ACQUIRE (FACT-A, RW 0x77B6C4): the group's NO_AUTO_ACQUIRE status toggles (a horde with its members) and a member turned on stops "
-		"when its AI state is active, including the related object (behavior slot 26, RW 0x68CBE2); not ported: the button's image toggle (RW 0x75D366, client)",
+		"when its AI state is active, including the related object (behavior slot 26, RW 0x68CBE2); the button's image half (RW 0x75D366 -> RW 0x75D22E) is ported too "
+		"and covered by PORT-313 (S-7639), so the remaining parts are S-7637 (RW 0x75CD39, a TOGGLE_WEAPON button) and S-7638 (Cheat Mode HoldFire)",
 	};
 }
