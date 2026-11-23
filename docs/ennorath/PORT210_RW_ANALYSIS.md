@@ -94,3 +94,31 @@ path to Y 953.322 and no observed contact. These are fixture observations, not
 evidence that S-1751 causes or does not cause a real climbing failure. A
 representative wall/path scenario still needs to be established before making
 that conclusion.
+
+## Map-spanning barrier (after rebase)
+
+A second synthetic fixture puts adjacent `SCALEABLE_WALL` boxes from y=0 to
+1000 on the 100-by-100-cell map, centred on x=310, with a move order from
+(230,500) to (400,500). After 300 frames a temporary diagnostic runner observed:
+
+| Horde | Contact seen | Member rose / passed x=330 | Final horde position |
+|---|---|---|---|
+| ScalesWalls | no | no / no | (265,505) |
+| no ScalesWalls | no | no / no | (275,505) |
+
+For the scaling horde the central wall at (310,500) was not DESTROYED, its
+orientation was zero and the horde's final orientation was 0.141895 radians:
+these final facings pass the absolute-dot threshold 0.5 of RW 0x86C61E. The
+wall's near face is x=290. The horde is a box with half extents 20 and its
+rotated final shape still does not touch that face. The pathfinder has stopped
+it before geometric overlap, so the wall contact pass has no pair to dispatch.
+This is an observation for this synthetic fixture, not a claim about all walls
+or final facing throughout the whole path. The non-scaling test confirms the
+horde stops and no contact is recorded here; the earlier overlapping-wall test
+separately exercises the locomotor rejection branch.
+
+Since this scenario never enters SCALING_WALL, it cannot show whether missing
+S-1751 blocks climbing once begun. S-1751 remains unmodified and its effect is
+**undetermined**. Neither this barrier result nor the isolated manually placed
+member test demonstrates end-to-end wall traversal. S-4461 remains open; the
+retail collision manager S-780 remains outside this task.
