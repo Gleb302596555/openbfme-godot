@@ -1,3 +1,4 @@
+// Both editions: SkirmishAIManager::findAIForPlayer (RW 0x008EDCBA, DONOR BFME2 0x004E95D4)
 // OpenBFME. GPL-3.0.
 //
 // PlayerEconomyHost (lane ECON-1): the questions a Player cannot answer alone because they need the world (its objects, GameData, the game's mode). The
@@ -9,6 +10,7 @@
 #include <cstdint>
 #include <optional>
 
+class Object;
 class Player;
 class ThingTemplate;
 struct ObjectFilter;
@@ -39,4 +41,11 @@ public:
 	// difficulty (RW 0x6AA61B) is 3 and TheSkirmishAIManager runs an AI for it (RW 0x6A950B) -> min(1.0, the AIData BrutalDifficultyCheats reduction) (manager
 	// + 0x95C BuildCostReduction / + 0x960 BuildTimeReduction, `comiss [1.0]; jbe`); otherwise nothing (no discount)
 	virtual std::optional<float> brutalReduction(const Player &player, bool time) const = 0;
+	// PORT-198 (RW 0x6AA688 -> RW 0x6C77C9): notifies SkirmishAIManager::unitCreated when a factory/spawner/placement makes a unit
+	virtual void onUnitCreated(const Player &player, Object *factory, Object &unit)
+	{
+		(void)player;
+		(void)factory;
+		(void)unit;
+	}
 };

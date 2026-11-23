@@ -389,6 +389,7 @@ AptCharacterInst *Apt::createInstance(const AptCharRef &ref)
 
 // ---- levels ---------------------------------------------------------------------------------------------------
 
+// Both editions: RW 0x00ADFF70 (AptCharacterInst level root constructor)
 AptSpriteInst *Apt::makeRoot(const std::shared_ptr<const AptFile> &movie)
 {
 	AptSpriteInst *r = m_gc.create<AptSpriteInst>(*this, AptCharacterInst::Type::Movie);
@@ -399,6 +400,7 @@ AptSpriteInst *Apt::makeRoot(const std::shared_ptr<const AptFile> &movie)
 	return r;
 }
 
+// Both editions: RW 0x00AE0690 (DONOR BFME2 0x006CC520 _AptGetAnimationAtLevel)
 AptSpriteInst *Apt::level(int n) const
 {
 	auto it = m_levels.find(n);
@@ -781,6 +783,7 @@ bool Apt::invoke(AptCharacterInst *scope, const std::string &function, const std
 	return invokeValues(scope, function, values, result, error);
 }
 
+// Both editions: RW 0x00AE0CF0 (DONOR BFME2 0x006CCB80 Rva006CCB80CallFunction) and RW 0x00AE3DE0 (AptValue::isFunction)
 bool Apt::invokeValues(AptCharacterInst *scope, const std::string &function, const std::vector<AptValue> &values, std::string *result, std::string *error)
 {
 	if (!scope)

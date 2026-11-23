@@ -137,6 +137,7 @@ public:
 };
 
 // RW 0x008A4F61 (getModuleName)
+// RW 0x008A4EFC (dtor -> RW 0x0064A492)
 class SlavedUpdate : public UpdateModule, public SlavedUpdateInterface
 {
 	// RW 0x8A4FC8 is the deleting destructor; the runtime's unique_ptr ownership calls the implicit destructor and Module base cleanup.

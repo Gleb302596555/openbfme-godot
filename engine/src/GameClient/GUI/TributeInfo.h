@@ -19,6 +19,7 @@ struct TributePlayerRow
 	bool local = false;
 	bool active = true;       ///< RW 0x6AAC52
 	std::uint32_t color = 0;  ///< Player + 0x2A0 (row + 0x58, RW 0x915F5D: the extern "<row>_color")
+	int slot = -1;            ///< GameSlot index 0..7 (PYSAGE 1.9.8.5 .chatmut 0x00EDB12C)
 };
 
 class TributeSource
@@ -31,4 +32,7 @@ public:
 	virtual std::vector<TributePlayerRow> tributePlayers() = 0;
 	// the screen's Send (RW 0x914DD6): MSG_GIVE_MONEY(from, to, amount) through the command path the HUD's orders take (lockstep in a network game)
 	virtual void send(int fromIndex, int toIndex, std::uint32_t amount) = 0;
+	// ennorath.chat-mute (PYSAGE 1.9.8.5 .chatmut 0x00EDB058 / 0x00EDB26C): local per-slot chat mute (bits 0..7)
+	virtual bool chatMuted(int /*slot*/) const { return false; }
+	virtual void setChatMuted(int /*slot*/, bool /*muted*/) {}
 };

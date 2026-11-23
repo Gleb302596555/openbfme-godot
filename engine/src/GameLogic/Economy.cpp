@@ -460,6 +460,11 @@ std::optional<float> Economy::brutalReduction(const Player &player, bool time) c
 	return 1.0f > r ? r : 1.0f;
 }
 
+void Economy::onUnitCreated(const Player &player, Object *factory, Object &unit)
+{
+	m_logic.skirmishAI().unitCreated(player, factory, unit);
+}
+
 namespace
 {
 // lane BIGBATTLE-1: ObjectFilterMatch::allows(filter, object, no other player) of the objects one player controls depends only on the object's
@@ -491,7 +496,7 @@ struct FilterByTemplate
 
 bool Economy::hasObjectMatching(const Player &player, const ObjectFilter &filter, bool completedOnly) const
 {
-	// RW 0x6ABD0B -> 0x7A19AB -> 0x7A075A over the player's teams' members
+	// RW 0x6ABD0B -> RW 0x007A19AB -> 0x7A075A over the player's teams' members
 	const Bits &b = bits();
 	FilterByTemplate byTemplate{ m_logic, filter, player, {} };
 	for (const Object *o = m_logic.getFirstObject(); o; o = o->getNextObject())

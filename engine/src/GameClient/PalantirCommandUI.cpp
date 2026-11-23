@@ -396,7 +396,7 @@ CostModifierInfo costModifierInfo(const HudContext &ctx, ObjectID contextObject)
 	else
 	{
 		// RW 0x6AD967: compare interned filter IDs, not the produced unit's kind-of.
-		// RW 0x76341A interns by 0x762AEE equality; this port stores parsed filters by value.
+		// RW 0x0076341A interns by RW 0x00762AEE equality; this port stores parsed filters by value.
 		size_t index = 0;
 		for (const Player::CostModifier &entry : owner->costModifiers())
 		{

@@ -46,6 +46,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008A3831 (dtor -> RW 0x0064A492)
 class QueueProductionExitUpdate : public UpdateModule, public ExitInterface
 {
 public:

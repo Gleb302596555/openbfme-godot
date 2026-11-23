@@ -46,25 +46,6 @@ enum WeaponChoiceCriteria
 	PREFER_TEMPLATE_DEFAULT = 5
 };
 
-// ZH AbleToAttackType (RW 0x6C8652 attackType: bit 3 = ATTACK_CONTINUED, 4 = ATTACK_TUNNEL_NETWORK_GUARD)
-enum AbleToAttackType
-{
-	ATTACK_NEW_TARGET = 0,
-	ATTACK_NEW_TARGET_FORCED = 1,
-	ATTACK_TUNNEL_NETWORK_GUARD = 4,
-	ATTACK_CONTINUED = 8,
-	ATTACK_CONTINUED_FORCED = 9
-};
-
-// ZH CanAttackResult (RW 0x68B5FA / RW 0x6C8652)
-enum CanAttackResult
-{
-	ATTACKRESULT_NOT_POSSIBLE = 0,
-	ATTACKRESULT_INVALID_SHOT = 1,
-	ATTACKRESULT_POSSIBLE_AFTER_MOVING = 2,
-	ATTACKRESULT_POSSIBLE = 3
-};
-
 // ZH WeaponLockType
 enum WeaponLockType
 {
@@ -150,8 +131,10 @@ public:
 	// TOP20 #21 r3: canAttackObject without the order's shroud gate (VIS-1, RW 0x82C167: the action helper's, not RW 0x6C9147's): the attack machine's
 	// continue test RW 0x7417E4 .. 0x741807 calls RW 0x68D6A6 -> RW 0x6C9147, which has no shroud test
 	bool canAttackObjectNoShroud(const Object &victim, CommandSourceType source, bool forced) const;
-	// PORT-208 (issue #490): RW 0x68B5FA Object::getAbleToUseWeaponAgainstTarget -> RW 0x6C8652 WeaponSet::getAbleToUseWeaponAgainstTarget
+	// PORT-208 (issue #490) & PORT-198 (issue #465): RW 0x68B5FA / 0x68D6A6 / 0x6C8652 / 0x6C9147
+	static bool canAttackObjectGates(const Object &sourceObj, const Object &victim, CommandSourceType source, bool forced);
 	CanAttackResult getAbleToUseWeaponAgainstTarget(int attackType, const Object *victim, const Coord3D *pos, CommandSourceType source) const;
+	CanAttackResult getAbleToAttackSpecificObject(int attackType, const Object *victim, CommandSourceType source) const;
 
 	// ---- range ---------------------------------------------------------------------------------------------------------------------
 	// RW 0x6CC653: Weapon::isWithinAttackRange(source, victim, extra, checkMinRange) for the current weapon; the AI passes extra 0 and checkMin true

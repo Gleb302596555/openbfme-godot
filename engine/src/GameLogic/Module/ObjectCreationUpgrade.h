@@ -74,6 +74,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x008B8142 (UpgradeMux interface this-adjuster), RW 0x008B8146 (no-op dtor/reset -> RW 0x0063F3BF)
 class ObjectCreationUpgrade : public UpdateModule, public UpgradeMux
 {
 public:

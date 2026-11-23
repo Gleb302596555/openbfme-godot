@@ -76,8 +76,8 @@ void xferScriptRecord(Xfer &x, bool &active, UnsignedInt &frame)
 	}
 }
 
-// a list's shape (checked against this game's tree, which the START made), then its scripts' and groups' records, recursively (the order RW 0x60A377 /
-// 0x60BCE5 run them in); a load only collects the flags
+// a list's shape (checked against this game's tree, which the START made), then its scripts' and groups' records, recursively (the order RW 0x0060A377 /
+// RW 0x0060BCE5 run them in, indexing groups via ScriptList::getGroup RW 0x007B53D8 -> ScriptList::checkGroupIndex RW 0x007B53EF); a load only collects the flags
 void xferTree(Xfer &x, ScriptEngine::RGroup &g, const std::string &where, TreeFlags &out)
 {
 	const bool loading = x.isLoading();

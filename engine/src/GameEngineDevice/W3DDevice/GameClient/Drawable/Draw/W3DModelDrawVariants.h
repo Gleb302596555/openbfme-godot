@@ -100,6 +100,7 @@ class Xfer;
 //   RW 0x004CD95E updateTreadObjects, RW 0x004CDBD2 onRenderObjRecreated, RW 0x004CDBD7 doDrawModule,
 //   RW 0x004CDFA8 tossEmitters, RW 0x004CE02B createEmitters, RW 0x004CE1E2 getModuleNameKey,
 //   RW 0x004CE227 GetSnapshotName, RW 0x004CE22D loadPostProcess, RW 0x004CE320 ModuleData scalar deleting dtor.
+// RW 0x004CE154 (~W3DTankDraw)
 class W3DTankDrawState
 {
 public:

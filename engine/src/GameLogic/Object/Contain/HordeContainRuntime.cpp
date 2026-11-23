@@ -114,6 +114,12 @@ const HordeContainModuleData &HordeContain::hordeData() const
 	return m_data->horde;
 }
 
+// RW 0x86D6FD: interface slot 0x274 copies the module-data string at +0x280.
+std::string HordeContain::livingWorldOverloadTemplate() const
+{
+	return hordeData().m_livingWorldOverloadTemplate;
+}
+
 void HordeContain::setMeleeEngaged(bool on)
 {
 	if (m_meleeEngaged == on)

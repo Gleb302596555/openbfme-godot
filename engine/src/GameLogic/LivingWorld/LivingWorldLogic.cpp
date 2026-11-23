@@ -2,6 +2,7 @@
 // See GameLogic/LivingWorld/LivingWorldLogic.h.  Lane WOTR-1.
 
 #include "GameLogic/LivingWorld/LivingWorldLogic.h"
+#include "Common/ModEngineFeatures.h"
 
 #include "Common/AsciiString.h"
 #include "Common/NumericState.h"
@@ -3961,7 +3962,8 @@ bool LivingWorldLogic::networkVote(int battleIndex, int player, int method, std:
 		liveHumans += ps.human && !ps.defeated ? 1 : 0;
 	}
 	int f = flags;
-	if (active < liveHumans)
+	// RW 0x6BEBE5 (jge -> jmp in Ennorath 1.9.8.5): with ennorath.wotr-8-players a real-time battle is allowed even when active < liveHumans
+	if (active < liveHumans && !ModEngineFeatures::has(ModEngineFeature::EnnorathWotr8Players))
 	{
 		f = (f & ~8) | 2;
 	}

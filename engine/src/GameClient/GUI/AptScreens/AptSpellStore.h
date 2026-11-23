@@ -82,5 +82,6 @@ private:
 	bool m_helpSent = false;
 	int m_state[SpellStoreModel::MAX_BUTTONS];
 	std::vector<GameMessage> m_out;
+	int m_openElapsedMs = 0; // PYSAGE 1.9.8.5 .spstore 0xED4060 (500 ms open delay, 33 ms client steps)
 	std::string m_lastSpellArg;
 };

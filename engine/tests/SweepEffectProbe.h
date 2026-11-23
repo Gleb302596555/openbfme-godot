@@ -30,6 +30,7 @@
 #include "GameLogic/Module/ReplaceObjectUpdate.h"
 #include "GameLogic/Module/SpecialAbilityModules.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
+#include "GameLogic/Module/ProjectileModules.h"
 #include "GameLogic/Module/SpellBookPowers.h"
 #include "GameLogic/Module/StealthAbilityModules.h"
 #include "GameLogic/Module/WeaponChangeSpecialPower.h"
@@ -329,6 +330,7 @@ struct EffectProbe
 		TIMER_REFRESH,   ///< SpecialPowerTimerRefreshSpecialPower -> allied non-holder readySum decreased
 		FIRE_LOGIC,      ///< FireLogicNugget -> extinguishes / feeds fires (unported S-191 / S-1997 -> NO-EFFECT)
 		STORE,           ///< lane PORT-261: StoreObjectsSpecialPower (RW 0x8D1EA7) -> the captured list grew
+		PROD_SPEED,      ///< LOCAL-131: ProductionSpeedBonus (RW 0x8C71B7) -> Player::getProductionTimeChange changed
 	};
 
 	struct Expect
@@ -482,7 +484,8 @@ struct EffectProbe
 	}
 	bool sawBaseSpecialAbilityUpdate = false;
 	unsigned weaponModeActive = 0;
-	float bounty = 0.0f; ///< lane FACT-C: the caster's player's bounty percent
+	float bounty = 0.0f;
+	std::map<std::string, float> prodSpeed; ///< lane FACT-C: the caster's player's bounty percent
 	float casterDamageMult = 1.0f;
 	float casterDamageAdd = 0.0f;
 	unsigned long long metaImpactHits = 0;
@@ -689,14 +692,27 @@ struct EffectProbe
 					{
 						if (const ThingTemplate *proj = holder.logic().things().findTemplate(pn->m_projectileTemplateName))
 						{
+							// LOCAL-131 (RW 0x85F21B..0x85F235): BezierProjectileBehavior::detonate with a warhead calls destroyObject unless DetonateCallsKill = Yes;
+							// CreateObjectDie on the projectile never runs without kill() (e.g. GorkilBombProjectile).
+							bool killsOnDetonate = pn->m_warheadTemplateName.empty();
 							for (const ThingTemplate::Nugget &pnug : proj->behaviorModules().nuggets())
 							{
-								if (const CreateObjectDieModuleData *cod = dynamic_cast<const CreateObjectDieModuleData *>(pnug.data.get()))
+								if (const BezierProjectileBehaviorModuleData *bpd = dynamic_cast<const BezierProjectileBehaviorModuleData *>(pnug.data.get()))
 								{
-									if (!cod->m_creationList.empty())
+									killsOnDetonate = killsOnDetonate || bpd->m_detonateCallsKill;
+								}
+							}
+							if (killsOnDetonate)
+							{
+								for (const ThingTemplate::Nugget &pnug : proj->behaviorModules().nuggets())
+								{
+									if (const CreateObjectDieModuleData *cod = dynamic_cast<const CreateObjectDieModuleData *>(pnug.data.get()))
 									{
-										ocl = true;
-										oclTemplates(cod->m_creationList, made);
+										if (!cod->m_creationList.empty())
+										{
+											ocl = true;
+											oclTemplates(cod->m_creationList, made);
+										}
 									}
 								}
 							}
@@ -838,7 +854,7 @@ struct EffectProbe
 		if (const SpecialAbilityUpdate *a = dynamic_cast<const SpecialAbilityUpdate *>(m))
 		{
 			const SpecialAbilityUpdateModuleData *d = a->abilityData();
-			if (!d->m_triggerAttributeModifier.empty())
+			if (!d->m_triggerAttributeModifier.empty() && (!TheAttributeModifierStore || TheAttributeModifierStore->find(d->m_triggerAttributeModifier)))
 			{
 				p.expects.push_back(modifierOf(cls + " TriggerAttributeModifier " + d->m_triggerAttributeModifier, d->m_triggerAttributeModifier));
 			}
@@ -1041,6 +1057,39 @@ struct EffectProbe
 		else if (const ElvenWoodSpecialPower *ep = dynamic_cast<const ElvenWoodSpecialPower *>(m))
 		{
 			areaAura(holder, cls, ep->data()->m_elvenGroveObject, p); // lane TAINTAREA-1
+		}
+		else if (const CloudBreakSpecialPower *cbsp = dynamic_cast<const CloudBreakSpecialPower *>(m))
+		{
+			// LOCAL-131: CloudBreakSpecialPower spawns SunbeamObject on the grid (RW 0x8C8B57) and applies EMOTION_UNCONTROLLABLE_FEAR (RW 0x8C8A3B)
+			const auto *cbd = dynamic_cast<const CloudBreakSpecialPowerModuleData *>(cbsp->getModuleData());
+			if (cbd && !cbd->m_sunbeamObject.empty() && cbd->m_objectSpacing > 0.0f)
+			{
+				p.expects.push_back(spawnOf(cls + " SunbeamObject " + cbd->m_sunbeamObject, { cbd->m_sunbeamObject }));
+			}
+			else
+			{
+				Expect ee{ EMOTION, cls + " (EMOTION_UNCONTROLLABLE_FEAR)" };
+				ee.emotions.insert(EMOTION_UNCONTROLLABLE_FEAR);
+				p.expects.push_back(std::move(ee));
+			}
+		}
+		else if (const ProductionSpeedBonus *psb = dynamic_cast<const ProductionSpeedBonus *>(m))
+		{
+			// LOCAL-131: ProductionSpeedBonus calls Player::setProductionSpeedBonus (RW 0x8C71B7 -> RW 0x6AF3C8) for each listed template
+			const auto *pd = dynamic_cast<const ProductionSpeedBonusModuleData *>(psb->getModuleData());
+			if (pd && !pd->m_types.empty())
+			{
+				Expect pe{ PROD_SPEED, cls };
+				for (const std::string &tp : pd->m_types)
+				{
+					pe.templates.insert(tp);
+					if (p.player)
+					{
+						p.prodSpeed[tp] = p.player->getProductionTimeChange(tp);
+					}
+				}
+				p.expects.push_back(std::move(pe));
+			}
 		}
 		else if (const OCLSpecialPower *op = dynamic_cast<const OCLSpecialPower *>(m))
 		{
@@ -1904,6 +1953,20 @@ struct EffectProbe
 					got = str("the player's bounty went from %g to %g", (double)bounty, (double)after.bounty);
 				}
 				break;
+			case PROD_SPEED:
+				for (const std::string &tp : e.templates)
+				{
+					const auto bit = prodSpeed.find(tp);
+					const auto ait = after.prodSpeed.find(tp);
+					const float b0 = bit != prodSpeed.end() ? bit->second : 0.0f;
+					const float a0 = ait != after.prodSpeed.end() ? ait->second : (after.player ? after.player->getProductionTimeChange(tp) : 0.0f);
+					if (a0 != b0)
+					{
+						got = str("%s production time change %g -> %g", tp.c_str(), (double)b0, (double)a0);
+						break;
+					}
+				}
+				break;
 			case WEAPON_MODE:
 				if (after.weaponModeActive > weaponModeActive)
 				{
@@ -1913,12 +1976,29 @@ struct EffectProbe
 			case WEAPON_FLAGS:
 			case STATUS:
 			case MOUNT:
+				if (e.kind == MOUNT && !e.modifier.empty())
+				{
+					// LOCAL-131 (RW 0x8B16D1 -> 0x8B140D): ToggleMounted with PackTime > 0 creates MountedTemplate on triggerAbilityEffect
+					// while the old object stays alive until finishAfterPacking; check the new MountedTemplate object here too.
+					for (const auto &kv : after.seen)
+					{
+						if (kv.first > highest && kv.second.tmpl && kv.second.tmpl->getName() == e.modifier)
+						{
+							got = str("%s %u made", e.modifier.c_str(), (unsigned)kv.first);
+							break;
+						}
+					}
+					for (auto it = hits ? hits->made.begin() : std::map<ObjectID, HitTracker::Made>::const_iterator{}; hits && it != hits->made.end() && got.empty(); ++it)
+					{
+						if (it->first > highest && it->second.tmpl && it->second.tmpl->getName() == e.modifier)
+						{
+							got = str("%s %u made (frame %u)", e.modifier.c_str(), (unsigned)it->first, it->second.frame);
+						}
+					}
+					break;
+				}
 				for (ObjectID id : holders)
 				{
-					if (e.kind == MOUNT && !e.modifier.empty())
-					{
-						break; // the replacement by the MountedTemplate (the caller's check) is the only result
-					}
 					const Seen *b = was(id);
 					auto it = after.seen.find(id);
 					const bool status = it != after.seen.end() && b && it->second.status != b->status, flags = it != after.seen.end() && b && it->second.weaponFlags != b->weaponFlags;

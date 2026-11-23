@@ -98,8 +98,35 @@
 // (OpenBFME, S-4190: a load continues the saved game, where retail's rebuild of a castle saved in state 1 .. 3 makes a second set of areas at the unpack).
 // The partition queries run on ThePartitionManager (lane MODULES-2): the capture scan RW 0x79B4D2 is distance type 0 unsorted, the push out RW 0x79C826 type 3 unsorted.
 // INFERENCE / NOT PORTED (stop S-951, S-952): the push out's geometry overlap filter (RW 0x67C5F3, vtable RW 0xC112C8 -> RW 0xAD2CE0) and the AI's slot 0x1C8 test are not ported; the occupant of a plot is the port's CastleMemberBehavior occupant that still exists
-// (retail clears the plot's + 0x28 in the plot's own update, RW 0x8584DB, one frame later); the crew (RW 0x79B0F1 / 0x798397 / 0x798344), the castle's alert map (+ 0xA0), the stored
+// (retail clears the plot's + 0x28 in the plot's own update, RW 0x8584DB, one frame later); the castle's alert map (+ 0xA0), the stored
 // price (+ 0x4C), RW 0x625E0A and the client parts (EVA, fades, decals) are not ported.
+//
+// Lane PORT-296 (TARGET FACTS, RotWK game.dat; static disassembly; the crew is the castle's garrison of one unit per gate: registerOwnedObject puts every owned object that
+// both filters accept into the list + 0x68, and the crew is prepared, waits CrewPrepareTime frames and is released again):
+//   * prepare RW 0x798397 (called by registerOwnedObject, RW 0x79AD92): the member's producer is the castle (Object::setProducer RW 0x68B6A1 with the castle's object,
+//     pushed from module + 8), it is held for good (RW 0x692432 -> RW 0x6907F1 with DISABLED_HELD 3 and UPDATE_SLEEP_FOREVER 0x3FFFFFFF), it sets the model condition
+//     PREPARING (the raw bit 31 of Object + 0x114 = condition 95, then the drawable / AI notify RW 0x68B53C) and the statuses UNSELECTABLE (RW 0x62684D(3, 1)) and
+//     DO_NOT_PICK_ME (RW 0x62684D(0x4F, 1)).
+//   * release RW 0x798344: no producer (RW 0x68B6A1(0)), DISABLED_HELD cleared (RW 0x692443(3)), PREPARING cleared (Object + 0x117 bit 7, then RW 0x68B53C), the same two
+//     statuses cleared and NO_ATTACK cleared as well (RW 0x62684D(5, 0)).
+//   * release all RW 0x79A237(kill): for every id of the list + 0x68 (ascending, the vector as it is) the object is looked up (RW 0x449681) and released; kill ->
+//     Object::kill(UNRESISTABLE 8, NORMAL 0) (RW 0x698EC3); else its EntEnragedUpdate (name key 0xC0BE00) is told setForced(1, 1) (RW 0x8B649F) and its LifetimeUpdate
+//     (name key 0xBF7384) gets a new lifetime from its data (RW 0x7A7E60 = the port's LifetimeUpdate::wakeUp). When the list had anybody and nobody was killed, the castle
+//     plays CrewReleaseFX (data + 0x48, RW 0x4B1B5A): RW 0x79A337 checks the vector, RW 0x79A340 the pointer. Then the list is cleared (RW 0x98B95B) and the keep and the
+//     list + 0x5C lose DO_NOT_PICK_ME (RW 0x79A017(0x4F, 0)).
+//   * the crew's clock RW 0x79B0F1 (state 4 of the update, module + 0x10 is `this` there, so the fields are module + 0x48 ...): nothing without a crew; the keep (+ 0x38,
+//     RW 0x449681) must exist and its construction percent (Object + 0x288) be at least 8.0 (RW 0xBD89BC). Then, in the list's reverse order, each member that still exists
+//     is tested by RW 0x79B1xx: its body's last damage record (body vslot 0x40) is not null, the record's amount (record + 0x20) is above 0 (RW 0xC1B594), the record's frame
+//     (body vslot 0x44) is at or after the castle's unpack frame (+ 0x48), the player of the record's source mask (record + 0xC, ThePlayerList RW 0xDE4928 -> RW 0x6A85B6) is
+//     ENEMIES of the keep's player (RW 0x6ADBEB: not ALLIES and not the same player) or that player is named "PlyrCreeps" (RW 0xBFD514, StringBase::compare RW 0x406585). The
+//     keep itself is tested once the crew is done, with its own last damage record.
+//   * the release: the keep at 99.0 percent or more (RW 0xBE49F0) releases the crew at once; below that only a hostile hit of a member (or of the keep) whose frame is at or
+//     after the castle's + 0x48 + the data's CrewPrepareTime (+ 0x38, frames) does: the unpack frame plus CrewPrepareTime expired. Either way: releaseCrew(false), the keep
+//     is healed by 9999.0 (Object::attemptHealing RW 0x690532, the castle as the source), its construction percent becomes 100.0 (RW 0xBD88D8) and the castle's own
+//     drawable gets the EVA event 0x7DE (RW 0x6461CA / 0x64631C / 0x8DEDBB: the client's voice, not ported).
+//   * the prepare FX: while the crew list is not empty, the frame is a multiple of the data's CrewPrepareInterval (+ 0x40, an unsigned division, RW 0x79B34A) and
+//     CrewPrepareFX (+ 0x44) is set, the castle plays it (RW 0x4B1B5A with the castle's object and 0). The check runs after the release, so the frame of the release plays
+//     nothing.
 //
 // Simulation maths goes through SimMath.
 
@@ -111,6 +138,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <map>
 #include <set>
 #include <string>
 #include <utility>
@@ -237,8 +265,13 @@ public:
 	// RW 0x79CB47 (abandon): what a player's pack starts (MSG_CASTLE_PACK, RW 0x77C2B7)
 	void abandonByPlayer() { abandon(); }
 	// RW 0x799440 (the camp-destroyed EVA, called by RW 0x79CB5C at the start of the abandon): the owner / ally / attacker event of the
-	// castle's CastleMemberBehavior data, chosen against the local player and reported at the castle (RW 0x79951F / 0x799560 / 0x7995C2 -> RW 0x7995DB)
+	// castle's CastleMemberBehavior data, chosen against the local player and reported at the castle (RW 0x79951F / 0x799560 / 0x7995C2 -> RW 0x7995DB),
+	// gated by MiscEvaData FriendlyCampDestroyedDamageTimeoutMS (+0x88, RW 0x7994FF / 0x79953D -> 0x7987C4) and EnemyCampDestroyedDamageTimeoutMS (+0x84, RW 0x7995AE)
 	void reportCampDestroyedEva();
+	// RW 0x79B374 (called by CastleMemberBehavior::onDamage RW 0x79B757 -> 0x79B793): records logic frame per attacking player bit in m_damageMap (+0xA0)
+	void recordDamageByPlayers(const struct DamageInfo &info);
+	// RW 0x7987C4: true when m_damageMap (+0xA0) contains any player index other than ownerPlayerIndex
+	bool wasDamagedByOtherPlayer(int ownerPlayerIndex, unsigned timeoutFrames) const;
 	// RW + 0x4C: the price the last player's unpack paid (0 for the starting fortress and a summoned castle)
 	float storedPrice() const { return m_storedPrice; }
 	const std::string &evaEnemyCastleSightedEvent() const { return m_data->m_evaEnemyCastleSightedEvent; }
@@ -279,6 +312,11 @@ public:
 	// RW 0x799157 / RW 0x79935E
 	void onTriggerEntered(Object &obj);
 	void onTriggerExited(Object &obj);
+	// RW 0x799F0F (lane SPELL-3, extended by lane PORT-296): clear (-1: none) and set (-1: none) a model condition on the keep and the members (+ 0x5C);
+	// each object's CastleMemberBehavior hears of the pair (RW 0x798057, where BeingBuiltSound lives)
+	void setMembersModelCondition(int clear, int set);
+	// RW + 0x48: the frame of the last unpack, the crew's clock origin (RW 0x79B188, RW 0x79B283)
+	UnsignedInt unpackFrame() const { return m_unpackFrame; }
 
 private:
 	// RW 0x7987EE
@@ -302,10 +340,14 @@ private:
 	void scanForCapture();
 	// RW 0x79A017
 	void setMembersStatus(int status, bool on);
-	// RW 0x799F0F (lane SPELL-3): clear (-1: none) and set (-1: none) a model condition on the keep and the members
-	void setMembersModelCondition(int clear, int set);
 	// RW 0x79A237
 	void releaseCrew(bool kill);
+	// RW 0x798397 / RW 0x798344: a crew member enters / leaves the castle's custody (called by registerOwnedObject for + 0x68 and releaseCrew)
+	void prepareCrewMember(Object &obj);
+	void releaseCrewMember(Object &obj);
+	// RW 0x79B0F1: the crew's clock while the castle is unpacked (state 4 of update): a hostile hit before CrewPrepareTime, or a finished keep,
+	// releases the crew and finishes the keep; the crew's prepare FX ticks every CrewPrepareInterval frames
+	void updateCrew();
 	// RW 0x799039 / 0x797B06 (lane BACKLOG2)
 	void payForUnpack();
 	void payForUnpackOf(const ThingTemplate &tt);
@@ -331,6 +373,7 @@ private:
 	std::vector<ObjectID> m_foundations, m_members, m_crew, m_defenseFoundations; // RW + 0x50, + 0x5C, + 0x68, + 0x74
 	std::vector<Area> m_areas;  // RW + 0x80 (lane CASTLEAREA-1)
 	std::set<ObjectID> m_inside; // RW + 0x8C (lane CASTLEAREA-1)
+	std::map<int, UnsignedInt> m_damageMap; // RW + 0xA0 (Local 139: playerIndex -> last damaged frame, RW 0x79B374 / 0x7985AA / 0x79BBBC)
 	std::string m_lastError;
 };
 
@@ -341,6 +384,9 @@ public:
 	std::string m_underAttackAllyEvaEventIfKeep;
 	std::string m_underAttackEvaEventIfKeep; // BFME1
 	std::string m_beingBuiltSound;                                                                           // +0x14
+	// +0x18 StoreUpgradePrice (PORT-296): every function of the class reads data + 0x19 (CountsForEvaCastleBreached at RW 0x79815E) but none reads + 0x18
+	// (the primary vtable RW 0xC30AD8 and the damage interface RW 0xC308BC slot by slot, and RW 0x798057 / 0x79B68F / 0x797CA7 / 0x797CEC / 0x797CF2 /
+	// 0x798026 / 0x79A0ED / 0x79B757); DONOR BFME2's CastleMemberBehavior has only the parse too. Written, never read: a mod's value changes nothing here
 	bool m_storeUpgradePrice = false;                                                                        // +0x18
 	bool m_countsForEvaCastleBreached = false;                                                               // +0x19
 	static void buildFieldParse(MultiIniFieldParse &p);

@@ -978,7 +978,11 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 	// attributed by one build with those three switched off (green on c0388357 and on main eb44cdd3; each alone is not enough; the Locals 108-126 batch
 	// and Port 289 #721 do not move them): seed 2 now ends with the Men's defeat (start position 1) at 4483 (was open at 9000), seed 7 with the Men's
 	// defeat at 3173 (was 4538), seed 1234 with Mordor's defeat at 8765 (was 5163). Engine pins.
-	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, 1, 4483 }, Game{ "FactionMen", "FactionMordor", 7u, 1, 3173 }, Game{ "FactionMordor", "FactionMen", 1234u, 0, 8765 } })
+	// pin: the bot's stacked batches 2026-11-22b..e (#582 Port 225 weapon delivery, #830 Port 315, #736 Port 198 spawn orders, #832 Port 318), measured
+	// once on the merged tree with Locals 127-130 (Colab sb4, Linux GCC; main + the batch alone gives the same three games, so the Locals move nothing):
+	// the batch's own perf1 / uber1 re-pins name #582 and #736 as its simulation movers, not split further here. Seed 2 now ends with the Men's defeat at
+	// 3941 (was 4483), seed 7 stays open at 9000 (was the Men's defeat at 3173), seed 1234 ends with Mordor's defeat at 8267 (was 8765). Engine pins.
+	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, 1, 3941 }, Game{ "FactionMen", "FactionMordor", 7u, -1, -1 }, Game{ "FactionMordor", "FactionMen", 1234u, 0, 8267 } })
 	{
 		INFO(g.a << " vs " << g.b << " seed " << g.seed);
 		VersusRun run;
@@ -1035,12 +1039,11 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 			// pin: batch 2026-11-17a, Port 237 (#596; see above): a new table from the first window on; open at 9000
 			// pin: PR #619 (Port 226, #549) merged onto main 026fbc2f, measured once on the merged tree (Linux GCC on Colab): every fifth idle update of a unit with a StancesBehavior returns FAILURE (RW 0x7553AB -> RW 0x7537C7 / 0x7537E0), the unit goes to AIGoingIdleState -> onMoveEnd -> guardHere (RW 0x743864 -> 0x86228E -> RW 0x662A21): a guard machine main did not run: a new table from the first window on, ending at 8000 (the game ends at 8197)
 			// pin: the PC batch of 2026-11-19 (PORT-459 #653, see above): a new table from the first window on; the game stays open at 9000
-			// pin: Locals 118 and 120 (see the game table above): a new table from the first window on; the game ends at 4483
+			// pin: the batches 2026-11-22b..e (see the game table above): the table moves from the 3000 window on; the game ends at 3941
 			CHECK(run.progress ==
 			"frame 1000: [0 attacks 0 built 71u/8s destroyed 23u/1s] [1 attacks 0 built 75u/7s destroyed 11u/1s]\n"
 			"frame 2000: [0 attacks 4 built 221u/11s destroyed 176u/4s] [1 attacks 3 built 198u/10s destroyed 63u/2s]\n"
-			"frame 3000: [0 attacks 4 built 375u/13s destroyed 294u/7s] [1 attacks 4 built 307u/11s destroyed 267u/3s]\n"
-			"frame 4000: [0 attacks 5 built 539u/16s destroyed 339u/11s] [1 attacks 5 built 350u/12s destroyed 426u/3s]\n");
+			"frame 3000: [0 attacks 4 built 375u/13s destroyed 270u/8s] [1 attacks 4 built 307u/12s destroyed 265u/3s]\n");
 		}
 	}
 }

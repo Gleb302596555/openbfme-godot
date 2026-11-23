@@ -9,6 +9,9 @@
 #include "GameClient/HudContext.h"
 #include "GameClient/HudObjects.h"
 #include "GameLogic/Object/Object.h"
+#include "Common/BuildAssistant.h"
+#include "Common/ModEngineFeatures.h"
+#include "Common/Thing/KindOfTokens.h"
 #include "GameLogic/GameLogic.h"
 
 #include <algorithm>
@@ -20,6 +23,70 @@
 // each match through selectDrawable (RW 0x6A4109), a push_front, so the selection ends oldest-first (ascending ObjectID) and the hero the
 // panel picks (the smallest id of the senior rank, RW 0x94475A) is the first of the selection, the one the voice answers for (RW 0x8DEDBB).
 // The object list here runs oldest-first, so the walk takes it from the end.
+namespace
+{
+// PYSAGE 1.9.8.5 .padsel 0xEDE128: returns the "<Prefix>ExpansionPad" stem when name ends with "ExpansionPadSide" or "ExpansionPadCorner".
+bool expansionPadStem(const std::string &name, std::string &stem)
+{
+	const size_t n = name.size();
+	size_t cut = 0;
+	if (n >= 16 && name.compare(n - 4, 4, "Side") == 0)
+	{
+		cut = n - 4;
+	}
+	else if (n >= 18 && name.compare(n - 6, 6, "Corner") == 0)
+	{
+		cut = n - 6;
+	}
+	else
+	{
+		return false;
+	}
+	if (cut < 12 || name.compare(cut - 12, 12, "ExpansionPad") != 0)
+	{
+		return false;
+	}
+	stem.assign(name, 0, cut);
+	return true;
+}
+
+bool templateHasKindOf(GameLogic &logic, const ThingTemplate &t, unsigned bit)
+{
+	return MaskTest(logic.templateInfo(t.getFinalOverride()).kindOf, bit);
+}
+} // namespace
+
+bool InGameUI::isSameExpansionPad(GameLogic &logic, const ThingTemplate *a, const ThingTemplate *b)
+{
+	if (!a || !b)
+	{
+		return false;
+	}
+	// PYSAGE 1.9.8.5 .padsel 0xEDE0A9..0xEDE0DD: STRUCTURE (7), BASE_FOUNDATION (104), EXPANSION_PAD (216)
+	static const int kStructure = ObjectTemplateInfoBuilder::kindOfIndex("STRUCTURE");
+	static const int kBaseFoundation = ObjectTemplateInfoBuilder::kindOfIndex("BASE_FOUNDATION");
+	static const int kExpansionPad = ObjectTemplateInfoBuilder::kindOfIndex("EXPANSION_PAD");
+	if (kStructure < 0 || kBaseFoundation < 0 || kExpansionPad < 0)
+	{
+		return false;
+	}
+	for (const ThingTemplate *t : { a, b })
+	{
+		if (!templateHasKindOf(logic, *t, (unsigned)kStructure)
+			|| !templateHasKindOf(logic, *t, (unsigned)kBaseFoundation)
+			|| !templateHasKindOf(logic, *t, (unsigned)kExpansionPad))
+		{
+			return false;
+		}
+	}
+	if (BuildAssistant::isEquivalentTo(a, b))
+	{
+		return true;
+	}
+	std::string stemA, stemB;
+	return expansionPadStem(a->getName(), stemA) && expansionPadStem(b->getName(), stemB) && stemA == stemB;
+}
+
 int InGameUI::selectMatching(HudContext &ctx, bool acrossMap)
 {
 	std::set<const ThingTemplate *> templates;
@@ -37,15 +104,51 @@ int InGameUI::selectMatching(HudContext &ctx, bool acrossMap)
 	{
 		return 0;
 	}
+	const bool selectAllBuildings = ModEngineFeatures::has(ModEngineFeature::EnnorathSelectAllBuildings);
 	const ICoord2D size = ctx.view.size();
 	std::vector<Object *> found;
 	for (Object *o = ctx.logic.getLastObject(); o; o = o->getPrevObject())
 	{
-		if (o->isDestroyed() || o->getContainedBy() || !HudObjects::isLocallyControlled(ctx, *o) || !HudObjects::isSelectable(*o, getGUICommand()) || o->isKindOfName("STRUCTURE"))
+		if (o->isDestroyed() || o->getContainedBy() || !HudObjects::isLocallyControlled(ctx, *o) || !HudObjects::isSelectable(*o, getGUICommand()))
 		{
 			continue;
 		}
-		if (!templates.count(o->getTemplate()) || isSelected(o->getID()))
+		if (isSelected(o->getID()))
+		{
+			continue;
+		}
+		const bool isStructure = o->isKindOfName("STRUCTURE");
+		if (isStructure)
+		{
+			if (!selectAllBuildings)
+			{
+				continue;
+			}
+			// PYSAGE 1.9.8.5 .bldgrp 0xEDA020 (hook RW 0x625696): skip if producer is an UNSELECTABLE HORDE.
+			if (o->getProducerID() != INVALID_ID)
+			{
+				if (const Object *prod = ctx.logic.findObjectByID(o->getProducerID());
+					prod && prod->isKindOfName("HORDE") && prod->testStatus(3 /* OBJECT_STATUS_UNSELECTABLE */))
+				{
+					continue;
+				}
+			}
+			// PYSAGE 1.9.8.5 .padsel 0xEDE018 / 0xEDE040 (hooks RW 0x6A286A, RW 0x6A2955)
+			bool matched = false;
+			for (const ThingTemplate *t : templates)
+			{
+				if (t == o->getTemplate() || BuildAssistant::isEquivalentTo(o->getTemplate(), t) || isSameExpansionPad(ctx.logic, o->getTemplate(), t))
+				{
+					matched = true;
+					break;
+				}
+			}
+			if (!matched)
+			{
+				continue;
+			}
+		}
+		else if (!templates.count(o->getTemplate()))
 		{
 			continue;
 		}
