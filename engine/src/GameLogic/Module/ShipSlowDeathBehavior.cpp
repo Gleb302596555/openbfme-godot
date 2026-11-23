@@ -9,6 +9,7 @@
 #include "GameLogic/SnapshotXfer.h"
 #include <stdexcept>
 
+// RW 0x00861AA9
 void ShipSlowDeathBehavior::beginSlowDeath(const DieModuleInterface::Event &event) {
     SlowDeathBehavior::beginSlowDeath(event);
     const float duration = SimMath::fstpDword(SimMath::fildU32(data()->m_destructionDelay));

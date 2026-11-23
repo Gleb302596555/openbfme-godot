@@ -681,6 +681,15 @@ TEST_CASE("perf1 bench: 4-player skirmish (medium computer players, 20 game minu
 // placement check before it answers as before (both runs logged, 136 checks), and there Isengard's computer player checks its next Furnace site with
 // 0x85 (terrain, overlap, fogged objects ignored): the retail clear test refuses it (code 8) where ZH's overlap rule passed it and the porter's 0x49F
 // gate refused it a step later. The big battle does not move. Re-measured once on this lane's head (OPENBFME_PERF1_REGEN=1).
+// pin: BLDGDEBRIS-1 (the siege side damage of ActiveBody, RW 0x8C3E70 -> 0x8C3CB8, hashed only once a side value is set) moves both vectors at their first
+// SIEGE hit: the big battle from vector frame 39 (a siege rock on GondorAragorn, logic frame 43), the skirmish from vector frame 1156 (a siege hit on a
+// MordorEasterlingHorde, logic frame 1158); nothing of the change runs earlier in either game (an instrumented run logged every side fill, side stage,
+// revive reset and OCL). Later the side stages (DESTROYED_<side>, the chunk OCLs) move the games themselves. Re-measured once on this lane's head
+// (OPENBFME_PERF1_REGEN=1).
+// pin: merge queue q59 (VISIONDEF-1's ground reference, RW 0x69264D, then BLDGDEBRIS-1's siege side damage, RW 0x8C3CB8): measured once on the merged
+// tree and at the VISIONDEF-1 merge point. VISIONDEF-1 alone moves only the skirmish (its lane's vector); BLDGDEBRIS-1 on top of it moves the big
+// battle at its first SIEGE hit (as on its own lane) and the skirmish again, whose games now differ from both lanes' runs. Re-measured with
+// OPENBFME_PERF1_REGEN=1; uber1 does not move.
 TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after another AI game (6000 frames) hash as the build before PERF-1 did in every frame")
 {
 	// Ambient movement: target idle wandering adds RNG draws and origin state,
@@ -715,6 +724,8 @@ TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after a
 	// pin: batch 2026-11-18a re-measured the skirmish once on the batch tree (OPENBFME_PERF1_REGEN=1, Linux GCC on Colab): Port 224 (#581: a creep lair
 	// or hole destroyed while it rebuilds gives no money or treasure and stays destroyed) moves it from line 1964 of the file; merge-point bisect: 61d4dfa7
 	// (main + #586 + #584) passes, de944025 (+ #581) differs; the battle and the blob are unchanged
+	// pin: the hand batch of 2026-11-23 (station-0, Windows MSVC: Locals 142-144, Ports 274 / 296 / 298) re-measured it once (OPENBFME_PERF1_REGEN=1); the one cause is Port 296's ActiveBody::crc of m_lastDamageAmount (the last damage record's + 0x20, new state hashed with its hit, PROCESS 15.5): one build with that line alone switched off matched the old vectors; the battle moves from frame 28, the skirmish from frame 388
+	// pin: the fork's merge of upstream f24af7fe (2026-11-23: the rebuild sync with lane BLDGDEBRIS-1's siege side stages, VISIONDEF-1's per-object vision ground reference and HOVER-2; PR 353 / 354 not taken) re-measured once on the merged tree (OPENBFME_PERF1_REGEN=1, Windows MSVC, station-0); an upstream merge is its own cause (PROCESS 7.5); the battle, the skirmish and the allied blob all move
 	const std::vector<std::uint32_t> skirmishRef = perf1::readHashes("skirmish4_6000.hashes");
 	// OPENBFME_PERF1_REGEN=1 rewrites the two reference vectors from this build instead of comparing: run it only when a merged change is MEANT to
 	// change the simulation (a retail port), and say so in the commit; a pure optimisation must pass against the stored vectors unchanged

@@ -100,7 +100,7 @@ public:
 		m_territoryEvil = evil;
 	}
 
-	// RW 0x6A7FDA / 0x6A7FEB (usage) and 0x6A7C3E / 0x6A7C51 (bonus): the amounts are what RW 0x6A7FAA / 0x6A7C01 computed for the object
+	// RW 0x006A7FDA / RW 0x006A7FEB (usage) and RW 0x006A7C3E / RW 0x006A7C51 (bonus): the amounts are what RW 0x006A7FAA / RW 0x006A7C01 computed for the object
 	void addUsage(int amount) { m_usage = CpMath::add(m_usage, amount); }
 	void removeUsage(int amount) { m_usage = CpMath::sub(m_usage, amount); }
 	void addBonus(int amount) { m_bonus = CpMath::add(m_bonus, amount); }

@@ -35,6 +35,12 @@ std::string objectPortrait(const Object &obj)
 	{
 		return upgraded;
 	}
+	// PYSAGE 1.9.8.7 .wmfeat 0xF3A111 (hook RW 0x694F06, ennorath.portrait-upgrade): PortraitUpgrade's Portrait
+	upgraded = PortraitUpgrade::imageOf(obj, true);
+	if (!upgraded.empty())
+	{
+		return upgraded;
+	}
 	// RW 0x694F06 -> 0x73D0A3 -> 0x73CF31: the template's SelectPortrait (template +0x74)
 	const ThingTemplate *t = obj.getTemplate();
 	if (!t)
@@ -396,7 +402,7 @@ CostModifierInfo costModifierInfo(const HudContext &ctx, ObjectID contextObject)
 	else
 	{
 		// RW 0x6AD967: compare interned filter IDs, not the produced unit's kind-of.
-		// RW 0x76341A interns by 0x762AEE equality; this port stores parsed filters by value.
+		// RW 0x0076341A interns by RW 0x00762AEE equality; this port stores parsed filters by value.
 		size_t index = 0;
 		for (const Player::CostModifier &entry : owner->costModifiers())
 		{

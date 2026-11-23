@@ -88,6 +88,7 @@ private:
 	unsigned long long m_healHits = 0;     // a statistic
 };
 
+// RW 0x00880D90 (dtor -> RW 0x00867947)
 class TunnelContain : public GarrisonContain, public CreateModuleInterface
 {
 public:

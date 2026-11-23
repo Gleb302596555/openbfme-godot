@@ -2,6 +2,7 @@
 // See GameLogic/LivingWorld/LivingWorldAutoResolveBattle.h.  Lane WOTR-2.
 
 #include "GameLogic/LivingWorld/LivingWorldAutoResolveBattle.h"
+#include "Common/ModEngineFeatures.h"
 
 #include "Common/NumericState.h"
 #include "Common/RandomValue.h"
@@ -522,7 +523,9 @@ bool AutoResolveBattle::attackRound()
 				if (!(0.0f < t->hp))
 				{
 					float xp = SimMath::mulf32(ra.spec.experience, (float)experienceValue(*t)); // RW 0x8FE89F
-					if (ra.tracker)
+					// PYSAGE 1.9.8.7 .wmfeat 0xF3A40F (hook RW 0x8FE8C6): attacker with CANT_EARN_POWERPOINTS earns no power points
+					const bool blockPp = ModEngineFeatures::has(ModEngineFeature::EnnorathCantEarnPowerPoints) && u->info && u->info->cantEarnPowerPoints;
+					if (ra.tracker && !blockPp)
 					{
 						ra.tracker->addSkillPoints(xp, true); // RW 0x8FE8C6 (lane WOTR-2)
 					}

@@ -13,18 +13,27 @@
 //     the purchase proxy at + 0x288 (constructor RW 0x82327D, vtable RW 0xC50CF0): + 4 the player's science record, + 8 .. + 0x10 the pending sciences,
 //     + 0x14 their summed cost; hasScience (RW 0x822D97) = the player owns it (RW 0x6AC207) or it is pending; getSciencePurchasePoints (RW 0x822843) = the
 //     player's points (+ 0x24) - the pending cost;
-//   * the fill (RW 0x822A98): unless closing (+ 0x2A2), the first 20 buttons (+ 0x2A8, 8 bytes each: button, state) of the store's command set (RW 0x80C837 i);
+//   * the fill (RW 0x822A98 -> RW 0x71F933): reads PlayerTemplate + 0x13C (PurchaseScienceCommandSetMP) when TheGameLogic->isSkirmishOrMultiplayer()
+//     (RW 0x625456), else + 0x138 (PurchaseScienceCommandSet), and resolves it via TheControlBar->findCommandSet (RW 0x71EFA2); unless closing (+ 0x2A2),
+//     the first 20 buttons (+ 0x2A8, 8 bytes each: button, state) of that set (RW 0x80C837 i) are filled;
 //     each button's image goes to the clip "SpellStore/Buttons/Spell%d" (RW 0x6236DE) and the text record "APT:Spell%dCost" is the purchase cost of its
 //     first science (RW 0x5FEC64);
+//   * updatePurchaseButton (RW 0x8231D4 .. 0x823254): checks proxy->isScienceHidden (RW 0x8227BB -> 0x822825 -> 0x6AC287) FIRST -> state 2
+//     (_disabled_level); else hasScience -> state 4 (_purchased, if previously 5) or 3 (_already_purchased); else !isScienceDisabled &&
+//     playerHasRootPrereqsAndCanPurchase (RW 0x5FED5B) -> state 5 (_active), else 1 (_disabled);
+//   * tooltip disabled warning (RW 0x823057 .. 0x823118): appends "\n" + TOOLTIP:ScienceDisabled only when the button's first unowned science is
+//     disabled, hidden, or fails playerHasPrereqsForScience (RW 0x5FED05), not when the player merely lacks spell points;
+//   * ControlBar::getCommandAvailability case 0x26 (RW 0x943343 .. 0x943407): a spell-book power whose first owned required science is disabled or
+//     hidden returns COMMAND_RESTRICTED (usable = false);
 //   * OnBttnSpell (RW 0x8235A5): not in game kind 6 (or the shell's + 0x16 set), the index (RW 0x822903) in [0, 20), not closing, a button there: its
 //     first science (button + 0xA4) not owned by the proxy and RW 0x5FED5B (the root prerequisites and the cost against the proxy's points): a click sound
 //     (RW 0x90BE00) and the science is pending (RW 0x82355F: appended, + 0x14 += its cost);
 //   * OnBttnReset (RW 0x823484): the pending list is cleared (RW 0x8232A1 / 0x5FF9D3);
 //   * the destructor (RW 0x8232ED): every pending button goes to RW 0x940435(button, 1, 0), in order, when TheControlBar exists. The purchase case emits
 //     MSG_PURCHASE_SCIENCE, then MSG_DO_SPELLBOOK_SPECIAL_POWER {power ID, options, object ID 0} for each CommandTrigger (+0x188), in order.
-// INFERENCE (S-923): the store's command set is the local player's PlayerTemplate PurchaseScienceCommandSetMP in a skirmish / multiplayer game, else
-// PurchaseScienceCommandSet (RW 0x822AB3 reads it through RW 0x71F933 from an object of TheControlBar, not traced). The
-// per-button state values the movie is sent are AptSpellStore's (RW 0xC50BF8, GameClient/GUI/AptScreens/AptSpellStore.h).
+// TARGET FACTS (Port 331, S-923 closed): the store's command set is the local player's PlayerTemplate PurchaseScienceCommandSetMP (+0x13C) when
+// skirmishOrMultiplayer (RW 0x625456) holds, else PurchaseScienceCommandSet (+0x138) (RW 0x822AB3 -> RW 0x71F933). The per-button state values the
+// movie is sent are AptSpellStore's (RW 0xC50BF8, GameClient/GUI/AptScreens/AptSpellStore.h).
 
 #pragma once
 
@@ -54,7 +63,8 @@ public:
 		STATE_PURCHASED, ///< the player owns the science
 		STATE_PENDING,   ///< clicked in this visit: bought when the store closes
 		STATE_AVAILABLE, ///< a click would make it pending (RW 0x5FED5B against the proxy)
-		STATE_LOCKED     ///< prerequisites or points missing
+		STATE_LOCKED,    ///< prerequisites or points missing (or science disabled)
+		STATE_HIDDEN     ///< RW 0x8231D4 -> 0x8227BB -> 0x6AC287: hidden science -> AptSpellStore state 2 (_disabled_level)
 	};
 	struct Button
 	{
@@ -67,6 +77,7 @@ public:
 		std::string label;                 ///< TextLabel (a GameText label; S-520: not looked up)
 		std::vector<int> parents;          ///< the store buttons whose science is in one of this science's PrerequisiteSciences groups (the tree's connectors)
 		State state = STATE_LOCKED;
+		bool showDisabledWarning = false;  ///< RW 0x823057 .. 0x823118: first unowned science is disabled, hidden, or lacks prerequisites (RW 0x5FED05)
 	};
 
 	// RW 0x82379A + 0x822A98: the local player's store; false (with `error`) when the player has no template or the set is unknown
@@ -157,6 +168,7 @@ public:
 
 private:
 	std::vector<Button> m_buttons;
+	const CommandStore *m_commands = nullptr;
 	ObjectID m_book = INVALID_ID;
 	int m_targeting = -1;
 };

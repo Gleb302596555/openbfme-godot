@@ -5,6 +5,7 @@
 
 #include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/Module/AIUpdate.h"
+#include "GameLogic/Module/StructureModules.h"
 
 #include "Common/Team.h"
 #include "Common/Thing/ThingFactory.h"
@@ -261,6 +262,17 @@ MapObjectLoopResult MapObjectLoop::create(GameLogic &logic, const LoadedMap &map
 				afterCreate(*obj, d);
 			}
 			applyContained(*obj, d, afterCreate, result.contained, result.hordes);
+		}
+	}
+	// RW 0x008C5304 (SymbioticStructuresBody::loadPostProcess): link map-placed symbiotic structures after all objects are named
+	for (ObjectID id : result.ids)
+	{
+		if (Object *obj = logic.findObjectByID(id))
+		{
+			if (SymbioticStructuresBody *sb = dynamic_cast<SymbioticStructuresBody *>(obj->getBodyModule()))
+			{
+				sb->loadPostProcess();
+			}
 		}
 	}
 	// lane WALL-2: RW 0x62F1A4 (after the properties pass RW 0x695A06) collects the placed objects (RW 0x62DCE4) and broadcasts Object RW 0x694692 with each

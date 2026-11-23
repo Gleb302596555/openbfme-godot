@@ -58,7 +58,7 @@ bool SpellStoreModel::open(const CommandStore &commands, GameLogic &logic, Playe
 		}
 		return false;
 	}
-	// S-923 (inference); lane MODS-3: an upgraded store under edain-unchained.spell-store-upgrade (its 0xED38ED at RW 0x822AD0)
+	// TARGET FACT (RW 0x71F933, Port 331, S-923 closed); lane MODS-3: an upgraded store under edain-unchained.spell-store-upgrade (its 0xED38ED at RW 0x822AD0)
 	m_setName = logic.players().templates().purchaseScienceCommandSetFor(player, &commands);
 	const CommandSet *set = commands.findCommandSet(m_setName);
 	if (!set)
@@ -126,7 +126,12 @@ void SpellStoreModel::refresh()
 	const bool mp = m_player->science().mode().skirmishOrMultiplayer;
 	for (Button &b : m_buttons)
 	{
-		if (m_player->science().hasScience(b.science))
+		// RW 0x8231D4 .. 0x823254: hidden check (RW 0x8227BB -> 0x822825 -> 0x6AC287) runs BEFORE hasScience
+		if (b.science != SCIENCE_INVALID && m_player->isScienceHidden(b.science))
+		{
+			b.state = STATE_HIDDEN;
+		}
+		else if (m_player->science().hasScience(b.science))
 		{
 			b.state = STATE_PURCHASED;
 		}
@@ -134,14 +139,29 @@ void SpellStoreModel::refresh()
 		{
 			b.state = STATE_PENDING;
 		}
-		else if (b.science != SCIENCE_INVALID && !m_player->isScienceDisabled(b.science) && !m_player->isScienceHidden(b.science)
-			&& TheScienceStore->playerHasRootPrereqsAndCanPurchase(proxy, b.science, mp)) // RW 0x8230AE: a script's disabled / hidden science is locked
+		else if (b.science != SCIENCE_INVALID && !m_player->isScienceDisabled(b.science)
+			&& TheScienceStore->playerHasRootPrereqsAndCanPurchase(proxy, b.science, mp)) // RW 0x8230AE / 0x5FED5B
 		{
 			b.state = STATE_AVAILABLE;
 		}
 		else
 		{
 			b.state = STATE_LOCKED;
+		}
+		// RW 0x823057 .. 0x823118: TOOLTIP:ScienceDisabled is appended only when the first unowned science is disabled, hidden, or lacks prerequisites (RW 0x5FED05)
+		b.showDisabledWarning = false;
+		if (b.button)
+		{
+			for (const std::string &sciName : b.button->m_science)
+			{
+				const ScienceType st = TheScienceStore->getScienceFromInternalName(sciName);
+				if (st != SCIENCE_INVALID && !proxy.hasScience(st))
+				{
+					b.showDisabledWarning = m_player->isScienceDisabled(st) || m_player->isScienceHidden(st)
+						|| !TheScienceStore->playerHasPrereqsForScience(proxy, st); // RW 0x823057 .. 0x823118 -> RW 0x5FED05
+					break;
+				}
+			}
 		}
 	}
 }
@@ -234,6 +254,7 @@ std::vector<GameMessage> SpellStoreModel::close()
 // ---- InGameSpellBookModel --------------------------------------------------------------------------------------------------------------------
 bool InGameSpellBookModel::refresh(const CommandStore &commands, GameLogic &logic, Player &player)
 {
+	m_commands = &commands;
 	m_buttons.clear();
 	Object *book = SpecialPowerModules::findSpellBookObject(logic, player); // a display read: the id is not cached
 	m_book = book ? book->getID() : (ObjectID)INVALID_ID;
@@ -267,15 +288,24 @@ bool InGameSpellBookModel::refresh(const CommandStore &commands, GameLogic &logi
 		{
 			out.radius = out.power->getRadiusCursorRadius();
 			out.owned = out.power->getRequiredSciences().empty();
+			ScienceType ownedScience = SCIENCE_INVALID;
 			for (ScienceType st : out.power->getRequiredSciences())
 			{
-				out.owned = out.owned || player.science().hasScience(st);
+				if (player.science().hasScience(st))
+				{
+					out.owned = true; // RW 0x943343 .. 0x943407: first owned required science drives COMMAND_RESTRICTED check
+					ownedScience = st;
+					break;
+				}
 			}
+			// RW 0x942733 case 0x26 (RW 0x943343 .. 0x943407): first owned required science disabled or hidden -> COMMAND_RESTRICTED (usable = false)
+			const bool scienceBlocked = ownedScience != SCIENCE_INVALID
+				&& (player.isScienceDisabled(ownedScience) || player.isScienceHidden(ownedScience));
 			if (SpecialPowerModuleInterface *sp = SpecialPowerModules::findModule(*book, out.power))
 			{
 				out.ready = sp->isReadyForDisplay();
 				out.percent = sp->getPercentReadyForDisplay();
-				out.usable = out.owned && SpecialPowerModules::canUseSpecialPower(*book, out.power);
+				out.usable = out.owned && !scienceBlocked && SpecialPowerModules::canUseSpecialPower(*book, out.power);
 			}
 		}
 		m_buttons.push_back(out);
@@ -317,11 +347,28 @@ bool InGameSpellBookModel::press(int index, int playerIndex, std::vector<GameMes
 			m_targeting = index;
 			return true;
 		}
-		GameMessage m(MSG_DO_SPECIAL_POWER, playerIndex); // { power id, options, source (the book) } (SpellCommands kind 0)
-		m.appendIntegerArgument((int)b.power->getID());
-		m.appendIntegerArgument(0);
-		m.appendObjectIDArgument(m_book);
-		out.push_back(m);
+		auto emitTargetless = [&](const SpecialPowerTemplate &tt, std::uint32_t options) {
+			GameMessage m(MSG_DO_SPECIAL_POWER, playerIndex); // { power id, options, source (the book) } (SpellCommands kind 0)
+			m.appendIntegerArgument((int)tt.getID());
+			m.appendIntegerArgument((int)options);
+			m.appendObjectIDArgument(m_book);
+			out.push_back(m);
+		};
+		emitTargetless(*b.power, b.button ? b.button->m_options : 0u);
+		// RW 0x94157D..0x94160F: chained CommandTrigger buttons (+0x188) with m_command == GUI_COMMAND_SPECIAL_POWER (0x18)
+		if (b.button && m_commands && TheSpecialPowerStore)
+		{
+			for (const std::string &name : b.button->m_commandTrigger)
+			{
+				const CommandButton *cb = m_commands->findCommandButton(name);
+				const SpecialPowerTemplate *ct = cb && cb->m_command == GUI_COMMAND_SPECIAL_POWER && !cb->m_specialPowerName.empty()
+					? TheSpecialPowerStore->findSpecialPowerTemplate(cb->m_specialPowerName) : nullptr;
+				if (ct)
+				{
+					emitTargetless(*ct, cb->m_options);
+				}
+			}
+		}
 		return true;
 	}
 	return false;
@@ -390,13 +437,33 @@ bool InGameSpellBookModel::clickWorld(const Coord3D &where, int playerIndex, std
 		m_targeting = -1;
 		return false;
 	}
-	GameMessage m(MSG_DO_SPECIAL_POWER_AT_LOCATION, playerIndex);
-	m.appendIntegerArgument((int)b->power->getID());
-	m.appendLocationArgument(where);
-	m.appendObjectIDArgument(INVALID_ID);
-	m.appendIntegerArgument(0);
-	m.appendObjectIDArgument(m_book);
-	out.push_back(m);
+	// RW 0x81EBA8..0x81EBC5 -> CommandTranslator::issueSpecialPowerCommand (RW 0x81E147, 0x81E2DE..0x81E3FC):
+	// GUI_COMMAND_SPELL_BOOK (0x20) emits MSG_DO_SPECIAL_POWER_AT_LOCATION (0x411) for the primary power and
+	// for every chained CommandTrigger (+0x188) whose m_command == GUI_COMMAND_SPECIAL_POWER (0x18), with
+	// sourceObjectID = localPlayer->getSpellBookObject()->getID() (m_book).
+	auto emitAtLocation = [&](const SpecialPowerTemplate &tt, std::uint32_t options) {
+		GameMessage m(MSG_DO_SPECIAL_POWER_AT_LOCATION, playerIndex);
+		m.appendIntegerArgument((int)tt.getID());
+		m.appendLocationArgument(where);
+		m.appendObjectIDArgument(INVALID_ID);
+		m.appendIntegerArgument((int)options);
+		m.appendObjectIDArgument(m_book);
+		out.push_back(m);
+	};
+	emitAtLocation(*b->power, b->button ? b->button->m_options : 0u);
+	if (b->button && m_commands && TheSpecialPowerStore)
+	{
+		for (const std::string &name : b->button->m_commandTrigger)
+		{
+			const CommandButton *cb = m_commands->findCommandButton(name);
+			const SpecialPowerTemplate *ct = cb && cb->m_command == GUI_COMMAND_SPECIAL_POWER && !cb->m_specialPowerName.empty()
+				? TheSpecialPowerStore->findSpecialPowerTemplate(cb->m_specialPowerName) : nullptr;
+			if (ct)
+			{
+				emitAtLocation(*ct, cb->m_options);
+			}
+		}
+	}
 	m_targeting = -1;
 	return true;
 }

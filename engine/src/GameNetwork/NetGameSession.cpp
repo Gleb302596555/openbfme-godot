@@ -70,7 +70,8 @@ bool NetGameSession::setUp(LiveGame &game, std::string *error)
 	m_config.rejoinWindowMs = m_options.rejoinWindowMs;
 	for (int s = 0; s < MAX_SLOTS; ++s)
 	{
-		m_config.slotNames[(size_t)s] = m_start.game.game.slots[m_start.gameSlot(s)].name;
+		const int gs = m_start.gameSlot(s);
+		m_config.slotNames[(size_t)s] = (gs >= 0 && gs < MAX_SLOTS) ? m_start.game.game.slots[(size_t)gs].name : std::u16string();
 	}
 	for (int s = 0; s < MAX_SLOTS; ++s)
 	{
@@ -79,7 +80,15 @@ bool NetGameSession::setUp(LiveGame &game, std::string *error)
 			continue;
 		}
 		const int gameSlot = m_start.gameSlot(s);
-		const Player *p = (size_t)gameSlot < r.startSlotPlayers.size() ? game.players().findPlayerWithName(r.startSlotPlayers[(size_t)gameSlot]) : nullptr;
+		if (gameSlot < 0 && m_start.battleUsesWarSlots)
+		{
+			// PYSAGE 1.9.8.5 .wotrobs 0x00F291BB / .wtrview 0x00F2A000 (hooks RW 0x627C41 / RW 0x62FE9C):
+			// non-participating War of the Ring human watches in lockstep as ReplayObserver without a tactical player.
+			m_config.slotPlayerIndex[(size_t)s] = -1;
+			m_config.observerSlot[(size_t)s] = true;
+			continue;
+		}
+		const Player *p = (gameSlot >= 0 && (size_t)gameSlot < r.startSlotPlayers.size()) ? game.players().findPlayerWithName(r.startSlotPlayers[(size_t)gameSlot]) : nullptr;
 		if (!p)
 		{
 			if (error)

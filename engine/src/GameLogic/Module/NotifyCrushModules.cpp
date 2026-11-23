@@ -122,7 +122,8 @@ WorldShape worldShape(const ObjectGeometry::Shape &s, const Coord3D &pos, float 
 	return w;
 }
 
-// the box record of RW 0xAD4870 / 0xAD4790: centre, axis u = (cos, sin), axis v = (-sin, cos) stored as floats, half extents
+// RW 0x00AD4790 (DONOR BFME2 0x006C0630): 2D OBB box/box overlap setup calling RW 0xAD4660
+// the box record of RW 0xAD4870 / RW 0x00AD4790: centre, axis u = (cos, sin), axis v = (-sin, cos) stored as floats, half extents
 struct BoxRecord
 {
 	float x, y, ux, uy, vx, vy, e1, e2;

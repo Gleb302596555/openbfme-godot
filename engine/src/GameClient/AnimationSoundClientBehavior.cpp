@@ -245,14 +245,16 @@ void AnimationSoundClientBehavior::computeRange(AudioManager *audio)
 	m_rangeSq = range * range;
 }
 
+// AnimationSoundClientBehavior: getModuleName RW 0x008CE22F, getModuleNameKey RW 0x008CE309, ~AnimationSoundClientBehavior RW 0x008CE1DF.
 AnimationSoundClientBehavior::~AnimationSoundClientBehavior()
 {
 	if (m_manager)
 	{
-		m_manager->remove(this); // RW 0x8CE20C
+		m_manager->remove(this); // RW 0x008CE1DF / RW 0x8CE20C
 	}
 }
 
+// RW 0x008CE235 (marks module dirty on AnimationSoundManager RW 0x83F159)
 void AnimationSoundClientBehavior::reactToTransformChange(const Coord3D *, float)
 {
 	if (m_manager)

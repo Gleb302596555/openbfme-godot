@@ -319,6 +319,10 @@ bool ParseMouseCursors(const std::string &text, std::map<std::string, MouseCurso
 		{
 			ls >> cur->image;
 		}
+		else if (a == "Texture")
+		{
+			ls >> cur->texture;
+		}
 		else if (a == "Directions")
 		{
 			ls >> cur->directions;

@@ -380,10 +380,11 @@ void PlacementIcons::update(const InGameUI &ui, double elapsedMs, unsigned ghost
 	main.angle = angle;
 	main.drawable->setPosition(&site);
 	main.drawable->setOrientation(angle);
-	// BFME2 PlaceTerrainResourceClaimantFeedback (0x4E6295 / 0x4E6455, Open-BFME-2 Rva004E65CFLeaf.cpp): the share a claim at the ghost would get, for
-	// the local player (ThePlayerList + 0x10, its index; 0 without one), with the template's TerrainResourceBehavior Radius and HighPriority
+	// RotWK 2.01 PlaceTerrainResourceClaimantFeedback (RW 0x8EAE72 -> InGameUI + 0x588, updated via RW 0x6A3922 -> 0x8EADC0 -> 0x8EAB82 -> 0x8EA9C3;
+	// BFME2 0x4E6295 / 0x4E6455): constructed in InGameUI::placeBuildAvailable (RW 0x6A2C53 .. 0x6A2CBC) when findFirstTerrainResourceBehaviorModuleData
+	// (RW 0x69C440) returns non-NULL with m_maxIncome (+ 0x0C) > 0 and TheTerrainResourceManager != NULL (verified Port 331, S-5016 closed).
+	// Reads the share a claim at the ghost would get for the local player (ThePlayerList + 0x10; 0 without one), with Radius and HighPriority
 	// (RW 0x75B561, TerrainResourceManager::previewShare: read only). Never read the resource grid while the logic worker is running.
-	// INFERENCE (S-5016): which templates get the feedback (here: the first TerrainResourceBehavior with MaxIncome > 0, i.e. not a "dead spot") was not read
 	if (judge)
 	{
 		m_resourceRadius = m_resourceShare = 0;

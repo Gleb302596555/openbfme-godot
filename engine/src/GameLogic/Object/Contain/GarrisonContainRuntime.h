@@ -89,7 +89,8 @@ public:
 	void onDamage(const DamageInfo &) override {}
 	void onHealing(const DamageInfo &) override {}
 	void onBodyDamageStateChange(const DamageInfo *info, BodyDamageType oldState, BodyDamageType newState) override; // RW 0x0087BA06
-	void onDie(const DieModuleInterface::Event &event) override; // RW 0x0087CF74 (HordeGarrisonContain) / RW 0x867120 (GarrisonContain)
+	void onDie(const DieModuleInterface::Event &event) override;
+	bool isGarrisonContain() const override { return true; } // RW 0x0087CF74 (HordeGarrisonContain) / RW 0x867120 (GarrisonContain)
 	void crc(StateHasher &hasher) const override;
 	// ---- UpdateModule (RW 0x87C8DF: every frame) ----
 	UpdateSleepTime update() override;

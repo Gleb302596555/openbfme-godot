@@ -88,6 +88,7 @@ void W3DProjectileStreamDraw::makeOrUpdateLine(const Coord3D *points, int pointC
 	{
 		line.texture = m_data->m_texture;
 		line.width = m_data->m_width;
+		// RW 0x0055DB90 (SegmentedLineClass::Set_Texture_Mapping_Mode), RW 0x0055DCC0 (Set_Render_Mode / flags)
 		line.tileFactor = m_data->m_tileFactor;
 		line.scrollRate = m_data->m_scrollRate;
 		line.inScene = !m_fullyObscured;

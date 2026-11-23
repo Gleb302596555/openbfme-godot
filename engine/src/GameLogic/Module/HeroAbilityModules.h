@@ -505,6 +505,7 @@ public:
 
 // RW 0x008D0DE6 (ctor), RW 0x008E38D8 (loadPostProcess -> no-op RW 0x0063F3BF)
 // Local 87: RW 0x008D0F50 (scalar deleting destructor).
+// RW 0x008D0E1D (dtor -> RW 0x00854D9A)
 class DominateEnemySpecialPower : public SpecialAbilityUpdate
 {
 public:
@@ -567,6 +568,7 @@ public:
 };
 
 // RW 0x00893E7D (getModuleName), RW 0x00893E83 (getModuleNameKey), RW 0x008940E4 (scalar deleting dtor -> 0x00893E4C).
+// RW 0x00893E4C (dtor -> RW 0x00854D9A)
 class ArrowStormUpdate : public SpecialAbilityUpdate
 {
 public:
@@ -610,6 +612,7 @@ public:
 
 // RW 0x008D11DD (ctor), RW 0x008E38D8 (loadPostProcess -> no-op RW 0x0063F3BF)
 // Local 87: RW 0x008D128E (scalar deleting destructor).
+// RW 0x008D1214 (dtor -> RW 0x00854D9A)
 class CurseSpecialPower : public SpecialAbilityUpdate
 {
 public:
@@ -628,6 +631,7 @@ private:
 };
 
 // Local 87: RW 0x008CB0E0 (getModuleName), RW 0x008CB106 (getModuleNameKey), RW 0x008CB14B (dtor).
+// RW 0x008CB0E6 (dtor -> RW 0x00854D9A)
 class FellBeastSwoopPower : public SpecialAbilityUpdate
 {
 public:
@@ -699,6 +703,7 @@ public:
 };
 
 // RW vtable 0x00C64E8C; name/key RW 0x0089640F / 0x0089643F; s1 no-op RW 0x008E38D8
+// RW 0x00896415 (dtor -> RW 0x00854D9A)
 class TeleportSpecialAbilityUpdate : public SpecialAbilityUpdate
 {
 public:

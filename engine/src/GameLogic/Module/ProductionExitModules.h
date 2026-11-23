@@ -85,6 +85,7 @@ public:
 };
 
 // scalar deleting dtor RW 0x008A9CA0
+// RW 0x008A9B9B (dtor -> RW 0x0064A492)
 class SupplyCenterProductionExitUpdate : public SimpleProductionExitUpdate
 {
 public:

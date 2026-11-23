@@ -4,6 +4,7 @@
 
 #include "GameClient/GUI/AptScreens/AptSpellStore.h"
 
+#include "Common/ModEngineFeatures.h"
 #include "Common/Player.h"
 #include "Common/PlayerScience.h"
 #include "Common/PlayerTemplate.h"
@@ -50,6 +51,7 @@ AptSpellStore::AptSpellStore(WindowManager &windows, Shell &shell) : AptScreen(w
 		m_help = -1;
 		m_helpShown = false;
 		m_helpSent = false;
+		m_openElapsedMs = 0; // PYSAGE 1.9.8.5 .spstore 0xED4000 (hook RW 0x822890)
 		for (int &s : m_state)
 		{
 			s = -1;
@@ -265,7 +267,7 @@ void AptSpellStore::update()
 			{
 				m_text->fetch(b.button->m_descriptLabel.front(), desc);
 			}
-			if (b.state == SpellStoreModel::STATE_LOCKED && m_text && m_text->fetch("TOOLTIP:ScienceDisabled", disabled)) // RW 0x822FFE .. 0x82307D
+			if (b.showDisabledWarning && m_text && m_text->fetch("TOOLTIP:ScienceDisabled", disabled)) // RW 0x823057 .. 0x823118
 			{
 				desc += u"\n";
 				desc += disabled;
@@ -281,6 +283,19 @@ void AptSpellStore::update()
 		windows().setAptText("APT:SpellStoreSpellPoints", std::to_string(points)); // RW 0x82316B
 		m_points = points;
 	}
+	// PYSAGE 1.9.8.5 .spstore 0xED4035 (hook RW 0x8231CA): skip SetSpellButtonState updates for 500 ms (0x1F4) after OnInitialized.
+	if (ModEngineFeatures::has(ModEngineFeature::EnnorathSpellStoreDelay))
+	{
+		const int elapsed = m_openElapsedMs;
+		if (m_openElapsedMs < 500)
+		{
+			m_openElapsedMs += 33;
+		}
+		if (elapsed < 500)
+		{
+			return;
+		}
+	}
 	for (int i = 0; i < SpellStoreModel::MAX_BUTTONS; ++i) // RW 0x8230AF .. 0x823262
 	{
 		int st = 0;
@@ -292,6 +307,9 @@ void AptSpellStore::update()
 			}
 			switch (b.state)
 			{
+				case SpellStoreModel::STATE_HIDDEN:
+					st = 2; // _disabled_level (RW 0x8231D4 -> 0x8227BB -> 0x6AC287)
+					break;
 				case SpellStoreModel::STATE_PURCHASED:
 				case SpellStoreModel::STATE_PENDING:
 					st = m_state[i] == 5 ? 4 : 3;

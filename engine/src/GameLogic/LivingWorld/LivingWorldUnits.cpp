@@ -176,6 +176,8 @@ UnitInfo buildUnitInfo(const ThingFactory &things, const ExperienceLevelSystem *
 		u.hero = heroBit >= 0 && MaskTest(info.kindOf, (unsigned)heroBit);
 		static const int cahBit = ObjectTemplateInfoBuilder::kindOfIndex("CREATE_A_HERO");
 		u.createAHero = cahBit >= 0 && MaskTest(info.kindOf, (unsigned)cahBit);
+		const int cantEarnBit = ObjectTemplateInfoBuilder::kindOfIndex("CANT_EARN_POWERPOINTS");
+		u.cantEarnPowerPoints = cantEarnBit >= 0 && MaskTest(info.kindOf, (unsigned)cantEarnBit);
 		u.strength = u.hero ? u.buildCost * 2 : u.buildCost;
 		// WOTR-2: the autoresolve rows
 		u.autoResolveUnitType = unitTypeOf(*tt);

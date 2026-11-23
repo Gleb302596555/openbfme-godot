@@ -199,6 +199,11 @@ const FieldParse kObjectImage[] = { // its table 0xEF30C8 (parseAsciiString RW 0
 	{ "ButtonImage", INI::parseAsciiString, nullptr, (int)offsetof(ObjectImageUpgradeModuleData, m_buttonImage) },
 	{ nullptr, nullptr, nullptr, 0 }
 };
+const FieldParse kPortraitUpgrade[] = { // PYSAGE 1.9.8.7 .wmfeat 0xF3A424 (parseAsciiString RW 0x42EE5E)
+	{ "Portrait", INI::parseAsciiString, nullptr, (int)offsetof(PortraitUpgradeModuleData, m_portrait) },
+	{ "ButtonImage", INI::parseAsciiString, nullptr, (int)offsetof(PortraitUpgradeModuleData, m_buttonImage) },
+	{ nullptr, nullptr, nullptr, 0 }
+};
 #define SO_OFF(m) (int)offsetof(SubObjectsUpgradeModuleData, m)
 const FieldParse kSubObjects[] = { // RW 0xC6E928
 	{ "ShowSubObjects", INI::parseAsciiStringVectorAppend, nullptr, SO_OFF(m_showSubObjects) },
@@ -279,6 +284,11 @@ void ObjectImageUpgradeModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	buildBaseFieldParse(p); // its 0xEF31ED: the upgrade mux fields (RW 0x8D26E0), then its table
 	p.add(kObjectImage);
+}
+void PortraitUpgradeModuleData::buildFieldParse(MultiIniFieldParse &p)
+{
+	buildBaseFieldParse(p); // PYSAGE 1.9.8.7 .wmfeat 0xF3A0BF: UpgradeMux (RW 0x8D26E0), then 0xF3A424
+	p.add(kPortraitUpgrade);
 }
 void DoCommandUpgradeModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
@@ -772,6 +782,35 @@ std::string ObjectImageUpgrade::imageOf(const Object &obj, bool portrait)
 	return best ? (portrait ? best->m_data->m_selectPortrait : best->m_data->m_buttonImage) : std::string();
 }
 
+// ---- PortraitUpgrade (PYSAGE 1.9.8.7 .wmfeat 0xF3A000..0xF3A1E6, ennorath.portrait-upgrade) ------------------------------------------------------
+void PortraitUpgrade::upgradeImplementation()
+{
+	// PYSAGE 1.9.8.7 .wmfeat 0xF3A103: marks TheControlBar dirty; OpenBFME queries imageOf() live.
+}
+
+std::string PortraitUpgrade::imageOf(const Object &obj, bool portrait)
+{
+	if (!ModEngineFeatures::has(ModEngineFeature::EnnorathPortraitUpgrade))
+	{
+		return std::string();
+	}
+	// PYSAGE 1.9.8.7 .wmfeat 0xF3A153 .. 0xF3A1A2: first active PortraitUpgrade whose field (+0x138 / +0x13C) is non-empty
+	for (const auto &m : obj.modules())
+	{
+		const auto *u = dynamic_cast<const PortraitUpgrade *>(m.get());
+		if (!u || !u->isAlreadyUpgraded())
+		{
+			continue;
+		}
+		const std::string &img = portrait ? u->m_data->m_portrait : u->m_data->m_buttonImage;
+		if (!img.empty())
+		{
+			return img;
+		}
+	}
+	return std::string();
+}
+
 // ---- RemoveUpgradeUpgrade -----------------------------------------------------------------------------------------------------------------
 void RemoveUpgradeUpgrade::upgradeImplementation()
 {
@@ -920,6 +959,11 @@ void UpgradeModuleClasses::registerAll(ModuleFactory &modules)
 		modules.bindTypedData<ObjectImageUpgradeModuleData>("ObjectImageUpgrade", MODULETYPE_BEHAVIOR); // its 0xEF3128 (interface mask 0x84)
 		bindRuntime<ObjectImageUpgrade, ObjectImageUpgradeModuleData>(modules, "ObjectImageUpgrade");
 	}
+	if (ModEngineFeatures::has(ModEngineFeature::EnnorathPortraitUpgrade))
+	{
+		modules.bindTypedData<PortraitUpgradeModuleData>("PortraitUpgrade", MODULETYPE_BEHAVIOR); // PYSAGE 1.9.8.7 .wmfeat 0xF3A000 (mask 0x84)
+		bindRuntime<PortraitUpgrade, PortraitUpgradeModuleData>(modules, "PortraitUpgrade");
+	}
 	modules.bindTypedData<GrantUpgradeCreateModuleData>("GrantUpgradeCreate", MODULETYPE_BEHAVIOR);
 	bindRuntime<GrantUpgradeCreate, GrantUpgradeCreateModuleData>(modules, "GrantUpgradeCreate");
 }
@@ -986,6 +1030,12 @@ void ObjectImageUpgrade::xfer(Xfer &x)
 	SnapshotXfer::version(x, 1, 1);
 	UpgradeModule::xfer(x);
 	x.xferUnsignedInt(&m_appliedFrame);
+}
+
+void PortraitUpgrade::xfer(Xfer &x)
+{
+	SnapshotXfer::version(x, 1, 1);
+	UpgradeModule::xfer(x);
 }
 
 void DoCommandUpgrade::xfer(Xfer &x)

@@ -207,8 +207,17 @@ const std::array<EnnorathOptionEntry, EnnorathOptions::kEntryCount> &EnnorathOpt
 		{ "OnlineIp",           nullptr,              4, K::Retail,           0,   0, 0 },
 		{ "OnlinePortNum",      nullptr,              4, K::Retail,           0,   0, 0 },
 		{ "SendDelay",          nullptr,              4, K::Retail,           0,   0, 0 },
+		// PYSAGE 1.9.8.7 .wmkeys 0xF3B1D4 / 0xF3B1F8 / 0xF3B21C (active only under ennorath.option-hotkeys-1987)
+		{ "ETKeySelectAll",       "ETKeySelectAll",       3, K::Hotkey,       0,   CMSG_META_SELECT_ALL,           0 },
+		{ "ETKeySelectAllHeroes", "ETKeySelectAllHeroes", 3, K::Hotkey,       0,   CMSG_META_SELECT_ALL_HEROES,    0 },
+		{ "ETKeyTacticalMenu",    "ETKeyTacticalMenu",    3, K::Hotkey,       0,   CMSG_META_TOGGLE_PLANNING_MODE, 0 },
 	} };
 	return kTable;
+}
+
+int EnnorathOptions::activeEntryCount()
+{
+	return ModEngineFeatures::has(ModEngineFeature::EnnorathOptionHotkeys1987) ? kEntryCount : kEntryCount1985;
 }
 
 const std::array<EnnorathKeyChoice, EnnorathOptions::kKeyChoiceCount> &EnnorathOptions::keyChoices()
@@ -263,7 +272,8 @@ const std::array<int, EnnorathOptions::kSensChoiceCount> &EnnorathOptions::sensi
 int EnnorathOptions::findEntryByGadget(const std::string &shortName)
 {
 	const auto &e = entries();
-	for (int i = 0; i < kEntryCount; ++i)
+	const int n = activeEntryCount();
+	for (int i = 0; i < n; ++i)
 	{
 		if (shortName == e[(std::size_t)i].gadgetName)
 		{
@@ -414,7 +424,8 @@ void EnnorathOptionsState::loadFromPreferences(const OptionPreferences *prefs)
 		return;
 	}
 	const auto &e = EnnorathOptions::entries();
-	for (int i = 0; i < EnnorathOptions::kEntryCount; ++i)
+	const int n = EnnorathOptions::activeEntryCount();
+	for (int i = 0; i < n; ++i)
 	{
 		const EnnorathOptionEntry &entry = e[(std::size_t)i];
 		if (entry.kind == EnnorathOptionKind::Retail || !entry.iniKey)
@@ -454,7 +465,8 @@ void EnnorathOptionsState::resolveDuplicateHotkeys()
 	// PYSAGE 1.9.8.5 .optui 0xF23C91 .. 0xF23CF5: for each hotkey row i with value != 0,
 	// clear any earlier hotkey row j < i holding the same value.
 	const auto &e = EnnorathOptions::entries();
-	for (int i = 0; i < EnnorathOptions::kEntryCount; ++i)
+	const int n = EnnorathOptions::activeEntryCount();
+	for (int i = 0; i < n; ++i)
 	{
 		if (e[(std::size_t)i].kind != EnnorathOptionKind::Hotkey || values[(std::size_t)i] == 0)
 		{
@@ -474,7 +486,8 @@ void EnnorathOptionsState::saveToPreferences(OptionPreferences &prefs, bool writ
 {
 	// PYSAGE 1.9.8.5 .optui 0xF23D0A .. 0xF23DB9 + .dlyfix 0xF351A8 .. 0xF35206
 	const auto &e = EnnorathOptions::entries();
-	for (int i = 0; i < EnnorathOptions::kEntryCount; ++i)
+	const int n = EnnorathOptions::activeEntryCount();
+	for (int i = 0; i < n; ++i)
 	{
 		const EnnorathOptionEntry &entry = e[(std::size_t)i];
 		if (entry.kind == EnnorathOptionKind::Retail || !entry.iniKey)
@@ -524,8 +537,9 @@ void applyEnnorathHotkeys(MetaMap &map, const OptionPreferences *prefs, std::vec
 	const auto &entries = EnnorathOptions::entries();
 	const auto &keys = EnnorathOptions::keyChoices();
 
+	const int activeCount = EnnorathOptions::activeEntryCount();
 	auto findHotkeyEntryForMeta = [&](int meta) -> int {
-		for (int i = 0; i < EnnorathOptions::kEntryCount; ++i)
+		for (int i = 0; i < activeCount; ++i)
 		{
 			const EnnorathOptionEntry &e = entries[(std::size_t)i];
 			if (e.kind == EnnorathOptionKind::Hotkey && (e.meta1 == meta || (e.meta2 != 0 && e.meta2 == meta)))
@@ -571,7 +585,7 @@ void applyEnnorathHotkeys(MetaMap &map, const OptionPreferences *prefs, std::vec
 		{
 			continue;
 		}
-		for (int i = 0; i < EnnorathOptions::kEntryCount; ++i)
+		for (int i = 0; i < activeCount; ++i)
 		{
 			if (entries[(std::size_t)i].kind != EnnorathOptionKind::Hotkey)
 			{
@@ -587,7 +601,7 @@ void applyEnnorathHotkeys(MetaMap &map, const OptionPreferences *prefs, std::vec
 	}
 
 	// 3. PYSAGE 1.9.8.5 .keycmd 0xF31020: synthesize records for custom hotkeys whose meta is absent from CommandMap.ini
-	for (int i = 0; i < EnnorathOptions::kEntryCount; ++i)
+	for (int i = 0; i < activeCount; ++i)
 	{
 		const EnnorathOptionEntry &e = entries[(std::size_t)i];
 		if (e.kind != EnnorathOptionKind::Hotkey)
@@ -637,7 +651,7 @@ void applyEnnorathHotkeys(MetaMap &map, const OptionPreferences *prefs, std::vec
 			}
 		}
 		// Do not bind if another custom hotkey took this key with no modifiers (PYSAGE 1.9.8.5 .keydef 0xF3917D .. 0xF391A2)
-		for (int i = 0; i < EnnorathOptions::kEntryCount; ++i)
+		for (int i = 0; i < activeCount; ++i)
 		{
 			if (entries[(std::size_t)i].kind != EnnorathOptionKind::Hotkey)
 			{

@@ -574,6 +574,7 @@ MessageDisposition SelectionTranslator::translate(const ClientMessage &msg)
 			{
 				isClick = false;
 			}
+			// RW 0x0083C2A8 (read RW 0x0083C899, Mouse + 0x12EC DragTolerance3D)
 			if (isClick && HudObjects::cameraMovedBeyond(m_deselectDownCamera, m_ctx.view.position(), m_ctx.mouse.dragTolerance3D))
 			{
 				isClick = false;

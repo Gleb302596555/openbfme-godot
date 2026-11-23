@@ -89,6 +89,7 @@ void registerAll(ModuleFactory &modules);
 
 // StructureBody: ActiveBody plus the constructor's object id (RW +0x100, ZH m_constructorObjectID);
 // getModuleName RW 0x008C4B1E, getModuleNameKey RW 0x008C4B51, dtor RW 0x008C4B96, xfer RW 0x008C4BB2
+// RW 0x008C4B24 (dtor -> RW 0x008C3AED)
 class StructureBody : public ActiveBody
 {
 public:
@@ -249,6 +250,7 @@ public:
 
 // RW: create 0x64EAB7 (0x48 bytes, vtable 0xC69310 / update 0xC69304 / die 0xC69300), data 0x6563F3, table 0xC69408. The reverse of
 // StructureCollapseUpdate: a rubble piece that was sunk under the terrain rises back to the ground once the object is POST_RUBBLE.
+// RW 0x008A8277 (dtor -> RW 0x0064A492), RW 0x008A8297 (getModuleName), RW 0x008A82E0 (getModuleNameKey)
 class RubbleRiseUpdate : public UpdateModule, public DieModuleInterface
 {
 public:
@@ -320,6 +322,7 @@ public:
 };
 
 // getModuleName RW 0x008C579B, getModuleNameKey RW 0x008C57C7, dtor RW 0x008C580C, xfer RW 0x008C5976
+// RW 0x008C57AE (dtor -> RW 0x008C54AA)
 class DelayedDeathBody : public RespawnBody
 {
 public:
@@ -356,11 +359,15 @@ public:
 	OBFME_MODULE_XFER(SymbioticStructuresBody) // lane SAVE-4b (RW 0x008C4C07)
 	SymbioticStructuresBody(Thing *thing, const SymbioticStructuresBodyModuleData *data) : ActiveBody(thing, data), m_symbioticData(data) {}
 	~SymbioticStructuresBody() override = default; // RW 0x008C4BE8 / RW 0x008C4CD5
-	// RW + 0x104: the object whose body this one answers with (INVALID_ID until something links them: stop S-343, S-7408)
-	void setSymbiote(ObjectID id) { m_symbioteId = id; }
+	// RW + 0x104: the object whose body this one answers with (linked by loadPostProcess RW 0x008C5304 or setSymbiote)
+	void setSymbiote(ObjectID id);
 	ObjectID symbioteId() const { return m_symbioteId; }
-	BodyModuleInterface *symbioteBody() const;
+	BodyModuleInterface *symbioteBody() const;                       // RW 0x008C4EE0 (resolves symbiote and writes ActiveBody +0xEC)
+	void loadPostProcess();                                          // RW 0x008C5304 (primary vslot 1)
+	void syncFromSymbiote();                                         // RW 0x008C4CF4
 	float getHealth() const override;                                // RW 0x008C4F2D
+	float getHealthPercent() const override;                         // RW 0x008C4EA4
+	float getPreviousHealth() const override;                        // RW 0x008C4F84
 	float getMaxHealth() const override;                             // RW 0x008C51EE
 	float getInitialHealth() const override;                         // RW 0x008C521F
 	BodyDamageType getDamageState() const override;                  // RW 0x008C4FF9
@@ -379,6 +386,12 @@ public:
 	bool lastDamageRecordType(int &type) const override;
 	bool lastDamageRecordNoEffect(bool &noEffect) const override;
 	UnsignedInt lastDamageFrame() const override;                    // RW 0x008C5100
+	UnsignedInt getLastHealingFrame() const override;                // RW 0x008C5123
+	ObjectID takeLastAttacker() override;                            // RW 0x008C519A
+	std::uint32_t getArmorSetFlags() const override;                 // RW 0x008C501C
+	bool ignoresArmorSetFlagChanges() const override { return true; } // RW 0xC72200 slots +0x34/+0x38 = 0x009F3A3C no-op
+	void onSymbioteDamageStateChanged(BodyDamageType newState) override; // RW 0x008C53AF (body vslot +0xA0)
+	void onSymbioteHealthChanged(float newHealth, bool playHealFx) override; // RW 0x008C53D0 (body vslot +0xA4)
 	void crc(StateHasher &hasher) const override;
 
 private:

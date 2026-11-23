@@ -114,7 +114,7 @@ void ControlBar::playStanceVoice(int stance)
 	}
 }
 
-bool ControlBar::pressButton(int slot, bool inPalantir, bool shift)
+bool ControlBar::pressButton(int slot, bool inPalantir, bool shift, bool repeated)
 {
 	const ControlBarButton *cb = find(slot, inPalantir);
 	Object *obj = m_ctx.logic.findObjectByID(m_source);
@@ -126,7 +126,10 @@ bool ControlBar::pressButton(int slot, bool inPalantir, bool shift)
 	// lane MODS-3: RW 0x941BD3 (processContextSensitiveButtonClick): an inactive local player (an observer, a defeated player: RW 0x6A87F5) presses
 	// nothing; edain-unchained.observer-command-range (its 0xEDF000) lets one page the command ranges. Retail's refusal is ported for that feature only
 	// (the port's retail bar has none yet, S-290)
-	if (ModEngineFeatures::has(ModEngineFeature::EdainUnchainedObserverCommandRange) && !localPlayerActive(m_ctx.localPlayer()) &&
+	// PYSAGE 1.9.8.5 .obscmd 0xED8000 (hook RW 0x941BD2): Ennorath shares the same observer command-range rule.
+	const bool obsCmdRange = ModEngineFeatures::has(ModEngineFeature::EdainUnchainedObserverCommandRange)
+		|| ModEngineFeatures::has(ModEngineFeature::EnnorathObserverCommandRange);
+	if (obsCmdRange && !localPlayerActive(m_ctx.localPlayer()) &&
 		b.m_command != GUI_COMMAND_PUSH_VISIBLE_COMMAND_RANGE && b.m_command != GUI_COMMAND_POP_VISIBLE_COMMAND_RANGE)
 	{
 		return false;
@@ -135,6 +138,12 @@ bool ControlBar::pressButton(int slot, bool inPalantir, bool shift)
 	// that option bit (its option tests are 0x227, bits 5, 17 and 31); retail draws such a button with its _static clip (RW 0x9D2BFA), which
 	// takes no click, so a direct / shortcut press is refused here instead of casting its placeholder power.
 	if (!b.m_isClickable || b.hasOption(COMMAND_OPTION_NONPRESSABLE))
+	{
+		return false;
+	}
+	// Local 141 (S-7364): RW 0x9404A1..0x9404AB (DONOR BFME2 ControlBarCommandProcessing.cpp:362):
+	// a repeated press is ignored for every command except GUI_COMMAND_UNIT_BUILD (3).
+	if (repeated && b.m_command != GUI_COMMAND_UNIT_BUILD)
 	{
 		return false;
 	}
@@ -184,6 +193,53 @@ bool ControlBar::pressButton(int slot, bool inPalantir, bool shift)
 		case GUI_COMMAND_UNIT_BUILD:
 		{
 			const ThingTemplate *tt = b.getThingTemplate();
+			// PYSAGE 1.9.8.5 .bldgrp 0xEDA203 (via .bldext 0xEDD014 / .bldcan 0xEDC00C):
+			// in a same-type building group, queue the unit in every active building of the group.
+			if (tt && ModEngineFeatures::has(ModEngineFeature::EnnorathSelectAllBuildings))
+			{
+				const std::vector<Object *> liveSelected = collectLiveSelected();
+				if (findSelectedSameBuildingGroup(liveSelected) != nullptr)
+				{
+					const bool multiple = shift && BuildAssistant::maxSimultaneousOfType(*tt) == 0;
+					bool anySent = false;
+					int activeCount = 0;
+					for (Object *sel : liveSelected)
+					{
+						if (!isActiveBuildingForGroup(*sel))
+						{
+							continue;
+						}
+						++activeCount;
+						const CanMakeType make = BuildAssistant::canMakeUnit(*sel, tt, -1);
+						if (make != CANMAKE_OK)
+						{
+							continue;
+						}
+						// .bldgrp 0xEDA196: focus selection on this building, queue unit.
+						ClientMessage &selMsg = m_ctx.stream.append(MSG_CREATE_SELECTED_GROUP);
+						selMsg.appendBoolean(true);
+						selMsg.appendObjectID(sel->getID());
+						ClientMessage &m = m_ctx.stream.append(MSG_QUEUE_UNIT_CREATE);
+						m.appendBoolean(false);
+						m.appendInteger((int)tt->getTemplateID());
+						m.appendInteger(-1);
+						m.appendBoolean(multiple);
+						m.appendBoolean(false);
+						anySent = true;
+					}
+					if (activeCount > 0 && anySent)
+					{
+						// .bldgrp 0xEDA1C2: restore full building group selection.
+						ClientMessage &rest = m_ctx.stream.append(MSG_CREATE_SELECTED_GROUP);
+						rest.appendBoolean(true);
+						for (Object *sel : liveSelected)
+						{
+							rest.appendObjectID(sel->getID());
+						}
+					}
+					return anySent;
+				}
+			}
 			const CanMakeType make = BuildAssistant::canMakeUnit(*obj, tt, -1);
 			if (make == CANMAKE_QUEUE_FULL)
 			{
@@ -205,6 +261,12 @@ bool ControlBar::pressButton(int slot, bool inPalantir, bool shift)
 			// RW 0x940BD9 sets the flag only when all three hold. The logic's batch loop is RW 0x8A1260 (`lea eax,[eax*4+1]`: 5 or 1).
 			// REVIVE has its own case below (RW 0x940B1B) and always sends one, as RW 0x940BC2 requires.
 			const bool multiple = shift && BuildAssistant::maxSimultaneousOfType(*tt) == 0;
+			// Local 141 (S-7364): RW 0x940BE6..0x940BF0 (DONOR BFME2 ControlBarCommandProcessing.cpp:515):
+			// with `repeated` set, UNIT_BUILD sends no message unless `multiple` is also true.
+			if (repeated && !multiple)
+			{
+				return false;
+			}
 			ClientMessage &m = m_ctx.stream.append(MSG_QUEUE_UNIT_CREATE);
 			m.appendBoolean(false);
 			m.appendInteger((int)tt->getTemplateID());
@@ -242,6 +304,61 @@ bool ControlBar::pressButton(int slot, bool inPalantir, bool shift)
 			if (!tt)
 			{
 				return false;
+			}
+			// PYSAGE 1.9.8.5 .bldext 0xEDD020 / 0xEDD11A + .padsel 0xEDE187 (hooks RW 0x941BFC, 0x930E21, 0x940975):
+			// in a same-type BASE_FOUNDATION group (e.g. ExpansionPads), build on every active pad that has this button in its CommandSet.
+			if (ModEngineFeatures::has(ModEngineFeature::EnnorathSelectAllBuildings))
+			{
+				const std::vector<Object *> liveSelected = collectLiveSelected();
+				Object *rep = findSelectedSameBuildingGroup(liveSelected);
+				if (rep && rep->isKindOfName("BASE_FOUNDATION"))
+				{
+					const CommandStore *store = m_ctx.commands;
+					const int cap = CommandSet::slotCapacity();
+					bool anySent = false;
+					for (Object *sel : liveSelected)
+					{
+						if (!isActiveBuildingForGroup(*sel))
+						{
+							continue;
+						}
+						const CommandSet *cs = (store && !sel->getCommandSetName().empty()) ? store->findCommandSet(sel->getCommandSetName()) : nullptr;
+						bool hasBtn = false;
+						if (cs)
+						{
+							for (int s = 0; s < cap; ++s)
+							{
+								if (cs->getCommandButton(s) == cb->button)
+								{
+									hasBtn = true;
+									break;
+								}
+							}
+						}
+						if (!hasBtn)
+						{
+							continue;
+						}
+						ClientMessage &selMsg = m_ctx.stream.append(MSG_CREATE_SELECTED_GROUP);
+						selMsg.appendBoolean(true);
+						selMsg.appendObjectID(sel->getID());
+						ClientMessage &m = m_ctx.stream.append(MSG_FOUNDATION_CONSTRUCT);
+						m.appendInteger((int)tt->getTemplateID());
+						m.appendLocation(*sel->getPosition());
+						m.appendReal(0.0f);
+						anySent = true;
+					}
+					if (anySent)
+					{
+						ClientMessage &rest = m_ctx.stream.append(MSG_CREATE_SELECTED_GROUP);
+						rest.appendBoolean(true);
+						for (Object *sel : liveSelected)
+						{
+							rest.appendObjectID(sel->getID());
+						}
+					}
+					return anySent;
+				}
 			}
 			ClientMessage &m = m_ctx.stream.append(MSG_FOUNDATION_CONSTRUCT);
 			m.appendInteger((int)tt->getTemplateID());
@@ -413,6 +530,39 @@ bool ControlBar::pressButton(int slot, bool inPalantir, bool shift)
 		case GUI_COMMAND_OBJECT_UPGRADE:
 		case GUI_COMMAND_PLAYER_UPGRADE:
 		{
+			// PYSAGE 1.9.8.5 .bldlvl 0xF366D2 (hook RW 0x940435): in a multi-building selection, a level-2/3 upgrade button
+			// queues each building's own matching level upgrade when available and not yet owned.
+			if (b.m_command == GUI_COMMAND_OBJECT_UPGRADE && ModEngineFeatures::has(ModEngineFeature::EnnorathSelectAllBuildings))
+			{
+				const int lvlTarget = levelUpgradeTarget(&b);
+				if (lvlTarget != 0)
+				{
+					const std::vector<Object *> liveSelected = collectLiveSelected();
+					if (allSelectedStructures(liveSelected))
+					{
+						bool anySent = false;
+						for (Object *sel : liveSelected)
+						{
+							ButtonState st = ButtonState::Hidden;
+							const CommandButton *cand = findLevelUpgradeButton(*sel, lvlTarget, &st);
+							if (!cand || (st != ButtonState::Enabled && st != ButtonState::Active))
+							{
+								continue;
+							}
+							const UpgradeTemplate *candU = TheUpgradeCenter ? TheUpgradeCenter->findUpgrade(cand->m_upgradeName) : nullptr;
+							if (!candU || sel->hasUpgrade(candU))
+							{
+								continue;
+							}
+							ClientMessage &m = m_ctx.stream.append(MSG_QUEUE_UPGRADE);
+							m.appendObjectID(sel->getID());
+							m.appendInteger(candU->getMaskBit());
+							anySent = true;
+						}
+						return anySent;
+					}
+				}
+			}
 			// MSG_QUEUE_UPGRADE: argument 1 is the upgrade's mask bit (the dispatcher case RW 0x77A6FD reads only that one; lane UPGRADE-1 executes it)
 			const UpgradeTemplate *u = TheUpgradeCenter && !b.m_upgradeName.empty() ? TheUpgradeCenter->findUpgrade(b.m_upgradeName) : nullptr;
 			if (!u)
@@ -622,12 +772,51 @@ bool ControlBar::cancelQueued(int slot, bool inPalantir, bool shift)
 		m.appendInteger(u->getMaskBit());
 		return true;
 	}
-	if (!cb || !cb->button || cb->button->m_command != GUI_COMMAND_UNIT_BUILD || cb->queued <= 0)
+	if (!cb || !cb->button || cb->button->m_command != GUI_COMMAND_UNIT_BUILD)
+	{
+		return false;
+	}
+	const ThingTemplate *tt = cb->button->getThingTemplate();
+	// PYSAGE 1.9.8.5 .bldcan 0xEDC024: right-click cancel on UNIT_BUILD in a same-type building group cancels across all active buildings.
+	if (tt && cb->button->hasOption(COMMAND_OPTION_CANCELABLE) && ModEngineFeatures::has(ModEngineFeature::EnnorathSelectAllBuildings))
+	{
+		const std::vector<Object *> liveSelected = collectLiveSelected();
+		if (findSelectedSameBuildingGroup(liveSelected) != nullptr)
+		{
+			const bool cancelAll = shift && BuildAssistant::maxSimultaneousOfType(*tt) == 0;
+			bool anySent = false;
+			for (Object *sel : liveSelected)
+			{
+				if (!isActiveBuildingForGroup(*sel) || sel->getControllingPlayer() != m_ctx.localPlayer() || !sel->getProductionUpdate())
+				{
+					continue;
+				}
+				ClientMessage &selMsg = m_ctx.stream.append(MSG_CREATE_SELECTED_GROUP);
+				selMsg.appendBoolean(true);
+				selMsg.appendObjectID(sel->getID());
+				ClientMessage &m = m_ctx.stream.append(MSG_CANCEL_UNIT_CREATE);
+				m.appendBoolean(false);
+				m.appendInteger((int)tt->getTemplateID());
+				m.appendBoolean(cancelAll);
+				anySent = true;
+			}
+			if (anySent)
+			{
+				ClientMessage &rest = m_ctx.stream.append(MSG_CREATE_SELECTED_GROUP);
+				rest.appendBoolean(true);
+				for (Object *sel : liveSelected)
+				{
+					rest.appendObjectID(sel->getID());
+				}
+			}
+			return anySent;
+		}
+	}
+	if (cb->queued <= 0)
 	{
 		return false;
 	}
 	Object *obj = m_ctx.logic.findObjectByID(m_source);
-	const ThingTemplate *tt = cb->button->getThingTemplate();
 	if (!tt || !cb->button->hasOption(COMMAND_OPTION_CANCELABLE) || !obj || obj->getControllingPlayer() != m_ctx.localPlayer()
 		|| !obj->getProductionUpdate())
 	{

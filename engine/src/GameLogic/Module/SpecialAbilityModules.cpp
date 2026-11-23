@@ -19,6 +19,8 @@
 #include "GameLogic/Object/Contain/OpenContainRuntime.h"
 
 #include "Common/GameCommon.h"
+#include "Common/ModEngineFeatures.h"
+#include "GameLogic/ExperienceWorld.h"
 #include "Common/INIException.h"
 #include "Common/LightPointSystem.h"
 #include "Common/Player.h"
@@ -658,7 +660,7 @@ bool SpecialAbilityUpdate::allowsSpecialPowerUse(const Coord3D *loc) const
 		getObject()->logic().noteStop("[S-1043] SpecialAbilityUpdate: the grab enums' room test (RW 0x851BA2) of a contain that is not an OpenContain is not ported; the power is refused");
 		return false;
 	}
-	return (int)c->getContainCount() < open->getContainMax();
+	return c->getContainCount() < static_cast<unsigned>(open->getContainMax()); // RW 0x851BC4..0x851BC6: cmp edi, eax; jb
 }
 
 // RW 0x851551
@@ -1499,7 +1501,11 @@ void SpecialAbilityUpdate::triggerAbilityEffect()
 	{
 		if (Player *p = obj->getControllingPlayer())
 		{
-			p->science().addSkillPoints((float)skill, false); // RW 0x782AA4(points, 0)
+			// PYSAGE 1.9.8.7 .wmfeat 0xF3A3F7 (hook RW 0x853FA0): caster with CANT_EARN_POWERPOINTS earns no power points
+			if (!ExperienceWorld::cantEarnPowerPoints(obj))
+			{
+				p->science().addSkillPoints((float)skill, false); // RW 0x782AA4(points, 0)
+			}
 		}
 	}
 	// PORT-113 (issue #280), RW 0x853FA5 .. 0x853FCB: with TheLightPointSystem (RW 0xDE8C04; retail always has one) and an owner, the owner pays the
@@ -1936,13 +1942,20 @@ void SpecialAbilityUpdate::startPacking(bool success)
 	}
 	if (success && t)
 	{
-		const int type = t->getFinalOverride()->m_type; // RW 0x85365C / 0x85366A -> 0x688D3C, + 0x1C
+		const SpecialPowerTemplate *fo = t->getFinalOverride(); // RW 0x85365C / 0x85366A / 0x8536A8 -> 0x688D3C
+		const int type = fo->m_type; // + 0x1C
 		if (type == 0x1A || type == 0x1D)
 		{
 			// RW 0x853661 .. 0x85368D: SPECIAL_BLACKLOTUS_CAPTURE_BUILDING (0x1A) / SPECIAL_INFANTRY_CAPTURE_BUILDING (0x1D) -> 0x7DD (VoiceCaptureBuildingComplete)
 			AudioApi::postUnitVoice(0x7DD, obj->getID(), t);
 		}
-		// RW 0x853679 (0x7DE VoiceTaskComplete on other powers) and RW 0x8536BD (EvaEventToPlayOnSuccess) remain outside Port 86
+		// RW 0x853679 (0x7DE VoiceTaskComplete on other powers) remains outside Port 86
+		// RW 0x853468 (0x853692 .. 0x8536BD): Local 139 (fork issue 856) — if controlling player is local player, report SpecialPowerTemplate::m_evaEventToPlayOnSuccess (+0x44)
+		const Player *owner = obj->getControllingPlayer();
+		if (owner && owner == obj->logic().players().getLocalPlayer() && !fo->m_evaEventToPlayOnSuccess.empty())
+		{
+			AudioApi::reportEva(fo->m_evaEventToPlayOnSuccess, obj->getPosition()); // RW 0x8536BD -> 0x5DD9EE
+		}
 	}
 }
 
@@ -2543,11 +2556,21 @@ Object *replaceWithTemplate(Object &old, const std::string &mountedTemplate, con
 }
 
 // RW 0x8B1FDA (lane SUMMON-1): an object whose current locomotor (AI + 0x1F0, RW 0x68B31D) has a max speed of 0 for its condition (RW 0x5E3F49) refuses the
-// initiate (no IGNORE_AI_COMMAND either); an object without AI or locomotor does not
+// initiate (no IGNORE_AI_COMMAND either); an object without AI or locomotor does not.
+// PYSAGE 1.9.8.7 .wmfeat 0xF3A940 (hook RW 0x8B1FFE in RW 0x8B1FDA / RW 0x8B1FF7, ennorath.toggle-mounted-zero-speed): when curLocomotorSpeed == 0,
+// also checks AI + 0x1F8 (locomotorSetSpeed); if the LocomotorSet's own Speed is 0, allow the toggle.
 bool mountInitiateRefused(const Object &obj)
 {
 	const AIUpdateInterface *ai = obj.getAIUpdateInterface();
-	return ai && ai->curLocomotor() && ai->curLocomotorSpeed() == 0.0f;
+	if (!ai || !ai->curLocomotor() || ai->curLocomotorSpeed() != 0.0f)
+	{
+		return false;
+	}
+	if (ModEngineFeatures::has(ModEngineFeature::EnnorathToggleMountedZeroSpeed) && ai->locomotorSetSpeed() == 0.0f)
+	{
+		return false;
+	}
+	return true;
 }
 
 // WhichSpecialPower (RW 0x89455B / 0x8945C1 / 0x8B208A: 0 USER_... at Object + 0x134 bit 10, 1 .. 3 SPECIAL_POWER_1 .. 3 at + 0x124 bits 19 .. 21)

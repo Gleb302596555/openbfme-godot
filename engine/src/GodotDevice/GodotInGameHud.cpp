@@ -945,9 +945,8 @@ void HudDevice::drawPlaceholder(const AptCanvasOp &op, RID item)
 	{
 		// lane HUD-2: a RenderImage clip without `_imageMap` (the Palantir portrait, CommandUI.Portrait) finds its image by its own path
 		const AptPalantir::NativeImage *img = hud->palantir() ? hud->palantir()->imageForClip(op.path, varOf(op, "_imageMap")) : nullptr;
-		// BFME2 AptPlayer::FindRenderImage (0x223AC4, called by the image draw 0x412B94 with the clip's path and parameters): after the dynamic image map,
-		// `_imageMap` names a MappedImageCollection image directly (static button / background layers are not entries of Palantir's dynamic map).
-		// INFERENCE (S-5016): 0x223AC4's body is not decompiled in Open-BFME-2; the order (dynamic map first) was not read
+		// TARGET FACT (Port 331, S-5016 closed; RW 0x6237C0 AptPlayer::FindRenderImage): walks registered dynamic maps first, then falls back to
+		// TheMappedImageCollection->findImageByName(_imageMap) (RW 0x623819 -> 0x45D063).
 		AptPalantir::NativeImage staticImage;
 		const std::string imageMap = varOf(op, "_imageMap");
 		if ((!img || img->image.empty()) && !imageMap.empty() && images.findImageByName(imageMap))
@@ -1014,8 +1013,8 @@ void HudDevice::drawPlaceholder(const AptCanvasOp &op, RID item)
 		// lane PLAY-1: the clip's cumulative colour multiplies the image (SpellStore.apt's _disabled frame places the image at alpha 0.396: a locked power is
 		// dimmed; drawn at full alpha every power looked buyable). INFERENCE: retail's RenderImage draw was not read; the add terms are not applied
 		mod = Color(mod.r * op.placeholderColor[0], mod.g * op.placeholderColor[1], mod.b * op.placeholderColor[2], mod.a * op.placeholderColor[3]);
-		// BFME2 AptImageModeParser (0x412AF3; GameClient/GUI/AptScreens/AptImageMode.h): the clip's `_mode`. Recruitment art uses transparent foreground
-		// pixels whose RGB still holds the background, drawn SOLID. The per-mode render states are inferred (S-5016)
+		// TARGET FACT (Port 331, S-5016 closed; RW 0x815814 / RW 0x44704F / RW 0x51A44D..0x51A5EA): the clip's `_mode`. Recruitment art uses transparent
+		// foreground pixels whose RGB still holds the background, drawn SOLID; per-mode render states match W3DDisplay::drawImageCore + Render2DClass::Render.
 		const AptImageMode mode = parseAptImageMode(varOf(op, "_mode"));
 		if (mode != APT_IMAGE_ALPHA)
 		{
@@ -1174,28 +1173,38 @@ void HudDevice::drawIconOps(RID parent)
 			}
 			case IconUIOp::TEXT:
 			{
-				if (font.is_null())
-				{
-					continue;
-				}
 				const String text = String::utf8(op.text.c_str());
 				// a stage-sized text (the money texts) grows with the window as the HUD movies do: the window height over the 600 stage rows
 				const float stageScale = op.stageTextSize > 0.0f ? std::max(1.0f, (float)hud->windowHeight() / 600.0f) : 1.0f;
 				const int size_px = op.pixelTextSize > 0.0f ? (int)std::lround(op.pixelTextSize * k)
 					: op.stageTextSize > 0.0f ? (int)std::lround(op.stageTextSize * stageScale * k) : fontSize;
+				Ref<Font> textFont = font;
+				if (!op.fontName.empty() && player)
+				{
+					float drawSize = (float)size_px;
+					Ref<Font> resolved = player->font_for(op.fontName, (float)size_px, &drawSize, op.fontIsBold); // RW 0x48FE84 -> 0x6186E0
+					if (resolved.is_valid())
+					{
+						textFont = resolved;
+					}
+				}
+				if (textFont.is_null())
+				{
+					continue;
+				}
 				const float dropX = op.dropOffsetX, dropY = op.dropOffsetY;
-				const Vector2 size = font->get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px);
+				const Vector2 size = textFont->get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px);
 				// RW 0x677F1B: x - width / 2, the string's top at y; a bottom-right text (the group number, RW 0x673F6D) ends at x, y
-				const Vector2 at = op.bottomRight ? Vector2(op.x - std::ceil(size.x), op.y - size.y + font->get_ascent(size_px))
-												  : Vector2(op.x - std::floor(size.x / 2.0f), op.y + font->get_ascent(size_px));
+				const Vector2 at = op.bottomRight ? Vector2(op.x - std::ceil(size.x), op.y - size.y + textFont->get_ascent(size_px))
+												  : Vector2(op.x - std::floor(size.x / 2.0f), op.y + textFont->get_ascent(size_px));
 				// a money text's shadow is faint (35%): at full strength it made the small text read bold (the owner asked for a thinner text, PROBLEMS.md P-6)
 				Color dropColor = col(op.dropColor);
 				if (op.stageTextSize > 0.0f)
 				{
 					dropColor.a *= 0.35f;
 				}
-				font->draw_string(iconItem, at + Vector2(dropX, dropY), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, dropColor);
-				font->draw_string(iconItem, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, col(op.color));
+				textFont->draw_string(iconItem, at + Vector2(dropX, dropY), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, dropColor);
+				textFont->draw_string(iconItem, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, col(op.color));
 				break;
 			}
 		}

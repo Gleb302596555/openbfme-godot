@@ -128,6 +128,7 @@ public:
 };
 
 // RW 0x008B1BB8 (getModuleName), RW 0x008B1BDE (getModuleNameKey), RW 0x008B1C43 (scalar deleting dtor -> 0x008B1BBE).
+// RW 0x008B1BBE (dtor -> RW 0x00854D9A)
 class ToggleDeploySpecialAbilityUpdate : public SpecialAbilityUpdate
 {
 public:

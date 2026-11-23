@@ -150,22 +150,11 @@ void ToggleHiddenSpecialAbilityUpdate::triggerAbilityEffect()
 	}
 }
 
-// RW 0x851B6E: SpecialAbilityUpdate's conditions (RW 0x851551), then the garrison enums 0x27 / 0x28 need room in the object's contain (contain slots 0x114 /
-// 0x70: not ported, S-1043)
+// RW 0x851B6E (SpecialPowerUpdateInterface vslot 0x20, shared with SpecialAbilityUpdate):
+// conditions (RW 0x851551), then for SPECIAL_GRAB_PASSENGER (0x27) / SPECIAL_GRAB_CHUNK (0x28) checks contain room (RW 0x851BA2..0x851BC6).
 bool ToggleHiddenSpecialAbilityUpdate::canHide() const
 {
-	if (!conditionsAllow())
-	{
-		return false;
-	}
-	const SpecialPowerTemplate *t = m_data->m_specialPowerTemplate;
-	const int type = t ? t->getSpecialPowerType() : 0;
-	if (type != 0x27 && type != 0x28)
-	{
-		return true;
-	}
-	noteStop(*getObject(), "ToggleHiddenSpecialAbilityUpdate: the garrison enum's room test (RW 0x851BA2) is not ported; the hide does not happen");
-	return false;
+	return allowsSpecialPowerUse(nullptr);
 }
 
 // RW 0x8B19AC

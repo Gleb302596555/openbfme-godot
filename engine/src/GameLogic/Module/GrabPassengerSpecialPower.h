@@ -46,6 +46,7 @@ public:
 };
 
 // Local 87: RW 0x008C949C (getModuleName), RW 0x008C9457 (getModuleNameKey), RW 0x008C94BB (dtor), RW 0x008C6583 (base dtor thunk).
+// RW 0x008C94A2 (dtor -> RW 0x00897583)
 class GrabPassengerSpecialPower : public SpecialPowerModule
 {
 public:

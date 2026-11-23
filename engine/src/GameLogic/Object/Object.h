@@ -44,6 +44,7 @@
 #pragma once
 
 #include "Common/Thing/Thing.h"
+#include "GameLogic/SimMath.h"
 #include "GameLogic/Module/BehaviorModule.h"
 #include "GameLogic/Module/DieModule.h"
 #include "GameLogic/ObjectTypes.h"
@@ -326,7 +327,7 @@ public:
 	// RW 0x692443: a set type: other than HELD resumes the countdowns (RW 0x68B961(0)), a rider held forever by it is cleared too, the expiry and the bit go,
 	// USER_PARALYZED / USER_FROZEN clear PARALYZED (and notify), then checkDisabledStatus runs
 	void clearDisabled(unsigned type);
-	bool isDisabledByType(unsigned type) const { return type < DISABLED_TYPE_COUNT && (m_disabled & (1u << type)) != 0; }
+	bool isDisabledByType(unsigned type) const { return type < DISABLED_TYPE_COUNT && (m_disabled & (1u << type)) != 0; } ///< RW 0x005E42B6
 	// RW 0x68B961: every module's special power interface pauses (true) or resumes (false) its countdown
 	void pauseAllSpecialPowers(bool pause);
 	// lane SCRIPT-2: the script status byte (RW Object + 0x457, ZH ObjectScriptStatusBit: 1 SCRIPT_DISABLED, 2 SCRIPT_UNPOWERED, 4 SCRIPT_UNSELLABLE,
@@ -373,7 +374,15 @@ public:
 		bool inside = false;
 	};
 	static constexpr int MAX_TRIGGERS_IN = 7;
-	void updateTriggerAreaFlags();
+	// `pathCellChanged`: the AI's pathfinder updatePos of this transform change took a new position cell (RW 0x6926F6 -> 0x8E26B7 answered 1)
+	void updateTriggerAreaFlags(bool pathCellChanged);
+	// lane VISIONDEF-1: RW + 0x1C4 (BFME2 1.06 + 0x1C4, ObjectSetTriggerAreaFlagsForChangeInPosition.cpp m_averageGroundHeight), the ground reference of
+	// the vision height bonus (getVisionRange RW 0x68E43B / getShroudClearingRange RW 0x68E4E2: 1 + clamp((z - it) * VisionBonusPercentPerFoot)). The
+	// constructor clears it (RW 0x699A77); the first position change sets it to the object's own z while it is still 0 (reactToTransformChange RW
+	// 0x6935EC, BFME2 0x692D49); RW 0x69264D (BFME2 0x691EB1) samples the ring of VisionBonusTestSegments ground heights again only when the pathfinder
+	// gave the unit a new position cell. An object without an AI keeps the z of its first move
+	float visionGroundReference() const { return m_visionGroundRef; }
+	void updateVisionGroundReference();
 	// lane CASTLEAREA-1: RW 0x68B9E9 (from PolygonTrigger removal, RW 0x6263AF): every entry of `trigger` is cleared (no exit is reported), then RW 0x68B98E keeps
 	// the entries still inside with their entered / exited flags cleared
 	void removeTriggerEntries(int trigger);
@@ -577,6 +586,16 @@ public:
 	const float *getRecordedBasis() const { return m_recordedBasis; } ///< row major, as Thing::getBasis (read by the client's RenderInterpolation)
 	const Coord3D &getPreviousPosition() const { return m_previousPosition; }
 
+	// RW 0x00665342 (Object::getPlanarDirectionTo -> RW 0x006635F4 Thing::getPlanarDirectionTo; DONOR BFME2 Object::getPlanarDirectionTo; both BFME2 1.06 and RotWK 2.01):
+	// returns (other->pos.x - this->pos.x, other->pos.y - this->pos.y, 0.0f) in float32 (subss).
+	Coord3D getPlanarDirectionTo(const Object *other) const
+	{
+		if (!other) return Coord3D{ 0.0f, 0.0f, 0.0f };
+		const Coord3D *a = getPosition();
+		const Coord3D *b = other->getPosition();
+		return Coord3D{ SimMath::subf32(b->x, a->x), SimMath::subf32(b->y, a->y), 0.0f };
+	}
+
 	// lane BACKLOG4 (S-1222): RW 0x693919 (BFME2 decomp ObjectRva00293105.cpp Object::rva00293105 is the donor, tier B edited: RotWK adds the status
 	// test). Nothing with the status 0x66 (SUMMONING_REPLACEMENT, + 0xA0 bit 6); every module whose special power update interface (behaviour slot 0x64)
 	// is active (slot 4) and in use (slot 0x18 with a null button, RW 0x851C92) ends its ability as aborted (RW 0x8513E4: module slot 0x34 (0, 1)); then
@@ -698,6 +717,7 @@ private:
 	mutable std::unique_ptr<OwnGeometryCache> m_ownGeometry;
 	UnsignedInt m_enteredOrExitedFrame = 0;      ///< RW + 0x414
 	std::int32_t m_triggerCellX = 0, m_triggerCellY = 0; ///< RW + 0x418 / + 0x41C (the integer position of the last check)
+	float m_visionGroundRef = 0.0f;                      ///< RW + 0x1C4 (lane VISIONDEF-1, see visionGroundReference)
 
 	bool m_hasChargeAttackAbility = false; ///< RW 0x699AC6 / 0x69A549: computed once after the initial modules (Object + 0x251)
 	bool m_hasGeometryHeights = false;     ///< Port 34: m_ownGeometry->heights holds per-shape extents from setGeometryMaxHeight (in padding: sizeof(Object) unchanged)

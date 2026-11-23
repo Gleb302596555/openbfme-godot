@@ -68,6 +68,8 @@ public:
 	virtual bool isAiModuleData() const { return m_aiModuleData; }
 	// RW vtable slot 7 (name unverified, S-073): see the file comment
 	virtual bool bfmeSlot7Predicate() const { return m_slot7Predicate; }
+	// RW 0x0073D0FD (0x0073D185, ThingTemplate parseFuelFactor): BodyModuleData + 8 (ActiveBodyModuleData::m_maxHealth).
+	virtual float bfmeBodyMaxHealth() const { return 0.0f; }
 
 	// ZH ModuleData::buildFieldParse: a base class adds no table.
 	// static void buildFieldParse(MultiIniFieldParse &p) {}

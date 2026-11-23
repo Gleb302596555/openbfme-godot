@@ -208,7 +208,8 @@ public:
 	const CombatSettings &combatSettings() const { return m_combat; }
 	// lane BUILD-3, RW 0x667C76 AIUpdateInterface::findNearestLabeledContactPointOnTarget(target, out, callerPos, preferred): the SpecialContactPoints labels in order;
 	// the first for which the target has a contact point (Object::getWorldspaceBestContactPoint RW 0x690BD2, mode 0) gives `out`; false when none has one
-	bool findNearestLabeledContactPointOnTarget(const Object &target, Coord3D &out, const Coord3D &callerPos, bool preferred) const;
+	// Local 142 (S-7342): RW 0x667C76 format string RW 0xC0FE30 names 4th arg skipCollideTest; callers 0x6EA11E (0), 0x76B70C/0x76DE1B/0x76E200 (0), 0x8ADF07 (1).
+	bool findNearestLabeledContactPointOnTarget(const Object &target, Coord3D &out, const Coord3D &callerPos, bool skipCollideTest) const;
 	// lane TARGET-1: RotWK's getNextMoodTarget(calledByAI, calledDuringIdle) (RW 0x66844A): the target the unit's mood suggests (AI::findClosestEnemy with
 	// the mood's qualifiers and attack priority info), null when it looks for none now; calledByAI keeps the cadence (AI + 0x21C, MoodAttackCheckRate)
 	Object *getNextMoodTarget(bool calledByAI, bool calledDuringIdle);
@@ -431,6 +432,9 @@ public:
 	// ---- queries ----
 	bool isIdle() const override;             // RW 0x6643FC
 	bool isMoving() const;                    // RW 0x664485
+	// RW 0x66288A (AIUpdateInterface vslot 0x228; DONOR BFME2 0x00262BA9): true while following a path (goal 1 or 4)
+	// with an active locomotor (+0x1F0) whose current or next optimised node carries a portal waypoint id (RW 0x5E2DF4 / 0x661E50).
+	bool isMovingAlongPortal() const;
 	// lane AI-2: RW vslot 0x1BC (RW 0x662B3C): the current state's slot 0x24 (AIState::isActive), true without a current state
 	bool isStateActive() const { return !m_machine || !m_machine->currentState() ? true : m_machine->currentState()->isActive(); }
 	// Port 257: RW vslot 0x1D0 (RW 0x662B28): the current state's slot 0x34 (AIState::isFollowThru), true without a current state
@@ -663,8 +667,9 @@ public:
 	// the emotion states' stop lines (S-1021 / S-1027)
 	static std::vector<std::string> emotionStops();
 
-	// ZH Object::reactToTransformChange -> Pathfinder::updatePos: the unit's position cell follows it (RW 0x8E26B7)
-	void reactToTransformChange();
+	// ZH Object::reactToTransformChange -> Pathfinder::updatePos: the unit's position cell follows it (RW 0x8E26B7); true when it took a new cell (lane
+	// VISIONDEF-1: Object::updateTriggerAreaFlags samples the vision ground ring again then, RW 0x6926F6)
+	bool reactToTransformChange();
 	// RW 0x66E233 through the collision pass of AIWorld
 	void onCollide(PathfindObject &other) { m_mover->onCollide(other); }
 

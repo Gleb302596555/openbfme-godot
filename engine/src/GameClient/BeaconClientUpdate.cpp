@@ -49,6 +49,7 @@ bool BeaconClientUpdate::pulseDue(std::uint32_t frame)
 // RW 0x008CD9FD (getModuleName, DONOR BFME2 0x004C95C3), RW 0x008CDA03 (client DrawableModule xfer, DONOR BFME2 0x004C95C9; client-only, S-4190)
 void BeaconClientUpdate::registerClass(ModuleFactory &modules)
 {
+	// RW 0x008CDA41 (BeaconClientUpdate::getModuleNameKey)
 	modules.bindTypedData<BeaconClientUpdateModuleData>("BeaconClientUpdate", MODULETYPE_CLIENT_UPDATE);
 	modules.bindModuleProc("BeaconClientUpdate", MODULETYPE_CLIENT_UPDATE,
 		[](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &) -> std::unique_ptr<Module> {

@@ -49,6 +49,23 @@ enum class ModEngineFeature
 	EnnorathOnlineDelayFix,            // NetworkDelayFix checkbox and online frame-count pacing (.dlyfix)
 	EnnorathLobbyMapSearch,            // MpGameSetup MapSearch text entry filters MapList live by display name (.mapfind / .mapsvar)
 	EnnorathChatMute,                  // per-player chat mute on the PlayerTribute screen and in the chat path (.chatmut 0xEDB000)
+	EnnorathObserverCommandRange,      // an observer may page the command ranges (PUSH / POP_VISIBLE_COMMAND_RANGE) (.obscmd 0xED8000)
+	EnnorathCommandSet64,              // CommandSet slots 1..64 (.cmdext 0xED6000)
+	EnnorathUpgrades5120,              // upgrade mask capacity raised to 5120 bits (.upg5k 0xEDF000)
+	EnnorathBuildingLimitFix,          // phantom structures (PENDING_CONSTRUCTION + PHANTOM_STRUCTURE) count toward MaxSimultaneousOfType (.bldcap 0xF21000)
+	EnnorathSpellStoreDelay,           // defer AptSpellStore button state updates for 500 ms after OnInitialized (.spstore 0xED4000)
+	EnnorathSelectAllBuildings,        // select all buildings of a type / expansion pad, multi-building queue / foundation / level upgrade (.bldgrp/.padsel/.bldext/.bldcan/.bldlvl)
+	EnnorathReplayControls,            // replay tabs (Messenger), recorded replay chat and Ctrl+] pause (.rpchat / .rppause / .rppvar)
+	EnnorathWotr8Players,              // War of the Ring for 8 players: 8 lobby slots, dropdown clamp, 2-8 text, partial-human RTS battles (.wotrui / .wotrobs / .wtrview / .wtrdisp / .lobfac)
+	EnnorathChatClipboard,             // Ctrl+A / C / X / V in text entries (.txtclip, hooked at RW 0x722A8A; P-128, owner 2026-11-23: on with the Ennorath profiles)
+	// Ennorath 1.9.8.6 / 1.9.8.7 (one game.dat, md5 f222b925...; PYSAGE 1.9.8.7 .wmfeat / .wmkeys / .camfix / .hotkeys)
+	EnnorathOptionHotkeys1987,         // 31-entry .wmkeys table (ETKeySelectAll, ETKeySelectAllHeroes, ETKeyTacticalMenu) + 0xAB / 0x5F dispatch
+	EnnorathBuilderFixes,              // builder click sound (.hotkeys 0xF384D6) and exclude non-DOZER_CONSTRUCT workers (.wmfeat 0xF3AA56)
+	EnnorathPortraitUpgrade,           // PortraitUpgrade module: Portrait / ButtonImage without hero form change (.wmfeat 0xF3A000..0xF3A1E6)
+	EnnorathFilteredHordeRespawn,      // FilteredHordeRespawnBehavior module (.wmfeat 0xF3A000, 0xF3A20D..0xF3A349)
+	EnnorathCantEarnPowerPoints,       // KindOf CANT_EARN_POWERPOINTS (bit 222, .wmfeat 0xF3A5C0, 0xF3A34C..0xF3A41F)
+	EnnorathToggleMountedZeroSpeed,    // ToggleMountedSpecialAbilityUpdate fires when LocomotorSet Speed == 0 (.wmfeat 0xF3A940)
+	EnnorathGarrisonHeroSurvive,       // alive non-horde HERO passengers survive STRUCTURE GarrisonContain death (.wmfeat 0xF3A95F / 0xF3A9B2)
 	Count
 };
 

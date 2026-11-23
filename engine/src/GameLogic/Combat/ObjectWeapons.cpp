@@ -148,6 +148,7 @@ public:
 	// RW 0x6CA4B5); null when no GameData block of the load set named WeaponBonus, which is RW's own null test
 	const WeaponBonusSet *globalWeaponBonusSet() override { return m_w.owner().logic().settings().globalWeaponBonusSet.get(); }
 	// RW 0x6CEF6D (Weapon::privateFireWeapon) -> RW 0x6CF042: source->getAttributeModifierProduct(0x15, &factor, nullptr, true) (RW 0x68C82D).
+	// Both editions: BFME2 1.06 game.dat has the same call (push 0x15 at 0x6CE3DB -> 0x68C15E, the factor passed to getDelayBetweenShots 0x6C9322),
 	// Pure const read on the owner's pool (safe on the PERF-WS logic job pool).
 	float rateOfFireAttributeProduct() override
 	{
@@ -277,6 +278,7 @@ public:
 	Object &m_owner;
 	ObjectWeapons *m_set;
 	// RW 0x6CA61F (WeaponRangeScale) -> RW 0x6CA641: source->getAttributeModifierSum(7, &sum, nullptr) (RW 0x68C818).
+	// Both editions: BFME2 1.06 game.dat 0x6C98E2 is the same body (push 7, call 0x68C149 at 0x6C9904, scale = sum + 1.0f); RANGE is type 7 in both.
 	// Pure const read on the owner's pool (safe on the PERF-WS logic job pool).
 	bool rangeAttributeSum(float &sum) override { return m_owner.attributeModifierSum(ATTRIBUTE_RANGE, nullptr, sum); }
 	// lane GARRISON-1: GameData GarrisonedRangeMultiplier (RW + 0x1224; RW 0x6CA61F applies it when >= 0 and the source is INSIDE_GARRISON)
@@ -571,8 +573,8 @@ std::unique_ptr<Weapon> ObjectWeapons::makeExtraWeapon(const WeaponTemplate *t)
 	return w;
 }
 
-// Both editions: RW 0x691014 (DONOR BFME2 0x0029091E Object::rva0029091E) builds a WeaponSetFlags with `bit` and queries
-// ThingTemplate::findWeaponTemplateSet (RW 0x73F6B9 -> 0x73EE52 -> 0x73D89F). Because FindWeaponTemplateSet returns the
+// Both editions: RW 0x00691014 (DONOR BFME2 0x0029091E Object::rva0029091E; WeaponSet ctor RW 0x006CA161) builds a WeaponSetFlags with `bit` and queries
+// ThingTemplate::findWeaponTemplateSet (RW 0x0073F6B9 -> RW 0x0073EE52 -> RW 0x0073D89F). Because FindWeaponTemplateSet returns the
 // default Conditions = None set (bestUnmatched < 0x3E7) whenever any WeaponSet is defined on the template, templates such as
 // ImladrisZwillingeEdain and ImladrisGwaihir still receive WEAPONSET_HERO_MODE (0x1B) in HeroModeSpecialAbilityUpdate.
 bool ObjectWeapons::hasWeaponSetFor(int bit) const

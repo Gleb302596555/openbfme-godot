@@ -7,10 +7,7 @@ Layer 2 (lint) flags verdicts the mod's own data contradicts; layer 3 lists ever
 By rule: L1 66, L4 3
 
 
-## Changes since 37d9bf28: 5 buttons moved, 2 turned red
+## Changes since ff106d0f: 2 buttons moved, 1 turned red
 
-- Men `MenPorterRepair` `Command_RepairAI`: PASS -> NO-SEND — SpecialRepairStructure: the click on its target sent nothing (target GondorBarracks at 650,3152,103, owner Player_1 [pixel 512,384, collisio
-- Wild `MordorBalrogAI` `Command_SpecialAbilityBalrogBreathAI`: ORDER -> NO-EFFECT — SpecialAbilityBalrogBreath (target GondorFighterHorde) fired but WeaponFireSpecialAbilityUpdate SpecialWeapon MordorBalrogBreath: no result 
-- Rohan `RohanTheoden_mod` `Command_SpecialAbilityKingsFavorEdainTheo`: ORDER -> PASS
-- Rohan `Theoden_OneRing` `Command_SpecialAbilityKingsFavorEdainTheoRing`: ORDER -> PASS
-- Wild `WildPorterSpecAI` `Command_RepairAI`: PASS -> ORDER
+- Angmar `spell` `SpellBookSummonStoneGiants`: PASS -> FAIL — the HUD refused the scene's spot and every spot of the ring search (RotWK's location test, RW 0x82DFB7) (the spot's cell status 0) [AngmarDa
+- Mordor `MordorGrond` `(aura) ModuleTag_DreadVisageAura`: NO-AURA -> PASS
