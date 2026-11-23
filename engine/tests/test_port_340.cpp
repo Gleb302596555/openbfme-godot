@@ -68,7 +68,9 @@ namespace
 	"    WhichSpecialWeapon = 1\n"                                                                                                               \
 	"  End\n"
 
-// the horde's HorseHordeContain, the mod's values (the AlternateFormation line is filled in per object below)
+// the horde's HorseHordeContain, the mod's values (the AlternateFormation line is filled in per object below). MeleeBehavior is left out on
+// purpose: its parser (RW 0x86C337) reads the rest of the block as MeleeBehavior sub-fields, so the mod's `Amoeba` (what RW's "anything
+// else" arm makes of an unknown token) is the default the fixture gets anyway
 #define PORT340_CONTAIN_FIELDS                                                                                                                   \
 	"    FrontAngle = 270\n"                                                                                                                     \
 	"    FlankedDelay = 500\n"                                                                                                                   \
@@ -77,7 +79,6 @@ namespace
 	"    PassengerFilter = NONE +CAVALRY +Port340Rider\n"                                                                                        \
 	"    ShowPips = No\n"                                                                                                                        \
 	"    RandomOffset = X:1 Y:1\n"                                                                                                               \
-	"    MeleeBehavior = Amoeba\n"                                                                                                               \
 	"    RankInfo = RankNumber:1 UnitType:Port340Rider Position:X:25 Y:0 Position:X:5 Y:-25 Position:X:10 Y:29 Position:X:-20 Y:-18 Position:X:-24 Y:12\n"
 
 const char kPort340Head[] = R"ini(
@@ -316,11 +317,11 @@ struct Port340World : combattest::CombatWorld
 	// runs the world until the victim's health differs from `from` (the weapon nugget landed); true when it did within `limit` frames
 	bool waitForHit(Object &victim, float from, int limit)
 	{
-		for (int f = 0; f < limit && health(victim) == from; ++f)
+		for (int f = 0; f < limit && health(&victim) == from; ++f)
 		{
 			frames(1);
 		}
-		return health(victim) != from;
+		return health(&victim) != from;
 	}
 	// the mod's weapon: a 600 MAGIC DamageNugget on the hero's PlainArmor DEFAULT 100%, so a landed hit is exactly this
 	static constexpr float kHeroHealth = 20000.0f;
