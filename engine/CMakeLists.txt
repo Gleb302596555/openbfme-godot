@@ -644,6 +644,7 @@ include(cmake/Port309.cmake)    # PORT-309: ExperienceLevel level-up tint verdic
 include(cmake/Port323.cmake)    # PORT-323: the Object class' open stops, issue #840; verdicts in docs/STOPS.md (OPENBFME_PORT323_TESTS)
 include(cmake/Port318.cmake)    # PORT-318: the AerialPathfindNoFlyZone block and the no-fly zone test of flyers (issue #754; OPENBFME_PORT318_TESTS)
 include(cmake/Port316.cmake)    # PORT-316: the drawable's flush on the creation paths and before bone queries (fork issue 752, S-1583; OPENBFME_PORT316_TESTS)
+include(cmake/Port341.cmake)    # PORT-341: the floor / prop / tree / debris draw records of the client draw modules (fork issue 896; OPENBFME_PORT341_TESTS)
 include(cmake/Port274.cmake)    # PORT-274: FIRE_WEAPON buttons with an object target press -> click -> MSG_DO_WEAPON_AT_OBJECT (issue #641; OPENBFME_PORT274_TESTS)
 include(cmake/Port331.cmake)    # PORT-331: Shell, online and Living World stop fixes (issue #848; OPENBFME_PORT331_TESTS)
 include(cmake/Port313.cmake)    # PORT-313: the hold-fire / auto-acquire button image toggle and the related object's flag (issue #749, S-1983 / S-1992; OPENBFME_PORT313_TESTS)
@@ -1524,6 +1525,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT293_TESTS}
     ${OPENBFME_PORT309_TESTS}
     ${OPENBFME_PORT316_TESTS}
+    ${OPENBFME_PORT341_TESTS}
     ${OPENBFME_PORT274_TESTS}
     ${OPENBFME_PORT313_TESTS}
     ${OPENBFME_PORT335_TESTS}

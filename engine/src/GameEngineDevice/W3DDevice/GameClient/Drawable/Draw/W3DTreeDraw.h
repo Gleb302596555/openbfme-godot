@@ -28,9 +28,25 @@
 //   DONOR  Open-BFME-2 GameEngineDevice/Source/W3DDevice/GameClient/Drawable/Draw/W3DTreeDraw.cpp,
 //          W3DPropDraw.cpp, W3DFloorDrawCtor.cpp (member layout and names), ZH W3DTreeDraw.cpp.
 //
+//   TARGET RW 0x467B4D  the terrain visual's floor forwarder (BaseHeightMapRenderObjClass; the receiver is at RW 0xDC78EC + 0x3860):
+//                       with no floor list it returns 0 (RET 0x14), else it tail-jumps to RW 0x4E592B with the five arguments the
+//                       module hands over - the object (RW 0x4CEAB7: Drawable + 0x100), the module data's ModelName (+8), the weather
+//                       texture (RW 0x4CEA1C), ForceToBack (+0x1D) and StaticModelLODMode (+0x1C). RW 0x4E592B: no record when the floor
+//                       list holds 0x1C2 (450) records (RW 0x4E5953), when the model does not load (RW 0x4E5960, the W3D asset manager),
+//                       when the list's enabled byte (+0x20) is clear (RW 0x4E5968) or when an existing record for that object and name
+//                       is not reusable (RW 0x4E5886 / RW 0x4E3D33); otherwise RW 0x4E4000 refreshes that record or RW 0x4E59BA makes one.
+//                       RW 0x4E580B (reached from RW 0x46AF77): the record's drawable (+0x2C) is cleared and its slot freed (+0x9C = 1).
+//   TARGET RW 0x467AD4  the terrain visual's prop forwarder: with no prop list (RW 0xDC78EC + 0x3858) it does nothing (RET 0x20), else
+//                       RW 0x4EE5B8 with 8 arguments. RW 0x4EE5B8: no record without the global switch (RW 0xDE4364 + 0x1C, RW 0x4EE5C3),
+//                       at 0xFA0 (4000) records (RW 0x4EE5D0) or with the list's enabled byte (+0x2EE09) clear (RW 0x4EE5E0); a record
+//                       keyed by the object (RW 0x4065D4) is reused, else RW 0x4EE1E3 makes one.
+//
 // What is NOT retail knowledge (stops, docs/STOPS.md):
 //   S-111  the dynamic tree behaviour (push-aside, topple, sink, morph, fade) and the FXList / tree-template names are stored but
 //          not run; the FXList registry is not ported, so a name retail would reject is accepted here.
+//   S-7904 the W3D asset layer the three modules above end in: the render-object loader RW 0x536E49 / RW 0x536310 (name, scale and
+//          an option block -> a render object) and the animation lookup RW 0x54C8B6 (a name -> an animation handle). The port keeps
+//          names and hands them to Godot; the sub-model attachment those loaders feed is S-7701 (RW 0x4B7384).
 
 #pragma once
 
@@ -111,6 +127,28 @@ const char *const *weatherNames(); ///< RW 0xDA3A84: NORMAL, SNOWY (NULL termina
 
 class Xfer;
 
+// What one static draw hands the terrain visual's record list, and whether that record is there now. The port draws a map-placed
+// prop / floor as a static model of its own (GameClient/Drawable.h DrawEntry, GameClient/FloorFade.h record); this is the module
+// state that decides when such a record is made and with which fields, as the module on RW 0xBE3378 / RW 0xBE34xx does.
+struct W3DPropDrawRecord
+{
+	bool added = false;              ///< a record for this module exists in the prop list (RW 0x467AD4 -> RW 0x4EE5B8)
+	std::string modelName;           ///< the module data's ModelName (+8), the first argument RW 0x4CE7F9 pushes
+	bool distanceFog = true;         ///< the module data's DistanceFog (+0xC), RW 0x4CE7F2
+	float x = 0.0f, y = 0.0f;        ///< the position the record was made at (RW 0x4CE7B6 / RW 0x4CE7CE read it from the drawable)
+};
+
+struct W3DFloorDrawRecord
+{
+	// RW 0x004CE9B6: the floor's destructor clears its record (RW 0x4CE9D6..0x4CE9FE: the data's ModelName and the drawable go to
+	// RW 0x46AF77 -> RW 0x4E580B) and then the prop base's destructor runs; the port's record lives in this object, so it goes with it.
+	bool added = false;              ///< a record for this module exists in the floor list (RW 0x467B4D -> RW 0x4E592B)
+	std::string modelName;           ///< the module data's ModelName (+8): RW 0x4CEAB1 pushes it
+	std::string weatherTexture;      ///< RW 0x4CEA1C for the map's weather ("" when the module has no entry for it: the model keeps its own)
+	bool forceToBack = false;        ///< the module data's ForceToBack (+0x1D), RW 0x4CEAA9
+	bool staticModelLODMode = false; ///< the module data's StaticModelLODMode (+0x1C), RW 0x4CEAA0
+};
+
 // Runtime state of W3DPropDraw (RW 0x004CE776 ctor, RW 0x004CE6AE GetSnapshotName, RW 0x004CE6BF getModuleNameKey,
 // RW 0x004CE75C getModelName, RW 0x004CE793 reactToTransformChange, RW 0x004B1B3F xfer, RW 0x004CE84C ModuleData deleting dtor).
 class W3DPropDrawState
@@ -122,10 +160,12 @@ public:
 	std::string getModelName() const { return m_data ? m_data->m_modelName : std::string(); }
 	bool distanceFog() const { return m_data ? m_data->m_distanceFog : true; }
 
-	// RW 0x004CE793 (DONOR BFME2 0x000CEF9F, W3DPropDrawReact.cpp): one-shot prop registration when !m_propCreated (+0x0C)
-	// and (pos.x != 0.0f || pos.y != 0.0f).
+	// RW 0x004CE793: one-shot prop registration when +0x0C is clear and the object is not at the origin (RW 0x4CE7B6 / RW 0x4CE7CE:
+	// a position of exactly (0, 0) never gets a record, so the prop is never drawn). The record is made at that first position and is
+	// NOT moved afterwards: nothing in RW 0x4CE793 or RW 0x4EE5B8 re-reads the drawable's transform.
 	bool reactToTransformChange(float posX, float posY);
 	bool propCreated() const { return m_propCreated; }
+	const W3DPropDrawRecord &record() const { return m_record; }
 
 	// RW 0x004B1B3F (DONOR BFME2 0x000B221A, W3DPropDrawXfer.cpp): version(1, 1)
 	void xfer(Xfer &x);
@@ -133,6 +173,7 @@ public:
 protected:
 	const W3DPropDrawModuleData *m_data = nullptr;
 	bool m_propCreated = false; ///< +0x0C
+	W3DPropDrawRecord m_record;
 };
 
 // Runtime state of W3DFloorDraw (RW 0x004CE91B ctor, RW 0x004CE95F GetSnapshotName, RW 0x004CE971 getModuleNameKey,
@@ -144,36 +185,50 @@ class W3DFloorDrawState : public W3DPropDrawState
 public:
 	explicit W3DFloorDrawState(const W3DFloorDrawModuleData *data = nullptr);
 
-	// RW 0x004CEA1C: resolves texture name for weather index (0 NORMAL, 1 SNOWY) from m_weatherTextures (+0x10)
+	// RW 0x004CEA1C: resolves texture name for weather index (0 NORMAL, 1 SNOWY) from m_weatherTextures (+0x10); the calls come from
+	// RW 0x4CEA46 RW 0xDE4364 + 0x138, the weather the map is in, and no matching entry leaves the result empty
 	std::string resolveWeatherTexture(int weather) const;
 
-	// RW 0x004CEA6F: one-shot (+0x14 == 0 -> 1) floor registration with terrain visual
+	// RW 0x004CEA6F: the first transform change adds the floor record, but only while +0x14 is clear. RW 0x4CE950..0x4CE955 seeds
+	// +0x14 from StartHidden (data +0x1E), so a StartHidden floor is NOT added here at all - it enters the list only through the
+	// refresh below. `weather` is the map's weather (RW 0x4CEA1C reads it from RW 0xDE4364 itself). True when a record was handed over.
 	bool reactToTransformChange(int weather = 0);
-	bool registered() const { return m_registered; }
-	const std::string &activeWeatherTexture() const { return m_activeWeatherTexture; }
+	// The map's weather index, the port's stand-in for the global RW 0xDE4364 + 0x138 that RW 0x4CEA1C reads on every call (the port
+	// receives it as a parameter instead). Set before a hide-flag change so the refresh RW 0x004CEADF resolves the same texture.
+	void setMapWeather(int weather) { m_weather = weather; }
+	bool registered() const { return m_registered; }                  ///< +0x14
+	const W3DFloorDrawRecord &record() const { return m_floorRecord; } ///< the terrain visual's record for this floor
+	bool recordAdded() const { return m_floorRecord.added; }
+	const std::string &activeWeatherTexture() const { return m_floorRecord.weatherTexture; }
 
-	// RW 0x004CEB80: checks m_hideIfModelConditions (+0x24); updates +0x17 and refreshes floor visibility (RW 0x004CEADF)
+	// RW 0x004CEB80: tests m_hideIfModelConditions (+0x24) through RW 0x4CE8CA ((flags & mask) == mask over 0x13 dwords) into +0x17
+	// and, only when +0x17 changed (RW 0x4CEBB3), refreshes the record (RW 0x4CEADF). An empty vector returns before any change.
 	bool replaceModelConditionState(const ModelConditionFlags &flags);
 
-	// RW 0x004CECA1: sets +0x15 (m_hiddenBySubObject, seeded from StartHidden +0x1E in ctor RW 0x004CE91B)
+	// RW 0x004CECA1: sets +0x15 and refreshes the record when the value changed (RW 0x4CECA8 / RW 0x4CECAD)
 	void setSubObjectHidden(bool hidden);
-	// RW 0x004CECB5: sets +0x16 (m_hiddenByModule)
+	// RW 0x004CECB5: sets +0x16 and refreshes the record when the value changed (RW 0x4CECBC / RW 0x4CECC1)
 	void setHidden(bool hidden);
 
 	bool hiddenBySubObject() const { return m_hiddenBySubObject; }
 	bool hiddenByModule() const { return m_hiddenByModule; }
 	bool hiddenByModelCondition() const { return m_hiddenByModelCondition; }
-	// RW 0x004CEADF: floor is visible in terrain visual iff all three hide flags (+0x15, +0x16, +0x17) are false
+	// RW 0x004CEADF: the record is drawn iff all three hide flags (+0x15, +0x16, +0x17) are false
 	bool isFloorVisible() const { return !m_hiddenBySubObject && !m_hiddenByModule && !m_hiddenByModelCondition; }
+
+	// RW 0x004CEADF: drops the record (RW 0x46AF77 -> RW 0x4E580B clears the drawable) and hands it over again when the floor is
+	// visible (RW 0x467B4D, re-resolving the weather texture through RW 0x4CEA1C). Returns true when a record exists afterwards.
+	bool refreshRecord();
 
 	// RW 0x004CE868 (DONOR BFME2 0x000CF074): version(1..3), calls W3DPropDraw::xfer, v>=2 xfers +0x16, v>=3 xfers +0x17 and +0x15
 	void xfer(Xfer &x);
 
 private:
 	const W3DFloorDrawModuleData *m_floorData = nullptr;
-	bool m_registered = false;             ///< +0x14
-	bool m_hiddenBySubObject = false;      ///< +0x15 (seeded from m_startHidden +0x1E)
+	bool m_registered = false;             ///< +0x14: seeded from StartHidden, then set by the first transform change
+	bool m_hiddenBySubObject = false;      ///< +0x15
 	bool m_hiddenByModule = false;         ///< +0x16
 	bool m_hiddenByModelCondition = false; ///< +0x17
-	std::string m_activeWeatherTexture;
+	int m_weather = 0;                     ///< the map weather the last hand-over resolved the texture for
+	W3DFloorDrawRecord m_floorRecord;
 };

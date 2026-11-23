@@ -130,13 +130,25 @@ const char *const *weatherNames() { return kWeatherNames; }
 
 bool W3DPropDrawState::reactToTransformChange(float posX, float posY)
 {
-	// RW 0x004CE793 (DONOR BFME2 0x000CEF9F, W3DPropDrawReact.cpp)
-	if (!m_propCreated && (posX != 0.0f || posY != 0.0f))
+	// RW 0x004CE793: +0x0C is the "record made" flag (RW 0x4CE7A1); the drawable's position comes from RW 0x676711 (RW 0x4CE7B1 /
+	// RW 0x4CE7C9) and (0, 0) returns before the flag is set (RW 0x4CE7BA..0x4CE7DE), so a prop at the origin is never handed over.
+	if (m_propCreated || (posX == 0.0f && posY == 0.0f))
 	{
-		m_propCreated = true;
-		return m_data != nullptr && !m_data->m_modelName.empty();
+		return false;
 	}
-	return false;
+	m_propCreated = true; // RW 0x4CE7E0
+	if (m_data == nullptr) // RW 0x4CE7E4..0x4CE7E9: no module data, no hand-over
+	{
+		return false;
+	}
+	// RW 0x4CE7F2..0x4CE808: the module data's DistanceFog (+0xC) and ModelName (+8), the position and the drawable's scale go to
+	// RW 0x467AD4 -> RW 0x4EE5B8. Nothing re-reads the drawable afterwards, so the record keeps this first position.
+	m_record.added = true;
+	m_record.modelName = m_data->m_modelName;
+	m_record.distanceFog = m_data->m_distanceFog;
+	m_record.x = posX;
+	m_record.y = posY;
+	return true;
 }
 
 void W3DPropDrawState::xfer(Xfer &x)
@@ -148,7 +160,11 @@ void W3DPropDrawState::xfer(Xfer &x)
 W3DFloorDrawState::W3DFloorDrawState(const W3DFloorDrawModuleData *data)
 	: W3DPropDrawState(data)
 	, m_floorData(data)
-	, m_hiddenBySubObject(data ? data->m_startHidden : false) // RW 0x004CE91B seeds +0x15 from data->m_startHidden (+0x1E)
+	// RW 0x004CE91B: the constructor clears +0x14..+0x17 (RW 0x4CE93D..0x4CE94D) and then, when the module data's StartHidden (+0x1E)
+	// is set, sets +0x14 (RW 0x4CE950..0x4CE955) - the flag RW 0x4CEA6F tests before it adds the record. The three hide flags stay
+	// clear, so a StartHidden floor keeps its model and is visible to the refresh below; it is only its first-transform registration
+	// that StartHidden suppresses.
+	, m_registered(data ? data->m_startHidden : false)
 {
 }
 
@@ -171,46 +187,101 @@ std::string W3DFloorDrawState::resolveWeatherTexture(int weather) const
 
 bool W3DFloorDrawState::reactToTransformChange(int weather)
 {
-	// RW 0x004CEA6F (DONOR BFME2 0x000CF25F)
-	if (!m_registered)
+	// RW 0x004CEA6F: already added (+0x14) returns at RW 0x4CEA83; the flag is set at RW 0x4CEA8B before the module data test, so even
+	// a module without data is marked. Without data nothing is handed over (RW 0x4CEA8F); the arguments at RW 0x4CEAA0..0x4CEAB4 are
+	// the data's StaticModelLODMode (+0x1C), ForceToBack (+0x1D), the ModelName (+8) and the weather texture of RW 0x4CEA1C, and they
+	// go to the terrain visual's floor list through RW 0x467B4D.
+	// The weather index is kept for the refresh below (RW 0x4CEADF -> RW 0x4CEA1C reads it from RW 0xDE4364 + 0x138; the port takes it as
+	// an argument, so it is remembered here, before the RW 0x4CEA83 test, because a StartHidden floor never gets past that test).
+	m_weather = weather;
+	if (m_registered)
 	{
-		m_registered = true;
-		m_activeWeatherTexture = resolveWeatherTexture(weather);
-		return m_floorData != nullptr && !m_floorData->m_modelName.empty();
+		return false;
 	}
-	return false;
+	m_registered = true; // RW 0x4CEA8B
+	if (!m_floorData) // RW 0x4CEA8F
+	{
+		return false;
+	}
+	m_floorRecord.added = true;
+	m_floorRecord.modelName = m_floorData->m_modelName;
+	m_floorRecord.weatherTexture = resolveWeatherTexture(weather); // RW 0x4CEA9B -> RW 0x4CEA1C
+	m_floorRecord.forceToBack = m_floorData->m_forceToBack;         // RW 0x4CEAA9
+	m_floorRecord.staticModelLODMode = m_floorData->m_staticModelLODMode; // RW 0x4CEAA0
+	return true;
+}
+
+bool W3DFloorDrawState::refreshRecord()
+{
+	// RW 0x004CEADF: with no module data or no drawable nothing happens (RW 0x4CEAF1 / RW 0x4CEAFB); the existing record is dropped
+	// first (RW 0x4CEB11 -> RW 0x46AF77 -> RW 0x4E580B clears the record's drawable), then each hide flag returns (RW 0x4CEB1F /
+	// RW 0x4CEB25 / RW 0x4CEB2B) and only a visible floor is handed over again (RW 0x4CEB60 -> RW 0x467B4D), with the weather texture
+	// resolved once more (RW 0x4CEB3F -> RW 0x4CEA1C).
+	if (!m_floorData)
+	{
+		m_floorRecord.added = false;
+		return false;
+	}
+	m_floorRecord.added = false; // RW 0x4CEB11: the record is cleared before the flags are looked at
+	if (!isFloorVisible())
+	{
+		return false;
+	}
+	m_floorRecord.added = true;
+	m_floorRecord.modelName = m_floorData->m_modelName;
+	m_floorRecord.weatherTexture = resolveWeatherTexture(m_weather);
+	m_floorRecord.forceToBack = m_floorData->m_forceToBack;
+	m_floorRecord.staticModelLODMode = m_floorData->m_staticModelLODMode;
+	return true;
 }
 
 bool W3DFloorDrawState::replaceModelConditionState(const ModelConditionFlags &flags)
 {
-	// RW 0x004CEB80 (DONOR BFME2 0x000CF370): tests each entry in m_hideIfModelConditions via RW 0x004CE8CA
-	bool hide = false;
-	if (m_floorData)
+	// RW 0x004CEB80 (DONOR BFME2 0x000CF370): an empty HideIfModelConditions vector returns before anything (RW 0x4CEB86..0x4CEB8C),
+	// then each entry is tested with RW 0x004CE8CA -- (flags & mask) == mask over 0x13 dwords, no "mask is empty" special case -- into
+	// a byte, and only a changed value refreshes the record (RW 0x4CEBB3..0x4CEBBE).
+	if (!m_floorData || m_floorData->m_hideIfModelConditions.empty())
 	{
-		for (const ModelConditionFlags &mask : m_floorData->m_hideIfModelConditions)
+		return false;
+	}
+	bool hide = false;
+	for (const ModelConditionFlags &mask : m_floorData->m_hideIfModelConditions) // RW 0x4CEB98..0x4CEBAD
+	{
+		if (flags.testForAll(mask))
 		{
-			if (mask.any() && flags.testForAll(mask))
-			{
-				hide = true;
-				break;
-			}
+			hide = true;
+			break;
 		}
 	}
-	const bool changed = (m_hiddenByModelCondition != hide);
+	if (hide == m_hiddenByModelCondition)
+	{
+		return false; // RW 0x4CEBB3: no change, no refresh
+	}
 	m_hiddenByModelCondition = hide;
-	return changed;
+	refreshRecord(); // RW 0x4CEBBE -> RW 0x4CEADF
+	return true;
 }
 
 void W3DFloorDrawState::setSubObjectHidden(bool hidden)
 {
-	// RW 0x004CECA1 (DONOR BFME2 0x000CF4AE): sets +0x15
+	// RW 0x004CECA1: compares with +0x15 and refreshes the record only on a change (RW 0x4CECA5..0x4CECAD)
+	if (hidden == m_hiddenBySubObject)
+	{
+		return;
+	}
 	m_hiddenBySubObject = hidden;
+	refreshRecord();
 }
 
 void W3DFloorDrawState::setHidden(bool hidden)
 {
-	// RW 0x004CECB5 (DONOR BFME2 0x000CF4C2): sets +0x16
+	// RW 0x004CECB5: compares with +0x16 and refreshes the record only on a change (RW 0x4CECB9..0x4CECC1)
+	if (hidden == m_hiddenByModule)
+	{
+		return;
+	}
 	m_hiddenByModule = hidden;
+	refreshRecord();
 }
 
 void W3DFloorDrawState::xfer(Xfer &x)
