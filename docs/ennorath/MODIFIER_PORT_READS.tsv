@@ -1,5 +1,5 @@
 attribute	number	file	line	call	argument	in function
-ARMOR	1	src/GameLogic/Module/ActiveBody.cpp	610	attributeModifierSum	ATTRIBUTE_MODIFIER_ARMOR	armorModifierSum
+ARMOR	1	src/GameLogic/Module/ActiveBody.cpp	626	attributeModifierSum	ATTRIBUTE_MODIFIER_ARMOR	armorModifierSum
 DAMAGE_ADD	2	src/GameClient/UnitHelpSource.cpp	87	attributeModifierSum	2	displayDamage
 DAMAGE_ADD	2	src/GameLogic/Object/Damage.cpp	148	sourceAdditive	ATTRIBUTE_MODIFIER_DAMAGE_ADD	FillDamageInfo
 DAMAGE_MULT	3	src/GameClient/ControlBar.cpp	1884	attributeModifierProduct	3	isUnderConstructionContext
@@ -39,11 +39,11 @@ SHROUD_CLEARING	20	src/GameLogic/Object/AttributeModifierPool.cpp	194	value	ATTR
 SHROUD_CLEARING	20	src/GameLogic/Object/AttributeModifierPool.cpp	428	value	ATTRIBUTE_SHROUD_CLEARING	add
 SHROUD_CLEARING	20	src/GameLogic/System/ShroudManager.cpp	1698	attributeModifierSum	20	shroudClearingRange
 RATE_OF_FIRE	21	src/GameLogic/Combat/ObjectWeapons.cpp	156	attributeModifierProduct	ATTRIBUTE_RATE_OF_FIRE	rateOfFireAttributeProduct
-RATE_OF_FIRE	21	src/GameLogic/Module/SpecialAbilityModules.cpp	2213	attributeModifierProduct	ATTRIBUTE_RATE_OF_FIRE	rateOfFireAttributeProduct
+RATE_OF_FIRE	21	src/GameLogic/Module/SpecialAbilityModules.cpp	2219	attributeModifierProduct	ATTRIBUTE_RATE_OF_FIRE	rateOfFireAttributeProduct
 CRUSHER_LEVEL	23	src/GameLogic/Object/Collide/SquishCollide.cpp	281	attributeModifierSum	kCrusherLevelModifier	crusherLevel
 COMMAND_POINT_BONUS	24	src/GameLogic/Economy.cpp	340	m_attributeSums	ATTRIBUTE_MODIFIER_COMMAND_POINT_BONUS	commandPointBonusOf
 CRUSHABLE_LEVEL	25	src/GameLogic/Object/Collide/SquishCollide.cpp	254	attributeModifierSum	kCrushableLevelModifier	crushableLevel
 CRUSHED_DECELERATE	26	src/GameLogic/Object/Collide/SquishCollide.cpp	369	attributeModifierProduct	kCrushedDecelerateModifier	onCrush
-INVULNERABLE	27	src/GameLogic/Module/ActiveBody.cpp	603	attributeModifierSum	ATTRIBUTE_MODIFIER_INVULNERABLE	invulnerableTo
+INVULNERABLE	27	src/GameLogic/Module/ActiveBody.cpp	619	attributeModifierSum	ATTRIBUTE_MODIFIER_INVULNERABLE	invulnerableTo
 #28	28	src/GameLogic/Economy.cpp	599	attributeModifierProduct	28	productionMoneyProduct
 #31	31	src/GameLogic/Module/DozerAIUpdate.cpp	1241	attributeModifierProduct	31	workOnBuild
