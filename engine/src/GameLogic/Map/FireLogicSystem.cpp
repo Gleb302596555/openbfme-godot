@@ -1245,6 +1245,18 @@ void parseFireUnsigned(INI *ini, void *, void *store, const void *userData)
     *static_cast<unsigned *>(store) = value;
 }
 
+// RW 0x42EE5E and RW 0x42F13E consume Name and Color; these material
+// members have no runtime reader (see docs/ennorath/PORT-337-analysis.md).
+void parseFireName(INI *ini, void *, void *, const void *)
+{
+    (void)ini->getNextAsciiString();
+}
+void parseFireColor(INI *ini, void *, void *, const void *)
+{
+    std::uint32_t color = 0;
+    INI::parseColorInt(ini, nullptr, &color, nullptr);
+}
+
 // RW 0x6866CE: index is atoi (not the INI integer scanner), valid 0..3.
 void parseFireMaterial(INI *ini, void *instance, void *, const void *)
 {
@@ -1253,8 +1265,8 @@ void parseFireMaterial(INI *ini, void *instance, void *, const void *)
     const int index = std::atoi(token);
     if (index < 0 || index >= 4) throw INIException(3, "TerrainCellType index out of valid range.");
     static const FieldParse fields[] = {
-        { "Color", INI::parseColorInt, nullptr, (int)offsetof(FireTerrainMaterial, color) },
-        { "Name", INI::parseAsciiString, nullptr, (int)offsetof(FireTerrainMaterial, name) },
+        { "Color", parseFireColor, nullptr, 0 },
+        { "Name", parseFireName, nullptr, 0 },
         { "Fuel", parseFireUnsigned, reinterpret_cast<const void *>(0xffff), (int)offsetof(FireTerrainMaterial, fuel) },
         { "MaxBurnRate", parseFireUnsigned, reinterpret_cast<const void *>(0xfff), (int)offsetof(FireTerrainMaterial, maxBurnRate) },
         { "Decay", parseFireUnsigned, reinterpret_cast<const void *>(0x3ff), (int)offsetof(FireTerrainMaterial, decay) },

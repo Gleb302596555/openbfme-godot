@@ -2,15 +2,10 @@
 // FireLogicSystem INI configuration (RW 0x6860E0 and RW 0x6866CE).
 #pragma once
 
-#include <cstdint>
-#include <string>
-
 class INI;
 
 struct FireTerrainMaterial
 {
-	std::uint32_t color = 0;
-	std::string name;
 	unsigned fuel = 0;
 	unsigned maxBurnRate = 0;
 	unsigned decay = 0;
