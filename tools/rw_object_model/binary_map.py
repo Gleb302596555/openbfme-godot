@@ -256,7 +256,11 @@ def candidates(b: Binary, funcs, owned):
     return out
 
 
-def settle(b: Binary, funcs, entries, noreturn, extras, tier, rejected, errors):
+def log(msg):
+    print(f"[{__import__('time').strftime('%H:%M:%S')}] {msg}", file=sys.stderr, flush=True)
+
+
+def settle(b: Binary, funcs, entries, noreturn, extras, tier, rejected, errors, protected=frozenset()):
     """Make the result independent of discovery order: decode every function again with the final entry set (a jump to a
     function found later is a tail call, not shared code), then fold a function known only from data or a code immediate
     that runs into the code of exactly one other function into it as an extra block (SEH __except bodies, catch
@@ -288,8 +292,8 @@ def settle(b: Binary, funcs, entries, noreturn, extras, tier, rejected, errors):
                 own.setdefault(a, set()).add(f)
         changed = False
         for f in sorted(funcs):
-            if f in called or f == b.entry:
-                continue
+            if f in called or f == b.entry or f in protected:
+                continue  # call evidence or a slot of an installed table: an entry, never folded
             others = set()
             for a in funcs[f][0]:
                 others |= own[a] - {f}
@@ -312,6 +316,7 @@ def settle(b: Binary, funcs, entries, noreturn, extras, tier, rejected, errors):
             del funcs[f]
             entries.discard(f)
             changed = True
+        log(f"settle: {len(funcs)} functions, folded / rejected this pass" if changed else f"settle: stable at {len(funcs)} functions")
         if not changed:
             return
 
@@ -395,19 +400,24 @@ def build(b: Binary):
             if not accepted:
                 break
         settle(b, funcs, entries, noreturn, extras, tier, rejected, errors)
+        log(f"discovery done: {len(funcs)} functions; vtable slots next")
         # slots of every table code installs are function entries (a virtual call reaches them): one that another function owns
         # (reached by a jmp from a function that knew no entry there) becomes an entry, and that owner is decoded again
+        tried = set()
         while True:
             slots = vtable_slots(b, funcs)
-            new = sorted(s for s in slots if s not in funcs and s not in errors)
+            new = sorted(s for s in slots if s not in funcs and s not in errors and s not in tried)
+            log(f"vtable slots: {len(slots)}, new entries {len(new)}")
             if not new:
                 break
+            tried.update(new)
             for s in new:
                 entries.add(s)
                 tier.setdefault(s, "vtable-slot")
             closure(b, entries, noreturn, funcs, errors, extras)
-            settle(b, funcs, entries, noreturn, extras, tier, rejected, errors)
+            settle(b, funcs, entries, noreturn, extras, tier, rejected, errors, protected=vtable_slots(b, funcs))
         nr = {f for f, r in funcs.items() if not r[5] and not r[2] and not r[4]}
+        log(f"noreturn check: {len(nr - noreturn)} new noreturn functions")
         if nr <= noreturn:
             called = set()
             for r in funcs.values():
@@ -465,9 +475,17 @@ def main(argv):
     import argparse
     import time
     p = argparse.ArgumentParser()
-    p.add_argument("cmd", choices=["functions"])
+    p.add_argument("cmd", choices=["functions", "export-blocks"])
     p.add_argument("--cache", type=Path, default=DEFAULT_CACHE)
+    p.add_argument("--out", type=Path, help="export-blocks: the rw_function_blocks.json-shaped file for tools/re/inventory.py --angr")
     a = p.parse_args(argv)
+    if a.cmd == "export-blocks":
+        b, rec = load(a.cache)
+        out = dict(sha256=b.sha256, analyzer=rec["analyzer"],
+                   functions=[dict(address=f["address"], blocks=f["spans"]) for f in rec["functions"]])
+        a.out.write_text(json.dumps(out) + chr(10), encoding="utf-8")
+        print(f"{len(out['functions'])} functions -> {a.out}")
+        return
     t = time.time()
     b = Binary()
     funcs, noreturn, tier, rejected, errors = build(b)
