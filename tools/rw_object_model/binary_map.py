@@ -499,6 +499,17 @@ def load(cache: Path = DEFAULT_CACHE, b: Binary | None = None):
     return b, rec
 
 
+def split_at(spans, entry):
+    """The spans with one starting exactly at the entry (an extra block right before the entry is merged into its span)."""
+    out = []
+    for a, s in spans:
+        if a < entry < a + s:
+            out += [[a, entry - a], [entry, a + s - entry]]
+        else:
+            out.append([a, s])
+    return out
+
+
 def main(argv):
     import argparse
     import time
@@ -510,7 +521,7 @@ def main(argv):
     if a.cmd == "export-blocks":
         b, rec = load(a.cache)
         out = dict(sha256=b.sha256, analyzer=rec["analyzer"],
-                   functions=[dict(address=f["address"], blocks=f["spans"]) for f in rec["functions"]])
+                   functions=[dict(address=f["address"], blocks=split_at(f["spans"], f["address"])) for f in rec["functions"]])
         a.out.write_text(json.dumps(out) + chr(10), encoding="utf-8")
         print(f"{len(out['functions'])} functions -> {a.out}")
         return
