@@ -4,7 +4,7 @@ game.dat SHA256 `5481de75b63e2248…`. Addresses, counts and statuses only: no g
 
 ## Functions
 
-72135 functions (evidence: call 32053, code-imm 2817, data 26094, extra-block 56, vtable-slot 11115). Status by `RW 0x…` citations in engine/src: ported 11416, partial 325, library 2851, none 57543.
+72135 functions (evidence: call 32053, code-imm 2817, data 26094, extra-block 56, vtable-slot 11115). Status by `RW 0x…` citations in engine/src: ported 11416, partial 325, library 2887, none 57507.
 `library`: the proven list (tools/mod/rw_library_functions.tsv) and the functions match_rotwk.py labels `library` (see below).
 `none` means no `RW 0x...` citation: the client side (draw, audio, UI, network) is rebuilt on Godot rather than ported line by line, so there `none` is not a to-do count.
 
@@ -33,25 +33,25 @@ The label of tools/re/match_rotwk.py (RotWK paired with BFME2 1.06 and its decom
 
 | subsystem | functions | ported | partial | library | none |
 |---|---:|---:|---:|---:|---:|
-| unclassified | 12126 | 943 | 31 | 19 | 11133 |
-| engine core / system | 11980 | 1748 | 45 | 114 | 10073 |
-| GameClient / draw | 10151 | 1018 | 30 | 69 | 9034 |
-| objects / modules | 6296 | 2127 | 60 | 59 | 4050 |
-| APT / UI / shell | 6289 | 740 | 34 | 82 | 5433 |
-| AI / pathfinding | 3821 | 1570 | 47 | 16 | 2188 |
-| network / online | 3797 | 132 | 4 | 4 | 3657 |
-| War of the Ring / LivingWorld | 2756 | 340 | 8 | 10 | 2398 |
-| library | 2722 | 67 | 4 | 2295 | 356 |
-| math / support libs | 2177 | 113 | 5 | 69 | 1990 |
-| script engine | 2132 | 493 | 15 | 14 | 1610 |
-| combat / weapons | 1985 | 853 | 11 | 20 | 1101 |
-| audio | 1656 | 201 | 3 | 11 | 1441 |
-| horde / locomotion | 1416 | 518 | 12 | 26 | 860 |
-| INI / templates | 1002 | 255 | 11 | 23 | 713 |
-| castles / structures | 791 | 232 | 4 | 5 | 550 |
-| map / terrain logic | 443 | 43 | 1 | 9 | 390 |
-| other | 371 | 9 | 0 | 1 | 361 |
-| EH/compiler glue | 221 | 13 | 0 | 5 | 203 |
-| Create-a-Hero | 3 | 1 | 0 | 0 | 2 |
+| engine core / system | 14353 | 1754 | 46 | 114 | 12439 |
+| GameClient / draw | 10365 | 1018 | 30 | 69 | 9248 |
+| APT / UI / shell | 9443 | 741 | 34 | 82 | 8586 |
+| objects / modules | 6343 | 2127 | 60 | 59 | 4097 |
+| unclassified | 4643 | 936 | 30 | 19 | 3658 |
+| network / online | 4445 | 132 | 4 | 4 | 4305 |
+| AI / pathfinding | 4111 | 1570 | 47 | 16 | 2478 |
+| War of the Ring / LivingWorld | 3115 | 340 | 8 | 10 | 2757 |
+| library | 2758 | 67 | 4 | 2331 | 356 |
+| math / support libs | 2277 | 113 | 5 | 69 | 2090 |
+| script engine | 2133 | 493 | 15 | 14 | 1611 |
+| combat / weapons | 1986 | 853 | 11 | 20 | 1102 |
+| audio | 1677 | 201 | 3 | 11 | 1462 |
+| horde / locomotion | 1425 | 518 | 12 | 26 | 869 |
+| INI / templates | 1064 | 255 | 11 | 23 | 775 |
+| castles / structures | 823 | 232 | 4 | 5 | 582 |
+| map / terrain logic | 451 | 43 | 1 | 9 | 398 |
+| other | 394 | 9 | 0 | 1 | 384 |
+| EH/compiler glue | 325 | 13 | 0 | 5 | 307 |
+| Create-a-Hero | 4 | 1 | 0 | 0 | 3 |
 
 Tables: RW_BINARY_MAP.tsv (one row per function), RW_CLASSES.tsv, RW_VCALLS.tsv.

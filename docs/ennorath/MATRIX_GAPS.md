@@ -2,7 +2,7 @@
 
 Command: `tools/mod/matrix_gaps.py --base <ROTWK_INSTALL> --overlay <mod install> --matrix docs/ennorath/MATRIX.tsv --map docs/ennorath/RW_FUNCTION_MAP.tsv --out docs/ennorath/MATRIX_GAPS --inventory <rw_function_blocks.json> --game <game.dat>`
 
-Failing matrix rows: 173; joined rows: 341; module classes reached: 19.
+Failing matrix rows: 145; joined rows: 250; module classes reached: 11.
 
 A link is a name match: the module's fields name the button's SpecialPower or Upgrade. The map's status is exact RW citation in engine/src (a port without a citation reads `none`). The join says where to look first, not which function fails: each row's cause is still traced.
 
@@ -16,20 +16,13 @@ The main class of a button is the class it links to that the fewest failing butt
 
 | class | buttons | results | specific none | first specific none functions | example buttons |
 |---|---:|---|---:|---|---|
-| StatusBitsUpgrade | 12 | FAIL 12 | 0 | - | ArthedainCrossbowHorde_armr Command_PurchaseUpgradeArnorHeavyArmorMod, ArthedainWarriorHorde_Armr Command_PurchaseUpgradeArnorHeavyArmorMod, ArthedainWarriorHorde_lvl2 Command_PurchaseUpgradeArnorForgedBladesMod |
 | AutoAbilityBehavior | 6 | NO-EFFECT 3, MOD-DATA 1, NO-FIRE 1, ORDER 1 | 3 | 0x006289E7@5 0x00629BCA@6 0x006A95E6@6 | AngmarDarkRangerHorde Command_AngmarRangersIceArrowAbility, DwarvenAxtschwingerHorde Command_AxtschwingerAxeThrow, HaradrimArcherHordeNewOnMumakil Command_HaradrimArcherBarbedArrowAbility |
-| OCLSpecialPower | 6 | ORDER 3, NO-EFFECT 2, FAIL 1 | 0 | - | DwarvenDain_mod Command_SpecialAbilityDrarSpeerfeuer, DwarvenNarin Command_ramridercaptain, GondorDenethor_forFortress Command_SpecialAbilityDenethorSteuererlass |
-| ModelConditionSpecialAbilityUpdate | 5 | NO-EFFECT 4, FAIL 1 | 0 | - | GondorAragorn_SummonedHunters Command_SpecialAbilityElendilSummoned, GondorBoromir_OneRing Command_SpecialAbilityBoromirHornRing, GondorBoromir_mod_ElrondsRat Command_SpecialAbilityBoromirHorn |
+| OCLSpecialPower | 5 | ORDER 3, NO-EFFECT 2 | 0 | - | DwarvenDain_mod Command_SpecialAbilityDrarSpeerfeuer, DwarvenNarin Command_ramridercaptain, GondorRangerHorde Command_MenLongShotAbility |
 | WeaponFireSpecialAbilityUpdate | 5 | NO-FIRE 3, NO-EFFECT 1, ORDER 1 | 0 | - | AngmarNecroAcolyteBook Command_NecromancerDeathBargain, AngmarNecroAcolyteBook Command_SpecialAbilityGulzarMOrgulSeucheAcolyte, AngmarNecronomicon Command_SpecialAbilityGulzarMOrgulSeucheAcolyte |
-| ModelConditionUpgrade | 4 | FAIL 4 | 0 | - | BreeTownGuardHordePorcupine_Armr Command_PurchaseUpgradeArnorHeavyArmorMod, BreeTownGuardHordePorcupine_lvl3 Command_PurchaseUpgradeArnorHeavyArmorMod, BreeTownGuardHorde_Armr Command_PurchaseUpgradeArnorHeavyArmorMod |
+| ModelConditionSpecialAbilityUpdate | 4 | NO-EFFECT 4 | 0 | - | GondorAragorn_SummonedHunters Command_SpecialAbilityElendilSummoned, GondorBoromir_OneRing Command_SpecialAbilityBoromirHornRing, GondorBoromir_mod_ElrondsRat Command_SpecialAbilityBoromirHorn |
 | SpecialAbilityUpdate | 3 | MEMBER 1, NO-EFFECT 1, ORDER 1 | 1 | 0x00852CA2@1 | CarthaenSpy Command_SpecialAbilityLoneRangerSummonFinal, DorwinionNaturmagier Command_SpecialAbilityNaturmagierErntesegen, WildMarauderSwordBanner Command_AngmarTrollChargeAttack |
-| HeroModeSpecialAbilityUpdate | 2 | FAIL 1, NO-EFFECT 1 | 0 | - | GondorBoromir_mod_ElrondsRat Command_SpecialAbilityBoromirTapfererWiderstand, GondorDenethor_forFortress Command_SpecialAbilityDenethorNotstandssituation |
 | LevelGrantSpecialPower | 2 | ORDER 2 | 0 | - | RohanTheoden_mod Command_SpecialAbilityKingsFavorEdainTheo, RohanTheoden_mod Command_SpecialAbilityKingsFavorEdainTheoRing |
-| LevelUpUpgrade | 2 | FAIL 2 | 0 | - | DwarvenGuardianEreborHorde_Summoned Command_PurchaseUpgradeDwarvenBasicTraining, ElvenRivendellLancerHordeMod_up Command_PurchaseUpgradeBruchtalBasicTraining |
-| CastleUpgrade | 1 | FAIL 1 | 0 | - | ImladrisCitadel Command_PurchaseUpgradeBndnisWaldelben_Done |
-| CommandSetUpgrade | 1 | FAIL 1 | 0 | - | MordorNekromantReborn Command_TogglePalantir2Necromant |
-| ObjectCreationUpgrade | 1 | FAIL 1 | 1 | 0x008B810B@2 | LindonTower Command_PurchaseUpgradeLindonReinforcement |
-| SpecialPowerModule | 1 | FAIL 1 | 3 | 0x00654F8E@0 0x00896A32@0 0x008981BE@0 | GondorDenethor_forFortress Command_SpecialAbilityDenethorVerzweiflungsakt |
+| HeroModeSpecialAbilityUpdate | 1 | NO-EFFECT 1 | 0 | - | GondorBoromir_mod_ElrondsRat Command_SpecialAbilityBoromirTapfererWiderstand |
 | ToggleMountedSpecialAbilityUpdate | 1 | NO-EFFECT 1 | 0 | - | GondorBoromir_mod Command_SpecialAbilityBoromirHorn |
 | WeaponModeSpecialPowerUpdate | 1 | MEMBER 1 | 0 | - | WildMarauderSwords Command_AngmarTrollChargeAttack |
 
@@ -37,24 +30,16 @@ The main class of a button is the class it links to that the fewest failing butt
 
 | class | buttons | map none | specific none | map partial | first specific none functions |
 |---|---:|---:|---:|---:|---|
-| UnpauseSpecialPowerUpgrade | 27 | 6 | 2 | 0 | 0x00697B6E@1 0x008D280A@3 |
-| SpecialPowerModule | 24 | 58 | 3 | 2 | 0x00654F8E@0 0x00896A32@0 0x008981BE@0 |
-| GrantUpgradeCreate | 18 | 0 | 0 | 0 | - |
-| StatusBitsUpgrade | 16 | 1 | 0 | 3 | - |
-| AutoAbilityBehavior | 12 | 55 | 3 | 11 | 0x006289E7@5 0x00629BCA@6 0x006A95E6@6 |
+| UnpauseSpecialPowerUpgrade | 23 | 6 | 2 | 0 | 0x00697B6E@1 0x008D280A@3 |
+| SpecialPowerModule | 21 | 58 | 3 | 2 | 0x00654F8E@0 0x00896A32@0 0x008981BE@0 |
 | WeaponFireSpecialAbilityUpdate | 12 | 13 | 0 | 8 | - |
-| OCLSpecialPower | 7 | 51 | 0 | 0 | - |
-| ModelConditionSpecialAbilityUpdate | 6 | 12 | 0 | 8 | - |
-| ModelConditionUpgrade | 4 | 0 | 0 | 3 | - |
+| AutoAbilityBehavior | 11 | 55 | 3 | 11 | 0x006289E7@5 0x00629BCA@6 0x006A95E6@6 |
+| OCLSpecialPower | 6 | 51 | 0 | 0 | - |
+| ModelConditionSpecialAbilityUpdate | 5 | 12 | 0 | 8 | - |
 | SpecialAbilityUpdate | 3 | 66 | 1 | 12 | 0x00852CA2@1 |
 | ToggleMountedSpecialAbilityUpdate | 3 | 64 | 0 | 12 | - |
-| HeroModeSpecialAbilityUpdate | 2 | 9 | 0 | 4 | - |
 | LevelGrantSpecialPower | 2 | 1 | 0 | 1 | - |
-| LevelUpUpgrade | 2 | 0 | 0 | 1 | - |
-| ObjectCreationUpgrade | 2 | 1 | 1 | 1 | 0x008B810B@2 |
-| RemoveUpgradeUpgrade | 2 | 0 | 0 | 3 | - |
-| CastleUpgrade | 1 | 1 | 0 | 0 | - |
-| CommandSetUpgrade | 1 | 1 | 0 | 4 | - |
+| HeroModeSpecialAbilityUpdate | 1 | 9 | 0 | 4 | - |
 | WeaponModeSpecialPowerUpdate | 1 | 9 | 0 | 3 | - |
 
 ## Failing rows without a module link, by result
@@ -65,7 +50,7 @@ The main class of a button is the class it links to that the fewest failing butt
 | MOD-DATA | 51 |
 | TEMPORARY | 18 |
 | NO-SEND | 5 |
-| FAIL | 4 |
 | NO-EFFECT | 2 |
+| FAIL | 1 |
 | LEFT-WORLD | 1 |
 | NO-RULE | 1 |
