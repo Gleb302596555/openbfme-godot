@@ -27,6 +27,7 @@ struct LeapWorld : combattest::CombatWorld
 		w.fx.env.blocks.registerBlock("SpecialPower", [](INI *ini) { SpecialPowerStore::parseSpecialPowerDefinitionGlobal(ini); });
 		SpecialAbilityModules::registerAll(w.modules);
 		SpecialPowerModules::registerAll(w.modules);
+		attachShroud().revealMapForPlayerPermanently(playerIndex("Alice"));
 		spells.registerHandlers(dispatcher);
 		combat().setAutoAcquireEnabled(false);
 		// Values from RotWK 2.01 RohanGimliLeap and Gimli's LeapUpdate / Bezier

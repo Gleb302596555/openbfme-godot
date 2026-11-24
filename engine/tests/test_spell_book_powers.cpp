@@ -292,9 +292,13 @@ TEST_CASE("SPELL-2 retail: every faction buys and casts its spell book powers; t
 			CHECK(SpecialPowerModules::canUseSpecialPower(book, t));
 			// the probes at this power's own cast point
 			const Coord3D where{ 1100.0f * (float)i + 500.0f, 1100.0f + 600.0f * (float)k, 0.0f };
-			std::vector<Object *> probes = { g.place(f.soldier, i, where.x + 10.0f, where.y), g.place(f.economy, i, where.x - 30.0f, where.y + 20.0f),
-				g.place(kBook[enemy].soldier, enemy, where.x, where.y + 15.0f), g.place(kBook[enemy].economy, enemy, where.x + 30.0f, where.y - 25.0f),
-				g.place("NeutralWarg", enemy, where.x - 15.0f, where.y - 10.0f), g.place(f.citadel, i, where.x + 60.0f, where.y + 60.0f) };
+			// LOCAL-159: ActionManager::summonSpotClear (RW 0x82E586) refuses summons overlapping STRUCTURE/IMMOBILE within RadiusCursorRadius
+			const int pt = t->getSpecialPowerType();
+			const bool isSummon = pt == 0x55 || pt == 0x56 || pt == 0x5B || pt == 0x5D || pt == 0x5E || pt == 0x5F || pt == 0x73 || pt == 0x76 || pt == 0x78 || pt == 0x7B || pt == 0x7C || pt == 0x7E || pt == 0x96 || pt == 0x9A;
+			const float sOff = isSummon ? std::max(300.0f, t->getRadiusCursorRadius() + 120.0f) : 0.0f;
+			std::vector<Object *> probes = { g.place(f.soldier, i, where.x + 10.0f, where.y), g.place(f.economy, i, where.x - 30.0f - sOff, where.y + 20.0f),
+				g.place(kBook[enemy].soldier, enemy, where.x, where.y + 15.0f), g.place(kBook[enemy].economy, enemy, where.x + 30.0f + sOff, where.y - 25.0f),
+				g.place("NeutralWarg", enemy, where.x - 15.0f, where.y - 10.0f), g.place(f.citadel, i, where.x + 60.0f + sOff, where.y + 60.0f) };
 			for (Object *p : probes)
 			{
 				p->friend_onBuildComplete();
