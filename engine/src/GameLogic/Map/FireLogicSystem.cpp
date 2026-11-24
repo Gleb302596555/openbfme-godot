@@ -20,7 +20,9 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <cstdlib>
 #include <map>
+#include <stdexcept>
 
 FireLogicSystem *TheFireLogicSystem = nullptr;
 
@@ -48,42 +50,8 @@ FireLogicSystem::FireLogicSystem(GameLogic &logic)
 {
 	TheFireLogicSystem = this;
 
-	// RotWK / BFME2 defaults: TerrainCellType 0..3 (RW 0xC11750 / FireLogicSystem.ini)
-	// Cell type 0: Fire resistant
-	m_materials[0].fuel = 0;
-	m_materials[0].maxBurnRate = 0;
-	m_materials[0].decay = 0;
-	m_materials[0].resistance = 0;
-	m_materials[0].name = "*Fire resistant";
-	m_materials[0].color = 0;
+	// RW 0x6875FB: material records start at zero, cap at INT_MAX, regeneration at 1.
 
-	// Cell type 1: Grass
-	m_materials[1].fuel = 100;
-	m_materials[1].maxBurnRate = 20;
-	m_materials[1].decay = 4;
-	m_materials[1].resistance = 10;
-	m_materials[1].name = "Grass";
-	m_materials[1].color = 0x00FF00;
-
-	// Cell type 2: Highly flammable
-	m_materials[2].fuel = 500;
-	m_materials[2].maxBurnRate = 100;
-	m_materials[2].decay = 1;
-	m_materials[2].resistance = 2;
-	m_materials[2].name = "Highly flammable";
-	m_materials[2].color = 0xFF0000;
-
-	// Cell type 3: Undefined
-	m_materials[3].fuel = 500;
-	m_materials[3].maxBurnRate = 500;
-	m_materials[3].decay = 5;
-	m_materials[3].resistance = 0;
-	m_materials[3].name = "Undefined";
-	m_materials[3].color = 0x0000FF;
-
-	m_maxCellsBurning = 1000; // FireLogicSystem.ini default
-	m_fuelRegenRate = 1;
-	m_decayModifier = 0;
 }
 
 FireLogicSystem::~FireLogicSystem()
@@ -197,7 +165,7 @@ void FireLogicSystem::reset()
 	clearGrid();
 }
 
-// RW 0x6878A0 / BFME2 0x00287015 (FireLogicSystem::NewMap)
+// RW 0x687748 / DONOR BFME2 0x00287015 (FireLogicSystem::NewMap)
 void FireLogicSystem::newMap(float, float, float hiX, float hiY)
 {
 	clearGrid();
@@ -227,12 +195,13 @@ void FireLogicSystem::newMap(float, float, float hiX, float hiY)
 			cell->m_watchers = nullptr;
 			cell->m_objects = nullptr;
 
-			// Seed from material 1 (Grass) unless underwater
-			float wx = (x + 0.5f) * 10.0f;
-			float wy = (y + 0.5f) * 10.0f;
-			if (!m_logic.terrain() || !m_logic.terrain()->isUnderwater(wx, wy, 0.0f))
+			// RW 0x687748: the terrain byte selects the material; zero and >=4 leave the cell empty.
+			const float wx = (x + 0.5f) * 10.0f;
+			const float wy = (y + 0.5f) * 10.0f;
+			const int type = m_logic.terrain() ? m_logic.terrain()->fireTerrainType(wx, wy) : 0;
+			if (type > 0 && type < 4)
 			{
-				const Material &mat = m_materials[1];
+				const Material &mat = m_config.materials[type];
 				cell->m_fuel = mat.fuel;
 				cell->m_maxBurnRate = mat.maxBurnRate;
 				cell->m_flammability = mat.decay;
@@ -287,7 +256,7 @@ void FireLogicSystem::update()
 				if (cell->m_newlyLit)
 				{
 					cell->m_newlyLit = 0;
-					if (m_cellsOnFire.size() >= (size_t)m_maxCellsBurning)
+					if (m_cellsOnFire.size() >= (size_t)m_config.maxCellsBurning)
 					{
 						cell->m_check = 0;
 						continue;
@@ -364,7 +333,8 @@ void FireLogicSystem::update()
 
 	// 3. Spreading heat to neighbours and regrowing burnt fuel
 	int spreadStart = (startRow > 0) ? startRow - 1 : 0;
-	int spreadEnd = (endRow + 1 < m_numRows) ? endRow + 1 : m_numRows;
+	// RW 0x6886E0 (0x688A7E..0x688A87): retail decrements, not increments, this end when it is not at the last row.
+	int spreadEnd = (endRow + 1 < m_numRows) ? endRow - 1 : endRow;
 
 	struct PendingHeat
 	{
@@ -382,10 +352,14 @@ void FireLogicSystem::update()
 			{
 				if (cell->m_burntOut)
 				{
-					const Material &mat = m_materials[1]; // default grass
+					// RW 0x6886E0: look up this position again when regenerating.
+					const int type = m_logic.terrain() ? m_logic.terrain()->fireTerrainType((row + 0.5f) * 10.0f, (col + 0.5f) * 10.0f) : 0;
+					if (type == 0) { cell->m_burntOut = 0; continue; }
+					if (type >= 4) throw std::out_of_range("FireLogicSystem: invalid terrain fire type");
+					const Material &mat = m_config.materials[type];
 					if (cell->m_fuel < mat.fuel)
 					{
-						cell->m_fuel += (unsigned short)m_fuelRegenRate;
+						cell->m_fuel += (unsigned short)m_config.fuelRegenRate;
 						if (cell->m_fuel >= mat.fuel)
 						{
 							cell->m_fuel = mat.fuel;
@@ -427,7 +401,7 @@ void FireLogicSystem::update()
 				{
 					if (cell->m_check == 0)
 					{
-						if (m_cellsOnFire.size() >= (size_t)m_maxCellsBurning)
+						if (m_cellsOnFire.size() >= (size_t)m_config.maxCellsBurning)
 						{
 							continue;
 						}
@@ -814,7 +788,19 @@ void FireLogicSystem::resetCellToOriginalFlammability(int x, int y)
 		return;
 	}
 	Cell *cell = &m_cells[x][y];
-	const Material &mat = m_materials[1]; // default grass
+	// RW 0x685EB0: type zero clears all four properties.
+	const int type = m_logic.terrain() ? m_logic.terrain()->fireTerrainType((x + 0.5f) * 10.0f, (y + 0.5f) * 10.0f) : 0;
+	if (type == 0)
+	{
+		cell->m_fuel = 0;
+		cell->m_maxBurnRate = 0;
+		cell->m_flammability = 0;
+		cell->m_resistance = 0;
+		cell->m_burntOut = 0;
+		return;
+	}
+	if (type >= 4) throw std::out_of_range("FireLogicSystem: invalid terrain fire type");
+	const Material &mat = m_config.materials[type];
 	if (mat.fuel < cell->m_fuel) cell->m_fuel = mat.fuel;
 	if (mat.maxBurnRate < cell->m_maxBurnRate) cell->m_maxBurnRate = mat.maxBurnRate;
 	if (mat.decay > cell->m_flammability) cell->m_flammability = mat.decay;
@@ -1248,24 +1234,62 @@ void FireLogicSystem::crc(StateHasher &h) const
 	}
 }
 
-// RW 0x00C11750 (FireLogicSystem FieldParse table): MaxCellsBurning (+0x90, RW 0x0042EC5E),
-// FuelRegenerationRate (+0x94, RW 0x0042EC5E). MaxCellsBurning is also read by RW 0x005F32FF (0x005F3314).
-void FireLogicSystem::parseINI(INI *ini)
+// RW 0x42ECB2: the numeric material rows reject values above their limit.
+namespace
 {
-	if (!ini) return;
-	struct ParsedFireLogic
-	{
-		int maxCellsBurning;
-		int fuelRegenRate;
-	};
-	ParsedFireLogic parsed{ m_maxCellsBurning, m_fuelRegenRate };
-	static const FieldParse kFields[] = {
-		{ "MaxCellsBurning", INI::parseInt, nullptr, (int)offsetof(ParsedFireLogic, maxCellsBurning) },
-		{ "FuelRegenerationRate", INI::parseInt, nullptr, (int)offsetof(ParsedFireLogic, fuelRegenRate) },
-		{ nullptr, nullptr, nullptr, 0 },
-	};
-	ini->initFromINI(&parsed, kFields);
-	m_maxCellsBurning = parsed.maxCellsBurning;
-	m_fuelRegenRate = parsed.fuelRegenRate;
+void parseFireUnsigned(INI *ini, void *, void *store, const void *userData)
+{
+    const unsigned limit = static_cast<unsigned>(reinterpret_cast<std::uintptr_t>(userData));
+    const unsigned value = ini->scanUnsignedInt(ini->getNextToken());
+    if (value > limit) throw INIException(3, "Fire terrain value exceeds %u", limit);
+    *static_cast<unsigned *>(store) = value;
 }
 
+// RW 0x42EE5E and RW 0x42F13E consume Name and Color; these material
+// members have no runtime reader (see docs/ennorath/PORT-337-analysis.md).
+void parseFireName(INI *ini, void *, void *, const void *)
+{
+    (void)ini->getNextAsciiString();
+}
+void parseFireColor(INI *ini, void *, void *, const void *)
+{
+    std::uint32_t color = 0;
+    INI::parseColorInt(ini, nullptr, &color, nullptr);
+}
+
+// RW 0x6866CE: index is atoi (not the INI integer scanner), valid 0..3.
+void parseFireMaterial(INI *ini, void *instance, void *, const void *)
+{
+    const char *token = ini->getNextTokenOrNull();
+    if (!token) throw INIException(3, "TerrainCellType index expected.");
+    const int index = std::atoi(token);
+    if (index < 0 || index >= 4) throw INIException(3, "TerrainCellType index out of valid range.");
+    static const FieldParse fields[] = {
+        { "Color", parseFireColor, nullptr, 0 },
+        { "Name", parseFireName, nullptr, 0 },
+        { "Fuel", parseFireUnsigned, reinterpret_cast<const void *>(0xffff), (int)offsetof(FireTerrainMaterial, fuel) },
+        { "MaxBurnRate", parseFireUnsigned, reinterpret_cast<const void *>(0xfff), (int)offsetof(FireTerrainMaterial, maxBurnRate) },
+        { "Decay", parseFireUnsigned, reinterpret_cast<const void *>(0x3ff), (int)offsetof(FireTerrainMaterial, decay) },
+        { "Resistance", parseFireUnsigned, reinterpret_cast<const void *>(0xff), (int)offsetof(FireTerrainMaterial, resistance) },
+        { nullptr, nullptr, nullptr, 0 },
+    };
+    ini->initFromINI(&static_cast<FireLogicConfig *>(instance)->materials[index], fields);
+}
+}
+
+// RW 0x6860E0, table RW 0xC11750; repeated blocks modify the existing values.
+void FireLogicConfig::parseINI(INI *ini)
+{
+    static const FieldParse fields[] = {
+        { "MaxCellsBurning", INI::parseInt, nullptr, (int)offsetof(FireLogicConfig, maxCellsBurning) },
+        { "FuelRegenerationRate", INI::parseInt, nullptr, (int)offsetof(FireLogicConfig, fuelRegenRate) },
+        { "TerrainCellType", parseFireMaterial, nullptr, 0 },
+        { nullptr, nullptr, nullptr, 0 },
+    };
+    ini->initFromINI(this, fields);
+}
+
+void FireLogicSystem::parseINI(INI *ini)
+{
+    if (ini) m_config.parseINI(ini);
+}

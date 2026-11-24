@@ -311,6 +311,7 @@ bool LiveGame::load(const Options &options, std::string *error)
 	// the logic
 	m_drawables.reset(); // (not yet made: the manager needs the logic's settings)
 	m_logic = std::make_unique<GameLogic>(m_world.things(), m_world.modules(), *m_players, RandomAlgorithm::ZH_CarryChain);
+	m_logic->fireLogic().setConfig(m_world.fireLogicConfig()); // RW 0x6860E0: config loaded before new map
 	m_logic->settings() = settings;
 	m_logic->settings().night = m_map.chunks.hasGlobalLighting && m_map.chunks.lighting.timeOfDay == 4;
 	m_logic->settings().snowy = m_map.chunks.hasWorldInfo && m_map.chunks.worldInfo.getInt("weather") == 1;
