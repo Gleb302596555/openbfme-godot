@@ -59,6 +59,8 @@ public:
 	Relationship getRelationship(const Team *that) const;
 	void setTeamRelationship(const Team *that, Relationship r);
 	void setPlayerRelationship(const Player *that, Relationship r);
+	void removeTeamRelationship(const Team *that);     ///< LOCAL-162: RW 0x7A54BC (single team override removal)
+	void removePlayerRelationship(const Player *that); ///< LOCAL-162: RW 0x7A5512 (single player override removal)
 	// lane SCRIPT-2: RW 0x7A54BC / 0x7A5512 (TEAM_REMOVE_ALL_OVERRIDE_RELATIONS): the team and the player overrides cleared
 	void removeAllRelationshipOverrides()
 	{

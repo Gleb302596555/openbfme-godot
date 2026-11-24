@@ -93,6 +93,22 @@ void Team::setPlayerRelationship(const Player *that, Relationship r)
 	}
 }
 
+void Team::removeTeamRelationship(const Team *that)
+{
+	if (that)
+	{
+		m_teamRelations.erase(that->getID());
+	}
+}
+
+void Team::removePlayerRelationship(const Player *that)
+{
+	if (that)
+	{
+		m_playerRelations.erase(that->getPlayerIndex());
+	}
+}
+
 void Team::friend_addMember(Object *obj)
 {
 	obj->friend_setTeamLinks(m_tail, nullptr);

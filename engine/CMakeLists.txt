@@ -1733,6 +1733,7 @@ add_executable(openbfme_tests
     tests/test_local_120.cpp
     tests/test_local_108.cpp
     tests/test_local_125.cpp
+    tests/test_local_162.cpp
     # shared numeric facade (WEAPON-1 e75dd8c, imported unchanged: wide PC24 results, SSE binary32 ops, retail integer conversions)
     tests/test_numeric_facade.cpp
     # lane ECON-1: the economy

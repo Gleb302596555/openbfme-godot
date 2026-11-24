@@ -87,6 +87,9 @@
 #include "GameLogic/Module/ProductionUpdate.h"
 #include "GameLogic/Object/PartitionManager.h"
 #include "GameLogic/Module/BehaviorModule.h"
+#include "GameLogic/Combat/ObjectWeapons.h"
+#include "GameLogic/ExperienceLevels.h"
+#include "GameLogic/Module/FlammableUpdate.h"
 #include "GameLogic/Object/ExperienceTracker.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/ObjectTemplateInfo.h"
@@ -1636,11 +1639,12 @@ bool ScriptActions::executeUnitAction(ScriptEngine &engine, const ScriptActionRe
 		}
 		return true;
 	}
-	if (name == "SET_PLAYER_OWNERSHIP_OF_TYPE_COUNTER")
+	if (name == "SET_PLAYER_OWNERSHIP_OF_TYPE_COUNTER" || name == "SET_PLAYER_OWNERSHIP_OF_TYPE_COUNTER_INCLUDE_DEAD")
 	{
-		// RW 0x7C69B5(types, players, counter, 1): the count of PLAYER_HAS_OBJECT_COMPARISON (alive, not under construction) summed over the players
-		// goes to the counter (made when absent). INFERENCE: the record's cache (+ 0x44 against the engine's object-change frame + 0x1A25C) is not
-		// kept: counted every time
+		// RW 0x7C69B5(types, players, counter, ignoreDead): case 422 (RW 0x7CEE59, push 1 = alive only) and case 522 (RW 0x7CEE5D, push 0 = include dead)
+		// summed over the players into the counter (made when absent). INFERENCE: the record's cache (+ 0x44 against the engine's object-change frame
+		// + 0x1A25C) is not kept: counted every time
+		const bool ignoreDead = (name == "SET_PLAYER_OWNERSHIP_OF_TYPE_COUNTER");
 		std::vector<const ThingTemplate *> types;
 		for (const std::string &n : ScriptConditions::typeNames(engine, param(a, 0).stringValue))
 		{
@@ -1656,7 +1660,7 @@ bool ScriptActions::executeUnitAction(ScriptEngine &engine, const ScriptActionRe
 		std::int32_t count = 0;
 		for (Player *p : ScriptConditions::players(engine, param(a, 1).stringValue))
 		{
-			count += ScriptConditions::countPlayerObjects(logic, *p, types);
+			count += ScriptConditions::countPlayerObjects(logic, *p, types, ignoreDead);
 		}
 		engine.counter(param(a, 2).stringValue).value = count;
 		return true;
@@ -1731,6 +1735,307 @@ bool ScriptActions::executeUnitAction(ScriptEngine &engine, const ScriptActionRe
 		for (Player *p : ScriptConditions::players(engine, param(a, 0).stringValue))
 		{
 			p->science().setSkillPointsModifier(param(a, 1).realValue);
+		}
+		return true;
+	}
+	// ---- LOCAL-162 (issue #929): upper-half ScriptActions logic ports ----------------------------------------------------------------------
+	if (name == "NAMED_SET_REPULSOR" || name == "TEAM_SET_REPULSOR")
+	{
+		// RW 0x7BF941 (case 235: NAMED_SET_REPULSOR) / RW 0x7BF964 (case 236: TEAM_SET_REPULSOR): Object::setStatus(8, on) (OBJECT_STATUS_REPULSOR, RW 0x62684D)
+		const bool on = param(a, 1).intValue != 0;
+		for (Object *o : unitOrTeam(engine, param(a, 0).stringValue, name[0] == 'T'))
+		{
+			o->setStatus(8u, on);
+		}
+		return true;
+	}
+	if (name == "UNIT_SET_MODELCONDITION" || name == "TEAM_SET_MODELCONDITION")
+	{
+		// RW 0x7C17FD (case 328: UNIT_SET_MODELCONDITION) / RW 0x7C1823 (case 329: TEAM_SET_MODELCONDITION) -> RW 0x7C1781:
+		// maps which = 1..4 to USER_1..USER_4 (bits 0xB8..0xBB, default 0xB8) and sets/clears the model condition bit.
+		const int which = param(a, 1).intValue;
+		const bool on = param(a, 2).intValue != 0;
+		const int bit = (which >= 2 && which <= 4) ? (0xB8 + (which - 1)) : 0xB8;
+		for (Object *o : unitOrTeam(engine, param(a, 0).stringValue, name[0] == 'T'))
+		{
+			o->setModelConditionState(bit, on);
+		}
+		return true;
+	}
+	if (name == "NAMED_STOP")
+	{
+		// RW 0x7CAFA5 case 177 -> RW 0x7C9C6D: Object::releaseWeaponLock(LOCKED_TEMPORARILY = 1, RW 0x68DF11) then aiIdle(CMD_FROM_SCRIPT, RW 0x5E821A)
+		if (Object *o = engine.getUnitNamed(param(a, 0).stringValue))
+		{
+			if (AIUpdateInterface *ai = o->getAIUpdateInterface())
+			{
+				ObjectWeapons::releaseObjectWeaponLock(*o, LOCKED_TEMPORARILY);
+				ai->aiIdle(CMD_FROM_SCRIPT);
+			}
+		}
+		return true;
+	}
+	if (name == "TEAM_SET_STEALTH_ENABLED")
+	{
+		// RW 0x7CAFA5 case 296 -> RW 0x7C101D: every team member -> Object::setScriptStatus(0x08 = SCRIPT_UNSTEALTHED, !enabled) (RW 0x69317D)
+		const bool enabled = param(a, 1).intValue != 0;
+		if (Team *t = ScriptConditions::team(engine, param(a, 0).stringValue))
+		{
+			for (Object *o : ScriptConditions::members(*t))
+			{
+				o->setScriptStatus(0x08u, !enabled);
+			}
+		}
+		return true;
+	}
+	if (name == "TEAM_SET_STRICT_CONTROL_ENABLED")
+	{
+		// RW 0x7CAFA5 case 433 -> RW 0x7C1071: every team member -> Object::setScriptStatus(0x20, enabled) (RW 0x69317D)
+		const bool enabled = param(a, 1).intValue != 0;
+		if (Team *t = ScriptConditions::team(engine, param(a, 0).stringValue))
+		{
+			for (Object *o : ScriptConditions::members(*t))
+			{
+				o->setScriptStatus(0x20u, enabled);
+			}
+		}
+		return true;
+	}
+	if (name == "TEAM_SET_FLAME_STATUS")
+	{
+		// RW 0x7CAFA5 case 345 -> RW 0x7C1874 -> RW 0x7BCD3C: each team member's FlammableUpdate -> on ? tryToIgnite (RW 0x8901AB) : stopBurning (RW 0x88FF6F)
+		const bool on = param(a, 1).intValue != 0;
+		if (Team *t = ScriptConditions::team(engine, param(a, 0).stringValue))
+		{
+			for (Object *o : ScriptConditions::members(*t))
+			{
+				for (const auto &m : o->modules())
+				{
+					if (auto *fu = dynamic_cast<FlammableUpdate *>(m.get()))
+					{
+						if (on)
+						{
+							fu->tryToIgnite();
+						}
+						else
+						{
+							fu->stopBurning();
+						}
+						break;
+					}
+				}
+			}
+		}
+		return true;
+	}
+	if (name == "SET_UNIT_EXPERIENCE_TO_COUNTER")
+	{
+		// RW 0x7CAFA5 case 406 -> RW 0x7C3724: unit's ExperienceTracker (+0x26C) -> counter = cvttss2si(experience +0x10)
+		if (Object *o = engine.getUnitNamed(param(a, 0).stringValue))
+		{
+			if (const ExperienceTracker *xp = o->getExperienceTracker())
+			{
+				engine.counter(param(a, 1).stringValue).value = (std::int32_t)xp->getExperience();
+			}
+		}
+		return true;
+	}
+	if (name == "SET_PLAYER_COMMAND_POINTS_TOTAL_TO_COUNTER")
+	{
+		// RW 0x7CAFA5 case 409 -> RW 0x7C3825: single player of mask (RW 0x758F7C / RW 0x6A85B6) -> counter = commandPointLimit() (RW 0x6A7B9F)
+		if (const Player *p = ScriptConditions::playerOfMask(engine, param(a, 0).stringValue))
+		{
+			engine.counter(param(a, 1).stringValue).value = (std::int32_t)p->commandPointLimit();
+		}
+		return true;
+	}
+	if (name == "SET_COUNTER_TO_NUMBER_OBJECTS_PLAYER_OWNES_WITH_MODELCONDITION")
+	{
+		// RW 0x7CAFA5 case 509 -> RW 0x7C3A31: players of mask (RW 0x758F7C / RW 0x6A85EE), model condition name -> bit (RW 0x4B3B5B),
+		// count each player's objects whose model condition bit is set -> counter (RW 0x60817A).
+		const int bit = AIUpdateInterface::modelConditionBit(param(a, 1).stringValue.c_str());
+		std::int32_t total = 0;
+		if (bit >= 0)
+		{
+			for (Player *p : ScriptConditions::players(engine, param(a, 0).stringValue))
+			{
+				for (const auto &proto : logic.players().teams().prototypes())
+				{
+					if (proto->getControllingPlayer() != p)
+					{
+						continue;
+					}
+					for (Team *t : proto->teams())
+					{
+						for (Object *o : ScriptConditions::members(*t))
+						{
+							if (o->testModelCondition(bit))
+							{
+								++total;
+							}
+						}
+					}
+				}
+			}
+		}
+		engine.counter(param(a, 2).stringValue).value = total;
+		return true;
+	}
+	if (name == "TEAM_SET_EXPERIENCE_POINTS")
+	{
+		// RW 0x7CAFA5 case 357 -> RW 0x7C2955: each team member -> setExperienceAndLevel((float)pts, false) (RW 0x688E17 -> RW 0x79D8EF),
+		// then resetBaseToRank() (RW 0x688E54 -> RW 0x79D764).
+		const float pts = (float)param(a, 1).intValue;
+		if (Team *t = ScriptConditions::team(engine, param(a, 0).stringValue))
+		{
+			for (Object *o : ScriptConditions::members(*t))
+			{
+				if (ExperienceTracker *xp = o->getExperienceTracker())
+				{
+					xp->setExperienceAndLevel(pts, false);
+				}
+			}
+			for (Object *o : ScriptConditions::members(*t))
+			{
+				if (ExperienceTracker *xp = o->getExperienceTracker())
+				{
+					xp->resetBaseToRank();
+				}
+			}
+		}
+		return true;
+	}
+	if (name == "TEAM_GAIN_LEVEL")
+	{
+		// RW 0x7CAFA5 case 524 -> RW 0x7C4324: each team member -> ExperienceTracker::gainLevel(feedback != 0) (RW 0x688E38 -> RW 0x79D7AD)
+		const bool feedback = param(a, 1).intValue != 0;
+		if (Team *t = ScriptConditions::team(engine, param(a, 0).stringValue))
+		{
+			for (Object *o : ScriptConditions::members(*t))
+			{
+				if (ExperienceTracker *xp = o->getExperienceTracker())
+				{
+					xp->gainLevel(feedback);
+				}
+			}
+		}
+		return true;
+	}
+	if (name == "UNIT_GIVE_EXPERIENCE_LEVEL" || name == "TEAM_GIVE_EXPERIENCE_LEVEL")
+	{
+		// RW 0x7C506A (case 358: UNIT_GIVE_EXPERIENCE_LEVEL: applyLevel(*lvl, false, true) + clearGainedLevel)
+		// RW 0x7C5006 (case 355: TEAM_GIVE_EXPERIENCE_LEVEL: each member applyLevel(*lvl, true, false) RW 0x688DD5, then resetBaseToRank RW 0x688E54)
+		const ExperienceLevelTemplate *lvl = TheExperienceLevelSystem ? TheExperienceLevelSystem->findLevel(param(a, 1).stringValue) : nullptr;
+		if (!lvl)
+		{
+			return true;
+		}
+		if (name[0] == 'U')
+		{
+			if (Object *o = engine.getUnitNamed(param(a, 0).stringValue))
+			{
+				if (ExperienceTracker *xp = o->getExperienceTracker())
+				{
+					xp->applyLevel(*lvl, false, true);
+					xp->clearGainedLevel();
+				}
+			}
+		}
+		else if (Team *t = ScriptConditions::team(engine, param(a, 0).stringValue))
+		{
+			for (Object *o : ScriptConditions::members(*t))
+			{
+				if (ExperienceTracker *xp = o->getExperienceTracker())
+				{
+					xp->applyLevel(*lvl, true, false);
+				}
+			}
+			for (Object *o : ScriptConditions::members(*t))
+			{
+				if (ExperienceTracker *xp = o->getExperienceTracker())
+				{
+					xp->resetBaseToRank();
+				}
+			}
+		}
+		return true;
+	}
+	if (name == "TEAM_SET_HEALTH")
+	{
+		// RW 0x7CAFA5 case 423 -> RW 0x7C3AB2: clamp real percent to [0.0f, 100.0f], then each member's BodyModule -> setInitialHealthPercent(pct)
+		float pct = param(a, 1).realValue;
+		if (pct > 100.0f) pct = 100.0f;
+		if (pct < 0.0f) pct = 0.0f;
+		if (Team *t = ScriptConditions::team(engine, param(a, 0).stringValue))
+		{
+			for (Object *o : ScriptConditions::members(*t))
+			{
+				if (BodyModuleInterface *body = o->getBodyModule())
+				{
+					body->setInitialHealthPercent(pct);
+				}
+			}
+		}
+		return true;
+	}
+	if (name == "PLAYER_SET_OVERRIDE_RELATION_TO_TEAM")
+	{
+		// RW 0x7CAFA5 case 189 -> RW 0x7C4DE6: player by name (RW 0x6A8466), team by name (RW 0x759FDA) -> Player::setTeamRelationship (RW 0x6AEAC0)
+		const int r = param(a, 2).intValue;
+		if (r >= ENEMIES && r <= ALLIES)
+		{
+			Player *p = logic.players().findPlayerWithName(param(a, 0).stringValue);
+			Team *t = ScriptConditions::team(engine, param(a, 1).stringValue);
+			if (p && t)
+			{
+				p->setTeamRelationship(t, (Relationship)r);
+			}
+		}
+		return true;
+	}
+	if (name == "PLAYER_REMOVE_OVERRIDE_RELATION_TO_TEAM")
+	{
+		// RW 0x7CAFA5 case 190 -> RW 0x7C4E39: player by name (RW 0x6A8466), team by name (RW 0x759FDA) -> Player::removeTeamRelationship (RW 0x6ADCC3)
+		Player *p = logic.players().findPlayerWithName(param(a, 0).stringValue);
+		Team *t = ScriptConditions::team(engine, param(a, 1).stringValue);
+		if (p && t)
+		{
+			p->removeTeamRelationship(t);
+		}
+		return true;
+	}
+	if (name == "TEAM_REMOVE_OVERRIDE_RELATION_TO_PLAYER")
+	{
+		// RW 0x7CAFA5 case 188 -> RW 0x7C4EDF: team by name (RW 0x759FDA), player by name (RW 0x6A8466) -> Team::removePlayerRelationship (RW 0x7A5512)
+		Team *t = ScriptConditions::team(engine, param(a, 0).stringValue);
+		Player *p = logic.players().findPlayerWithName(param(a, 1).stringValue);
+		if (t && p)
+		{
+			t->removePlayerRelationship(p);
+		}
+		return true;
+	}
+	if (name == "TEAM_REMOVE_OVERRIDE_RELATION_TO_TEAM")
+	{
+		// RW 0x7CAFA5 case 183 -> RW 0x7C146D: team1, team2 by name (RW 0x759FDA) -> Team::removeTeamRelationship (RW 0x7A54BC)
+		Team *t1 = ScriptConditions::team(engine, param(a, 0).stringValue);
+		Team *t2 = ScriptConditions::team(engine, param(a, 1).stringValue);
+		if (t1 && t2)
+		{
+			t1->removeTeamRelationship(t2);
+		}
+		return true;
+	}
+	if (name == "TEAM_SPIN_FOR_SECONDS" || name == "TEAM_SPIN_FOR_FRAMECOUNT")
+	{
+		// RW 0x7CAFA5 case 551 (TEAM_SPIN_FOR_SECONDS: ceilf(seconds * LOGICFRAMES_PER_SECOND) RW 0x7CDEF4..0x7CDF2E) / case 265 (FRAMECOUNT)
+		// -> RW 0x7C1A7D -> ScriptEngine::setSequentialTimer(INVALID_ID, team->getID(), frames) (RW 0x60396C)
+		if (Team *t = ScriptConditions::team(engine, param(a, 0).stringValue))
+		{
+			const std::int32_t frames = (name == "TEAM_SPIN_FOR_SECONDS")
+				? (std::int32_t)std::ceil(SimMath::mulf32(param(a, 1).realValue, (float)LOGICFRAMES_PER_SECOND))
+				: param(a, 1).intValue;
+			engine.setSequentialTimer(INVALID_ID, t->getID(), frames);
 		}
 		return true;
 	}

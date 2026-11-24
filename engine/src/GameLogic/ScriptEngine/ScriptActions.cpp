@@ -707,15 +707,21 @@ void ScriptActions::execute(ScriptEngine &engine, const ScriptActionRec &a)
 		}
 		return;
 	}
-	if (name == "TEAM_KILL" || name == "TEAM_DELETE") // RW 0x7C07ED / 0x7C0556
+	if (name == "TEAM_KILL" || name == "TEAM_DELETE" || name == "TEAM_DELETE_LIVING") // RW 0x7C07ED / RW 0x7C0556
 	{
+		// LOCAL-162: RW 0x7CAFA5 case 73 (TEAM_DELETE, push 0) / case 330 (TEAM_DELETE_LIVING, push 1) -> RW 0x7C0556 -> RW 0x7A3F77 (Team::deleteTeam):
+		// RW 0x7A4040..0x7A4056 skips isEffectivelyDead() (+0x458 bit 0) when ignoreDead != 0, then destroys each member.
+		const bool ignoreDead = (name == "TEAM_DELETE_LIVING");
 		if (Team *tm = ScriptConditions::team(engine, param(a, 0).stringValue))
 		{
 			for (Object *o : ScriptConditions::members(*tm))
 			{
-				if (name == "TEAM_DELETE")
+				if (name == "TEAM_DELETE" || ignoreDead)
 				{
-					logic.destroyObject(o);
+					if (!ignoreDead || !o->isEffectivelyDead())
+					{
+						logic.destroyObject(o);
+					}
 				}
 				else if (!o->isEffectivelyDead())
 				{
@@ -723,6 +729,31 @@ void ScriptActions::execute(ScriptEngine &engine, const ScriptActionRec &a)
 				}
 			}
 		}
+		return;
+	}
+	if (name == "DELETE_ALL_UNMANNED")
+	{
+		// LOCAL-162: RW 0x7CAFA5 case 332 -> RW 0x7C2A40: iterate all objects in TheGameLogic; destroy any with DISABLED_UNMANNED (Object +0x1C8 bit 0x20, type 5)
+		std::vector<Object *> doomed;
+		for (Object *o = logic.getFirstObject(); o; o = o->getNextObject())
+		{
+			if (o->isDisabledByType(5u))
+			{
+				doomed.push_back(o);
+			}
+		}
+		for (Object *o : doomed)
+		{
+			logic.destroyObject(o);
+		}
+		return;
+	}
+	if (name == "MUSIC_RESET_MUSIC_SCRIPTING_SYSTEM")
+	{
+		// LOCAL-162: RW 0x7CAFA5 case 461 -> RW 0x7C0FC5 (DONOR BFME2 ScriptActions::doResetMusicScripting): pauses audio (client) and sets
+		// the script flag "/___MusicScript_Init" to true.
+		engine.flag("/___MusicScript_Init") = true;
+		ScriptActions::clientRequest(engine, a);
 		return;
 	}
 	if (name == "MOVE_NAMED_UNIT_TO" || name == "MOVE_TEAM_TO") // RW 0x7C84CC / RW 0x7BF4A3: aiMoveToPosition from the script
