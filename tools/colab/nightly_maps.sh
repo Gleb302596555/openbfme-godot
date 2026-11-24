@@ -7,6 +7,8 @@
 #
 #   bash tools/colab/nightly_maps.sh          # every 15 min: when origin/main moved since the last run and has been still for 15 min, run
 #   bash tools/colab/nightly_maps.sh --now    # one run now
+#   bash tools/colab/nightly_maps.sh --full   # one run of every step (a run otherwise does only the steps whose inputs changed, see want())
+#   bash tools/colab/nightly_maps.sh --only binary   # only the named steps: script matrix audit sweep funcmap gaps binary drafts
 # The result goes to the branch auto/maps; without push rights in the sandbox it waits on the Drive as openbfme-runs/maps/<date>.patch.
 #
 # Runs in Claude's station-3 tree of this sandbox (workspace/wt/local-sb<N>-st3, made from origin/main when missing). Inputs: the game files
@@ -151,21 +153,64 @@ PY
 
 st() { mkdir -p /content/status && echo "$*" > /content/status/maps.txt; }   # the dashboard's "what it does" line (watchdog.py)
 
+# Only what changed (owner 2026-11-24: "чтобы прогон гонял только то что обновилось а не все"): a step runs when its inputs moved since the
+# main of the previous run ($RUNS/last_rev): its own tools, engine/ for what runs the engine (matrix, audit, sweep), engine/src's citations
+# for the function maps. The inputs outside git (game.dat, BFME2's game.dat, the mod's INI archive, the newest hand verdicts) are one key
+# ($RUNS/inputs_key): a new key runs everything. A skipped step leaves main's table as it is (the commit then has no change for it).
+#   --full           every step
+#   --only "<steps>" only these steps (names below), e.g. --only binary; last_rev is then left alone, so the next run still sees every change
+ONLY=""; FULL=0
+STEPS_ALL="script matrix audit sweep funcmap gaps binary drafts"
+want() {   # want <step> <paths...>
+  local step=$1; shift
+  if [ -n "$ONLY" ]; then [[ " $ONLY " == *" $step "* ]]; return; fi
+  [ "$FULL" = 1 ] && return 0
+  [ -n "$BASE" ] && git cat-file -e "$BASE^{commit}" 2>/dev/null || return 0
+  ! git diff --quiet "$BASE" HEAD -- "$@"
+}
+RAN=""; SKIPPED=""
+note_step() { if [ "$2" = 1 ]; then RAN="$RAN $1"; else SKIPPED="$SKIPPED $1"; fi; }
+
 run() {
   local day; day=$(date -u +%F)
-  echo "== $day $(date -u +%T) start" >> "$LOG"
+  echo "== $day $(date -u +%T) start${ONLY:+ (only: $ONLY)}" >> "$LOG"
   [ -d "$T" ] || git -C "$REPO" worktree add -q --detach "$T" origin/main || return 1
   cd "$T" || return 1
   git fetch -q origin && git checkout -q -f --detach origin/main || return 1
   local rev; rev=$(git rev-parse --short=8 HEAD)
-  st "карты на main $rev: сборка"
-  bash tools/colab/build_tests.sh > "$RUNS/nightly_build.log" 2>&1 || { echo "build failed at $rev" >> "$LOG"; return 1; }
+  XMAP=$PWD/workspace/rebuild/xmap
+  BASE=$(cat "$RUNS/last_rev" 2>/dev/null)
+  local manual; manual=$(ls -d "$DRIVE"/openbfme-audit/field-audit-v* 2>/dev/null | sort -V | tail -1)/manual-check.tsv
+  local key; key="$(cat "$RW_GAME_DAT" "$BFME2_INSTALL/game.dat" "$INI" "$manual" 2>/dev/null | md5sum | cut -c1-16)"
+  if [ -z "$ONLY" ] && [ "$key" != "$(cat "$RUNS/inputs_key" 2>/dev/null)" ]; then
+    echo "inputs outside git changed (game.dat / INI archive / hand verdicts): every step" >> "$LOG"; FULL=1
+  fi
+  RAN=""; SKIPPED=""
+  local s_script=0 s_matrix=0 s_audit=0 s_sweep=0 s_funcmap=0 s_gaps=0 s_binary=0 s_drafts=0
+  want script  tools/mod/script_map.py && s_script=1
+  want matrix  engine tools/matrix_run.py 'tools/mod/matrix_*' && s_matrix=1
+  want audit   engine tools/mod/field_audit.py && s_audit=1
+  want sweep   engine tools/maps && s_sweep=1
+  want funcmap engine/src tools/mod/rw_function_map.py tools/re && s_funcmap=1
+  want binary  engine/src tools/rw_object_model tools/mod/rw_function_map.py 'tools/mod/rw_library_functions*' docs/ennorath/rw_verdicts.d tools/re && s_binary=1
+  # the joins follow their inputs: the matrix, the audit, the function map
+  { want gaps tools/mod/matrix_gaps.py tools/mod/field_gaps.py tools/mod/modifier_map.py || { [ -z "$ONLY" ] && [ $((s_matrix + s_audit + s_funcmap)) -gt 0 ]; }; } && s_gaps=1
+  { want drafts tools/mod/matrix_drafts.py || { [ -z "$ONLY" ] && [ "$s_matrix" = 1 ]; }; } && s_drafts=1
+  for s in $STEPS_ALL; do v="s_$s"; note_step "$s" "${!v}"; done
+  echo "steps: ran${RAN:- none}; skipped${SKIPPED:- none} (since ${BASE:-no previous run})" >> "$LOG"
+  if [ $((s_matrix + s_audit + s_sweep)) -gt 0 ]; then
+    st "карты на main $rev: сборка"
+    bash tools/colab/build_tests.sh > "$RUNS/nightly_build.log" 2>&1 || { echo "build failed at $rev" >> "$LOG"; return 1; }
+  fi
   mkdir -p "$AUDIT"
   # the script map (owner 2026-11-19: mechanics the sides' script libraries give, like the Manwe science): before the matrix (matrix_run.py collect
   # notes the script on a row naming what a script gives); its names-only half goes into the
   # repository with the maps, the full transcription into the audit folder and its zip
+  if [ "$s_script" = 1 ]; then
   st "карты на main $rev: карта скриптов"
   python3 tools/mod/script_map.py "$ROTWK_INSTALL" "$OPENBFME_ENNORATH_INSTALL" --out docs/ennorath --full "$AUDIT/script-map"       > "$RUNS/nightly_scripts.log" 2>&1 || echo "script map failed at $rev (the run goes on)" >> "$LOG"
+  fi
+  if [ "$s_matrix" = 1 ]; then
   st "карты на main $rev: матрица кнопок (все фракции)"
   python3 tools/matrix_run.py all --jobs 5 > "$RUNS/nightly_matrix.log" 2>&1 || { echo "matrix failed at $rev" >> "$LOG"; return 1; }
   # the matrix review (owner 2026-11-17): layer 1 ran inside `all` (recheck: every red object swept again alone, ORDER when fine alone);
@@ -176,12 +221,13 @@ run() {
   st "карты на main $rev: серые кнопки (MATRIX_GREY)"
   python3 tools/mod/matrix_grey.py --ini "$INI" --matrix docs/ennorath/MATRIX.tsv --out docs/ennorath/MATRIX_GREY.tsv \
       --md docs/ennorath/MATRIX_GREY.md > "$RUNS/nightly_grey.log" 2>&1 || echo "matrix grey failed at $rev (the run goes on)" >> "$LOG"
+  fi
   # the field audit on this main (2026-11-17): the engine's module coverage table, then field_audit.py with the newest hand verdicts
+  if [ "$s_audit" = 1 ]; then
   mkdir -p "$AUDIT"
   st "карты на main $rev: аудит полей"
   OPENBFME_MODULE_COVERAGE_OUT="$AUDIT/module-coverage.tsv" engine/build/openbfme_tests "-tc=module coverage: every registry class*" \
       > "$RUNS/nightly_audit.log" 2>&1
-  local manual; manual=$(ls -d "$DRIVE"/openbfme-audit/field-audit-v* 2>/dev/null | sort -V | tail -1)/manual-check.tsv
   python3 tools/mod/field_audit.py --base "$ROTWK_INSTALL" --overlay "$OPENBFME_ENNORATH_INSTALL" --coverage "$AUDIT/module-coverage.tsv" \
       --manual "$manual" --out "$AUDIT" >> "$RUNS/nightly_audit.log" 2>&1 || { echo "field audit failed at $rev" >> "$LOG"; return 1; }
   # field-audit-auto is the one place every reader takes the audit from (owner 2026-11-18: "чтобы ночной сам везде обновлял"): the hand
@@ -192,8 +238,10 @@ run() {
 %s
 ' "$rev" "$(date -u '+%F %T')" "$SB"       "$(basename "$(dirname "$manual")")" "$(grep -m1 'fields of the mod' "$AUDIT/field-audit.md" 2>/dev/null)" > "$AUDIT/README.txt"
   audit_zip "$rev" "$manual" || echo "audit zip failed at $rev" >> "$LOG"   # never stops the run
+  fi
   # the map sweep (owner 2026-11-23: last run by hand on 2026-11-20, and two Local tasks were written from it after their fixes had
   # landed): every map of the Ennorath install starts a skirmish and plays 60 s, one process per map; the per-map logs stay on the Drive
+  if [ "$s_sweep" = 1 ]; then
   st "карты на main $rev: свип карт Эннората"
   local sw="$RUNS/map-sweep"; rm -rf "$sw"; mkdir -p "$sw"
   local jobs; jobs=$(( $(nproc) > 4 ? $(nproc) - 2 : 2 ))
@@ -204,16 +252,25 @@ run() {
   else
     echo "map sweep failed at $rev (the run goes on): $RUNS/nightly_sweep.log" >> "$LOG"
   fi
+  fi
   [ -d /content/py219/angr ] || python3 -m pip install -q --target /content/py219 angr==9.2.213 bitstring==4.4.0 pycparser==3.0 > /dev/null 2>&1
   export PYTHONPATH=/content/py219
   cp -f "$INV" workspace/rebuild_inventory.json 2>/dev/null
-  st "карты на main $rev: карта функций RotWK"
-  decomp_map   # fills the map's decomp column (Port 240); a failure leaves the column empty, it never stops the night
-  st "карты на main $rev: карта всего бинарника (RW_BINARY_MAP)"
-  binary_map || echo "binary map failed at $rev (the run goes on): $RUNS/nightly_binmap.log" >> "$LOG"
+  # the decomp pairing feeds both function maps: rerun it with the function map, or when the whole-image map runs without its BFME2 files
+  if [ "$s_funcmap" = 1 ] || { [ "$s_binary" = 1 ] && [ ! -f "$XMAP/bfme2_functions.csv" ]; }; then
+    st "карты на main $rev: карта функций RotWK"
+    decomp_map   # fills the map's decomp column (Port 240); a failure leaves the column empty, it never stops the night
+  fi
+  if [ "$s_binary" = 1 ]; then
+    st "карты на main $rev: карта всего бинарника (RW_BINARY_MAP)"
+    binary_map || echo "binary map failed at $rev (the run goes on): $RUNS/nightly_binmap.log" >> "$LOG"
+  fi
+  if [ "$s_funcmap" = 1 ]; then
   python3 tools/mod/rw_function_map.py --game "$RW_GAME_DAT" --ini "$INI" --inventory workspace/rebuild_inventory.json \
       --decomp "$XMAP/rw_map.csv" --out docs/ennorath/RW_FUNCTION_MAP > "$RUNS/nightly_map.log" 2>&1 || { echo "map failed at $rev" >> "$LOG"; return 1; }
   cmp -s workspace/rebuild_inventory.json "$INV" || cp -f workspace/rebuild_inventory.json "$INV"   # a new game.dat: share the new cache
+  fi
+  if [ "$s_gaps" = 1 ]; then
   python3 tools/mod/matrix_gaps.py --base "$ROTWK_INSTALL" --overlay "$OPENBFME_ENNORATH_INSTALL" --inventory workspace/rebuild_inventory.json \
       --game "$RW_GAME_DAT" > "$RUNS/nightly_gaps.log" 2>&1 || { echo "matrix_gaps failed at $rev" >> "$LOG"; return 1; }
   # FIELD_GAPS on this run's audit, with the template getters of the decomp map and the whole-image inventory when they exist
@@ -235,9 +292,12 @@ run() {
       echo "modifier map failed at $rev (the run goes on)" >> "$LOG"
     fi
   fi
+  fi
   rm -f workspace/rebuild_inventory.json
   # task drafts from the red buttons, grouped by module class, after MATRIX_GAPS (owner 2026-11-17): Drive openbfme-runs/maps/drafts, never the repository
+  if [ "$s_drafts" = 1 ]; then
   python3 tools/mod/matrix_drafts.py --ini "$INI" --out "$RUNS/drafts" > "$RUNS/nightly_drafts.log" 2>&1           || echo "matrix drafts failed at $rev (the run goes on)" >> "$LOG"
+  fi
   # the day's progress row from this run (owner 2026-11-17: the dashboard's /stats and the home page bar read it without Claude):
   # this run's audit, matrix and gaps, and the stop curve against the previous row
   python3 tools/mod/progress_snapshot.py --audit "$AUDIT/field-audit.tsv" --audit-name auto --write >> "$LOG" 2>&1 || echo "progress row failed at $rev" >> "$LOG"
@@ -263,6 +323,7 @@ run() {
     # files, whole tables, PROGRESS by date, README three-way); a red check leaves auto/maps for Claude
   fi
   { echo "# Nightly maps $day (main $rev, sandbox $SB)"; echo; echo "red buttons / specific gaps: $red"; echo
+    echo "steps run:${RAN:- none}; skipped (inputs unchanged since ${BASE:-?}, their sections below are from an earlier run):${SKIPPED:- none}"; echo
     echo "stops since the previous progress row: $stops"; echo
     echo '## Function map'; tail -3 "$RUNS/nightly_map.log"; echo; echo '## Whole-image map'; tail -2 "$RUNS/nightly_binmap.log"; echo; echo '## MATRIX_GAPS'; tail -2 "$RUNS/nightly_gaps.log"
     echo; echo '## FIELD_GAPS'; tail -2 "$RUNS/nightly_fgaps.log"; echo; echo '## Matrix'; tail -5 "$RUNS/nightly_matrix.log"
@@ -271,15 +332,17 @@ run() {
     echo; echo '## Task drafts (Drive openbfme-runs/maps/drafts/index.md)'; tail -1 "$RUNS/nightly_drafts.log"
     echo; sed -n '/^## Lint/,$p' docs/ennorath/MATRIX_REVIEW.md 2>/dev/null | head -60; } > "$RUNS/$day.md"
   cp -f "$RUNS/$day.md" "$RUNS/latest.md"
-  echo "$rev" > "$RUNS/last_rev"
-  echo "== $day $(date -u +%T) done ($red)" >> "$LOG"
+  # a partial run (--only) does not move the baseline: the next run still compares against the last full view of main
+  if [ -z "$ONLY" ]; then echo "$rev" > "$RUNS/last_rev"; echo "$key" > "$RUNS/inputs_key"; fi
+  echo "== $day $(date -u +%T) done ($red; ran:${RAN:- none})" >> "$LOG"
   st "жду следующего переноса в main (последний прогон: main $rev, красных кнопок / пробелов $red)"
 }
 
-if [ "${1:-}" = "--now" ]; then
-  run
-  exit $?
-fi
+case "${1:-}" in
+  --now) run; exit $? ;;
+  --full) FULL=1; run; exit $? ;;
+  --only) ONLY="${2:?--only needs the step names: $STEPS_ALL}"; run; exit $? ;;
+esac
 # after every landing (owner 2026-11-17): a "Landing:" commit (tools/land.py) or an upstream merge since the last run, and main still for
 # 15 minutes; otherwise once a day at 01:00 UTC when main moved at all (tool and doc commits alone do not take the sandbox for an hour)
 while true; do
