@@ -91,9 +91,9 @@ public:
 //   the TributePage's update (RW 0x9164EB): once NumMinutesBeforePlayersCanTransferMoney have passed (RW 0x626087) the page's SetState("_enabled") is called
 //   once (before, the movie shows its "disabled at the start of the game" text); with the content up, RW 0x91578C and every row's refresh (RW 0x916225).
 // INFERENCE: retail accepts a status row index == count (one past the rows; the slot then holds no player): the port refuses it and reports it.
-// NOT PORTED / INFERENCE (stop S-1922): the opening's pause / input calls (RW 0x914FA2 .. 0x914FE2); a skirmish AI ally's extra money term (RW 0x6A950B /
-// 0x6A9999 -> + 0xC -> + 0x14) in a tribute row's field 1; the text entry's 5-digit limit and its character filter (RW 0x81606D / 0x721FA9); when RW 0x91578C
-// runs (here: after every change); the campaign's objectives screen.
+// TARGET FACTS (Port 331, S-1922 closed): skirmish AI ally cash adds AIStatCollector::reserve() (RW 0x9155C2 -> RW 0x6A950B / 0x6A9999 -> +0x0C -> +0x14);
+// InitTextEntry (RW 0x91565C) sets flags 0x21 (numericalOnly, RW 0x721FA9) and maxTextLen = 5 (RW 0x81606D); RW 0x6264E1 +0x754 is Player::isDefeated (RW 0x6AAC4B).
+// NOT PORTED: the opening's pause / input calls (RW 0x914FA2 .. 0x914FE2); the campaign's objectives screen.
 class TributeSource;
 struct TributePlayerRow;
 class AptPlayerTribute : public AptScreen

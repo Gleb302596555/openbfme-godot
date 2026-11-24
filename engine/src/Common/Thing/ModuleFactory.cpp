@@ -77,6 +77,8 @@ void ModuleFactory::init()
 	// lane MODS-3: edain-unchained.object-image-upgrade's registration (its 0xEF3128 replaces the TooltipUpgrade addModule call at RW 0x65A7F3: that
 	// one, then "ObjectImageUpgrade", interface mask 0x84, a behavior)
 	const bool objectImage = ModEngineFeatures::has(ModEngineFeature::EdainUnchainedObjectImageUpgrade);
+	const bool portraitUpgrade = ModEngineFeatures::has(ModEngineFeature::EnnorathPortraitUpgrade);
+	const bool filteredRespawn = ModEngineFeatures::has(ModEngineFeature::EnnorathFilteredHordeRespawn);
 	for (const auto &step : data.registrationSequence)
 	{
 		makeDecoratedNameKey(step.first, (ModuleType)step.second);
@@ -149,6 +151,41 @@ void ModuleFactory::init()
 	if (objectImage && !m_templates.count(makeDecoratedNameKey("ObjectImageUpgrade", MODULETYPE_BEHAVIOR)))
 	{
 		throw std::logic_error("ModuleFactory: edain-unchained.object-image-upgrade needs TooltipUpgrade in the binary's registry");
+	}
+	// PYSAGE 1.9.8.7 .wmfeat 0xF3A000 (hook RW 0x65A93F): register PortraitUpgrade (mask 0x84) and FilteredHordeRespawnBehavior (mask 1)
+	if (portraitUpgrade && !m_templates.count(makeDecoratedNameKey("PortraitUpgrade", MODULETYPE_BEHAVIOR)))
+	{
+		const NameKeyType key = makeDecoratedNameKey("PortraitUpgrade", MODULETYPE_BEHAVIOR);
+		ModuleTemplate &mt = m_templates[key];
+		mt.name = "PortraitUpgrade";
+		mt.type = MODULETYPE_BEHAVIOR;
+		mt.interfaceMask = 0x84;
+		mt.typed = false;
+		mt.portedModule = false;
+		mt.newModuleData = [](INI *) -> std::shared_ptr<ModuleData> {
+			throw std::logic_error("ModuleFactory: PortraitUpgrade has no data class bound");
+		};
+		mt.newModule = [](Thing *thing, const ModuleData *d, const ModuleTemplate &info) -> std::unique_ptr<Module> {
+			return makeUnportedModule(thing, d, info.name, info.type, info.interfaceMask);
+		};
+		m_order.push_back(key);
+	}
+	if (filteredRespawn && !m_templates.count(makeDecoratedNameKey("FilteredHordeRespawnBehavior", MODULETYPE_BEHAVIOR)))
+	{
+		const NameKeyType key = makeDecoratedNameKey("FilteredHordeRespawnBehavior", MODULETYPE_BEHAVIOR);
+		ModuleTemplate &mt = m_templates[key];
+		mt.name = "FilteredHordeRespawnBehavior";
+		mt.type = MODULETYPE_BEHAVIOR;
+		mt.interfaceMask = 1;
+		mt.typed = false;
+		mt.portedModule = false;
+		mt.newModuleData = [](INI *) -> std::shared_ptr<ModuleData> {
+			throw std::logic_error("ModuleFactory: FilteredHordeRespawnBehavior has no data class bound");
+		};
+		mt.newModule = [](Thing *thing, const ModuleData *d, const ModuleTemplate &info) -> std::unique_ptr<Module> {
+			return makeUnportedModule(thing, d, info.name, info.type, info.interfaceMask);
+		};
+		m_order.push_back(key);
 	}
 }
 

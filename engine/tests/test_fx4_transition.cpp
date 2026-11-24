@@ -407,7 +407,7 @@ TEST_CASE("fx4 save: the last damage record's type round-trips in ActiveBody's x
 	XferSave saved;
 	ba->xfer(saved);
 	REQUIRE_FALSE(saved.data().empty());
-	CHECK(saved.data()[0] == 6); // the record's noEffect byte, PORT-293's last-healing frame, PORT-296's amount, upstream BLDGDEBRIS-1's side stage and values (24 bytes)
+	CHECK(saved.data()[0] == 7); // the record's noEffect byte, PORT-293's last-healing frame, PORT-296's amount, upstream BLDGDEBRIS-1's side stage and values (24 bytes), the symbiote partner id (4 bytes, RW 0x8C3599)
 	XferLoad load(saved.data());
 	bb->xfer(load);
 	REQUIRE(load.atEnd());
@@ -421,10 +421,10 @@ TEST_CASE("fx4 save: the last damage record's type round-trips in ActiveBody's x
 	XferSave again;
 	bb->xfer(again);
 	CHECK(again.data() == saved.data());
-	// version 5 (before upstream's side stage): without the trailing stage and four value / flag pairs (24 bytes)
+	// version 5 (before upstream's side stage): without the trailing symbiote partner id (4 bytes) and the stage and four value / flag pairs (24 bytes)
 	std::vector<std::uint8_t> v5 = saved.data();
 	v5[0] = 5;
-	v5.resize(v5.size() - 24);
+	v5.resize(v5.size() - 4 - 24);
 	XferLoad oldV5(v5);
 	bc->xfer(oldV5);
 	REQUIRE(oldV5.atEnd());

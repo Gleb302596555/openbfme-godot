@@ -68,7 +68,9 @@ CATEGORIES = [
     ("NO-TARGET", re.compile(r"^NO-TARGET")),                         # the scene has no fitting target: not tested
     ("MOD-DATA", re.compile(r"^MOD-DATA")),                           # the mod gives the button no module: RotWK presses it to no effect too
     ("NO-SELECT", re.compile(r"could not be selected")),
-    ("DISABLED", re.compile(r"\(not enabled\)|^DISABLED: needs")),    # the button stays greyed at the top level: a requirement the test or the port misses
+    # the button stays greyed at the top level: a requirement the test or the port misses. Every "DISABLED: <why>" the sweep writes is a
+    # retail grey reason (2026-11-23: LOCAL-148's "already purchased" / "not affected by" and PORT-274's model gates were counted red: 35 -> 55)
+    ("DISABLED", re.compile(r"\(not enabled\)|^DISABLED: ")),
     ("LEFT-WORLD", re.compile(r"left the world")),
     ("INVENTORY", re.compile(r"does not exist")),
     ("GREY-BUG", re.compile(r"^GREY-BUG")),                          # still grey with every condition met (PORT-530): the port's availability rule differs from RotWK's

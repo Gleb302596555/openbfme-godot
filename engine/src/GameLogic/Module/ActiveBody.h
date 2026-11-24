@@ -105,9 +105,10 @@ public:
 	// PORT-293: the interface's getters, each its own RW function (table RW 0xC720F0; the interface `this` is module + 0x10, as RW 0x8C1C51's
 	// `lea ecx, [esi - 0x10]` shows). 41 sites call the health getter, 58 the max-health one, 27 the damage state
 	float getHealth() const override { return m_currentHealth; }        ///< RW 0x5F2D41 (slot 0x10, `fld [ecx + 8]` = module + 0x18)
+	float getHealthPercent() const override;                            ///< RW 0x8C1D75 (body vslot +0x14)
 	float getMaxHealth() const override { return m_maxHealth; }         ///< RW 0x6AA274 (slot 0x1C, `fld [ecx + 0x10]` = module + 0x20)
 	float getInitialHealth() const override { return m_initialHealth; }
-	float getPreviousHealth() const { return m_previousHealth; }        ///< RW 0x49449C (slot 0x20, `fld [ecx + 0x1C]` = module + 0x2C)
+	float getPreviousHealth() const override { return m_previousHealth; } ///< RW 0x49449C (body vslot +0x70)
 	// lane HERO-1 (Sol review): the reference the revive scales (RW 0x8C47DE reads body interface + 0x1C = module + 0x2C; RW 0x8C1CD5 setMaxHealth stores newMax
 	// there). Distinct from the previous health internalChangeHealth keeps (RW 0x8C31A5 writes interface + 0x0C); it starts at the actual initial health
 	float getReviveReference() const { return m_reviveReference; }
@@ -181,7 +182,7 @@ public:
 	// lane PLAY-4: body interface vslot 0x4C (RW 0x8C3A33): the last damage record's source once per record (+ 0xB6 set by the first call, cleared by the
 	// next damaging hit, RW 0x8C42FA); INVALID_ID when already taken (ZH getClearableLastAttacker + clearLastAttacker in one call). The guard machine's
 	// "attacked me" condition (RW 0x949994) asks it
-	ObjectID takeLastAttacker()
+	ObjectID takeLastAttacker() override
 	{
 		if (m_lastAttackerTaken)
 		{
@@ -190,6 +191,10 @@ public:
 		m_lastAttackerTaken = true;
 		return m_lastDamager;
 	}
+	std::uint32_t getArmorSetFlags() const override;
+	// RW ActiveBody +0xEC (BodyModuleInterface +0xDC): partner object ID written by SymbioticStructuresBody::refreshSymbiote (RW 0x008C4EE0)
+	void setSymbiotePartner(ObjectID id) { m_symbiotePartnerId = id; }
+	ObjectID symbiotePartnerId() const { return m_symbiotePartnerId; }
 	// RW 0x008C3A89 (primary slot 16 +0x40, DONOR BFME2 0x004BF8ED): sets m_lastAttackerTaken (+0xC6) to true
 	void clearLastAttacker() { m_lastAttackerTaken = true; }
 	// lane CAMP-1: the last damage record's source player mask (RW body vslot 0x40 record + 0xC, DamageInfo::m_sourcePlayerMask; TEAM_ATTACKED_BY_PLAYER RW 0x7E7361)
@@ -268,6 +273,7 @@ private:
 	std::uint32_t m_lastDamagerPlayerMask = 0; // lane CAMP-1: the record's + 0xC
 	int m_lastDamageType = DAMAGE_UNDEFINED;   // lane FX-4: the record's + 0x10
 	bool m_lastDamageNoEffect = false;         // RW 0x744203: DamageInfo + 0x78
+	ObjectID m_symbiotePartnerId = INVALID_ID; // RW +0xEC (BodyModuleInterface +0xDC): symbiotic partner object ID
 	mutable bool m_armorReported = false;
 	// lane FX-2: the damage FX throttle of RW 0x8C2F02 (+0x3C the last DamageFX type played, +0x38 the frame until which that type stays throttled). Only the
 	// client output depends on them; not hashed (the event queue boundary of FXEvents.h)

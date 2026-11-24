@@ -7,22 +7,43 @@ Layer 2 (lint) flags verdicts the mod's own data contradicts; layer 3 lists ever
 By rule: L1 66, L4 3
 
 
-## Changes since 2ffb0928: 17 buttons moved, 1 turned red
+## Changes since b5ec6d4c: 38 buttons moved, 0 turned red
 
-- Imladris `LindonTower` `Command_PurchaseUpgradeLindonReinforcement`: DISABLED -> FAIL — DISABLED: disabled by model USER_8
-- Isengard `spell` `SpellBookBndnissderzweiTime`: FAIL -> PASS
-- Isengard `spell` `SpellBookCrebain`: FAIL -> PASS
-- Isengard `spell` `SpellBookDevastation`: FAIL -> NO-RULE — cast, but no effect seen beyond the control run: no effect of DevastateSpecialPower is asserted;  (enemies lost 1941 with the cast, 1920 wit
-- Isengard `spell` `SpellBookFreezingRain`: FAIL -> PASS
-- Isengard `spell` `SpellBookFueltheFires`: FAIL -> PASS
-- Isengard `spell` `SpellBookIsengardCapitans`: FAIL -> PASS
-- Isengard `spell` `SpellBookIsengardMinenRegen`: FAIL -> PASS
-- Isengard `spell` `SpellBookPalantirVision`: FAIL -> PASS
-- Isengard `spell` `SpellBookSarumanVielfarbig`: FAIL -> PASS
-- Isengard `spell` `SpellBookWarChantIsengard`: FAIL -> PASS
-- Isengard `spell` `SpellBookWargBow`: FAIL -> PASS
-- Isengard `spell` `SpellBookWildMenAllies`: FAIL -> PASS
-- Men `GondorDenethor_forFortress` `Command_SpecialAbilityDenethorNotstandssituation`: GREY-BUG -> FAIL — DISABLED: disabled by model USER_9
-- Men `GondorDenethor_forFortress` `Command_SpecialAbilityDenethorSehenderStein1`: GREY-BUG -> FAIL — DISABLED: disabled by model USER_9
-- Men `GondorDenethor_forFortress` `Command_SpecialAbilityDenethorSteuererlass`: GREY-BUG -> FAIL — DISABLED: disabled by model USER_9
-- Men `GondorDenethor_forFortress` `Command_SpecialAbilityDenethorVerzweiflungsakt`: GREY-BUG -> FAIL — DISABLED: disabled by model USER_9
+- Angmar `AngmarBarrowWightLair_Player_Independant` `Command_SpecialAbilityKarshSummonLvl10`: DISABLED -> PASS
+- Angmar `AngmarBarrowWightLair_Player_Independant` `Command_SpecialAbilityKarshSummonLvl3`: DISABLED -> PASS
+- Angmar `AngmarBarrowWightLair_Player_Independant` `Command_SpecialAbilityKarshSummonLvl5`: DISABLED -> PASS
+- Angmar `AngmarBarrowWightLair_Player_Independant` `Command_SpecialAbilityKarshSummonLvl7`: DISABLED -> PASS
+- Arnor `MordorWitchKingOnFellBeastSpell` `Command_KhamulFellBeastToggleMounted`: DISABLED -> PASS
+- Arnor `MordorWitchKingPferdSpell` `Command_WitchKingToggleMountedonFellbeastNew`: DISABLED -> PASS
+- Arnor `MordorWitchKingSpell` `Command_WitchKingToggleMountedonFellbeastNew`: DISABLED -> PASS
+- Dwarves `IronHillsBallista` `Command_Bombard`: DISABLED -> PASS
+- Elves `LothlorienOuterFlet` `Command_PurchaseLothlorienSentryTowerFireArrowsUpgrade`: GREY-BUG -> DISABLED
+- Elves `RohanSam_mod` `Command_SamBratpfanne`: NO-SEND -> PASS
+- Evilmen `EvilMenCorsairBallista` `Command_BombardEvil`: DISABLED -> PASS
+- Evilmen `EvilMenCorsairBallistaBuildable` `Command_BombardEvil`: DISABLED -> PASS
+- Evilmen `HaradBigScorpion_Underground` `Command_BigScorpionRelease`: DISABLED -> PASS
+- Evilmen `HaradFortressBallista` `Command_BombardEvil`: DISABLED -> PASS
+- Evilmen `HaradmuhadMounted` `Command_UnmountMuhadMumakil`: DISABLED -> PASS
+- Imladris `DwarvenGuardianEreborHorde_Summoned` `Command_PurchaseUpgradeDwarvenBasicTraining`: GREY-BUG -> DISABLED
+- Imladris `LindonTower` `Command_PurchaseUpgradeLindonReinforcement`: FAIL -> DISABLED
+- Imladris `MordorWitchKingOnFellBeastSpell` `Command_KhamulFellBeastToggleMounted`: DISABLED -> PASS
+- Imladris `MordorWitchKingPferdSpell` `Command_WitchKingToggleMountedonFellbeastNew`: DISABLED -> PASS
+- Imladris `MordorWitchKingSpell` `Command_WitchKingToggleMountedonFellbeastNew`: DISABLED -> PASS
+- Isengard `IsengardBallista` `Command_BombardEvil`: DISABLED -> PASS
+- Isengard `IsengardBallista_Summoned` `Command_BombardEvil`: DISABLED -> PASS
+- Isengard `IsengardFortressBallista` `Command_BombardEvil`: DISABLED -> PASS
+- Men `GondorDenethor_forFortress` `Command_SpecialAbilityDenethorNotstandssituation`: FAIL -> DISABLED
+- Men `GondorDenethor_forFortress` `Command_SpecialAbilityDenethorSehenderStein1`: FAIL -> DISABLED
+- Men `GondorDenethor_forFortress` `Command_SpecialAbilityDenethorSteuererlass`: FAIL -> DISABLED
+- Men `GondorDenethor_forFortress` `Command_SpecialAbilityDenethorVerzweiflungsakt`: FAIL -> DISABLED
+- Men `MordorWitchKingOnFellBeastSpell` `Command_KhamulFellBeastToggleMounted`: DISABLED -> PASS
+- Men `MordorWitchKingPferdSpell` `Command_WitchKingToggleMountedonFellbeastNew`: DISABLED -> PASS
+- Men `MordorWitchKingSpell` `Command_WitchKingToggleMountedonFellbeastNew`: DISABLED -> PASS
+- Men `RohanTheoden_mod` `Command_SpecialAbilityKingsFavorEdainTheoRing`: PASS -> ORDER
+- Mordor `GasthausKhamulonFellBeastSpell` `Command_KhamulFellBeastToggleMounted`: DISABLED -> PASS
+- Mordor `MordorWitchKingOnFellBeastSpell` `Command_KhamulFellBeastToggleMounted`: DISABLED -> PASS
+- Mordor `MordorWitchKingPferdSpell` `Command_WitchKingToggleMountedonFellbeastNew`: DISABLED -> PASS
+- Mordor `MordorWitchKingSpell` `Command_WitchKingToggleMountedonFellbeastNew`: DISABLED -> PASS
+- Rohan `MordorWitchKingOnFellBeastSpell` `Command_KhamulFellBeastToggleMounted`: DISABLED -> PASS
+- Rohan `MordorWitchKingPferdSpell` `Command_WitchKingToggleMountedonFellbeastNew`: DISABLED -> PASS
+- Rohan `MordorWitchKingSpell` `Command_WitchKingToggleMountedonFellbeastNew`: DISABLED -> PASS

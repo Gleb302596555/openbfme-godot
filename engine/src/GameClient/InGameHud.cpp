@@ -391,6 +391,18 @@ bool InGameHud::boot(std::string *error)
 	// lane UI-4: the hero bar (InGameHeroSelect.h): AptPalantir::OnHeroSelectLoaded hands the movie's clip path (InGameHeroSelectInterface ctor RW 0x92DDE7)
 	m_heroSelect = std::make_unique<InGameHeroSelect>(m_input->context(), builderCycleTimeoutMs);
 	m_config.game.drawables().setRevealMessageHandler([this](const char *label) { showMessageLabel(label, nullptr); });
+	m_input->context().selectNearestBuilder = [this](bool noCamera) {
+		if (m_heroSelect)
+		{
+			m_heroSelect->selectNearestBuilder(noCamera);
+		}
+	};
+	m_input->context().selectAllHeroes = [this]() {
+		if (m_heroSelect)
+		{
+			m_heroSelect->selectAllHeroes();
+		}
+	};
 	m_config.game.drawables().setHeroAttackedHandler([this](ObjectID id) { m_heroSelect->onHeroAttacked(id); });
 	m_config.game.drawables().setDeselectHandler([this](ObjectID id) { m_input->ui().deselectObject(id); }); // TOP20 rampage (RW 0x6257E5)
 	m_input->ui().setSelectHandler([this](ObjectID id) { m_config.game.drawables().flashAsSelected(id); }); // LOCAL-3: RW 0x81DC79 / 0x81E0A7
@@ -739,8 +751,8 @@ void InGameHud::update(double seconds)
 		local.skillPointsNext = sc.getSkillPointsLevelUp();
 		local.skillPointsThis = sc.getSkillPointsLevelDown();
 		local.storeOpen = m_store != nullptr;
-		// ControlBar RW 0x71FA12 (BFME2 decomp ControlBar.cpp, tier A): button i of the player's purchase set has a science the player does not
-		// own, has the prerequisites of and can pay for (RW 0x5FED5B). INFERENCE (S-923): the set is the template's PurchaseScienceCommandSet(MP), as the store's
+		// ControlBar RW 0x71FA12 -> RW 0x71F933 (Port 331, S-923 closed): PurchaseScienceCommandSetMP (+0x13C) in skirmish/MP else
+		// PurchaseScienceCommandSet (+0x138); button i has a science the player does not own, has the prerequisites of and can pay for (RW 0x5FED5B).
 		const CommandSet *set = (pt && TheCommandStore)
 			? TheCommandStore->findCommandSet(sc.mode().skirmishOrMultiplayer ? pt->m_purchaseScienceCommandSetMP : pt->m_purchaseScienceCommandSet)
 			: nullptr;
@@ -1279,9 +1291,9 @@ void InGameHud::updateRadiusCursor()
 	m_radiusCursor.update(at, m_clientFrames, m_decalSettings.drawIconUI);
 }
 
-// RW 0x9312B9's slot pass: the spell book command set's visible buttons in order. INFERENCE (S-923): ControlBar::getCommandAvailability (RW 0x942733) for a
-// SPELL_BOOK button is taken as: hidden (3) while none of the power's sciences is owned; disabled (4) when the power cannot be used; not ready (5, with the
-// recharge percent) while it recharges; else available (1): _up, or _static for a NONPRESSABLE button
+// RW 0x9312B9's slot pass: the spell book command set's visible buttons in order. TARGET FACTS (Port 331, S-923 closed; ControlBar::getCommandAvailability
+// RW 0x942733 case 0x26 RW 0x943343..0x943407): hidden (3) while none of the power's sciences is owned; disabled (4) when the first owned required science is
+// disabled/hidden or the power cannot be used; not ready (5, with the recharge percent) while it recharges; else available (1): _up, or _static for NONPRESSABLE.
 void InGameHud::syncSpellBook()
 {
 	Player *local = m_config.game.players().getLocalPlayer();

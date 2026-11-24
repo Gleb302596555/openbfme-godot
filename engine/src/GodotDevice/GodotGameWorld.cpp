@@ -798,6 +798,11 @@ Dictionary GameWorld::setup(const Ref<RetailFileSystem> &fs)
 			// the FX files are read with the #define table retail's FX load sees (macros a mod defines in an earlier file, Ennorath 1.9.8's Water.ini
 			// #include); a world whose load never reached the FX subsystems is an error, never the GameData macros alone
 			Dictionary fx;
+			if (m_world)
+			{
+				// PORT-330 (S-190): the FXList blocks the FX player parses are checked against the same TheAudio / TheEva tables the world loaded
+				m_fxPlayer->setParseServices(m_world->fxListParseServices());
+			}
 			if (m_world && m_world->report().macrosBeforeFXTaken)
 			{
 				fx = m_fxPlayer->setupWithMacros(fs, m_world->report().macrosBeforeFX);
@@ -1250,8 +1255,8 @@ Dictionary GameWorld::prepare_new_game(const Dictionary &message)
 	}
 	if (m_netStarted)
 	{
-		start->localSlot = m_netStart.gameSlot(m_netStart.localSlot); // MP-1: tactical player slot (the online battle's authenticated relay slot stays original)
-		start->observer = m_netStart.spectatorIndex >= 0; // lane ONLINE-3: a spectator watches as the ReplayObserver side
+		start->localSlot = m_netStart.gameSlot(m_netStart.localSlot); // MP-1: tactical player slot (the online/war battle's network slot stays original)
+		start->observer = m_netStart.spectatorIndex >= 0 || m_netStart.isWarBattleObserver(); // lane ONLINE-3 / .wotrobs 0x00F291BB / .wtrview 0x00F2A000
 	}
 	result["resolved"] = newGameToDictionary(start->message);
 	m_recordMessage = start->message; // lane ONLINEHUB-1
@@ -5799,12 +5804,17 @@ Dictionary GameWorld::lan_war_battle(const Dictionary &message, const Array &lob
 		r["error"] = toGodot("the battle's start: " + error);
 		return r;
 	}
+	const bool wotr8 = ModEngineFeatures::has(ModEngineFeature::EnnorathWotr8Players);
+	std::uint16_t warLiveMask = 0;
+	for (int s = 0; s < MAX_SLOTS; ++s)
+		if (m_netStart.networkSlot[(size_t)s]) warLiveMask = (std::uint16_t)(warLiveMask | 1u << s);
 	if (online)
 	{
 		const NewGameMessage tactical = battle.game;
 		battle = m_onlineNextPhase; // original relay slots, credentials and a fresh game id; never the prior phase's transport
 		battle.game = tactical;
 		battle.battleUsesWarSlots = true;
+		battle.battleSlotOfWarSlot.fill(-1);
 	}
 	else
 	{
@@ -5812,6 +5822,7 @@ Dictionary GameWorld::lan_war_battle(const Dictionary &message, const Array &lob
 		battle.crcInterval = m_netStart.crcInterval;
 		battle.profile = m_netStart.profile;
 		battle.localSlot = -1;
+		battle.battleSlotOfWarSlot.fill(-1);
 	}
 	std::uint16_t liveMask = 0;
 	for (int64_t s = 0; s < lobby_slot_of_battle_slot.size() && s < MAX_SLOTS; ++s)
@@ -5821,17 +5832,14 @@ Dictionary GameWorld::lan_war_battle(const Dictionary &message, const Array &lob
 		{
 			continue; // an AI or an empty battle slot
 		}
-		if (online)
+		if (liveMask & (1u << lobby))
 		{
-			if (liveMask & (1u << lobby))
-			{
-				r["error"] = "a battle's original relay seat appears twice";
-				return r;
-			}
-			liveMask = (std::uint16_t)(liveMask | 1u << lobby);
-			battle.battleSlotOfWarSlot[(size_t)lobby] = (int)s;
+			r["error"] = "a battle's original seat appears twice";
+			return r;
 		}
-		else
+		liveMask = (std::uint16_t)(liveMask | 1u << lobby);
+		battle.battleSlotOfWarSlot[(size_t)lobby] = (int)s;
+		if (!online)
 		{
 			battle.networkSlot[(size_t)s] = true;
 			battle.addresses[(size_t)s] = m_netStart.addresses[(size_t)lobby];
@@ -5839,27 +5847,43 @@ Dictionary GameWorld::lan_war_battle(const Dictionary &message, const Array &lob
 				battle.localSlot = (int)s;
 		}
 	}
+	const bool hasNonParticipatingHuman = (warLiveMask & ~liveMask) != 0;
+	if (!online && wotr8 && hasNonParticipatingHuman)
+	{
+		// PYSAGE 1.9.8.5 .wotrobs 0x00F291BB / .wtrview 0x00F2A000 (hooks RW 0x627C41 / RW 0x62FE9C):
+		// keep original war network slots so non-participating humans join battle lockstep as ReplayObserver (gameSlot == -1) and return to the war map.
+		battle.battleUsesWarSlots = true;
+		battle.networkSlot = m_netStart.networkSlot;
+		battle.addresses = m_netStart.addresses;
+		battle.localSlot = m_netStart.localSlot;
+	}
 	if (online)
 	{
 		std::uint16_t ticketMask = 0;
 		for (int s = 0; s < MAX_SLOTS; ++s)
 			if (battle.networkSlot[(size_t)s]) ticketMask = (std::uint16_t)(ticketMask | 1u << s);
-		if (ticketMask != liveMask)
+		if (wotr8)
+		{
+			if ((liveMask & ~ticketMask) != 0 || (ticketMask & ~warLiveMask) != 0)
+			{
+				r["error"] = "the battle's players do not match the phase ticket's original seats";
+				return r;
+			}
+		}
+		else if (ticketMask != liveMask)
 		{
 			r["error"] = "the battle's players do not match the phase ticket's original seats";
 			return r;
 		}
 	}
-	if (battle.localSlot < 0)
+	if (battle.localSlot < 0 || (!wotr8 && battle.isWarBattleObserver()))
 	{
-		if (!ModEngineFeatures::has(ModEngineFeature::EnnorathWotr8Players))
-		{
-			// RW 0x6B5E3E vs the 0x6A7 tally: a network battle is fought in real time only when every live human of the war is in it
-			r["error"] = "the local player has no slot in the battle";
-			return r;
-		}
-		// PYSAGE 1.9.8.5 .wotrobs 0x00F291BB / .wtrview 0x00F2A000 (hooks RW 0x627C41 / RW 0x62FE9C): non-participating human watches as ReplayObserver
-		battle.spectatorIndex = 0;
+		// RW 0x6B5E3E vs the 0x6A7 tally: a network battle is fought in real time only when every live human of the war is in it
+		r["error"] = "the local player has no slot in the battle";
+		return r;
+	}
+	if (battle.isWarBattleObserver())
+	{
 		r["observer"] = true;
 	}
 	m_warStart = m_netStart;
@@ -5988,7 +6012,8 @@ Dictionary GameWorld::net_begin(const Dictionary &options)
 		// the desync dump (GameNetwork/DesyncDump.h): the caller's directory (game.gd: the user data directory), the local slot's name
 		so.desyncDirectory = options.has("desync_dir") ? std::string(String(options["desync_dir"]).utf8().get_data()) : std::string();
 		so.exeName = "openbfme";
-		so.playerName = loadScreenU16ToUtf8(m_netStart.game.game.slots[m_netStart.gameSlot(m_netStart.localSlot)].name);
+		const int gs = m_netStart.gameSlot(m_netStart.localSlot);
+		so.playerName = (gs >= 0 && gs < MAX_SLOTS) ? loadScreenU16ToUtf8(m_netStart.game.game.slots[(size_t)gs].name) : std::string("Observer");
 	}
 	if (options.has("record"))
 	{
@@ -6016,7 +6041,12 @@ Dictionary GameWorld::net_begin(const Dictionary &options)
 	m_netScript = optBool(options, "script", false);
 	m_netScriptFrame = 0xFFFFFFFFu;
 	m_netPlayer = m_netSession->config().slotPlayerIndex[(size_t)m_netStart.localSlot];
-	m_netStartPos = m_start ? m_start->message.game.slots[m_netStart.gameSlot(m_netStart.localSlot)].startPos : -1;
+	if (m_netStart.isWarBattleObserver())
+	{
+		m_game->enableObserverEvents();
+	}
+	const int localGameSlot = m_netStart.gameSlot(m_netStart.localSlot);
+	m_netStartPos = (m_start && localGameSlot >= 0 && localGameSlot < MAX_SLOTS) ? m_start->message.game.slots[(size_t)localGameSlot].startPos : -1;
 	m_netScripted = 0;
 	r["ok"] = true;
 	r["player"] = m_netPlayer;
@@ -8138,7 +8168,7 @@ public:
 			r.playerIndex = p.getPlayerIndex();
 			r.slot = slotOf(p);
 			r.name = p.getPlayerDisplayName();
-			r.cash = p.getMoney()->countMoney();
+			r.cash = tributeDisplayCash(logic, p); // RW 0x9155C2 -> RW 0x6A950B / 0x6A9999 (Money + AI reserve)
 			r.local = isLocal;
 			r.active = !p.isObserver() && !p.isDefeated();
 			r.color = p.getPlayerColor();

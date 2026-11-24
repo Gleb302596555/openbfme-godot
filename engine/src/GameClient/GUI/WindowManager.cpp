@@ -1158,18 +1158,11 @@ std::string WindowManager::hoverPath() const
 {
 	// 0x0046E850 reads a path string from bfmeGo929E (0x008922A0, "copies a path string into the caller's buffer": the engine's
 	// current hover target); retail turns "_levelN/a/b" into "<movie file name without '.'-suffix>/a/b".
-	// Lane HOVER-1 (TARGET FACT, AptPlayer::HandleOverButtons RW 0x624C68 and its keys: AptButtonTooltipMap.ini's "MainMenu/SoloPlayNav/Skirmish/bttn",
-	// the spell book's "Palantir/<clip>/Spell%d/"): the target is the hovered BUTTON itself, its own instance name last (empty for an unnamed button, so
-	// the path ends with '/'). INFERENCE [S-173]: with no button current, the clip under the pointer
-	const AptCharacterInst *target = nullptr;
-	if (AptButtonInst *b = m_apt->input().currentButton())
-	{
-		target = b;
-	}
-	if (!target)
-	{
-		target = m_apt->input().hoverClip();
-	}
+	// Lane HOVER-1 / Port 331 (TARGET FACT, S-173 closed): AptPlayer::Update (RW 0x624F7F) calls AptInput::HasCurrentButton
+	// (RW 0xAE1270: [gApt + 0x6C] != NULL) and AptPlayer::HandleOverButtons (RW 0x624C68) calls AptInput::GetCurrentButtonPath
+	// (RW 0xAE1410 -> RW 0xAE13A0), which reads ONLY gApt + 0x6C (currentButton()), never gApt + 0x68 (hoverClip()).
+	// The target is the hovered BUTTON itself, its own instance name last (empty for an unnamed button, so the path ends with '/').
+	const AptCharacterInst *target = m_apt->input().currentButton();
 	if (!target)
 	{
 		return std::string();

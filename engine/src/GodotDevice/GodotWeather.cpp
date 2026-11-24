@@ -45,6 +45,10 @@ uniform float ceiling;
 uniform float amplitude;
 uniform vec2 freq;
 uniform float quad_half;
+uniform bool use_point_sprites = false;
+uniform float point_size = 1.0;
+uniform float min_point_size = 0.0;
+uniform float max_point_size = 64.0;
 uniform vec4 tint = vec4(1.0);
 // WWMath::Fast_Sin: the 1024-entry table sin(2 pi i / 1024), lerped (the argument is already scaled by 1024 / (2 pi))
 float fast_sin(float x) {
@@ -68,13 +72,26 @@ void vertex() {
 		fy = fast_sin((freq.y * z + fy) * 162.97466) * amplitude + fy;
 	}
 	vec3 c = vec3((drift.x - cycles * wind_step.x) + fx, (drift.y - cycles * wind_step.y) + fy, z);
-	vec3 cr = INV_VIEW_MATRIX[0].xyz;
-	vec3 r = vec3(cr.x, -cr.z, cr.y);
-	vec3 u = vec3(0.0, 0.0, 1.0);
-	vec3 off = corner == 0 ? (-r + u) : (corner == 1 ? (-r - u) : (corner == 2 ? (r - u) : (r + u)));
-	vec3 s = c + off * quad_half;
-	vec3 world = vec3(s.x, s.z, -s.y) + MODEL_MATRIX[3].xyz;
-	VERTEX = (VIEW_MATRIX * vec4(world, 1.0)).xyz;
+	if (use_point_sprites) {
+		// RW 0x494117 (W3DSnowManager::render, 0x4942C4..0x494350): D3D9 point sprites with POINTSCALE_A=0, B=0, C=1.
+		vec3 world_c = vec3(c.x, c.z, -c.y) + MODEL_MATRIX[3].xyz;
+		vec3 vc = (VIEW_MATRIX * vec4(world_c, 1.0)).xyz;
+		float dist = max(length(vc), 0.0001);
+		float vh = max(VIEWPORT_SIZE.y, 1.0);
+		float px = clamp(vh * point_size / dist, min_point_size, max_point_size);
+		float p11 = max(abs(PROJECTION_MATRIX[1][1]), 0.0001);
+		float half_v = (px / vh) * max(-vc.z, 0.0001) / p11;
+		vec2 sxy = corner == 0 ? vec2(-1.0, 1.0) : (corner == 1 ? vec2(-1.0, -1.0) : (corner == 2 ? vec2(1.0, -1.0) : vec2(1.0, 1.0)));
+		VERTEX = vc + vec3(sxy * half_v, 0.0);
+	} else {
+		vec3 cr = INV_VIEW_MATRIX[0].xyz;
+		vec3 r = vec3(cr.x, -cr.z, cr.y);
+		vec3 u = vec3(0.0, 0.0, 1.0);
+		vec3 off = corner == 0 ? (-r + u) : (corner == 1 ? (-r - u) : (corner == 2 ? (r - u) : (r + u)));
+		vec3 s = c + off * quad_half;
+		vec3 world = vec3(s.x, s.z, -s.y) + MODEL_MATRIX[3].xyz;
+		VERTEX = (VIEW_MATRIX * vec4(world, 1.0)).xyz;
+	}
 }
 void fragment() {
 	// PRELIT_DIFFUSE: texture * vertex colour, raw gamma-space values as the particles (lane RENDER-3, S-831); the blended particle words' implicit
@@ -217,6 +234,14 @@ bool GodotWeather::load(Node3D *parent, ArchiveFileSystem &fs, const std::string
 	m_terrainMats.clear();
 	m_terrainSearchDelay = 0.0;
 	findTerrain(terrainRoot);
+	// RW 0x4E2521 (ScaleUVOffsetPerSecondUV): push WeatherSetting CloudTextureSize / CloudOffsetPerSecond to terrain shaders.
+	float cloudParams[4] = {};
+	m_client.store().finalSetting().cloudScaleOffset(cloudParams);
+	for (TerrainMat &t : m_terrainMats)
+	{
+		t.mat->set_shader_parameter("cloud_scale", Vector2(cloudParams[0], cloudParams[1]));
+		t.mat->set_shader_parameter("cloud_offset_per_second", Vector2(cloudParams[2], cloudParams[3]));
+	}
 
 	m_node = memnew(Node3D);
 	m_node->set_name("Weather");
@@ -361,6 +386,10 @@ void GodotWeather::applySnow(const SnowDrawParams &p)
 	m_snowMat->set_shader_parameter("amplitude", p.amplitude);
 	m_snowMat->set_shader_parameter("freq", Vector2(p.frequencyX, p.frequencyY));
 	m_snowMat->set_shader_parameter("quad_half", p.quadHalf);
+	m_snowMat->set_shader_parameter("use_point_sprites", p.pointSprites);
+	m_snowMat->set_shader_parameter("point_size", p.pointSize);
+	m_snowMat->set_shader_parameter("min_point_size", p.minPointSize);
+	m_snowMat->set_shader_parameter("max_point_size", p.maxPointSize);
 	const float gray = (float)((p.color >> 16) & 0xFFu) / 255.0f;
 	m_snowMat->set_shader_parameter("tint", Color(gray, gray, gray, 1.0f));
 	m_lastCount = p.count * p.tiles * p.tiles;

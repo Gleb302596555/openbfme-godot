@@ -380,7 +380,7 @@ public:
 
 	// ---- tooltips ---------------------------------------------------------------------------------------------
 	// The APT hover path the tooltip logic works on: "<file without .apt>/<clip path below the root>" of the hovered clip, "" if
-	// the pointer is over nothing (WindowManager::update 0x0046E850, with the path source inferred [S-173]).
+	// the pointer is over no button (WindowManager::update 0x0046E850 / RW 0x624F7F -> RW 0xAE1270 / RW 0xAE1410 -> RW 0xAE13A0: gApt + 0x6C only).
 	std::string hoverPath() const;
 	const std::string &currentTooltipLabel() const { return m_tooltipLabel; }
 	// lane HOVER-1: AptButtonTooltipMap.ini's ButtonMap rows (hover path -> tooltip name; RW 0x6235E2 looks a name up before it makes the label)

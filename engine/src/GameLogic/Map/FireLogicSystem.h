@@ -21,6 +21,7 @@
 #include "Common/StateHash.h"
 
 #include <cstdint>
+#include <map>
 #include <set>
 #include <string>
 #include <utility>
@@ -150,6 +151,12 @@ public:
 	void setFuelRegenRate(int r) { m_fuelRegenRate = r; }
 
 private:
+	// PORT-161: RW 0x6862B6 / 0x686311, coordinate-key lifecycle helpers.
+	using BurningPosition = std::pair<int, int>;
+	void notifyBurningCell(bool add, const BurningPosition &position, std::int32_t storedFrame);
+	void insertBurningCell(const BurningPosition &position);
+	void eraseBurningCell(const BurningPosition &position);
+	void clearBurningCells();
 	void clearGrid();
 	void *addWatcher(std::uint32_t id, int x, int y, bool add);
 	void updateWatchers(Object *obj, bool add);
@@ -162,6 +169,9 @@ private:
 	int m_numCols = 0;
 	int m_80 = 0; // slice accumulator 0..9
 	std::set<std::pair<int, int>> m_cellsOnFire; // keyed by (worldX, worldY)
+	// PORT-161: RW BurningCell +0x10. Presentation bookkeeping only: no simulation reader,
+	// hence excluded from crc; saved with the cells (RW 0x686441). Never invent ObjectIDs.
+	std::map<BurningPosition, std::int32_t> m_burningAudioFrames;
 	int m_maxCellsBurning = 0x7FFFFFFF;
 	int m_fuelRegenRate = 1;
 	int m_decayModifier = 0;

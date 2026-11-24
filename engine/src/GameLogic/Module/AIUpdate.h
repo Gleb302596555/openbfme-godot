@@ -208,7 +208,8 @@ public:
 	const CombatSettings &combatSettings() const { return m_combat; }
 	// lane BUILD-3, RW 0x667C76 AIUpdateInterface::findNearestLabeledContactPointOnTarget(target, out, callerPos, preferred): the SpecialContactPoints labels in order;
 	// the first for which the target has a contact point (Object::getWorldspaceBestContactPoint RW 0x690BD2, mode 0) gives `out`; false when none has one
-	bool findNearestLabeledContactPointOnTarget(const Object &target, Coord3D &out, const Coord3D &callerPos, bool preferred) const;
+	// Local 142 (S-7342): RW 0x667C76 format string RW 0xC0FE30 names 4th arg skipCollideTest; callers 0x6EA11E (0), 0x76B70C/0x76DE1B/0x76E200 (0), 0x8ADF07 (1).
+	bool findNearestLabeledContactPointOnTarget(const Object &target, Coord3D &out, const Coord3D &callerPos, bool skipCollideTest) const;
 	// lane TARGET-1: RotWK's getNextMoodTarget(calledByAI, calledDuringIdle) (RW 0x66844A): the target the unit's mood suggests (AI::findClosestEnemy with
 	// the mood's qualifiers and attack priority info), null when it looks for none now; calledByAI keeps the cadence (AI + 0x21C, MoodAttackCheckRate)
 	Object *getNextMoodTarget(bool calledByAI, bool calledDuringIdle);

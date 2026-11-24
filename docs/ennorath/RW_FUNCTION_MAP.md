@@ -2,7 +2,7 @@
 
 Command: `python tools/mod/rw_function_map.py --game /content/game_assets/bfme_assets/RotWK/game.dat --ini /content/drive/MyDrive/for-arena/ennorath-ini-1.9.8.7.zip --inventory workspace/rebuild_inventory.json --decomp workspace/rebuild/xmap/rw_map.csv --out docs/ennorath/RW_FUNCTION_MAP`
 
-Rows: 52638; ported 33766, partial 647, none 3774, library 14451.
+Rows: 52638; ported 33821, partial 650, none 3717, library 14450.
 library: code the port replaces wholesale (STL, strings, the C runtime, the Lua VM, compiler-generated destructors, the INI / Xfer
 infrastructure): tools/mod/rw_library_functions.tsv, made by tools/mod/rw_library_functions.py; a citation still wins (ported).
 Counts are per module/function pair, not unique functions.
@@ -857,7 +857,6 @@ calls; their targets are not followed.
 | ActiveBody | 4811 | 1 | 0x00450762 | 5 | library |  |
 | ActiveBody | 4811 | 1 | 0x006DAD81 | 2 | none | Rva002D9C2F::rva002D9C2F (tier A) |
 | ActiveBody | 4811 | 1 | 0x00A3CF22 | 1 | library | ji_00629182 (tier A) |
-| ActiveBody | 4811 | 2 | 0x00970ED8 | 54 | partial | PBVModuleData::vector<>::insert (tier A) |
 | ActiveBody | 4811 | 2 | 0x00406307 | 28 | library | D::StringBase<>::compare (tier A) |
 | ActiveBody | 4811 | 2 | 0x005D91D1 | 22 | library | OpaqueRefElement4::operator= (tier A) |
 | ActiveBody | 4811 | 2 | 0x004355D0 | 19 | library |  |
@@ -3781,62 +3780,39 @@ calls; their targets are not followed.
 | HordeContain | 644 | 0 | 0x00871110 | 47 | none | HordeContain::rva0046DE2D (tier A) |
 | HordeContain | 644 | 0 | 0x00871F8B | 47 | none |  |
 | HordeContain | 644 | 0 | 0x008710A8 | 42 | none | HordeContain::rva0046DDC5 (tier B) |
-| HordeContain | 644 | 0 | 0x0086D438 | 38 | none |  |
+| HordeContain | 644 | 0 | 0x0086D438 | 38 | partial |  |
 | HordeContain | 644 | 0 | 0x0086D4CD | 38 | none |  |
 | HordeContain | 644 | 0 | 0x0086E13E | 37 | none | HordeContain::rva0046AF85 (tier A) |
+| HordeContain | 644 | 0 | 0x0086D562 | 34 | partial |  |
 | HordeContain | 644 | 0 | 0x0086D5BB | 34 | none |  |
 | HordeContain | 644 | 0 | 0x0086D1FE | 32 | none |  |
-| HordeContain | 644 | 0 | 0x0087104A | 31 | none |  |
 | HordeContain | 644 | 0 | 0x0086D7E6 | 29 | none | HordeContain::rva0046A677 (tier B) |
 | HordeContain | 644 | 0 | 0x0086BE64 | 22 | none |  |
-| HordeContain | 644 | 0 | 0x0086FFD2 | 19 | none |  |
 | HordeContain | 644 | 0 | 0x0086BD98 | 17 | none |  |
-| HordeContain | 644 | 0 | 0x00872B24 | 15 | none |  |
 | HordeContain | 644 | 0 | 0x0086C192 | 14 | none |  |
 | HordeContain | 644 | 0 | 0x0086FEAD | 14 | none |  |
 | HordeContain | 644 | 0 | 0x008707A0 | 14 | none |  |
-| HordeContain | 644 | 0 | 0x0086C8B9 | 13 | none |  |
 | HordeContain | 644 | 0 | 0x008762DD | 12 | none |  |
 | HordeContain | 644 | 0 | 0x0086BD7D | 11 | none |  |
-| HordeContain | 644 | 0 | 0x0086C758 | 11 | none |  |
 | HordeContain | 644 | 0 | 0x0086FE0F | 11 | none |  |
-| HordeContain | 644 | 0 | 0x008736EF | 11 | library | HordeContain::`scalar deleting destructor' (tier A) |
-| HordeContain | 644 | 0 | 0x008780E4 | 10 | none |  |
+| HordeContain | 644 | 0 | 0x008780E4 | 10 | partial |  |
 | HordeContain | 644 | 0 | 0x0086C77D | 9 | partial |  |
 | HordeContain | 644 | 0 | 0x0086BE2E | 8 | none |  |
 | HordeContain | 644 | 0 | 0x0086BE49 | 8 | none |  |
 | HordeContain | 644 | 0 | 0x0086C0BC | 7 | none |  |
 | HordeContain | 644 | 0 | 0x00871844 | 7 | none |  |
-| HordeContain | 644 | 0 | 0x00872B76 | 6 | none |  |
 | HordeContain | 644 | 0 | 0x0086BDC0 | 5 | none |  |
 | HordeContain | 644 | 0 | 0x0086C8F2 | 5 | none |  |
-| HordeContain | 644 | 0 | 0x00870655 | 4 | none |  |
-| HordeContain | 644 | 0 | 0x0086C9E7 | 3 | none |  |
-| HordeContain | 644 | 0 | 0x0086C9F3 | 3 | none |  |
 | HordeContain | 644 | 0 | 0x0087159F | 3 | none |  |
-| HordeContain | 644 | 0 | 0x00872A8D | 3 | none |  |
-| HordeContain | 644 | 0 | 0x00872AD2 | 3 | none |  |
 | HordeContain | 644 | 0 | 0x00872AF5 | 3 | none |  |
 | HordeContain | 644 | 0 | 0x0086D056 | 2 | partial |  |
-| HordeContain | 644 | 0 | 0x00872A69 | 2 | none |  |
-| HordeContain | 644 | 0 | 0x00872A9A | 2 | none |  |
-| HordeContain | 644 | 0 | 0x00872AAE | 2 | none |  |
-| HordeContain | 644 | 0 | 0x00872ACB | 2 | none |  |
-| HordeContain | 644 | 0 | 0x00872AE7 | 2 | none |  |
-| HordeContain | 644 | 0 | 0x00872AEE | 2 | none |  |
-| HordeContain | 644 | 0 | 0x00872B02 | 2 | none |  |
-| HordeContain | 644 | 0 | 0x0087737A | 2 | none |  |
-| HordeContain | 644 | 1 | 0x00872BC5 | 75 | none |  |
-| HordeContain | 644 | 1 | 0x0087210B | 58 | none |  |
 | HordeContain | 644 | 1 | 0x00436030 | 44 | library | D::StringBase<>::set (tier A) |
 | HordeContain | 644 | 1 | 0x00435D50 | 42 | library |  |
 | HordeContain | 644 | 1 | 0x00423EA0 | 40 | library | _STL::_N::_Rb_global<>::_M_increment (tier A) |
 | HordeContain | 644 | 1 | 0x00690B11 | 39 | none |  |
-| HordeContain | 644 | 1 | 0x008771B9 | 38 | none | Rva00473F81::rva00473F81 (tier A) |
 | HordeContain | 644 | 1 | 0x00866E08 | 34 | library | URva00463D9BElement::_Rb_tree<>::erase (tier A) |
 | HordeContain | 644 | 1 | 0x00873322 | 34 | library | GMURva00470041Less::map<>::operator[] (tier A) |
 | HordeContain | 644 | 1 | 0x00875619 | 30 | none | HordeContain::rva004723F2 (tier A) |
-| HordeContain | 644 | 1 | 0x008666A1 | 29 | none |  |
 | HordeContain | 644 | 1 | 0x0086CE05 | 26 | library | _STL::$$CBGH::GU?$pair::_Rb_tree<>::G::_M_find<> (tier A) |
 | HordeContain | 644 | 1 | 0x00877182 | 25 | library | VRva00064640Record::vector<>::push_back (tier A) |
 | HordeContain | 644 | 1 | 0x0086C997 | 20 | none |  |
@@ -3846,13 +3822,11 @@ calls; their targets are not followed.
 | HordeContain | 644 | 1 | 0x0085D1F9 | 11 | none | BfmeThingBQA::bfmeGoBQA (tier A) |
 | HordeContain | 644 | 1 | 0x005FFE1E | 10 | library |  |
 | HordeContain | 644 | 1 | 0x005FFE47 | 10 | library |  |
-| HordeContain | 644 | 1 | 0x00691F2A | 10 | none |  |
-| HordeContain | 644 | 1 | 0x0086DA02 | 10 | none |  |
+| HordeContain | 644 | 1 | 0x0086DA02 | 10 | partial |  |
 | HordeContain | 644 | 1 | 0x0042F6E0 | 5 | library |  |
 | HordeContain | 644 | 1 | 0x00430170 | 4 | library |  |
 | HordeContain | 644 | 1 | 0x00869ED4 | 3 | partial |  |
 | HordeContain | 644 | 1 | 0x0086C0CE | 1 | none |  |
-| HordeContain | 644 | 1 | 0x0086C77A | 1 | none |  |
 | HordeContain | 644 | 2 | 0x004813E1 | 79 | library | UBfmePod44::vector<>::_M_insert_overflow (tier B) |
 | HordeContain | 644 | 2 | 0x0087336F | 79 | library | VRva00064640Record::vector<>::_M_insert_overflow (tier B) |
 | HordeContain | 644 | 2 | 0x0073B36C | 73 | library |  |
@@ -6787,7 +6761,6 @@ calls; their targets are not followed.
 | HorseHordeContain | 136 | 0 | 0x00879947 | 1 | none | HordeTransportContain::~HordeTransportContain (tier A) |
 | HorseHordeContain | 136 | 1 | 0x008798B7 | 12 | none |  |
 | HorseHordeContain | 136 | 1 | 0x0086C8F2 | 5 | none |  |
-| HorseHordeContain | 136 | 2 | 0x00872BC5 | 75 | none |  |
 | HorseHordeContain | 136 | 3 | 0x006F032B | 63 | none | Rva0046AC52::rva002D563D (tier A) |
 | HorseHordeContain | 136 | 3 | 0x0086DAD6 | 32 | none | Rva002EE9B7::rva0046A967 (tier A) |
 | HorseHordeContain | 136 | 3 | 0x00686F85 | 19 | library |  |
@@ -6916,20 +6889,8 @@ calls; their targets are not followed.
 | HorseHordeContain | 136 | 18 | 0x00A3A190 | 4 | library |  |
 | HorseHordeContain | 136 | 19 | 0x00A3CD70 | 25 | library |  |
 | HorseHordeContain | 136 | 19 | 0x009A2783 | 4 | library |  |
-| SpawnBehavior | 130 | 0 | 0x00862EFA | 31 | none |  |
-| SpawnBehavior | 130 | 0 | 0x00862351 | 26 | none |  |
 | SpawnBehavior | 130 | 0 | 0x00863636 | 16 | partial |  |
-| SpawnBehavior | 130 | 0 | 0x0086270D | 15 | none | SpawnBehavior::getModuleNameKey (tier B) |
 | SpawnBehavior | 130 | 0 | 0x00863388 | 11 | library | SpawnBehavior::`scalar deleting destructor' (tier A) |
-| SpawnBehavior | 130 | 0 | 0x008623E0 | 6 | none |  |
-| SpawnBehavior | 130 | 0 | 0x00862765 | 6 | none |  |
-| SpawnBehavior | 130 | 0 | 0x00862772 | 6 | none |  |
-| SpawnBehavior | 130 | 0 | 0x008624C8 | 5 | none |  |
-| SpawnBehavior | 130 | 0 | 0x008624BD | 3 | none |  |
-| SpawnBehavior | 130 | 0 | 0x008624D7 | 3 | none |  |
-| SpawnBehavior | 130 | 0 | 0x008624E1 | 3 | none |  |
-| SpawnBehavior | 130 | 0 | 0x00862752 | 2 | none |  |
-| SpawnBehavior | 130 | 1 | 0x00862783 | 34 | none | SpawnBehavior::~SpawnBehavior (tier A) |
 | SpawnBehavior | 130 | 1 | 0x0076EC18 | 19 | library | VUnicodeString::U?$_List_iterator::find<> (tier A) |
 | SpawnBehavior | 130 | 2 | 0x005F3FD7 | 16 | library | _STL::H::HU?$_Nonconst_traits::U?$_List_iterator::__find<> (tier A) |
 | SpawnBehavior | 130 | 2 | 0x005EB775 | 12 | library | PAVObject::list<>::push_back (tier A) |
@@ -7148,7 +7109,6 @@ calls; their targets are not followed.
 | CastleBehavior | 126 | 0 | 0x00799CA5 | 41 | none | Rva00397791::rva00397791 (tier A) |
 | CastleBehavior | 126 | 0 | 0x0079AA5C | 15 | none | CastleBehavior::rva0003955DA (tier A) |
 | CastleBehavior | 126 | 0 | 0x0079B865 | 11 | library | CastleBehavior::`scalar deleting destructor' (tier A) |
-| CastleBehavior | 126 | 0 | 0x00862772 | 6 | none |  |
 | CastleBehavior | 126 | 0 | 0x0079AAA1 | 2 | none |  |
 | CastleBehavior | 126 | 1 | 0x0079ADE9 | 122 | partial |  |
 | CastleBehavior | 126 | 1 | 0x00799C6A | 24 | none | Rva00397756::rva00397756 (tier A) |
@@ -14538,7 +14498,6 @@ calls; their targets are not followed.
 | SiegeEngineContain | 9 | 0 | 0x0087FCEF | 1 | partial | HorseHordeContainModuleData::~HorseHordeContainModuleData (tier A) |
 | SiegeEngineContain | 9 | 1 | 0x0087F205 | 51 | none |  |
 | SiegeEngineContain | 9 | 1 | 0x0076CAF1 | 36 | library | URva0036ADF9Element::list<>::list<> (tier A) |
-| SiegeEngineContain | 9 | 1 | 0x008666A1 | 29 | none |  |
 | SiegeEngineContain | 9 | 1 | 0x00866267 | 9 | none |  |
 | SiegeEngineContain | 9 | 1 | 0x0086629F | 9 | none |  |
 | SiegeEngineContain | 9 | 2 | 0x00866D04 | 31 | none |  |
@@ -15757,13 +15716,11 @@ calls; their targets are not followed.
 | AODHordeContain | 6 | 1 | 0x0087E516 | 26 | none |  |
 | AODHordeContain | 6 | 1 | 0x0086C8F2 | 5 | none |  |
 | SpecialDisguiseUpdate | 6 | 2 | 0x00852914 | 88 | none | SpecialAbilityUpdate::initLaser (tier B) |
-| AODHordeContain | 6 | 2 | 0x00872BC5 | 75 | none |  |
-| AODHordeContain | 6 | 2 | 0x0087210B | 58 | none |  |
 | AODHordeContain | 6 | 2 | 0x00423EA0 | 40 | library | _STL::_N::_Rb_global<>::_M_increment (tier A) |
 | AODHordeContain | 6 | 2 | 0x00877182 | 25 | library | VRva00064640Record::vector<>::push_back (tier A) |
 | AODHordeContain | 6 | 2 | 0x00A3CE80 | 19 | library |  |
 | AODHordeContain | 6 | 2 | 0x009A2931 | 14 | library | VAsciiString::map<>::map<> (tier A) |
-| AODHordeContain | 6 | 2 | 0x0086DA02 | 10 | none |  |
+| AODHordeContain | 6 | 2 | 0x0086DA02 | 10 | partial |  |
 | SpecialDisguiseUpdate | 6 | 2 | 0x006650CC | 10 | none |  |
 | AODHordeContain | 6 | 2 | 0x00430170 | 4 | library |  |
 | AODHordeContain | 6 | 3 | 0x0087336F | 79 | library | VRva00064640Record::vector<>::_M_insert_overflow (tier B) |
@@ -15783,7 +15740,6 @@ calls; their targets are not followed.
 | SpecialDisguiseUpdate | 6 | 3 | 0x0081B4E5 | 13 | none | Rva004393D6::~Rva004393D6 (tier A) |
 | AODHordeContain | 6 | 3 | 0x005FFFBF | 12 | library | VAsciiString::list<>::insert (tier A) |
 | AODHordeContain | 6 | 3 | 0x005FFE47 | 10 | library |  |
-| AODHordeContain | 6 | 3 | 0x00691F2A | 10 | none |  |
 | AODHordeContain | 6 | 3 | 0x0083692A | 10 | library | Rva00056F61::rva0041534B (tier A) |
 | AODHordeContain | 6 | 3 | 0x00865C98 | 10 | none | Drawable::rva00462D95 (tier A) |
 | AODHordeContain | 6 | 3 | 0x004AD0EF | 9 | library |  |
@@ -16930,15 +16886,7 @@ calls; their targets are not followed.
 | ToggleDeploySpecialAbilityUpdate | 5 | 18 | 0x005FCBC4 | 1 | library | Rva001FD85E::rva001FD85E (tier A) |
 | SpawnUnitBehavior | 5 | 19 | 0x00A3CD70 | 25 | library |  |
 | SpawnUnitBehavior | 5 | 19 | 0x009A2783 | 4 | library |  |
-| SymbioticStructuresBody | 4 | 0 | 0x008C5304 | 52 | none |  |
-| SymbioticStructuresBody | 4 | 0 | 0x008C4EA4 | 24 | none | SymbioticStructuresBody::rva004C0D9C (tier D) |
-| SymbioticStructuresBody | 4 | 0 | 0x008C501C | 20 | none |  |
-| SymbioticStructuresBody | 4 | 0 | 0x008C4F84 | 19 | none |  |
-| SymbioticStructuresBody | 4 | 0 | 0x008C53D0 | 15 | none |  |
-| SymbioticStructuresBody | 4 | 0 | 0x008C5123 | 14 | none | BfmeThingBVF::bfmeGoBVF (tier B) |
-| SymbioticStructuresBody | 4 | 0 | 0x008C519A | 14 | none | BfmeThingDHC::bfmeGoDHC (tier B) |
 | SymbioticStructuresBody | 4 | 0 | 0x008C52B5 | 13 | none |  |
-| SymbioticStructuresBody | 4 | 0 | 0x008C53AF | 12 | none | SymbioticStructuresBody::rva004C121B (tier A) |
 | OilSpillUpdate | 4 | 0 | 0x0088F95E | 11 | library | OilSpillUpdate::`scalar deleting destructor' (tier A) |
 | HordeSiegeEngineContain | 4 | 0 | 0x0087FCEF | 1 | partial | HorseHordeContainModuleData::~HorseHordeContainModuleData (tier A) |
 | SymbioticStructuresBody | 4 | 1 | 0x008C4DE3 | 61 | none | SymbioticStructuresBody::rva004C0C52 (tier A) |
@@ -16947,12 +16895,9 @@ calls; their targets are not followed.
 | SymbioticStructuresBody | 4 | 1 | 0x00435D50 | 42 | library |  |
 | HordeSiegeEngineContain | 4 | 1 | 0x0076CAF1 | 36 | library | URva0036ADF9Element::list<>::list<> (tier A) |
 | SymbioticStructuresBody | 4 | 1 | 0x004374E0 | 30 | library | D::StringBase<>::StringBase<> (tier A) |
-| HordeSiegeEngineContain | 4 | 1 | 0x008666A1 | 29 | none |  |
-| SymbioticStructuresBody | 4 | 1 | 0x008C4CF4 | 25 | none |  |
 | SiegeDeploySpecialPower | 4 | 1 | 0x008C9C50 | 21 | none | SiegeDeploySpecialPower::~SiegeDeploySpecialPower (tier A) |
 | HordeSiegeEngineContain | 4 | 1 | 0x00866267 | 9 | none |  |
 | HordeSiegeEngineContain | 4 | 1 | 0x0086629F | 9 | none |  |
-| SymbioticStructuresBody | 4 | 1 | 0x008C4BE8 | 4 | partial | OCLSpecialPower::~OCLSpecialPower (tier A) |
 | SymbioticStructuresBody | 4 | 1 | 0x00A3CF22 | 1 | library | ji_00629182 (tier A) |
 | OilSpillUpdate | 4 | 2 | 0x004813E1 | 79 | library | UBfmePod44::vector<>::_M_insert_overflow (tier B) |
 | SiegeAIUpdate | 4 | 2 | 0x0066EB5E | 34 | none |  |

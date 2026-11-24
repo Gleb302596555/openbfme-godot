@@ -75,6 +75,8 @@ public:
 	bool addToContain(Object *obj) override;    // RW 0x8674C2
 	void removeFromContain(Object *obj, bool exposeStealthUnits = false) override; // RW 0x8665BE
 	bool isValidContainerFor(const Object &obj, bool checkCapacity, bool checkPath) const override; // RW 0x86603B
+	static bool openContainAllowsFor(const Object &container, const OpenContainModuleData &data, bool enabled, const Object &obj); // RW 0x86603B
+	void iterateContained(const std::function<void(Object *)> &fn, unsigned flags = 1) override; // RW 0x008666A1
 	std::uint32_t getPlayerWhoEntered() const override { return m_playerEnteredMask; } // RW 0x5F2DC6, slot 0x144 (lane SCRIPT-4)
 	const ObjectStatusMaskType *getObjectStatusOfContained() const override;
 	const ObjectStatusMaskType *getObjectStatusOfContainedFor(const Object *rider) const override { return &statusMaskFor(rider); } // slot 0xB0
@@ -89,6 +91,7 @@ public:
 	// RW 0x86588C `cmp byte [ecx + 0xE1], 0` then `mov ecx, [ecx + 4]` (the module data) `cmp byte [ecx + 0x83], 0` (KillPassengersOnDeath): the byte above
 	// AND the data's row. Read by GarrisonContain::onRemoving (RW 0x87C0B6), HordeGarrisonContain::onDie (RW 0x87CF7D) and TransportContain's die (RW 0x87AE29)
 	bool getKillPassengersOnDeath() const;
+	virtual bool isGarrisonContain() const { return false; }
 	void onObjectWantsToEnterOrExit(Object *obj, int wants) override;
 	unsigned getStealthUnitsContained() const override { return m_stealthUnitsContained; }
 	bool allowAlliesInside() const override;

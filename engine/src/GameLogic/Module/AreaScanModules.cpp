@@ -3,6 +3,9 @@
 
 #include "Common/ModEngineFeatures.h"
 #include "GameLogic/Module/AreaScanModules.h"
+#include "Common/ModEngineFeatures.h"
+#include "GameLogic/Object/Contain/HordeContainCore.h"
+#include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/SnapshotXfer.h"
 
 #include "Common/AsciiString.h"
@@ -528,6 +531,10 @@ void AreaScanModules::registerAll(ModuleFactory &modules)
 {
 	bind<LargeGroupBonusUpdate, LargeGroupBonusUpdateModuleData>(modules, "LargeGroupBonusUpdate");
 	bind<PassiveAreaEffectBehavior, PassiveAreaEffectBehaviorModuleData>(modules, "PassiveAreaEffectBehavior");
+	if (ModEngineFeatures::has(ModEngineFeature::EnnorathFilteredHordeRespawn))
+	{
+		bind<FilteredHordeRespawnBehavior, FilteredHordeRespawnBehaviorModuleData>(modules, "FilteredHordeRespawnBehavior");
+	}
 }
 
 std::vector<std::string> AreaScanModules::stopLines()
@@ -555,4 +562,99 @@ void PassiveAreaEffectBehavior::xfer(Xfer &x)
 	SnapshotXfer::ids(x, m_targets);
 	SnapshotXfer::u64(x, m_heals);
 	SnapshotXfer::u64(x, m_modifiers);
+}
+
+// ---- FilteredHordeRespawnBehavior (PYSAGE 1.9.8.7 .wmfeat 0xF3A20D .. 0xF3A349, hook RW 0x888012) -----------------------------------------------
+namespace
+{
+void parseFilteredRespawnObjectFilter(INI *ini, void *instance, void *store, const void *userData)
+{
+	parseFilter(ini, instance, store, userData);
+	static_cast<FilteredHordeRespawnBehaviorModuleData *>(instance)->m_hasObjectFilter = true; // .wmfeat 0xF3A275
+}
+
+const FieldParse kFilteredHordeRespawnParse[] = { // PYSAGE 1.9.8.7 .wmfeat 0xF3A454
+	{ "Radius", INI::parseReal, nullptr, (int)offsetof(PassiveAreaEffectBehaviorModuleData, m_effectRadius) },
+	{ "RespawnDelay", INI::parseDurationUnsignedInt, nullptr, (int)offsetof(PassiveAreaEffectBehaviorModuleData, m_pingDelay) },
+	{ "ObjectFilter", parseFilteredRespawnObjectFilter, nullptr, (int)offsetof(PassiveAreaEffectBehaviorModuleData, m_allowFilter) },
+	{ "RespawnFXList", INI::parseAsciiString, nullptr, (int)offsetof(PassiveAreaEffectBehaviorModuleData, m_healFX) },
+	{ nullptr, nullptr, nullptr, 0 }
+};
+} // namespace
+
+void FilteredHordeRespawnBehaviorModuleData::buildFieldParse(MultiIniFieldParse &p)
+{
+	p.add(kFilteredHordeRespawnParse);
+}
+
+FilteredHordeRespawnBehavior::FilteredHordeRespawnBehavior(Thing *thing, const FilteredHordeRespawnBehaviorModuleData *data)
+	: PassiveAreaEffectBehavior(thing, data)
+	, m_respawnData(data)
+{
+}
+
+void FilteredHordeRespawnBehavior::scan()
+{
+	// PYSAGE 1.9.8.7 .wmfeat 0xF3A299 .. 0xF3A349 (hook RW 0x888012):
+	// Uses PassiveAreaEffectBehavior's partition scan (ALLIES, !dead, AllowFilter, skip self/IGNORED_IN_GUI/ARMY_OF_DEAD),
+	// then for each matching target (when ObjectFilter was set) respawns one member if target is a live, non-UNDER_CONSTRUCTION
+	// HORDE with 0 < payloadCount < maxSlots, and plays RespawnFXList on the spawned member.
+	Object *obj = getObject();
+	GameLogic &logic = obj->logic();
+	m_targets.clear();
+	if (!m_respawnData->m_hasObjectFilter)
+	{
+		return;
+	}
+	const Player *owner = obj->getControllingPlayer();
+	PartitionFilterFn filter([&](Object &o) {
+		return obj->getRelationship(o) == ALLIES && !o.isEffectivelyDead() && ObjectFilterMatch::allows(logic, m_respawnData->m_allowFilter, o, owner);
+	});
+	static const int kIgnored = kindBit("IGNORED_IN_GUI"), kArmyOfDead = kindBit("ARMY_OF_DEAD");
+	for (const PartitionHit &h : logic.partition().iterateObjectsInRange(*obj->getPosition(), m_respawnData->m_effectRadius, FROM_CENTER_2D, { &filter }, ITER_SORTED_NEAR_TO_FAR))
+	{
+		Object *o = h.object;
+		if (o == obj || (kIgnored >= 0 && o->isKindOf((unsigned)kIgnored)) || (kArmyOfDead >= 0 && o->isKindOf((unsigned)kArmyOfDead)))
+		{
+			continue;
+		}
+		if (!o->isKindOfName("HORDE") || o->isEffectivelyDead() || o->isUnderConstruction())
+		{
+			continue; // .wmfeat 0xF3A2CF .. 0xF3A2EA
+		}
+		HordeContain *hc = dynamic_cast<HordeContain *>(o->getContain());
+		if (!hc)
+		{
+			continue;
+		}
+		const unsigned cur = hc->payloadCount();
+		const unsigned maxSlots = (unsigned)hc->core().slots().size();
+		if (cur == 0 || cur >= maxSlots)
+		{
+			continue; // .wmfeat 0xF3A30F .. 0xF3A315
+		}
+		Object *spawned = hc->spawnReplacementMember(*o->getPosition(), o->getOrientation());
+		if (!spawned)
+		{
+			continue;
+		}
+		++m_respawns;
+		if (!m_respawnData->m_healFX.empty())
+		{
+			logic.fxEvents().emit(FXEventLog::objectEvent(FXEvent::OBJECT_FX, "FilteredHordeRespawnBehavior", logic.getFrame(), m_respawnData->m_healFX, *spawned));
+		}
+	}
+}
+
+void FilteredHordeRespawnBehavior::crc(StateHasher &h) const
+{
+	PassiveAreaEffectBehavior::crc(h);
+	h.addU64(m_respawns);
+}
+
+void FilteredHordeRespawnBehavior::xfer(Xfer &x)
+{
+	SnapshotXfer::version(x, 1, 1);
+	PassiveAreaEffectBehavior::xfer(x);
+	SnapshotXfer::u64(x, m_respawns);
 }

@@ -62,6 +62,10 @@ public:
 	virtual float getHealth() const = 0;
 	virtual float getMaxHealth() const = 0;
 	virtual float getInitialHealth() const = 0;
+	// RW body vslot +0x14 (ActiveBody RW 0x8C1D75, InactiveBody RW 0x70D41A, SymbioticStructuresBody RW 0x008C4EA4)
+	virtual float getHealthPercent() const { return 0.0f; }
+	// RW body vslot +0x70 (ActiveBody RW 0x49449C, SymbioticStructuresBody RW 0x008C4F84)
+	virtual float getPreviousHealth() const { return 0.0f; }
 	virtual BodyDamageType getDamageState() const = 0;
 	// ZH BodyModuleInterface::setInitialHealth(Int initialPercent): the map's objectInitialHealth (and the production of a damaged unit)
 	virtual void setInitialHealth(int initialPercent) = 0;
@@ -102,6 +106,10 @@ public:
 	// healing hit: RW 0x8C3897). Every other body class of 2.01 answers the shared `or eax, -1` stub (e.g. InactiveBody's table RW 0xC718C8 + 0x48 =
 	// RW 0x48DACD), so the default is the never-healed value. AutoHealBehavior's NonStackable rule reads it (RW 0x855797)
 	virtual UnsignedInt getLastHealingFrame() const { return 0xFFFFFFFFu; }
+	// RW body vslot +0x4C (ActiveBody RW 0x8C3A33, SymbioticStructuresBody RW 0x008C519A): clearable last attacker
+	virtual ObjectID takeLastAttacker() { return INVALID_ID; }
+	// RW body vslot +0x3C (ActiveBody RW 0x8C3A48, InactiveBody RW 0x8C1AC3, SymbioticStructuresBody RW 0x008C501C)
+	virtual std::uint32_t getArmorSetFlags() const { return 0; }
 	// lane PORT-296: RW body vslot 0x40 record + 0x20 (DamageInfo::m_input.m_amount, RW 0x66341C): what the recorded hit asked for, not what it dealt. The castle's crew
 	// reads it (RW 0x79B191 with 0.0 RW 0xC1B594: only a hit that asked for more than nothing counts); a body without a record answers 0.
 	virtual float lastDamageAmount() const { return 0.0f; }
@@ -131,6 +139,10 @@ public:
 	}
 	// PORT-237: RW vt[0x6C] (ActiveBody RW 0x8C329F): multiplies body damage scalar (+ 4) by scalar.
 	virtual void applyDamageScalar(float scalar) { (void)scalar; }
+	// RW body vslot +0xA0 (SymbioticStructuresBody RW 0x008C53AF, called from ActiveBody::attemptDamage RW 0x8C44F0 / attemptHealing RW 0x8C318F)
+	virtual void onSymbioteDamageStateChanged(BodyDamageType newState) { (void)newState; }
+	// RW body vslot +0xA4 (SymbioticStructuresBody RW 0x008C53D0, called from ActiveBody::internalChangeHealth RW 0x8C330B)
+	virtual void onSymbioteHealthChanged(float newHealth, bool playHealFx) { (void)newHealth; (void)playHealFx; }
 	static unsigned long long &bodyMaxHealthCallsIgnored()
 	{
 		static unsigned long long n = 0;

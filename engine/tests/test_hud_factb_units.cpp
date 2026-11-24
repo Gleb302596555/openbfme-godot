@@ -37,6 +37,7 @@
 #include "GameLogic/Module/TransportContain.h"
 #include "GameLogic/Module/HeroAbilityModules.h"
 #include "GameLogic/Module/HordeDispatchSpecialPower.h"
+#include "GameLogic/Module/SiegeModules.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "GameLogic/Module/HeroModules.h"
 #include "GameLogic/Module/SpellBookPowers.h"
@@ -891,7 +892,50 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 				// a condition the sweep cannot give (option / other / none) keeps DISABLED: needs ... The player upgrades the fixture
 				// grants are removed with the unit (clear()), so one button's fixture does not leak into the next; sciences stay
 				// (PlayerScience has no per-science removal, and a science only ever unlocks).
-				const greyfix::Row *greyRow = sweep && b.state != ButtonState::Enabled && b.state != ButtonState::Active ? greyfix::findRow(greyTable, e->name, cb->m_name) : nullptr;
+				// LOCAL-148 (issue #881): a button starting NotReady (availability 5) is either a StopSpecialPower waiting for its
+				// target power to be active (RW 0x8CACC6 / RW 0x943585, e.g. MordorSiegeTower's SiegeRetract), or a weapon clip
+				// reload (RW 0x9431F9 .. 0x943247, RW 0x6CEE89: ballistae with InstantLoadClipOnActivate = No) / an unpaused
+				// AvailableAtStart = No special power (RW 0x943585 .. 0x9435D2: Witch-king / Khamul fellbeast toggles, Karsh's
+				// 240s summons). Wait out the timer before consulting MATRIX_GREY.tsv; StopSpecialPower has no timer and names its gate.
+				std::string stopPowerDetail;
+				if (b.state == ButtonState::NotReady)
+				{
+					const SpecialPowerTemplate *spTmpl = TheSpecialPowerStore && !cb->m_specialPowerName.empty()
+						? TheSpecialPowerStore->findSpecialPowerTemplate(cb->m_specialPowerName) : nullptr;
+					SpecialPowerModuleInterface *spMod = spTmpl ? SpecialPowerModules::findModule(*u, spTmpl) : nullptr;
+					if (const StopSpecialPower *stopMod = dynamic_cast<const StopSpecialPower *>(spMod))
+					{
+						const auto *stopData = dynamic_cast<const StopSpecialPowerModuleData *>(stopMod->getModuleData());
+						const std::string targetName = stopData && !stopData->m_stopPowerTemplateName.empty()
+							? stopData->m_stopPowerTemplateName : std::string("its target power");
+						stopPowerDetail = "DISABLED: needs StopSpecialPower target " + targetName + " active (RW 0x8CACC6 / RW 0x943585)";
+					}
+					else
+					{
+						for (int waited = 0; b.state == ButtonState::NotReady && waited < 30 * 300; waited += 30)
+						{
+							g.step(30);
+							if (!(u = g.logic().findObjectByID(uid)) || !g.select(u) || !g.reveal(u, [&](const CommandButton &x) { return &x == cb; }, b))
+							{
+								break;
+							}
+						}
+						if (!u)
+						{
+							res.fail(item, "the unit left the world while its button became ready");
+							continue;
+						}
+						if (b.button != cb)
+						{
+							res.fail(item, "the button left the bar while becoming ready");
+							continue;
+						}
+					}
+				}
+				// LOCAL-148: availability 8 (ButtonState::Purchased, RW 0x9430C8 / RW 0x942FF9 / RW 0x9431A6) is an upgrade the
+				// object or player already holds (e.g. GrantUpgradeCreate on ElvenRivendellLancerHordeMod_up), not a grey restriction.
+				const bool alreadyPurchased = b.state == ButtonState::Purchased;
+				const greyfix::Row *greyRow = sweep && !alreadyPurchased && stopPowerDetail.empty() && b.state != ButtonState::Enabled && b.state != ButtonState::Active ? greyfix::findRow(greyTable, e->name, cb->m_name) : nullptr;
 				bool fixtureApplied = false;
 				std::string fixtureDetail;
 				if (greyRow)
@@ -1017,7 +1061,7 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 							// 2026-11-18: an unpause upgrade with ObeyRechageOnTrigger starts the power's recharge (RW 0x943585 .. 0x9435D2: not paused,
 							// progress below 1 -> not ready, the clock), as in retail: the sweep waits the recharge out (up to 3 minutes of game time)
 							// before it judges the button, instead of calling a recharging button GREY-BUG
-							for (int waited = 0; b.state == ButtonState::NotReady && waited < 30 * 180; waited += 30)
+							for (int waited = 0; b.state == ButtonState::NotReady && waited < 30 * 300; waited += 30)
 							{
 								g.step(30);
 								if (!(u = g.logic().findObjectByID(uid)) || !g.select(u) || !g.reveal(u, [&](const CommandButton &x) { return &x == cb; }, b))
@@ -1088,13 +1132,31 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 				// 2026-11-18 (owner: "все бери из кода"): RW 0x943050 (getCommandAvailability case 7, OBJECT_UPGRADE): an object with no production
 				// queue (RW 0x68C327) has the button disabled in retail too. A horde member or slaved unit swept alone has none (its horde or master
 				// buys it): the grey verdict with that reason, not GREY-BUG
-				if (fixtureDetail.empty() && cb->m_command == GUI_COMMAND_OBJECT_UPGRADE && !u->getProductionUpdate() && b.state == ButtonState::Restricted)
+				// LOCAL-148: a MATRIX_GREY.tsv row with no effective gate ("DISABLED: needs none...") must not mask the exact
+				// retail runtime gate from RW 0x942733 (Purchased, StopSpecialPower, no ProductionUpdate, !affectedByUpgrade, no StancesBehavior).
+				const bool needsNone = fixtureDetail.empty() || fixtureDetail.rfind("DISABLED: needs none", 0) == 0;
+				if (alreadyPurchased)
+				{
+					fixtureDetail = "DISABLED: already purchased (RW 0x9430C8 / RW 0x942FF9: availability 8)";
+				}
+				else if (!stopPowerDetail.empty())
+				{
+					fixtureDetail = stopPowerDetail;
+				}
+				else if (needsNone && cb->m_command == GUI_COMMAND_OBJECT_UPGRADE && !u->getProductionUpdate() && b.state == ButtonState::Restricted)
 				{
 					fixtureDetail = "DISABLED: needs a production queue on the object (RW 0x943050 case 7, RW 0x68C327: disabled in retail too; its horde or master buys it)";
 				}
+				else if (needsNone && cb->m_command == GUI_COMMAND_OBJECT_UPGRADE && u->getProductionUpdate() && b.state == ButtonState::Restricted)
+				{
+					if (const UpgradeTemplate *up = s.world->upgrades().findUpgrade(cb->m_upgradeName); up && !u->hasUpgrade(up) && !u->affectedByUpgrade(up))
+					{
+						fixtureDetail = "DISABLED: object not affected by " + cb->m_upgradeName + " (RW 0x9430F2 -> RW 0x694914: no UpgradeMux module triggered or RequiredObjectFilter unmet, disabled in retail too)";
+					}
+				}
 				// MATRIX_TODO 3 (2026-11-18): RW 0x942A77 restricts the stance button of an object without a StancesBehavior; a horde member made alone
 				// (RhudaurWolfRider) has none of its own: its horde carries it and is swept on its own
-				if (fixtureDetail.empty() && cmd == GUI_COMMAND_TOGGLE_STANCE && !StancesBehavior::of(*u) && b.state == ButtonState::Restricted)
+				if (needsNone && cmd == GUI_COMMAND_TOGGLE_STANCE && !StancesBehavior::of(*u) && b.state == ButtonState::Restricted)
 				{
 					fixtureDetail = "DISABLED: needs a StancesBehavior (RW 0x942A77: restricted without one, as in retail; a horde member's stance is its horde's)";
 				}
@@ -3144,7 +3206,7 @@ TEST_CASE("factb units: every Isengard unit, horde and hero ability and upgrade 
 	r.print("units FactionIsengard");
 	// the stance radial is pressed now (MATRIX_TODO 3): only the ram, which has no StancesBehavior, keeps a greyed stance button
 	r.check({ { "IsengardBatteringRam Command_ToggleStance", "S-289" },
-		{ "IsengardBallista Command_BombardEvil", "S-1990" }, { "IsengardSaruman Command_SarumanThunderBolt", "S-180 (the bolt's damage lands; its WeaponOCLNugget makes nothing)" },
+		{ "IsengardSaruman Command_SarumanThunderBolt", "S-180 (the bolt's damage lands; its WeaponOCLNugget makes nothing)" },
 		// ORDER (MATRIX_TODO 11 / 19, 2026-11-19): the blast hits nobody only after the whole Isengard sweep; alone, after either half of the
 		// objects before it, or after the first half plus any one of the second, it passes: a state the run accumulates, no single object's leak
 		{ "IsengardSaruman Command_SpecialAbilityIsengardWizardBlast", "ORDER: fails only after the whole sweep|SarumanWizardBlast" } });

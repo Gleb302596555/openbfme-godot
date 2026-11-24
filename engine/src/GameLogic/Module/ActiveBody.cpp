@@ -288,6 +288,22 @@ void ActiveBody::crc(StateHasher &h) const
 			h.addBool(m_sideDestroyed[i]);
 		}
 	}
+	if (m_symbiotePartnerId != INVALID_ID)
+	{
+		h.addU32(m_symbiotePartnerId ^ 0x5B10u); // RW +0xEC: hashed only when linked to a symbiotic partner
+	}
+}
+
+// RW 0x8C1D75 (body vslot +0x14): health / max health in PC24 FPU, 0.0f without positive max health
+float ActiveBody::getHealthPercent() const
+{
+	return m_maxHealth > 0.0f ? static_cast<float>(SimMath::pc24DivW(static_cast<double>(m_currentHealth), static_cast<double>(m_maxHealth))) : 0.0f;
+}
+
+std::uint32_t ActiveBody::getArmorSetFlags() const
+{
+	const Object *obj = getObject();
+	return obj ? static_cast<std::uint32_t>(obj->armorSetFlags()) : 0u;
 }
 
 void ActiveBody::evaluateVisualCondition()
@@ -693,6 +709,17 @@ void ActiveBody::internalChangeHealth(float delta)
 		}
 	}
 	updateDamageState(); // RW 0x8C31A5 calls vslot 0x54 = setCorrectDamageState(false)
+	// RW 0x8C32C7 .. 0x8C3310: notify symbiotic partner body vslot +0xA4 (m_currentHealth, delta > 0.0f)
+	if (m_symbiotePartnerId != INVALID_ID)
+	{
+		if (Object *partner = getObject()->logic().findObjectByID(m_symbiotePartnerId))
+		{
+			if (BodyModuleInterface *pb = partner->getBodyModule())
+			{
+				pb->onSymbioteHealthChanged(m_currentHealth, delta > 0.0f); // RW 0x8C330B
+			}
+		}
+	}
 }
 
 // RW 0x8C4AB4: delta = max(delta, 1.0f - health) (x87 fsubr; fcomip / ja keeps delta when greater), then the base RW 0x8C31A5
@@ -916,6 +943,17 @@ void ActiveBody::attemptDamage(DamageInfo &info)
 		{
 			notifyDamageStateChange(&info, stateBefore, m_curDamageState);
 			playDamageStateSound(obj, m_curDamageState);
+			// RW 0x8C44C7 .. 0x8C44F6: notify symbiotic partner body vslot +0xA0 with new damage state
+			if (m_symbiotePartnerId != INVALID_ID)
+			{
+				if (Object *partner = logic.findObjectByID(m_symbiotePartnerId))
+				{
+					if (BodyModuleInterface *pb = partner->getBodyModule())
+					{
+						pb->onSymbioteDamageStateChanged(m_curDamageState); // RW 0x8C44F0
+					}
+				}
+			}
 		}
 		// LOCAL-116 (P-159, both editions): RW 0x8C44F6 .. 0x8C4585 (DONOR BFME2 ActiveBody.cpp:2220):
 		// when health crosses below 35% (previous/max >= 0.35f && current/max < 0.35f && current > 0.0f),
@@ -958,6 +996,15 @@ void ActiveBody::attemptDamage(DamageInfo &info)
 				event.actualDamageDealt = info.m_output.m_actualDamageDealt;
 				event.actualDamageClipped = info.m_output.m_actualDamageClipped;
 				obj.friend_onDie(event);
+				// RW 0x8C464A .. 0x8C4679: linked symbiotic partner dies with this object (Object::onDie RW 0x698F06 + setEffectivelyDead(1) RW 0x68D950)
+				if (m_symbiotePartnerId != INVALID_ID)
+				{
+					if (Object *partner = logic.findObjectByID(m_symbiotePartnerId))
+					{
+						partner->friend_onDie(event);
+						partner->friend_setEffectivelyDead(true);
+					}
+				}
 				// TOP20 #20, RW 0x8C4679 .. 0x8C46A6: after the death (and the linked object's, RW 0x8C464A), a victim that was not contained, killed by a
 				// source (DamageInfo + 8), and neither PROJECTILE nor INERT makes its enemies around cheer (primary vslot 0x58)
 				if (!contained && info.m_input.m_sourceID != INVALID_ID && !isCheerExempt(obj))
@@ -1357,6 +1404,17 @@ void ActiveBody::attemptHealing(DamageInfo &info)
 		if (m_curDamageState != stateBefore)
 		{
 			notifyDamageStateChange(&info, stateBefore, m_curDamageState);
+			// RW 0x8C3166 .. 0x8C3195: notify symbiotic partner body vslot +0xA0 with new damage state
+			if (m_symbiotePartnerId != INVALID_ID)
+			{
+				if (Object *partner = obj->logic().findObjectByID(m_symbiotePartnerId))
+				{
+					if (BodyModuleInterface *pb = partner->getBodyModule())
+					{
+						pb->onSymbioteDamageStateChanged(m_curDamageState); // RW 0x8C318F
+					}
+				}
+			}
 		}
 	}
 }
@@ -1367,9 +1425,10 @@ void ActiveBody::attemptHealing(DamageInfo &info)
 // current DamageInfo pointer is null outside a hit (a snapshot is taken between frames); the armour report flag is the report's.
 void ActiveBody::xfer(Xfer &x)
 {
-	XferVersion v{ 1, 6 }; // 2: lane FX-4's last damage type, 3: Local 30's last damage no-effect, 4: PORT-293's last-healing frame,
+	XferVersion v{ 1, 7 }; // 2: lane FX-4's last damage type, 3: Local 30's last damage no-effect, 4: PORT-293's last-healing frame,
 	                       // 5: lane PORT-296's last damage amount, 6: upstream lane BLDGDEBRIS-1's side stage and side values / flags (its own
-	                       // version 3: the fork keeps its numbering, the upstream fields come last)
+	                       // version 3: the fork keeps its numbering, the upstream fields come last),
+	                       // 7: Local 150's symbiotic partner ID (RW +0xEC, xfer RW 0x8C3599)
 	x.xferVersion(v);
 	xferBehaviorModule(x); // BodyModule::xfer RW 0x00993419 (DONOR BFME2 0x0058B043) transfers BehaviorModule + m_damageScalar (+0x14)
 	x.xferReal(&m_currentHealth);
@@ -1439,6 +1498,14 @@ void ActiveBody::xfer(Xfer &x)
 			m_sideDamage[i] = 0.0f;
 			m_sideDestroyed[i] = false;
 		}
+	}
+	if (v.current >= 7)
+	{
+		x.xferObjectID(&m_symbiotePartnerId); // RW 0x8C3599: ActiveBody +0xEC
+	}
+	else
+	{
+		m_symbiotePartnerId = INVALID_ID;
 	}
 }
 

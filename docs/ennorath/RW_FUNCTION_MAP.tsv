@@ -263,7 +263,7 @@ ActiveBody	2	0x008C18AC	library	0x008C3AED
 ActiveBody	2	0x0090BE00	ported	0x008C3CB8			PBVModuleData::vector<>::push_back (tier A)
 ActiveBody	2	0x00917B0D	library	0x0044A2A5			
 ActiveBody	2	0x00936B7D	ported	0x006E85E9, 0x006E85FB			
-ActiveBody	2	0x00970ED8	partial	0x008C3CB8			PBVModuleData::vector<>::insert (tier A)
+ActiveBody	2	0x00970ED8	ported	0x008C3CB8			PBVModuleData::vector<>::insert (tier A)
 ActiveBody	2	0x00A39570	ported	0x0068B244			
 ActiveBody	2	0x00A3C4E0	ported	0x00A39340			
 ActiveBody	2	0x00A3CD14	library	0x00A3CE22, 0x00A3CE80, 0x00A3D28E			__SEH_prolog (tier A)
@@ -354,7 +354,7 @@ ActiveBody	3	0x0093496C	ported	0x00936B7D			Rva0052E001::rva0052E001 (tier A)
 ActiveBody	3	0x00934E34	ported	0x00936B7D			
 ActiveBody	3	0x00935FAA	ported	0x00936B7D			
 ActiveBody	3	0x00937D96	ported	0x00936B7D			PathfindZoneManager::MarkDirty (tier A)
-ActiveBody	3	0x00A34550	none	0x00970ED8		caller 0x00970ED8 (partial)	
+ActiveBody	3	0x00A34550	none	0x00970ED8		caller 0x00970ED8 (ported)	
 ActiveBody	3	0x00A39490	ported	0x00A3C4E0	vcall +0x8		
 ActiveBody	3	0x00A3A190	library	0x00A3C4E0			
 ActiveBody	3	0x00A3AD30	ported	0x00A3C4E0			
@@ -2365,7 +2365,7 @@ AODHordeContain	1	0x00877751	ported	0x0087E8FC	vcall +0x4		Rva00474431::rva00474
 AODHordeContain	1	0x00877A7A	ported	0x0087DB01	vcall +0x1bc, vcall +0x1c4		
 AODHordeContain	1	0x00877D89	ported	0x0087DEFB	vcall +0x34		
 AODHordeContain	1	0x0087E516	none	0x0087E894		callee 0x00449681 (ported), callee 0x00AD1920 (ported), caller 0x0087E894 (ported)	
-AODHordeContain	1	0x0087E7CF	none	0x0087E8E0		callee 0x00A3CEF0 (ported), caller 0x0087E8E0 (ported)	AODHordeContain::~AODHordeContain (tier D)
+AODHordeContain	1	0x0087E7CF	none	0x0087E8E0		callee 0x00872BC5 (ported), callee 0x00A3CEF0 (ported), caller 0x0087E8E0 (ported)	AODHordeContain::~AODHordeContain (tier D)
 AODHordeContain	1	0x00A3CEF0	ported	0x0042BD78, 0x0042C17A, 0x0042C1CC, 0x0042C978, 0x00604243, 0x0060428D, 0x006042CC, 0x006049DD, 0x00604A5D, 0x00604ADD, 0x00604BA1, 0x00604D85, 0x00604F1C, 0x006057EE, 0x00605A47, 0x00605C78, 0x00605D32, 0x006080F4, 0x0060817A, 0x00608249, 0x006082CF, 0x0060930F, 0x006099DC, 0x00609C3A, 0x0060BFBD, 0x0060C1C9, 0x0060D053, 0x0066C4CA, 0x006750FA, 0x00676A8A, 0x00678578, 0x0067866C, 0x0067876B, 0x00678816, 0x00686F85, 0x0068C4A6, 0x0069609F, 0x006DA95E, 0x006F1FED, 0x0070042A, 0x0072C43C, 0x0072C643, 0x0072CDAB, 0x00758ECB, 0x00759E24, 0x00759FDA, 0x0075A243, 0x007A1759, 0x007A4DDE, 0x007A5B03, 0x007A6E8E, 0x007A7483, 0x007B7F2B, 0x007EE057, 0x00865F9A, 0x0086677B, 0x008667B3, 0x008675B0, 0x00867947, 0x0086AF85, 0x0086DCC6, 0x008715B6, 0x00872BC5, 0x00877751, 0x0087E78A, 0x0087E7CF			__EH_prolog (tier A)
 AODHordeContain	1	0x00A3CF84	ported	0x0087DB01			ji_0062920a (tier A)
 AODHordeContain	1	0x00A3CF90	ported	0x0086BFB5, 0x0087DEFB			ji_00629216 (tier A)
@@ -2393,9 +2393,9 @@ AODHordeContain	2	0x0079D7E5	ported	0x00872D0A			Rva003BD306Target::rva0039B2C7 
 AODHordeContain	2	0x00865598	ported	0x00875847, 0x00877751			
 AODHordeContain	2	0x00865F9A	ported	0x00872D0A	vcall +0x64		OpenContain::onContaining (tier B)
 AODHordeContain	2	0x0086BFB5	ported	0x0086D720, 0x00875847			
-AODHordeContain	2	0x0086DA02	none	0x00872D0A	vcall +0xec	caller 0x00872D0A (ported)	
-AODHordeContain	2	0x0087210B	none	0x00877751		caller 0x00877751 (ported)	
-AODHordeContain	2	0x00872BC5	none	0x0087E7CF	vcall +0x0	callee 0x0042F6A0 (ported), callee 0x0086AF85 (ported), callee 0x00A3CEF0 (ported)	
+AODHordeContain	2	0x0086DA02	partial	0x00872D0A	vcall +0xec		
+AODHordeContain	2	0x0087210B	ported	0x00877751			
+AODHordeContain	2	0x00872BC5	ported	0x0087E7CF	vcall +0x0		
 AODHordeContain	2	0x00875847	ported	0x00877D89			
 AODHordeContain	2	0x00877182	library	0x00877751			VRva00064640Record::vector<>::push_back (tier A)
 AODHordeContain	2	0x009A2931	library	0x00877751			VAsciiString::map<>::map<> (tier A)
@@ -2424,7 +2424,7 @@ AODHordeContain	3	0x00688D3C	ported	0x00689BB3, 0x00689E3C			Overridable::friend
 AODHordeContain	3	0x00688DB0	ported	0x00689E3C			
 AODHordeContain	3	0x00689BB3	ported	0x00689E3C			Rva0028951F::rva0028951F (tier B)
 AODHordeContain	3	0x0068D440	ported	0x0062684D			Object::rva0028CDEB (tier B)
-AODHordeContain	3	0x00691F2A	none	0x00875847		caller 0x0086DC6B (ported), caller 0x00875847 (ported)	
+AODHordeContain	3	0x00691F2A	ported	0x00875847			
 AODHordeContain	3	0x006D315D	ported	0x006D328E, 0x006D32E4, 0x006D332C, 0x006D33AB			
 AODHordeContain	3	0x006DA6A7	ported	0x00865F9A			Rva002D9531::rva002D9531 (tier A)
 AODHordeContain	3	0x006DA95E	ported	0x00865F9A			BfmeAudioEventPrefix136::BfmeAudioEventPrefix136 (tier A)
@@ -2437,9 +2437,9 @@ AODHordeContain	3	0x00865C98	none	0x00865F9A		callee 0x00676A8A (ported), caller
 AODHordeContain	3	0x008667B3	library	0x00867947, 0x00872BC5			
 AODHordeContain	3	0x0086AF85	ported	0x00872BC5			TransportContain::~TransportContain (tier A)
 AODHordeContain	3	0x0086CD7B	library	0x0086CD8D, 0x0086CDB3, 0x0087336F, 0x00877182			UBfmeFloat4Record00469C61::_Construct<> (tier A)
-AODHordeContain	3	0x0086CDD8	none	0x0087210B			PAVRva00064640Record::_M_allocate_and_copy<> (tier A)
-AODHordeContain	3	0x0086DCC6	none	0x00872BC5		callee 0x00A3CEF0 (ported)	
-AODHordeContain	3	0x008715B6	none	0x00872BC5		callee 0x0086DD36 (ported), callee 0x00A3CEF0 (ported)	
+AODHordeContain	3	0x0086CDD8	none	0x0087210B		caller 0x0087210B (ported)	PAVRva00064640Record::_M_allocate_and_copy<> (tier A)
+AODHordeContain	3	0x0086DCC6	none	0x00872BC5		callee 0x00A3CEF0 (ported), caller 0x00872BC5 (ported)	
+AODHordeContain	3	0x008715B6	none	0x00872BC5		callee 0x0086DD36 (ported), callee 0x00A3CEF0 (ported), caller 0x00872BC5 (ported)	
 AODHordeContain	3	0x0087336F	library	0x00877182			VRva00064640Record::vector<>::_M_insert_overflow (tier B)
 AODHordeContain	3	0x008DDDF1	library	0x009A2931			$$CBHUBfmePod24::HU?$pair::_Rb_tree<>::_Rb_tree<> (tier A)
 AODHordeContain	3	0x008E6731	ported	0x007536DD			UBfmePod40::vector<>::erase (tier A)
@@ -3521,7 +3521,7 @@ AttributeModifierPoolUpdate	5	0x0067866C	ported	0x0067876B
 AttributeModifierPoolUpdate	5	0x0068BB4B	ported	0x0062B921			Object::isInList (tier A)
 AttributeModifierPoolUpdate	5	0x00794353	library	0x005FFFBF			
 AttributeModifierPoolUpdate	5	0x00A340B0	library	0x0083228C			
-AttributeModifierPoolUpdate	5	0x00A34550	none	0x0083228C		caller 0x00970ED8 (partial)	
+AttributeModifierPoolUpdate	5	0x00A34550	none	0x0083228C		caller 0x00970ED8 (ported)	
 AttributeModifierPoolUpdate	5	0x00B4E390	ported	0x00B4FB20			
 AttributeModifierPoolUpdate	6	0x004355D0	library	0x00436030			
 AttributeModifierPoolUpdate	6	0x004A86AC	library	0x00645716, 0x006750FA, 0x00678578			Rva0036CA00Str::Rva0036CA00Str (tier A)
@@ -6059,7 +6059,7 @@ CastleBehavior	0	0x0079B865	library				CastleBehavior::`scalar deleting destruct
 CastleBehavior	0	0x0079B9D6	ported		vcall +0x28		
 CastleBehavior	0	0x0079C761	ported				
 CastleBehavior	0	0x0079CF2A	ported				
-CastleBehavior	0	0x00862772	none				
+CastleBehavior	0	0x00862772	ported				
 CastleBehavior	0	0x008BD372	ported				_STL::GDH::codecvt<>::do_always_noconv (tier A)
 CastleBehavior	1	0x0042F6A0	ported	0x0044A2A5, 0x006799A2, 0x0079B865, 0x0082A4A8, 0x008E42C8, 0x008E4475, 0x00A3C6F0			
 CastleBehavior	1	0x00441B7C	ported	0x00625456, 0x00797D86			GameLogic::isInMultiplayerGame (tier A)
@@ -6852,7 +6852,7 @@ CastleBehavior	7	0x009618E3	ported	0x0090D16A			Rva00506FE9Hit::unRegisterWithBu
 CastleBehavior	7	0x009A0383	ported	0x009A0838			AIUnitBuilder::getAI (tier A)
 CastleBehavior	7	0x009A1BC0	ported	0x008F0BBC			Rva005996FF::unRegisterDozer (tier A)
 CastleBehavior	7	0x009BC76C	ported	0x0090D16A			Rva005AD99C::rva005AD99C (tier A)
-CastleBehavior	7	0x00A34550	none	0x00429900		caller 0x00970ED8 (partial)	
+CastleBehavior	7	0x00A34550	none	0x00429900		caller 0x00970ED8 (ported)	
 CastleBehavior	7	0x00A3BDB0	ported	0x00A39090			
 CastleBehavior	7	0x00A3C6F0	ported	0x00A39420	vcall +0xc		
 CastleBehavior	7	0x00A3CD70	library	0x00436680			
@@ -19624,29 +19624,29 @@ HordeContain	0	0x0086C40D	ported		vcall +0x0, vcall +0x4
 HordeContain	0	0x0086C61E	ported				
 HordeContain	0	0x0086C713	ported				
 HordeContain	0	0x0086C737	ported				
-HordeContain	0	0x0086C758	none			callee 0x0086A002 (ported)	
+HordeContain	0	0x0086C758	ported				
 HordeContain	0	0x0086C77D	partial				
 HordeContain	0	0x0086C7DE	ported				
 HordeContain	0	0x0086C7F6	ported		vcall +0x68		
 HordeContain	0	0x0086C81E	ported				
 HordeContain	0	0x0086C8AC	ported				
-HordeContain	0	0x0086C8B9	none				
+HordeContain	0	0x0086C8B9	ported				
 HordeContain	0	0x0086C8DE	ported				
 HordeContain	0	0x0086C8F2	none		vcall +0x84	caller 0x0087D917 (ported)	
 HordeContain	0	0x0086C92D	ported		vcall +0x1d8		
 HordeContain	0	0x0086C962	ported		vcall +0x1dc		
 HordeContain	0	0x0086C9CD	ported				
-HordeContain	0	0x0086C9E7	none				
-HordeContain	0	0x0086C9F3	none				
+HordeContain	0	0x0086C9E7	ported				
+HordeContain	0	0x0086C9F3	ported				
 HordeContain	0	0x0086CA3D	ported		vcall +0x1fc		
 HordeContain	0	0x0086CA78	none			callee 0x00403720 (ported), callee 0x00405406 (ported), callee 0x00444D39 (ported), callee 0x00445139 (ported), callee 0x005487EC (ported), callee 0x0068BDA5 (ported), callee 0x006E89EE (ported), callee 0x006EA857 (ported), callee 0x0070C31E (ported), callee 0x00850C32 (ported), callee 0x0085C94A (ported), callee 0x0085C987 (ported), callee 0x00A39090 (ported), callee 0x00A3CEF0 (ported)	HordeContain::rva00469967 (tier B)
 HordeContain	0	0x0086CF2A	ported		vcall +0x38		
 HordeContain	0	0x0086D056	partial				
 HordeContain	0	0x0086D1FE	none			callee 0x00662A0E (ported), callee 0x00664485 (ported), callee 0x00865598 (ported)	
 HordeContain	0	0x0086D3F3	ported		vcall +0x118		
-HordeContain	0	0x0086D438	none		vcall +0x1bc	callee 0x00865598 (ported)	
+HordeContain	0	0x0086D438	partial		vcall +0x1bc		
 HordeContain	0	0x0086D4CD	none		vcall +0x1bc	callee 0x00865598 (ported)	
-HordeContain	0	0x0086D562	ported		vcall +0x1bc		
+HordeContain	0	0x0086D562	partial		vcall +0x1bc		
 HordeContain	0	0x0086D5BB	none		vcall +0x1bc	callee 0x00865598 (ported)	
 HordeContain	0	0x0086D614	ported		vcall +0x1bc		
 HordeContain	0	0x0086D6FD	ported				
@@ -19685,14 +19685,14 @@ HordeContain	0	0x0086FA87	ported		vcall +0x118
 HordeContain	0	0x0086FE0F	none		vcall +0x118		
 HordeContain	0	0x0086FEAD	none		vcall +0x110		
 HordeContain	0	0x0086FEEC	ported		vcall +0x118		
-HordeContain	0	0x0086FFD2	none		vcall +0x10c	callee 0x00A3CEF0 (ported)	
+HordeContain	0	0x0086FFD2	ported		vcall +0x10c		
 HordeContain	0	0x008700AC	ported		vcall +0x10c		
 HordeContain	0	0x00870180	ported				Rva0046CE9D::rva0046CE9D (tier A)
 HordeContain	0	0x0087048F	ported				HordeContain::rva0046D1AC (tier A)
 HordeContain	0	0x008704DA	ported		vcall +0x118		
 HordeContain	0	0x0087055D	ported		vcall +0x118		
 HordeContain	0	0x008705A6	ported		vcall +0x118		
-HordeContain	0	0x00870655	none			callee 0x00449681 (ported)	
+HordeContain	0	0x00870655	ported				
 HordeContain	0	0x00870667	ported		vcall +0x118		
 HordeContain	0	0x008706DF	ported		vcall +0x114		
 HordeContain	0	0x008707A0	none		vcall +0x118		
@@ -19702,7 +19702,7 @@ HordeContain	0	0x00870B91	ported				HordeContain::rva0046D8AE (tier A)
 HordeContain	0	0x00870D4E	ported		vcall +0x118		
 HordeContain	0	0x00870E50	ported		vcall +0x118		
 HordeContain	0	0x00870F75	ported		vcall +0x118		
-HordeContain	0	0x0087104A	none		vcall +0x8	callee 0x00449681 (ported)	
+HordeContain	0	0x0087104A	ported		vcall +0x8		
 HordeContain	0	0x008710A8	none		vcall +0x218	callee 0x006B4E57 (ported), callee 0x00865598 (ported)	HordeContain::rva0046DDC5 (tier B)
 HordeContain	0	0x00871110	none			callee 0x00449681 (ported), callee 0x004B1B5A (ported), callee 0x00865598 (ported)	HordeContain::rva0046DE2D (tier A)
 HordeContain	0	0x00871184	none		vcall +0x4c	callee 0x00449681 (ported), callee 0x00865598 (ported)	
@@ -19717,27 +19717,27 @@ HordeContain	0	0x00871B9B	ported		vcall +0x10
 HordeContain	0	0x00871D41	ported		vcall +0x6c		
 HordeContain	0	0x00871F29	ported				HordeContain::rva0046EC7C (tier A)
 HordeContain	0	0x00871F8B	none		vcall +0x1c	callee 0x00865598 (ported)	
-HordeContain	0	0x00872A69	none				
+HordeContain	0	0x00872A69	ported				
 HordeContain	0	0x00872A6F	ported				
 HordeContain	0	0x00872A7F	ported				
-HordeContain	0	0x00872A8D	none				
-HordeContain	0	0x00872A9A	none				
+HordeContain	0	0x00872A8D	ported				
+HordeContain	0	0x00872A9A	ported				
 HordeContain	0	0x00872AA1	ported				
-HordeContain	0	0x00872AAE	none				
+HordeContain	0	0x00872AAE	ported				
 HordeContain	0	0x00872AB5	ported				
-HordeContain	0	0x00872ACB	none				
-HordeContain	0	0x00872AD2	none				
+HordeContain	0	0x00872ACB	ported				
+HordeContain	0	0x00872AD2	ported				
 HordeContain	0	0x00872ADF	ported				
-HordeContain	0	0x00872AE7	none				
-HordeContain	0	0x00872AEE	none				
+HordeContain	0	0x00872AE7	ported				
+HordeContain	0	0x00872AEE	ported				
 HordeContain	0	0x00872AF5	none				
-HordeContain	0	0x00872B02	none				
+HordeContain	0	0x00872B02	ported				
 HordeContain	0	0x00872B09	ported				
 HordeContain	0	0x00872B10	ported				
 HordeContain	0	0x00872B1D	ported				
-HordeContain	0	0x00872B24	none			callee 0x005487EC (ported), callee 0x00A3CEF0 (ported)	
+HordeContain	0	0x00872B24	ported				
 HordeContain	0	0x00872B69	ported				
-HordeContain	0	0x00872B76	none			callee 0x00850C32 (ported)	
+HordeContain	0	0x00872B76	ported				
 HordeContain	0	0x00872B91	ported				
 HordeContain	0	0x00872B9E	ported				
 HordeContain	0	0x00872BAB	ported				
@@ -19746,7 +19746,7 @@ HordeContain	0	0x00872D0A	ported		vcall +0x84, vcall +0x88
 HordeContain	0	0x00872EFC	ported				
 HordeContain	0	0x0087317A	ported		vcall +0x118		
 HordeContain	0	0x00873262	none		vcall +0x8c	callee 0x005487BB (ported), callee 0x005E2D74 (ported), callee 0x0076573F (ported), callee 0x00766173 (ported), callee 0x00865598 (ported)	
-HordeContain	0	0x008736EF	library				HordeContain::`scalar deleting destructor' (tier A)
+HordeContain	0	0x008736EF	ported				HordeContain::`scalar deleting destructor' (tier A)
 HordeContain	0	0x0087370B	ported		vcall +0x18		
 HordeContain	0	0x0087393E	ported		vcall +0xa4		
 HordeContain	0	0x00873A02	ported		vcall +0x110		
@@ -19775,12 +19775,12 @@ HordeContain	0	0x00876C23	ported				HordeContain::rva004739B4 (tier B)
 HordeContain	0	0x00876D4E	ported		vcall +0x138		HordeContain::rva00473ADF (tier B)
 HordeContain	0	0x00876DA5	ported		vcall +0x1ac		HordeContain::instigateQuarrel (tier B)
 HordeContain	0	0x00876FC4	ported		vcall +0x254		
-HordeContain	0	0x0087737A	none			callee 0x0087566B (ported)	
+HordeContain	0	0x0087737A	ported				
 HordeContain	0	0x00877751	ported		vcall +0x4		Rva00474431::rva00474519 (tier B)
 HordeContain	0	0x00877A7A	ported		vcall +0x1bc, vcall +0x1c4		
 HordeContain	0	0x00877D89	ported		vcall +0x34		
 HordeContain	0	0x00877E12	ported		vcall +0x118		
-HordeContain	0	0x008780E4	none			callee 0x00869E86 (ported), callee 0x00A3CEF0 (ported)	
+HordeContain	0	0x008780E4	partial				
 HordeContain	0	0x00878905	ported				HordeContain::backAwaySomeMembersFrom (tier B)
 HordeContain	0	0x00879106	ported		vcall +0x118		
 HordeContain	0	0x008791C5	ported		vcall +0x1e8		
@@ -19856,7 +19856,7 @@ HordeContain	1	0x00691106	ported	0x00875F18			Object::clearWeaponSetFlag (tier B
 HordeContain	1	0x006916BF	ported	0x0086F18F, 0x0086F7A3, 0x008759FF			Object::rva00290FBB (tier A)
 HordeContain	1	0x006916CD	ported	0x0086C0BC	vcall +0x4c		
 HordeContain	1	0x00691AA3	ported	0x00872D0A			Object::rva0029130C (tier A)
-HordeContain	1	0x00691F2A	none	0x0086DC6B, 0x00875847		caller 0x0086DC6B (ported), caller 0x00875847 (ported)	
+HordeContain	1	0x00691F2A	ported	0x0086DC6B, 0x00875847			
 HordeContain	1	0x0069388B	ported	0x00805A8E, 0x00871A90, 0x0087566B	vcall +0x174		Object::rva00293077 (tier B)
 HordeContain	1	0x00693A1A	ported	0x00664CD6, 0x00694183, 0x00694233, 0x00694914, 0x007006D7, 0x0086BDD3, 0x0086BE9A, 0x0086BEEA, 0x00870180, 0x00871D41, 0x00871F29			Object::rva002931F5 (tier B)
 HordeContain	1	0x00694183	ported	0x0086BCF9	vcall +0x108		
@@ -19904,7 +19904,7 @@ HordeContain	1	0x00862535	ported	0x005FFE47, 0x008704DA
 HordeContain	1	0x00865598	ported	0x0086D1FE, 0x0086D438, 0x0086D4CD, 0x0086D562, 0x0086D5BB, 0x0086D614, 0x0086D7E6, 0x0086D830, 0x0086DC6B, 0x0086DF44, 0x0086E13E, 0x0086EA09, 0x0086EAD0, 0x0086EB60, 0x0086EC2D, 0x0086ECAB, 0x0086ED25, 0x0086EDB0, 0x0086F4EE, 0x0086F60A, 0x0086F6E1, 0x0086F7A3, 0x0086F8BA, 0x0086FA01, 0x008706DF, 0x00870A92, 0x00870AEE, 0x00870B91, 0x008710A8, 0x00871110, 0x00871184, 0x0087127D, 0x008713F6, 0x00871A90, 0x00871F8B, 0x00872AB5, 0x00873262, 0x00873D48, 0x00873FE8, 0x00875221, 0x0087545C, 0x00875550, 0x0087566B, 0x00875847, 0x0087594C, 0x0087631F, 0x00876C23, 0x00876D4E, 0x00876DA5, 0x00877751, 0x00878905			
 HordeContain	1	0x00865F9A	ported	0x00872D0A	vcall +0x64		OpenContain::onContaining (tier B)
 HordeContain	1	0x008664EA	library	0x008667B3, 0x0087159F			$$CBHURva00462D08Mapped::HU?$pair::_Rb_tree<>::clear (tier A)
-HordeContain	1	0x008666A1	none	0x0087104A	vcall +0x8	caller 0x0087F10E (ported), caller 0x0088014B (ported)	
+HordeContain	1	0x008666A1	ported	0x0087104A	vcall +0x8		
 HordeContain	1	0x00866E08	library	0x0087393E, 0x00873D48			URva00463D9BElement::_Rb_tree<>::erase (tier A)
 HordeContain	1	0x008680F4	ported	0x0086CF2A	vcall +0x64		
 HordeContain	1	0x00869E86	ported	0x008780E4			
@@ -19918,12 +19918,12 @@ HordeContain	1	0x0086C0CE	none	0x0086C0BC
 HordeContain	1	0x0086C3E7	ported	0x0086E0CB, 0x00873F30, 0x00875619, 0x00875F18			Rva00469294::rva00469294 (tier A)
 HordeContain	1	0x0086C4BE	ported	0x0087393E			Rva004693AD::rva004693AD (tier A)
 HordeContain	1	0x0086C6EB	ported	0x00875221, 0x0087545C, 0x00875550			
-HordeContain	1	0x0086C77A	none	0x0086C758			
+HordeContain	1	0x0086C77A	ported	0x0086C758			
 HordeContain	1	0x0086C997	none	0x0086D056		callee 0x0068F1A8 (ported), caller 0x0086D056 (partial)	
 HordeContain	1	0x0086CE05	library	0x00873A02			_STL::$$CBGH::GU?$pair::_Rb_tree<>::G::_M_find<> (tier A)
 HordeContain	1	0x0086D170	ported	0x00873FE8	vcall +0x108		
 HordeContain	1	0x0086D720	ported	0x00877E12			HordeContain::rva0046A5B1 (tier B)
-HordeContain	1	0x0086DA02	none	0x00872D0A	vcall +0xec	caller 0x00872D0A (ported)	
+HordeContain	1	0x0086DA02	partial	0x00872D0A	vcall +0xec		
 HordeContain	1	0x0086DC96	ported	0x0087393E			UBfmePod60::list<>::push_front (tier A)
 HordeContain	1	0x0086E0CB	ported	0x00873AE3			HordeContain::rva0046AF12 (tier B)
 HordeContain	1	0x0087043B	ported	0x00871D41, 0x00871F29, 0x00876481			HordeContain::rva0046D158 (tier A)
@@ -19931,13 +19931,13 @@ HordeContain	1	0x00870C29	ported	0x00875221	vcall +0x118
 HordeContain	1	0x008719E4	ported	0x00871A6F, 0x00876A08, 0x00876C23			HordeContain::rva0046E740 (tier B)
 HordeContain	1	0x00871A6F	ported	0x00872EFC			Rva0046E7C2::rva0046E7C2 (tier B)
 HordeContain	1	0x008720C2	ported	0x0087393E, 0x008757FC, 0x008759FF			Rva002EE9B7::rva0046EDEF (tier A)
-HordeContain	1	0x0087210B	none	0x00877751		caller 0x00877751 (ported)	
-HordeContain	1	0x00872BC5	none	0x008736EF	vcall +0x0	callee 0x0042F6A0 (ported), callee 0x0086AF85 (ported), callee 0x00A3CEF0 (ported)	
+HordeContain	1	0x0087210B	ported	0x00877751			
+HordeContain	1	0x00872BC5	ported	0x008736EF	vcall +0x0		
 HordeContain	1	0x00873322	library	0x00873A02, 0x00876C23			GMURva00470041Less::map<>::operator[] (tier A)
 HordeContain	1	0x00875619	none	0x0087566B		callee 0x004065AA (ported), callee 0x007871FC (ported), callee 0x0086C3E7 (ported), caller 0x0087566B (ported)	HordeContain::rva004723F2 (tier A)
 HordeContain	1	0x00875847	ported	0x00877D89			
 HordeContain	1	0x00877182	library	0x00877751			VRva00064640Record::vector<>::push_back (tier A)
-HordeContain	1	0x008771B9	none	0x00878905		callee 0x0073D1FA (ported), caller 0x00878905 (ported)	Rva00473F81::rva00473F81 (tier A)
+HordeContain	1	0x008771B9	ported	0x00878905			Rva00473F81::rva00473F81 (tier A)
 HordeContain	1	0x008C72DF	ported	0x00676A8A, 0x00871F29			Rva002390CB::Rva002390CB (tier A)
 HordeContain	1	0x0090BE00	ported	0x006CE873, 0x00872EFC, 0x0087566B, 0x009EFE5B			PBVModuleData::vector<>::push_back (tier A)
 HordeContain	1	0x009325B4	ported	0x0068DFF5, 0x006907F1, 0x00871D41			$0L::BitFlags<>::any (tier A)
@@ -20055,15 +20055,15 @@ HordeContain	2	0x0086702D	ported	0x0086B86D	vcall +0x44
 HordeContain	2	0x0086AF85	ported	0x00872BC5			TransportContain::~TransportContain (tier A)
 HordeContain	2	0x0086B169	ported	0x0086B86D			
 HordeContain	2	0x0086BFB5	ported	0x0086D720, 0x00875847			
-HordeContain	2	0x0086C2A8	none	0x008771B9			Rva00469155::Rva00469155 (tier A)
-HordeContain	2	0x0086CD04	none	0x008771B9			Rva00469BEA::Rva00469BEA (tier A)
+HordeContain	2	0x0086C2A8	none	0x008771B9		caller 0x008771B9 (ported)	Rva00469155::Rva00469155 (tier A)
+HordeContain	2	0x0086CD04	none	0x008771B9		caller 0x008771B9 (ported)	Rva00469BEA::Rva00469BEA (tier A)
 HordeContain	2	0x0086CD7B	library	0x0086CD8D, 0x0086CDB3, 0x0087336F, 0x00877182			UBfmeFloat4Record00469C61::_Construct<> (tier A)
-HordeContain	2	0x0086CDD8	none	0x0087210B			PAVRva00064640Record::_M_allocate_and_copy<> (tier A)
+HordeContain	2	0x0086CDD8	none	0x0087210B		caller 0x0087210B (ported)	PAVRva00064640Record::_M_allocate_and_copy<> (tier A)
 HordeContain	2	0x0086DAD6	none	0x008720C2		caller 0x008720C2 (ported)	Rva002EE9B7::rva0046A967 (tier A)
 HordeContain	2	0x0086DB1A	library	0x00873322			_STL::$$CBGE::GU?$pair::_Rb_tree<>::_M_lower_bound (tier A)
-HordeContain	2	0x0086DCC6	none	0x00872BC5		callee 0x00A3CEF0 (ported)	
+HordeContain	2	0x0086DCC6	none	0x00872BC5		callee 0x00A3CEF0 (ported), caller 0x00872BC5 (ported)	
 HordeContain	2	0x00870204	ported	0x008719E4			
-HordeContain	2	0x008715B6	none	0x00872BC5		callee 0x0086DD36 (ported), callee 0x00A3CEF0 (ported)	
+HordeContain	2	0x008715B6	none	0x00872BC5		callee 0x0086DD36 (ported), callee 0x00A3CEF0 (ported), caller 0x00872BC5 (ported)	
 HordeContain	2	0x0087336F	library	0x00877182			VRva00064640Record::vector<>::_M_insert_overflow (tier B)
 HordeContain	2	0x0087342C	library	0x008771B9			HURva00470205Record::map<>::insert (tier A)
 HordeContain	2	0x008A4ED8	ported	0x00699368	vcall +0x68		
@@ -21820,7 +21820,7 @@ HordeSiegeEngineContain	1	0x00865E78	ported	0x0087FE19			OpenContain::removeFrom
 HordeSiegeEngineContain	1	0x00866267	none	0x008801F7	vcall +0x118	caller 0x0087F1BA (ported), caller 0x008801F7 (ported)	
 HordeSiegeEngineContain	1	0x0086629F	none	0x008801C8	vcall +0x118	caller 0x0087F18B (ported), caller 0x008801C8 (ported)	
 HordeSiegeEngineContain	1	0x00866675	ported	0x0087FEA4			
-HordeSiegeEngineContain	1	0x008666A1	none	0x0088014B	vcall +0x8	caller 0x0087F10E (ported), caller 0x0088014B (ported)	
+HordeSiegeEngineContain	1	0x008666A1	ported	0x0088014B	vcall +0x8		
 HordeSiegeEngineContain	1	0x00866987	ported	0x00880377			OpenContain::addToContainList (tier A)
 HordeSiegeEngineContain	1	0x00866AE3	ported	0x008805CA	vcall +0x68		
 HordeSiegeEngineContain	1	0x0086708F	ported	0x0087FDDD	vcall +0xa4		
@@ -23533,7 +23533,7 @@ HorseHordeContain	1	0x0086EBF4	ported	0x00879922	vcall +0xa4		HordeContain::slot
 HorseHordeContain	1	0x00873FE8	ported	0x00879947	vcall +0x1c		
 HorseHordeContain	1	0x00875221	ported	0x0087990E	vcall +0x10, vcall +0x48, vcall +0x1c4		
 HorseHordeContain	1	0x008759FF	ported	0x00879927	vcall +0x94, vcall +0x98		
-HorseHordeContain	1	0x008798B7	none	0x00879991			
+HorseHordeContain	1	0x008798B7	none	0x00879991		callee 0x00872BC5 (ported)	
 HorseHordeContain	1	0x00A3CEF0	ported	0x0042BD78, 0x0042C17A, 0x0042C1CC, 0x0042C978, 0x00604243, 0x0060428D, 0x006042CC, 0x006049DD, 0x00604A5D, 0x00604ADD, 0x00604BA1, 0x00604D85, 0x00604F1C, 0x006057EE, 0x00605A47, 0x00605C78, 0x00605D32, 0x006080F4, 0x0060817A, 0x00608249, 0x006082CF, 0x0060930F, 0x006099DC, 0x00609C3A, 0x0060BFBD, 0x0060C1C9, 0x0060D053, 0x0066C4CA, 0x0066C536, 0x00686F85, 0x0068C4A6, 0x0069609F, 0x006ED843, 0x006F1FED, 0x006FF7FA, 0x0070042A, 0x0072C43C, 0x0072C643, 0x0072CDAB, 0x00758ECB, 0x00759E24, 0x00759FDA, 0x0075A243, 0x007A1759, 0x007A4DDE, 0x007A5B03, 0x007A6E8E, 0x007A7483, 0x007B7F2B, 0x007EE057, 0x00863983, 0x0086677B, 0x008667B3, 0x008675B0, 0x00867947, 0x0086AF85, 0x0086DCC6, 0x008715B6, 0x00872BC5, 0x0087994C			__EH_prolog (tier A)
 HorseHordeContain	2	0x00441B59	ported	0x006ED843, 0x006FF7FA, 0x0086C6EB, 0x00875221			Rva002C9400ByteField::get (tier A)
 HorseHordeContain	2	0x00449681	ported	0x006939DF, 0x00693A1A, 0x0075A243, 0x007A3D3D, 0x00873FE8, 0x008759FF			GameLogic::findObjectByID (tier A)
@@ -23555,7 +23555,7 @@ HorseHordeContain	2	0x0086C6EB	ported	0x00875221
 HorseHordeContain	2	0x0086D170	ported	0x00873FE8	vcall +0x108		
 HorseHordeContain	2	0x00870C29	ported	0x00875221	vcall +0x118		
 HorseHordeContain	2	0x008720C2	ported	0x008759FF			Rva002EE9B7::rva0046EDEF (tier A)
-HorseHordeContain	2	0x00872BC5	none	0x008798B7	vcall +0x0	callee 0x0042F6A0 (ported), callee 0x0086AF85 (ported), callee 0x00A3CEF0 (ported)	
+HorseHordeContain	2	0x00872BC5	ported	0x008798B7	vcall +0x0		
 HorseHordeContain	3	0x00430170	library	0x0042C978, 0x0042CA5B, 0x004367B0, 0x0047E273, 0x005FFE47, 0x006868A8, 0x00686F85, 0x006EC204, 0x006F1FED, 0x00862535, 0x00865C2C, 0x00865C59, 0x0086677B, 0x008667B3, 0x00866E73, 0x008675B0, 0x0086CD21, 0x0086DB41, 0x0086DCC6, 0x008715B6, 0x00872BC5, 0x00917B0D			
 HorseHordeContain	3	0x0044DDEC	ported	0x00664CD6, 0x0068E114, 0x006939DF, 0x006CA61F, 0x006CA69A, 0x006CC07C, 0x006FF7FA, 0x007A3D3D, 0x008E3B71			Object::testStatus (tier A)
 HorseHordeContain	3	0x00472BC2	library	0x008720C2			_STL::$$CBHH::HU?$pair::_Rb_tree<>::equal_range (tier A)
@@ -23577,8 +23577,8 @@ HorseHordeContain	3	0x006F1FED	library	0x00872BC5			$$CBHURva002F0B8AElement::HU
 HorseHordeContain	3	0x008667B3	library	0x00867947, 0x00872BC5			
 HorseHordeContain	3	0x0086AF85	ported	0x00872BC5			TransportContain::~TransportContain (tier A)
 HorseHordeContain	3	0x0086DAD6	none	0x008720C2		caller 0x008720C2 (ported)	Rva002EE9B7::rva0046A967 (tier A)
-HorseHordeContain	3	0x0086DCC6	none	0x00872BC5		callee 0x00A3CEF0 (ported)	
-HorseHordeContain	3	0x008715B6	none	0x00872BC5		callee 0x0086DD36 (ported), callee 0x00A3CEF0 (ported)	
+HorseHordeContain	3	0x0086DCC6	none	0x00872BC5		callee 0x00A3CEF0 (ported), caller 0x00872BC5 (ported)	
+HorseHordeContain	3	0x008715B6	none	0x00872BC5		callee 0x0086DD36 (ported), callee 0x00A3CEF0 (ported), caller 0x00872BC5 (ported)	
 HorseHordeContain	3	0x008C9C01	ported	0x006FF7FA			
 HorseHordeContain	3	0x008E6731	ported	0x007536DD			UBfmePod40::vector<>::erase (tier A)
 HorseHordeContain	3	0x009D9309	library	0x008720C2			_STL::$$CBHPAX::U?$pair::U?$_Rb_tree_iterator::__distance<> (tier A)
@@ -25978,7 +25978,7 @@ LargeGroupAudioUpdate	4	0x00762977	ported	0x006CD142, 0x006CD298			ObjectFilter:
 LargeGroupAudioUpdate	4	0x00828D5C	library	0x006D01C1			
 LargeGroupAudioUpdate	4	0x0082F0FF	library	0x004E64C2, 0x008EA106			_STL::PAPAXIPAX::fill_n<> (tier B)
 LargeGroupAudioUpdate	4	0x008EA106	library	0x004E64C2			
-LargeGroupAudioUpdate	4	0x00A34550	none	0x004E64C2		caller 0x00970ED8 (partial)	
+LargeGroupAudioUpdate	4	0x00A34550	none	0x004E64C2		caller 0x00970ED8 (ported)	
 LargeGroupAudioUpdate	5	0x00423450	library	0x00425280			
 LargeGroupAudioUpdate	5	0x00423470	library	0x00425280			
 LargeGroupAudioUpdate	5	0x00423FA0	library	0x00425280			_STL::_N::_Rb_global<>::_Rotate_left (tier A)
@@ -34816,7 +34816,7 @@ SiegeEngineContain	1	0x00865E78	ported	0x0087EFF8			OpenContain::removeFromConta
 SiegeEngineContain	1	0x00866267	none	0x0087F1BA	vcall +0x118	caller 0x0087F1BA (ported), caller 0x008801F7 (ported)	
 SiegeEngineContain	1	0x0086629F	none	0x0087F18B	vcall +0x118	caller 0x0087F18B (ported), caller 0x008801C8 (ported)	
 SiegeEngineContain	1	0x00866675	ported	0x0087F099			
-SiegeEngineContain	1	0x008666A1	none	0x0087F10E	vcall +0x8	caller 0x0087F10E (ported), caller 0x0088014B (ported)	
+SiegeEngineContain	1	0x008666A1	ported	0x0087F10E	vcall +0x8		
 SiegeEngineContain	1	0x00866987	ported	0x0087F341			OpenContain::addToContainList (tier A)
 SiegeEngineContain	1	0x00866AE3	ported	0x0087F5B4	vcall +0x68		
 SiegeEngineContain	1	0x0086708F	ported	0x0087EE17	vcall +0xa4		
@@ -36099,19 +36099,19 @@ SlowDeathBehavior	16	0x007ED77A	ported	0x007ED86B
 SpawnBehavior	0	0x004986C4	ported				
 SpawnBehavior	0	0x005B462D	ported				
 SpawnBehavior	0	0x0063F3BF	ported	0x004D0EAF, 0x008623E0			Region3D::~Region3D (tier A)
-SpawnBehavior	0	0x00862351	none		vcall +0x23c		
+SpawnBehavior	0	0x00862351	ported		vcall +0x23c		
 SpawnBehavior	0	0x008623D6	ported				
-SpawnBehavior	0	0x008623E0	none			callee 0x004D0EAF (ported), callee 0x0063F3BF (ported)	
+SpawnBehavior	0	0x008623E0	ported				
 SpawnBehavior	0	0x008623F1	ported		vcall +0x24		
-SpawnBehavior	0	0x008624BD	none			callee 0x0086232E (ported)	
-SpawnBehavior	0	0x008624C8	none			callee 0x009F3A3C (ported)	
-SpawnBehavior	0	0x008624D7	none				
-SpawnBehavior	0	0x008624E1	none				
-SpawnBehavior	0	0x0086270D	none			callee 0x005487EC (ported), callee 0x00A3CEF0 (ported)	SpawnBehavior::getModuleNameKey (tier B)
-SpawnBehavior	0	0x00862752	none				
+SpawnBehavior	0	0x008624BD	ported				
+SpawnBehavior	0	0x008624C8	ported				
+SpawnBehavior	0	0x008624D7	ported				
+SpawnBehavior	0	0x008624E1	ported				
+SpawnBehavior	0	0x0086270D	ported				SpawnBehavior::getModuleNameKey (tier B)
+SpawnBehavior	0	0x00862752	ported				
 SpawnBehavior	0	0x00862758	ported				
-SpawnBehavior	0	0x00862765	none				
-SpawnBehavior	0	0x00862772	none				
+SpawnBehavior	0	0x00862765	ported				
+SpawnBehavior	0	0x00862772	ported				
 SpawnBehavior	0	0x0086277F	ported				
 SpawnBehavior	0	0x0086280D	ported				SpawnBehavior::onDelete (tier B)
 SpawnBehavior	0	0x00862865	ported		vcall +0x68		
@@ -36122,7 +36122,7 @@ SpawnBehavior	0	0x00862A4E	ported				SpawnBehavior::canAnySlavesAttack (tier A)
 SpawnBehavior	0	0x00862DAB	ported				SpawnBehavior::onSpawnDeath (tier A)
 SpawnBehavior	0	0x00862E4F	ported		vcall +0x68		
 SpawnBehavior	0	0x00862EA3	ported		vcall +0x68		
-SpawnBehavior	0	0x00862EFA	none		vcall +0x18	callee 0x00449681 (ported), callee 0x008A4ED8 (ported)	
+SpawnBehavior	0	0x00862EFA	ported		vcall +0x18		
 SpawnBehavior	0	0x0086327C	ported				
 SpawnBehavior	0	0x00863388	library				SpawnBehavior::`scalar deleting destructor' (tier A)
 SpawnBehavior	0	0x008633A4	ported		vcall +0x0, vcall +0x24		
@@ -36166,7 +36166,7 @@ SpawnBehavior	1	0x00771380	ported	0x008637BE	vcall +0x0
 SpawnBehavior	1	0x0086232E	ported	0x008624BD			
 SpawnBehavior	1	0x00862456	ported	0x008633A4	vcall +0x24		
 SpawnBehavior	1	0x00862520	ported	0x008633A4			Rva0045F4C2NotEqual (tier A)
-SpawnBehavior	1	0x00862783	none	0x00863388		callee 0x0064A492 (ported), callee 0x00862535 (ported), callee 0x00A3CEF0 (ported)	SpawnBehavior::~SpawnBehavior (tier A)
+SpawnBehavior	1	0x00862783	ported	0x00863388			SpawnBehavior::~SpawnBehavior (tier A)
 SpawnBehavior	1	0x00862A88	ported	0x0086327C, 0x008633A4	vcall +0x68		
 SpawnBehavior	1	0x00862B07	ported	0x008633A4, 0x00863585	vcall +0x4		
 SpawnBehavior	1	0x00862F4A	ported	0x008633A4	vcall +0x10, vcall +0x48, vcall +0x58, vcall +0x68		
@@ -42643,19 +42643,19 @@ SymbioticStructuresBody	0	0x008C4C07	ported
 SymbioticStructuresBody	0	0x008C4C3D	ported				
 SymbioticStructuresBody	0	0x008C4CD5	ported				ActiveBodyModuleData::`scalar deleting destructor' (tier A)
 SymbioticStructuresBody	0	0x008C4CF1	ported				
-SymbioticStructuresBody	0	0x008C4EA4	none		vcall +0x14	callee 0x008C4EE0 (ported)	SymbioticStructuresBody::rva004C0D9C (tier D)
+SymbioticStructuresBody	0	0x008C4EA4	ported		vcall +0x14		SymbioticStructuresBody::rva004C0D9C (tier D)
 SymbioticStructuresBody	0	0x008C4F2D	ported		vcall +0x10		
 SymbioticStructuresBody	0	0x008C4F62	ported				BfmeThingBUE::bfmeGoBUE (tier A)
-SymbioticStructuresBody	0	0x008C4F84	none		vcall +0x70	callee 0x008C4EE0 (ported)	
+SymbioticStructuresBody	0	0x008C4F84	ported		vcall +0x70		
 SymbioticStructuresBody	0	0x008C4FB5	ported				BfmeThingDHA::bfmeGoDHA (tier B)
 SymbioticStructuresBody	0	0x008C4FD7	ported				BfmeThingDHB::bfmeGoDHB (tier B)
 SymbioticStructuresBody	0	0x008C4FF9	ported				BfmeThingCAE::bfmeGoCAE (tier B)
-SymbioticStructuresBody	0	0x008C501C	none		vcall +0x3c	callee 0x008C4EE0 (ported)	
+SymbioticStructuresBody	0	0x008C501C	ported		vcall +0x3c		
 SymbioticStructuresBody	0	0x008C505F	ported		vcall +0x74		
 SymbioticStructuresBody	0	0x008C5100	ported				BfmeThingBVG::bfmeGoBVG (tier A)
-SymbioticStructuresBody	0	0x008C5123	none			callee 0x008C4EE0 (ported)	BfmeThingBVF::bfmeGoBVF (tier B)
+SymbioticStructuresBody	0	0x008C5123	ported				BfmeThingBVF::bfmeGoBVF (tier B)
 SymbioticStructuresBody	0	0x008C5146	ported		vcall +0x80		
-SymbioticStructuresBody	0	0x008C519A	none			callee 0x008C4EE0 (ported)	BfmeThingDHC::bfmeGoDHC (tier B)
+SymbioticStructuresBody	0	0x008C519A	ported				BfmeThingDHC::bfmeGoDHC (tier B)
 SymbioticStructuresBody	0	0x008C51BC	ported				Rva004C1028::rva004C1028 (tier A)
 SymbioticStructuresBody	0	0x008C51EE	ported		vcall +0x1c		
 SymbioticStructuresBody	0	0x008C521F	ported		vcall +0x20		
@@ -42663,9 +42663,9 @@ SymbioticStructuresBody	0	0x008C5250	ported		vcall +0x90
 SymbioticStructuresBody	0	0x008C5284	ported		vcall +0x7c		BfmeThingCCD::bfmeGoCCD (tier D)
 SymbioticStructuresBody	0	0x008C52B5	none		vcall +0x50	callee 0x008C4EE0 (ported)	
 SymbioticStructuresBody	0	0x008C52DB	ported		vcall +0x8c		
-SymbioticStructuresBody	0	0x008C5304	none			callee 0x004065AA (ported), callee 0x0070BA76 (ported), callee 0x0097338F (ported), callee 0x00A3CEF0 (ported)	
-SymbioticStructuresBody	0	0x008C53AF	none			callee 0x006903B6 (ported)	SymbioticStructuresBody::rva004C121B (tier A)
-SymbioticStructuresBody	0	0x008C53D0	none		vcall +0x60		
+SymbioticStructuresBody	0	0x008C5304	ported				
+SymbioticStructuresBody	0	0x008C53AF	ported				SymbioticStructuresBody::rva004C121B (tier A)
+SymbioticStructuresBody	0	0x008C53D0	ported		vcall +0x60		
 SymbioticStructuresBody	0	0x009F3A3C	ported				
 SymbioticStructuresBody	1	0x00404F15	ported	0x008C4C07	vcall +0x28		
 SymbioticStructuresBody	1	0x004065AA	ported	0x008C5304			D::StringBase<>::compare (tier A)
@@ -42677,9 +42677,9 @@ SymbioticStructuresBody	1	0x004374E0	library	0x008C505F			D::StringBase<>::Strin
 SymbioticStructuresBody	1	0x005487EC	ported	0x008C4C3D			
 SymbioticStructuresBody	1	0x006903B6	ported	0x008C53AF			
 SymbioticStructuresBody	1	0x0070BA76	ported	0x008C5304	vcall +0x14		Thing::setTransformMatrix (tier B)
-SymbioticStructuresBody	1	0x008C4BE8	partial	0x008C4CD5			OCLSpecialPower::~OCLSpecialPower (tier A)
-SymbioticStructuresBody	1	0x008C4CF4	none	0x008C5304, 0x008C53D0	vcall +0x60	callee 0x00449681 (ported), callee 0x005E3BA5 (ported)	
-SymbioticStructuresBody	1	0x008C4DE3	none	0x008C4EA4, 0x008C4F2D, 0x008C5304, 0x008C53AF, 0x008C53D0		callee 0x00449681 (ported), callee 0x006760F9 (ported), callee 0x0068B678 (ported), callee 0x0070E013 (ported), caller 0x008C4F2D (ported)	SymbioticStructuresBody::rva004C0C52 (tier A)
+SymbioticStructuresBody	1	0x008C4BE8	ported	0x008C4CD5			OCLSpecialPower::~OCLSpecialPower (tier A)
+SymbioticStructuresBody	1	0x008C4CF4	ported	0x008C5304, 0x008C53D0	vcall +0x60		
+SymbioticStructuresBody	1	0x008C4DE3	none	0x008C4EA4, 0x008C4F2D, 0x008C5304, 0x008C53AF, 0x008C53D0		callee 0x00449681 (ported), callee 0x006760F9 (ported), callee 0x0068B678 (ported), callee 0x0070E013 (ported), caller 0x008C4EA4 (ported), caller 0x008C4F2D (ported), caller 0x008C5304 (ported), caller 0x008C53AF (ported), caller 0x008C53D0 (ported)	SymbioticStructuresBody::rva004C0C52 (tier A)
 SymbioticStructuresBody	1	0x008C4EE0	ported	0x008C4EA4, 0x008C4F2D, 0x008C4F62, 0x008C4F84, 0x008C4FB5, 0x008C4FD7, 0x008C4FF9, 0x008C501C, 0x008C505F, 0x008C5100, 0x008C5123, 0x008C5146, 0x008C519A, 0x008C51BC, 0x008C51EE, 0x008C521F, 0x008C5250, 0x008C5284, 0x008C52B5, 0x008C52DB	vcall +0xa8		
 SymbioticStructuresBody	1	0x0097338F	ported	0x008C5304			
 SymbioticStructuresBody	1	0x00A3CEF0	ported	0x008C3AED, 0x008C4C3D, 0x008C505F, 0x008C5304			__EH_prolog (tier A)

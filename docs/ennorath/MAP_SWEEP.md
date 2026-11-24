@@ -2,7 +2,7 @@
 
 Every map of the Ennorath install starts a two-slot skirmish (FactionMen against an easy computer FactionMordor) and plays; one map per process (`tools/maps/map_sweep.py`, test `ENNORATH sweep maps`). Rows: `MAP_SWEEP.tsv`. An error group is one text with names and numbers left out: one group is one mechanism to fix, the maps column says where it shows.
 
-Maps: 336; errors: 255, not in the map cache: 72, ok: 9
+Maps: 336; ok: 263, not in the map cache: 72, errors: 1
 
 ## Maps that do not start or play
 
@@ -17,12 +17,4 @@ Maps: 336; errors: 255, not in the map cache: 72, ok: 9
 
 | maps | where | error |
 |---:|---|---|
-| 255 | play | OnCreated handler failed: LUA Alert: error: attempt to call a nil value |
-| 12 | load | object <n> <name>: no template of that name |
-| 1 | load | CastleBehavior of object <n> (IsengardFortress): CastleToUnpackForFaction names no base for the faction <name> |
-| 1 | load | ElvenLegolas W3DScriptedModelDraw: hide/show of sub object arrow with no model |
-| 1 | load | IsengardCitadelUnpack W3DScriptedModelDraw: hide/show of sub object FELLOWSHIPBADGE with no model |
-| 1 | play | OnCreated handler failed: LUA Alert: error: bad argument #<n> to <name> (string expected, got nil) stack traceback:    <n>:  function <name> [C]    <n>:  functi |
-| 1 | play | movement failure of AgandaurLightSphere1: S-<n>: ZAxisBehavior other than NO_Z_MOTIVE_FORCE, FLOATING_Z, SEA_LEVEL, SURFACE_RELATIVE_HEIGHT, ABSOLUTE_HEIGHT, FI |
-| 1 | play | movement failure of AgandaurLightSphere2: S-<n>: ZAxisBehavior other than NO_Z_MOTIVE_FORCE, FLOATING_Z, SEA_LEVEL, SURFACE_RELATIVE_HEIGHT, ABSOLUTE_HEIGHT, FI |
-| 1 | play | movement failure of AgandaurLightSphere3: S-<n>: ZAxisBehavior other than NO_Z_MOTIVE_FORCE, FLOATING_Z, SEA_LEVEL, SURFACE_RELATIVE_HEIGHT, ABSOLUTE_HEIGHT, FI |
+| 1 | play | Lua alert (handler SetAbilitiesTime of object <n> (registered) ArnorAranarthNew): LUA Alert: error: bad argument #<n> to <name> (number expected, got nil) stack |
