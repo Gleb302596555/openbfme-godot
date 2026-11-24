@@ -4,11 +4,12 @@
 //   - RW 0x94D9E9 / RW 0x94D9C7: AttackObjectGroupOrder::activate forwards aiAttackObject to contained passengers of non-HORDE containers.
 
 #include "doctest.h"
-#include "MoveTestUtil.h"
+#include "CombatTestUtil.h"
 #include "GameLogic/AI/AIGroupOrders.h"
 #include "GameLogic/Module/BehaviorModule.h"
 #include "GameLogic/Object/Object.h"
 
+using namespace combattest;
 using namespace movetest;
 
 TEST_CASE("LOCAL-178 MoveToGroupOrder::clone resets cached positions and stuck counter (RW 0x94E2E7)")
@@ -43,17 +44,11 @@ TEST_CASE("LOCAL-178 AttackObjectGroupOrder::activate forwards attack to non-HOR
 	// Synthetic INI: a mobile TransportContain carrier (non-HORDE) holding an infantry passenger, plus an enemy target.
 	// RW 0x94D9E9 checks !HORDE (template + 0x115 & 0x20 == 0) and calls contain->iterateContained(RW 0x94D9C7, victim, true).
 	const char *kExtra =
-		"Weapon TestBow\n"
-		"  AttackRange = 300\n"
-		"  PrimaryDamage = 10\n"
-		"  DelayBetweenShots = 500\n"
-		"  WeaponSpeed = 999999\n"
-		"End\n"
 		"Object Carrier\n"
 		"  KindOf = SELECTABLE CAN_ATTACK VEHICLE\n"
 		"  WeaponSet\n"
 		"    Conditions = None\n"
-		"    Weapon = PRIMARY TestBow\n"
+		"    Weapon = PRIMARY BowWeapon\n"
 		"  End\n"
 		"  Body = ActiveBody ModuleTag_Body\n"
 		"    MaxHealth = 500\n"
@@ -75,7 +70,7 @@ TEST_CASE("LOCAL-178 AttackObjectGroupOrder::activate forwards attack to non-HOR
 		"  KindOf = SELECTABLE CAN_ATTACK INFANTRY\n"
 		"  WeaponSet\n"
 		"    Conditions = None\n"
-		"    Weapon = PRIMARY TestBow\n"
+		"    Weapon = PRIMARY BowWeapon\n"
 		"  End\n"
 		"  Body = ActiveBody ModuleTag_Body\n"
 		"    MaxHealth = 100\n"
@@ -88,11 +83,10 @@ TEST_CASE("LOCAL-178 AttackObjectGroupOrder::activate forwards attack to non-HOR
 		"    Speed = 40\n"
 		"  End\n"
 		"End\n";
-	MoveWorld mw(100, 100, kExtra);
-	mw.buildMap();
-	Object *carrier = mw.spawn("Carrier", 305.0f, 305.0f, 0.0f, mw.teamOf("Alice"));
-	Object *rider = mw.spawn("Rider", 315.0f, 305.0f, 0.0f, mw.teamOf("Alice"));
-	Object *enemy = mw.spawn("Rider", 420.0f, 305.0f, 0.0f, mw.teamOf("Bob"));
+	CombatWorld cw(kExtra);
+	Object *carrier = cw.unit("Carrier", 'A', 305.0f, 305.0f);
+	Object *rider = cw.unit("Rider", 'A', 315.0f, 305.0f);
+	Object *enemy = cw.unit("Rider", 'B', 420.0f, 305.0f);
 	REQUIRE(carrier != nullptr);
 	REQUIRE(rider != nullptr);
 	REQUIRE(enemy != nullptr);
@@ -101,10 +95,72 @@ TEST_CASE("LOCAL-178 AttackObjectGroupOrder::activate forwards attack to non-HOR
 	REQUIRE(rider->getContainedBy() == carrier);
 	REQUIRE(rider->getAIUpdateInterface()->isIdle());
 
-	AttackObjectGroupOrder order(*mw.logic, { carrier->getID() }, enemy->getID());
+	AttackObjectGroupOrder order(*cw.logic, { carrier->getID() }, enemy->getID());
 	order.activate(carrier->getID());
 
 	CHECK_FALSE(carrier->getAIUpdateInterface()->isIdle());
 	CHECK_FALSE(rider->getAIUpdateInterface()->isIdle());
 	CHECK(rider->getAIUpdateInterface()->currentVictim() == enemy);
+}
+
+TEST_CASE("LOCAL-178 AttackObjectGroupOrder::activate skips passenger loop when attacker has KindOf HORDE (RW 0x94DA2F)")
+{
+	// Neighbor behavior: RW 0x94DA2F tests template + 0x115 & 0x20 (HORDE) and skips iterateContained when set.
+	const char *kExtra =
+		"Object HordeCarrier\n"
+		"  KindOf = SELECTABLE CAN_ATTACK HORDE\n"
+		"  WeaponSet\n"
+		"    Conditions = None\n"
+		"    Weapon = PRIMARY BowWeapon\n"
+		"  End\n"
+		"  Body = ActiveBody ModuleTag_Body\n"
+		"    MaxHealth = 500\n"
+		"  End\n"
+		"  Behavior = AIUpdateInterface ModuleTag_AI\n"
+		"  End\n"
+		"  LocomotorSet\n"
+		"    Locomotor = WalkerLoco\n"
+		"    Condition = SET_NORMAL\n"
+		"    Speed = 40\n"
+		"  End\n"
+		"  Behavior = TransportContain ModuleTag_Contain\n"
+		"    Slots = 2\n"
+		"    AllowInsideKindOf = INFANTRY\n"
+		"    PassengersAllowedToFire = Yes\n"
+		"  End\n"
+		"End\n"
+		"Object Rider2\n"
+		"  KindOf = SELECTABLE CAN_ATTACK INFANTRY\n"
+		"  WeaponSet\n"
+		"    Conditions = None\n"
+		"    Weapon = PRIMARY BowWeapon\n"
+		"  End\n"
+		"  Body = ActiveBody ModuleTag_Body\n"
+		"    MaxHealth = 100\n"
+		"  End\n"
+		"  Behavior = AIUpdateInterface ModuleTag_AI\n"
+		"  End\n"
+		"  LocomotorSet\n"
+		"    Locomotor = WalkerLoco\n"
+		"    Condition = SET_NORMAL\n"
+		"    Speed = 40\n"
+		"  End\n"
+		"End\n";
+	CombatWorld cw(kExtra);
+	Object *carrier = cw.unit("HordeCarrier", 'A', 305.0f, 305.0f);
+	Object *rider = cw.unit("Rider2", 'A', 315.0f, 305.0f);
+	Object *enemy = cw.unit("Rider2", 'B', 420.0f, 305.0f);
+	REQUIRE(carrier != nullptr);
+	REQUIRE(rider != nullptr);
+	REQUIRE(enemy != nullptr);
+	REQUIRE(carrier->getContain() != nullptr);
+	carrier->getContain()->addToContain(rider);
+	REQUIRE(rider->getContainedBy() == carrier);
+	REQUIRE(rider->getAIUpdateInterface()->isIdle());
+
+	AttackObjectGroupOrder order(*cw.logic, { carrier->getID() }, enemy->getID());
+	order.activate(carrier->getID());
+
+	CHECK_FALSE(carrier->getAIUpdateInterface()->isIdle());
+	CHECK(rider->getAIUpdateInterface()->isIdle());
 }
