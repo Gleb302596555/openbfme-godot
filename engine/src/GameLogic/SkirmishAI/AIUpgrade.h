@@ -95,6 +95,7 @@ class StateHasher;
 struct AIBuildRequest;
 struct AISkirmishPlayer;
 struct AIUnitUpgraderState;
+// RW 0x99F796 / RW 0x99F7B0 (AIUpgrade ctor/dtor), RW 0x9A0065 / RW 0x9A0107 (AIUpgradeScienceBuilder shutdown/dtor), RW 0x9A1455 / RW 0x9A14EA (AIUnitUpgrader shutdown/dtor)
 struct AIUpgradeScienceBuilderState;
 struct SkirmishAIData;
 

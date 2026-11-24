@@ -98,6 +98,7 @@ float AIBuildRequest::siteAngle() const
 	return normalizeAngle(SimMath::addf32(baseAngle, angle)); // RW 0x97DDB8: x87 fadd of two floats, stored as float
 }
 
+// RW 0x9A0392 / RW 0x9A0402 (AIUnitBuilder helpers), RW 0x9EDCB0 (AIBuildableUnit::getCost via hero/template cost)
 void AIBaseBuilder::updatePhase(GameLogic &logic, AISkirmishPlayer &ai)
 {
 	// RW 0x6C7677

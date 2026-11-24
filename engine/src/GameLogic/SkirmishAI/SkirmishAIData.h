@@ -126,6 +126,7 @@ struct ArmyMemberDefinition
 };
 
 // ArmyDefinition (0xEC bytes; RW ctor 0x82FF49)
+// RW 0x82FF49 (ArmyDefinition ctor)
 struct ArmyDefinition
 {
 	std::string side;                                   ///< + 0x00 Side

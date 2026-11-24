@@ -87,6 +87,7 @@ enum
 // RW 0xDB84F8, in the binary's order, nullptr-terminated
 extern const char *const TheAISpecialPowerTypeNames[AI_SPECIAL_POWER_TYPE_COUNT + 1];
 
+// RW 0x8B711F (~AISpecialPowerUpdateModuleData)
 class AISpecialPowerUpdateModuleData : public ModuleData
 {
 public:

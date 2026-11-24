@@ -139,6 +139,7 @@ Coord3D positionOf(GameLogic &logic, ObjectID id)
 }
 } // namespace
 
+// RW 0x8E3D1E (AIStatCollector::Register listener dispatch), RW 0x99E75B / RW 0x99E7DE (AIEconomyStats)
 unsigned AIStatCollector::registerObject(const Object &obj)
 {
 	// RW 0x8E4591; each add that took the object calls the listeners of its mask (RW 0x8E3D4C): the caller does (lane AI5, SkirmishAIManager::objectAdded)

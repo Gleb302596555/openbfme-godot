@@ -249,6 +249,9 @@ void xferBuild(Xfer &x, AIBuildState &s, RequestTable &t, const SkirmishAIStore 
 	x.xferInt(&u.heroCost);
 	x.xferBool(&u.heroInProgress);
 	AIXfer::u64(x, u.heroesMade);
+	// RW 0x90D573 (AIBaseBuilder::DoXfer), RW 0x9BCE7D (AIBase::DoXfer), RW 0x8EF0D3 / RW 0x8EF1DF (AIEconomyBuilder::DoXfer/DoXferFarmLibrary),
+	// RW 0x99F41D (AIFarm::DoXfer), RW 0x99F94C (AIUpgrade::DoXfer), RW 0x9A1DEB (AIDozerManager::DoXfer),
+	// RW 0x90B6B3 (AITargetChooser::xfer), RW 0x9B2A23 (AIEnemyManager::DoXfer), RW 0x9619D6 (AIBuildRequest::DoXfer), RW 0x97D9BB (AIBuildableStructure::DoXfer)
 	AIEconomyState &e = s.economy;
 	x.xferBool(&e.disabled);
 	x.xferInt(&e.built);

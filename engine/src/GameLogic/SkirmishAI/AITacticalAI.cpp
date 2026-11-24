@@ -4455,7 +4455,7 @@ void AITacticalAI::updateTeamBuilder(GameLogic &logic, AISkirmishPlayer &ai)
 			}
 			const std::uint32_t maximum = (std::uint32_t)team.maximum;
 			std::uint32_t count = teamUnitCount(logic, team); // RW 0x9A32C1 -> RW 0x9A24A6
-			// RW 0x9A2E6A -> 0x9A2CA5: a team with a recruit origin (SimpleDefense RW 0x9B4EF0) takes the army list ordered by squared 3D distance
+			// RW 0x9A2E6A -> RW 0x9A2CA5 (AITeamBuilder::distanceSortUnits): a team with a recruit origin (SimpleDefense RW 0x9B4EF0) takes the army list ordered by squared 3D distance; RW 0x9A2C4B (AITeamBuilder::registerTeamPrototype)
 			// from the origin; equal distances keep the registration order (the ordered map's insert)
 			std::vector<ObjectID> recruits = army;
 			if (team.hasRecruitOrigin)

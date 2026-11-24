@@ -100,6 +100,7 @@ struct Settings
 	float columnWidth, rowDepth, squadSpacing;
 };
 
+// RW 0x94F9FE (FormationSquad ctor), RW 0x94F841 (Row ctor), RW 0x94F855 (Row::push)
 struct Squad
 {
 	int rows = 0, width = 0;

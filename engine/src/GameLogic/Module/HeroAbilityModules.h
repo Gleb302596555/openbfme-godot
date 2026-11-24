@@ -359,6 +359,7 @@ private:
 //   RW 0x008E38D8       a thunk chain RW 0x8B88B0 -> RW 0x4D0EAF -> the empty stub RW 0x63F3BF (slot + 0x04 of RW 0xC65188: nothing);
 //   RW 0x009E7051       the getter of + 0x38 ("active"): mov al, [ecx+0x18] on the + 0x20 subobject -- the port's isActive() / active();
 //   RW 0x00898357       the xfer override: version (1, 1) RW 0x404F15, the base RW 0x9912DB, then Xfer slot 0x90 on + 0x38 -- the port's xfer().
+// RW 0x898519 (~WeaponModeSpecialPowerUpdateModuleData)
 class WeaponModeSpecialPowerUpdateModuleData : public ModuleData
 {
 public:

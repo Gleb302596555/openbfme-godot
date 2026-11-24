@@ -66,6 +66,7 @@ struct AIBaseTemplate;
 struct AISkirmishPlayer;
 
 // one structure of an AI base (RW 0xC857A8 over the request base RW 0xC82960)
+// RW 0x961C82 (AIBuildRequest ctor), RW 0x961BCC (~AIBuildRequest), RW 0x961AA3 (clear), RW 0x97DA66 / RW 0x97DAC1 (AIBuildableStructure ctor/dtor), RW 0x99F308 (~AIFarm), RW 0x9ED9DC (~AIBuildableUnit)
 struct AIBuildRequest
 {
 	std::string templateName;      ///< + 0x0C
@@ -132,6 +133,7 @@ struct AIBaseSlot
 };
 
 // RW 0x9BC7CF (0x2C bytes)
+// RW 0x9BC790 / RW 0x9BC810 (AIBase helper/dtor)
 struct AIBaseInstance
 {
 	std::vector<AIBaseSlot> slots; ///< + 0x00
@@ -205,6 +207,7 @@ struct AIUpgradeScienceBuilderState
 };
 
 // the base builder (+ 0x4), the requests (+ 0x130 / + 0x13C) and the dozer manager's free list (+ 0x140) of one AI
+// RW 0x90D286 / RW 0x90D33E / RW 0x90D37A (AIBaseBuilder ctor/shutdown/dtor), RW 0x8F0872 / RW 0x8F08ED (AIBuilder shutdown/dtor), RW 0x9A1AC7 (AIDozerManager clear)
 struct AIBuildState
 {
 	bool baseBuilderDisabled = false;   ///< base builder + 4 (DisableBaseBuilding)

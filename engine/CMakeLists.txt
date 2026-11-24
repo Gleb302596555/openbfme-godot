@@ -608,6 +608,7 @@ include(cmake/Local172.cmake)   # LOCAL-172: binary map audit of 449 uncited Rot
 include(cmake/Local173.cmake)   # LOCAL-173: objects/modules part 3 of 4 (fork issue 954; OPENBFME_LOCAL173_TESTS)
 include(cmake/Local174.cmake)   # LOCAL-174: binary map audit of 447 uncited RotWK object-module functions (fork issue 955; OPENBFME_LOCAL174_TESTS)
 include(cmake/Local181.cmake)   # LOCAL-181: hordes, locomotion and map / terrain logic binary-map audit (fork issue 962; OPENBFME_LOCAL181_TESTS)
+include(cmake/Local178.cmake)   # LOCAL-178: AI and pathfinding binary-map audit part 2 (fork issue 959; OPENBFME_LOCAL178_TESTS)
 include(cmake/Local165.cmake)   # LOCAL-165: AITactic::NotifyTeamCancelled (RW 0x8F2727) & SkirmishAI::UnRegister(Team*) (RW 0x6C77B2) (fork issue 932; OPENBFME_LOCAL165_TESTS)
 include(cmake/Local167.cmake)   # LOCAL-167: War of the Ring strategic UI — build plot help and radial right-click (fork issue 934; OPENBFME_LOCAL167_TESTS)
 include(cmake/Local168.cmake)   # LOCAL-168: hordes and formations (fork issue 935; OPENBFME_LOCAL168_TESTS)
@@ -1509,6 +1510,7 @@ add_executable(openbfme_tests
     ${OPENBFME_LOCAL173_TESTS}
     ${OPENBFME_LOCAL174_TESTS}
     ${OPENBFME_LOCAL181_TESTS}
+    ${OPENBFME_LOCAL178_TESTS}
     ${OPENBFME_LOCAL165_TESTS}
     ${OPENBFME_LOCAL167_TESTS}
     ${OPENBFME_LOCAL168_TESTS}
