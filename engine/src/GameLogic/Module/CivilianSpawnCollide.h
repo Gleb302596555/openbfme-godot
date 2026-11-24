@@ -11,6 +11,7 @@
 //     destroys other object via TheGameLogic->destroyObject(other) (RW 0x8C1844 -> RW 0x627376).
 //   * wouldLikeToCollideWith (RW 0x63F3BF / vslot 0x34): returns false.
 //   * xfer (RW 0x8C651D / CollideModule's): calls BehaviorModule::xferBehaviorModule.
+// Local 171: RW 0x6510C2 (CivilianSpawnCollide newData), RW 0x65108A (CivilianSpawnCollide newInstance)
 
 #pragma once
 

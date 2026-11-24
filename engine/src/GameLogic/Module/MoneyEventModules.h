@@ -21,6 +21,7 @@
 //     The damage-dealt handler (RW 0x88826E, argument the victim): when the victim satisfies PillageFilter (asked with no second player) the counter (module + 0x18) grows; when it
 //     reaches NumDamageEventsPerPillage it is cleared and min(PillageAmount, the victim owner's cash) is withdrawn from the victim's owner (keeper) and deposited to this
 //     object's owner (keeper); a withdrawal of 0 stops there.
+// Local 171: RW 0x64C492 (PillageModule newInstance), RW 0x654DB6 (~RefundDieModuleData)
 
 #pragma once
 

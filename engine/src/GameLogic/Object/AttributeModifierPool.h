@@ -30,6 +30,7 @@
 //     shroud record dirty.
 // Ported from the disassembly, lane sweep-links: the expiry was stop S-633, so a list's model condition stayed for good (Ghan Buri Ghan's meditation: STONED,
 // which his other buttons' DisableOnModelCondition reads, restricted them for the rest of the game).
+// Local 171: RW 0x64C3C8 (AttributeModifierPoolUpdate newInstance)
 
 #pragma once
 

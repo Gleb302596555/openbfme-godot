@@ -4,6 +4,7 @@
 // CostModifierUpgrade, RefundDie, PillageModule and SalvageCrateCollide, and the runtime class of each (SalvageCrateCollide's: lane MODCOMPAT-MOD1). Every other economy class of the binary's registry
 // (SupplyCenterCreate, SupplyCenterDockUpdate, SupplyCenterProductionExitUpdate, WorkerAIUpdate, HordeWorkerAIUpdate) is a leftover of Zero Hour's supply system that no
 // retail skirmish object reaches; they stay unported modules (stop S-140).
+// Local 171: RW 0x655055 (~AutoDepositUpdateModuleData)
 
 #pragma once
 

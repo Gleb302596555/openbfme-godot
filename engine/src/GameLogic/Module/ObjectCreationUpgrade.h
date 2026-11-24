@@ -41,6 +41,7 @@
 // 12 / 15 RW 0x8B81F0 (the no-op RW 0x9F3A3C). Nothing to add: the port's UpgradeMux reads those fields itself. The module object's own vtable slots
 // (RW 0xC6E21C) are the name RW 0x8B812F / the name key RW 0x8B8170, two destructors (RW 0x8B8168 / 0x8B8146) and two adjustor thunks (RW 0x8B8135 /
 // 0x8B8142): not behaviour.
+// Local 171: RW 0x64FD46 (ObjectCreationUpgrade newData), RW 0x64FD05 (ObjectCreationUpgrade newInstance)
 
 #pragma once
 

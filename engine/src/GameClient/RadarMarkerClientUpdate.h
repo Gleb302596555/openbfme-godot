@@ -20,6 +20,7 @@
 //   * With a drawable at +0x08: queries TheRadar (vslot 12 / 0x30, RW 0x44F0FA) for a smart marker
 //     matching MarkerType, and forwards the drawable's position to the marker.
 //   * Tracked by existing stop S-2451.
+// Local 171: RW 0x6528B2 (RadarMarkerClientUpdate newData)
 
 #pragma once
 

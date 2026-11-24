@@ -61,6 +61,7 @@
 //   and the frame window (W3DDrawTrack, AnimationSoundClientBehavior); RW 0x4BF4D9 / RW 0x4BF501 select the named transition / animation state
 //   at once (select); RW 0x4BA427 / RW 0x4BA4FF / RW 0x4BA5BB / RW 0x4BA693 / RW 0x4B7A59 / RW 0x4B7B07 / RW 0x4BB76A / RW 0x4BB7EB the wall and
 //   ramp mesh queries (GameClient/DrawableWallMeshes.h).
+// Local 171: RW 0x4646B2 (W3DHordeModelDraw newData), RW 0x4640CD (W3DScriptedModelDraw newData)
 
 #pragma once
 

@@ -46,6 +46,7 @@
 //   * names (CreationList, DeathWeapon) are resolved at the death, not at parse time like RW (the same lists, unless a later INI replaces one);
 //   * (lane DECOMP-1) the death weapon is RotWK's temporary weapon (RW 0x88611D -> createAndFireTempWeapon RW 0x6CF530: the full fire path);
 //   * the DieMux killer angle window is ported in DieMuxData::isDieApplicable (RW 0x8D29A9, lane SIEGEFALL-1).
+// Local 171: RW 0x64C5AA (CreateObjectDie newData), RW 0x655CA7 (~UpgradeDieModuleData), RW 0x654E3C (UpgradeDieModuleData ctor)
 
 #pragma once
 

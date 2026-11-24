@@ -16,6 +16,7 @@
 //   * penalty RW 0x89D41B: ring frame clears, +0x30=frame, worn ring toggles off (RW 0x776B50), CAN_STEALTH off (RW 0x62684D(0x12,0)), emotion request (5,none,1) RW 0x68F37F, DiscoveredSound, then eye killed RW 0x89D3F5;
 //   * die RW 0x89D4C7 kills eye.
 //   TimeFrozenFromPenalty (+0x1C) is read by none of these functions: ctor RW 0x89D21F, vtables RW 0xC669C8/C669B8, update RW 0x89D647 and helpers RW 0x89D0E3..0x89D712 read +0xC,+0x10,+0x14,+0x18 and never +0x1C (checked 2026-11-08). RW 0x8CA12A in RW 0x8CA072 is not this field: that function belongs to a deploy module (ctor RW 0x8C9B5C, vtable RW 0xC74910, table RW 0xC747E8 LowerDelay +0x18 / RaiseDelay +0x1C) reading RaiseDelay. No other code looks up OneRingPenaltyUpdate module data by name or by interface to read +0x1C (searched .text refs to its table/maker and to +0x1C loads via module lookup; none). Verdict: RotWK does not read TimeFrozenFromPenalty. Stop S-5604 updated. Snapshot OpenBFME native (S-4190).
+// Local 171: RW 0x64E114 (OneRingPenaltyUpdate newData)
 
 #pragma once
 

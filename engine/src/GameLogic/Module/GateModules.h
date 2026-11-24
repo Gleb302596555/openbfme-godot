@@ -75,6 +75,7 @@
 // WALL-2, PortalModules.h). Lane WALLFOOT-1: the pathfinder's "keeping gate flags" removal (RW 0x6E861E) runs at each geometry change: the previous geometry's box
 // cells keep bit 17 (CanPathThroughGates) until a plain removal. RW 0x6E85B0 (the AI gate walk's pathfinder portal refresh) has nothing to do here because
 // add / removeObjectFromPathfindMap apply at once.
+// Local 171: RW 0x653CDB (GateOpenAndCloseBehavior newData), RW 0x64DF64 (GateOpenAndCloseBehavior newInstance)
 
 #pragma once
 

@@ -53,6 +53,7 @@
 // INFERENCE / NOT PORTED (stop S-1425, stopLines()): AggregateHealth (RW 0x862F4A: the spawner's body and drawable follow the spawns; no retail object sets
 // it), ExitByBudding (no retail use), Player::onUnitCreated's AIPlayer vslot 0x1C (RW 0x6AA6A1; the AIPlayer team-build queue is not ported), and the orphan
 // search walks the logic's object list filtered to the player (retail's Player::iterateObjects walks its teams: only a tie in distance could differ).
+// Local 171: RW 0x657367 (~SpawnBehaviorModuleData)
 
 #pragma once
 

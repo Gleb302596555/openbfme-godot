@@ -26,6 +26,8 @@
 // Local 169: RW 0x64B011 (SlowDeathBehaviorModuleData::friend_newModuleData), RW 0x64C22E (ClearanceTestingSlowDeathBehaviorModuleData::friend_newModuleData), RW 0x8613DA (SlowDeathBehaviorModuleData ctor)
 // Local 169: RW 0x8614FF (~SlowDeathBehaviorModuleData), RW 0x8618E7 (SlowDeathBehaviorModuleData deleting dtor), RW 0x88713D (ClearanceTestingSlowDeathBehaviorModuleData deleting dtor)
 // Local 169: RW 0x887159 (~ClearanceTestingSlowDeathBehaviorModuleData)
+// Local 171: RW 0x653817 (FXListDie newData), RW 0x65391A (KeepObjectDie newData), RW 0x64C781 (FXListDie newInstance), RW 0x64C749 (DestroyDie newInstance)
+// Local 171: RW 0x64AF85 (SlowDeathBehavior newData), RW 0x64C8B2 (KeepObjectDie newInstance)
 #pragma once
 
 #include "Common/INI.h"

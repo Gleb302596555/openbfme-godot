@@ -19,6 +19,7 @@
 //     each change marks the control bar dirty (RW 0xDE7744 + 0x28 = 1, client).
 // WHAT IS NOT PORTED (stop S-982): RW 0x693B94's notification of a skirmish AI player (RW 0x6AA5B3 / 0x8E3D1E(object, 2)) when the override changes (as
 // CommandSetUpgrade, lane UPGRADE-1); the control bar refresh is the client's.
+// Local 171: RW 0x64D522 (MonitorConditionUpdate newData)
 
 #pragma once
 

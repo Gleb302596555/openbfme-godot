@@ -40,6 +40,7 @@
 // 360, RW 0x68FAC9) is reported (no retail template sets one); the relationship of the scans is Object::getRelationship (RW 0x68D7AB's mine / gate cases
 // aside); without a shroud manager the threat is 0 and the vision range is the template's ShroudClearingRange (both reported); the layer (RW 0x68BBE0) is
 // the pathfinder layer of the AI (ground when none).
+// Local 171: RW 0x64F88A (EmotionTrackerUpdate newData), RW 0x64E3D0 (RadiateFearUpdate newData), RW 0x64F84F (EmotionTrackerUpdate newInstance), RW 0x64E398 (RadiateFearUpdate newInstance)
 
 #pragma once
 

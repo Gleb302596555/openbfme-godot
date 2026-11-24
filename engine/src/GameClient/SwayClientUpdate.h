@@ -31,6 +31,7 @@
 // - xfer:              RW 0x008CD93F / DONOR BFME2 0x004C9505 (ObjectModule::xfer, IsLightCRC early-out, version 1,
 //     5 floats m_curValue..m_leanAngle, int16 m_curVersion, bool m_swaying, 2 floats m_directionSin/Cos)
 // - loadPostProcess:   RW 0x008CD9CD / DONOR BFME2 0x004C9593 (tail-jumps to updateSway RW 0x008CD55F)
+// Local 171: RW 0x652730 (SwayClientUpdate newInstance)
 #pragma once
 
 #include "Common/Module.h"

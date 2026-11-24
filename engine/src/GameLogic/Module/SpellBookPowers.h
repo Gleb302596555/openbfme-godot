@@ -47,6 +47,7 @@
 //     + 0x88, FireWeapon + 0x8C): AtLocation RW 0x8CC711: not disabled with a controlling player: the base, every tree within Radius (RW 0x67F52B,
 //     the terrain's tree list) is knocked down with FX and pays money (RW 0x6AA858), the player's ... (RW 0x7B18B8), then FireWeapon at the
 //     location (RW 0x6CF530). Lane SPELL-3 ports the tree loop (GameLogic/Map/TerrainTrees.h, S-930).
+// Local 171: RW 0x6522A0 (PlayerUpgradeSpecialPower newInstance), RW 0x65224F (UntamedAllegianceSpecialPower newData), RW 0x65189C (ProductionSpeedBonus newData)
 
 #pragma once
 

@@ -28,6 +28,7 @@
 // tree grab of the trigger switch (the vendor grab runs since PORT-78 and the object grab since MODCOMPAT-MOD1), the face command before triggering (no AI face state: the facing check is the AI idle
 // test), the approach point of RW 0x851607 (the move goes to the target), sounds and voices
 // (client), FleeRangeAfterCompletion, the emotion system (Elendil's terror pulse is counted). MountedTemplate's replacement runs since lane HERO-2 (S-861).
+// Local 171: RW 0x64F76E (SpecialDisguiseUpdate newData), RW 0x64A56F (SpecialAbilityUpdate newData), RW 0x64F3B1 (ToggleMountedSpecialAbilityUpdate newData), RW 0x656A9E (ActivateModuleSpecialPowerModuleData ctor)
 
 #pragma once
 

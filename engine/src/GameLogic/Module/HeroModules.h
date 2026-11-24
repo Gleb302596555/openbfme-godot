@@ -89,6 +89,7 @@
 //   * BuildableHeroListUpgrade (RW 0x8BC4C6, upgradeImplementation): every BuildableRingHeroesMP name of the controlling player's template joins the hero list
 //     as a purchase record (RW 0x781801 with the template found by name); the control bar refresh (TheControlBar + 0x28) and RW 0x8D28F1 (the custom anim)
 //     follow.
+// Local 171: RW 0x64E344 (AttributeModifierAuraUpdate newData), RW 0x64A5C9 (AutoHealBehavior newInstance), RW 0x650618 (BuildableHeroListUpgrade newInstance), RW 0x64E30C (AttributeModifierAuraUpdate newInstance)
 
 #pragma once
 

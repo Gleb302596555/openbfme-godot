@@ -21,6 +21,7 @@
 //
 // DONOR BFME2 1.06 (workspace/reference/open-bfme-2, GameLogic/Object/Update/DelayedLuaEventUpdate.cpp):
 // ctor 0x004A8E7B, update 0x004A8F52, xfer 0x004A8E0A, configure 0x004A8F0B. The behaviour matches RW.
+// Local 171: RW 0x64EDF1 (DelayedLuaEventUpdate newInstance), RW 0x64EE29 (DelayedLuaEventUpdate newData)
 
 #pragma once
 

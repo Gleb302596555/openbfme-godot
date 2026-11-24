@@ -21,6 +21,7 @@
 // controller (main 0x50 / 0x54), isEnclosingContainerFor (the ENCLOSED status of the data), addToContainList (contain 0xA0), removeAllContained (0xA8).
 // NOT PORTED (stop S-1100): the object SoundEnter / SoundExit and the door model conditions of RW 0x865F9A / 0x8680F4 (client side), ModifierToGiveOnExit, the radar,
 // DamagePercentToUnits' passenger damage (contain slot 0x148). Determinism: the list keeps insertion order.
+// Local 171: RW 0x64B40D (OpenContain newData), RW 0x64B3D2 (OpenContain newInstance)
 
 #pragma once
 

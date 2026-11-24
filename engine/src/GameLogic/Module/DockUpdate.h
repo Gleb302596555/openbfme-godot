@@ -31,6 +31,7 @@
 //     approach count, loaded, the three vectors, the active docker, inside, crippled, open (the reached flags are written but RW does not store them back
 //     on a load: the port does, S-4220's own layout keeps a loaded game going the same way).
 // DONOR: ZH DockUpdate.cpp / SupplyCenterDockUpdate.cpp (the same shape; differences above).
+// Local 171: RW 0x64E6FC (SupplyCenterDockUpdate newData), RW 0x64C1A5 (SupplyWarehouseCripplingBehavior newData), RW 0x64ECDC (SupplyWarehouseDockUpdate newInstance), RW 0x64ED17 (SupplyWarehouseDockUpdate newData)
 
 #pragma once
 

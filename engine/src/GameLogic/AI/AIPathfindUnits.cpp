@@ -17,6 +17,7 @@
 //   * the request queue and processPathfindQueue RW 0x6F2364, 0x6ED0FB.
 // DONOR (ZH AIPathfind.cpp:4924-5650, 5648-5965, 9694-10112): the shape of the above where RW was not read. See docs/STOPS.md S-163 and
 // S-164 for what is not ported (kind-1 slot, rotated-rectangle fill, the partition grid).
+// Local 171: RW 0x68D40B (Object::updatePathfindGoalAndPos)
 
 #include "GameLogic/AI/AIPathfind.h"
 #include "GameLogic/SimMath.h"

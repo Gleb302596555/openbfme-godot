@@ -37,6 +37,7 @@
 // RotWK's update differs (the classification, the attack-move deploy, the requests): the disassembly is ported, not the donor.
 // INFERENCE (each marked where it is made): the port routes only some AI commands to a subclass (AIUpdateInterface::routeCommand: 0, 0x36, the move with an
 // angle, 0xB, 0xC, 0xE, 0xF); the others reach the base without this class's bookkeeping (S-4945).
+// Local 171: RW 0x654ECD (DeployStyleAIUpdate newData), RW 0x64F505 (ToggleDeploySpecialAbilityUpdate newData), RW 0x654EA3 (DeployStyleAIUpdateModuleData ctor)
 
 #pragma once
 

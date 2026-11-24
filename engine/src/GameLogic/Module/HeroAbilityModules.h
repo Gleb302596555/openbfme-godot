@@ -93,6 +93,9 @@
 //     refreshTimer (RW 0x6519C2 -> 0x896F99), the other classes' are no-ops. Elrond's Restoration.
 // INFERENCE (stop S-1222, stopLines): the module tags are kept as strings and resolved with NameKeyGenerator::findKey when used (retail makes the keys while
 // parsing: an unknown tag finds no module either way); RW 0x7A7483's team-name lookup of the defection end runs (lane BACKLOG4, Object::restoreOriginalTeam).
+// Local 171: RW 0x64ACD2 (AutoAbilityBehavior newData), RW 0x64D2DA (ArrowStormUpdate newData), RW 0x64D8D9 (TeleportSpecialAbilityUpdate newData), RW 0x64BCCE (ShareExperienceBehavior newData)
+// Local 171: RW 0x656AC2 (ActivateModuleSpecialPower newData), RW 0x64D965 (SpecialPowerTimerRefreshSpecialPower newData), RW 0x652150 (FellBeastSwoopPower newInstance), RW 0x652FA5 (ActivateModuleSpecialPower newInstance)
+// Local 171: RW 0x64F278 (RousingSpeechUpdate newData), RW 0x652C13 (TemporarilyDefectUpdate newInstance), RW 0x64D9FA (WeaponModeSpecialPowerUpdate newData)
 
 #pragma once
 

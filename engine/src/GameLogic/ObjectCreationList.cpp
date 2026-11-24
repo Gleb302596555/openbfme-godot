@@ -2,6 +2,7 @@
 // Derived from Command & Conquer Generals Zero Hour, (c) 2001-2003 Electronic Arts Inc., GPL-3.0.
 //
 // ObjectCreationList. See GameLogic/ObjectCreationList.h for the target facts. Lane SPELL-1.
+// Local 171: RW 0x5F0328 (AttackNugget::create)
 
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"

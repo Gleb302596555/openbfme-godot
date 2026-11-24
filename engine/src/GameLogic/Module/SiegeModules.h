@@ -76,6 +76,7 @@
 //   * S-4942: the AI's + 0x16C / + 0x3B8 the face command clears are not identified; the InitiateSound and the client's selection voices are the client's;
 //   * the bones are the drawable's pristine pose for the wall's model condition (DrawableLaunchBones, as GARRISON-1's); without a client (no bone provider) a
 //     wall has no dock point.
+// Local 171: RW 0x651FC9 (SiegeDeployHordeSpecialPower newData), RW 0x64AC49 (SiegeDockingBehavior newData)
 
 #pragma once
 

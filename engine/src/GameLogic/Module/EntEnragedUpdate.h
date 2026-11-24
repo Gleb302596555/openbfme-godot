@@ -20,6 +20,7 @@
 //   * setters: RW 0x8B649F setForced(forced, once) clears suppressed when forced; RW 0x8B64B8 setSuppressed(on) clears forced when on. Callers: quench (RW 0x89003B / 0x890044: both
 //     off), FlammableUpdate's RunToWater branch (RW 0x890A04: water found, suppressed; RW 0x890A15: none, forced), a castle crew's release (RW 0x79A2D3: forced, once).
 // The snapshot is OpenBFME native (S-4190). S-5605 closed by Port 232 (issue #555): the search is ported; the quench's client parts are S-983's.
+// Local 171: RW 0x64F919 (EntEnragedUpdate newData)
 
 #pragma once
 

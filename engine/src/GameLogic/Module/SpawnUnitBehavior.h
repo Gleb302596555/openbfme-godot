@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 // SpawnUnitBehavior: both editions (RW 0x8BC9B0 / BFME2 0x89ECC0), stop S-207.
 // Building spawns unit on production / command button trigger when command points allow.
+// Local 171: RW 0x65579F (SpawnUnitBehavior newData), RW 0x655F8E (~SpawnUnitBehaviorModuleData), RW 0x6506C0 (SpawnUnitBehavior newInstance)
 
 #pragma once
 

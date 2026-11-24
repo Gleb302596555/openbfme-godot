@@ -58,6 +58,7 @@
 // (RW 0x8582DE's statuses and drawable calls are not ported: reported); a WayPoint index without its bone (retail reads an uninitialised slot: the port reports
 // and refuses it); more than six WayPoint entries (retail writes past its six slots: the port reports and refuses it). Saves are covered by xfer/crc and
 // test_walls_snapshot.cpp (deployed ladder snapshot load, waypoint/module state and following 100 hashes); the exact retail loadPostProcess sequencing is not claimed.
+// Local 171: RW 0x64B22E (FakePathfindPortalBehaviour newData), RW 0x64B1F6 (FakePathfindPortalBehaviour newInstance), RW 0x64B164 (DynamicPortalBehaviour newInstance), RW 0x64B19C (DynamicPortalBehaviour newData)
 
 #pragma once
 
