@@ -12,78 +12,119 @@
 //     - RW 0x89A7B9..0x89A7C2: m_meleeFreeBannerReSpawnTime (+0x14) = 10 * LOGICFRAMES_PER_SECOND = 50 frames.
 
 #include "doctest.h"
+#include "combat_harness.h"
 
-#include "Common/INI.h"
-#include "Common/Thing/ModuleFactory.h"
-#include "Common/Thing/ThingFactory.h"
 #include "Common/Thing/ThingTemplate.h"
-#include "GameLogic/GameLogic.h"
 #include "GameLogic/Module/BannerCarrierUpdate.h"
 #include "GameLogic/Module/CivilianSpawnUpdate.h"
 #include "GameLogic/Object/Object.h"
 
-#include <cstring>
-
 namespace
 {
 
-void parseIniString(const char *text, ThingFactory &things, ModuleFactory &modules)
+const char kLocal173Ini[] =
+	"Object Local173Civ\n"
+	"  KindOf = INFANTRY\n"
+	"  Geometry = CYLINDER\n"
+	"  GeometryMajorRadius = 5\n"
+	"  GeometryHeight = 15\n"
+	"  Body = ActiveBody ModuleTag_Body\n"
+	"    MaxHealth = 50\n"
+	"  End\n"
+	"End\n"
+	"Object Local173CivSpawnerDefault\n"
+	"  KindOf = STRUCTURE SELECTABLE IMMOBILE\n"
+	"  Geometry = BOX\n"
+	"  GeometryMajorRadius = 20\n"
+	"  GeometryMinorRadius = 20\n"
+	"  GeometryHeight = 30\n"
+	"  Body = ActiveBody ModuleTag_Body\n"
+	"    MaxHealth = 500\n"
+	"  End\n"
+	"  Behavior = CivilianSpawnUpdate ModuleTag_CivDefault\n"
+	"    Civilian = Local173Civ\n"
+	"  End\n"
+	"End\n"
+	"Object Local173CivSpawnerExplicit\n"
+	"  KindOf = STRUCTURE SELECTABLE IMMOBILE\n"
+	"  Geometry = BOX\n"
+	"  GeometryMajorRadius = 20\n"
+	"  GeometryMinorRadius = 20\n"
+	"  GeometryHeight = 30\n"
+	"  Body = ActiveBody ModuleTag_Body\n"
+	"    MaxHealth = 500\n"
+	"  End\n"
+	"  Behavior = CivilianSpawnUpdate ModuleTag_CivExplicit\n"
+	"    SpawnDelayTime = 2000\n"
+	"    MaximumDistance = 150\n"
+	"    Civilian = Local173Civ\n"
+	"  End\n"
+	"End\n"
+	"Object Local173BannerDefault\n"
+	"  KindOf = INFANTRY\n"
+	"  Geometry = CYLINDER\n"
+	"  GeometryMajorRadius = 5\n"
+	"  GeometryHeight = 15\n"
+	"  Body = ActiveBody ModuleTag_Body\n"
+	"    MaxHealth = 100\n"
+	"  End\n"
+	"  Behavior = BannerCarrierUpdate ModuleTag_BannerDefault\n"
+	"  End\n"
+	"End\n"
+	"Object Local173BannerExplicit\n"
+	"  KindOf = INFANTRY\n"
+	"  Geometry = CYLINDER\n"
+	"  GeometryMajorRadius = 5\n"
+	"  GeometryHeight = 15\n"
+	"  Body = ActiveBody ModuleTag_Body\n"
+	"    MaxHealth = 100\n"
+	"  End\n"
+	"  Behavior = BannerCarrierUpdate ModuleTag_BannerExplicit\n"
+	"    IdleSpawnRate = 4000\n"
+	"    MeleeFreeUnitSpawnTime = 2000\n"
+	"    DiedRespawnTime = 6000\n"
+	"    MeleeFreeBannerReSpawnTime = 8000\n"
+	"  End\n"
+	"End\n";
+
+struct Local173Rig
 {
-	INI ini;
-	ini.loadMemory(text, std::strlen(text), "local173.ini", INI_LOAD_OVERWRITE, &things, &modules);
-}
+	combattest::CombatWorld world;
+
+	Local173Rig()
+		: world()
+	{
+		CivilianSpawnUpdate::registerClass(world.w.modules);
+		BannerCarrierUpdate::registerClass(world.w.modules);
+		std::string err = world.w.load(kLocal173Ini, INI_LOAD_OVERWRITE, "local173_test.ini");
+		REQUIRE_MESSAGE(err.empty(), err);
+	}
+};
 
 } // namespace
 
 TEST_CASE("LOCAL-173 CivilianSpawnUpdateModuleData retail defaults (RW 0x882CB2)")
 {
 	// Source: RW 0x882CB2 (m_spawnDelay = 5 frames, m_maximumDistance = 300 int), RW 0xC5EC68 (INI::parseInt RW 0x42EC5E)
-	const char *kIni =
-		"Object Local173CivSpawnerDefault\n"
-		"  KindOf = STRUCTURE\n"
-		"  Behavior = CivilianSpawnUpdate ModuleTag_CivDefault\n"
-		"    Civilian = Local173Civ\n"
-		"  End\n"
-		"End\n"
-		"Object Local173CivSpawnerExplicit\n"
-		"  KindOf = STRUCTURE\n"
-		"  Behavior = CivilianSpawnUpdate ModuleTag_CivExplicit\n"
-		"    SpawnDelayTime = 2000\n"
-		"    MaximumDistance = 150\n"
-		"    Civilian = Local173Civ\n"
-		"  End\n"
-		"End\n";
-
-	GameLogic logic;
-	parseIniString(kIni, logic.things(), logic.modules());
-
-	const ThingTemplate *defTpl = logic.things().findTemplate("Local173CivSpawnerDefault");
-	REQUIRE(defTpl != nullptr);
-	const CivilianSpawnUpdateModuleData *defData = nullptr;
-	for (const auto &entry : defTpl->getBehaviorModules())
-	{
-		if (auto *d = dynamic_cast<const CivilianSpawnUpdateModuleData *>(entry.data.get()))
-		{
-			defData = d;
-			break;
-		}
-	}
+	Local173Rig rig;
+	Object *defObj = rig.world.unit("Local173CivSpawnerDefault", 'A', 100.0f, 100.0f);
+	REQUIRE(defObj != nullptr);
+	auto *defMod = dynamic_cast<CivilianSpawnUpdate *>(defObj->findModule("CivilianSpawnUpdate"));
+	REQUIRE(defMod != nullptr);
+	const auto *defData = dynamic_cast<const CivilianSpawnUpdateModuleData *>(defMod->getModuleData());
 	REQUIRE(defData != nullptr);
 	CHECK(defData->m_spawnDelay == 5u);
 	CHECK(defData->m_maximumDistance == 300);
+	// Runtime ctor picks random(m_spawnDelay/2, m_spawnDelay) = random(2, 5)
+	CHECK(defMod->spawnFrame() >= 2u); // tolerance: uniform RNG draw in [m_spawnDelay/2, m_spawnDelay] = [2, 5] (RW 0x882C31)
+	CHECK(defMod->spawnFrame() <= 5u); // tolerance: uniform RNG draw in [m_spawnDelay/2, m_spawnDelay] = [2, 5] (RW 0x882C31)
 
 	// Neighbor check: explicit INI values override the retail defaults (2000 ms @ 5 Hz = 10 frames)
-	const ThingTemplate *expTpl = logic.things().findTemplate("Local173CivSpawnerExplicit");
-	REQUIRE(expTpl != nullptr);
-	const CivilianSpawnUpdateModuleData *expData = nullptr;
-	for (const auto &entry : expTpl->getBehaviorModules())
-	{
-		if (auto *d = dynamic_cast<const CivilianSpawnUpdateModuleData *>(entry.data.get()))
-		{
-			expData = d;
-			break;
-		}
-	}
+	Object *expObj = rig.world.unit("Local173CivSpawnerExplicit", 'A', 200.0f, 100.0f);
+	REQUIRE(expObj != nullptr);
+	auto *expMod = dynamic_cast<CivilianSpawnUpdate *>(expObj->findModule("CivilianSpawnUpdate"));
+	REQUIRE(expMod != nullptr);
+	const auto *expData = dynamic_cast<const CivilianSpawnUpdateModuleData *>(expMod->getModuleData());
 	REQUIRE(expData != nullptr);
 	CHECK(expData->m_spawnDelay == 10u);
 	CHECK(expData->m_maximumDistance == 150);
@@ -93,57 +134,25 @@ TEST_CASE("LOCAL-173 BannerCarrierUpdateModuleData retail defaults (RW 0x89A765)
 {
 	// Source: RW 0x89A765 (m_idleSpawnRate = 15*5 = 75, m_meleeFreeUnitSpawnTime = 10*5 = 50,
 	// m_diedRespawnTime = 10*5 = 50, m_meleeFreeBannerReSpawnTime = 10*5 = 50)
-	const char *kIni =
-		"Object Local173BannerDefault\n"
-		"  KindOf = INFANTRY BANNER\n"
-		"  Behavior = BannerCarrierUpdate ModuleTag_BannerDefault\n"
-		"  End\n"
-		"End\n"
-		"Object Local173BannerExplicit\n"
-		"  KindOf = INFANTRY BANNER\n"
-		"  Behavior = BannerCarrierUpdate ModuleTag_BannerExplicit\n"
-		"    IdleSpawnRate = 4000\n"
-		"    MeleeFreeUnitSpawnTime = 2000\n"
-		"    DiedRespawnTime = 6000\n"
-		"    MeleeFreeBannerReSpawnTime = 8000\n"
-		"  End\n"
-		"End\n";
-
-	GameLogic logic;
-	parseIniString(kIni, logic.things(), logic.modules());
-
-	const ThingTemplate *defTpl = logic.things().findTemplate("Local173BannerDefault");
-	REQUIRE(defTpl != nullptr);
-	const BannerCarrierUpdateModuleData *defData = nullptr;
-	for (const auto &entry : defTpl->getBehaviorModules())
-	{
-		if (auto *d = dynamic_cast<const BannerCarrierUpdateModuleData *>(entry.data.get()))
-		{
-			defData = d;
-			break;
-		}
-	}
-	REQUIRE(defData != nullptr);
-	CHECK(defData->m_idleSpawnRate == 75u);
-	CHECK(defData->m_meleeFreeUnitSpawnTime == 50u);
-	CHECK(defData->m_diedRespawnTime == 50u);
-	CHECK(defData->m_meleeFreeBannerReSpawnTime == 50u);
+	Local173Rig rig;
+	Object *defObj = rig.world.unit("Local173BannerDefault", 'A', 100.0f, 100.0f);
+	REQUIRE(defObj != nullptr);
+	auto *defMod = dynamic_cast<BannerCarrierUpdate *>(defObj->findModule("BannerCarrierUpdate"));
+	REQUIRE(defMod != nullptr);
+	const BannerCarrierUpdateModuleData &defData = defMod->data();
+	CHECK(defData.m_idleSpawnRate == 75u);
+	CHECK(defData.m_meleeFreeUnitSpawnTime == 50u);
+	CHECK(defData.m_diedRespawnTime == 50u);
+	CHECK(defData.m_meleeFreeBannerReSpawnTime == 50u);
 
 	// Neighbor check: explicit INI durations override the retail defaults (at 5 Hz)
-	const ThingTemplate *expTpl = logic.things().findTemplate("Local173BannerExplicit");
-	REQUIRE(expTpl != nullptr);
-	const BannerCarrierUpdateModuleData *expData = nullptr;
-	for (const auto &entry : expTpl->getBehaviorModules())
-	{
-		if (auto *d = dynamic_cast<const BannerCarrierUpdateModuleData *>(entry.data.get()))
-		{
-			expData = d;
-			break;
-		}
-	}
-	REQUIRE(expData != nullptr);
-	CHECK(expData->m_idleSpawnRate == 20u);
-	CHECK(expData->m_meleeFreeUnitSpawnTime == 10u);
-	CHECK(expData->m_diedRespawnTime == 30u);
-	CHECK(expData->m_meleeFreeBannerReSpawnTime == 40u);
+	Object *expObj = rig.world.unit("Local173BannerExplicit", 'A', 200.0f, 100.0f);
+	REQUIRE(expObj != nullptr);
+	auto *expMod = dynamic_cast<BannerCarrierUpdate *>(expObj->findModule("BannerCarrierUpdate"));
+	REQUIRE(expMod != nullptr);
+	const BannerCarrierUpdateModuleData &expData = expMod->data();
+	CHECK(expData.m_idleSpawnRate == 20u);
+	CHECK(expData.m_meleeFreeUnitSpawnTime == 10u);
+	CHECK(expData.m_diedRespawnTime == 30u);
+	CHECK(expData.m_meleeFreeBannerReSpawnTime == 40u);
 }
