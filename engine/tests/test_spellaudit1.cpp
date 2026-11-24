@@ -129,7 +129,7 @@ struct AuditGame
 		ai.attach(shared, *logic);
 		spell.registerHandlers(*dispatch);
 		SpecialPowerModules::installScienceHooks(*logic);
-		place(kAudit[faction].citadel, 0, 600.0f, 600.0f)->friend_onBuildComplete();
+		place(kAudit[faction].citadel, 0, 2400.0f, 3000.0f)->friend_onBuildComplete(); // LOCAL-159: within DistanceFromCommandCenter (RW 0x896A70) of cast spot (3000, 3000), outside RadiusCursorRadius
 		place(kAudit[enemyFaction].citadel, 1, 7000.0f, 8000.0f)->friend_onBuildComplete();
 		book = SpecialPowerModules::createSpellBook(*logic, *player(0));
 		REQUIRE(book);
@@ -313,14 +313,23 @@ std::string auditOne(starttest::Shared &shared, int faction, size_t slot, int si
 			addProbe("foe_soldier@" + std::to_string((int)d), foe.soldier, 1, where.x + d, where.y);
 		}
 	}
+	// LOCAL-159: summonSpotClear (RW 0x82E586) refuses structures inside RadiusCursorRadius; NEEDS_OBJECT_FILTER (RW 0x82DEA6) requires a matching object inside RadiusCursorRadius
+	const int pt = t->getSpecialPowerType();
+	const bool isSummon = pt == 0x55 || pt == 0x56 || pt == 0x5B || pt == 0x5D || pt == 0x5E || pt == 0x5F || pt == 0x73 || pt == 0x76 || pt == 0x78 || pt == 0x7B || pt == 0x7C || pt == 0x7E || pt == 0x96 || pt == 0x9A;
+	const float econDist = isSummon ? std::max(300.0f, t->getRadiusCursorRadius() + 120.0f) : ((t->m_flags & SPF_NEEDS_OBJECT_FILTER) ? 30.0f : 120.0f);
 	if (side == 0)
 	{
-		addProbe("own_economy@120", own.economy, 0, where.x, where.y + 120.0f);
+		addProbe("own_economy@120", own.economy, 0, where.x, where.y + econDist);
+		if (t->m_flags & SPF_NEEDS_OBJECT_FILTER)
+		{
+			addProbe("foe_economy@30", foe.economy, 1, where.x, where.y - 30.0f);
+			addProbe("foe_creep@30", "NeutralWarg", 1, where.x + 20.0f, where.y + 20.0f);
+		}
 	}
 	else
 	{
-		addProbe("foe_economy@120", foe.economy, 1, where.x, where.y - 120.0f);
-		addProbe("foe_creep@60", "NeutralWarg", 1, where.x + 30.0f, where.y + 50.0f);
+		addProbe("foe_economy@120", foe.economy, 1, where.x, where.y - econDist);
+		addProbe("foe_creep@60", "NeutralWarg", 1, where.x + 20.0f, where.y + 20.0f);
 	}
 	// the probes before the cast (the "pre" sample)
 	std::ostringstream pre;

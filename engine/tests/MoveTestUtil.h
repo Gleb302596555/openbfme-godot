@@ -16,6 +16,7 @@
 #include "GameLogic/Module/HordeAIUpdate.h"
 #include "GameLogic/Module/LogicModules.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
+#include "GameLogic/System/ShroudManager.h"
 
 #include <cmath>
 #include <memory>
@@ -157,6 +158,7 @@ struct MoveWorld : logictest::LogicWorld
 	pathtest::SyntheticTerrain terrain;
 	AIWorldConfig config;
 	std::unique_ptr<AIWorld> ai;
+	std::unique_ptr<ShroudManager> shroud; // LOCAL-159: optional shroud manager, destroyed before ai and logic
 	CommandList commands;
 	GameLogicDispatch dispatcher;
 	AICommands aiCommands;
@@ -190,8 +192,24 @@ struct MoveWorld : logictest::LogicWorld
 	~MoveWorld()
 	{
 		logic->reset(); // the objects leave the pathfinder through the world hooks first
+		shroud.reset();
 		ai.reset();
 		TheLocomotorStore = savedStore;
+	}
+
+	// LOCAL-159: attaches a ShroudManager over the terrain extent, as LiveGame does (RW 0x62CE75 / 0xB4D9A0)
+	ShroudManager &attachShroud(float cellSize = 20.0f, unsigned unlookPersistFrames = 15)
+	{
+		if (!shroud)
+		{
+			shroud = std::make_unique<ShroudManager>(*logic);
+			shroud->init(cellSize, unlookPersistFrames);
+			float loX = 0.0f, loY = 0.0f, hiX = 0.0f, hiY = 0.0f;
+			terrain.getMaximumPathfindExtent(loX, loY, hiX, hiY);
+			shroud->setExtent(loX, loY, hiX, hiY);
+			shroud->attach();
+		}
+		return *shroud;
 	}
 
 	// builds the grid over the terrain (after the structures exist), one logic frame later every object has its first update

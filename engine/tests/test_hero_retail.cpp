@@ -36,6 +36,8 @@
 #include "GameLogic/Module/HeroAbilityModules.h"
 #include "GameLogic/Module/StealthAbilityModules.h"
 #include "GameLogic/System/EmotionSystem.h"
+#include "GameLogic/System/ShroudManager.h"
+#include "GameLogic/System/VisionSettings.h"
 #include "GameLogic/Module/ProductionUpdate.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/Module/SpecialAbilityModules.h"
@@ -186,6 +188,17 @@ struct Game
 		dispatch = std::make_unique<GameLogicDispatch>(*logic);
 		dispatch->attach(list);
 		spells.registerHandlers(*dispatch);
+		// LOCAL-159: retail always has TheShroudManager (RW 0x62CE75 / 0xB4D9A0); attach after logic, destroy first
+		VisionSettings vision;
+		REQUIRE_MESSAGE(VisionSettings::load(*sh.mount->fs, vision, &err), err);
+		shroud = std::make_unique<ShroudManager>(*logic);
+		shroud->init(vision.partitionCellSize, vision.unlookPersistFrames);
+		shroud->setExtent(0.0f, 0.0f, 4000.0f, 4000.0f);
+		shroud->attach();
+		for (int i = 0; i < players.getPlayerCount(); ++i)
+		{
+			shroud->revealMapForPlayerPermanently(i);
+		}
 		if (!withAI)
 		{
 			return;
@@ -210,12 +223,14 @@ struct Game
 		}
 		if (logic)
 		{
-			logic->reset(); // the objects (and their AI modules) go while the AIWorld exists
+			logic->reset(); // the objects (and their AI modules) go while the AIWorld and ShroudManager exist
 		}
+		shroud.reset();
 	}
 	AIWorldConfig aiConfig;
 	std::unique_ptr<pathtest::SyntheticTerrain> terrain;
 	std::unique_ptr<AIWorld> ai;
+	std::unique_ptr<ShroudManager> shroud;
 	std::unique_ptr<LiveScripting> scripting;
 	Object *make(const ThingTemplate *tt, Player *owner, float x, float y)
 	{
@@ -224,6 +239,10 @@ struct Game
 		const Coord3D at = { x, y, 0.0f };
 		o->setPosition(&at);
 		testutil::completeHorde(o); // a horde makes its members where it stands (onBuildComplete, RW 0x8718ED)
+		if (shroud)
+		{
+			shroud->updateNow(*o);
+		}
 		return o;
 	}
 	void select(Object *o)

@@ -12,6 +12,8 @@
 #include "GameEngineDevice/Win32Device/Common/Win32BIGFileSystem.h"
 #include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/GameLogic.h"
+#include "GameLogic/System/ShroudManager.h"
+#include "GameLogic/System/VisionSettings.h"
 
 #include <memory>
 #include <string>
@@ -23,14 +25,30 @@ struct GameAI
 	pathtest::SyntheticTerrain terrain{ 800, 900 };
 	AIWorldConfig config;
 	std::unique_ptr<AIWorld> ai;
+	std::unique_ptr<ShroudManager> shroud; // LOCAL-159: after GameLogic (destroyed first), as LiveGame does (RW 0x62CE75 / 0xB4D9A0)
 
-	void attach(starttest::Shared &s, GameLogic &logic)
+	void attach(starttest::Shared &s, GameLogic &logic, bool revealAll = true)
 	{
 		std::string err;
 		REQUIRE_MESSAGE(AIWorldConfigLoader::load(*s.mount->fs, config, &err), err);
 		ai = std::make_unique<AIWorld>(logic, config, s.world->iniMacros());
 		ai->attach();
 		ai->newMap(terrain);
+		VisionSettings vision;
+		REQUIRE_MESSAGE(VisionSettings::load(*s.mount->fs, vision, &err), err);
+		shroud = std::make_unique<ShroudManager>(logic);
+		shroud->init(vision.partitionCellSize, vision.unlookPersistFrames);
+		float loX = 0.0f, loY = 0.0f, hiX = 0.0f, hiY = 0.0f;
+		terrain.getMaximumPathfindExtent(loX, loY, hiX, hiY);
+		shroud->setExtent(loX, loY, hiX, hiY);
+		shroud->attach();
+		if (revealAll)
+		{
+			for (int i = 0; i < logic.players().getPlayerCount(); ++i)
+			{
+				shroud->revealMapForPlayerPermanently(i);
+			}
+		}
 	}
 };
 } // namespace spelltest

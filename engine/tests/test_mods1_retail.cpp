@@ -32,6 +32,8 @@
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/AttributeModifierPool.h"
 #include "GameLogic/SpellCommands.h"
+#include "GameLogic/System/ShroudManager.h"
+#include "GameLogic/System/VisionSettings.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "Common/PlayerTemplate.h"
 #include "Common/Science.h"
@@ -561,6 +563,14 @@ TEST_CASE("ENNORATH Arnor: powers are purchased and cast through the message pat
 	AIWorld ai(logic, aiConfig, world.iniMacros());
 	ai.attach();
 	ai.newMap(terrain);
+	VisionSettings vision;
+	REQUIRE_MESSAGE(VisionSettings::load(merged, vision, &error), error);
+	ShroudManager shroud(logic);
+	shroud.init(vision.partitionCellSize, vision.unlookPersistFrames);
+	shroud.setExtent(0.0f, 0.0f, 8000.0f, 9000.0f);
+	shroud.attach();
+	shroud.revealMapForPlayerPermanently(owner->getPlayerIndex());
+	struct Cleanup { GameLogic &logic; ~Cleanup() { logic.reset(); } } cleanup{ logic };
 	GameLogicDispatch dispatch(logic);
 	SpellCommands commands;
 	commands.registerHandlers(dispatch);
@@ -596,7 +606,7 @@ TEST_CASE("ENNORATH Arnor: powers are purchased and cast through the message pat
 	const float before = injured->getBodyModule()->getHealth();
 	const float outsideBefore = outside->getBodyModule()->getHealth();
 	const float opponentBefore = opponent->getBodyModule()->getHealth();
-	const Coord3D where{ 1000.0f, 1000.0f, 0.0f };
+	Coord3D where{ 1000.0f, 1000.0f, 0.0f };
 	auto cast = [&]() {
 		GameMessage m(MSG_DO_SPECIAL_POWER_AT_LOCATION, owner->getPlayerIndex());
 		m.appendIntegerArgument((int)power->getID());
@@ -713,15 +723,14 @@ TEST_CASE("ENNORATH Arnor: powers are purchased and cast through the message pat
 		return n;
 	};
 	auto purchaseAndCastOCL = [&](const char *scienceName, const char *powerName, const char *objectName) {
-		CAPTURE(scienceName);
-		CAPTURE(powerName);
-		CAPTURE(objectName);
+		INFO(std::string(scienceName) << " / " << powerName << " / " << objectName);
 		buyScience(scienceName);
 		const SpecialPowerTemplate *t = world.spellStores().specialPowers().findSpecialPowerTemplate(powerName);
 		REQUIRE(t);
 		SpecialPowerModuleInterface *sp = SpecialPowerModules::findModule(*book, t);
 		REQUIRE(sp);
 		REQUIRE(sp->isReady());
+		if (std::string(powerName) != "SpellBookNumenorHealBuilding") where.x += 400.0f; // LOCAL-159: clear ground for each summon (ActionManager::summonSpotClear RW 0x82E586 refuses structures within RadiusCursorRadius); NumenorHealBuilding targets the building at where
 		const int n = countOwned(objectName);
 		power = t;
 		cast();
