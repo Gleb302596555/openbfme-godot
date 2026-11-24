@@ -4617,8 +4617,9 @@ TEST_CASE("factb spell book: every Isengard spell book power cast through the HU
 	// without; 55aa2e22, its first parent, passes): a KNOWN line once more (S-921), as after q38
 	// the fork's merge of upstream 942fd79e (2026-11-16): Isengard's Taint passes by its own effect (the TaintLand aura's GenericBuff on the caster's
 	// units), as Mordor's does since TAINTAREA-1, so its S-1997 entry goes
-	r.check({ { "spell SpellBookDevastation", "S-921" }, { "spell SpellBookIndustry", "S-1997" },
-		{ "spell SpellBookFueltheFires", "S-1997" }, { "spell SpellBookDragonStrike", "S-1997" } });
+	// the 2026-11-23 landing (between main's 08:32 and 15:21 builds on the PC: Locals 142-144, Ports 274 / 296 / 298, accept-1123; not narrowed
+	// further): Industry passes by its own effect for Isengard and Mordor, so its S-1997 entries go (night run 2026-11-24, P-191)
+	r.check({ { "spell SpellBookDevastation", "S-921" }, { "spell SpellBookFueltheFires", "S-1997" }, { "spell SpellBookDragonStrike", "S-1997" } });
 }
 
 TEST_CASE("factb spell book: every Mordor spell book power cast through the HUD's spell bar shows its effect")
@@ -4631,7 +4632,8 @@ TEST_CASE("factb spell book: every Mordor spell book power cast through the HUD'
 	spellBookOf("FactionMordor", r);
 	r.print("spell book FactionMordor");
 	// lane TAINTAREA-1: Taint's line passes by its own effect (the TaintLand aura's GenericBuff on the caster's units), its pin goes
-	r.check({ { "spell SpellBookIndustry", "S-1997" }, { "spell SpellBookUntamedAllegiance", "S-1997" } });
+	// the 2026-11-23 landing: Industry and Untamed Allegiance pass by their own effect (see the Isengard case), their S-1997 entries go (P-191)
+	r.check({});
 }
 
 namespace
