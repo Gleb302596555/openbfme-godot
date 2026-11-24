@@ -162,6 +162,7 @@ public:
 	void crc(StateHasher &hasher) const override;
 
 	void tryToIgnite();                                      ///< RW 0x8901AB
+	void stopBurning();                                      ///< RW 0x88FF6F
 	bool wouldIgnite() const { return m_status == FS_NORMAL; } ///< RW 0x88FBE6
 	int status() const { return m_status; }
 	float remainingFlameDamage() const { return m_flameDamageLimit; }
@@ -171,7 +172,6 @@ private:
 	bool isUnderwater() const;
 	void runToWaterSearch();           ///< RW 0x890782
 	void doAflameDamage();           ///< RW 0x88FDFA
-	void stopBurning();              ///< RW 0x88FF6F
 	UpdateSleepTime calcSleepDelay() const; ///< RW 0x88FB79
 	const FlammableUpdateModuleData *m_data;
 	int m_status = FS_NORMAL;           ///< +0x24

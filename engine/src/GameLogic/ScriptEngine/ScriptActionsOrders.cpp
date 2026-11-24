@@ -1445,5 +1445,109 @@ bool ScriptActions::executeOrderAction(ScriptEngine &engine, const ScriptActionR
 		}
 		return true;
 	}
+	// ---- LOCAL-162 (issue #929): upper-half ScriptActions order & special power countdown ports --------------------------------------------
+	if (name == "NAMED_STOP_SPECIAL_POWER_COUNTDOWN" || name == "NAMED_START_SPECIAL_POWER_COUNTDOWN")
+	{
+		// RW 0x7CAFA5 case 167 (STOP, push 1) / case 168 (START, push 0) -> RW 0x7C490B -> SpecialPowerModuleInterface::pauseCountdown (vslot 0x24)
+		Object *o = engine.getUnitNamed(param(a, 0).stringValue);
+		const SpecialPowerTemplate *sp = TheSpecialPowerStore ? TheSpecialPowerStore->findSpecialPowerTemplate(param(a, 1).stringValue) : nullptr;
+		if (SpecialPowerModuleInterface *m = o && sp ? SpecialPowerModules::findModule(*o, sp) : nullptr)
+		{
+			m->pauseCountdown(name == "NAMED_STOP_SPECIAL_POWER_COUNTDOWN");
+		}
+		return true;
+	}
+	if (name == "NAMED_SET_SPECIAL_POWER_COUNTDOWN")
+	{
+		// RW 0x7CAFA5 case 169 -> RW 0x7C495B: readyFrame = logic.getFrame() + seconds * LOGICFRAMES_PER_SECOND -> setReadyFrame (vslot 0x20)
+		Object *o = engine.getUnitNamed(param(a, 0).stringValue);
+		const SpecialPowerTemplate *sp = TheSpecialPowerStore ? TheSpecialPowerStore->findSpecialPowerTemplate(param(a, 1).stringValue) : nullptr;
+		if (SpecialPowerModuleInterface *m = o && sp ? SpecialPowerModules::findModule(*o, sp) : nullptr)
+		{
+			const unsigned ready = logic.getFrame() + (unsigned)((std::uint32_t)param(a, 2).intValue * (std::uint32_t)LOGICFRAMES_PER_SECOND);
+			m->setReadyFrame(ready);
+		}
+		return true;
+	}
+	if (name == "NAMED_ADD_SPECIAL_POWER_COUNTDOWN")
+	{
+		// RW 0x7CAFA5 case 170 -> RW 0x7C4A34: readyFrame = getReadyFrame (vslot 0x10) + seconds * LOGICFRAMES_PER_SECOND -> setReadyFrame (vslot 0x20)
+		Object *o = engine.getUnitNamed(param(a, 0).stringValue);
+		const SpecialPowerTemplate *sp = TheSpecialPowerStore ? TheSpecialPowerStore->findSpecialPowerTemplate(param(a, 1).stringValue) : nullptr;
+		if (SpecialPowerModuleInterface *m = o && sp ? SpecialPowerModules::findModule(*o, sp) : nullptr)
+		{
+			const unsigned ready = m->getReadyFrame() + (unsigned)((std::uint32_t)param(a, 2).intValue * (std::uint32_t)LOGICFRAMES_PER_SECOND);
+			m->setReadyFrame(ready);
+		}
+		return true;
+	}
+	if (name == "NAMED_ENTER_NAMED")
+	{
+		// RW 0x7CAFA5 case 53 -> RW 0x7C9105: unit (RW 0x75A3D8) enters target (RW 0x75A243) via aiEnterObject(target, CMD_FROM_SCRIPT) (RW 0x66C5A4)
+		Object *o = engine.getUnitNamed(param(a, 0).stringValue);
+		Object *target = o ? engine.getUnitNamed(param(a, 1).stringValue) : nullptr;
+		if (o && target)
+		{
+			if (AIUpdateInterface *ai = o->getAIUpdateInterface())
+			{
+				ai->aiEnterObject(target, CMD_FROM_SCRIPT);
+			}
+		}
+		return true;
+	}
+	if (name == "NAMED_EXIT_ALL")
+	{
+		// RW 0x7CAFA5 case 55 -> RW 0x7C9161: unit (RW 0x75A3D8) -> aiEvacuate(false, CMD_FROM_SCRIPT) (RW 0x6AF1AC)
+		if (Object *o = engine.getUnitNamed(param(a, 0).stringValue))
+		{
+			if (AIUpdateInterface *ai = o->getAIUpdateInterface())
+			{
+				ai->aiEvacuate(false, CMD_FROM_SCRIPT);
+			}
+		}
+		return true;
+	}
+	if (name == "TEAM_EXIT_ALL")
+	{
+		// RW 0x7CAFA5 case 56 -> RW 0x7BFA8D: team AI group -> aiEvacuate(false, CMD_FROM_SCRIPT) (RW 0x7725DF)
+		if (Team *t = ScriptConditions::team(engine, param(a, 0).stringValue))
+		{
+			for (Object *o : ScriptConditions::members(*t))
+			{
+				if (AIUpdateInterface *ai = o->getAIUpdateInterface())
+				{
+					ai->aiEvacuate(false, CMD_FROM_SCRIPT);
+				}
+			}
+		}
+		return true;
+	}
+	if (name == "NAMED_EXIT_BUILDING")
+	{
+		// RW 0x7CAFA5 case 112 -> RW 0x7C9B4D: unit (RW 0x75A3D8) -> aiExit(nullptr, CMD_FROM_SCRIPT) (RW 0x7716C1)
+		if (Object *o = engine.getUnitNamed(param(a, 0).stringValue))
+		{
+			if (AIUpdateInterface *ai = o->getAIUpdateInterface())
+			{
+				ai->aiExit(nullptr, CMD_FROM_SCRIPT);
+			}
+		}
+		return true;
+	}
+	if (name == "TEAM_EXIT_ALL_BUILDINGS")
+	{
+		// RW 0x7CAFA5 case 109 -> RW 0x7C98C7: every team member with AI -> aiExit(nullptr, CMD_FROM_SCRIPT) (RW 0x7716C1)
+		if (Team *t = ScriptConditions::team(engine, param(a, 0).stringValue))
+		{
+			for (Object *o : ScriptConditions::members(*t))
+			{
+				if (AIUpdateInterface *ai = o->getAIUpdateInterface())
+				{
+					ai->aiExit(nullptr, CMD_FROM_SCRIPT);
+				}
+			}
+		}
+		return true;
+	}
 	return false;
 }

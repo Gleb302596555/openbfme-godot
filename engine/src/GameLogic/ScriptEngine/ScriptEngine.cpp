@@ -2363,7 +2363,7 @@ void ScriptEngine::crc(StateHasher &h) const
 	}
 }
 
-// RW 0x7BC3A0 (MAP_REVEAL_AT_WAYPOINT) / 0x7C0BCF (MAP_REVEAL_IN_TRIGGER): look, then unlook at once. RW 0x7BD4C1 / 0x7BD4F3 (the permanent
+// RW 0x7BC3A0 (MAP_REVEAL_AT_WAYPOINT) / RW 0x7C0BCF (MAP_REVEAL_IN_TRIGGER): look, then unlook at once. RW 0x7BD4C1 / 0x7BD4F3 (the permanent
 // ones): createNamedMapReveal RW 0x75A344 (CRC_String of the name, RW 0x7ED86B; a name already in the list RW ScriptEngine + 0x1A59C keeps its
 // record), then doNamedMapReveal RW 0x7592E1 (the first record with that CRC: type 0 a waypoint, 1 a trigger). RW 0x7BD524 (the undos):
 // undoNamedMapReveal RW 0x7593A4, then the record goes (RW 0x75985D). BFME2 donor ScriptEngineNamedMapReveal.cpp (0x3577DA / 0x35789D), the same shape.
