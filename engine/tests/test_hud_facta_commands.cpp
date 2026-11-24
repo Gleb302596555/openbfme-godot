@@ -1416,7 +1416,10 @@ Object *scenePartner(FactRig &r, Object &unit, const char *name, float dx)
 }
 Landed dealt(FactRig &r, Object &unit)
 {
-	Object *v = scenePartner(r, unit, "MordorFighterHorde", 120.0f);
+	// weapon.ini: GondorTrebuchetRock / GondorTrebuchetRockFlaming have MinimumAttackRange = 150;
+	// place its victim beyond MinimumAttackRange so it fires immediately instead of backing up.
+	const float dx = unit.getTemplate()->getName() == "GondorTrebuchet" ? 190.0f : 120.0f;
+	Object *v = scenePartner(r, unit, "MordorFighterHorde", dx);
 	const ObjectID vid = v->getID();
 	Landed l = landedHits(r, unit.getID(), vid);
 	// the victim dies as in a game (its soldiers killed, the horde with them), then is removed
