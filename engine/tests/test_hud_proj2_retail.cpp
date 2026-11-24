@@ -683,7 +683,9 @@ TEST_CASE("proj2 retail: the timing - the arm stays in its attack state through 
 		// meets its intended victim (always accepted, RW 0x6CC79C) before its last point goes off in that frame's collision row (RW 0x85FDB7): the Mordor
 		// catapult's stone overlaps the Gondor barracks one frame before its last point (segments - 2); the trebuchet's falls onto the barracks at its last point
 		// (measured engine pins: the overlap is the template geometries' RW 0xAD2CE0 test along the path)
-		const int early = std::string(c.launcher) == "MordorCatapult" ? 1 : 0;
+		// pin: Local 41 (6d89e9910, RW 0x6CB8EC -> 0x690BD2 -> 0xAD30E0 contact-point aim, S-362 closed):
+		// MordorCatapult's stone no longer overlaps the barracks 1 frame before its last point (early 1 -> 0).
+		const int early = 0;
 		CHECK(st.gone == (int)st.launchFrame + st.segments - 1 - early);
 		// the launcher's flags at the end of the launch frame: FIRING_A (the helper saw the shot of this frame, RW 0x68E197 lastFireFrame == now)
 		const size_t launchIdx = (size_t)(std::find(r.loopFrames.begin(), r.loopFrames.end(), st.launchFrame) - r.loopFrames.begin());

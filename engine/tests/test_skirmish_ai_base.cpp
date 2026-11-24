@@ -292,6 +292,13 @@ TEST_CASE("skirmish ai units: each of the 7 factions as the Medium computer on E
 			{
 				member = member || m.unit == kv.first;
 			}
+			// RW 0x9EC539 / 0x9EC8A1 / 0x9ECC0D / 0x9ECF7F (Port 227, 95e40d911): Angmar AI buys Thrall Master
+			// SUMMON_ANTI* upgrades on AngmarThrallMaster (in ArmyDefinition), spawning these battalion templates.
+			if (!member && std::string(faction) == "FactionAngmar")
+			{
+				member = kv.first == "AngmarRhudaurSlingers" || kv.first == "AngmarRhudaurSpearmen" ||
+				         kv.first == "AngmarWolfRiders" || kv.first == "AngmarHillTrollHorde";
+			}
 			CHECK_MESSAGE(member, kv.first);
 		}
 	}

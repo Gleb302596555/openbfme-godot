@@ -244,8 +244,11 @@ TEST_CASE("build4 walls: a Men span's tiles wait at 0 % and rise StaggeredBuildF
 			++f;
 			++held;
 		}
-		CHECK((held > 0) == t.hub);
-		int heals = 1;
+		// RW 0x797964..0x79796E (Port 224, 90cc9795f): buildObjectNow skips onStructureConstructionComplete for a WALL_HUB
+		// builder, so m_constructing stays true from onObjectCreated (RW 0x856434): no 1-second hold at 1 HP, and staggered
+		// segments already ran 1 heal in runNowThenSleep (RW 0x795425) before their first wake.
+		CHECK(held == 0);
+		int heals = t.hub ? 1 : 2;
 		for (; f < t.percent.size() && t.percent[f] != -1.0f; ++f, ++heals)
 		{
 			const float want = percentAfterHeals(t.maxHealth, buildFrames, heals);
