@@ -4,15 +4,16 @@
 // and radial recruit button right-click dequeue (QueueUnitButton::OnRightClicked RW 0xA0C74F).
 
 #include "doctest.h"
-#include "AptRetailFixture.h"
+#include "AptPlayerTestUtil.h"
+#include "AptRetail.h"
 #include "GameClient/GUI/AptScreens/AptScreenFactories.h"
 #include "GameClient/GUI/AptScreens/AptStrategicHUD.h"
-#include "GameClient/GUI/Apt/AptArchiveFileSource.h"
-#include "GameClient/GUI/Apt/AptInstance.h"
 #include "GameClient/GUI/GameTextSource.h"
 #include "GameClient/GUI/Shell/Shell.h"
 #include "GameClient/GUI/ShellEnvironment.h"
+#include "GameClient/GUI/ShellServices.h"
 #include "GameClient/GUI/WindowManager.h"
+#include "Libraries/Source/Apt/AptCharacterInst.h"
 
 #include <algorithm>
 #include <map>
@@ -49,6 +50,7 @@ private:
 struct StrategicHudFx167
 {
 	AptArchiveFileSource source;
+	RecordingShellServices services;
 	MapText167 text;
 	ShellEnvironment env;
 	AptScreenFactoryTable factories;
@@ -60,17 +62,24 @@ struct StrategicHudFx167
 	{
 		env.gameText = &text;
 		registerAptScreenFactories(factories);
-		wm = std::make_unique<WindowManager>(source);
-		shell = std::make_unique<Shell>(*wm, factories, env);
+		wm = std::make_unique<WindowManager>(source, services);
+		shell = std::make_unique<Shell>(*wm, factories, services, env);
+		wm->init();
 		hud = std::make_unique<AptStrategicHUD>(*wm, *shell, env);
-		tick(40);
+		tick(90);
+	}
+
+	~StrategicHudFx167()
+	{
+		hud.reset();
+		shell.reset();
 	}
 
 	void tick(int frames)
 	{
 		for (int i = 0; i < frames; ++i)
 		{
-			wm->update();
+			wm->update(33);
 		}
 	}
 };
@@ -81,16 +90,15 @@ AptButtonInst *findFirstButton167(AptCharacterInst *root)
 	{
 		return nullptr;
 	}
-	if (root->kind() == AptCharacterKind::Button)
+	if (AptButtonInst *b = root->asButton())
 	{
-		return static_cast<AptButtonInst *>(root);
+		return b;
 	}
-	if (root->kind() == AptCharacterKind::Sprite)
+	if (AptSpriteInst *sp = root->asSprite())
 	{
-		AptSpriteInst *sp = static_cast<AptSpriteInst *>(root);
-		for (auto &kv : sp->displayList())
+		for (AptCharacterInst *k : sp->children())
 		{
-			if (AptButtonInst *b = findFirstButton167(kv.second.get()))
+			if (AptButtonInst *b = findFirstButton167(k))
 			{
 				return b;
 			}
@@ -105,12 +113,12 @@ void clickAt167(StrategicHudFx167 &fx, AptButtonInst &b)
 	REQUIRE(b.contentBounds(x0, y0, x1, y1));
 	float x, y;
 	b.globalMatrix().apply((x0 + x1) / 2, (y0 + y1) / 2, x, y);
-	fx.wm->apt().input().mouseMove(x, y);
-	fx.wm->update();
-	fx.wm->apt().input().mouseDown(x, y);
-	fx.wm->update();
-	fx.wm->apt().input().mouseUp(x, y);
-	fx.wm->update();
+	fx.wm->postMouseMove(x, y);
+	fx.tick(1);
+	fx.wm->postMouseButton(true);
+	fx.tick(1);
+	fx.wm->postMouseButton(false);
+	fx.tick(1);
 }
 
 } // namespace
