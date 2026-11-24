@@ -48,6 +48,7 @@ const FieldParse *strafe()
 }
 } // namespace StrafeAreaUpdateTables
 
+// RW 0x7A81E8 (StrafeAreaUpdateModuleData::StrafeAreaUpdateModuleData), RW 0x7A825D (~StrafeAreaUpdateModuleData)
 StrafeAreaUpdateModuleData::StrafeAreaUpdateModuleData()
 	: m_weaponName("")
 	, m_strafeAreaRadius(150.0f)

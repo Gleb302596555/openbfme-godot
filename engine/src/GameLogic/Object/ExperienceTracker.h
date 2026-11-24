@@ -57,7 +57,7 @@ struct ExperienceScalarTable;
 class ExperienceTracker
 {
 public:
-	explicit ExperienceTracker(Object *parent); ///< RW 0x79D5E7
+	explicit ExperienceTracker(Object *parent); ///< RW 0x79D5E7 (~ExperienceTracker RW 0x79D274; ExperienceTrackerObject name RW 0x79D31C)
 
 	int getExperienceValue(const Object &killer, bool evenForAllies) const; ///< RW 0x79D1DB
 	int getOwnGuysDieValue(const Object &killer) const;                    ///< RW 0x79D201
@@ -71,6 +71,7 @@ public:
 	void gainLevel(bool feedback);                                         ///< RW 0x79D7AD
 	void gainLevels(int levels, bool feedback);                            ///< RW 0x79D7E5
 	void applyLevel(const ExperienceLevelTemplate &level, bool feedback, bool setBase); ///< RW 0x79D76D
+	bool canGainLevel() const;                                             ///< RW 0x79D11D -> RW 0x6893E2 (float(next->requiredExperience) > m_experience)
 	int experienceForNextLevel(int *nextRank) const;                       ///< RW 0x68A274
 	void setLevelTemplate(const ExperienceLevelTemplate &level);           ///< RW 0x79D804 (the delayed grant)
 	void resetBaseToRank();                                                ///< RW 0x79D764

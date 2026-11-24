@@ -62,6 +62,7 @@ public:
 };
 
 // RW mux vtable (see above)
+// RW 0x7A8797 (UpgradeMux::UpgradeMux)
 class UpgradeMux
 {
 public:

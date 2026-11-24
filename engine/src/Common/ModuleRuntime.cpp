@@ -6,6 +6,7 @@
 #include "Common/Thing/Thing.h"
 #include "Common/Xfer.h"
 
+// RW 0x708270 (ObjectModule::ObjectModule), RW 0x7082DC (getModuleName "ObjectModule"), RW 0x7082F7 (derived ObjectModule ctor)
 ObjectModule::ObjectModule(Thing *thing, const ModuleData *moduleData)
 	: Module(moduleData)
 	, m_object(thing ? thing->asObject() : nullptr)

@@ -72,6 +72,7 @@ private:
 	const StatusBitsUpgradeModuleData *m_data;
 };
 
+// RW 0x7750F1 (ModelConditionUpgradeModuleData::ModelConditionUpgradeModuleData, vtable 0xC6EAC8)
 class ModelConditionUpgradeModuleData : public UpgradeModuleData
 {
 public:

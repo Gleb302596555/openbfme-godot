@@ -104,6 +104,7 @@ struct Object::OwnGeometryCache
 	PathfindGeometry pathfind;
 };
 
+// RW 0x70F034 (Object sub-ctor)
 Object::Object(GameLogic &logic, const ThingTemplate *tt, const ObjectStatusMaskType &status, Team *team, ObjectID id)
 	: Thing(tt ? tt->getFinalOverride() : nullptr)
 	, m_logic(logic)
@@ -1052,7 +1053,7 @@ void Object::setTeam(Team *team)
 	{
 		if (HordeContainInterface *horde = m_contain->getHordeContainInterface())
 		{
-			horde->setMembersTeam(team);
+			horde->setMembersTeam(team); // RW 0x699671 (recursive contain setTeam)
 		}
 	}
 	if (m_constructed)

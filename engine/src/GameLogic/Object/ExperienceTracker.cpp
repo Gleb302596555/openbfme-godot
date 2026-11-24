@@ -333,6 +333,13 @@ void ExperienceTracker::gainLevels(int levels, bool feedback)
 	}
 }
 
+// RW 0x79D11D -> RW 0x6893E2: true when a next level template exists and float(next->m_requiredExperience) > m_experience
+bool ExperienceTracker::canGainLevel() const
+{
+	const ExperienceLevelTemplate *next = nextLevel();
+	return next != nullptr && static_cast<float>(next->m_requiredExperience) > m_experience;
+}
+
 int ExperienceTracker::experienceForNextLevel(int *nextRank) const
 {
 	const ExperienceLevelTemplate *next = nextLevel();
@@ -365,7 +372,7 @@ bool ExperienceTracker::gainExpForLevel(int levels, bool feedback, bool unused)
 
 void ExperienceTracker::setLevelTemplate(const ExperienceLevelTemplate &level)
 {
-	m_levelName = level.m_name;                         // RW 0x79D810
+	m_levelName = level.m_name;                         // RW 0x79D810 -> RW 0x79D494 (setLevelName)
 	m_experienceValue = level.m_experienceAward;        // RW 0x79D815
 	m_ownGuysDieValue = level.m_experienceAwardOwnGuysDie;
 	setRank(level.m_rank);                              // RW 0x79D829
@@ -397,7 +404,7 @@ void ExperienceTracker::crc(StateHasher &hasher) const
 }
 
 // ---- lane SAVE-4b: the snapshot (OpenBFME native, S-4190) -----------------------------------------------------------------------
-// Retail's ExperienceTracker::xfer (RW 0x79D4E6, tier A, (1, 5)) transfers RotWK's tracker (real, int, the level name, ...); this one holds the port's fields
+// Retail's ExperienceTracker::xfer (RW 0x79D4E6, tier A, (1, 5); sub-object xfers RW 0x79D229, RW 0x79D62B) transfers RotWK's tracker (real, int, the level name, ...); this one holds the port's fields
 // plus its helper's (+ 0x08 rank factor, + 0x0C base rank; RW keeps them in a separate helper object), so the layout is native. The scalar table is the
 // template's (the constructor's) and is not saved.
 void ExperienceTracker::xfer(Xfer &x)

@@ -249,7 +249,7 @@ public:
 	// weapon set flag ONE_RING_MODE) or taken off (TAKING_OFF_RING for RingAnimTimeOff, off after OneRingDelayOff); nothing unless RingAnimTimeOn or
 	// RingDelayAfterRemoving is set (no retail StealthUpdate sets either)
 	void toggleRing();
-	bool ringWorn() const { return m_ring; }
+	bool ringWorn() const { return m_ring; } ///< RW 0x775FFF (+0x31)
 	// RW 0x776117: disguise as `target` (its own disguise when it is disguised: RW 0x68FBD3 + 0x3C), null: the disguise ends (the reveal transition)
 	void disguiseAsObject(Object *target);
 	const ThingTemplate *disguiseTemplate() const { return m_disguiseTemplate; } ///< + 0x3C: what the object looks like (null: itself)

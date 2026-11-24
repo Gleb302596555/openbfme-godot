@@ -1,7 +1,7 @@
 // OpenBFME. GPL-3.0.
 // Derived from Command & Conquer Generals Zero Hour, (c) 2001-2003 Electronic Arts Inc., GPL-3.0.
 //
-// SMCHelper: the "special model condition" timer helper of an Object (ZH Source/GameLogic/Object/Helper/ObjectSMCHelper.cpp), lane PROD-1.
+// SMCHelper: the "special model condition" timer helper of an Object (ZH Source/GameLogic/Object/Helper/ObjectSMCHelper.cpp), lane PROD-1. // RW 0x69305D (getModuleNameKey), RW 0x6930A2 (getModuleName "ObjectSMCHelper")
 // It replaces the LOGIC-1 shell of the same name (GameLogic/Module/ObjectHelper.h) now that production needs it: a freshly produced unit is
 // JUST_BUILT, COMING_OUT_OF_FACTORY and INVULNERABLE for a number of frames.
 //

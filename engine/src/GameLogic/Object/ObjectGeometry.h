@@ -36,7 +36,7 @@
 class Object;
 class ThingTemplate;
 
-// RW 0x004503DF (GeometryInfo::~GeometryInfo: destroys the shape and contact-point vectors, handled by std::vector destructors)
+// RW 0x698DFC (GeometryInfo::GeometryInfo), RW 0x004503DF (GeometryInfo::~GeometryInfo: destroys the shape and contact-point vectors, handled by std::vector destructors)
 namespace ObjectGeometry
 {
 enum ShapeType

@@ -115,7 +115,7 @@ int weaponConditionCount();
 int kindOfCount();
 // the bits [0, bits) of a set of `bits` names, the others refused
 inline std::uint64_t lowBits(int bits) { return bits >= 64 ? ~0ull : ((1ull << bits) - 1ull); }
-// a word array mask (SnapshotXfer::words' layout) loaded into a temporary: any bit at or beyond `bits` (the set's size) is refused by its number
+// a word array mask (SnapshotXfer::words' layout; BitFlags<N>::xfer RW 0x692BA0, RW 0x692CDC, RW 0x692E18) loaded into a temporary: any bit at or beyond `bits` (the set's size) is refused by its number
 template <size_t N>
 void maskWords(Xfer &x, std::array<std::uint32_t, N> &w, int bits, const std::string &what, const std::string &set)
 {
