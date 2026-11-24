@@ -257,7 +257,7 @@ Dictionary LivingWorldGame::army_panel(Object *game_world, int64_t army_id) cons
 			if (e.info.levels[i].rank == rank)
 			{
 				const float lo = (float)e.info.levels[i].requiredExperience, hi = (float)e.info.levels[i + 1].requiredExperience;
-				// INFERENCE (S-1334): the bar's fraction (SimMath: this file is audited)
+				// RW 0x9F6E4B: (experience - curLevelReqXp) / (nextLevelReqXp - curLevelReqXp), -1.0f at max level (RW 0xBD19DC)
 				progress = hi > lo ? std::min(1.0f, std::max(0.0f, SimMath::divf32(SimMath::subf32(e.experience, lo), SimMath::subf32(hi, lo)))) : 0.0f;
 			}
 		}
@@ -269,6 +269,7 @@ Dictionary LivingWorldGame::army_panel(Object *game_world, int64_t army_id) cons
 		return d;
 	};
 	out["hero_army"] = !army->heroTemplate.empty();
+	// RW 0x9F9AE8: FindLeaderEntry (first ArmySummary entry matching army->heroTemplate)
 	int leader = -1;
 	if (!army->heroTemplate.empty())
 	{
@@ -1359,7 +1360,7 @@ std::vector<int> intList(const Array &a)
 }
 } // namespace
 
-// WOTR2 milestone 4: MSG_LW_SWAP_ARMY_MEMBERS 0x6AF (a plain move: keys_b empty) and MSG_LW_CANCEL_ARMY_MEMBER_MOVE 0x6B0
+// WOTR2 milestone 4: StrategicInGameUI::CanMoveArmyMembers (RW 0xA08D0C) / CanSwapArmyMembers (RW 0xA08D90), MSG_LW_SWAP_ARMY_MEMBERS 0x6AF (a plain move: keys_b empty) and MSG_LW_CANCEL_ARMY_MEMBER_MOVE 0x6B0
 bool LivingWorldGame::can_swap_army_members(int64_t a, const Array &keysA, int64_t b, const Array &keysB) const
 {
 	return m_logic && m_logic->canSwapArmyMembers((int)a, intList(keysA), (int)b, intList(keysB));
@@ -1400,6 +1401,7 @@ Dictionary LivingWorldGame::cancel_army_member_move(int64_t army, int64_t key)
 	return post(m, sender);
 }
 
+// CancelArmyMoveButton: RW 0x9FBFCC (enable), RW 0x9FBFE3 (OnLeftClicked -> MSG_LW_CANCEL_ARMY_MOVE_REQUEST 0x6A9)
 Dictionary LivingWorldGame::cancel_move(int64_t player, int64_t army)
 {
 	GameMessage m(MSG_LW_CANCEL_ARMY_MOVE_REQUEST, (int)player);
@@ -1407,6 +1409,7 @@ Dictionary LivingWorldGame::cancel_move(int64_t player, int64_t army)
 	return post(m, (int)player);
 }
 
+// BuildBuildingButton: RW 0x9FC1A4 (enable), RW 0x9FC11A (OnLeftClicked -> MSG_LW_BUILD_BUILDING 0x6AA)
 Dictionary LivingWorldGame::order_build(int64_t player, int64_t region, const String &building, int64_t plot)
 {
 	if (!m_stores)
@@ -1661,6 +1664,7 @@ Dictionary LivingWorldGame::order_dequeue_at(int64_t player, int64_t region, int
 	return post(m, (int)player);
 }
 
+// DestroyBuildingButton / CancelBuildingConstructionButton: RW 0x9FBB61 (enable), RW 0x9FBBA1 (OnLeftClicked -> MSG_LW_DESTROY_BUILDING 0x6AB)
 Dictionary LivingWorldGame::order_destroy_building(int64_t player, int64_t region, int64_t building_slot)
 {
 	GameMessage m(MSG_LW_DESTROY_BUILDING, (int)player);
