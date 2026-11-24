@@ -33,3 +33,23 @@ def test_modules_missing_reads_the_live_module_queue(tmp_path):
                                                "C\tparsed-only\t2\tDraw\n", encoding="utf-8")
     assert ps.modules_missing(audit, "| x | missing |\n| y | missing |\n") == 1
     assert ps.modules_missing(None, "| x | missing |\n| y | missing |\n") == 2
+
+
+def test_binary_counts_excludes_proven_glue_non_code_and_not_reached(monkeypatch):
+    import progress_snapshot as ps
+
+    sample = (
+        "function\tsize\tevidence\tstatus\tclass\tslot\tdirect callers\tresolved virtual callers\tsubsystem\tBFME2 name\tmatch tier\n"
+        "0x00401000\t40\tcall\tported\t\t\t1\t0\tscript engine\tfn1\tA\n"
+        "0x00401030\t40\tcall\tpartial\t\t\t1\t0\tscript engine\tfn2\tA\n"
+        "0x00401060\t40\tcall\tnone\t\t\t1\t0\tobjects / modules\tfn3\tA\n"
+        "0x00401090\t10\tdata\teh-glue\t\t\t0\t0\tobjects / modules\t$L1\tA\n"
+        "0x004010A0\t28\tvtable-slot\tcompiler-glue\t\t\t0\t0\tcombat / weapons\t??_GFoo\tA\n"
+        "0x004010C0\t4\tdata\tnon-code\t\t\t0\t0\tAI / pathfinding\t\t\n"
+        "0x004010D0\t12\tcode-imm\tnot-reached\t\t\t0\t0\tscript engine\tdead\tA\n"
+        "0x004010E0\t20\tcall\tlibrary\t\t\t2\t0\tscript engine\tlib\tA\n"
+    )
+    monkeypatch.setattr(ps, "read", lambda path, rev: sample)
+    total, open_ = ps.binary_counts(None)
+    # Only fn1 (ported), fn2 (partial), fn3 (none) count in binary_total; fn2 + fn3 stay in binary_open.
+    assert (total, open_) == ("3", "2")

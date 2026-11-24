@@ -162,7 +162,7 @@ def binary_section(fmap: list[dict], classes: list[str], addrs: set[int]) -> lis
             continue
         owner = owners.most_common(1)[0][0]
         meth = by_class[owner]
-        todo = [r for r in meth if r["status"] not in ("ported", "library")]
+        todo = [r for r in meth if r["status"] in ("none", "partial")]
         out.append(f"- `{c}` в карте бинарника — класс `{owner}`: {len(meth)} методов (таблицы и конструкторы), без ссылки {len(todo)}" +
                    (": " + ", ".join(f"`{rw(r['function'])}` `{r['slot']}`" + (f" {bfme2_name(r['BFME2 name'])}" if bfme2_name(r.get("BFME2 name", "")) else "")
                                      for r in todo[:LIMIT]) + (" …" if len(todo) > LIMIT else "") if todo else ""))

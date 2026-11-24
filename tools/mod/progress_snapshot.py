@@ -62,6 +62,7 @@ COLUMNS = ["date", "rev", "fields_total", "fields_open", "modules_missing", "pro
 # problems); the client side (draw, audio, UI, network) is rebuilt on Godot, so its `none` is no work count
 BINARY_LOGIC = {"objects / modules", "AI / pathfinding", "combat / weapons", "horde / locomotion", "castles / structures", "script engine",
                 "map / terrain logic", "War of the Ring / LivingWorld"}
+BINARY_EXCLUDED = {"library", "eh-glue", "compiler-glue", "non-code", "not-reached"}
 GREEN = {"PASS", "STANCE", "DISABLED", "INVENTORY", "TEMPORARY", "MEMBER", "MOD-DATA", "NO-TARGET", "BY-DESIGN", "ORDER", "NO-AURA"}  # by design, or fine when swept alone (matrix review 2026-11-17)
 # not red, but not judged either (owner 2026-11-18): the faction table counts them in a column of their own, not with the idle ones (tools/matrix_run.py)
 UNVERIFIED = {"MOD-DATA", "NO-TARGET", "ORDER", "NO-AURA"}
@@ -274,7 +275,7 @@ def binary_counts(rev: str | None) -> tuple[str, str]:
         return "", ""
     total = open_ = 0
     for r in csv.DictReader(text.splitlines(), delimiter="\t", quoting=csv.QUOTE_NONE):
-        if r["subsystem"].rstrip("?").strip() not in BINARY_LOGIC or r["status"] == "library":
+        if r["subsystem"].rstrip("?").strip() not in BINARY_LOGIC or r["status"] in BINARY_EXCLUDED:
             continue
         total += 1
         open_ += r["status"] in ("none", "partial")
