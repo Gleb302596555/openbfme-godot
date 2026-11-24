@@ -58,7 +58,7 @@ struct LuaObjectInfo
 	const LuaEventList *luaEvents = nullptr; ///< AIUpdateInterface+0x220: the EventList of AILuaEventsList (null: no handlers)
 };
 
-// One of the three argument records of a dispatch (RW DelayedLuaEventList, 0x4C bytes; spec 4.3)
+// One of the three argument records of a dispatch (RW DelayedLuaEventList, 0x4C bytes; ctor RW 0x4B64EB, dtor RW 0x4B6532; spec 4.3)
 struct LuaEventArg
 {
 	enum Kind

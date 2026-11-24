@@ -11,7 +11,7 @@
 
 extern const char *const TheObjectStatusNames[]; // RW 0xD8AFF0, 106 names (GameLogic/BitFlagNames.cpp, lane HORDE-1)
 
-// RW 0x73449A (initEventKeys): slot i is the NameKey of kLuaInternalEventNames[i]
+// RW 0x73449A (initEventKeys, via RW 0x73302A EventFlagEntry::setKeyFromName): slot i is the NameKey of kLuaInternalEventNames[i]
 const char *const kLuaInternalEventNames[LUAEVENT_COUNT] = {
 	"OnDamaged", "OnDestroyed", "OnArrived", "OnUnitEntered", "OnTeamEntered", "OnUnitExited", "OnTeamExited", "OnTeamDestroyed", "BeScary",
 	"DamageIncoming", "OnAflame", "OnQuenched", "OnCreated", "OnBuildingComplete", "OnSlaughtered", "OnGenericEvent", "OnBuildVariation"
