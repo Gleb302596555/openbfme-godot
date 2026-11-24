@@ -11,7 +11,7 @@
 //     "DefaultGoodArmyIcon"; field table RW 0xC1AC78), LivingWorldBuilding RW 0x6E16A4 ("has already been defined. Cannot redefine", field table
 //     RW 0xC1A6A8), LivingWorldPlayerArmy RW 0x811D72 (table RW 0xC4FB58; ArmyEntry table RW 0xC2F470), LivingWorldCampaign RW 0x9339E4 ("Campaign
 //     name expected"; ctor RW 0x93385D: SecondsPerReinforcement 180, StartingCashRTS 7500, StartingCashRTSWithFort 2500, revival multipliers 2.0 /
-//     1.0 (RW 0xC7F6CC / 0xC7F6D0); table RW 0xC7F898), LivingWorldRegionCampaign RW 0x6107CF (ctor RW 0x610524: SmallArmyCommandPoints 20,
+//     1.0 (RW 0xC7F6CC / 0xC7F6D0); table RW 0xC7F898), LivingWorldRegionCampaign RW 0x6107CF (ctor RW 0x610524, subobject ctor RW 0x7F086A: SmallArmyCommandPoints 20,
 //     MediumArmyCommandPoints 50, ArmyCarryoverPoints 50, ArmyRetreatRounds 10; table RW 0xBFA2C0; Region RW 0x6103E2 with table RW 0xC4C8A0),
 //     LivingWorldMapInfo RW 0x610CFD (table RW 0xBFA838), LivingWorldAITemplate RW 0x8308FC (table RW 0xC530A8).
 //   Nested tables: Scenario RW 0x902874 (record 0xC4, ctor RW 0x901DD5: MaxPlayers 6, MinPlayers 2, UseMpRulesVictoryCondition Yes; table

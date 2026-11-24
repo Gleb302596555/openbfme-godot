@@ -109,6 +109,7 @@ struct ScriptGroup
 };
 
 // LOCAL-160 (both editions): value-type ScriptList covers RW 0x007B6333 (ScriptList::swap), RW 0x007B81ED (ScriptList::clear),
+// LOCAL-180: RW 0x7B80FB (ScriptList ctor), RW 0x7B8120 (getChunkName "ScriptList"), RW 0x7B8126 (~ScriptList), RW 0x7B92B0 (copy ctor), RW 0x7BB269 (ObjectTypesTemp ctor),
 // RW 0x007B7D64 (ScriptList::deleteScriptRef), RW 0x007B8177 (ScriptList::deleteGroupRef); copyable ScriptCondition covers
 // RW 0x007B655B (Condition::duplicate); ScriptParameter::coord covers RW 0x007B32DE (Parameter::getCoord3D) and
 // RW 0x007B3305 (Parameter::setCoord3D).

@@ -66,7 +66,7 @@ void xferSize(Xfer &x, std::vector<T> &v, size_t minEntryBytes)
 	x.xferVectorSize(v, minEntryBytes);
 }
 
-// WOTR2 milestone 5: a score keeper (LivingWorldScoreKeeper's xfer RW 0x8F3A89, its order where the model has the field; the wall clock and the
+// WOTR2 milestone 5: a score keeper (LivingWorldScoreKeeper's xfer RW 0x8F3A89, bool-vector helper RW 0xA1FF33, its order where the model has the field; the wall clock and the
 // real-time battles' statistics are the host's)
 void xferIntVector(Xfer &x, std::vector<int> &v)
 {

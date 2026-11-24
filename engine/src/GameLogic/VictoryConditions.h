@@ -72,6 +72,7 @@ public:
 		int playerIndex = -1;
 	};
 
+	// RW 0x808D3C (ctor), RW 0x808DC5 (dtor), RW 0x808F1E (CreateVictoryConditions)
 	explicit VictoryConditions(GameLogic &logic);
 	// lane GAMEMODES-1: the rule init (RW 0x808A43) gives a game of this context: RULE_BASE_OR_ARMY for the game kind 3 (skirmish / LAN), else RULE_BASE_OR_BUILDERS
 	static int initialRule(const EconomyContext &context);
@@ -102,16 +103,16 @@ public:
 	bool singleAllianceRemaining() const { return m_singleAllianceRemaining; }
 	bool isObserver() const { return m_isObserver; }
 	int localSlot() const { return m_localSlot; }
-	bool localPlayerDefeated() const { return m_localPlayerDefeated; }
+	bool localPlayerDefeated() const { return m_localPlayerDefeated; } // RW 0x808D8B (vslot 21, +0x86)
 	int defeatCounter() const { return m_defeatCount; }
 	int cachedPlayers() const { return m_cached; }
 	// the real Player::getPlayerIndex() of the cached player at this position (-1 outside)
 	int cachedPlayerIndex(int cacheIndex) const;
-	bool isDefeated(int cacheIndex) const { return cacheIndex >= 0 && cacheIndex < MAX_PLAYER_COUNT && m_isDefeated[cacheIndex]; }
+	bool isDefeated(int cacheIndex) const { return cacheIndex >= 0 && cacheIndex < MAX_PLAYER_COUNT && m_isDefeated[cacheIndex]; } // RW 0x808D92 (vslot 25, +0x70)
 	int rule() const { return m_rule; }
 	void setRule(int rule) { m_rule = rule; }
-	void setScriptFlag90(bool v) { m_flag90 = v; }
-	void setScriptFlag91(bool v) { m_flag91 = v; }
+	void setScriptFlag90(bool v) { m_flag90 = v; } // RW 0x808D9D (vslot 27, +0x90); getter RW 0x808DB7 (vslot 29)
+	void setScriptFlag91(bool v) { m_flag91 = v; } // RW 0x808DAA (vslot 28, +0x91); getter RW 0x808DBE (vslot 30)
 	const std::vector<Event> &events() const { return m_events; }
 
 	// RW 0x6ABE7C Player::killPlayer (see above); public for MSG_SELF_DESTRUCT (lane MP-2, GameLogic/SelfDestruct.h)

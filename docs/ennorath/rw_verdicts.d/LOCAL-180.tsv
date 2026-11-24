@@ -1,0 +1,278 @@
+function	name	verdict	evidence
+0x7B7065	no class	not reached	Compiler glue: phantom/mid-function evidence=data entry (34B, dc=0, vc=0; or al, 0x85; leave; je 0x7b7080)
+0x7B7087	??0Rva003B6831@@QAE@XZ	not reached	Internal ScriptList/ScriptGroup hash-table/vector storage helper (??0Rva003B6831@@QAE@XZ, 21B, dc=1); port uses std::vector in Scripts.h
+0x7B70A2	no class	not reached	Compiler glue: phantom/mid-function evidence=data entry (92B, dc=0, vc=0; mov eax, ecx; push ebx; mov ebx, dword ptr [eax + 0x1c])
+0x7B70D7	no class	not reached	Compiler glue: phantom evidence=data entry inside 0x7B70A2..0x7B70FE (10B, dc=0, vc=0; test edi, eax; dec dword ptr [ebx - 0x74a607bb]; dec ebp)
+0x7B70FE	?clearRva003B675BNodes@@YAXPAURva003B675BRecord@@@Z	not reached	Internal ScriptList/ScriptGroup hash-table/vector storage helper (?clearRva003B675BNodes@@YAXPAURva003B675BRecord@@@Z, 47B, dc=3); port uses std::vector in Scripts.h
+0x7B7170	?deallocateEntry@Rva003B573E@@QAEXH@Z	not reached	Internal ScriptList/ScriptGroup hash-table/vector storage helper (?deallocateEntry@Rva003B573E@@QAEXH@Z, 131B, dc=10); port uses std::vector in Scripts.h
+0x7B71F3	?destroyRva003B678ARange@@YAXPAURva003B678ARange@@@Z	not reached	Internal ScriptList/ScriptGroup hash-table/vector storage helper (?destroyRva003B678ARange@@YAXPAURva003B678ARange@@@Z, 41B, dc=2); port uses std::vector in Scripts.h
+0x7B7221	?rva003B6846@Rva003B6846Vec@@QAEXXZ	not reached	Internal ScriptList/ScriptGroup hash-table/vector storage helper (?rva003B6846@Rva003B6846Vec@@QAEXXZ, 30B, dc=2); port uses std::vector in Scripts.h
+0x7B7350	?WriteGroupDataChunk@@YAXAAVDataChunkOutput@@PAVScriptList@@PAVScriptGroup@@@Z	not reached	WorldBuilder ScriptList/ScriptGroup chunk writer or name-fixup helper (?WriteGroupDataChunk@@YAXAAVDataChunkOutput@@PAVScriptList@@PAVScriptGroup@@@Z, 166B, dc=2, vc=0)
+0x7B73F6	no class	not reached	WorldBuilder ScriptList/ScriptGroup chunk writer or name-fixup helper (no class, 31B, dc=1, vc=0)
+0x7B7415	?fixupGroupName@@YAXPAVScriptList@@AAVAsciiString@@@Z	not reached	WorldBuilder ScriptList/ScriptGroup chunk writer or name-fixup helper (?fixupGroupName@@YAXPAVScriptList@@AAVAsciiString@@@Z, 120B, dc=1, vc=0)
+0x7B7481	no class	not reached	Compiler glue: phantom/mid-function evidence=data entry (2B, dc=0, vc=0; dec ebp; hlt)
+0x7B7493	?getUiText@Script@@QAE?AVAsciiString@@XZ	not reached	WorldBuilder UI text; RW_BINARY_MAP dc=0, vc=0 (RW_BINARY_MAP dc=0, vc=0)
+0x7B764A	?rva003B6C6F@@YA_NPAVScriptList@@ABVAsciiString@@@Z	not reached	WorldBuilder ScriptList/ScriptGroup chunk writer or name-fixup helper (?rva003B6C6F@@YA_NPAVScriptList@@ABVAsciiString@@@Z, 31B, dc=1, vc=0)
+0x7B7669	?fixupGroupName@@YAXPAVScriptList@@AAVAsciiString@@@Z	not reached	WorldBuilder ScriptList/ScriptGroup chunk writer or name-fixup helper (?fixupGroupName@@YAXPAVScriptList@@AAVAsciiString@@@Z, 120B, dc=1, vc=0)
+0x7B76E1	no class	not reached	WorldBuilder ScriptList/ScriptGroup chunk writer or name-fixup helper (no class, 140B, dc=1, vc=0)
+0x7B7911	no class	not reached	Compiler glue: phantom evidence=data entry inside 0x7B7787..0x7B7A32 (4B, dc=0, vc=0; cmc; jmp dword ptr [esi + 0x3d])
+0x7B7A32	??1?$vector@UBfmeStringRecord003B3F78@@V?$allocator@UBfmeStringRecord003B3F78@@@_STL@@@_STL@@QAE@XZ	not reached	MSVC/STLport standard library template instantiation (??1?$vector@UBfmeStringRecord003B3F78@@V?$allocator@UBfmeStr, 63B); replaced by C++ stdlib in port
+0x7B7A71	?rva003B7096@Rva003B573E@@QAEXH@Z	not reached	Internal ScriptList/ScriptGroup hash-table/vector storage helper (?rva003B7096@Rva003B573E@@QAEXH@Z, 52B, dc=2); port uses std::vector in Scripts.h
+0x7B7AA5	?cleanup@NestedAt0C@@QAEXXZ	not reached	Internal ScriptList/ScriptGroup hash-table/vector storage helper (?cleanup@NestedAt0C@@QAEXXZ, 116B, dc=1); port uses std::vector in Scripts.h
+0x7B7B19	?destroyRva003B713ERange@@YAXPAURva003B713ERange@@@Z	not reached	Internal ScriptList/ScriptGroup hash-table/vector storage helper (?destroyRva003B713ERange@@YAXPAURva003B713ERange@@@Z, 41B, dc=2); port uses std::vector in Scripts.h
+0x7B7B42	??1Rva003B8802Set@@QAE@XZ	not reached	Internal ScriptList/ScriptGroup hash-table/vector storage helper (??1Rva003B8802Set@@QAE@XZ, 77B, dc=1); port uses std::vector in Scripts.h
+0x7B7B8F	?rva003B71B4@Rva003B573E@@QAEXH@Z	not reached	Internal ScriptList/ScriptGroup hash-table/vector storage helper (?rva003B71B4@Rva003B573E@@QAEXH@Z, 52B, dc=2); port uses std::vector in Scripts.h
+0x7B7DA0	?WriteScriptListDataChunk@ScriptList@@QAEXAAVDataChunkOutput@@@Z	not reached	WorldBuilder chunk writer; only caller 0x007B7DD0 (dc=0, vc=0) (RW_BINARY_MAP dc=1, vc=0)
+0x7B7DD0	no class	not reached	Compiler glue: phantom evidence=data entry inside 0x7B7DA0..0x7B7DD1 (83B, dc=0, vc=0; add byte ptr [esi + 0x57], dl; mov edi, dword ptr [esp + 0xc]; push 1)
+0x7B7FAB	no class	not reached	Compiler glue: phantom/mid-function evidence=data entry (151B, dc=0, vc=0; jmp 0x7b7fb0; mov dword ptr [edx + 0x30], esi; push 0xbf4bd4)
+0x7B7FF9	??0Rva003B761E@@QAE@XZ	not reached	Internal ScriptList/ScriptGroup hash-table/vector storage helper (??0Rva003B761E@@QAE@XZ, 41B, dc=2); port uses std::vector in Scripts.h
+0x7B8046	??1Rva003B872ASet@@QAE@XZ	not reached	Internal ScriptList/ScriptGroup hash-table/vector storage helper (??1Rva003B872ASet@@QAE@XZ, 77B, dc=4); port uses std::vector in Scripts.h
+0x7B8093	?push_back@?$vector@UBfmeStringRecord003B3F78@@V?$allocator@UBfmeStringRecord003B3F78@@@_STL@@@_STL@@QAEXABUBfmeStringRecord003B3F78@@@Z	not reached	MSVC/STLport standard library template instantiation (?push_back@?$vector@UBfmeStringRecord003B3F78@@V?$allocator@, 55B); replaced by C++ stdlib in port
+0x7B80CA	??0Rva003B76EF@@QAE@PAH@Z	not reached	Internal ScriptList/ScriptGroup hash-table/vector storage helper (??0Rva003B76EF@@QAE@PAH@Z, 28B, dc=1); port uses std::vector in Scripts.h
+0x7B80E6	??0Rva003B770B@@QAE@PAH@Z	not reached	Internal ScriptList/ScriptGroup hash-table/vector storage helper (??0Rva003B770B@@QAE@PAH@Z, 21B, dc=1); port uses std::vector in Scripts.h
+0x7B8101	no class	not reached	Compiler glue: phantom evidence=data entry inside 0x7B80FB..0x7B8120 (13B, dc=0, vc=0; add byte ptr [ebx - 0x72fff79a], al; dec esi; or al, 0xc7)
+0x7B8223	?Rva003B7836@@YA_NAAVDataChunkInput@@PAUDataChunkInfo@@PAX@Z	not reached	Compiler glue: phantom/mid-function evidence=data entry (168B, dc=0, vc=0; adc al, 0x7c; push edx; call 0x4380f0)
+0x7B85FC	?rva003B7C1E@Rva003B7C1E@@QAEXXZ	not reached	Compiler glue: phantom/mid-function evidence=data entry (33B, dc=0, vc=0; sub esp, 0x20; push esi; mov esi, ecx)
+0x7B861D	?rva003B7C47@Rva003B573E@@QAEHABV?$StringBase@D@@@Z	not reached	Internal ScriptList/ScriptGroup hash-table/vector storage helper (?rva003B7C47@Rva003B573E@@QAEHABV?$StringBase@D@@@Z, 329B, dc=7); port uses std::vector in Scripts.h
+0x7B8818	?rva003B7E39@Rva003B573E@@QAEHABV?$StringBase@D@@PBVScriptGroup@@@Z	not reached	Compiler glue: phantom/mid-function evidence=data entry (107B, dc=0, vc=0; add byte ptr [ebx + 0x56530cec], al; push edi; mov dword ptr [ebp - 0x10], esp)
+0x7B8883	?rva003B7E39@Rva003B573E@@QAEHABV?$StringBase@D@@PBVScriptGroup@@@Z	not reached	Compiler glue: 21-byte MSVC SEH catch block calling deallocateEntry 0x7B7170 (dc=0, vc=0; push dword ptr [ebp + 8]; mov ecx, dword ptr [ebp - 0x14]; call 0x7b7170)
+0x7B8898	?rva003B7EC2@Rva003B7EC2View@@QAEHH@Z	not reached	Internal ScriptList/ScriptGroup hash-table/vector storage helper (?rva003B7EC2@Rva003B7EC2View@@QAEHH@Z, 111B, dc=1); port uses std::vector in Scripts.h
+0x7B8907	?rva003B7EC2@Rva003B7EC2View@@QAEHH@Z	not reached	Compiler glue: 21-byte MSVC SEH catch block calling deallocateEntry 0x7B7170 (dc=0, vc=0; push dword ptr [ebp + 8]; mov ecx, dword ptr [ebp - 0x14]; call 0x7b7170)
+0x7B891C	?rva003B7F46@Rva003B573E@@QAEHHABV?$StringBase@D@@@Z	not reached	Internal ScriptList/ScriptGroup hash-table/vector storage helper (?rva003B7F46@Rva003B573E@@QAEHHABV?$StringBase@D@@@Z, 72B, dc=1); port uses std::vector in Scripts.h
+0x7B8964	?rva003B7F8E@Rva003B573E@@QAEHPAV1@H@Z	not reached	Internal ScriptList/ScriptGroup hash-table/vector storage helper (?rva003B7F8E@Rva003B573E@@QAEHPAV1@H@Z, 82B, dc=1); port uses std::vector in Scripts.h
+0x7B89B6	no class	not reached	Internal ScriptList/ScriptGroup hash-table/vector storage helper (no class, 216B, dc=1); port uses std::vector in Scripts.h
+0x7B8A8E	?rva003B80B8@Rva003B573E@@QAEHABV?$StringBase@D@@PAH@Z	not reached	Internal ScriptList/ScriptGroup hash-table/vector storage helper (?rva003B80B8@Rva003B573E@@QAEHABV?$StringBase@D@@PAH@Z, 116B, dc=1); port uses std::vector in Scripts.h
+0x7B8B02	?rva003B80B8@Rva003B573E@@QAEHABV?$StringBase@D@@PAH@Z	not reached	Compiler glue: 21-byte MSVC SEH catch block calling deallocateEntry 0x7B7170 (dc=0, vc=0; push dword ptr [ebp + 8]; mov ecx, dword ptr [ebp - 0x14]; call 0x7b7170)
+0x7B8B17	?rva003B8141@Rva003BRefSubrecord@@QAEHABV?$StringBase@D@@@Z	not reached	Internal ScriptList/ScriptGroup hash-table/vector storage helper (?rva003B8141@Rva003BRefSubrecord@@QAEHABV?$StringBase@D@@@Z, 111B, dc=1); port uses std::vector in Scripts.h
+0x7B8B86	no class	not reached	Compiler glue: 21-byte MSVC SEH catch block calling deallocateEntry 0x7B7170 (dc=0, vc=0; push dword ptr [ebp + 8]; mov ecx, dword ptr [ebp - 0x14]; call 0x7b7170)
+0x7B8BAE	no class	not reached	Compiler glue: phantom/mid-function evidence=data entry (53B, dc=0, vc=0; inc esp; and al, 0xc; je 0x7b8bde)
+0x7B8BE3	?take@Rva003B573E@@QAEHPAV1@H@Z	not reached	Internal ScriptList/ScriptGroup hash-table/vector storage helper (?take@Rva003B573E@@QAEHPAV1@H@Z, 82B, dc=1); port uses std::vector in Scripts.h
+0x7B8C35	no class	not reached	Internal ScriptList/ScriptGroup hash-table/vector storage helper (no class, 216B, dc=1); port uses std::vector in Scripts.h
+0x7B8D0D	?rva003B8337@Rva003B573E@@QAEPAURva003B8337Node@@H@Z	not reached	Internal ScriptList/ScriptGroup hash-table/vector storage helper (?rva003B8337@Rva003B573E@@QAEPAURva003B8337Node@@H@Z, 76B, dc=1); port uses std::vector in Scripts.h
+0x7B8D43	no class	not reached	Compiler glue: phantom evidence=data entry inside 0x7B8D0D..0x7B8D59 (68B, dc=0, vc=0; not byte ptr [ebx + ecx*4]; dec edi; sbb byte ptr [edi], cl)
+0x7B8D87	no class	not reached	Internal ScriptList/ScriptGroup hash-table/vector storage helper (no class, 76B, dc=1); port uses std::vector in Scripts.h
+0x7B8DC3	no class	not reached	Compiler glue: phantom evidence=data entry inside 0x7B8D87..0x7B8DD3 (96B, dc=0, vc=0; mov edi, 0x890e314c; dec eax; or bl, ch)
+0x7B8E3B	no class	not reached	Compiler glue: phantom/mid-function evidence=data entry (22B, dc=0, vc=0; mov dword ptr [esi + 4], eax; imul eax, eax, 0x14; mov ecx, dword ptr [edi + 0x38])
+0x7B8F2A	?takeScript@ScriptList@@QAEXPAVBfmeKeyZK@@PAUBfmeHeadZK@@PAUBfmeNodeZK@@1PAPAU4@@Z	not reached	dead code; RW_BINARY_MAP dc=0, vc=0 (RW_BINARY_MAP dc=0, vc=0)
+0x7B8F3C	no class	not reached	Compiler glue: phantom evidence=data entry inside 0x7B8F2A..0x7B8F5F (3B, dc=0, vc=0; ret 0x108b)
+0x7B9100	no class	not reached	Internal ScriptList/ScriptGroup hash-table/vector storage helper (no class, 216B, dc=1); port uses std::vector in Scripts.h
+0x7B91D8	no class	not reached	Internal ScriptList/ScriptGroup hash-table/vector storage helper (no class, 216B, dc=1); port uses std::vector in Scripts.h
+0x7B94CD	??$_Construct@UBfmePod104@@U1@@_STL@@YAXPAUBfmePod104@@ABU1@@Z	not reached	MSVC/STLport standard library template instantiation (??$_Construct@UBfmePod104@@U1@@_STL@@YAXPAUBfmePod104@@ABU1@, 45B); replaced by C++ stdlib in port
+0x7B94FA	??$__uninitialized_fill_n@PAVArmySummary@@IV1@@_STL@@YAPAVArmySummary@@PAV1@IABV1@ABU__false_type@0@@Z	not reached	MSVC/STLport standard library template instantiation (??$__uninitialized_fill_n@PAVArmySummary@@IV1@@_STL@@YAPAVAr, 37B); replaced by C++ stdlib in port
+0x7B9581	_Rva003B8B44CopyDispatch	not reached	MSVC/STLport standard library template instantiation (_Rva003B8B44CopyDispatch, 29B); replaced by C++ stdlib in port
+0x7BB307	no class	not reached	Compiler glue: phantom/mid-function evidence=data entry (15B, dc=0, vc=0; call 0x5b4679; mov dword ptr [esi], 0xc35fe8; mov eax, esi)
+0x7BC295	?Rva003BB7E2@ScriptActions@@QAEXXZ	other issue #748	Radar script action ((91, 'RADAR_DISABLE')) owned by open Port 312 (#748)
+0x7BC2A3	?Rva003BB7F0@ScriptActions@@QAEXXZ	other issue #748	Radar script action ((92, 'RADAR_ENABLE')) owned by open Port 312 (#748)
+0x7BC8CB	no class	not reached	Compiler glue: phantom evidence=data entry inside 0x7BC8B7..0x7BC8E5 (35B, dc=0, vc=0; add al, ch; sar byte ptr [ebp + 4], 1; add byte ptr [ecx + 0x6a], bl)
+0x7BCE69	no class	unchecked	ScriptActions case 205 MAP_SWITCH_BORDER (0x7BCE69, 101B): terrain active boundary switch; deferred under size guard
+0x7BCED3	no class	not reached	Compiler glue: phantom/mid-function evidence=data entry (15B, dc=0, vc=0; leave; je 0x7bcedf; push 0)
+0x7BCF2F	no class	not reached	Compiler glue: phantom/mid-function evidence=data entry (12B, dc=0, vc=0; add ebx, eax; mov eax, dword ptr [0xde4ab8]; mov byte ptr [eax + 0x11], 0)
+0x7BD14B	no class	not reached	Compiler glue: phantom evidence=data entry inside 0x7BD107..0x7BD15B (3B, dc=0, vc=0; ret 0xf5f1)
+0x7BDEC0	no class	not reached	Compiler glue: phantom/mid-function evidence=data entry (21B, dc=0, vc=0; add al, 0x8b; inc eax; and byte ptr [ebx + 0x33082454], cl)
+0x7BDF8F	?Rva003BD485Median@@YAPAPAURva003BD485Keyed@@PAPAU1@00@Z	not reached	MSVC/STLport standard library template instantiation (?Rva003BD485Median@@YAPAPAURva003BD485Keyed@@PAPAU1@00@Z, 62B); replaced by C++ stdlib in port
+0x7BDFCD	??$__unguarded_linear_insert@PAPAURva003C3AB0Item@@PAU1@URva003C3AB0Cmp@@@_STL@@YAXPAPAURva003C3AB0Item@@PAU1@URva003C3AB0Cmp@@@Z	not reached	MSVC/STLport standard library template instantiation (??$__unguarded_linear_insert@PAPAURva003C3AB0Item@@PAU1@URva, 37B); replaced by C++ stdlib in port
+0x7BDFF2	no class	not reached	STLport sort/heap internal helper (no class, 63B, dc=1); replaced by std::sort in port
+0x7BE6E0	no class	not reached	Compiler glue: phantom evidence=data entry inside 0x7BE58C..0x7BE6EE (1B, dc=0, vc=0; hlt)
+0x7BEA20	no class	not reached	Compiler glue: phantom/mid-function evidence=data entry (1B, dc=0, vc=0; hlt)
+0x7BEB92	no class	not reached	Compiler glue: phantom evidence=data entry inside 0x7BEA2E..0x7BEBA5 (6B, dc=0, vc=0; in eax, dx; call ptr [edi - 0x75]; dec ebp)
+0x7BEBA5	?rva003BE11C@@YAXPAVObject@@PBVThingTemplate@@PBVCommandButton@@@Z	unchecked	Helper for ScriptActions 0x7C4D4F / 0x7C4F32 (USE_COMMANDBUTTON_ON_NEAREST_OBJECTTYPE, 337B); deferred under size guard
+0x7BEFC5	??$__unguarded_insertion_sort_aux@PAPAURva003C3AB0Item@@PAU1@URva003C3AB0Cmp@@@_STL@@YAXPAPAURva003C3AB0Item@@00URva003C3AB0Cmp@@@Z	not reached	MSVC/STLport standard library template instantiation (??$__unguarded_insertion_sort_aux@PAPAURva003C3AB0Item@@PAU1, 33B); replaced by C++ stdlib in port
+0x7BEFE6	?__adjust_heap@@YAXPAPAURva003BD485Keyed@@HHPAU1@H@Z	not reached	STLport sort/heap internal helper (?__adjust_heap@@YAXPAPAURva003BD485Keyed@@HHPAU1@H@Z, 90B, dc=2); replaced by std::sort in port
+0x7BF280	?rva003BE7ED@Rva003BE7ED@@QAEXXZ	unchecked	ScriptActions ?rva003BE7ED@Rva003BE7ED@@QAEXXZ (239B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7BF5E0	no class	not reached	Compiler glue: phantom evidence=data entry inside 0x7BF594..0x7BF669 (4B, dc=0, vc=0; in al, dx; sbb al, 0x8b; int3)
+0x7BF669	?Rva003BEBD6Do@ScriptActions@@QAEXPBVAsciiString@@@Z	unchecked	ScriptActions (455, 'MOVE_TEAM_HOME') (197B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7BF6BE	no class	not reached	Compiler glue: phantom evidence=data entry inside 0x7BF669..0x7BF72E (12B, dc=0, vc=0; add byte ptr [esi - 0x18], dl; mov al, byte ptr [0x83ffc856]; in al, dx)
+0x7BF808	no class	not reached	Compiler glue: phantom evidence=data entry inside 0x7BF7EC..0x7BF864 (3B, dc=0, vc=0; add al, ch; int3)
+0x7BFAD8	?doTeamFollowSkirmishApproachPath@ScriptActions@@IAEXABVAsciiString@@0_N@Z	unchecked	ScriptActions (249, 'SKIRMISH_FOLLOW_APPROACH_PATH') (442B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7BFC92	?doTeamMoveToSkirmishApproachPath@ScriptActions@@IAEXABVAsciiString@@0@Z	unchecked	ScriptActions (253, 'SKIRMISH_MOVE_TO_APPROACH_PATH') (416B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7BFCD0	no class	not reached	Compiler glue: phantom evidence=data entry inside 0x7BFC92..0x7BFE32 (2B, dc=0, vc=0; pop es; hlt)
+0x7C0000	no class	not reached	Compiler glue: phantom evidence=data entry inside 0x7BFF62..0x7C0091 (1B, dc=0, vc=0; hlt)
+0x7C023F	?Rva003BF7ACDo@ScriptActions@@QAEXABVAsciiString@@PAVParameter@@@Z	other issue #753	Guard script action ((207, 'TEAM_GUARD_OBJECT')) owned by open Port 317 (#753)
+0x7C0396	?Rva003BF903Do@ScriptActions@@QAEXABVAsciiString@@H@Z	unchecked	ScriptActions (468, 'TEAM_HARVEST') (108B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C045B	?Rva003BF9C8Do@ScriptActions@@QAEXABVAsciiString@@@Z	unchecked	ScriptActions (70, 'BUILD_TEAM') (50B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C048D	?Rva003BF9FADo@ScriptActions@@QAEXABVAsciiString@@M0@Z	unchecked	ScriptActions (181, 'RECRUIT_TEAM_AT_TEAM') (127B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C05CB	no class	not reached	Compiler glue: phantom evidence=data entry inside 0x7C0587..0x7C061F (29B, dc=0, vc=0; add byte ptr [ebp - 0x7cfa8b40], al; ror byte ptr [eax], 0xeb; add eax, 0xbd0c3fb8)
+0x7C0673	no class	not reached	Compiler glue: phantom evidence=data entry inside 0x7C061F..0x7C06BA (16B, dc=0, vc=0; mov ebp, 0x1cb6ff00; add al, byte ptr [eax]; add byte ptr [eax - 0x73], dl)
+0x7C0793	no class	not reached	Compiler glue: phantom evidence=data entry inside 0x7C0752..0x7C07ED (35B, dc=0, vc=0; add byte ptr [ebx - 0x39a7cf9], cl; add byte ptr [ebp - 0x7cfa8b40], al; ror byte ptr [eax], 0xeb)
+0x7C10C0	?doSetStoppingDistance@ScriptActions@@IAEXABVAsciiString@@M@Z	unchecked	ScriptActions (144, 'SET_STOPPING_DISTANCE') (110B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C18C5	?doSetCaveIndex@ScriptActions@@IAEXABVAsciiString@@H@Z	unchecked	ScriptActions (228, 'SET_CAVE_INDEX') (85B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C1AB3	?Rva003C1020Do@ScriptActions@@QAEXABVAsciiString@@0PAVParameter@@@Z	unchecked	ScriptActions (266, 'TEAM_ALL_USE_COMMANDBUTTON_ON_NAMED') (184B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C1B6B	?doTeamUseCommandButtonOnNearestEnemy@ScriptActions@@IAEXABVAsciiString@@0@Z	unchecked	ScriptActions (267, 'TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_ENEMY_UNIT') (586B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C1DB5	?doTeamUseCommandButtonOnNearestGarrisonedBuilding@ScriptActions@@IAEXABVAsciiString@@0@Z	unchecked	ScriptActions (268, 'TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_GARRISONED_BUILDING') (664B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C204D	?doTeamUseCommandButtonOnNearestKindof@ScriptActions@@IAEXABVAsciiString@@0H@Z	unchecked	ScriptActions (269, 'TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_KINDOF') (639B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C22CC	?doTeamUseCommandButtonOnNearestBuilding@ScriptActions@@IAEXABVAsciiString@@0@Z	unchecked	ScriptActions (270, 'TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_ENEMY_BUILDING') (638B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C254A	?doTeamUseCommandButtonOnNearestBuildingClass@ScriptActions@@IAEXABVAsciiString@@0H@Z	unchecked	ScriptActions (271, 'TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_ENEMY_BUILDING_CLASS') (697B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C2803	?doTeamCaptureNearestUnownedFactionUnit@ScriptActions@@IAEXABVAsciiString@@@Z	unchecked	ScriptActions (274, 'TEAM_CAPTURE_NEAREST_UNOWNED_FACTION_UNIT') (249B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C28FC	?rva003C1E69@Rva003C1E69@@QAEPAVTeam@@ABVAsciiString@@0@Z	unchecked	ScriptActions ?rva003C1E69@Rva003C1E69@@QAEPAVTeam@@ABVAsciiString@@0@Z (35B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C29FF	?Rva003C1F6CDo@ScriptActions@@QAEXPBVAsciiString@@H@Z	other issue #753	Guard script action ((316, 'TEAM_GUARD_SUPPLY_CENTER')) owned by open Port 317 (#753)
+0x7C2A71	?rva003C1FDE@Rva003C1FDE@@QAEXABVAsciiString@@_N@Z	unchecked	ScriptActions ?rva003C1FDE@Rva003C1FDE@@QAEXABVAsciiString@@_N@Z (59B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C2B11	?rva003C207C@ScriptActions@@IAEXPAVParameter@@0_N@Z	unchecked	ScriptActions (498, 'TEAM_NEEDS_OPEN_GATE') (78B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C2B5F	?rva003C20CA@ScriptActions@@IAEXABVAsciiString@@PAVParameter@@_N@Z	unchecked	ScriptActions (379, 'SET_TEAM_REFERENCE_TO_REFERNECE') (87B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C2CF5	?Rva003C2260Do@ScriptActions@@QAEXABVAsciiString@@H@Z	unchecked	ScriptActions (391, 'TEAM_MOVE_TO_NEAREST_OBJECT_OF_KINDOF') (319B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C2E34	?Rva003C239FDo@ScriptActions@@QAEXABVAsciiString@@HPAVParameter@@@Z	unchecked	ScriptActions (392, 'TEAM_MOVE_TO_NEAREST_OBJECT_OF_KINDOF_OWNED_BY_PLAYER') (337B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C3534	?Rva003C2A9FDo@ScriptActions@@QAEXABVAsciiString@@H@Z	other issue #753	Guard script action ((400, 'TEAM_GUARD_NEAREST_KINDOF')) owned by open Port 317 (#753)
+0x7C3B6E	?Rva003C30D9Do@ScriptActions@@QAEXABVAsciiString@@_N@Z	unchecked	ScriptActions (469, 'TEAM_TOGGLE_CLOSE_RANGE_WEAPON') (156B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C3C0A	?Rva003C3175Do@ScriptActions@@QAEXABVAsciiString@@_N@Z	unchecked	ScriptActions (470, 'NAMED_TOGGLE_CLOSE_RANGE_WEAPON') (126B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C409F	?rva003C3609@ScriptActions@@IAEXPAVParameter@@@Z	unchecked	ScriptActions (514, 'TEAM_ASSIMILATE_WITH_FIRST_WALK_ON_ARMY') (110B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C410D	?doUnitAssimilateWithFirstWalkOnArmy@ScriptActions@@IAEXPAVParameter@@@Z	unchecked	ScriptActions (515, 'UNIT_ASSIMILATE_WITH_FIRST_WALK_ON_ARMY') (73B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C44D5	?Rva003C3A3FSet@ScriptActions@@QAEXABVAsciiString@@H@Z	unchecked	ScriptActions (569, 'CHANGE_BURN_RATE_IN_AREA') (58B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C450F	?Rva003C3A79Partition@@YAPAPAURva003BD485Keyed@@PAPAU1@0PAU1@H@Z	not reached	MSVC/STLport standard library template instantiation (?Rva003C3A79Partition@@YAPAPAURva003BD485Keyed@@PAPAU1@0PAU1, 55B); replaced by C++ stdlib in port
+0x7C4546	??$__unguarded_insertion_sort@PAPAURva003C3AB0Item@@URva003C3AB0Cmp@@@_STL@@YAXPAPAURva003C3AB0Item@@0URva003C3AB0Cmp@@@Z	not reached	MSVC/STLport standard library template instantiation (??$__unguarded_insertion_sort@PAPAURva003C3AB0Item@@URva003C, 23B); replaced by C++ stdlib in port
+0x7C455D	?__pop_heap@@YAXPAPAURva003BD485Keyed@@00PAU1@H@Z	not reached	MSVC/STLport standard library template instantiation (?__pop_heap@@YAXPAPAURva003BD485Keyed@@00PAU1@H@Z, 41B); replaced by C++ stdlib in port
+0x7C4586	?__make_heap@@YAXPAPAURva003BD485Keyed@@0H@Z	not reached	MSVC/STLport standard library template instantiation (?__make_heap@@YAXPAPAURva003BD485Keyed@@0H@Z, 60B); replaced by C++ stdlib in port
+0x7C45C2	?popHeapAux@@YAXPAPAURva003BD485Keyed@@0HH@Z	not reached	MSVC/STLport standard library template instantiation (?popHeapAux@@YAXPAPAURva003BD485Keyed@@0HH@Z, 30B); replaced by C++ stdlib in port
+0x7C4BDB	?rva003C4145@ScriptActions@@QAEXABVAsciiString@@00@Z	unchecked	ScriptActions (447, 'FIRE_SPECIAL_POWER_ON_TEAM') (117B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C4CA0	?bfmeAddBH@ScriptActions@@QAEXABVAsciiString@@0PAVBfmeTargetBH@@@Z	unchecked	ScriptActions ?bfmeAddBH@ScriptActions@@QAEXABVAsciiString@@0PAVBfmeTargetBH@@@Z (59B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C4D4F	?rva003C42B9@ScriptActions@@QAEXPAVParameter@@ABVAsciiString@@1@Z	unchecked	ScriptActions (429, 'NAMED_USE_COMMANDBUTTON_ON_NEAREST_OBJECTTYPE') (151B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C4F32	?doTeamUseCommandButtonOnNearestObjectType@ScriptActions@@IAEXABVAsciiString@@00@Z	unchecked	ScriptActions (272, 'TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_OBJECTTYPE') (212B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C51E8	?rva003C4751@ScriptActions@@IAEXPAVParameter@@@Z	unchecked	ScriptActions (380, 'TEAM_GIVE_NEAREST_TEAM_UPGRADE') (605B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C5445	?rva003C49AE@ScriptActions@@IAEXPAVParameter@@0@Z	unchecked	ScriptActions (402, 'TEAM_GIVE_TEAM_UPGRADE') (194B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C55C4	??$__linear_insert@PAPAURva003C3AB0Item@@PAU1@URva003C3AB0Cmp@@@_STL@@YAXPAPAURva003C3AB0Item@@0PAU1@URva003C3AB0Cmp@@@Z	not reached	MSVC/STLport standard library template instantiation (??$__linear_insert@PAPAURva003C3AB0Item@@PAU1@URva003C3AB0Cm, 58B); replaced by C++ stdlib in port
+0x7C55FE	?makeHeapAux@@YAXPAPAURva003BD485Keyed@@0H@Z	not reached	MSVC/STLport standard library template instantiation (?makeHeapAux@@YAXPAPAURva003BD485Keyed@@0H@Z, 25B); replaced by C++ stdlib in port
+0x7C5617	?Rva003C4B80PopHeap@@YAXPAPAURva003BD485Keyed@@0H@Z	not reached	MSVC/STLport standard library template instantiation (?Rva003C4B80PopHeap@@YAXPAPAURva003BD485Keyed@@0H@Z, 23B); replaced by C++ stdlib in port
+0x7C5E29	?rva003C538F@ScriptActions@@IAEPAVContainModuleInterface@@AAPAW4ObjectID@@ABV?$vector@W4ObjectID@@V?$allocator@W4ObjectID@@@_STL@@@_STL@@PAVObject@@_N@Z	not reached	MSVC/STLport standard library template instantiation (?rva003C538F@ScriptActions@@IAEPAVContainModuleInterface@@AA, 118B); replaced by C++ stdlib in port
+0x7C6040	?rva003C55A6@ScriptActions@@QAEXPAXABVAsciiString@@111@Z	unchecked	ScriptActions (446, 'FIRE_SPECIAL_POWER_ON_NEAREST_OBJECTTYPE_BY_PLAYER') (304B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C6170	?rva003C56D6@ScriptActions@@QAEXPAXABVAsciiString@@11@Z	unchecked	ScriptActions (445, 'FIRE_SPECIAL_POWER_ON_NEAREST_OBJECTTYPE') (211B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C6ED1	??$__insertion_sort@PAPAURva003C3AB0Item@@URva003C3AB0Cmp@@@_STL@@YAXPAPAURva003C3AB0Item@@0URva003C3AB0Cmp@@@Z	not reached	MSVC/STLport standard library template instantiation (??$__insertion_sort@PAPAURva003C3AB0Item@@URva003C3AB0Cmp@@@, 45B); replaced by C++ stdlib in port
+0x7C6EFE	?Rva003C6464SortHeap@@YAXPAPAURva003BD485Keyed@@0H@Z	not reached	MSVC/STLport standard library template instantiation (?Rva003C6464SortHeap@@YAXPAPAURva003BD485Keyed@@0H@Z, 58B); replaced by C++ stdlib in port
+0x7C718B	?rva003C66F1@ScriptActions@@IAEXABVAsciiString@@PAVParameter@@010@Z	unchecked	ScriptActions (385, 'BUILD_BASE_BUILDING_PER_TACTICAL_MARKER') (386B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C737C	no class	not reached	Compiler glue: phantom evidence=data entry inside 0x7C730D..0x7C740F (9B, dc=0, vc=0; sbb ebx, ecx; jmp dword ptr [ecx + 0xde4950])
+0x7C740F	??$__final_insertion_sort@PAPAURva003C3AB0Item@@URva003C3AB0Cmp@@@_STL@@YAXPAPAURva003C3AB0Item@@0URva003C3AB0Cmp@@@Z	not reached	MSVC/STLport standard library template instantiation (??$__final_insertion_sort@PAPAURva003C3AB0Item@@URva003C3AB0, 68B); replaced by C++ stdlib in port
+0x7C7453	?Rva003C69B7PartialSort@@YAXPAPAURva003BD485Keyed@@00HH@Z	not reached	MSVC/STLport standard library template instantiation (?Rva003C69B7PartialSort@@YAXPAPAURva003BD485Keyed@@00HH@Z, 87B); replaced by C++ stdlib in port
+0x7C7998	?rva003C6EFC@ScriptActions@@IAEXABVAsciiString@@0_N@Z	unchecked	ScriptActions (573, 'TEAM_GARRISON_TEAM_INSTANTLY') (284B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C7AB4	?doSkirmishCommandButtonOnMostValuable@ScriptActions@@QAEXABVAsciiString@@0M_N@Z	unchecked	ScriptActions (262, 'SKIRMISH_PERFORM_COMMANDBUTTON_ON_MOST_VALUABLE_OBJECT') (606B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C7E39	?rva003C739D@ScriptActions@@QAEXPAVParameter@@0000@Z	unchecked	ScriptActions (489, 'UPGRADE_NEAREST_WALL') (549B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C805E	?Rva003C75C2PartialSort@@YAXPAPAURva003BD485Keyed@@00H@Z	not reached	MSVC/STLport standard library template instantiation (?Rva003C75C2PartialSort@@YAXPAPAURva003BD485Keyed@@00H@Z, 27B); replaced by C++ stdlib in port
+0x7C83B0	?rva003C7914@ScriptActions@@QAEXABVAsciiString@@PAVParameter@@@Z	unchecked	ScriptActions (564, 'ATTACK_MOVE_TEAM_TO_NAMED_OBJECT') (284B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C8E49	?doNamedAttackAreaForSeconds@ScriptActions@@IAEXABVAsciiString@@0H@Z	unchecked	ScriptActions (48, 'NAMED_ATTACK_AREA_FOR_SECONDS') (114B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C8F1E	?doLoadAllTransports@ScriptActions@@IAEXABVAsciiString@@@Z	unchecked	ScriptActions (52, 'TEAM_LOAD_TRANSPORTS') (487B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C946D	?Rva003C89D1Guard@ScriptActions@@QAEXPAVParameter@@0@Z	other issue #753	Guard script action ((453, 'UNIT_GUARD_OBJECT')) owned by open Port 317 (#753)
+0x7C9667	?Rva003C8BCBDo@ScriptActions@@QAEXABVAsciiString@@0@Z	unchecked	ScriptActions (116, 'TEAM_PANIC') (163B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C9769	?doTeamGarrisonNearestBuilding@ScriptActions@@IAEXABVAsciiString@@@Z	unchecked	ScriptActions (108, 'TEAM_GARRISON_NEAREST_BUILDING') (350B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C9A22	?doUnitGarrisonNearestBuilding@ScriptActions@@IAEXABVAsciiString@@@Z	unchecked	ScriptActions (111, 'NAMED_GARRISON_NEAREST_BUILDING') (299B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C9CEB	?doNamedFireWeaponFollowingWaypointPath@ScriptActions@@IAEXABVAsciiString@@0@Z	unchecked	ScriptActions (186, 'NAMED_FIRE_WEAPON_FOLLOWING_WAYPOINT_PATH') (146B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7C9EE9	?doMoveUnitTowardsNearest@ScriptActions@@IAEXABVAsciiString@@0V2@@Z	unchecked	ScriptActions (231, 'UNIT_MOVE_TOWARDS_NEAREST_OBJECT_TYPE') (279B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7CA000	?rva003C951B@ScriptActions@@QAEXABVAsciiString@@00@Z	unchecked	ScriptActions (548, 'UNIT_ATTACK_MOVE_TOWARDS_NEAREST_OBJECT_TYPE') (353B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7CA161	?doMoveTeamTowardsNearest@ScriptActions@@IAEXABVAsciiString@@0V2@@Z	unchecked	ScriptActions (232, 'TEAM_MOVE_TOWARDS_NEAREST_OBJECT_TYPE') (342B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7CA2B7	?doAttackMoveTeamTowardsNearest@ScriptActions@@QAEXABVAsciiString@@00@Z	unchecked	ScriptActions (565, 'ATTACK_MOVE_TEAM_TO_NEAREST_OBJECT_OF_TYPE_OF_PLAYER') (495B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7CA6EF	?Rva003C9C0AAttack@ScriptActions@@QAEXPAVParameter@@H@Z	other issue #753	Guard script action ((401, 'UNIT_GUARD_NEAREST_KINDOF')) owned by open Port 317 (#753)
+0x7CA7F2	?rva003C9D0D@ScriptActions@@QAEXABVAsciiString@@M@Z	unchecked	ScriptActions (479, 'TEAM_REPAIR_NEREST') (321B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7CA933	?rva003C9E4E@ScriptActions@@IAEXABVAsciiString@@0@Z	unchecked	ScriptActions (480, '#480') (253B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7CAD8E	?Rva003CA2A7IntrosortLoop@@YAXPAPAURva003BD485Keyed@@0HHH@Z	not reached	MSVC/STLport standard library template instantiation (?Rva003CA2A7IntrosortLoop@@YAXPAPAURva003BD485Keyed@@0HHH@Z, 123B); replaced by C++ stdlib in port
+0x7CAE09	?rva003CA322@ScriptActions@@IAEXABVAsciiString@@H00@Z	unchecked	ScriptActions (535, 'RECRUIT_COMBO_UNITS_FROM_TEAM') (179B): deferred under size guard (10 logic ports + 35 citations completed in Local 180)
+0x7CAEBC	??$sort@PAPAURva003C3AB0Item@@URva003C3AB0Cmp@@@_STL@@YAXPAPAURva003C3AB0Item@@0URva003C3AB0Cmp@@@Z	not reached	MSVC/STLport standard library template instantiation (??$sort@PAPAURva003C3AB0Item@@URva003C3AB0Cmp@@@_STL@@YAXPAP, 67B); replaced by C++ stdlib in port
+0x7D0070	no class	not reached	Compiler glue: phantom/mid-function evidence=data entry (13B, dc=0, vc=0; jl 0x7d0073; jl 0x7d0077; and al, 0xf4)
+0x7D0078	no class	not reached	Compiler glue: phantom evidence=data entry inside 0x7D0070..0x7D007D (1B, dc=0, vc=0; hlt)
+0x7E0008	no class	not reached	Compiler glue: phantom evidence=data entry inside 0x7D5270..0x7E4799 (30B, dc=0, vc=0; add byte ptr [ecx + 0xa06cae], cl; add byte ptr [eax + 0x50], ch; add al, 0xc4)
+0x7E0060	no class	not reached	Compiler glue: phantom/mid-function evidence=data entry (29B, dc=0, vc=0; add byte ptr [eax], cl; add byte ptr [eax], al; add byte ptr [eax - 0x28], ch)
+0x7E007D	no class	not reached	Compiler glue: phantom/mid-function evidence=data entry (16B, dc=0, vc=0; add eax, esp; add byte ptr [ebp + 0xa1bc8e], cl; add al, ch)
+0x7E48ED	?evaluateAllBuildFacilitiesDestroyed@ScriptConditions@@IAE_NPAVParameter@@@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E4972	?evaluateBridgeBroken@ScriptConditions@@IAE_NPAVParameter@@@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E49A3	?evaluateBridgeRepaired@ScriptConditions@@IAE_NPAVParameter@@@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E4A31	?evaluateNamedUnitDying@ScriptConditions@@IAE_NPAVParameter@@@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E4BDB	?evaluateBuildingEntered@ScriptConditions@@IAE_NPAVParameter@@0@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E4D0F	?evaluatePlayerHasNOrFewerBuildings@ScriptConditions@@IAE_NPAVParameter@@0@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E4D5A	?evaluatePlayerHasPower@ScriptConditions@@IAE_NPAVParameter@@@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E4DA8	?Rva003E41CBGet@@YG_NPAVParameter@@@Z	too big	ScriptConditions case 36 BANNER_PRESSED: client BannerUI callback unused in Ennorath (same scope as S-7930)
+0x7E4DC0	?evaluateVideoHasCompleted@ScriptConditions@@IAE_NPAVParameter@@@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E4DD8	?evaluateSpeechHasCompleted@ScriptConditions@@IAE_NPAVParameter@@@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E4E7E	?evaluatePlayerSpecialPowerFromUnitMidway@ScriptConditions@@IAE_NPAVParameter@@00@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E4EF4	?evaluatePlayerSpecialPowerFromUnitComplete@ScriptConditions@@IAE_NPAVParameter@@00@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E5291	?evaluatePlayerHasComparisonPercentPower@ScriptConditions@@IAE_NPAVParameter@@00@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E535C	?evaluatePlayerHasComparisonValueExcessPower@ScriptConditions@@IAE_NPAVParameter@@00@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E53ED	?evaluatePlayerDestroyedNOrMoreBuildings@ScriptConditions@@IAE_NPAVParameter@@00@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E543D	?evaluateUnitHasEmptied@ScriptConditions@@IAE_NPAVParameter@@@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E54FE	?rva003E4921@ScriptConditions@@QAE_NPAVParameter@@@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E5595	?evaluateSkirmishPlayerHasPrereqsToBuild@ScriptConditions@@IAE_NPAVParameter@@0@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E5640	?evaluateSkirmishSupplySourceSafe@ScriptConditions@@IAE_NPAVCondition@@PAVParameter@@1@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E56C1	?evaluateSkirmishSupplySourceAttacked@ScriptConditions@@IAE_NPAVParameter@@@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E5854	?Rva003E4C77Get@@YAHXZ	too big	ScriptConditions case 142 MUSIC_IS_PLAYING_FROM_SCRIPT: client audio query unused in Ennorath (same scope as S-7930)
+0x7E586A	?evaluateDistanceBetweenObjects@ScriptConditions@@IAE_NPAVCondition@@@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E5A82	?Rva003E4EA5Get@@YG_NPAVParameter@@@Z	too big	ScriptConditions case 120 CAMERA_HIT_SPECIFIC_SPLINE_WAYPOINT: client tactical camera spline query unused in Ennorath (S-7930)
+0x7E5AE2	?Rva003E4F05Get@@YG_NPAVParameter@@@Z	too big	ScriptConditions case 190 CAMERA_ROTATE_DISTANCE: client tactical camera rotation query unused in Ennorath (S-7930)
+0x7E5B18	?Rva003E4F3BGet@@YG_NPAVParameter@@@Z	too big	ScriptConditions case 191 CAMERA_ZOOM_DISTANCE: client tactical camera zoom query unused in Ennorath (S-7930)
+0x7E5B48	?Rva003E4F6BGet@@YG_NXZ	too big	ScriptConditions case 192 CAMERA_RESET: client tactical camera reset query unused in Ennorath (S-7930)
+0x7E5C91	?evaluateNamedCanPathToWaypoint@ScriptConditions@@IAE_NPAVParameter@@0@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E5CE2	?rva003E5105@ScriptConditions@@IAE_NPAVParameter@@0@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E5D2C	?rva003E514F@ScriptConditions@@IAE_NPAVParameter@@PAUCondA003E514F@@PAUCondB003E514F@@@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E5DB6	?rva003E51D9@ScriptConditions@@IAE_NPAVParameter@@0@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E5E44	?rva003E5267@ScriptConditions@@IAE_NPAVParameter@@0@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E6091	?evaluatePlayerIsInPlanningMode@ScriptConditions@@IAE_NPAVParameter@@@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E6448	?evaluatePlayerHasNOrFewerFactionBuildings@ScriptConditions@@IAE_NPAVParameter@@0@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E658D	?rva003E59B0@ScriptConditions@@IAE_NPAVParameter@@00_N@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E67E1	?evaluatePlayerHasKilledKindOfUnits@ScriptConditions@@IAE_NPAVParameter@@00@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E688E	?rva003E5CB1@ScriptConditions@@QAE_NPAVParameter@@0@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E6972	?rva003E5D95@ScriptConditions@@IAEEPAVParameter@@PAUCond003E5D95@@@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E6A0C	?evaluateTeamCountCompare@ScriptConditions@@IAE_NPAVParameter@@00@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E6FAA	?rva003E63CD@ScriptConditions@@IAE_NPAVCondition@@PAVParameter@@11@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E7083	?evaluatePlayerHasUnitKindInArea@ScriptConditions@@IAE_NPAVCondition@@PAVParameter@@1111@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E7329	?evaluateTeamOutsideAreaEntirely@ScriptConditions@@IAE_NPAVParameter@@00@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E7734	?evaluateTeamOwnedByPlayer@ScriptConditions@@IAE_NPAVParameter@@0@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E7AAD	?rva003E6ED0@ScriptConditions@@QAE_NPAVParameter@@PBVAsciiString@@0_N2@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E7C89	?evaluateTeamIsContained@ScriptConditions@@MAE_NPAVParameter@@_N@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E7D79	?evaluateSkirmishValueInArea@ScriptConditions@@IAE_NPAVCondition@@PAVParameter@@111@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E7FB8	?evaluateSkirmishCommandButtonIsReady@ScriptConditions@@MAE_NPAVParameter@@00_N@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E806F	?evaluateSkirmishUnownedFactionUnitComparison@ScriptConditions@@IAE_NPAVParameter@@00@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E8168	?evaluateSkirmishPlayerHasComparisonGarrisoned@ScriptConditions@@IAE_NPAVParameter@@00@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E82B5	?evaluateSkirmishPlayerHasComparisonCapturedUnits@ScriptConditions@@IAE_NPAVParameter@@00@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E83D0	?evaluateSkirmishNamedAreaExists@ScriptConditions@@IAE_NPAVParameter@@0@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E85C6	?evaluateSkirmishPlayerHasDiscoveredPlayer@ScriptConditions@@IAE_NPAVParameter@@0@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E86CD	?evaluateMusicHasCompleted@ScriptConditions@@IAE_NPAVParameter@@0@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E8727	?evaluateDistanceBetweenTeams@ScriptConditions@@IAE_NPAVCondition@@@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E8BA6	?Rva003E7FD5Get@@YG_NPAVParameter@@@Z	too big	ScriptConditions case 132 CAMERA_ENTERED_AREA: client tactical camera area query unused in Ennorath (S-7930)
+0x7E8C0E	?evaluateTeamIsLedByUnit@ScriptConditions@@IAE_NPAVParameter@@0@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E8CAB	?evaluateHasCommandPointsToBuildTeam@ScriptConditions@@IAE_NPAVParameter@@0@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E8DB9	?evaluateHasCommandPointsToBuildUnit@ScriptConditions@@IAE_NPAVParameter@@0@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E8F80	?rva003E83AF@ScriptConditions@@QAE_NPAVParameter@@0@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E9096	?evaluateTeamCanPathToWaypoint@ScriptConditions@@IAE_NPAVParameter@@0@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E9106	?evaluateTeamCanPathToNamed@ScriptConditions@@IAE_NPAVParameter@@0@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E91B1	?rva003E85E0@ScriptConditions@@IAE_NPAVParameter@@00@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E9274	?rva003E86A3@ScriptConditions@@IAE_NPAVParameter@@00@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E9434	?rva003E8863@ScriptConditions@@IAE_NPAVParameter@@000@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E957A	?evaluateUnitHasToggledWeapon@ScriptConditions@@IAE_NPAVParameter@@0@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E967A	?evaluateAnyUnitsUsingBloodthirsty@ScriptConditions@@IAE_NPAVParameter@@@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E9718	?rva003E8B47@ScriptConditions@@IAE_NPAVParameter@@0@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E97F5	?rva003E8C24@ScriptConditions@@IAE_NPAVParameter@@0@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E9BBF	?Rva003E8FEE@@YG_NPAVParameter@@@Z	too big	ScriptConditions case 184 IS_AREA_ON_FIRE: fire-grid area query unused in Ennorath (S-7930)
+0x7E9BFA	?Rva003E9029@@YG_NPBVAsciiString@@@Z	too big	ScriptConditions case 185 LIVING_WORLD_IS_REGION_REF_BOUND: LivingWorld region ref query unused in Ennorath (S-7930)
+0x7E9DC7	?evaluateSkirmishCanFireSpecialPowerOnTeam@ScriptConditions@@IAE_NPAVParameter@@00@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7E9EB0	?evaluateNamedUnitRankLevel@ScriptConditions@@IAE_NPAVParameter@@0@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7EA042	no class	too big	ScriptConditions case 202 PLAYER_HAS_UNIT_TYPE_IN_TRIGGER_AREA_UNDER_ATTACK: unused in Ennorath (S-7930)
+0x7EA41D	?evaluateTeamAttackedByType@ScriptConditions@@IAE_NPAVParameter@@0@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7EA74A	?evaluateNamedReachedWaypointsEnd@ScriptConditions@@IAE_NPAVParameter@@0@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7EA83D	?evaluateTeamReachedWaypointsEnd@ScriptConditions@@IAE_NPAVParameter@@0@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7EAE94	?evaluateNamedDestroyedByType@ScriptConditions@@IAE_NPAVParameter@@0@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7EAF48	?rva003EA12A@ScriptConditions@@IAE_NPAVParameter@@@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7EB046	?rva003EA228@ScriptConditions@@IAE_NPAVParameter@@_N@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7EB384	?evaluateSkirmishSuppliesWithinDistancePerimeter@ScriptConditions@@QAE_NPAVParameter@@000@Z	too big	Covered by S-7930 (Local 160, fork issue 927): unported ScriptConditions evaluator unused by Ennorath scripts
+0x7EECDF	?rva003EDC16@Rva003EDC16@@QAEXXZ	not reached	Client LargeGroupAudio reset loop helper (called by LargeGroupAudio::reset 0x60DCAD); audio playback replaced by Godot audio
+0x83228C	?_M_reallocate_map@?$deque@UBfmeE8@@V?$allocator@UBfmeE8@@@_STL@@@_STL@@IAEXI_N@Z	not reached	MSVC/STLport standard library template instantiation (?_M_reallocate_map@?$deque@UBfmeE8@@V?$allocator@UBfmeE8@@@_, 250B); replaced by C++ stdlib in port
+0xB5FDE0	no class	not reached	Lua 4.0 C library internal helper (0xB5FDE0, 96B); replaced by port LuaRuntime.cpp
+0xB68F70	no class	not reached	Lua 4.0 C library internal helper (0xB68F70, 125B); replaced by port LuaRuntime.cpp
+0xB7C260	$L1978	not reached	Compiler glue: MSVC SEH unwind funclet (11B, dc=0, vc=0; lea ecx, [ebp - 0x11c]; jmp 0x53a260)
+0xB80BC2	Unwind@00b6c911	not reached	Compiler glue: MSVC SEH unwind funclet (8B, dc=0, vc=0; lea ecx, [ebp - 0x10]; jmp 0x5fcbc4)
+0xB80BCA	Unwind@00b6c8bd	not reached	Compiler glue: MSVC SEH unwind funclet (8B, dc=0, vc=0; lea ecx, [ebp - 0x18]; jmp 0x5fcbc4)
+0xB81541	$L1183	not reached	Compiler glue: MSVC SEH unwind funclet (10B, dc=0, vc=0; push dword ptr [ebp - 0x10]; call 0x42f6a0; pop ecx)
+0xB8154B	Unwind@00b6d2b0	not reached	Compiler glue: MSVC SEH unwind funclet (8B, dc=0, vc=0; lea ecx, [ebp - 0x10]; jmp 0x5fcbc4)
+0xB81B8C	$L19704	not reached	Compiler glue: MSVC SEH unwind funclet (8B, dc=0, vc=0; lea ecx, [ebp + 8]; jmp 0x719c5d)
+0xB81CB1	$L19703	not reached	Compiler glue: MSVC SEH unwind funclet (8B, dc=0, vc=0; lea ecx, [ebp + 8]; jmp 0x5fcbc4)
+0xB8FD8B	uw_0077c3b4	not reached	Compiler glue: MSVC SEH unwind funclet (8B, dc=0, vc=0; lea ecx, [ebp - 0x44]; jmp 0x604009)
+0xB905EB	Unwind@00b7c12a	not reached	Compiler glue: MSVC SEH unwind funclet (8B, dc=0, vc=0; lea ecx, [ebp - 0x10]; jmp 0x5fcbc4)
+0xB905F3	Unwind@00b7c0f6	not reached	Compiler glue: MSVC SEH unwind funclet (8B, dc=0, vc=0; lea ecx, [ebp - 0x18]; jmp 0x5fcbc4)
+0xB90617	Unwind@00b7c110	not reached	Compiler glue: MSVC SEH unwind funclet (8B, dc=0, vc=0; lea ecx, [ebp - 0x14]; jmp 0x5fcbc4)
+0xB9061F	Unwind@00b7c12a	not reached	Compiler glue: MSVC SEH unwind funclet (8B, dc=0, vc=0; lea ecx, [ebp - 0x10]; jmp 0x719c5d)
+0xB9063C	Unwind@00b7c17b	not reached	Compiler glue: MSVC SEH unwind funclet (8B, dc=0, vc=0; lea ecx, [ebp - 0x64]; jmp 0x4b6532)
+0xB90644	Unwind@00b7c15e	not reached	Compiler glue: MSVC SEH unwind funclet (8B, dc=0, vc=0; lea ecx, [ebp - 0x10]; jmp 0x5fcbc4)
+0xB90656	Unwind@00b7c195	not reached	Compiler glue: MSVC SEH unwind funclet (8B, dc=0, vc=0; lea ecx, [ebp - 0x60]; jmp 0x4b6532)
+0xB9065E	Unwind@00b7c156	not reached	Compiler glue: MSVC SEH unwind funclet (8B, dc=0, vc=0; lea ecx, [ebp - 0x14]; jmp 0x81b49d)
+0xB91DB6	Unwind@00b7d7ae	not reached	Compiler glue: MSVC SEH unwind funclet (8B, dc=0, vc=0; lea ecx, [ebp - 0x14]; jmp 0x5fcbc4)
+0xB9697E	Unwind@00b824b7	not reached	Compiler glue: MSVC SEH unwind funclet (8B, dc=0, vc=0; lea ecx, [ebp - 0x10]; jmp 0x5fcbc4)
+0xB96986	Unwind@00b824cf	not reached	Compiler glue: MSVC SEH unwind funclet (8B, dc=0, vc=0; lea ecx, [ebp - 0x1c]; jmp 0x5fcbc4)
+0xB9698E	Unwind@00b824c7	not reached	Compiler glue: MSVC SEH unwind funclet (8B, dc=0, vc=0; lea ecx, [ebp - 0x1c]; jmp 0x5fcbc4)
+0xB96996	Unwind@00b824bf	not reached	Compiler glue: MSVC SEH unwind funclet (8B, dc=0, vc=0; lea ecx, [ebp - 0x1c]; jmp 0x5fcbc4)
+0xB96A1C	Unwind@00b82e54	not reached	Compiler glue: MSVC SEH unwind funclet (8B, dc=0, vc=0; lea ecx, [ebp + 0x10]; jmp 0x5fcbc4)
+0xB96A7C	$L1825	not reached	Compiler glue: MSVC SEH unwind funclet (8B, dc=0, vc=0; lea ecx, [ebp - 0x34]; jmp 0x72a4c8)
+0xB96CF5	$L3846	not reached	Compiler glue: MSVC SEH unwind funclet (8B, dc=0, vc=0; lea ecx, [ebp + 0xc]; jmp 0x5fcbc4)
+0xB98966	uw_00783235	not reached	Compiler glue: MSVC SEH unwind funclet (10B, dc=0, vc=0; push dword ptr [ebp + 8]; call 0x42f6a0; pop ecx)
+0xB98A10	uw_00782b4f	not reached	Compiler glue: MSVC SEH unwind funclet (11B, dc=0, vc=0; lea ecx, [ebp - 0x94]; jmp 0x6dabcb)
+0xBCC798	??__FTheFXParticleEditor@@YAXXZ	not reached	Particle Editor static atexit destructor (??__FTheFXParticleEditor@@YAXXZ); debug editor tool not in game (dc=0, vc=0)

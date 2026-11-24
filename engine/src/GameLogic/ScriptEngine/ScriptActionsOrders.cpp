@@ -953,6 +953,35 @@ bool ScriptActions::executeOrderAction(ScriptEngine &engine, const ScriptActionR
 		engine.counter(param(a, 2).stringValue).value = kills;
 		return true;
 	}
+	if (name == "SET_PLAYER_KILLS_OF_KINDOF_TO_COUNTER")
+	{
+		// Local 180: RW 0x7CAFA5 case 421 -> RW 0x7C395E: single player of mask (RW 0x758F7C + 0x6A85B6), ScoreKeeper (+0x3DC)
+		// getTotalObjectsDestroyedOfKindOf (RW 0x79E47A) over the 20 destroyed-by-template maps for kindOf bit param 1 -> counter param 2 (RW 0x60817A)
+		const Player *p = ScriptConditions::playerOfMask(engine, param(a, 0).stringValue);
+		if (!p)
+		{
+			return true;
+		}
+		const int kindOfBit = param(a, 1).intValue;
+		std::int32_t kills = 0;
+		const ThingFactory *tf = &logic.things();
+		if (tf && kindOfBit >= 0)
+		{
+			for (int i = 0; i < ScoreKeeper::MAX_PLAYERS; ++i)
+			{
+				for (const auto &kv : p->getScoreKeeper().destroyedByTemplate(i))
+				{
+					const ThingTemplate *tt = tf->findTemplate(kv.first);
+					if (tt && MaskTest(logic.templateInfo(tt->getFinalOverride()).kindOf, (unsigned)kindOfBit))
+					{
+						kills += kv.second;
+					}
+				}
+			}
+		}
+		engine.counter(param(a, 2).stringValue).value = kills;
+		return true;
+	}
 	if (name == "UNIT_SET_MODELCONDITION_FOR_DURATION")
 	{
 		Object *o = engine.getUnitNamed(param(a, 0).stringValue); // RW 0x7C6404
@@ -990,7 +1019,7 @@ bool ScriptActions::executeOrderAction(ScriptEngine &engine, const ScriptActionR
 	}
 	if (name == "HUMAN_IMPASSABLE_AREA")
 	{
-		// lane BFME2CAMP1: RW 0x7C4040 (area, on): the area by name (RW 0x759194; none: nothing); TheAI's pathfinder (+ 0x10) RW 0x934D51(area, on): the
+		// lane BFME2CAMP1: RW 0x7C4040 (area, on; reload wrapper RW 0x7C408D passes reload=1): the area by name (RW 0x759194; none: nothing); TheAI's pathfinder (+ 0x10) RW 0x934D51(area, on): the
 		// area's integer bounds (RW 0x6E4D2C: floor of the low corner, ceil of the high) divided by 10 (C division) give the cell range; every ground cell
 		// (RW 0x5E2E9C(1, x, y)) whose centre (x * 10 + 5, y * 10 + 5) is in the area (RW 0x6E4DC7: the integers as floats) whose bit 18 (impassable to
 		// human players, cell + 0xC) changes (RW 0x9349C8) marks its zone block dirty (RW 0x937D96). Then (not a reload: the third argument 0) the
