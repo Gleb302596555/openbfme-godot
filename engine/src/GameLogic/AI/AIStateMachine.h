@@ -293,6 +293,8 @@ private:
 
 // AIMoveToState (ZH AIStates.cpp:2076 and AIInternalMoveToState): a PATH-1 AIMoveToState driven as a machine state; with a goal object
 // the goal follows the object every frame.
+// Local 164: RW 0x741A0A (AIMoveToState ctor)
+// Local 164: RW 0x7476CE (~AIAttackMoveToState), RW 0x74B9E0 (AIAttackMoveToState deleting dtor), RW 0x74771D (AIAttackMoveToState::getStateName)
 class AIMoveToMachineState : public AIState
 {
 public:

@@ -43,6 +43,7 @@
 
 class AIMoveToState;
 
+// Local 164: RW 0x7426D0 (AIFollowPathAsTeamState dtor), RW 0x74271B (AIFollowPathAsTeamState::getStateName), RW 0x7475D6 (AIFollowPathAsTeamState deleting dtor)
 class AIFollowPathAsTeamState : public AIState
 {
 public:

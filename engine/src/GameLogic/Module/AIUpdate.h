@@ -56,6 +56,7 @@ std::unique_ptr<class AIState> makeMoveOutOfTheWayState(class AIStateMachine &ma
 // Base AIUpdateInterface no-op/compiler slots in RotWK 2.01: RW 0x0066ECF9 (construct -> nullptr, vslot 126),
 // RW 0x00A15F21 (AICMD 0x3F/0x40 -> return -1, vslots 36/37), and MI this-0x0C thunks RW 0x008A18ED / RW 0x008FF2DB
 // (port uses single inheritance without a separate AICommandInterface subobject).
+// Local 164: RW 0x898381 (~AIUpdateModuleData), RW 0x991323 (AIUpdateModuleData ctor)
 class AIUpdateInterface : public UpdateModule, public AIMoveHost
 {
 public:

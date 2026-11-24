@@ -8,6 +8,7 @@
 // TARGET FACTS (RotWK game.dat, caveat S-001; the BFME2 decomp is a donor, tier A / B same-shape for every RW address below):
 //   * RW 0x662A21 (AI, mode): AI + 0x4C = mode; with an owner: the guard target type (AI + 0x54) becomes LOCATION (0) unless it is AREA (3); the guard location
 //     (AI + 0x58) = the owner's position, AI + 0x1A0 = the owner's angle (Object + 0x44); the parent machine (AI + 0x30) setState(0x10).
+// Local 164: RW 0x74383E (~AIGoingIdleState), RW 0x74499C (AIGoingIdleState deleting dtor)
 //   * the parent machine (constructor RW 0x753755): 16 = AIGuardState (RW 0x74109B, vtable RW 0xC27DA0; success / failure idle 0); 0x4E = AIGoingIdleState
 //     (RW 0x7410C2, vtable RW 0xC27DF8: onEnter RW 0x743864 tells the owner's StancesBehavior onMoveEnd and fails, so it goes on to idle); the move states 1,
 //     0x1A, 0x21 and 0x3F end in 0x4E (success and failure).

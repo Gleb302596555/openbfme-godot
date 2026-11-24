@@ -55,6 +55,7 @@
 namespace
 {
 const char *const kStopCommands =
+	// Local 164: RW 0x64BADB (AIUpdateInterface/TransportAIUpdate friend_newModuleData)
 	"S-222 AIUpdateInterface executes the move / idle / follow-path / busy commands; every other AICommandType (attack, guard, hunt, enter, exit, dock, repair, wander, "
 	"waypoint paths, ...) is counted by AIUpdateInterface::unportedCommands() and does nothing (the combat and construction milestones port them)";
 const char *const kStopUpdate =
@@ -662,6 +663,7 @@ AIUpdateInterface::AIUpdateInterface(Thing *thing, const ModuleData *data)
 }
 
 // RW 0x0066F0E1 (scalar deleting dtor, AI vslot 0; calls 0x0066EB5E)
+// Local 164: RW 0x66EB5E (~AIUpdateInterface)
 AIUpdateInterface::~AIUpdateInterface()
 {
 	m_destroying = true; // the object left the world already (its drawable is gone): the states' exits must not touch its model condition
@@ -1650,6 +1652,7 @@ bool AIUpdateInterface::canFollowTeamPath() const
 }
 
 // B1 AIUpdate.cpp:5005: add a point to the path being followed (or start one)
+// Local 164: RW 0x7712AF (AICommandInterface::aiFollowPathAppend)
 void AIUpdateInterface::aiFollowPathAppend(const Coord3D &pos, CommandSourceType source)
 {
 	if (!acceptCommand(source, kCommandUnidentifiedMove))
@@ -2787,6 +2790,7 @@ void AIUpdateInterface::doQuickExit(const std::vector<Coord3D> &path)
 
 // Local 84: RW 0x006672D8 privateTightenToPosition (AICMD 0x02, AI vslot 25 / +0x64):
 // mobile check (RW 0x690E97), clears machine, clears goal object, clips goal position (RW 0x6654AD), enters AI_MOVE_AND_TIGHTEN (0x1B = 27).
+// Local 164: RW 0x770D9A (AICommandInterface::aiTightenToPosition)
 bool AIUpdateInterface::aiTightenToPosition(const Coord3D &pos, CommandSourceType source)
 {
 	if (!acceptCommand(source, 0x02))
@@ -2929,6 +2933,7 @@ void AIUpdateInterface::joinTeam()
 // ---- Local 114: AIUpdateInterface third-pass behaviour functions (both editions, issue #798) ----
 
 // RW 0x0066B6B8 privateMoveToAndEvacuate (AICMD 0x03, AI vslot 19 / +0x4C; DONOR BFME2 0x0026B6B2)
+// Local 164: RW 0x770E06 (AICommandInterface::aiMoveToAndEvacuate)
 bool AIUpdateInterface::aiMoveToAndEvacuate(const Coord3D &pos, CommandSourceType source)
 {
 	if (!acceptCommand(source, 0x03))
@@ -2956,6 +2961,7 @@ bool AIUpdateInterface::aiMoveToAndEvacuate(const Coord3D &pos, CommandSourceTyp
 }
 
 // RW 0x0066B72D privateMoveToAndEvacuateAndExit (AICMD 0x04, AI vslot 20 / +0x50; DONOR BFME2 0x0026B720)
+// Local 164: RW 0x770E72 (AICommandInterface::aiMoveToAndEvacuateAndExit)
 bool AIUpdateInterface::aiMoveToAndEvacuateAndExit(const Coord3D &pos, CommandSourceType source)
 {
 	if (!acceptCommand(source, 0x04))
@@ -3018,6 +3024,7 @@ bool AIUpdateInterface::aiEvacuate(bool exposeStealthUnits, CommandSourceType so
 }
 
 // RW 0x0066E078 privateGetHealed (AICMD 0x15, AI vslot 46 / +0xB8; DONOR BFME2 0x0026DD89)
+// Local 164: RW 0x77158B (AICommandInterface::aiGetHealed)
 bool AIUpdateInterface::aiGetHealed(Object *healDepot, CommandSourceType source)
 {
 	if (!acceptCommand(source, 0x15))
@@ -3034,6 +3041,7 @@ bool AIUpdateInterface::aiGetHealed(Object *healDepot, CommandSourceType source)
 }
 
 // RW 0x0066E0AA privateGetRepaired (AICMD 0x16, AI vslot 47 / +0xBC; DONOR BFME2 0x0026DDBB)
+// Local 164: RW 0x7715F0 (AICommandInterface::aiGetRepaired)
 bool AIUpdateInterface::aiGetRepaired(Object *repairDepot, CommandSourceType source)
 {
 	if (!acceptCommand(source, 0x16))

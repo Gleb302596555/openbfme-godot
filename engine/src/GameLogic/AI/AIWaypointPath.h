@@ -1,4 +1,5 @@
 // OpenBFME. GPL-3.0.
+// Local 164: RW 0x745C50 (AIFollowWaypointPathExactState deleting dtor), RW 0x744670 (AIFollowWaypointPathExactState ctor), RW 0x744698 (AIFollowWaypointPathExactState::getStateName)
 // Derived from Command & Conquer Generals Zero Hour, (c) 2001-2003 Electronic Arts Inc., GPL-3.0 (GameLogic/AI/AIStates.cpp AIFollowWaypointPathState).
 //
 // The waypoint path states of the AI (lane SCRIPT-3): the scripts' NAMED_ / TEAM_FOLLOW_WAYPOINTS[_EXACT] walk a waypoint path, choosing among a waypoint's

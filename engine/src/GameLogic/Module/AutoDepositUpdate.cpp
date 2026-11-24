@@ -36,6 +36,7 @@ void parseUpgradeName(INI *ini, void *, void *store, const void *)
 
 #define AD_OFF(member) (int)offsetof(AutoDepositUpdateModuleData, member)
 const FieldParse kAutoDepositFieldParse[] = {
+	// Local 164: RW 0x653F0E (AutoDepositUpdateModuleData::buildFieldParse)
 	{ "DepositTiming", INI::parseDurationUnsignedInt, nullptr, AD_OFF(m_depositTiming) },
 	{ "Upgrade", parseUpgradeName, nullptr, AD_OFF(m_upgrade) },
 	{ "DepositAmount", INI::parseInt, nullptr, AD_OFF(m_depositAmount) },

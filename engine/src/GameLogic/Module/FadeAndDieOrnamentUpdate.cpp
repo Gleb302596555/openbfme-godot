@@ -75,6 +75,7 @@ void parseEnvelope(INI *ini, void *, void *store, const void *)
 // while the field at +0x34 is a bool defaulting to true (ctor RW 0x0065535A, store RW 0x0065539E) and read at RW 0x007A7808.
 // No retail or mod INI sets FollowTarget; parsing it as bool allows synthetic INI tests to exercise both branches.
 const FieldParse kFadeAndDieOrnamentFieldParse[] = {
+	// Local 164: RW 0x654159 (FadeAndDieOrnamentUpdateModuleData::buildFieldParse)
 	{ "AttachToTargetBone", INI::parseAsciiString, nullptr, (int)offsetof(FadeAndDieOrnamentUpdateModuleData, m_attachToTargetBone) },
 	{ "Envelope", parseEnvelope, nullptr, (int)offsetof(FadeAndDieOrnamentUpdateModuleData, m_envelope) },
 	{ "FollowTarget", INI::parseBool, nullptr, (int)offsetof(FadeAndDieOrnamentUpdateModuleData, m_followTarget) },

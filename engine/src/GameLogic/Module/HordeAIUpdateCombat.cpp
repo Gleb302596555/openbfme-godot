@@ -962,6 +962,7 @@ struct HordeMeleeWaitState : AIState
 	}
 };
 
+// Local 164: RW 0x744451 (AIAttackMeleeHordeWaitPathState::getStateName)
 // B1 AIAttackMeleeHordeWaitPathState
 struct HordeMeleeWaitPathState : AIState
 {

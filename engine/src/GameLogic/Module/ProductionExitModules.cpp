@@ -33,13 +33,16 @@ namespace
 #define DP_OFF(member) (int)offsetof(DefaultProductionExitUpdateModuleData, member)
 // RW 0xC086A8
 const FieldParse kDefaultExitFieldParse[] = {
+	// Local 164: RW 0x65400B (DefaultProductionExitUpdateModuleData::buildFieldParse)
 	{ "UnitCreatePoint", INI::parseCoord3D, nullptr, DP_OFF(m_unitCreatePoint) },
+	// Local 164: RW 0x65416A (QueueProductionExitUpdateModuleData::buildFieldParse)
 	{ "NaturalRallyPoint", INI::parseCoord3D, nullptr, DP_OFF(m_naturalRallyPoint) },
 	{ nullptr, nullptr, nullptr, 0 }
 };
 #undef DP_OFF
 // RW 0xC085E4
 const FieldParse kSpawnPointFieldParse[] = {
+	// Local 164: RW 0x654137 (SpawnPointProductionExitUpdateModuleData::buildFieldParse)
 	{ "SpawnPointBoneName", INI::parseAsciiString, nullptr, (int)offsetof(SpawnPointProductionExitUpdateModuleData, m_spawnPointBoneName) },
 	{ nullptr, nullptr, nullptr, 0 }
 };

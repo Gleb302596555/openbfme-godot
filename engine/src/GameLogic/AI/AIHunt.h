@@ -55,6 +55,7 @@ enum
 	AI_ATTACK_SQUAD = 23  // lane BFME2CAMP1: RW 0x66C03D setState(0x17) (RW 0x753DF2 defines it: RW 0x740E95, success and failure idle)
 };
 
+// Local 164: RW 0x7439B9 (~AIHuntState), RW 0x743B77 (~AIHuntState), RW 0x744948 (AIHuntState deleting dtor)
 class AIHuntState : public AIState
 {
 public:
@@ -102,6 +103,7 @@ std::unique_ptr<AIState> makeHuntIdleState(AIStateMachine &m);
 //     0x1E4) -> STATE_FAILURE; the victim is TheAI's closest enemy in the area (RW 0x700F52(area, owner, AI + 0x70): AI::findClosestEnemyInArea), a HORDE
 //     victim (+ 0x115 bit 5) adjusted (RW 0x68D30E(owner, 1, 0)), set as the attack machine's goal (vslot 0x38); an idle attack machine (state 0) with a
 //     victim goes to 10; no victim -> STATE_SUCCESS. Then the attack machine runs under the parent's lock (+ 0x38), its sleep a continue.
+// Local 164: RW 0x743C48 (~AIAttackAreaState), RW 0x744964 (AIAttackAreaState deleting dtor), RW 0x7449FF (AIAttackAreaState deleting dtor), RW 0x741183 (AIAttackAreaState::getStateName), RW 0x7449B8 (AIAttackAreaState deleting dtor)
 class AIAttackAreaState : public AIState
 {
 public:
@@ -160,6 +162,7 @@ private:
 // INFERENCE / NOT PORTED (stop S-1186, docs/STOPS.md): Object + 0x4A8 is written only by a horde member's player attack order (RW 0x66BDB5, not ported):
 // zero here, so no remembered victim; the crate (AI + 0x238) is S-1188's; the pathfinder's nearby query RW 0x6F2799 is not ported (no extra candidates);
 // the AI bytes + 0x3CC and + 0x3C1 are written by no ported code (false); state 0x3E (ctor RW 0x7410E5) is not defined in the port (never current).
+// Local 164: RW 0x742E9A (~AIAttackSquadState), RW 0x74483C (AIAttackSquadState deleting dtor), RW 0x744897 (AIAttackSquadState deleting dtor)
 class AIAttackSquadState : public AIState
 {
 public:

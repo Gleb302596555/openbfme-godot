@@ -93,6 +93,7 @@ void parseEntry(INI *ini, void *instance, void *, const void *userData)
 	e.name = FXEventLog::isFXName(name) ? name : std::string();
 }
 
+// Local 164: RW 0x6539CA (TransitionDamageFXModuleData::buildFieldParse)
 // RW 0x73A5C9: user data 0 / 1 / 2 = DamageFXTypes / DamageOCLTypes / DamageParticleTypes
 void parseTypeMask(INI *ini, void *instance, void *, const void *userData)
 {

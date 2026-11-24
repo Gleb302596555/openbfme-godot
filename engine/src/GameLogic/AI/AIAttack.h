@@ -87,6 +87,7 @@ public:
 };
 
 // ZH AIAttackState: the parent state. It owns the attack sub machine and runs it every frame (the sub machine's sleeps are converted to continue).
+// Local 164: RW 0x74CB46 (AIAttackState ctor), RW 0x74CB4C (~AIAttackState), RW 0x7510D0 (AIAttackState deleting dtor), RW 0x74CB2F (AIAttackState vslot 17), RW 0x74CB33 (AIAttackState vslot 15)
 class AIAttackState : public AIState, public AttackFireNotify
 {
 public:
@@ -159,6 +160,7 @@ public:
 };
 
 // the sub machine's states (ZH AIStates.cpp; ids above)
+// Local 164: RW 0x7443BA (AIAttackApproachTargetState ctor)
 class AIAttackApproachState : public AIState
 {
 public:

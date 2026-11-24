@@ -154,6 +154,7 @@ const FieldParse kSymbioticParse[] = {
 const char *const kDeathTypeNames[] = { "NORMAL", "NONE", "CRUSHED", "BURNED", "EXPLODED", "POISONED", "TOPPLED", "FLOODED", "SUICIDED", "LASERED", "DETONATED", "SPLATTED", "POISONED_BETA",
 	"EXTRA_2", "EXTRA_3", "EXTRA_4", "EXTRA_5", "EXTRA_6", "EXTRA_7", "EXTRA_8", "KNOCKBACK", "SUPERNATURAL", "FADED", "SLAUGHTERED", nullptr }; // RW 0xDA39E8 order, the DeathType row's list
 const FieldParse kLifetimeParse[] = {
+	// Local 164: RW 0x653AAA (LifetimeUpdateModuleData::buildFieldParse)
 	{ "MinLifetime", INI::parseDurationUnsignedInt, nullptr, (int)offsetof(LifetimeUpdateModuleData, m_minLifetime) },
 	{ "MaxLifetime", INI::parseDurationUnsignedInt, nullptr, (int)offsetof(LifetimeUpdateModuleData, m_maxLifetime) },
 	{ "WaitForWakeUp", INI::parseBool, nullptr, (int)offsetof(LifetimeUpdateModuleData, m_waitForWakeUp) },

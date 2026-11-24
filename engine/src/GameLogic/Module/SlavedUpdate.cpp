@@ -30,6 +30,7 @@ namespace
 {
 const char *const kStop =
 	"[S-1426] SlavedUpdate (lane MOD-4): onEnslave / onSlaverDie (RW 0x8A510B / 0x8A51B9), DieOnMastersDeath, the team follow, AttackRange (RW 0x8A5319), "
+	// Local 164: RW 0x6540AF (SlavedUpdateModuleData::buildFieldParse)
 	"GuardMaxRange, GuardWanderRange and LeashRange (RW 0x8A5D00 / 0x8A567E) run; INFERENCE / not ported: the repair path (RW 0x8A5B75 / 0x8A58FA, no retail "
 	"object repairs), the scout path (the slaver's path end, AI + 0x140), AI command 15 as COMBAT-1's attack-move (its second argument RW 0x68B58C(0) + 0x34 "
 	"unread, S-328), onSlaverDamage's AI command 0x1D (ZH go prone), endRepair's AI vslot 0x238 and locomotor bits, the player's RW 0x79F486 "

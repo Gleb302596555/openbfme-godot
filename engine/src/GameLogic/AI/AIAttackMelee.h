@@ -6,6 +6,7 @@
 // TARGET FACTS (RotWK game.dat, caveat S-001; read with Ghidra in round 6):
 //   * kind 2 (RW 0x74CED6): no AI vslot 0x168 answer, not CONTESTING_BUILDING, not a HORDE, the current weapon without CanFireWhileCharging (+0x82); attacking an object
 //     that exists, the weapon a MeleeWeapon (+0x125), not immobile, and the weapon without CanFireWhileMoving (+0x81; with it kind 1, RW 0x745002);
+// Local 164: RW 0x74451B (AIAttackMeleeSquishState::getStateName)
 //   * the machine (RW 0x744B71): 0xE1 AIAttackMeleeApproachState (vtable 0xC28E60) -> success 0xE2, failure exit; 0xE9 AIAttackMeleeSquishState (0xC28EC8) -> 0xE2 / exit;
 //     0xE2 AIAttackMeleeEngageState (0xC287B0) -> 0xE6 / 0xE5; 0xE5 AIMeleeReAcquireState (0xC27BE8) -> 0xE1 / exit; 0xE6 aim (RW 0x740D6C(1, 0)) -> 0xE7 / 0xE1;
 //     0xE7 fire (RW 0x740E39) -> 0xE8 / 0xE1; 0xE8 wait (RW 0x740DF3) -> 0xE1 / 0xE1; 0xE1 is the default state;
