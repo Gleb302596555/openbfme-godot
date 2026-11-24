@@ -3,12 +3,14 @@
 // and TaintSpecialPowerModuleData (RW 0x008C8F71).
 
 #include "doctest.h"
+#include "IniTestUtil.h"
 
-#include "Common/INI/INI.h"
-#include "Common/INI/MultiIniFieldParse.h"
+#include "Common/INI.h"
 #include "GameLogic/Module/SpellBookPowers.h"
 
-#include <sstream>
+#include <string>
+
+using namespace initest;
 
 // Expectations from RotWK 2.01 game.dat RW 0x008C8C53:
 //   +0x7C (m_radius)        = *(float*)0x00BD83D8 = 10.0f
@@ -20,17 +22,17 @@ TEST_CASE("LOCAL-182 CloudBreakSpecialPowerModuleData retail 2.01 defaults (RW 0
 	CHECK(data.m_objectSpacing == 100.0f);
 
 	// Neighboring check: INI parsing without radius/spacing keeps retail defaults; explicit values override them.
-	MultiIniFieldParse parse;
-	CloudBreakSpecialPowerModuleData::buildFieldParse(parse);
-
 	CloudBreakSpecialPowerModuleData omitted;
 	{
-		std::istringstream ss("SunbeamObject = TestSunbeam
-End
-");
-		INI ini;
-		ini.loadStream(ss, "local182_cloudbreak_omitted.ini", INI_LOAD_OVERWRITE);
-		ini.initFromINIMulti(&omitted, parse);
+		Fixture fx;
+		fx.env.blocks.registerBlock("CloudBreakBlock", [&omitted](INI *ini) {
+			MultiIniFieldParse mp;
+			CloudBreakSpecialPowerModuleData::buildFieldParse(mp);
+			ini->initFromINIMulti(&omitted, mp);
+		});
+		const std::string err = loadError(fx.env, "local182_cloudbreak_omitted.ini",
+			"CloudBreakBlock\n  SunbeamObject = TestSunbeam\nEnd\n", INI_LOAD_OVERWRITE);
+		REQUIRE(err.empty());
 	}
 	CHECK(omitted.m_sunbeamObject == "TestSunbeam");
 	CHECK(omitted.m_radius == 10.0f);
@@ -38,13 +40,15 @@ End
 
 	CloudBreakSpecialPowerModuleData overridden;
 	{
-		std::istringstream ss("SunbeamObject = TestSunbeam
-SunbeamObjectSpacing = 250.0
-End
-");
-		INI ini;
-		ini.loadStream(ss, "local182_cloudbreak_override.ini", INI_LOAD_OVERWRITE);
-		ini.initFromINIMulti(&overridden, parse);
+		Fixture fx;
+		fx.env.blocks.registerBlock("CloudBreakBlock", [&overridden](INI *ini) {
+			MultiIniFieldParse mp;
+			CloudBreakSpecialPowerModuleData::buildFieldParse(mp);
+			ini->initFromINIMulti(&overridden, mp);
+		});
+		const std::string err = loadError(fx.env, "local182_cloudbreak_override.ini",
+			"CloudBreakBlock\n  SunbeamObject = TestSunbeam\n  SunbeamObjectSpacing = 250.0\nEnd\n", INI_LOAD_OVERWRITE);
+		REQUIRE(err.empty());
 	}
 	CHECK(overridden.m_objectSpacing == 250.0f);
 
@@ -63,30 +67,32 @@ TEST_CASE("LOCAL-182 TaintSpecialPowerModuleData retail 2.01 default radius (RW 
 	CHECK(data.m_taintRadius == 10.0f);
 
 	// Neighboring check: INI parsing without TaintRadius preserves 10.0f; explicit TaintRadius overrides it.
-	MultiIniFieldParse parse;
-	TaintSpecialPowerModuleData::buildFieldParse(parse);
-
 	TaintSpecialPowerModuleData omitted;
 	{
-		std::istringstream ss("TaintObject = TestTaint
-End
-");
-		INI ini;
-		ini.loadStream(ss, "local182_taint_omitted.ini", INI_LOAD_OVERWRITE);
-		ini.initFromINIMulti(&omitted, parse);
+		Fixture fx;
+		fx.env.blocks.registerBlock("TaintBlock", [&omitted](INI *ini) {
+			MultiIniFieldParse mp;
+			TaintSpecialPowerModuleData::buildFieldParse(mp);
+			ini->initFromINIMulti(&omitted, mp);
+		});
+		const std::string err = loadError(fx.env, "local182_taint_omitted.ini",
+			"TaintBlock\n  TaintObject = TestTaint\nEnd\n", INI_LOAD_OVERWRITE);
+		REQUIRE(err.empty());
 	}
 	CHECK(omitted.m_taintObject == "TestTaint");
 	CHECK(omitted.m_taintRadius == 10.0f);
 
 	TaintSpecialPowerModuleData overridden;
 	{
-		std::istringstream ss("TaintObject = TestTaint
-TaintRadius = 175.0
-End
-");
-		INI ini;
-		ini.loadStream(ss, "local182_taint_override.ini", INI_LOAD_OVERWRITE);
-		ini.initFromINIMulti(&overridden, parse);
+		Fixture fx;
+		fx.env.blocks.registerBlock("TaintBlock", [&overridden](INI *ini) {
+			MultiIniFieldParse mp;
+			TaintSpecialPowerModuleData::buildFieldParse(mp);
+			ini->initFromINIMulti(&overridden, mp);
+		});
+		const std::string err = loadError(fx.env, "local182_taint_override.ini",
+			"TaintBlock\n  TaintObject = TestTaint\n  TaintRadius = 175.0\nEnd\n", INI_LOAD_OVERWRITE);
+		REQUIRE(err.empty());
 	}
 	CHECK(overridden.m_taintRadius == 175.0f);
 }
