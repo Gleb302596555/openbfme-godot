@@ -294,6 +294,24 @@ bool LivingWorldLogic::start(const GameSetup &setup, std::string *error)
 	m_turn = 1;
 	m_phase = PHASE_ORDERS;
 	// ownership, buildings and armies
+	// LivingWorldRegion::SetupRegionOwnership RW 0x7F4696: a region with OwnedByPlayer goes to the
+	// player with that exact name (LivingWorldLogic::findPlayerByName RW 0x6B774C).
+	for (int ri = 0; ri < (int)m_regions.size(); ++ri)
+	{
+		const std::string &ownerName = m_regionCampaign->regions[(size_t)ri].ownedByPlayer;
+		if (ownerName.empty())
+		{
+			continue;
+		}
+		for (int pi = 0; pi < n; ++pi)
+		{
+			if (m_players[(size_t)pi].name == ownerName)
+			{
+				m_regions[(size_t)ri].owner = pi;
+				break;
+			}
+		}
+	}
 	const Act *actOne = m_campaign->acts.empty() ? nullptr : &m_campaign->acts[0];
 	for (int i = 0; i < n; ++i)
 	{
@@ -408,6 +426,19 @@ bool LivingWorldLogic::start(const GameSetup &setup, std::string *error)
 					return false;
 				}
 				spawnArmy(i, *spawn, idx);
+			}
+		}
+	}
+	// LivingWorldLogic::EnforceArmyRegionOwnership RW 0x6B56F8 (called from StartGame RW 0x6B90A7):
+	// any non-garrison army standing in an unowned region claims that region for its owner.
+	for (int pi = 0; pi < n; ++pi)
+	{
+		for (const Army &a : m_armies)
+		{
+			if (a.owner == pi && !a.garrison && a.region >= 0 && a.region < (int)m_regions.size() &&
+			    m_regions[(size_t)a.region].owner < 0)
+			{
+				m_regions[(size_t)a.region].owner = pi;
 			}
 		}
 	}
