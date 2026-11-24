@@ -108,6 +108,10 @@ struct ScriptGroup
 	std::vector<ScriptItem> items; // children in file order
 };
 
+// LOCAL-160 (both editions): value-type ScriptList covers RW 0x007B6333 (ScriptList::swap), RW 0x007B81ED (ScriptList::clear),
+// RW 0x007B7D64 (ScriptList::deleteScriptRef), RW 0x007B8177 (ScriptList::deleteGroupRef); copyable ScriptCondition covers
+// RW 0x007B655B (Condition::duplicate); ScriptParameter::coord covers RW 0x007B32DE (Parameter::getCoord3D) and
+// RW 0x007B3305 (Parameter::setCoord3D).
 struct ScriptList
 {
 	std::vector<ScriptItem> items;

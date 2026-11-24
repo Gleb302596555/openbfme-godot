@@ -119,6 +119,7 @@ std::string ScriptEngine::currentScriptName() const
 	return m_currentScript && m_currentScript->def ? m_currentScript->def->name : std::string();
 }
 
+// LOCAL-160 (both editions): covers RW 0x00605658 (ScriptEngine::init) and RW 0x007E4843 (ScriptConditions::reset).
 void ScriptEngine::reset()
 {
 	m_loaded = false;
@@ -234,6 +235,7 @@ void ScriptEngine::buildGroup(const std::vector<ScriptItem> &items, const std::s
 	}
 }
 
+// LOCAL-160 (both editions): covers RW 0x00607630 (ScriptEngine::newMap).
 void ScriptEngine::newGame(const std::vector<SideScripts> &sides, const std::vector<TriggerArea> *triggers, const std::vector<NamedCamera> *cameras,
 	bool warOfTheRing)
 {
@@ -300,6 +302,7 @@ bool ScriptEngine::runTeamCreateActions(TeamPrototype &proto)
 // ---- names ------------------------------------------------------------------------------------------------------------------------------------
 
 // RW 0x0072C43C (split) / RW 0x0072CDAB (DONOR BFME2 0x0032B389 Rva0032B389Join: "Side/name" join): a name without '/' belongs to the current side
+// LOCAL-160 (both editions): also covers RW 0x00605842 (ScriptEngine::rva00205CE7: resolveName(s) + '/' + s).
 std::pair<std::string, std::string> ScriptEngine::qualify(const std::string &name) const
 {
 	const size_t slash = name.find('/');

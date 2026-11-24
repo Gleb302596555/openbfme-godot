@@ -8,7 +8,7 @@
 //   * RotWK's ScriptEngine::xfer is RW 0x60A45B (window (1, 5), tier B "tu-only": no decomp code). Its stream holds far more than this port keeps (the
 //     Living World armies and players, attack priorities, fades, music, the named object cache by name and id, ...) and is not identified field by field
 //     (docs/SAVES-RETAIL.md section 2), so the block is OpenBFME's own layout: every field ScriptEngine::crc hashes plus the state a later frame reads.
-//   * inside it the records that ARE 1:1 ports keep retail's layout and window: Script::xfer (RW 0x7B3063, (1, 2): the active byte + 0x40, from version 2
+//   * inside it the records that ARE 1:1 ports keep retail's layout and window: ScriptList::xfer (RW 0x007B5269), Script::xfer (RW 0x7B3063, (1, 2): the active byte + 0x40, from version 2
 //     the frame to evaluate at + 0x3C), ScriptGroup::xfer (RW 0x7B2F8A, (1, 1): the active byte), SequentialScript::xfer (RW 0x60331E, (1, 1): the team's
 //     id (u32, the team's + 0x34; 0 none), the object id (XferObjectID), the side (AsciiString + 0xC), the script name (+ 0x10), the action index
 //     (+ 0x18), the loops left (+ 0x1C), the frames to wait (+ 0x20), the run-again byte (+ 0x24); a load finds the team by id, RW 0x7A1EEE, and throws

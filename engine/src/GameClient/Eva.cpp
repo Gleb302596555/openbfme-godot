@@ -26,6 +26,7 @@ void Eva::reset()
 	m_pending.clear();
 	m_lastPlayed.assign(m_ini.eva.recordCount(false), -1.0);
 	m_lastReported.assign(m_ini.eva.recordCount(false), -1.0);
+	m_lastPlayedFrame.assign(m_ini.eva.recordCount(false), { false, 0 });
 	m_speech = 0;
 	m_playedJumps.clear();
 	m_enabled = true;
@@ -135,7 +136,7 @@ void Eva::blockOthers(const EvaEventRecord &record, double nowMs)
 	}
 }
 
-void Eva::update(double nowMs)
+void Eva::update(double nowMs, std::uint32_t logicFrame)
 {
 	// expiry
 	for (auto it = m_pending.begin(); it != m_pending.end();)
@@ -180,6 +181,11 @@ void Eva::update(double nowMs)
 	m_pending.erase(best);
 	const EvaEventRecord &rec = *m_ini.eva.record(chosen.index, false);
 	m_lastPlayed[(size_t)chosen.index] = nowMs;
+	if (m_lastPlayedFrame.size() < m_lastPlayed.size())
+	{
+		m_lastPlayedFrame.resize(m_lastPlayed.size(), { false, 0 });
+	}
+	m_lastPlayedFrame[(size_t)chosen.index] = { true, logicFrame };
 	// AUDIO-2: where it played (the music scripts' IS_NUM_OF_UNITS_..._NEAR_EVA_EVENT_LAST_PLAYED_LOCATION asks)
 	if (m_lastPlayedPos.size() < m_lastPlayed.size())
 	{
@@ -241,6 +247,19 @@ bool Eva::lastPlayedPosition(int index, Coord3D *position) const
 bool Eva::playedRecently(int index, double withinMs, double nowMs) const
 {
 	return index >= 0 && (size_t)index < m_lastPlayed.size() && m_lastPlayed[(size_t)index] >= 0.0 && nowMs - m_lastPlayed[(size_t)index] <= withinMs;
+}
+
+bool Eva::lastPlayedFrame(int index, std::uint32_t *out) const
+{
+	if (index < 0 || (size_t)index >= m_lastPlayedFrame.size() || !m_lastPlayedFrame[(size_t)index].first)
+	{
+		return false;
+	}
+	if (out)
+	{
+		*out = m_lastPlayedFrame[(size_t)index].second;
+	}
+	return true;
 }
 
 std::vector<Coord3D> Eva::takePlayedJumpPositions()

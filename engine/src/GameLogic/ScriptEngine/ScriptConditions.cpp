@@ -27,6 +27,7 @@
 #include "GameLogic/SimMath.h"
 #include "Common/NumericState.h"
 #include <cfloat>
+#include <cmath>
 #include "GameLogic/VictoryConditions.h"
 #include "Common/Thing/ThingFactory.h"
 #include "Common/Thing/ThingTemplate.h"
@@ -141,6 +142,8 @@ enum ConditionType
 	PLAYER_ACQUIRED_SCIENCE = 100,
 	PLAYER_CAN_PURCHASE_SCIENCE = 102,
 	PLAYER_LOST_OBJECT_TYPE = 104,
+	PLAYER_HAS_NUMBER_UNITS_DISTANCE_FROM_OBJECT = 161,
+	HAS_EVA_EVENT_PLAYED_IN_LAST_N_SECONDS = 186,
 	IS_NUM_OF_UNITS_BELONGING_TO_PLAYER_NEAR_EVA_EVENT_LAST_PLAYED_LOCATION_COMPARISON_INT = 187,
 	START_POSITION_IS = 107,
 	COUNTER_COUNTER = 111,
@@ -2175,6 +2178,107 @@ bool ScriptConditions::evaluate(ScriptEngine &engine, const ScriptCondition &c)
 			}
 		}
 		return false;
+	}
+	case PLAYER_HAS_NUMBER_UNITS_DISTANCE_FROM_OBJECT:
+	{
+		// LOCAL-160 (both editions): RW 0x007E6C7C (DONOR BFME2 ScriptConditions::evaluatePlayerHasNumberUnitsDistanceFromObject),
+		// callback RW 0x007E6C0F, unit kind filter RW 0x006618E6 ({INFANTRY, CAVALRY, MONSTER, MACHINE, AIRCRAFT} and none of
+		// {STRUCTURE, INERT, HORDE}). Distance is clamped to >= 0 and squared; if the named object does not exist (RW 0x007E6CE5),
+		// origin is (0,0,0) and distSq = -1.0f (RW 0x00BD19DC) so every matching unit counts. 3D squared distance must be strictly
+		// greater than distSq (comiss / jbe), with early exit once count > targetCount.
+		const std::uint32_t mask = playerMaskOf(engine, param(c, 0).stringValue);
+		const int op = param(c, 1).intValue;
+		const int targetCount = param(c, 2).intValue;
+		float dist = param(c, 3).realValue;
+		if (dist < 0.0f)
+		{
+			dist = 0.0f;
+		}
+		Coord3D origin{ 0.0f, 0.0f, 0.0f };
+		float distSq = dist * dist;
+		if (const Object *named = engine.getUnitNamed(param(c, 4).stringValue))
+		{
+			origin = *named->getPosition();
+		}
+		else
+		{
+			distSq = -1.0f; // RW 0x007E6CF7 -> RW 0x00BD19DC
+		}
+		static const int kInfantry = kindOfBit("INFANTRY"), kCavalry = kindOfBit("CAVALRY"), kMonster = kindOfBit("MONSTER"),
+						 kMachine = kindOfBit("MACHINE"), kAircraft = kindOfBit("AIRCRAFT"), kStructure = kindOfBit("STRUCTURE"),
+						 kInert = kindOfBit("INERT"), kHorde = kindOfBit("HORDE");
+		int count = 0;
+		for (int idx = 0; idx < 32 && count <= targetCount; ++idx)
+		{
+			if ((mask & (1u << idx)) == 0)
+			{
+				continue;
+			}
+			const Player *pl = engine.logic().players().getNthPlayer(idx);
+			if (!pl)
+			{
+				continue;
+			}
+			for (Object *o = engine.logic().getFirstObject(); o; o = o->getNextObject())
+			{
+				if (o->getControllingPlayer() != pl || o->isDestroyed())
+				{
+					continue;
+				}
+				const bool anyUnitKind = (kInfantry >= 0 && o->isKindOf((unsigned)kInfantry)) ||
+					(kCavalry >= 0 && o->isKindOf((unsigned)kCavalry)) ||
+					(kMonster >= 0 && o->isKindOf((unsigned)kMonster)) ||
+					(kMachine >= 0 && o->isKindOf((unsigned)kMachine)) ||
+					(kAircraft >= 0 && o->isKindOf((unsigned)kAircraft));
+				if (!anyUnitKind)
+				{
+					continue;
+				}
+				if ((kStructure >= 0 && o->isKindOf((unsigned)kStructure)) ||
+					(kInert >= 0 && o->isKindOf((unsigned)kInert)) ||
+					(kHorde >= 0 && o->isKindOf((unsigned)kHorde)))
+				{
+					continue;
+				}
+				const Coord3D *pos = o->getPosition();
+				const float dx = pos->x - origin.x;
+				const float dy = pos->y - origin.y;
+				const float dz = pos->z - origin.z;
+				if (dx * dx + dy * dy + dz * dz > distSq)
+				{
+					++count;
+					if (count > targetCount)
+					{
+						break;
+					}
+				}
+			}
+		}
+		return compare(op, count, targetCount);
+	}
+	case HAS_EVA_EVENT_PLAYED_IN_LAST_N_SECONDS:
+	{
+		// LOCAL-160 (both editions): RW 0x007E6017 (DONOR BFME2 ScriptConditions::evaluateHasEvaEventPlayedInLastNSeconds).
+		// frames = (int)ceil(LogicFramesPerSecond * seconds) (msvcr71!ceil RW 0x00BD0588); resolves event in TheEva (RW 0x5DDEA2),
+		// asks getLastReallyPlayedFrameForEvaEvent (RW 0x5DCD4F), and checks unsigned (nowFrame - lastFrame) <= frames.
+		Eva *eva = AudioApi::currentEva();
+		if (!eva)
+		{
+			return false;
+		}
+		const int evIndex = eva->findEvent(param(c, 0).stringValue);
+		if (evIndex == -1)
+		{
+			return false;
+		}
+		std::uint32_t lastFrame = 0;
+		if (!eva->lastPlayedFrame(evIndex, &lastFrame))
+		{
+			return false;
+		}
+		const std::int32_t frames = (std::int32_t)std::ceil((double)LOGICFRAMES_PER_SECOND * (double)param(c, 1).realValue);
+		const std::uint32_t elapsed = engine.logic().getFrame() - lastFrame;
+		return elapsed <= (std::uint32_t)frames;
 	}
 	case IS_NUM_OF_UNITS_BELONGING_TO_PLAYER_NEAR_EVA_EVENT_LAST_PLAYED_LOCATION_COMPARISON_INT:
 	{
