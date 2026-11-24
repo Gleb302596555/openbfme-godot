@@ -200,7 +200,7 @@ run() {
   echo "steps: ran${RAN:- none}; skipped${SKIPPED:- none} (since ${BASE:-no previous run})" >> "$LOG"
   if [ $((s_matrix + s_audit + s_sweep)) -gt 0 ]; then
     st "карты на main $rev: сборка"
-    OPENBFME_BUILD_TARGETS=openbfme_tests bash tools/colab/build_tests.sh > "$RUNS/nightly_build.log" 2>&1   # the tests only: no GDExtension here || { echo "build failed at $rev" >> "$LOG"; return 1; }
+    OPENBFME_FUNC_TRACE=ON OPENBFME_BUILD_TARGETS=openbfme_tests bash tools/colab/build_tests.sh > "$RUNS/nightly_build.log" 2>&1   # the tests only: no GDExtension here || { echo "build failed at $rev" >> "$LOG"; return 1; }
   fi
   mkdir -p "$AUDIT"
   # the script map (owner 2026-11-19: mechanics the sides' script libraries give, like the Manwe science): before the matrix (matrix_run.py collect
@@ -212,7 +212,12 @@ run() {
   fi
   if [ "$s_matrix" = 1 ]; then
   st "карты на main $rev: матрица кнопок (все фракции)"
-  python3 tools/matrix_run.py all --jobs 5 > "$RUNS/nightly_matrix.log" 2>&1 || { echo "matrix failed at $rev" >> "$LOG"; return 1; }
+  # the incremental matrix (owner 2026-11-24, tools/mod/matrix_deps.py): a faction reruns only when a change since its last run touches a file
+  # its processes ran (with the data they read and every header); the others keep their rows from $RUNS/matrix-cache. The 01 UTC run and
+  # --full (or new game files / INI archive / hand verdicts) rerun every faction and refresh every set.
+  local inc=(--incremental); { [ "$FULL" = 1 ] || [ "$(date -u +%H)" = "01" ]; } && inc=()
+  python3 tools/matrix_run.py all --jobs 5 --cache "$RUNS/matrix-cache" "${inc[@]}" > "$RUNS/nightly_matrix.log" 2>&1 || { echo "matrix failed at $rev" >> "$LOG"; return 1; }
+  grep -E "^select: [0-9]+ of" "$RUNS/nightly_matrix.log" >> "$LOG"
   # the matrix review (owner 2026-11-17): layer 1 ran inside `all` (recheck: every red object swept again alone, ORDER when fine alone);
   # layers 2 and 3 here: the lint against the mod's INI, and every button whose verdict moved since the main the previous run measured
   python3 tools/mod/matrix_review.py --ini "$INI" --before "$(cat "$RUNS/last_rev" 2>/dev/null)" > "$RUNS/nightly_review.log" 2>&1       || echo "matrix review failed at $rev (the run goes on)" >> "$LOG"

@@ -136,6 +136,18 @@ if(OPENBFME_COVERAGE)
     add_compile_options(--coverage -O0 -g)
     add_link_options(--coverage)
 endif()
+# The maps run's function trace (owner 2026-11-24, tests/FuncTrace.cpp, tools/mod/matrix_deps.py): a matrix faction reruns only when a change
+# touches what its processes ran. Functions defined in headers (".h" in the path) are not instrumented: their code runs inside the instrumented
+# .cpp functions that call or inline them, and those functions' translation units bring the headers in. -g1: the DWARF units and their address
+# ranges matrix_deps.py maps the offsets with. Only the tests use it; the game never does.
+option(OPENBFME_FUNC_TRACE "GCC/Clang: record the functions each test process runs (the maps run's incremental matrix)" OFF)
+if(OPENBFME_FUNC_TRACE)
+    if(MSVC OR NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        message(FATAL_ERROR "OPENBFME_FUNC_TRACE needs GCC or Clang")
+    endif()
+    add_compile_options(-finstrument-functions "-finstrument-functions-exclude-file-list=.h,/usr/" -g1)
+    add_compile_definitions(OPENBFME_FUNC_TRACE)
+endif()
 # godot-cpp sets CMAKE_MSVC_RUNTIME_LIBRARY (static CRT) in the cache; every target below
 # inherits it, so the core library links cleanly into the extension.
 
@@ -1759,6 +1771,9 @@ target_sources(openbfme_tests PRIVATE
     ${OPENBFME_PORT207_TESTS}
     ${OPENBFME_PORT285_TESTS})
 target_link_libraries(openbfme_tests PRIVATE openbfme_core)
+if(OPENBFME_FUNC_TRACE)
+    target_sources(openbfme_tests PRIVATE tests/FuncTrace.cpp)  # the function trace's hooks (tools/mod/matrix_deps.py)
+endif()
 # Build speed (docs/ennorath/PROCESS.md, section 7): the test runner's files share a precompiled standard library and doctest (its light link: add_link_options above).
 # Only here: the simulation's own sources (openbfme_core, cmake/SimFp.cmake) keep their settings.
 if(MSVC)

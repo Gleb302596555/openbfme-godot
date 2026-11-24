@@ -21,7 +21,8 @@ export CCACHE_BASEDIR="${CCACHE_BASEDIR:-/content}"
 cd "$(git rev-parse --show-toplevel)"
 git submodule update --init --depth 1 engine/thirdparty/godot-cpp
 cmake -S engine -B engine/build -G Ninja -DCMAKE_BUILD_TYPE=Release -DOPENBFME_BUILD_GODOT=ON \
-  -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+  -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+  -DOPENBFME_FUNC_TRACE="${OPENBFME_FUNC_TRACE:-OFF}"   # the maps run's function trace (tools/mod/matrix_deps.py); every other build keeps it off
 # OPENBFME_BUILD_TARGETS (as build.bat's): only these targets, e.g. openbfme_tests for the maps run, which never loads the GDExtension
 # (2026-11-24: godot-cpp and the extension were about 1100 of the 3180 build steps of every maps run)
 targets=()

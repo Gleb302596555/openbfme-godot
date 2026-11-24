@@ -138,6 +138,16 @@ TRACE = re.compile(r"^factb trace: (.+)$", re.M)
 MAX_CRASHES = 40
 
 
+def traced(a, env: dict, faction: str) -> dict:
+    """The env of one more process of this faction, recording the functions it runs (OPENBFME_FUNC_TRACE builds; others ignore it). The
+    .expect marker lets tools/mod/matrix_deps.py prove that every process of the faction left its trace."""
+    d = a.out / "trace"
+    d.mkdir(parents=True, exist_ok=True)
+    n = len(list(d.glob(f"{faction}.*.expect")))
+    (d / f"{faction}.{n}.expect").write_text("", encoding="utf-8")
+    return dict(env, OPENBFME_FUNC_TRACE_OUT=str(d / f"{faction}.{n}"))
+
+
 def run_one(a, faction: str) -> tuple[str, int, float]:
     """One faction, rerun after each crash: the report is appended to as the test goes, the crashed press (or object, when a rerun crashes
     again before its first press) gets a CRASH line and is skipped with every press already reported."""
@@ -159,7 +169,7 @@ def run_one(a, faction: str) -> tuple[str, int, float]:
         with open(log_path, "ab") as log:
             log.write(f"\n===== attempt {attempt + 1} =====\n".encode())
             log.flush()
-            rc = subprocess.call([str(a.tests), f"-tc={TEST_CASE}"], cwd=REPO, env=env, stdout=log, stderr=subprocess.STDOUT)
+            rc = subprocess.call([str(a.tests), f"-tc={TEST_CASE}"], cwd=REPO, env=traced(a, env, faction), stdout=log, stderr=subprocess.STDOUT)
         text = log_path.read_text(encoding="utf-8", errors="replace").rsplit("===== attempt", 1)[-1]
         if "CRASHED" not in text:
             break
@@ -187,7 +197,7 @@ def run_one(a, faction: str) -> tuple[str, int, float]:
     with open(log_path, "ab") as log:
         log.write(b"\n===== spell book =====\n")
         log.flush()
-        subprocess.call([str(a.tests), f"-tc={SPELL_CASE}"], cwd=REPO, env=env, stdout=log, stderr=subprocess.STDOUT)
+        subprocess.call([str(a.tests), f"-tc={SPELL_CASE}"], cwd=REPO, env=traced(a, env, faction), stdout=log, stderr=subprocess.STDOUT)
     return faction, rc, time.time() - t0
 
 
@@ -228,11 +238,11 @@ def cmd_recheck(a) -> None:
                    FACTB_ONLY=",".join(objs))
         (rec / "none.skip").write_text("", encoding="utf-8")
         with open(rec / f"{f}.log", "wb") as log:
-            subprocess.call([str(a.tests), f"-tc={TEST_CASE}"], cwd=REPO, env=env, stdout=log, stderr=subprocess.STDOUT)
+            subprocess.call([str(a.tests), f"-tc={TEST_CASE}"], cwd=REPO, env=traced(a, env, f), stdout=log, stderr=subprocess.STDOUT)
         return f, len(objs)
 
     with ThreadPoolExecutor(max_workers=a.jobs) as pool:
-        for f, n in pool.map(alone, [f for f in a.factions if red.get(f)]):
+        for f, n in pool.map(alone, [f for f in getattr(a, "rerun", a.factions) if red.get(f)]):
             print(f"recheck {f}: {n} objects swept alone", flush=True)
     rows = []
     for f, buttons in red.items():
@@ -315,8 +325,13 @@ def cmd_run(a) -> None:
     (a.out / "recheck" / "order.tsv").unlink(missing_ok=True)  # a new run: the old recheck does not apply
     if not a.tests.exists():
         raise SystemExit(f"{a.tests} is missing: build with tools/colab/build_tests.sh")
+    todo = getattr(a, "rerun", a.factions)
+    for f in todo:  # this run's traces and recheck only
+        for p in (a.out / "trace").glob(f"{f}.*") if (a.out / "trace").exists() else []:
+            p.unlink()
+        (a.out / "recheck" / f"{f}.tsv").unlink(missing_ok=True)
     with ThreadPoolExecutor(max_workers=a.jobs) as pool:
-        for faction, rc, sec in pool.map(lambda f: run_one(a, f), a.factions):
+        for faction, rc, sec in pool.map(lambda f: run_one(a, f), todo):
             got = (a.out / f"{faction}.tsv").exists()
             print(f"{faction}: exit {rc}, {sec / 60:.1f} min, report {'yes' if got else 'MISSING (see ' + faction + '.log)'}", flush=True)
 
@@ -515,6 +530,69 @@ def update_readme(cells: dict[str, tuple[str, str]]) -> None:
     README.write_text("".join(out), encoding="utf-8")
 
 
+MATRIX_DEPS = REPO / "tools" / "mod" / "matrix_deps.py"
+
+
+def cache_files(f: str) -> list[tuple[str, str]]:
+    """(cache name, path below --out) of what a faction's rows need again when it is kept."""
+    return [(f"{f}.tsv", f"{f}.tsv"), (f"{f}.seeds", f"{f}.seeds"), (f"{f}.recheck.tsv", f"recheck/{f}.tsv")]
+
+
+def cmd_select(a) -> None:
+    """--incremental (owner 2026-11-24): which factions rerun (tools/mod/matrix_deps.py select), plus any whose seeds changed; the kept ones
+    get their rows and recheck rows back from --cache."""
+    a.rerun = list(a.factions)
+    if not a.incremental or not a.cache:
+        return
+    import shutil
+    out = subprocess.run([sys.executable, str(MATRIX_DEPS), "select", "--cache", str(a.cache), "--factions", *a.factions], cwd=REPO,
+                         capture_output=True, text=True)
+    if out.returncode != 0:
+        print(f"select failed, every faction reruns: {out.stderr[-500:]}", flush=True)
+        return
+    rerun = []
+    for line in out.stdout.splitlines():
+        print(f"select: {line}", flush=True)
+        word, f = line.split(" ")[:2]
+        if word == "keep":
+            old = a.cache / f"{f}.seeds"
+            if not old.exists() or old.read_bytes() != (a.out / f"{f}.seeds").read_bytes():
+                print(f"select: rerun {f} its seeds changed", flush=True)
+                rerun.append(f)
+                continue
+            (a.out / "recheck").mkdir(parents=True, exist_ok=True)
+            for name, rel in cache_files(f):
+                if (a.cache / name).exists():
+                    shutil.copyfile(a.cache / name, a.out / rel)
+                else:
+                    (a.out / rel).unlink(missing_ok=True)
+        else:
+            rerun.append(f)
+    a.rerun = [f for f in a.factions if f in rerun]
+    print(f"select: {len(a.rerun)} of {len(a.factions)} factions rerun", flush=True)
+
+
+def cmd_record(a) -> None:
+    """After a run with --cache: every rerun faction's rows and its dependency set (none when a trace is incomplete: it reruns next time)."""
+    if not a.cache:
+        return
+    import shutil
+    a.cache.mkdir(parents=True, exist_ok=True)
+    build_dir = a.tests.parent
+    for f in getattr(a, "rerun", a.factions):
+        for name, rel in cache_files(f):
+            if (a.out / rel).exists():
+                shutil.copyfile(a.out / rel, a.cache / name)
+            else:
+                (a.cache / name).unlink(missing_ok=True)
+        r = subprocess.run([sys.executable, str(MATRIX_DEPS), "build", "--binary", str(a.tests), "--build-dir", str(build_dir),
+                            "--traces", str(a.out / "trace"), "--faction", f, "--deps", str(a.cache / f"{f}.deps")], cwd=REPO,
+                           capture_output=True, text=True)
+        print(f"record: {(r.stdout or r.stderr).strip()[-300:]}", flush=True)
+        if r.returncode != 0:
+            (a.cache / f"{f}.deps").unlink(missing_ok=True)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("step", choices=["seeds", "run", "recheck", "collect", "all", "diff", "bisect"])
@@ -530,6 +608,8 @@ def main() -> None:
     ap.add_argument("--bfme2", help="BFME2 1.06 install (default $BFME2_INSTALL)")
     ap.add_argument("--object", help="bisect: the ORDER row's object")
     ap.add_argument("--button", help="bisect: the ORDER row's button")
+    ap.add_argument("--cache", type=Path, help="all: keep each faction's rows and dependency set here (tools/mod/matrix_deps.py)")
+    ap.add_argument("--incremental", action="store_true", help="all: rerun only the factions a change since their last run can touch (needs --cache)")
     a = ap.parse_args()
     if a.step == "diff":
         a.base = a.base_ref
@@ -543,9 +623,9 @@ def main() -> None:
             raise SystemExit("bisect: one --factions F, --object O and --button B")
         cmd_bisect(a)
         return
-    steps = ["seeds", "run", "recheck", "collect"] if a.step == "all" else [a.step]
+    steps = ["seeds", "select", "run", "recheck", "record", "collect"] if a.step == "all" else [a.step]
     for s in steps:
-        {"seeds": cmd_seeds, "run": cmd_run, "recheck": cmd_recheck, "collect": cmd_collect}[s](a)
+        {"seeds": cmd_seeds, "select": cmd_select, "run": cmd_run, "recheck": cmd_recheck, "record": cmd_record, "collect": cmd_collect}[s](a)
 
 
 if __name__ == "__main__":
