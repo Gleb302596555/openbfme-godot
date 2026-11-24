@@ -1144,7 +1144,9 @@ TEST_CASE("RAI-POW end to end: a Hard computer's Angmar Necromancer runs Soul Fr
 	// engine pin (seed 5203): the module's 25-frame counter (RW 0x99302D) from its first update and the roll above Hard's chance pass on this frame.
 	// Merge queue q43 (measured once on the merged tree and at each merge point): #226's own tree said 26; on the archive (q41's DECOMPFIX-1104B and q42
 	// move the random stream) the roll passes at 23 from #226's merge point on
-	CHECK(frame == 23);
+	// pin: Port 209 (da3d247a4 / 79e8e6f5c, HordeContain::onBuildComplete RW 0x8718F5..0x87190E -> 0x870204 banner carrier at build complete;
+	// reverting Port 209 + Port 217 restores 23 while Port 217 alone stays 24): Soul Freeze runs at frame 24 (was 23).
+	CHECK(frame == 24);
 	CHECK(AISpecialPowerUpdate::stats().executedByType[44] == 1);
 	REQUIRE(necro->getTeam());
 	const std::vector<Team::SpecialPowerRecord> &records = necro->getTeam()->specialPowerRecords();
