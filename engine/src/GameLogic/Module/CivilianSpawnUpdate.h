@@ -34,6 +34,7 @@
 
 class ModuleFactory;
 
+// Local 173: RW 0x882D1C (~CivilianSpawnUpdateModuleData)
 class CivilianSpawnUpdateModuleData : public ModuleData
 {
 public:

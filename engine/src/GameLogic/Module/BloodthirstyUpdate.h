@@ -14,6 +14,7 @@ class CommandButton;
 class Object;
 class Player;
 
+// Local 173: RW 0x850FB8 (BloodthirstyUpdateModuleData ctor: m_experienceModifier=1.0f), RW 0x85103D (~BloodthirstyUpdateModuleData)
 class BloodthirstyUpdateModuleData : public ModuleData
 {
 public:

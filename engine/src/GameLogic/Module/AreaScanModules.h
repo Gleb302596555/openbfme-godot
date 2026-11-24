@@ -90,6 +90,7 @@ private:
 	std::vector<std::pair<const Object *, unsigned>> m_scanCounts; ///< scratch of one scan (performance; not state)
 };
 
+// Local 173: RW 0x888135 (~PassiveAreaEffectBehaviorModuleData)
 class PassiveAreaEffectBehaviorModuleData : public ModuleData
 {
 public:

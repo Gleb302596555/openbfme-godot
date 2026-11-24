@@ -45,6 +45,7 @@
 
 class ModuleFactory;
 
+// Local 173: RW 0x89A816 (~BannerCarrierUpdateModuleData), RW 0x89A29E (BannerMorphCondition ctor), RW 0x89A6F0 (~BannerMorphCondition)
 class BannerCarrierUpdateModuleData : public ModuleData
 {
 public:

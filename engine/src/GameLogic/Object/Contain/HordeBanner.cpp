@@ -502,6 +502,7 @@ const Object::ModelConditionBits &morphClearMask()
 } // namespace
 
 // RW 0x89A5C5 (DONOR BFME2 0x00496E05, 299 B, ret 8): the morph step of one banner carrier.
+// Local 173: RW 0x89A503 (getMorphModelCondition, DONOR 0x496D43), RW 0x89A563 (getMorphLocomotor, DONOR 0x496DA3), RW 0x89A175 (Show token check)
 void BannerCarrierUpdate::morphForTemplate(const std::string &unitType, bool playFX)
 {
 	Object *obj = getObject();

@@ -116,6 +116,7 @@ struct FloodMemberData
 	float speed = 0.0f;              ///< + 0x34
 };
 
+// Local 173: RW 0x8915EE (FloodUpdateModuleData ctor), RW 0x891625 (~FloodUpdateModuleData)
 class FloodUpdateModuleData : public ModuleData
 {
 public:

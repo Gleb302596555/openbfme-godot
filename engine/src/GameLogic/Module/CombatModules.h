@@ -66,6 +66,7 @@ private:
 	const DestroyDieModuleData *m_data;
 };
 
+// Local 173: RW 0x85FF1C (DieModule::isDieApplicable)
 class KeepObjectDieModuleData : public ModuleData
 {
 public:

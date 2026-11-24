@@ -48,6 +48,7 @@ void parsePhaseNames(INI *ini, std::vector<std::string> *lists, const char *cons
 		lists[phase].push_back(t);
 	}
 }
+// Local 173: RW 0x8A818F (StructureCollapseUpdateModuleData::parseFXList), RW 0x8A81F2 (parseOCL), RW 0x8A8A82 (RubbleRiseUpdateModuleData::parseOCL), RW 0x8A78B3 (inList), RW 0x8A8B2C (pickPhaseIndices)
 void parseCollapseFX(INI *ini, void *instance, void *, const void *)
 {
 	parsePhaseNames(ini, static_cast<StructureCollapseUpdateModuleData *>(instance)->m_fx, kPhaseNames);

@@ -37,6 +37,7 @@
 
 class ModuleFactory;
 
+// Local 173: RW 0x88F7FD (~OilSpillUpdateModuleData)
 class OilSpillUpdateModuleData : public FireWeaponUpdateModuleData
 {
 public:

@@ -66,6 +66,7 @@ struct AutoPickUpEatObjectEntry
 	float m_targetHealth = 1.0f; ///< + 0x08 (RW 0xBD1908)
 };
 
+// Local 173: RW 0x899C0A (~AutoPickUpUpdateModuleData)
 class AutoPickUpUpdateModuleData : public ModuleData
 {
 public:

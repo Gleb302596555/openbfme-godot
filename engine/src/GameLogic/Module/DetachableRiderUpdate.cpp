@@ -160,6 +160,7 @@ void DetachableRiderUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 }
 
 // RW 0x8B2941 / DONOR BFME2 0x4AE883 (DetachableRiderUpdateCtor.cpp)
+// Local 173: RW 0x887569 (DetachableRiderUpdate onDie FX + module lookup helper)
 DetachableRiderUpdate::DetachableRiderUpdate(Thing *thing, const DetachableRiderUpdateModuleData *data)
 	: UpdateModule(thing, data)
 	, m_data(data)

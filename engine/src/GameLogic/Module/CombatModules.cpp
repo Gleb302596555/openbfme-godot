@@ -320,6 +320,7 @@ void DestroyDie::onDie(const DieModuleInterface::Event &event)
 //   6. RW 0x88A00A .. 0x88A011: the radar record (Object + 0x268) already set ends here (the object is on the radar already);
 //   7. RW 0x88A013 .. 0x88A01A: TheRadar (RW 0xDE4AB8) addObject (RW 0x6D9042): the remains stay a blip.
 //     The graphics of RW 0x88A006 .. 0x88A0EB beyond the add are W3DView / drawable work (the client's).
+// Local 173: RW 0x88A024 (KeepObjectDie::KeepObjectDie), RW 0x889DE9 (KeepObjectDie scalar deleting dtor), RW 0x8897BF (~DestroyDie), RW 0x88988E (~FXListDie)
 void KeepObjectDie::onDie(const DieModuleInterface::Event &event)
 {
 	Object *obj = getObject();

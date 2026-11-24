@@ -42,6 +42,7 @@ class StateHasher;
 class Xfer;
 
 // the part every upgrade module's data starts with (RW 0xC76AD8)
+// Local 173: RW 0x863B3B (slot 13 requiresAllTriggers), RW 0x863B45 (slot 14 requiresAllConflictingTriggers), RW 0x863BED (UpgradeModule::getModuleName)
 class UpgradeModuleData : public ModuleData
 {
 public:
