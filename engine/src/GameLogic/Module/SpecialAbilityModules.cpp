@@ -482,6 +482,7 @@ void LevelGrantSpecialPowerModuleData::buildFieldParse(MultiIniFieldParse &p)
 
 // RW 0x64D349 (friend_newModuleInstance)
 // RW 0x64D32E (ModelConditionSpecialAbilityUpdate::buildFieldParse)
+// Local 173: RW 0x8943CB (~ModelConditionSpecialAbilityUpdate)
 void ModelConditionSpecialAbilityUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialAbilityUpdateModuleData::buildFieldParse(p);

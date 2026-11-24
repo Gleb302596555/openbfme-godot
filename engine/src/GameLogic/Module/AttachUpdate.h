@@ -40,6 +40,7 @@
 class ModuleFactory;
 class StateHasher;
 
+// Local 173: RW 0x89512C (~AttachUpdateModuleData)
 class AttachUpdateModuleData : public ModuleData
 {
 public:

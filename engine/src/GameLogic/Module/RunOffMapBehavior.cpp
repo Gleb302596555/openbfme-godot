@@ -33,6 +33,7 @@ void RunOffMapBehaviorModuleData::buildFieldParse(MultiIniFieldParse &p)
 }
 
 // RW 0x86525F / BFME2 0x46217B
+// Local 173: RW 0x865289 (~RunOffMapBehavior)
 RunOffMapBehavior::RunOffMapBehavior(Thing *thing, const RunOffMapBehaviorModuleData *data)
 	: BehaviorModule(thing, data)
 	, m_data(data)

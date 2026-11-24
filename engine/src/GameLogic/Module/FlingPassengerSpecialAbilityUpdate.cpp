@@ -33,6 +33,7 @@ void FlingPassengerSpecialAbilityUpdateModuleData::buildFieldParse(MultiIniField
     p.add(kFields);
 }
 // RW 0x008986C9 (getModuleNameKey)
+// Local 173: RW 0x898672 (~FlingPassengerSpecialAbilityUpdate)
 FlingPassengerSpecialAbilityUpdate::FlingPassengerSpecialAbilityUpdate(Thing *thing, const FlingPassengerSpecialAbilityUpdateModuleData *data)
     : SpecialAbilityUpdate(thing, data),
       m_warhead(TheWeaponStore && !data->m_landingWarhead.empty() ? TheWeaponStore->findWeaponTemplate(data->m_landingWarhead) : nullptr) {}

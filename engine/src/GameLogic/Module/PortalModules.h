@@ -79,6 +79,7 @@ class PathfindObject;
 class Object;
 struct ObjectFilter;
 
+// Local 173: RW 0x8646E5 (~DynamicPortalBehaviourModuleData)
 class DynamicPortalBehaviourModuleData : public UpgradeModuleData
 {
 public:

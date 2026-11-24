@@ -9,6 +9,7 @@
 class ModuleFactory;
 class WeaponTemplate;
 
+// Local 173: RW 0x89870E (FlingPassengerSpecialAbilityUpdateModuleData ctor)
 class FlingPassengerSpecialAbilityUpdateModuleData : public SpecialAbilityUpdateModuleData {
 public:
     Coord3D m_flingVelocity{}; // RW table 0xC0556C; BFME2 0xBEF20C

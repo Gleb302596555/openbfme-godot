@@ -31,6 +31,7 @@ struct UpgradeCreationTriggerEntry
 	unsigned count = 99999; // RW 0x1869F before the parse (the parse always overwrites it)
 };
 
+// Local 173: RW 0x86B615 (~TransportContainModuleData)
 struct TransportContainModuleData
 {
 	TransportContainModuleData(); // RW 0x86B425

@@ -35,6 +35,7 @@
 class ModuleFactory;
 class MultiIniFieldParse;
 
+// Local 173: RW 0x88EC37 (DynamicShroudClearingRangeUpdateModuleData ctor)
 class DynamicShroudClearingRangeUpdateModuleData : public ModuleData
 {
 public:

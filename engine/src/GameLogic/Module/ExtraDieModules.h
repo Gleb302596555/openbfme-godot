@@ -67,6 +67,7 @@ namespace ExtraDieModules
 Coord3D transformPoint(const Object &obj, const Coord3D &p);
 } // namespace ExtraDieModules
 
+// Local 173: RW 0x889006 (CreateObjectDieModuleData ctor), RW 0x889058 (~CreateObjectDieModuleData)
 class CreateObjectDieModuleData : public ModuleData
 {
 public:

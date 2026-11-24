@@ -1520,6 +1520,7 @@ bool OpenContain::getExitOffset(Coord3D &out) const
 
 // ---- lane SAVE-4b: the snapshot (OpenBFME native, S-4190; retail's OpenContain::xfer RW 0x868FEF (1, 1) holds RotWK's fuller contain) ------------------
 // The riders in insertion order as ids (the Objects block has made them), then the crc's fields with the maps in key order, then the statistics.
+// Local 173: RW 0x868FEF (OpenContain::xfer), RW 0x866D04 (OpenContain::loadPostProcess)
 void OpenContain::xfer(Xfer &x)
 {
 	XferVersion v{ 1, 3 }; // 3: PORT-90 sound frames and enable flag

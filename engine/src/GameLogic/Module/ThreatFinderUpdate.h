@@ -68,6 +68,7 @@ class StateHasher;
 class Xfer;
 class Dict;
 
+// Local 173: RW 0x7EE33A (ThreatFinderManager::add), RW 0x7EE378 (ThreatFinderManager::remove), RW 0x7EE415 (ThreatFinderManager ctor)
 class ThreatFinderUpdateModuleData : public ModuleData
 {
 public:

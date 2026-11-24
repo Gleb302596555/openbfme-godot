@@ -26,7 +26,7 @@ namespace {
 const FieldParse kCivilianSpawnUpdateFieldParse[] = {
 	{ "SpawnDelayTime", INI::parseDurationUnsignedInt, nullptr, (int)offsetof(CivilianSpawnUpdateModuleData, m_spawnDelay) },
 	{ "RunToFilter", ParseObjectFilter, nullptr, (int)offsetof(CivilianSpawnUpdateModuleData, m_runToFilter) },
-	{ "MaximumDistance", INI::parseReal, nullptr, (int)offsetof(CivilianSpawnUpdateModuleData, m_maximumDistance) },
+	{ "MaximumDistance", INI::parseInt, nullptr, (int)offsetof(CivilianSpawnUpdateModuleData, m_maximumDistance) }, // RW 0x42EC5E
 	{ "Civilian", INI::parseAsciiStringVectorAppend, nullptr, (int)offsetof(CivilianSpawnUpdateModuleData, m_civilians) },
 	{ nullptr, nullptr, nullptr, 0 }
 };
@@ -70,8 +70,9 @@ UpdateSleepTime CivilianSpawnUpdate::update()
 		return UPDATE_SLEEP_FOREVER;
 	}
 
+	// RW 0x882E0C: cvtsi2ss xmm0, dword ptr [edi + 0x10]
 	const PartitionHits hits = logic.partition().iterateObjectsInRange(
-		*obj->getPosition(), m_data->m_maximumDistance, FROM_CENTER_2D, {}, ITER_FASTEST);
+		*obj->getPosition(), static_cast<float>(m_data->m_maximumDistance), FROM_CENTER_2D, {}, ITER_FASTEST);
 
 	std::vector<Object *> candidates;
 	candidates.reserve(hits.size());

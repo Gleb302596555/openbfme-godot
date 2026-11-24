@@ -72,6 +72,7 @@
 
 struct ObjectFilter;
 
+// Local 173: RW 0x884DF5 (~TerrainResourceBehaviorModuleData)
 class TerrainResourceBehaviorModuleData : public ModuleData
 {
 public:

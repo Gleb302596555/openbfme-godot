@@ -218,6 +218,7 @@ private:
 	const UnpauseSpecialPowerUpgradeModuleData *m_data;
 };
 
+// Local 173: RW 0x89F6F6 (~AttributeModifierAuraUpdateModuleData)
 class AttributeModifierAuraUpdateModuleData : public UpgradeModuleData
 {
 public:

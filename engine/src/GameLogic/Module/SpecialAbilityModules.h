@@ -49,6 +49,7 @@ class ModuleFactory;
 class Weapon;
 struct ObjectFilter;
 
+// Local 173: RW 0x851A96 (~SpecialAbilityUpdateModuleData)
 class SpecialAbilityUpdateModuleData : public ModuleData
 {
 public:
@@ -161,6 +162,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// Local 173: RW 0x894507 (~ModelConditionSpecialAbilityUpdateModuleData)
 class ModelConditionSpecialAbilityUpdateModuleData : public SpecialAbilityUpdateModuleData
 {
 public:

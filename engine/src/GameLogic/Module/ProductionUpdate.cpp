@@ -202,6 +202,7 @@ HordeContainInterface *hordeOf(Object *o)
 }
 } // namespace
 
+// Local 173: RW 0x8A0DF2 (ProductionUpdate bitstring +/- parser)
 void ProductionUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kProductionUpdateFieldParse);

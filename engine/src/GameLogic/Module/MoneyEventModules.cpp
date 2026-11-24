@@ -206,6 +206,7 @@ bool DieMuxData::isDieApplicable(const Object &obj, const DieModuleInterface::Ev
 }
 
 // ---- RefundDie -----------------------------------------------------------------------------------------------------------------------
+// Local 173: RW 0x8884D3 (~RefundDie)
 RefundDie::RefundDie(Thing *thing, const RefundDieModuleData *data)
 	: BehaviorModule(thing, data)
 	, m_data(data)
@@ -257,6 +258,7 @@ void RefundDie::onDie(const DieModuleInterface::Event &event)
 }
 
 // ---- PillageModule -------------------------------------------------------------------------------------------------------------------
+// Local 173: RW 0x888199 (~PillageModule)
 PillageModule::PillageModule(Thing *thing, const PillageModuleData *data)
 	: BehaviorModule(thing, data)
 	, m_data(data)

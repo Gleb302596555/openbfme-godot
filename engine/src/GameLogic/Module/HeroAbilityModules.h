@@ -251,6 +251,7 @@ private:
 //     (status 74), the AI's + 0x34 zero (RW 0x85D69B: m_temporaryKeptMachine == nullptr);
 //   * the command (RW 0x696FD2 / 0x697890 / 0x6979D9 for the SPECIAL_POWER (24) and SPELL_BOOK (38) buttons): Object::doSpecialPower* of the button's power with
 //     the button's options | 0x40000 (| AUTO_ABILITY_TRIGGERED 0x20000000 from this module); FIRE_WEAPON (RW 0x75CC3E) and all other command types dispatch through Object::doCommandButton*.
+// Local 173: RW 0x85D585 (~AutoAbilityBehaviorModuleData)
 class AutoAbilityBehaviorModuleData : public ModuleData
 {
 public:
@@ -697,6 +698,7 @@ private:
 	unsigned m_inspired = 0;
 };
 
+// Local 173: RW 0x8966A8 (~TeleportSpecialAbilityUpdateModuleData)
 class TeleportSpecialAbilityUpdateModuleData : public SpecialAbilityUpdateModuleData
 {
 public:
