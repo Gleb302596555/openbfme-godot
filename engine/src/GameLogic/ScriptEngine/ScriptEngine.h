@@ -371,7 +371,7 @@ public:
 	const std::vector<std::vector<SequentialScript>> &sequentialScripts() const { return m_sequential; }
 	// RW 0x606FDA: appended to the chain of the same unit (object id) or team, else a new chain; the copy starts at index -1
 	void appendSequentialScript(const SequentialScript &r);
-	// RW 0x604C9F / 0x604CD9 (UNIT_ / TEAM_STOP_SEQUENTIAL_SCRIPT)
+	// RW 0x604C9F / 0x604CD9 / RW 0x00606026 (tail-jump thunk to 0x604CD9) / RW 0x00604C62 (UNIT_ / TEAM_STOP_SEQUENTIAL_SCRIPT)
 	void removeSequentialScriptsOf(ObjectID object, std::uint32_t team);
 	// lane SCRIPT-4: RW 0x603939 (an object) / RW 0x60396C (a team) ScriptEngine::setSequentialTimer (BFME2 decomp 0x203FCF / 0x204002, tier A): the first
 	// slot whose head record is that object's (+ 8 == the object id) or that team's (+ 4) gets its frames to wait (+ 0x20); the later records of a chain

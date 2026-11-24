@@ -10,6 +10,7 @@ struct Registry
 {
 	std::vector<ScriptTemplate> conditions, actions;
 
+	// LOCAL-160 (both editions): static template tables cover RW 0x006047D5 (ScriptEngine::initTemplateNameKeys).
 	Registry()
 	{
 #include "GameLogic/ScriptEngine/ScriptTemplateTables.inc"

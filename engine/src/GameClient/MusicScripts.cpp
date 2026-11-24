@@ -447,34 +447,83 @@ bool MusicScripts::evaluateCondition(const ScriptCondition &c)
 		}
 		case C_PLAYER_HAS_NUMBER_UNITS_DISTANCE_FROM_OBJECT:
 		{
-			// (player, comparison, count, distance, named object): units at least `distance` away from the object (the explore rule: "units have
-			// moved out of the starting castle"). INFERENCE (S-710): "distance from" counts the units farther than the distance
+			// LOCAL-160 (both editions): RW 0x007E6C7C (callback RW 0x007E6C0F, unit filter RW 0x006618E6: any of
+			// {INFANTRY, CAVALRY, MONSTER, MACHINE, AIRCRAFT} and none of {STRUCTURE, INERT, HORDE}). 3D squared distance
+			// strictly greater than max(0, distance)^2; when the named object is absent (RW 0x007E6CE5), origin is (0,0,0) and
+			// distSq = -1.0f (RW 0x00BD19DC), so every matching unit counts.
 			const auto it = m_named.find(param(p, 4).stringValue);
 			const Object *base = it == m_named.end() ? nullptr : m_logic.findObjectByID(it->second);
-			if (!base)
+			float dist = param(p, 3).realValue;
+			if (dist < 0.0f)
 			{
-				return false;
+				dist = 0.0f;
+			}
+			Coord3D origin{ 0.0f, 0.0f, 0.0f };
+			float distSq = dist * dist;
+			if (base)
+			{
+				origin = *base->getPosition();
+			}
+			else
+			{
+				distSq = -1.0f;
 			}
 			const std::vector<int> who = players(param(p, 0).stringValue);
-			int all = 0;
-			static const int structure = ObjectTemplateInfoBuilder::kindOfIndex("STRUCTURE");
-			for (Object *o = m_logic.getFirstObject(); o; o = o->getNextObject())
+			const int targetCount = param(p, 2).intValue;
+			static const int kInfantry = ObjectTemplateInfoBuilder::kindOfIndex("INFANTRY"),
+							 kCavalry = ObjectTemplateInfoBuilder::kindOfIndex("CAVALRY"),
+							 kMonster = ObjectTemplateInfoBuilder::kindOfIndex("MONSTER"),
+							 kMachine = ObjectTemplateInfoBuilder::kindOfIndex("MACHINE"),
+							 kAircraft = ObjectTemplateInfoBuilder::kindOfIndex("AIRCRAFT"),
+							 kStructure = ObjectTemplateInfoBuilder::kindOfIndex("STRUCTURE"),
+							 kInert = ObjectTemplateInfoBuilder::kindOfIndex("INERT"),
+							 kHorde = ObjectTemplateInfoBuilder::kindOfIndex("HORDE");
+			int count = 0;
+			for (Object *o = m_logic.getFirstObject(); o && count <= targetCount; o = o->getNextObject())
 			{
 				const Player *pl = o->getControllingPlayer();
-				if (!pl || o->isDestroyed() || o->isEffectivelyDead() || (structure >= 0 && o->isKindOf((unsigned)structure)))
+				if (!pl || o->isDestroyed())
 				{
 					continue;
 				}
+				bool mine = false;
 				for (int i : who)
 				{
-					all += pl->getPlayerIndex() == i ? 1 : 0;
+					mine |= pl->getPlayerIndex() == i;
+				}
+				if (!mine)
+				{
+					continue;
+				}
+				const bool anyUnitKind = (kInfantry >= 0 && o->isKindOf((unsigned)kInfantry)) ||
+					(kCavalry >= 0 && o->isKindOf((unsigned)kCavalry)) ||
+					(kMonster >= 0 && o->isKindOf((unsigned)kMonster)) ||
+					(kMachine >= 0 && o->isKindOf((unsigned)kMachine)) ||
+					(kAircraft >= 0 && o->isKindOf((unsigned)kAircraft));
+				if (!anyUnitKind)
+				{
+					continue;
+				}
+				if ((kStructure >= 0 && o->isKindOf((unsigned)kStructure)) ||
+					(kInert >= 0 && o->isKindOf((unsigned)kInert)) ||
+					(kHorde >= 0 && o->isKindOf((unsigned)kHorde)))
+				{
+					continue;
+				}
+				const Coord3D *pos = o->getPosition();
+				const float dx = pos->x - origin.x;
+				const float dy = pos->y - origin.y;
+				const float dz = pos->z - origin.z;
+				if (dx * dx + dy * dy + dz * dz > distSq)
+				{
+					++count;
 				}
 			}
-			const int nearCount = countUnitsNear(who, *base->getPosition(), param(p, 3).realValue);
-			return compare(all - nearCount, param(p, 1).intValue, param(p, 2).intValue);
+			return compare(count, param(p, 1).intValue, targetCount);
 		}
 		case C_HAS_EVA_EVENT_PLAYED_IN_LAST_N_SECONDS:
 		{
+			// LOCAL-160: client-clock counterpart of RW 0x007E6017 (logic frame path is in ScriptConditions.cpp)
 			if (!m_eva)
 			{
 				unported("condition", c.type, "(no Eva installed)");

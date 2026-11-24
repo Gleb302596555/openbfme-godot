@@ -9,7 +9,7 @@
 //     RW 0x6151D6: PlayerAITypes.ini LibraryMap), then the side's own LibraryMaps (SidesList side + 0x54, the map's LibraryMapLists chunk), each
 //     through RW 0x7313B3: the list is walked from its END to its start; a library already loaded for this side is skipped (the set at arg 4);
 //     RW 0x730E1C reads the library map; its SECOND side (+ 0xA0, when the library has at least two sides) holds the scripts: that side's own
-//     LibraryMaps are loaded first (recursion), then its ScriptList is appended to the side's accumulated list (RW 0x7B937D), then the
+//     LibraryMaps are loaded first (recursion), then its ScriptList is appended to the side's accumulated list (RW 0x7B937D; RW 0x007B8782 takeGroups, RW 0x007B8E51 bfmeMoveZK, RW 0x007B8E9F takeScripts, RW 0x007B939F doTakeGroup), then the
 //     library's teams are collected (RW 0x7314C2 ff): every team of the library (its team list, + 0xF44) whose teamOwner is not empty and that
 //     is not its owner's default team (teamName "team" + teamOwner, RW 0x72D943) is copied with teamOwner = the side's playerName (and the
 //     library's name under the key RW 0xDA2D24: not kept here, nothing reads it); there is no test for a team of that name already existing (RW 0x72F3FF appends). RW 0x72FE23

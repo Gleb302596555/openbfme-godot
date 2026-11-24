@@ -409,6 +409,7 @@ bool parseOrCondition(DataChunkInput &file, DataChunkInfo *, void *userData)
 }
 
 // ZH Condition::ParseConditionDataChunk (:1688-1760) + BFME2 ConditionWriteDataChunk.cpp:122-160.
+// LOCAL-160 (both editions): also covers RW 0x007B55E7 (Condition::setConditionType: initializes parameter slots from template).
 bool parseCondition(DataChunkInput &file, DataChunkInfo *info, void *userData)
 {
 	ScriptParseContext *ctx = (ScriptParseContext *)userData;

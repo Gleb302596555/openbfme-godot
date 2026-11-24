@@ -48,11 +48,13 @@ public:
 	// event inside its TimeBetweenEventsMS).
 	bool reportEvent(int index, const Coord3D *position, double nowMs, const Coord3D *jumpPosition = nullptr);
 	bool reportEventByName(const std::string &name, const Coord3D *position, double nowMs, const Coord3D *jumpPosition = nullptr);
-	void update(double nowMs);
+	void update(double nowMs, std::uint32_t logicFrame = 0);
 	void reset();
 
 	// "Player_/Eva event played recently": was `index` played within `withinMs`?
 	bool playedRecently(int index, double withinMs, double nowMs) const;
+	// Both editions: RW 0x005DCD4F (Eva::getLastReallyPlayedFrameForEvaEvent) — logic frame when the event last really started playing.
+	bool lastPlayedFrame(int index, std::uint32_t *out) const;
 	// where `index` last played (false: never played, or it had no position)
 	bool lastPlayedPosition(int index, Coord3D *position) const;
 	int findEvent(const std::string &name) const { return m_ini.eva.findIndex(name, false); }
@@ -99,6 +101,7 @@ private:
 	std::vector<double> m_lastPlayed;   ///< per event index; negative = never
 	std::vector<double> m_lastReported; ///< per event index; negative = never
 	std::vector<std::pair<bool, Coord3D>> m_lastPlayedPos; ///< per event index: the position it last played at
+	std::vector<std::pair<bool, std::uint32_t>> m_lastPlayedFrame; ///< per event index: logic frame when last really played (RW 0x005DCD4F)
 	AudioHandle m_speech = 0;
 	std::vector<Coord3D> m_playedJumps;
 	Counters m_counters;
