@@ -189,7 +189,8 @@ public:
 	std::string checklistRowPath(int i) const { return i >= 0 && i < (int)m_rows.size() ? m_rows[(size_t)i].path : std::string(); }
 	// WOTR2 milestone 5: the map rollover help (spec O B; Rollover::Update RW 0x97E6DD shows it after 999 ms, the host times it): a region's (RW 0x9737F9:
 	// its DisplayName, the description RW 0x7F2A76), an army's (RW 0x9735D3: the summary's name label; the heroes' names joined with ", ", then a
-	// "N Category" line per category, RW 0x620B6A) or a building's (RW 0x9736A0: DisplayName, DisplayDescription and the farm line RW 0x6E0FC4)
+	// "N Category" line per category, RW 0x620B6A), a building's (RW 0x9736A0: DisplayName, DisplayDescription and the farm line RW 0x6E0FC4),
+	// or an empty build plot's (LivingWorldBuildPlotIcon RW 0x9A8025 -> StrategicInGameUI::CreateHelpFor RW 0x973751: BuildPlotName / BuildPlotHelp)
 	struct MapHelp
 	{
 		enum Kind
@@ -197,7 +198,8 @@ public:
 			NONE = 0,
 			REGION = 1,
 			ARMY = 2,
-			BUILDING = 3
+			BUILDING = 3,
+			BUILD_PLOT = 4
 		};
 		int kind = NONE;
 		std::string regionCampaign; // REGION

@@ -778,6 +778,12 @@ void AptStrategicHUD::showMapHelp(const MapHelp &h)
 			text += (text.empty() ? u"" : u"\n") + s;
 		}
 	}
+	else if (h.kind == MapHelp::BUILD_PLOT)
+	{
+		// RW 0x9A8025 (LivingWorldBuildPlotIcon) -> RW 0x973751 (StrategicInGameUI::CreateHelpFor): RW 0x9D8BA7 ("STRATEGICHUD:BuildPlotName") and "STRATEGICHUD:BuildPlotHelp"
+		title = fetch("STRATEGICHUD:BuildPlotName");
+		text = fetch("STRATEGICHUD:BuildPlotHelp");
+	}
 	else
 	{
 		title = fetch(h.titleLabel);
@@ -812,6 +818,7 @@ bool AptStrategicHUD::checklistCall(const std::string &path, const std::string &
 	return true;
 }
 
+// Checklist items: RW 0x9E13A9 (ResolveBattleChecklistItem), RW 0x9E1782 (PlanRetreatChecklistItem), RW 0x980679 (ResolveBattles visitor)
 void AptStrategicHUD::setChecklistItems(const std::vector<ChecklistItem> &items)
 {
 	auto format = [this](const ChecklistItem &it) {
@@ -1138,7 +1145,7 @@ void AptStrategicHUD::writeRegionStats(bool force)
 
 void AptStrategicHUD::showHelp(const std::string &titleLabel, const std::string &helpLabel)
 {
-	// CommandButtonMovieClipWithHelp::ShowHelp RW 0x9E3089 -> StandardCommandButtonSettings::CreateHelp RW 0x9F466E: fetch(Title), fetch(Help) (an empty
+	// CommandButtonMovieClipWithHelp::ShowHelp RW 0x9E3089 -> StandardCommandButtonSettings::CreateHelp RW 0x9F466E (RW 0x9FBCE9 DestroyBuilding, RW 0x9FC0FE CancelArmyMove): fetch(Title), fetch(Help) (an empty
 	// label: an empty string), shown at once
 	if (!m_helpBox.isLoaded())
 	{
@@ -1778,6 +1785,7 @@ void AptStrategicHUD::fillArmiesPage()
 // (SetRegionFortressIconState: CreateAutoFort, its FortressPortrait and the BuildingFortress type image), the selected plot's building name
 // (SetBuildingNameState, <page>_BuildingName); a slot's click (<page>_OnIconSlotClicked<n>) asks to select the plot.
 // INFERENCE (S-1334): an empty plot's slot state (_empty) and the turns text's argument; the progress drawing (_RenderProgress) is not ported
+// RegionDetailsStructuresPage: RW 0x9F5A7E (ctor), RW 0x9F555F (fortress help), RW 0x9F5629 (OnBuildPlotBuildingChanged)
 void AptStrategicHUD::fillStructuresPage()
 {
 	const std::string &page = m_regionPages[2];
@@ -1908,6 +1916,7 @@ void AptStrategicHUD::fillStructuresPage()
 // WB 0x166D7xx -> 0x1671FC0; RenderProgressOverlay WB 0x166E2F0: (total - remaining) / total of the slot's rectangle in ProgressOverlayColor),
 // but no clip of the retail StrategicDetailsBuildQueue.swf names it (its constants hold no "_ProgressOverlay"), so retail never draws it and
 // neither does this port. Not ported (S-1334): the help box and the tooltips.
+// BuildQueueDetailsPanel: RW 0x9FB649 / RW 0x9FB19D (ctor / Impl), RW 0x9F9EB7 / RW 0x9FA497 (GetPortraitImage*), RW 0x9FA53E / RW 0x9FA5B1 (GetDisplayName*), RW 0x9FA5DF / RW 0x9FA652 (GetDisplayDescription*)
 void AptStrategicHUD::onBuildQueueContentLoaded()
 {
 	m_queueClip = m_trayClip;
@@ -1973,7 +1982,7 @@ void AptStrategicHUD::onQueueSlotClicked(int index)
 	{
 		selectQueueIndex(index);
 	}
-	else if (button == 2)
+	else if (button == 2) // RW 0x9F9FA3: OnBuildQueueIconSlotRightClicked -> MSG_LW_DEQUEUE_UNIT_AT_INDEX (0x6AE)
 	{
 		m_requests.push_back("bq_dequeue:" + std::to_string(index));
 	}
@@ -2069,6 +2078,7 @@ void AptStrategicHUD::applyBuildQueuePanel()
 // slot i at (column * slot width, row * slot height), columns = floor(stage width / slot width) (UpdateIconSlotPositions WB 0x1662DB0), shown
 // while its row is inside the stage. Not ported (S-1334): the scroll bar (VerticalScrollBar.swf: the first row stays 0), the help box, the
 // type / upgrade tooltips, the upgrade icons, the not-there / disbanding / upgrading overlays (the member moves, disbanding and upgrades)
+// ArmyDetailsPanel / HeroArmyDetailsPanel: RW 0x9F7D7B (OnEntryAddedToArmySummary), RW 0x9F9D1D / RW 0x9F9BF1 (HeroArmyDetailsPanel ctor)
 void AptStrategicHUD::showArmyPanel(const ArmyPanel &panel)
 {
 	ArmyPanelView &v = m_armyView;
@@ -2466,7 +2476,7 @@ void AptStrategicHUD::fillTerritoryPage()
 		return;
 	}
 	const std::string prefix = "APT:_level" + std::to_string(level()) + "." + page;
-	// RegionDetailsTerritoryPage (WB 0x1635B00): the region's map in the map cache: its name and description ("MissingMap" without one)
+	// RegionDetailsTerritoryPage (RW 0x9F6812; WB 0x1635B00): the region's map in the map cache: its name and description ("MissingMap" without one)
 	std::string lower = m_region.mapName;
 	std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return (char)std::tolower(c); });
 	const std::string key = "maps/" + lower + "/" + lower + ".map";
@@ -2524,7 +2534,7 @@ void AptStrategicHUD::fillTerritoryPage()
 	}
 	windows().setAptText(prefix + "_TerritoryName", mapText(map ? map->displayName : std::u16string()));
 	windows().setAptText(prefix + "_TerritoryDescription", mapText(map ? map->description : std::u16string()));
-	// the seven bonus lines (WB 0x1635F20 / 0x165D040 / 0x1FD3090)
+	// the seven bonus lines (RW 0x9F63E9 StrategicInGameUI::GetBonus; WB 0x1635F20 / 0x165D040 / 0x1FD3090)
 	static const bool kAbsolute[7] = { true, false, false, false, false, true, true };
 	for (int i = 0; i < 7; ++i)
 	{
@@ -2608,7 +2618,7 @@ int AptStrategicHUD::radialButtonsReady() const
 	return n;
 }
 
-// a button's image, production count (the command button's ShowProductionCount: "%d", " " below 1, as RW 0x72981E) and enabled state
+// RW 0xA0C6B1 (QueueUnitButton update): a button's image, production count (ShowProductionCount: "%d", " " below 1, as RW 0x72981E) and enabled state
 void AptStrategicHUD::applyRadialButton(RadialSlot &s)
 {
 	const std::string content = s.frame + ".bttn";
@@ -2676,10 +2686,21 @@ void AptStrategicHUD::onRadialFrameLoaded(int id, const std::string &frameArg)
 		s.initialized = true;
 	});
 	reg(key + "_OnClicked", [this, id](const std::string &) {
+		// RW 0x9F3C24 / RW 0xA0C74F (QueueUnitButton::OnRightClicked): left click (button 0) orders when enabled;
+		// right click (button 2) dequeues from the building queue even when the button is disabled
 		m_log.push_back("RadialButton_OnClicked(" + std::to_string(id) + ")");
-		if (id < (int)m_radialButtons.size() && m_radialButtons[(size_t)id].button.enabled)
+		if (id >= (int)m_radialButtons.size())
+		{
+			return;
+		}
+		const int button = windows().pressButton();
+		if (button == 0 && m_radialButtons[(size_t)id].button.enabled)
 		{
 			m_requests.push_back("radial:" + std::to_string(id));
+		}
+		else if (button == 2)
+		{
+			m_requests.push_back("radial_right:" + std::to_string(id));
 		}
 	});
 	reg(key + "_OnRollOver", [this, id](const std::string &) { m_log.push_back("RadialButton_OnRollOver(" + std::to_string(id) + ")"); }); // the help box: not ported
@@ -2749,6 +2770,7 @@ void AptStrategicHUD::writeTurn(bool newTurn)
 	}
 }
 
+// BattlePromptDialog: RW 0x9FCB1F (ctor), RW 0x9FC4C3 / RW 0x9FC4E1 (GetResolutionOptions button states)
 void AptStrategicHUD::openBattlePrompt(const std::string &regionName, bool autoResolve, bool realTime, bool retreat, const std::string &ally,
 	const std::string &enemy, const std::string &realTimeReason)
 {

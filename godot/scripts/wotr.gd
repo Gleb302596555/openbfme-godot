@@ -967,6 +967,27 @@ func _sync_apt_hud() -> void:
 				if i >= 0 and i < radial_buildings.size() and radial_region >= 0:
 					order_build(radial_region, radial_buildings[i], radial_build_plot) # BuildBuildingButton: MSG_LW_BUILD_BUILDING in the plot (0x6AA)
 				_close_build_radial()
+		elif str(req).begins_with("radial_right:"):
+			# QueueUnitButton::OnRightClicked (RW 0xA0C74F -> RW 0x63F122 isShift): dequeue 5 with Shift else 1 matching entry from the back
+			var i := int(str(req).get_slice(":", 1))
+			if radial_kind == "recruit" and i >= 0 and i < radial_armies.size() and radial_region >= 0 and radial_slot >= 0:
+				var target_army := int(radial_armies[i])
+				var count := 5 if Input.is_key_pressed(KEY_SHIFT) else 1
+				for _k in range(count):
+					var qi := -1
+					var idx := 0
+					for o in state.regions[radial_region].production:
+						if int(o.slot) == radial_slot:
+							if int(o.army_index) == target_army:
+								qi = idx
+							idx += 1
+					if qi < 0:
+						break
+					var res: Dictionary = lw.order_dequeue_at(local_player, radial_region, radial_slot, qi)
+					if not res.ok:
+						break
+					_refresh()
+				_update_recruit_radial()
 		elif str(req).begins_with("bq_dequeue:") and selected_building >= 0:
 			# the build queue slot's right click (MSG_LW_DEQUEUE_UNIT_AT_INDEX): the entry leaves the queue, its cost paid back (RW 0x8FF6F8)
 			var qi := int(str(req).get_slice(":", 1))
@@ -1494,8 +1515,9 @@ func _hover_tick() -> void:
 				target = "building:%d:%d" % [int(b[0]), int(b[1])]
 			else:
 				var r := pick_region(mouse)
-				if r >= 0 and _free_plot_near(r, mouse, 20.0, true) >= 0:
-					target = hover_target # the plot icon keeps the current rollover (picker slot 13: a no-op)
+				var plot := _free_plot_near(r, mouse, 20.0, true) if r >= 0 else -1
+				if plot >= 0:
+					target = "plot:%d:%d" % [r, plot] # RW 0x9A8025 -> RW 0x973751 (BuildPlotName / BuildPlotHelp)
 				elif r >= 0:
 					target = "region:%d" % r
 	if target != hover_target:
@@ -1516,6 +1538,8 @@ func _hover_tick() -> void:
 
 func _hover_help(target: String) -> Dictionary:
 	var parts := target.split(":")
+	if parts[0] == "plot":
+		return {"kind": "plot"}
 	if parts[0] == "region":
 		return {"kind": "region", "region_campaign": region_campaign, "region": int(parts[1])}
 	if parts[0] == "army":

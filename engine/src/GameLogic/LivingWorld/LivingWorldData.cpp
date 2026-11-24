@@ -568,6 +568,7 @@ void parseOwnershipSet(INI *ini, void *instance, void *, const void *)
 	ini->initFromINI(&s, kOwnershipSetFields);
 	static_cast<Scenario *>(instance)->ownershipSets.push_back(s);
 }
+// RW 0x9A7DD4: StartingRestriction::ParseINI
 void parseStartingRestriction(INI *ini, void *instance, void *, const void *)
 {
 	StartingRestriction s;

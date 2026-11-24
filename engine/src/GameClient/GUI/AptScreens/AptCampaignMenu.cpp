@@ -73,6 +73,7 @@ AptCampaignMenu::AptCampaignMenu(WindowManager &windows, Shell &shell, ShellEnvi
 	windows.setAptImage("AptCampaign::LoadImage", m_image);
 }
 
+// RW 0x927B29 / RW 0x927B78 / RW 0x927B83 (~AptCampaignMenu / deleting dtor)
 AptCampaignMenu::~AptCampaignMenu() = default;
 
 std::string AptCampaignMenu::victorious() const

@@ -83,6 +83,7 @@ void LinearCampaignManager::registerBlock(INIBlockRegistry &registry)
 	});
 }
 
+// LinearCampaignManager subsystem (RW 0x5EA660 getName, RW 0x5ECAF9 ctor, RW 0x5ECB4C / RW 0x5ECC66 deleting dtor)
 void LinearCampaignManager::parseLinearCampaign(INI *ini)
 {
 	if (ini->getLoadType() != INI_LOAD_OVERWRITE)
