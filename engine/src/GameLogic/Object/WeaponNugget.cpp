@@ -2,6 +2,17 @@
 //
 // Weapon nuggets: data, field tables and the registry. See GameLogic/WeaponNugget.h for the target facts. Lane WEAPON-1.
 
+// Local 174: RW 0x90EFDB (WeaponNugget ??0Made002CC6AE@@QAE@XZ); RW 0x90F051 (WeaponNugget ??1Made002CC6AE@@UAE@XZ); RW 0x91193A (WeaponNugget ??0Made002CCB67@@QAE@XZ); RW 0x911973 (WeaponNugget ??1Made002CCB67@@UAE@XZ)
+// Local 174: RW 0x911B39 (WeaponNugget ??0Made002CCBCA@@QAE@XZ); RW 0x911B78 (WeaponNugget ??1Made002CCBCA@@UAE@XZ); RW 0x90F130 (WeaponNugget ??0Made002CC711@@QAE@XZ); RW 0x90F74F (WeaponNugget ??0Made002CC774@@QAE@XZ)
+// Local 174: RW 0x90FEF7 (WeaponNugget ??0Made002CC841@@QAE@XZ); RW 0x910D2F (WeaponNugget ??0Made002CC907@@QAE@XZ); RW 0x911143 (WeaponNugget ??0Made002CC9D4@@QAE@XZ); RW 0x911829 (WeaponNugget ??0Made002CCB04@@QAE@XZ)
+// Local 174: RW 0x911DC5 (WeaponNugget ??0Made002CCC2D@@QAE@XZ); RW 0x911FFC (WeaponNugget ??0Made002CCC90@@QAE@XZ); RW 0x912292 (WeaponNugget ??1Made002CCCF3@@UAE@XZ); RW 0x90F0D6 (WeaponNugget 0xC7B328[9])
+// Local 174: RW 0x90F7C9 (WeaponNugget 0xC7B410[9]); RW 0x912087 (WeaponNugget 0xC7BF68[5]); RW 0x90EA77 (WeaponNugget ?q4Notify002CC9D4@@YAXPAXPAVMade002CC9D4@@HH@Z); RW 0x90EAAC (WeaponNugget ?q4Notify002CC64B@@YAXPAXPAVMade002CC64B@@HH@Z)
+// Local 174: RW 0x90EEF9 (WeaponNugget ?q4Notify002CC6AE@@YAXPAXPAVMade002CC6AE@@HH@Z); RW 0x90F089 (WeaponNugget ?q4Notify002CC6AE@@YAXPAXPAVMade002CC6AE@@HH@Z); RW 0x90F5A6 (WeaponNugget ?q4Notify002CC774@@YAXPAXPAVMade002CC774@@HH@Z); RW 0x90F791 (WeaponNugget no class)
+// Local 174: RW 0x90F7DB (WeaponNugget ?q4Notify002CC7DE@@YAXPAXPAVMade002CC7DE@@HH@Z); RW 0x90FF79 (WeaponNugget ??1Rva00509D4C@@UAE@XZ); RW 0x910A45 (WeaponNugget ??1Rva0050A7AD@@UAE@XZ); RW 0x910A7D (WeaponNugget ?q4Notify002CC907@@YAXPAXPAVMade002CC907@@HH@Z)
+// Local 174: RW 0x910D82 (WeaponNugget ?q4Notify002CC971@@YAXPAXPAVMade002CC971@@HH@Z); RW 0x911051 (WeaponNugget ?q4Notify002CC9D4@@YAXPAXPAVMade002CC9D4@@HH@Z); RW 0x9113D2 (WeaponNugget ?q4Notify002CC9D4@@YAXPAXPAVMade002CC9D4@@HH@Z); RW 0x9114C9 (WeaponNugget ?q4Notify002CCAA1@@YAXPAXPAVMade002CCAA1@@HH@Z)
+// Local 174: RW 0x9116BA (WeaponNugget ?q4Notify002CCB04@@YAXPAXPAVMade002CCB04@@HH@Z); RW 0x91185A (WeaponNugget ?buildFieldParse@Rva0050B5CFBuildFieldParse@@SAXAAVMultiIniFieldParse@@@Z); RW 0x91187C (WeaponNugget ?q4Notify002CCB67@@YAXPAXPAVMade002CCB67@@HH@Z); RW 0x91197E (WeaponNugget ?q4Notify002CCB04@@YAXPAXPAVMade002CCB04@@HH@Z)
+// Local 174: RW 0x911B7D (WeaponNugget ?q4Notify002CCB04@@YAXPAXPAVMade002CCB04@@HH@Z); RW 0x911E39 (WeaponNugget no class); RW 0x911EA2 (WeaponNugget ?q4Notify002CCC90@@YAXPAXPAVMade002CCC90@@HH@Z); RW 0x91204F (WeaponNugget no class)
+// Local 174: RW 0x91209F (WeaponNugget ?q4Notify002CCCF3@@YAXPAXPAVMade002CCCF3@@HH@Z)
 #include "GameLogic/WeaponNugget.h"
 
 #include "Common/AsciiString.h"

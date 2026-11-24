@@ -12,6 +12,7 @@
 
 #pragma once
 
+// Local 174: RW 0x9DB06D (BitFlags<11> ctor)
 #include <cstdint>
 #include <cstring>
 #include <initializer_list>

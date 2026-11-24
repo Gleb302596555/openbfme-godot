@@ -5,6 +5,7 @@
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 
+// Local 174: RW 0x8B83E4 (ObjectCreationUpgradeModuleData ??0ObjectCreationUpgradeModuleData@@QAE@XZ); RW 0x8B8771 (ObjectCreationUpgradeModuleData ??1ObjectCreationUpgradeModuleData@@UAE@XZ); RW 0x8B810B (ObjectCreationUpgrade ctor/dtor)
 #include "GameLogic/Module/ObjectCreationUpgrade.h"
 #include "GameLogic/SnapshotXfer.h"
 

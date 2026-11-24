@@ -2,6 +2,7 @@
 // See GameClient/RadarMarkerClientUpdate.h (lane MODGAP-2; editions: both RotWK 2.01 and BFME2 1.06).
 
 // Local 169: RW 0x8CDFF6 (MarkerType)
+// Local 174: RW 0x8CE0C4 (RadarMarkerClientUpdateModuleData ??1RadarMarkerClientUpdateModuleData@@UAE@XZ)
 #include "GameClient/RadarMarkerClientUpdate.h"
 #include "GameClient/Drawable.h"
 #include "GameClient/Radar.h"

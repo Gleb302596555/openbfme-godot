@@ -6,6 +6,7 @@
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 
+// Local 174: RW 0x8BC479 (BuildableHeroListUpgrade::BuildableHeroListUpgrade); RW 0x8B3C54 (RespawnUpdateModuleData ??0RespawnUpdateModuleData@@QAE@XZ); RW 0x8B3D05 (RespawnUpdateModuleData ??1RespawnUpdateModuleData@@UAE@XZ); RW 0x8BC457 (BuildableHeroListUpgradeModuleData::buildFieldParse)
 #include "GameLogic/Module/HeroModules.h"
 #include "GameLogic/SnapshotXfer.h"
 #include "GameLogic/Object/PartitionManager.h"

@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 // See GameLogic/Module/RainOfFireUpdate.h (lane MODGAP-2, Local 169; editions: both RotWK 2.01 and BFME2 1.06).
 
+// Local 174: RW 0x8AF799 (RainOfFireUpdate::getModuleName)
 #include "GameLogic/Module/RainOfFireUpdate.h"
 
 #include "Common/INI.h"

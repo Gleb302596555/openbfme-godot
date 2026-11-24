@@ -3,6 +3,7 @@
 
 // Local 169: RW 0x8B6462 (TauntAndPointDistance)
 // Local 171: RW 0x68F39F (Object::clearEmotionRequest)
+// Local 174: RW 0x8B538A (EmotionTrackerUpdateModuleData ??1EmotionTrackerUpdateModuleData@@UAE@XZ)
 #include "GameLogic/Module/EmotionModules.h"
 #include "GameLogic/SnapshotXfer.h"
 #include "GameLogic/ScriptEngine/ScriptEngine.h"

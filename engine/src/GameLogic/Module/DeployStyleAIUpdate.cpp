@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 // See GameLogic/Module/DeployStyleAIUpdate.h for the sources of every rule.
 
+// Local 174: RW 0x8B1D61 (ToggleDeploySpecialAbilityUpdateModuleData ??1ToggleDeploySpecialAbilityUpdateModuleData@@UAE@XZ); RW 0x8B1831 (ToggleDeploySpecialAbilityUpdate ctor/dtor)
 #include "GameLogic/Module/DeployStyleAIUpdate.h"
 
 #include "Common/Xfer.h"

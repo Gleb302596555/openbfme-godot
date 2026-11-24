@@ -5,6 +5,7 @@
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 
+// Local 174: RW 0x8D296A (DieMuxData::getFieldParse); RW 0x8D46D0 (DieMuxData::getFieldParse); RW 0x8E9497 (DieMuxData::getFieldParse); RW 0x8ED4A4 (DieMuxData::getFieldParse)
 #include "GameLogic/Combat/ObjectWeapons.h"
 #include "GameLogic/SnapshotXfer.h"
 #include "GameLogic/Module/CombatModules.h"

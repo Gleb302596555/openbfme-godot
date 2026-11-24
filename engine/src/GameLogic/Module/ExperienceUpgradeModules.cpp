@@ -5,6 +5,7 @@
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 
+// Local 174: RW 0x8B7F43 (LevelUpUpgrade::LevelUpUpgrade); RW 0x8B7F21 (LevelUpUpgradeModuleData::buildFieldParse)
 #include "GameLogic/Module/ExperienceUpgradeModules.h"
 #include "GameLogic/SnapshotXfer.h"
 

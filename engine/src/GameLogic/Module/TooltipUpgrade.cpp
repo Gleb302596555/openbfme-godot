@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 // See GameLogic/Module/TooltipUpgrade.h (lane MODGAP-2; editions: both RotWK 2.01 and BFME2 1.06).
 
+// Local 174: RW 0x8B7C1B (CommandSetUpgrade::CommandSetUpgrade); RW 0x8B7801 (CommandSetUpgrade ctor/dtor); RW 0x8B7BF9 (CommandSetUpgradeModuleData::buildFieldParse)
 #include "GameLogic/Module/TooltipUpgrade.h"
 
 #include "Common/INI.h"
