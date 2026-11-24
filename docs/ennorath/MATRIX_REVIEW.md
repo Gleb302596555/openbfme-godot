@@ -7,80 +7,43 @@ Layer 2 (lint) flags verdicts the mod's own data contradicts; layer 3 lists ever
 By rule: L1 66, L4 3
 
 
-## Changes since c14cef83: 75 buttons moved, 13 turned red
+## Changes since b5ec6d4c: 38 buttons moved, 0 turned red
 
-- Isengard `spell` `SpellBookBndnissderzweiTime`: PASS -> FAIL — the spell bar's button is not castable (owned 1, usable 0, ready 1)
-- Isengard `spell` `SpellBookCrebain`: PASS -> FAIL — the spell bar's button is not castable (owned 1, usable 0, ready 1)
-- Isengard `spell` `SpellBookDevastation`: PASS -> FAIL — the spell bar's button is not castable (owned 1, usable 0, ready 1)
-- Isengard `spell` `SpellBookFreezingRain`: PASS -> FAIL — the spell bar's button is not castable (owned 1, usable 0, ready 1)
-- Isengard `spell` `SpellBookFueltheFires`: PASS -> FAIL — the spell bar's button is not castable (owned 1, usable 0, ready 1)
-- Isengard `spell` `SpellBookIsengardCapitans`: PASS -> FAIL — the spell bar's button is not castable (owned 1, usable 0, ready 1)
-- Isengard `spell` `SpellBookIsengardMinenRegen`: PASS -> FAIL — the spell bar's button is not castable (owned 1, usable 0, ready 1)
-- Isengard `spell` `SpellBookPalantirVision`: PASS -> FAIL — the spell bar's button is not castable (owned 1, usable 0, ready 1)
-- Isengard `spell` `SpellBookSarumanVielfarbig`: PASS -> FAIL — the spell bar's button is not castable (owned 1, usable 0, ready 1)
-- Isengard `spell` `SpellBookWarChantIsengard`: PASS -> FAIL — the spell bar's button is not castable (owned 1, usable 0, ready 1)
-- Isengard `spell` `SpellBookWargBow`: PASS -> FAIL — the spell bar's button is not castable (owned 1, usable 0, ready 1)
-- Isengard `spell` `SpellBookWildMenAllies`: PASS -> FAIL — the spell bar's button is not castable (owned 1, usable 0, ready 1)
-- Mordor `MordorGrond` `(aura) ModuleTag_DreadVisageAura`: PASS -> NO-AURA — NO-AURA: GrondAntiFearModiffer on Azog_CINE (enemy) at 40 of Range 150 never arrived in 20 frames (pulses 5; the target is dead)
-- Arnor `GondorTowerShieldGuardHordeShieldWall` `Command_ToggleFormationSchieldwallTurmwachenNo`: FAIL -> DISABLED
-- Arnor `spell` `SpellBookStarOfTheNorth`: NO-RULE -> PASS
-- Dwarves `DwarvenDurin` `Command_SpecialAbilityDurinMeisterGestein`: NO-EFFECT -> PASS
-- Dwarves `spell` `SpecialAbilityDurinstag`: FAIL -> PASS
-- Dwarves `spell` `SpellBookBombard`: FAIL -> PASS
-- Dwarves `spell` `SpellBookDwarvenRiches`: FAIL -> PASS
-- Dwarves `spell` `SpellBookEarthquake`: FAIL -> PASS
-- Dwarves `spell` `SpellBookGaydalf`: FAIL -> PASS
-- Dwarves `spell` `SpellBookMithril`: FAIL -> PASS
-- Dwarves `spell` `SpellBookSpawnLoneTowerZwerge`: FAIL -> PASS
-- Dwarves `spell` `SpellBookTrotzderZwerge`: FAIL -> PASS
-- Dwarves `spell` `SpellBookUndermine`: FAIL -> PASS
-- Dwarves `spell` `SpellBookZwergeAdler`: FAIL -> PASS
-- Dwarves `spell` `SpellBookZwergenbier`: FAIL -> PASS
-- Dwarves `spell` `SpellBookZwergenhorn`: FAIL -> PASS
-- Elves `ElvenThranduil_mod` `Command_ThranduilKnigDsterwalds`: NO-EFFECT -> PASS
-- Elves `GaladrielDarkMirror` `Command_GaladrielMirrorDissentLocked`: NOT-ON-BAR -> DISABLED
-- Elves `GaladrielDarkMirror` `Command_GaladrielMirrorWardByMirror`: NOT-ON-BAR -> PASS
-- Elves `GaladrielDarkMirror8` `Command_GaladrielMirrorDissent`: NOT-ON-BAR -> PASS
-- Elves `GaladrielDarkMirror8` `Command_GaladrielMirrorWardByMirror`: NOT-ON-BAR -> PASS
-- Elves `ImladrisCitadel` `Command_SpecialAbilitySaatdesgoldenenWaldes`: ORDER -> PASS
-- Elves `TomBombadil_Summoned` `(aura) ModuleTag_Leadership`: LEFT-WORLD -> DISABLED
-- Evilmen `HaradAlatar_modRing` `Command_SpecialAbilityAlatarSummonOliphs`: PASS -> ORDER
-- Evilmen `HaradBigScorpion` `Command_BigScorpionUnderground`: NO-EFFECT -> PASS
-- Evilmen `HaradSpy` `Command_SpecialAbilityHaradScoutCloak`: STUCK -> PASS
-- Evilmen `HaradmuhadMounted` `Command_SpecialAbilityMuhadSummonOliph`: NO-FIRE -> PASS
-- Evilmen `HaradrimArcherHordeNewOnMumakil` `Command_HaradrimArcherBarbedArrowAbility`: PASS -> ORDER
-- Evilmen `MordorOutpost` `Command_OutpostOrcSpawn`: ORDER -> PASS
-- Evilmen `MordorTribute_forHarad` `Command_SpecialAbilityTributeGainTwo`: NO-EFFECT -> PASS
-- Evilmen `MordorTribute_forHaradSmall` `Command_SpecialAbilityTributeGainTwo`: NO-EFFECT -> PASS
-- Evilmen `spell` `SpellBookHaradEnchArmor`: FAIL -> PASS
-- Imladris `ImladrisGildor` `Command_SpecialAbilityElfCloakGildor`: STUCK -> PASS
-- Imladris `spell` `SpellBookErestorWisdom`: FAIL -> PASS
-- Imladris `spell` `SpellBookManveWisdom`: FAIL -> PASS
-- Imladris `spell` `SpellBookSpecialPowerElrondsRat`: FAIL -> PASS
-- Isengard `IsengardWulfgar` `Command_SpecialAbilityWulfgarRufderPlnderer`: NO-EFFECT -> PASS
-- Men `GondorBeregond` `Command_BeregondMountNew`: STUCK -> PASS
-- Men `GondorFaramir_mod` `Command_HeroFaramirWeaponToggle`: STUCK -> PASS
-- Men `GondorTowerShieldGuardHordeShieldWall` `Command_ToggleFormationSchieldwallTurmwachenNo`: FAIL -> DISABLED
-- Men `MenPorterRepair` `Command_RepairAI`: NO-SEND -> PASS
-- Men `spell` `SpellBookRebuild`: FAIL -> PASS
-- Mordor `spell` `SpellBookCalltheHordeMod`: FAIL -> PASS
-- Mordor `spell` `SpellBookEvilmenAllies`: FAIL -> PASS
-- Mordor `spell` `SpellBookHammerderUnterwelt`: FAIL -> PASS
-- Rohan `GasthausGhanBuriGhan` `Command_SpecialAbilityGeheimeWege`: NO-EFFECT -> PASS
-- Rohan `GondorTowerShieldGuardHordeShieldWall` `Command_ToggleFormationSchieldwallTurmwachenNo`: FAIL -> DISABLED
-- Rohan `RohanPeasantHorde` `Command_PurchaseUpgradeRohanForgedBladesForPeasants`: NOT-ON-BAR -> MOD-DATA
-- Rohan `RohanPeasantHorde` `Command_PurchaseUpgradeRohanHeavyArmorForPeasants`: NOT-ON-BAR -> MOD-DATA
-- Rohan `spell` `SpellBookDraft`: FAIL -> PASS
-- Wild `MordorBalrogAI` `Command_SpecialAbilityBalrogBreathAI`: NO-EFFECT -> PASS
-- Wild `MordorBalrogAI` `Command_SpecialAbilityMordorBalrogWhipAI`: NO-EFFECT -> PASS
-- Wild `RavenPost` `Command_RavenPostSecondBonus`: NO-EFFECT -> PASS
-- Wild `WildGoblinKing_mod` `Command_GorkilBombThrow`: NO-EFFECT -> PASS
-- Wild `WildGoblinKing_mod` `Command_GorkilZuchtspinnenSummon`: ORDER -> PASS
-- Wild `WildMarauderSwordBanner` `Command_AngmarTrollChargeAttack`: NO-SEND -> MEMBER
-- Wild `WildMarauderSwordHorde` `Command_HalftrollChargeAttack`: NO-EFFECT -> PASS
-- Wild `WildMarauderSwords` `Command_AngmarTrollChargeAttack`: NO-SEND -> MEMBER
-- Wild `WildPorterSpecAI` `Command_RepairAI`: ORDER -> PASS
-- Wild `WildSmaugNewRingFly` `Command_SmaugIncinerateNew`: ORDER -> PASS
-- Wild `WildZuchtdrache` `Command_ToggleStance`: NO-STANCE -> PASS
-- Wild `WildZuchtdracheBaby` `Command_ToggleStance`: NO-STANCE -> PASS
-- Wild `spell` `SpellBookPaktdesHasses`: FAIL -> PASS
+- Angmar `AngmarBarrowWightLair_Player_Independant` `Command_SpecialAbilityKarshSummonLvl10`: DISABLED -> PASS
+- Angmar `AngmarBarrowWightLair_Player_Independant` `Command_SpecialAbilityKarshSummonLvl3`: DISABLED -> PASS
+- Angmar `AngmarBarrowWightLair_Player_Independant` `Command_SpecialAbilityKarshSummonLvl5`: DISABLED -> PASS
+- Angmar `AngmarBarrowWightLair_Player_Independant` `Command_SpecialAbilityKarshSummonLvl7`: DISABLED -> PASS
+- Arnor `MordorWitchKingOnFellBeastSpell` `Command_KhamulFellBeastToggleMounted`: DISABLED -> PASS
+- Arnor `MordorWitchKingPferdSpell` `Command_WitchKingToggleMountedonFellbeastNew`: DISABLED -> PASS
+- Arnor `MordorWitchKingSpell` `Command_WitchKingToggleMountedonFellbeastNew`: DISABLED -> PASS
+- Dwarves `IronHillsBallista` `Command_Bombard`: DISABLED -> PASS
+- Elves `LothlorienOuterFlet` `Command_PurchaseLothlorienSentryTowerFireArrowsUpgrade`: GREY-BUG -> DISABLED
+- Elves `RohanSam_mod` `Command_SamBratpfanne`: NO-SEND -> PASS
+- Evilmen `EvilMenCorsairBallista` `Command_BombardEvil`: DISABLED -> PASS
+- Evilmen `EvilMenCorsairBallistaBuildable` `Command_BombardEvil`: DISABLED -> PASS
+- Evilmen `HaradBigScorpion_Underground` `Command_BigScorpionRelease`: DISABLED -> PASS
+- Evilmen `HaradFortressBallista` `Command_BombardEvil`: DISABLED -> PASS
+- Evilmen `HaradmuhadMounted` `Command_UnmountMuhadMumakil`: DISABLED -> PASS
+- Imladris `DwarvenGuardianEreborHorde_Summoned` `Command_PurchaseUpgradeDwarvenBasicTraining`: GREY-BUG -> DISABLED
+- Imladris `LindonTower` `Command_PurchaseUpgradeLindonReinforcement`: FAIL -> DISABLED
+- Imladris `MordorWitchKingOnFellBeastSpell` `Command_KhamulFellBeastToggleMounted`: DISABLED -> PASS
+- Imladris `MordorWitchKingPferdSpell` `Command_WitchKingToggleMountedonFellbeastNew`: DISABLED -> PASS
+- Imladris `MordorWitchKingSpell` `Command_WitchKingToggleMountedonFellbeastNew`: DISABLED -> PASS
+- Isengard `IsengardBallista` `Command_BombardEvil`: DISABLED -> PASS
+- Isengard `IsengardBallista_Summoned` `Command_BombardEvil`: DISABLED -> PASS
+- Isengard `IsengardFortressBallista` `Command_BombardEvil`: DISABLED -> PASS
+- Men `GondorDenethor_forFortress` `Command_SpecialAbilityDenethorNotstandssituation`: FAIL -> DISABLED
+- Men `GondorDenethor_forFortress` `Command_SpecialAbilityDenethorSehenderStein1`: FAIL -> DISABLED
+- Men `GondorDenethor_forFortress` `Command_SpecialAbilityDenethorSteuererlass`: FAIL -> DISABLED
+- Men `GondorDenethor_forFortress` `Command_SpecialAbilityDenethorVerzweiflungsakt`: FAIL -> DISABLED
+- Men `MordorWitchKingOnFellBeastSpell` `Command_KhamulFellBeastToggleMounted`: DISABLED -> PASS
+- Men `MordorWitchKingPferdSpell` `Command_WitchKingToggleMountedonFellbeastNew`: DISABLED -> PASS
+- Men `MordorWitchKingSpell` `Command_WitchKingToggleMountedonFellbeastNew`: DISABLED -> PASS
+- Men `RohanTheoden_mod` `Command_SpecialAbilityKingsFavorEdainTheoRing`: PASS -> ORDER
+- Mordor `GasthausKhamulonFellBeastSpell` `Command_KhamulFellBeastToggleMounted`: DISABLED -> PASS
+- Mordor `MordorWitchKingOnFellBeastSpell` `Command_KhamulFellBeastToggleMounted`: DISABLED -> PASS
+- Mordor `MordorWitchKingPferdSpell` `Command_WitchKingToggleMountedonFellbeastNew`: DISABLED -> PASS
+- Mordor `MordorWitchKingSpell` `Command_WitchKingToggleMountedonFellbeastNew`: DISABLED -> PASS
+- Rohan `MordorWitchKingOnFellBeastSpell` `Command_KhamulFellBeastToggleMounted`: DISABLED -> PASS
+- Rohan `MordorWitchKingPferdSpell` `Command_WitchKingToggleMountedonFellbeastNew`: DISABLED -> PASS
+- Rohan `MordorWitchKingSpell` `Command_WitchKingToggleMountedonFellbeastNew`: DISABLED -> PASS

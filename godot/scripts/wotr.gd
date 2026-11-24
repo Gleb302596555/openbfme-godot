@@ -2456,11 +2456,21 @@ func request_online_phase(slots: Array) -> String:
 
 
 func online_battle_phase_seats(players: Array) -> Array:
+	# Under ennorath.wotr-8-players (PYSAGE 1.9.8.5 .wotrobs / .wtrview), partial-human battles include all live human war peers
+	# so non-participating humans join battle lockstep as ReplayObserver and return to the strategic map together.
+	# Without the feature, LivingWorldLogic::networkVote only enters real-time when all live humans are in `players`.
 	var seats: Array = []
-	for player in players:
-		var p: int = int(player)
-		if bool(state.players[p].human):
-			seats.append(int(slot_of_player[p]))
+	for p in range(state.players.size()):
+		if bool(state.players[p].human) and not bool(state.players[p].defeated):
+			var s: int = int(slot_of_player[p])
+			if s >= 0 and not seats.has(s):
+				seats.append(s)
+	if seats.is_empty():
+		for player in players:
+			var p: int = int(player)
+			if bool(state.players[p].human):
+				seats.append(int(slot_of_player[p]))
+	seats.sort()
 	return seats
 
 

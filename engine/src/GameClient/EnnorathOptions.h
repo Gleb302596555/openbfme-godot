@@ -51,7 +51,8 @@ struct EnnorathOptionEntry
 class EnnorathOptions
 {
 public:
-	static constexpr int kEntryCount = 28;      // PYSAGE 1.9.8.5 .optui 0xF25960 (0x1C entries, stride 0x24)
+	static constexpr int kEntryCount1985 = 28;  // PYSAGE 1.9.8.5 .optui 0xF25960 (0x1C entries, stride 0x24)
+	static constexpr int kEntryCount = 31;      // PYSAGE 1.9.8.7 .wmkeys 0xF3B000 (+3 hotkeys: SelectAll, SelectAllHeroes, TacticalMenu)
 	static constexpr int kKeyChoiceCount = 135; // PYSAGE 1.9.8.5 .optui 0xF24640 (0x87 entries, stride 0x0C)
 	static constexpr int kFpsChoiceCount = 2;   // PYSAGE 1.9.8.5 .optui 0xF24CD4 (30, 60)
 	static constexpr int kSensChoiceCount = 3;  // PYSAGE 1.9.8.5 .optui 0xF23679 (50, 75, 100)
@@ -59,7 +60,11 @@ public:
 	static constexpr int kEntryMatchType = 10;  // Options::ETKeyBuildPath / ETKeyMatchType (default E = index 5)
 	static constexpr int kEntrySpellbook = 11;  // Options::ETKeySpellbook (meta 0x92)
 	static constexpr int kEntrySell = 12;       // Options::ETKeySell (meta 0x9A)
+	static constexpr int kEntrySelectAll = 28;        // PYSAGE 1.9.8.7 .wmkeys 0xF3B1D4: Options::ETKeySelectAll (meta 0x64)
+	static constexpr int kEntrySelectAllHeroes = 29;  // PYSAGE 1.9.8.7 .wmkeys 0xF3B1F8: Options::ETKeySelectAllHeroes (meta 0xAB)
+	static constexpr int kEntryTacticalMenu = 30;     // PYSAGE 1.9.8.7 .wmkeys 0xF3B21C: Options::ETKeyTacticalMenu (meta 0x99)
 
+	static int activeEntryCount(); // 31 when ennorath.option-hotkeys-1987 is active, else 28
 	static const std::array<EnnorathOptionEntry, kEntryCount> &entries();
 	static const std::array<EnnorathKeyChoice, kKeyChoiceCount> &keyChoices();
 	static const std::array<int, kFpsChoiceCount> &fpsValues();

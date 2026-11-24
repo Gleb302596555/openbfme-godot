@@ -36,6 +36,7 @@
 
 #include "Common/INI.h"
 #include "Common/Module.h"
+#include "GameLogic/Module/DamageModule.h"
 #include "GameLogic/Module/UpdateModule.h"
 
 #include <string>
@@ -223,4 +224,49 @@ public:
 private:
 	const SupplyWarehouseDockUpdateModuleData *m_data;
 	int m_boxesStored = 0; ///< the interface's + 0x68 (ZH m_boxesStored, StartingBoxes at construction)
+};
+
+// SupplyWarehouseCripplingBehavior (RW create 0x64C16D, data ctor 0x886CDE, field table 0xC60420, vtable 0xC603A8; both editions):
+//   * SelfHealSupression (+0x08, RW 0x73A429), SelfHealDelay (+0x0C, RW 0x73A429), SelfHealAmount (+0x10, RW 0x42ED00).
+//   * ctor RW 0x886D08: zeroes +0x24/+0x28, sleeps forever (0x3FFFFFFF).
+//   * onDamage RW 0x886D8D: resetSelfHealSupression (RW 0x886E20: +0x24 = +0x28 = now + SelfHealSupression), setWakeFrame(+0x24 - now).
+//   * onBodyDamageStateChange RW 0x886C76: newState == BODY_REALLYDAMAGED (2) -> startCrippled (RW 0x886E38 -> dock->setDockCrippled(true));
+//     else oldState == BODY_REALLYDAMAGED (2) -> stopCrippled (RW 0x886E4A -> dock->setDockCrippled(false)).
+//   * update RW 0x886DBA: +0x28 = now + SelfHealDelay; obj->attemptHealing(SelfHealAmount, nullptr) (RW 0x690532);
+//     if body->getHealth() == body->getMaxHealth() sleep forever, else sleep (+0x28 - now).
+//   * xfer RW 0x886E5C: UpdateModule::xfer (RW 0x850C60), version 1, +0x24, +0x28.
+class SupplyWarehouseCripplingBehaviorModuleData : public ModuleData
+{
+public:
+	UnsignedInt m_selfHealSupression = 0; ///< +0x08 (SelfHealSupression, frames)
+	UnsignedInt m_selfHealDelay = 0;      ///< +0x0C (SelfHealDelay, frames)
+	float m_selfHealAmount = 0.0f;        ///< +0x10 (SelfHealAmount)
+	static void buildFieldParse(MultiIniFieldParse &p);
+};
+
+class SupplyWarehouseCripplingBehavior : public UpdateModule, public DamageModuleInterface
+{
+public:
+	OBFME_MODULE_XFER(SupplyWarehouseCripplingBehavior)
+	SupplyWarehouseCripplingBehavior(Thing *thing, const SupplyWarehouseCripplingBehaviorModuleData *data);
+	static void registerClass(ModuleFactory &modules);
+
+	DamageModuleInterface *getDamage() override { return this; }
+	void onDamage(const DamageInfo &info) override; // RW 0x886D8D
+	void onHealing(const DamageInfo &info) override { (void)info; }
+	void onBodyDamageStateChange(const DamageInfo *info, BodyDamageType oldState, BodyDamageType newState) override; // RW 0x886C76
+	UpdateSleepTime update() override; // RW 0x886DBA
+	void crc(StateHasher &hasher) const override;
+
+	UnsignedInt healSuppressedUntilFrame() const { return m_healSuppressedUntilFrame; }
+	UnsignedInt nextHealFrame() const { return m_nextHealFrame; }
+
+private:
+	void resetSelfHealSupression(); // RW 0x886E20
+	void startCrippled();           // RW 0x886E38
+	void stopCrippled();            // RW 0x886E4A
+
+	const SupplyWarehouseCripplingBehaviorModuleData *m_data;
+	UnsignedInt m_healSuppressedUntilFrame = 0; ///< +0x24
+	UnsignedInt m_nextHealFrame = 0;            ///< +0x28
 };

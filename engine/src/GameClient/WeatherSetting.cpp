@@ -16,6 +16,16 @@ RGBColor defaultHardwareFogColor()
 	return RGBColor{ 0x88 / 255.0f, 0x66 / 255.0f, 0x55 / 255.0f };
 }
 
+void WeatherSetting::cloudScaleOffset(float out[4]) const
+{
+	// RW 0x4E2521 (ScaleUVOffsetPerSecondUV): defaults 0.0015151515f (RW 0xBE462C), -0.012f (RW 0xBE4628), -0.018f (RW 0xBE4624).
+	constexpr float kDefaultCloudScale = 0.0015151515f;
+	out[0] = cloudTextureSize.x != 0.0f ? 1.0f / cloudTextureSize.x : kDefaultCloudScale;
+	out[1] = cloudTextureSize.y != 0.0f ? 1.0f / cloudTextureSize.y : kDefaultCloudScale;
+	out[2] = cloudOffsetPerSecond.x;
+	out[3] = cloudOffsetPerSecond.y;
+}
+
 const char *const WeatherSettingStore::WeatherTypeNames[WEATHER_TYPE_COUNT] = { "NONE", "CLOUDY", "RAINY", "CLOUDYRAINY", "SUNNY" };
 
 namespace

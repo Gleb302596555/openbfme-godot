@@ -57,6 +57,9 @@ void SnowManager::updateIniSettings(const WeatherSetting &s)
 	m_freqX = s.snowFrequencyScaleX;
 	m_freqY = s.snowFrequencyScaleY;
 	m_amplitude = s.snowAmplitude;
+	m_pointSize = s.snowPointSize;       // RW 0x600ADE -> 0x600BB2
+	m_maxPointSize = s.snowMaxPointSize; // RW 0x600ADE -> 0x600C1E
+	m_minPointSize = s.snowMinPointSize; // RW 0x600ADE -> 0x600C39
 	m_quadSize = s.snowQuadSize;
 	m_box = s.snowBoxHeight;
 	m_spacing = s.snowSpacing;
@@ -294,6 +297,9 @@ SnowDrawParams SnowManager::drawParams(const WeatherSetting &s, int mapWidth, in
 	p.frequencyX = m_freqX;
 	p.frequencyY = m_freqY;
 	p.quadHalf = m_quadSize * 0.707f;
+	p.pointSize = m_pointSize;       // RW 0x494117 -> 0x4942DC
+	p.minPointSize = m_minPointSize; // RW 0x494117 -> 0x4942F3
+	p.maxPointSize = m_maxPointSize; // RW 0x494117 -> 0x49430A
 	int gray = 255;
 	if (m_phase != 0)
 	{
@@ -308,6 +314,14 @@ SnowDrawParams SnowManager::drawParams(const WeatherSetting &s, int mapWidth, in
 	p.color = (std::uint32_t)gray * 0x10101u + 0xFF000000u;
 	p.heights = m_heights.data();
 	return p;
+}
+
+float SnowManager::pointSpriteSizePx(const SnowDrawParams &p, float viewportHeight, float distance)
+{
+	// RW 0x494117 (W3DSnowManager::render): D3DRS_POINTSCALEENABLE=1, POINTSCALE_A=0, B=0, C=1 (RW 0x4942C4..0x494350).
+	const float d = distance > 1e-4f ? distance : 1e-4f;
+	const float raw = viewportHeight * p.pointSize / d;
+	return std::max(p.minPointSize, std::min(p.maxPointSize, raw));
 }
 
 void SnowManager::particleCenter(const SnowDrawParams &p, int gx, int gy, float out[3])

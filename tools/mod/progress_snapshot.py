@@ -27,6 +27,9 @@ Columns:
   funcs_open       of those, functions with no `ported` row (none or partial): the home page's share
   mods_total       RotWK's reads of the mod's attribute modifiers (docs/ennorath/MODIFIER_READERS.tsv, tools/mod/modifier_map.py; from 2026-11-19)
   mods_open        of those, reads the port does not have (status not `ported` / `ported-via-call`): the home page's share
+  binary_total     game-logic functions of the whole-image map (docs/ennorath/RW_BINARY_MAP.tsv, subsystems BINARY_LOGIC, less library;
+                   from 2026-11-24, owner: replaces the owner's problems in the home page's bar)
+  binary_open      of those, `none` or `partial` (no `RW 0x...` citation at the function's start)
   gaps_specific    distinct RotWK functions the failing buttons' main classes lack (docs/ennorath/MATRIX_GAPS.tsv, `main class` rows,
                    `specific none`): the work the matrix still points at. Both empty in rows before 2026-11-16 and when a file is missing
 
@@ -54,7 +57,11 @@ import stops_count  # noqa: E402
 OUT = REPO / "docs" / "ennorath" / "PROGRESS.tsv"
 COLUMNS = ["date", "rev", "fields_total", "fields_open", "modules_missing", "problems_total", "problems_done", "stops_open", "audit",
            "buttons_red", "gaps_specific", "stops_new", "stops_closed", "buttons_total", "fields_proven_unread", "scripts_total", "scripts_open",
-           "funcs_total", "funcs_open", "mods_total", "mods_open"]
+           "funcs_total", "funcs_open", "mods_total", "mods_open", "binary_total", "binary_open"]
+# the game-logic subsystems of the whole-image map (owner 2026-11-24: the home page's bar counts the binary map instead of the owner's
+# problems); the client side (draw, audio, UI, network) is rebuilt on Godot, so its `none` is no work count
+BINARY_LOGIC = {"objects / modules", "AI / pathfinding", "combat / weapons", "horde / locomotion", "castles / structures", "script engine",
+                "map / terrain logic", "War of the Ring / LivingWorld"}
 GREEN = {"PASS", "STANCE", "DISABLED", "INVENTORY", "TEMPORARY", "MEMBER", "MOD-DATA", "NO-TARGET", "BY-DESIGN", "ORDER", "NO-AURA"}  # by design, or fine when swept alone (matrix review 2026-11-17)
 # not red, but not judged either (owner 2026-11-18): the faction table counts them in a column of their own, not with the idle ones (tools/matrix_run.py)
 UNVERIFIED = {"MOD-DATA", "NO-TARGET", "ORDER", "NO-AURA"}
@@ -258,6 +265,22 @@ def mod_counts(rev: str | None) -> tuple[str, str]:
     return str(len(rows)), str(sum(1 for r in rows if r.get("status") not in ("ported", "ported-via-call")))
 
 
+def binary_counts(rev: str | None) -> tuple[str, str]:
+    """binary_total / binary_open from RW_BINARY_MAP.tsv: the game-logic functions of the whole image (BINARY_LOGIC, `?` labels
+    included), less the library code; open = `none` or `partial`. Empty when the map is missing."""
+    try:
+        text = read("docs/ennorath/RW_BINARY_MAP.tsv", rev)
+    except (OSError, subprocess.CalledProcessError):
+        return "", ""
+    total = open_ = 0
+    for r in csv.DictReader(text.splitlines(), delimiter="\t", quoting=csv.QUOTE_NONE):
+        if r["subsystem"].rstrip("?").strip() not in BINARY_LOGIC or r["status"] == "library":
+            continue
+        total += 1
+        open_ += r["status"] in ("none", "partial")
+    return (str(total), str(open_)) if total else ("", "")
+
+
 def load() -> list[dict[str, str]]:
     if not OUT.exists():
         return []
@@ -306,6 +329,7 @@ def main() -> int:
     row["scripts_total"], row["scripts_open"] = script_counts(a.rev)
     row["funcs_total"], row["funcs_open"] = func_counts(a.rev)
     row["mods_total"], row["mods_open"] = mod_counts(a.rev)
+    row["binary_total"], row["binary_open"] = binary_counts(a.rev)
     earlier = [r for r in rows if r["date"] < a.date]
     row["stops_new"], row["stops_closed"] = stop_delta(earlier[-1]["rev"] if earlier else None, a.rev)
     if not a.write:

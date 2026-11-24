@@ -93,6 +93,9 @@ struct SnowDrawParams
 	float ceiling = 0.0f;           ///< +0x90 (= box)
 	float amplitude = 0.0f, frequencyX = 0.0f, frequencyY = 0.0f;
 	float quadHalf = 0.0f;          ///< quadSize * 0.707f
+	float pointSize = 1.0f;         ///< +0x28 (RW 0x4942DC D3DRS_POINTSIZE)
+	float minPointSize = 0.0f;      ///< +0x30 (RW 0x4942F3 D3DRS_POINTSIZE_MIN)
+	float maxPointSize = 64.0f;     ///< +0x2C (RW 0x49430A D3DRS_POINTSIZE_MAX)
 	std::uint32_t color = 0xFFFFFFFFu; ///< ARGB (gray * 0x10101 + 0xFF000000)
 	const float *heights = nullptr; ///< 4096 starting heights (row y * 64 + x)
 };
@@ -122,6 +125,8 @@ public:
 	SnowDrawParams drawParams(const WeatherSetting &s, int mapWidth, int mapHeight, int mapBorder, W3DDrawRandom &clientRandom) const;
 	// the position RW 0x4936CB computes for grid point (gx, gy) of tile (0, 0) (the reference of the device layer's vertex shader)
 	static void particleCenter(const SnowDrawParams &p, int gx, int gy, float out[3]);
+	// D3D9 point-sprite screen size (RW 0x494117 -> 0x4942C4..0x494350, POINTSCALE_A=0, B=0, C=1): clamp(viewportHeight * pointSize / distance, minPointSize, maxPointSize)
+	static float pointSpriteSizePx(const SnowDrawParams &p, float viewportHeight, float distance);
 	// WWMath::Fast_Sin (the 1024-entry table, lerped): sin(2*pi*i/1024) at the two nearest entries
 	static float fastSin(float x);
 
@@ -160,6 +165,9 @@ private:
 	float m_velocity = 1.0f;       ///< +0x14
 	float m_fullTimePeriod = 0.0f; ///< +0x18
 	float m_freqX = 0.0f, m_freqY = 0.0f, m_amplitude = 0.0f; ///< +0x1C .. +0x24
+	float m_pointSize = 1.0f;      ///< +0x28 (RW 0x600BB2)
+	float m_maxPointSize = 64.0f;  ///< +0x2C (RW 0x600C1E)
+	float m_minPointSize = 0.0f;   ///< +0x30 (RW 0x600C39)
 	float m_quadSize = 0.0f;       ///< +0x34
 	float m_box = 0.0f;            ///< +0x38
 	float m_spacing = 0.0f;        ///< +0x3C

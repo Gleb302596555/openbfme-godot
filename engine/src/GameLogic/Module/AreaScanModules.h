@@ -116,8 +116,8 @@ public:
 	unsigned long long heals() const { return m_heals; }
 	unsigned long long modifiersApplied() const { return m_modifiers; }
 
-private:
-	void scan();                 ///< RW 0x887F17 (slot 0x34)
+protected:
+	virtual void scan();         ///< RW 0x887F17 (slot 0x34)
 	void affect(Object &target); ///< RW 0x887B72 (slot 0x38): the heal RW 0x887BAB, the modifiers RW 0x887C94
 
 	const PassiveAreaEffectBehaviorModuleData *m_data;
@@ -125,6 +125,32 @@ private:
 	std::list<ObjectID> m_targets;     ///< + 0x24
 	unsigned long long m_heals = 0;     ///< heals given (hashed)
 	unsigned long long m_modifiers = 0; ///< modifier lists applied (hashed)
+};
+
+// PYSAGE 1.9.8.7 .wmfeat 0xF3A000, 0xF3A20D .. 0xF3A349 (hook RW 0x888012, ennorath.filtered-horde-respawn):
+// Subclass of PassiveAreaEffectBehavior that respawns one missing member on each scanned allied HORDE matching ObjectFilter.
+class FilteredHordeRespawnBehaviorModuleData : public PassiveAreaEffectBehaviorModuleData
+{
+public:
+	FilteredHordeRespawnBehaviorModuleData() { m_pingDelay = 450; } // .wmfeat 0xF3A225: 0x1C2 frames
+	bool m_hasObjectFilter = false;                                 // .wmfeat 0xF3A22C / 0xF3A275 (+0x38)
+	static void buildFieldParse(MultiIniFieldParse &p);
+};
+
+class FilteredHordeRespawnBehavior : public PassiveAreaEffectBehavior
+{
+public:
+	OBFME_MODULE_XFER(FilteredHordeRespawnBehavior)
+	FilteredHordeRespawnBehavior(Thing *thing, const FilteredHordeRespawnBehaviorModuleData *data);
+	void crc(StateHasher &h) const override;
+	unsigned long long respawns() const { return m_respawns; }
+
+protected:
+	void scan() override;
+
+private:
+	const FilteredHordeRespawnBehaviorModuleData *m_respawnData;
+	unsigned long long m_respawns = 0;
 };
 
 namespace AreaScanModules

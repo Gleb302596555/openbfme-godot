@@ -170,7 +170,7 @@ constexpr size_t kEventMin = 4 * 2 + 1;
 
 void LivingWorldLogic::xfer(Xfer &x)
 {
-	XferVersion v{ 5, 7 }; // 2 (WOTR2 milestone 4): building ids, the entry keys and homes, the retreat list; 3: the command point counters;
+	XferVersion v{ 5, 8 }; // 2 (WOTR2 milestone 4): building ids, the entry keys and homes, the retreat list; 3: the command point counters; 8: award disputes (RW 0x900E58);
 	                       // 4 (milestone 5): the entries' upgrade sets, ranks and marks, the armories' counts; 5 (milestone 7): the players' sciences
 	                       // and upgrades (LivingWorldPlayer + 0x1F8 / + 0x204); 6 (milestone 8 step 4): the network clock L + 0x100 / + 0x104 (a LAN
 	                       // war's save, retail's mode 6). A version-5 save loads as before: the clock keeps the values a fresh logic has (0, 0);
@@ -435,6 +435,27 @@ void LivingWorldLogic::xfer(Xfer &x)
 		xferIntField(x, &e.turn);
 		xferIntField(x, &e.phase);
 		x.xferAsciiString(&e.text);
+	}
+	if (v.current >= 8)
+	{
+		xferIntField(x, &m_hostPlayer);
+		std::uint32_t dn = (std::uint32_t)m_awardDisputes.size();
+		x.xferCount(&dn, 4, sizeof(int));
+		if (x.isLoading())
+		{
+			m_awardDisputes.assign(dn, RegionAwardDispute{});
+		}
+		for (RegionAwardDispute &d : m_awardDisputes)
+		{
+			xferIntField(x, &d.region);
+			x.xferBool(&d.resolved);
+			xferIntVector(x, d.contenders);
+		}
+	}
+	else if (x.isLoading())
+	{
+		m_hostPlayer = 0;
+		m_awardDisputes.clear();
 	}
 }
 

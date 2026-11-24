@@ -124,10 +124,10 @@ public:
 	// slot 0x20 (RW 0x872A7F -> module slot 0x98, RW 0x8757FC): the member arrived: its id leaves the map, it rejoins this horde (contain slot 0x9C) and takes the
 	// horde object's upgrades (slot 0x174)
 	virtual void acceptMemberFromGarrison(Object *member) = 0;
-	// slots 0x100 / 0x104 (RW 0x872AA1 / 0x872AAE): the frame the last member entered (interface + 0x1EC; 0 before the first)
+	// slots 0x100 / 0x104 (RW 0x00872AA1, RW 0x00872AAE): the frame the last member entered (interface + 0x1EC; 0 before the first)
 	virtual void setLastMemberEnteredFrame(unsigned frame) = 0;
 	virtual unsigned lastMemberEnteredFrame() const = 0;
-	// slots 0x124 / 0x128 / 0x12C (RW 0x872ADF / 0x872B76 / 0x872AE7): the garrisoned byte (interface + 0x188); clearing it wakes the contain's update next frame
+	// slots 0x124 / 0x128 / 0x12C (RW 0x00872ADF, RW 0x00872B76, RW 0x00872AE7): the garrisoned byte (interface + 0x188); clearing it wakes the contain's update next frame
 	virtual void setGarrisoned(bool on) = 0;
 	virtual bool isGarrisoned() const = 0;
 	// slot 0x80 (RW 0x875DC3): the horde enters `container` (its AI gets command 0x3D, every member is released and ordered to enter, AIGroup command RW 0x7724BE)
@@ -211,6 +211,9 @@ public:
 	// RW 0x86D6FD, interface slot 0x274: copy the module data's LivingWorldOverloadTemplate.
 	// Appended so the port's existing interface slots do not move.
 	virtual std::string livingWorldOverloadTemplate() const = 0;
+	// RW 0x0086FFD2, interface slot 0x64: true when the horde has >= 1 live member (contained + entering, RW 0x008704DA),
+	// target matches AlternateFormation, and a non-main alternate's MinimumHordeSize is met.
+	virtual bool canSetFormation(const ThingTemplate *target) const = 0;
 };
 
 class HordeContain : public UpdateModule, public ContainModuleInterface, public CreateModuleInterface, public HordeContainInterface
@@ -248,12 +251,15 @@ public:
 	// lane PORT-91 (issue #239): slot 0x2C of the contain tables RW 0xC5B480 / 0xC5C110 / 0xC5D268 is RW 0x86C737: the horde's container's slot 0x2C, true while the
 	// horde is not contained (RW 0x9188EB false in every other contain table of 2.01)
 	bool shadowWhileContainedAllowed() const override;
+	bool isValidContainerFor(const Object &obj, bool checkCapacity, bool checkPath) const override; // RW 0x0086C758 (slot 0x98, tail RW 0x0086C77A)
+	void onContainedAboutToTakeDamage(Object *rider, const void *damageSource, struct DamageInfo *info) override; // RW 0x0086C8B9 (slot 0x68)
+	void iterateContained(const std::function<void(Object *)> &fn, unsigned flags = 1) override; // RW 0x0087104A (slot 0x110)
 	bool addToContain(Object *obj) override;
 	void enableLoadSounds(bool enabled) override { m_soundState.loadEnabled = enabled; } // RW 0x867AA5
 	void removeFromContain(Object *obj, bool exposeStealthUnits = false) override;
 	void removeDyingMember(Object *obj) override;
 	void containReactToTransformChange() override;
-	HordeContainInterface *getHordeContainInterface() override { return this; }
+	HordeContainInterface *getHordeContainInterface() override { return this; } // RW 0x00872B02 (interface this - 0x11C)
 	// CreateModuleInterface
 	void onCreate() override;
 	void onBuildComplete() override;
@@ -429,8 +435,10 @@ public:
 	const HordeContainCore &core() const { return *m_core; }
 	// lane COMBAT-1: the typed data (RanksToReleaseWhenAttacking, MeleeBehavior, ...) and the melee engagement. While engaged the formation is frozen where the men stand: the member
 	// pass does not run (RW 0x86D75E beginMelee / 0x86C0F9 endMelee; horde spec 2.1 step 3), the horde AI's melee behaviour moves the members instead
-	const HordeContainModuleData &hordeData() const;
+	const HordeContainModuleData &hordeData() const; // RW 0x0086C9E7 (m_splitHorde +0x1A4), RW 0x0086C9F3 (m_rankInfo +0x18C)
 	std::string livingWorldOverloadTemplate() const override;
+	std::vector<Object *> getMembersWithEntering() const; // RW 0x008704DA (slot 0x10C)
+	bool canSetFormation(const ThingTemplate *target) const override; // RW 0x0086FFD2 (slot 0x64)
 	bool meleeEngaged() const { return m_meleeEngaged; }
 
 	// ---- lane BACKLOG-8: wall scaling (HordeWallScaling.cpp) ----
@@ -529,7 +537,7 @@ public:
 	// lane PORT-75: RW 0x89A5C5 through the contain's accept path (DONOR BFME2 0x00473212 -> 0x00473197): a banner carrier that joins takes the
 	// look of the horde it leads (its MorphCondition entry for the horde's member template) and BannerMorphFX plays
 	void bannerCarrierMorph(Object &member);
-	void expediteBannerRespawn() { if (m_bannerCountdown > 1) { m_bannerCountdown = 1; } } // RW 0x89ACC1
+	/* RW 0x00872A8D (slot 0x174 set), RW 0x00872A9A (slot 0x178 get) */ void expediteBannerRespawn() { if (m_bannerCountdown > 1) { m_bannerCountdown = 1; } } // RW 0x89ACC1
 	unsigned payloadCount() const; ///< RW interface slot 0x188: members, including those entering a garrison, without the banner.
 	// lane NECRODIE-1: RW 0x8705A6 (interface slot 0x114): the first contained member whose template lacks KindOf `kindOfBit`, else the first contained member;
 	// with nothing contained, the same pick over the members on their way into a garrison (interface + 0x54, by id); null when there is none

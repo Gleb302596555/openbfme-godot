@@ -606,7 +606,15 @@ void AptPlayerTribute::tributeRowShown(const std::string &argument)
 		GadgetSliderSetPosition(window, (int)r.amount);
 	});
 	registerScreenRef(root + "_InitTextEntry", [this, index](const std::string &, GameWindow *window) {
-		m_rows[(size_t)index].entry = window; // RW 0x91565C (its 5-digit limit and filter: S-1922)
+		m_rows[(size_t)index].entry = window; // RW 0x91565C
+		if (window)
+		{
+			if (EntryData *entry = static_cast<EntryData *>(window->winGetUserData()))
+			{
+				entry->numericalOnly = true; // RW 0x721FA9(window, 0x21): digits only (0x20) | no spaces (0x01)
+				entry->maxTextLen = 5;       // RW 0x81606D(window, 5): up to 99999 (RW 0x915F5D)
+			}
+		}
 		refreshRow(m_rows[(size_t)index]);
 	});
 	setFieldUtf8(row.path, 0, row.name);
@@ -3193,7 +3201,7 @@ void AptOptionsScreen::etReset()
 {
 	// PYSAGE 1.9.8.5 .optui 0xF23387 -> .dlyfix 0xF35102 -> .optui 0xF23203
 	const auto &entries = EnnorathOptions::entries();
-	for (int i = 0; i < EnnorathOptions::kEntryCount; ++i)
+	for (int i = 0; i < EnnorathOptions::activeEntryCount(); ++i)
 	{
 		const EnnorathOptionEntry &e = entries[(std::size_t)i];
 		if (e.kind == EnnorathOptionKind::Retail)
@@ -3217,7 +3225,7 @@ void AptOptionsScreen::etSyncVisibility()
 {
 	// PYSAGE 1.9.8.5 .optui 0xF23467 .. 0xF2348F + .dlyfix 0xF350D0
 	const auto &entries = EnnorathOptions::entries();
-	for (int i = 0; i < EnnorathOptions::kEntryCount; ++i)
+	for (int i = 0; i < EnnorathOptions::activeEntryCount(); ++i)
 	{
 		if (GameWindow *w = m_etWindows[(std::size_t)i])
 		{
@@ -3234,7 +3242,7 @@ void AptOptionsScreen::etSelectPage(int page)
 {
 	// PYSAGE 1.9.8.5 .optui 0xF233B7 .. 0xF234AF
 	const auto &entries = EnnorathOptions::entries();
-	for (int i = 0; i < EnnorathOptions::kEntryCount; ++i)
+	for (int i = 0; i < EnnorathOptions::activeEntryCount(); ++i)
 	{
 		GameWindow *w = m_etWindows[(std::size_t)i];
 		if (!w)
@@ -3250,7 +3258,7 @@ void AptOptionsScreen::etSelectPage(int page)
 	if (page == 9 && m_etPage != 9)
 	{
 		// Snapshot current combo values before entering Advanced Settings (.optui 0xF233F4 .. 0xF23455)
-		for (int i = 0; i < EnnorathOptions::kEntryCount; ++i)
+		for (int i = 0; i < EnnorathOptions::activeEntryCount(); ++i)
 		{
 			const EnnorathOptionEntry &e = entries[(std::size_t)i];
 			if (e.kind == EnnorathOptionKind::Retail || !m_etWindows[(std::size_t)i])
@@ -3366,7 +3374,7 @@ void AptOptionsScreen::etSave(OptionPreferences &prefs)
 	const auto &entries = EnnorathOptions::entries();
 	if (m_etHasDraft)
 	{
-		for (int i = 0; i < EnnorathOptions::kEntryCount; ++i)
+		for (int i = 0; i < EnnorathOptions::activeEntryCount(); ++i)
 		{
 			if (entries[(std::size_t)i].kind != EnnorathOptionKind::Retail)
 			{
@@ -3374,7 +3382,7 @@ void AptOptionsScreen::etSave(OptionPreferences &prefs)
 			}
 		}
 	}
-	for (int i = 0; i < EnnorathOptions::kEntryCount; ++i)
+	for (int i = 0; i < EnnorathOptions::activeEntryCount(); ++i)
 	{
 		const EnnorathOptionEntry &e = entries[(std::size_t)i];
 		if (e.kind == EnnorathOptionKind::Retail || !m_etWindows[(std::size_t)i])
@@ -3389,7 +3397,7 @@ void AptOptionsScreen::etSave(OptionPreferences &prefs)
 		}
 	}
 	m_etState.resolveDuplicateHotkeys();
-	for (int i = 0; i < EnnorathOptions::kEntryCount; ++i)
+	for (int i = 0; i < EnnorathOptions::activeEntryCount(); ++i)
 	{
 		if (entries[(std::size_t)i].kind == EnnorathOptionKind::Hotkey && m_etState.values[(std::size_t)i] == 0 && m_etWindows[(std::size_t)i])
 		{

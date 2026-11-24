@@ -59,7 +59,7 @@ const std::vector<std::string> &stopLines()
 		"[S-1321] unported Living World rows (RegionBonus, MapMatchPlayerWorldToMap, DelayCarryoverSpawningOf, the OnEnter / OnVictory upgrades, the Act scripting rows, Tutorial, AddPlayer, EyeTower) stop the parse",
 		"[S-1322] presentation fields are kept unvalidated (audio and Eva event names, icon Shadow / AnimMode) and the region effect curves are consumed",
 		"[S-1323] AutoResolve data: the Leadership Affects parser is inferred; the object AutoResolve rows are read from the raw template rows (S-071)",
-		"[S-1324] moves cost retail's path (1 friendly step, 2 other; garrison 1, hero army 2) and crossing hostile armies are repelled; a human's retreat order in phase 4 (WOTR2 milestone 6; a heroless army goes to the first friendly region: inferred); phase 3 and allied award disputes are not ported",
+		"[S-1324] moves cost retail's path (1 friendly step, 2 other; garrison 1, hero army 2) and crossing hostile armies are repelled; a human's retreat order in phase 4 (WOTR2 milestone 6; a heroless army goes to the first friendly region: inferred); allied award disputes ported (RW 0x900E58 / 0x6BB99F / .wtrdisp 0x00F2F078); phase 3 is one update",
 		"[S-1325] the campaign start (ownership without an OwnershipSet, Act One's armies at the start region, the historical restrictions, the capital) is inferred",
 		"[S-1326] buildings: retail turn-end construction, the construction lock, the build queue, production and DestroyBuilding; the buildable-hero list; inferred: a hero's spawn ID on both spawn paths, a fought battle's dead hero returning at once; the IncreaseCommandPoints counters (WOTR2 milestone 4); UpgradeTroops (milestone 5: the marks, the automatic pass, the application leaving the orders phase; inferred: the plot byte RW 0x7F3F58 tests, the rank written by the application only); not ported: Create-a-Hero recruitment, the armory upgrades of units in a real-time battle",
 		"[S-1327] economy: retail income (fertile land + farms at turn end), CP counters and limit; the player bonus totals are inferred",
@@ -71,7 +71,7 @@ const std::vector<std::string> &stopLines()
 		"[S-1333] the strategic setup: the map preview is drawn by the device (presentation), its picking, scenario and territory texts are retail's; the rule rows are not ported",
 		"[S-1334] strategic HUD: StrategicHUD.apt is the only interface (WOTR2 milestone 4 retires the provisional panel): stats, checklist, END PHASE, new turn, the battle prompt, the details tray's region, army and build queue panels, the radial menus, the palantir's command buttons and the help box; armies picked on the map, member moves; WOTR2 milestone 5: the unit swapper, the map rollover help, the palantir's region stats tray, the strategic notices (each client queues its local player's), the battle statistics after an autoresolve and the score screen (TimeLine type 6); not ported: the real-time battles' score statistics, the profile's strategic statistics, the unified-region notice (its dispatcher is not found), the defeated local player's camera flight",
 		"[S-1335] the strategic map's look is presentation: the region effects at their final intensity with the effect colour as the material's emissive (inference), lit by LivingWorldMapInfo's lights with an inferred Dir convention, the text layer at opacity 0.2; livingworld.txt's camera, sounds, the eye tower, army lines and banner house colours are not retail's; WaterShader.FX is its diffuse colour; IMPASSABLE overlays are hidden",
-		"[S-1336] the strategic orders are MSG_LW_* messages through LivingWorldLogic::dispatch (RW 0x6BE6A6) with the owner and phase checks kept (stricter than retail); PLAYER_SURRENDERED removes the player and its team; the session, exit-vote and battle-barrier messages, DISBAND_ARMY and the battle-line / award-dispute / auto-resolve pacing messages are not ported",
+		"[S-1336] the strategic orders are MSG_LW_* messages through LivingWorldLogic::dispatch (RW 0x6BE6A6) with the owner and phase checks kept (stricter than retail); PLAYER_SURRENDERED removes the player and its team; RESOLVE_REGION_AWARD_DISPUTE (0x6B7, RW 0x6BEE5B) is ported; the session, exit-vote and battle-barrier messages, DISBAND_ARMY and the battle-line / auto-resolve pacing messages are not ported",
 		"[S-1337] a network War of the Ring's strategic map runs in the lockstep without an empty GameLogic under it (retail ticks one): the strategic state is the whole frame CRC; the clock and phase start are saved with the strategic block (v6)",
 		"[S-1338] the war start (CreatePlayers RW 0x932EB8): a random faction or colour and an observer slot are not resolved (refused by name); the handicap is passed as retail's -(slot + 0x20)",
 		"[S-1339] a LAN War of the Ring (the LanStrategic page, the war START, the phase timer, the wait message, the battle vote and real-time battles over the LAN: fought only when every live human of the war is in the battle, RW 0x6B5E3E vs the 0x6A7 tally); online War of the Ring is not available yet",
@@ -1784,6 +1784,14 @@ bool LivingWorldLogic::canAdvance() const
 			return true;
 		case PHASE_OWNERSHIP:
 		{
+			// RW 0x6B5F78 / RW 0x6B68B3: phase 4 cannot advance while an allied region award dispute is unresolved
+			for (const RegionAwardDispute &d : m_awardDisputes)
+			{
+				if (!d.resolved)
+				{
+					return false;
+				}
+			}
 			// canAdvance RW 0x6B5F78 (every army in the list has a path) and the barrier (RW 0x6BE20A): with a human's army in the list every human
 			// sends END PHASE (0x6A6), unless the campaign has ForceAdvanceTurnPhase; otherwise the phase passes by itself
 			bool humanArmy = false;
@@ -1882,6 +1890,7 @@ void LivingWorldLogic::enterPhase(int previous)
 				a.movedFrom = -1;
 			}
 			m_battles.clear();
+			m_awardDisputes.clear();
 			consolidateGarrisons(); // RW 0x6BDD98 entering phase 0: RW 0x6B546B
 			autoMarkUnitsForUpgrades(); // then AutoMarkUnitsForUpgrades RW 0x6B5F1C (every player)
 			m_ai->runOrdersPhase(); // the AI players' steps 0..4 and SubmitOrders (RW 0x900AA7, one AI after another in player order)
@@ -3652,12 +3661,119 @@ void LivingWorldLogic::consumeGarrisonUnits(int garrisonId, const Battle &b, con
 	}
 }
 
+int LivingWorldLogic::disputeDecidingPlayer(const RegionAwardDispute &dispute) const
+{
+	// RW 0x900E58 (RegionAwardDispute::getDecidingPlayerId):
+	//   - empty contenders -> -1 (RW 0x900E62)
+	//   - 0 human contenders (RW 0x900DFC, [player + 0x44] == 0) -> contenders[0] (RW 0x900E7B)
+	//   - 1 human contender -> that human (RW 0x900E8A)
+	//   - 2+ human contenders (RW 0x900EC7) -> host (slot 0, RW 0x800B74) if among contenders, else jump to RW 0x900EBA:
+	//     retail 2.01 returns -1 (host required); PYSAGE 1.9.8.5 .wtrdisp 0x00F2F078 (ennorath.wotr-8-players) returns the first human contender.
+	if (dispute.contenders.empty())
+	{
+		return -1;
+	}
+	int humanCount = 0;
+	int firstHuman = -1;
+	for (int p : dispute.contenders)
+	{
+		if (p >= 0 && p < (int)m_players.size() && m_players[(size_t)p].human)
+		{
+			if (firstHuman < 0)
+			{
+				firstHuman = p;
+			}
+			++humanCount;
+		}
+	}
+	if (humanCount == 0)
+	{
+		return dispute.contenders.front();
+	}
+	if (humanCount == 1)
+	{
+		return firstHuman;
+	}
+	if (m_hostPlayer >= 0 && m_hostPlayer < (int)m_players.size() &&
+		std::find(dispute.contenders.begin(), dispute.contenders.end(), m_hostPlayer) != dispute.contenders.end())
+	{
+		return m_hostPlayer;
+	}
+	if (ModEngineFeatures::has(ModEngineFeature::EnnorathWotr8Players))
+	{
+		return firstHuman; // PYSAGE 1.9.8.5 .wtrdisp 0x00F2F078 (hook RW 0x900EBA)
+	}
+	return -1; // RW 0x900EBA: retail 2.01 requires the host to be a contender
+}
+
+bool LivingWorldLogic::hasUnresolvedDisputeForPlayer(int player) const
+{
+	// RW 0x6B68B3: scans m_disputes for an unresolved entry whose deciding player (RW 0x900E58) equals `player`
+	for (const RegionAwardDispute &d : m_awardDisputes)
+	{
+		if (!d.resolved && disputeDecidingPlayer(d) == player)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+bool LivingWorldLogic::resolveRegionAwardDispute(int sender, int region, int recipient, std::string *error)
+{
+	auto failMsg = [&](const std::string &why) {
+		if (error)
+		{
+			*error = why;
+		}
+		return false;
+	};
+	// RW 0x6BEE5B -> RW 0x6BB99F (HandleResolveRegionAwardDispute):
+	// finds unresolved dispute for `region`, checks `recipient` is a contender (RW 0x900E2D), marks resolved (RW 0x900D4E), awards region (RW 0x6BA70F).
+	if (region < 0 || region >= (int)m_regions.size())
+	{
+		return failMsg("MSG_LW_RESOLVE_REGION_AWARD_DISPUTE: invalid region " + std::to_string(region));
+	}
+	if (recipient < 0 || recipient >= (int)m_players.size())
+	{
+		return failMsg("MSG_LW_RESOLVE_REGION_AWARD_DISPUTE: invalid player " + std::to_string(recipient));
+	}
+	for (RegionAwardDispute &d : m_awardDisputes)
+	{
+		if (d.region != region)
+		{
+			continue;
+		}
+		if (d.resolved)
+		{
+			return failMsg("MSG_LW_RESOLVE_REGION_AWARD_DISPUTE: dispute for region " + std::to_string(region) + " is already resolved");
+		}
+		if (std::find(d.contenders.begin(), d.contenders.end(), recipient) == d.contenders.end())
+		{
+			return failMsg("MSG_LW_RESOLVE_REGION_AWARD_DISPUTE: player " + std::to_string(recipient) + " is not a contender");
+		}
+		const int decider = disputeDecidingPlayer(d);
+		if (decider < 0 || sender != decider)
+		{
+			return failMsg("MSG_LW_RESOLVE_REGION_AWARD_DISPUTE: sender " + std::to_string(sender) + " is not the deciding player (" + std::to_string(decider) + ")");
+		}
+		d.resolved = true;
+		const int previous = m_regions[(size_t)region].owner;
+		setRegionOwner(region, recipient);
+		log(m_players[(size_t)recipient].name + " awarded " + m_regionCampaign->regions[(size_t)region].name +
+			(previous >= 0 ? " from " + m_players[(size_t)previous].name : std::string()));
+		return true;
+	}
+	return failMsg("MSG_LW_RESOLVE_REGION_AWARD_DISPUTE: no dispute for region " + std::to_string(region));
+}
+
 void LivingWorldLogic::resolveOwnership()
 {
 	for (int r = 0; r < (int)m_regions.size(); ++r)
 	{
 		int occupant = -1;
 		bool mixed = false;
+		std::vector<int> contenders;
 		for (const Army &a : m_armies)
 		{
 			if (a.region != r || a.retreating)
@@ -3671,6 +3787,10 @@ void LivingWorldLogic::resolveOwnership()
 			else if (hostile(occupant, a.owner))
 			{
 				mixed = true;
+			}
+			if (std::find(contenders.begin(), contenders.end(), a.owner) == contenders.end())
+			{
+				contenders.push_back(a.owner);
 			}
 		}
 		RegionState &rs = m_regions[(size_t)r];
@@ -3689,6 +3809,36 @@ void LivingWorldLogic::resolveOwnership()
 		}
 		if (defended)
 		{
+			continue;
+		}
+		if (contenders.size() >= 2)
+		{
+			// Allied region award dispute (RW 0x900E58 / RW 0x6BB99F / .wtrdisp 0x00F2F078):
+			// AI-only disputes resolve immediately to contenders[0] (RW 0x900E7B); human disputes wait for MSG_LW_RESOLVE_REGION_AWARD_DISPUTE (0x6B7).
+			RegionAwardDispute d;
+			d.region = r;
+			d.contenders = contenders;
+			bool anyHuman = false;
+			for (int p : contenders)
+			{
+				if (p >= 0 && p < (int)m_players.size() && m_players[(size_t)p].human)
+				{
+					anyHuman = true;
+					break;
+				}
+			}
+			if (!anyHuman)
+			{
+				d.resolved = true;
+				m_awardDisputes.push_back(std::move(d));
+				const int previous = rs.owner;
+				setRegionOwner(r, occupant);
+				log(m_players[(size_t)occupant].name + " takes " + m_regionCampaign->regions[(size_t)r].name + (previous >= 0 ? " from " + m_players[(size_t)previous].name : std::string()));
+			}
+			else
+			{
+				m_awardDisputes.push_back(std::move(d));
+			}
 			continue;
 		}
 		const int previous = rs.owner;
@@ -4526,6 +4676,21 @@ void LivingWorldLogic::hashInto(StateHasher &h) const
 		}
 		h.addI32(b.winningSide);
 		h.addBool(b.resultsCounted);
+	}
+	if (!m_awardDisputes.empty())
+	{
+		h.addI32(m_hostPlayer);
+		h.addU32((std::uint32_t)m_awardDisputes.size());
+		for (const RegionAwardDispute &d : m_awardDisputes)
+		{
+			h.addI32(d.region);
+			h.addBool(d.resolved);
+			h.addU32((std::uint32_t)d.contenders.size());
+			for (int p : d.contenders)
+			{
+				h.addI32(p);
+			}
+		}
 	}
 }
 

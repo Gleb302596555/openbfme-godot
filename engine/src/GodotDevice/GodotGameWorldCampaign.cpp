@@ -205,6 +205,9 @@ Dictionary GameWorld::start_campaign_mission(const Dictionary &options)
 	{
 		return report;
 	}
+	// RW 0x5EACF9 -> RW 0x627062 (Port 331, S-1364): hold black FadeWholeScreen until mission->fadeUpFrames (default 7, RW 0x5EBA4A)
+	m_scriptView = std::make_unique<ScriptCameraDirector>();
+	m_scriptView->startMissionFadeUp(mission->fadeUpFrames);
 	report["start"] = campaignHudStart();
 	Array stops = report.get("stops", Array()); // the lane's stops reach the load report
 	for (const std::vector<std::string> &lines : { LinearCampaignManager::stopLines(), AttachUpdate::stopLines(), ScriptActions::campaignStopLines() })
@@ -329,6 +332,9 @@ Dictionary GameWorld::start_tutorial(const Dictionary &options)
 	{
 		return report;
 	}
+	// RW 0x5EACF9 -> RW 0x627062 (Port 331, S-1364): hold black FadeWholeScreen until record->fadeUpFrames (default 7, RW 0x5EBA4A)
+	m_scriptView = std::make_unique<ScriptCameraDirector>();
+	m_scriptView->startMissionFadeUp(record->fadeUpFrames);
 	report["start"] = campaignHudStart();
 	return report;
 }

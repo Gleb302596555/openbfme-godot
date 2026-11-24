@@ -580,7 +580,8 @@ def read_matrix(path):
         if not reader.fieldnames or not {'faction', 'object', 'button', 'result'} <= set(reader.fieldnames):
             raise ValueError('matrix is missing required columns')
         # the grey buttons: DISABLED, and GREY-BUG (a grey button the last fixture did not open: its conditions are re-read every run, 2026-11-18)
-        return [r for r in reader if r['result'] in ('DISABLED', 'GREY-BUG')]
+        # pseudo-rows such as `(aura) ModuleTag_X` are not command buttons: their row already says why (2026-11-23: the night run stopped on them)
+        return [r for r in reader if r['result'] in ('DISABLED', 'GREY-BUG') and not r['button'].startswith('(')]
 
 
 def main(argv=None):
