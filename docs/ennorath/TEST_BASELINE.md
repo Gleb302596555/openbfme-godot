@@ -79,7 +79,6 @@
 
 | Тест | Место | Причина (отрезок) |
 |---|---|---|
-| `blocks: the lazily built Flammability table…` | `test_object_model.cpp:904` | Local 140; тест исправлен (P-179), запись уходит с переносом |
 | `RAI-POW end to end` (Soul Freeze), `BUILD-3 U17` | `test_aipow1.cpp:1148`, `test_build3_builders.cpp:428` | партия 2026-11-16 после Port 221 (P-181) |
 | `audio3 walls`, `build4 walls`, `skirmish ai units` | `test_audio3.cpp:473`, `test_build4_walls.cpp:254`, `test_skirmish_ai_base.cpp:295` | партии 16b … 17b (P-182) |
 | `FACT-A abilities` | `test_hud_facta_abilities.cpp:576` | 2026-11-14 … 16 (P-183) |
@@ -90,6 +89,27 @@
 | `BACKLOG2 S-950`, `siege1 gate…` | `test_backlog2_retail.cpp:363`, `test_siege1_gate.cpp:311` | 2026-11-22 до слияния upstream (P-178, P-188) |
 | `LOCAL-78` | `test_local_78.cpp:487` | посадка 2026-11-23 (P-189) |
 | `PORT-169`, `attack approach…` | — | на ПК зелёные; не найдено (P-190) |
+
+## Приёмка 2026-11-24 (`accept-1124`: партия 2026-11-23g + Locals 159-170, Windows MSVC, перенос в `main`)
+
+Запуски на сборке слияния с `5868a72d4`, с установками игр; полного прогона не было (выбор `test_select` = FULL), полный прогон — ночью.
+
+- **Local 159 (#940) убрал исключение `no shroud manager`** во всех тестах группы Port 273: следующие теперь проходят: `SPELL-1 retail*` (все), `SPELL-2 retail*` (все), `SPELL-3 retail*` (все), `herocast1 retail*`, `hero execution*`, `SPELLFIX-1 retail` (2 из 3), `SPELLAUDIT-1` (без исключения).
+- `blocks: the lazily built Flammability table…` проходит (P-179), запись удалена из таблицы выше.
+- `factb spell book: every Isengard / Mordor spell book power*` проходят после `197dae512` (P-191, пины S-1997 сняты): 2 из 2.
+- Тесты `modgap2 ai: ...` (5) упали на слиянии: Local 169 (#948) перенёс таблицу полей `RainOfFireUpdate` (RW 0xC6B618, `DarknessLevel` вместо `Darkness`); фикстура теста исправлена в этом же переносе, записи не нужны.
+- Пины `perf1*`, `uber1*`, `skirmish ai vs ai*`, `save4b*` не сдвинулись (43 из 43).
+
+Остаются красными после переноса (не туман; причины — по описанию Local 159 и совпадают с ночным прогоном, не перепроверены):
+
+| Тест | Место | Запись |
+|---|---|---|
+| `ENNORATH Arnor: powers are purchased and cast through the message path` | `test_mods1_retail.cpp:737`, `:738`, `:740` (`CHECK( countOwned(objectName) == n + 1 )`: 0 вместо 1 на `SCIENCE_NumenorMastery`) | падает после посадки 2026-11-24, причина не искалась (P-193); Local 159 его чинил, в слитой сборке красный |
+| `hero abilities retail: FactionMen / Elves / Dwarves / Isengard / Mordor / Wild / Angmar` | `test_hero_retail.cpp:1457`, `:1480` | P-194 |
+| `SPELLAUDIT-1: every faction's spell book power...`, `SPELLFIX-1 retail: a spell book structure clears the trees...` | `test_spellaudit1.cpp:359`, `:563`, `:991` | P-194 (`SpellBookSpawnLoneTower*`, `SpellBookBarricade`: ветка RW 0x82E2DE не портирована) |
+| `hero facing: ...` (2 теста) | `test_hero_facing_execution.cpp:174`, `:313` | P-194 |
+| `b2spell1 MAP GOOD Rivendell...`, `b2spell1 campaign powers played` (2 теста) | `test_b2spell1.cpp:45`, `test_ownerfix1_input.cpp:1172` | P-194 |
+| `hero activation targeting: ...` (2 теста) | `test_hero_activation_targeting.cpp:167`, `:211` | P-192 |
 
 ## Нестабильные
 
