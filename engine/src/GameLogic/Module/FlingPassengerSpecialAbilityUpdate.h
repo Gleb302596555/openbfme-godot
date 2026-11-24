@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0. MODGAP-2, RotWK 2.01 and BFME2 1.06.
 // FlingPassengerSpecialAbilityUpdate: RW 0x89875A, BFME2 0x894FCC
 // (decomp FlingPassengerSpecialAbilityUpdate.cpp, Rva00494FCC).
+// Local 171: RW 0x64DB4B (FlingPassengerSpecialAbilityUpdate newData)
 #pragma once
 
 #include "GameLogic/Module/SpecialAbilityModules.h"

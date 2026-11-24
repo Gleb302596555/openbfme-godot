@@ -16,6 +16,7 @@
 //   * the smoke (RW 0x8CDAAE): FXParticleSystem "BeaconSmoke%6.6X" of the indicator colour, else "BeaconSmokeFFFFFF" (untinted). INFERENCE (S-5151): no
 //     retail player colour has such a system and there is no BeaconSmokeFFFFFF, so retail shows no smoke; the port makes none.
 // INFERENCE: the last pulse starts at the first client update's logic frame (ZH's constructor reads TheGameLogic's frame; RotWK's was not read).
+// Local 171: RW 0x6527A0 (BeaconClientUpdate newData)
 
 #pragma once
 

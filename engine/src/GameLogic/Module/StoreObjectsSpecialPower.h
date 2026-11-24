@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0. MODGAP-2, both RotWK 2.01 and BFME2 1.06.
 // RW 0x8D1EA7; BFME2 0x8CDA49 (StoreObjectsSpecialPower::triggerAbilityEffect
 // in Open-BFME-2 MissileLauncherBuildingUpdate.cpp). RW binary caveat S-001.
+// Local 171: RW 0x652EC2 (StoreObjectsSpecialPower newData)
 #pragma once
 
 #include "GameLogic/Module/SpecialAbilityModules.h"

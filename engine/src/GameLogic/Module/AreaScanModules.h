@@ -31,6 +31,7 @@
 // NOT PORTED / INFERENCE (stop S-1023, AreaScanModules::stopLines): LargeGroupBonusUpdate's FlagSubObjectNames (client sub objects) and the horde's second member
 // list (slot 0x180 also counts the ids at HordeContain + 0x54 / + 0x150, S-486); PassiveAreaEffectBehavior's AntiCategories disable (RW 0x804FCC, XP-1's
 // S-633: noted); the construction test is the object's UNDER_CONSTRUCTION status (RW 0x68C3E6 asks the first module answering behavior slot 0x80 first).
+// Local 171: RW 0x64D118 (LargeGroupBonusUpdate newData), RW 0x64C403 (PassiveAreaEffectBehavior newInstance)
 
 #pragma once
 

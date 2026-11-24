@@ -21,6 +21,7 @@
 //   * onHealing and onBodyDamageStateChange do nothing. xfer: OpenBFME native layout (S-4190): the module's version, BehaviorModule's, the list.
 // NOT PORTED (stop S-5602): AI command 0x2E is not identified in the port (INFERENCE: ZH's AICMD_PANIC, which in BFME takes the attacker); the panic clears the list and
 // notes the stop, the garrison stays inside.
+// Local 171: RW 0x650BE9 (EvacuateDamage newData)
 
 #pragma once
 

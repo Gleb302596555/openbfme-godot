@@ -2,6 +2,7 @@
 // FadeAndDieOrnamentUpdate (both editions: RotWK 2.01 RW 0x007A772B / 0x007A7801; DONOR BFME2 1.06 0x003A439D):
 // Ornament object that optionally follows its parent object (killing itself if the parent is missing or dead)
 // and drives its Drawable opacity through a 5-stage ADSR envelope (OrnamentData, RW 0x004C894B / 0x0073A74B / 0x00740659).
+// Local 171: RW 0x64EA47 (FadeAndDieOrnamentUpdate newInstance)
 
 #pragma once
 

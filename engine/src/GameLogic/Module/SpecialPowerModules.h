@@ -32,6 +32,7 @@
 //       max health (vslot +0x1C, x87 fmul at the game's 24-bit precision) when HealAsPercent; amount > 0: Object::attemptHealing(amount, no source)
 //       (RW 0x690532); then HealFX at the victim (client, counted).
 // DONOR: BFME1 GameLogic/Object/SpecialPower/PlayerHealSpecialPower*.cpp (the same structure).
+// Local 171: RW 0x6518F0 (OCLSpecialPower newInstance), RW 0x65258E (CombineHordeSpecialPower newData)
 
 #pragma once
 

@@ -19,6 +19,7 @@
 //     RW 0x69388B of TheUpgradeCenter->findUpgradeByMaskBit RW 0x66F218).
 // WHAT IS INFERENCE / NOT PORTED (PORT-237 closed S-981; both LockWeaponCreate and InheritUpgradeCreate run ThePartitionManager):
 //   * InheritUpgradeCreate's partition query runs on ThePartitionManager (RW 0x8BD76C, type 1).
+// Local 171: RW 0x650768 (LockWeaponCreate newData), RW 0x650964 (ExperienceLevelCreate newData), RW 0x650A5D (InheritUpgradeCreate newData)
 
 #pragma once
 

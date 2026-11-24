@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 // Both editions: RW 0x89D758 / 0x89D7E6; BFME2 0x899FA9 / 0x89A037
 // (Object/Update/SpecialEnemySenseUpdate.cpp, RVAs 0x499FA9 / 0x49A037).
+// Local 171: RW 0x653E58 (SpecialEnemySenseUpdate newData), RW 0x64E165 (SpecialEnemySenseUpdate newInstance), RW 0x655009 (~SpecialEnemySenseUpdateModuleData)
 #pragma once
 
 #include "GameLogic/Module/UpdateModule.h"

@@ -29,6 +29,7 @@
 //       calls stopPoisonedEffects(); returns calcSleepTime().
 //     - xfer RW 0x00886326 (DONOR BFME2 0x004830A9): UpdateModule::xfer, version (1, 1),
 //       m_poisonDamageFrame, m_poisonOverallStopFrame, m_poisonDamageAmount, m_deathType.
+// Local 171: RW 0x64C05B (PoisonedBehavior newInstance), RW 0x64C093 (PoisonedBehavior newData)
 
 #pragma once
 

@@ -2,6 +2,7 @@
 // See GameLogic/Module/EmotionModules.h for the target facts and the stops S-1021 / S-1022.
 
 // Local 169: RW 0x8B6462 (TauntAndPointDistance)
+// Local 171: RW 0x68F39F (Object::clearEmotionRequest)
 #include "GameLogic/Module/EmotionModules.h"
 #include "GameLogic/SnapshotXfer.h"
 #include "GameLogic/ScriptEngine/ScriptEngine.h"

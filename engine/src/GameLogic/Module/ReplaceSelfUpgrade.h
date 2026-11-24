@@ -30,6 +30,7 @@
 // behaviour slot 0x80 (RW 0x68C3E6) is asked (vslot 0x5C) whether it holds the old object and then given the piece (vslot 0x48), and the old object's
 // interface's holdings go to the piece's: no ported module answers that slot. The x87 fsin / fcos of the shape's point are SimMath's deterministic sin / cos
 // (S-081).
+// Local 171: RW 0x650468 (ReplaceSelfUpgrade newData), RW 0x650430 (ReplaceSelfUpgrade newInstance)
 
 #pragma once
 

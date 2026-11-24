@@ -21,6 +21,7 @@
 //   * resolves waypoint position or projects facing vector * 500.0f
 //   * orders AI moveToAndDie (DieOnMap) or moveToAndDelete
 //   * sets status 0x32 and condition 0xFC (RUNNING_OFF_MAP).
+// Local 171: RW 0x655C5B (~RunOffMapBehaviorModuleData), RW 0x654C1D (RunOffMapBehaviorModuleData ctor)
 
 #pragma once
 

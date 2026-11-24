@@ -26,6 +26,7 @@
 //     THE BITS OF THE SUB UPGRADES (not its own); then updateUpgradeModules (RW 0x6936FE).
 // DONOR FACTS (ZH Upgrade.cpp): calcTimeToBuild = BuildTime * LOGICFRAMES_PER_SECOND, calcCostToBuild = BuildCost (RotWK's versions are UPGRADE-1's
 // ProductionUpdate port: Production/UpgradeProduction.h).
+// Local 171: RW 0x66F791 (UpgradeCenter ctor), RW 0x66F7BD (~UpgradeCenter), RW 0x66F177 (~Upgrade)
 
 #pragma once
 

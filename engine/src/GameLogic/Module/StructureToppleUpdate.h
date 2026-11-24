@@ -11,6 +11,7 @@
 // DONOR: Open-BFME-2 Code/GameEngine/Source/GameLogic/Object/Update/StructureToppleUpdateCrushing.cpp (BFME2 0x8A5628 .. 0x8A6042, byte-matched),
 //   StructureToppleUpdateCtor.cpp, StructureToppleUpdateModuleDataCtor.cpp, StructurePhaseListParsers.cpp, Common/StructureToppleUpdate_xfer.cpp; ZH StructureToppleUpdate.cpp.
 // Editions: both (the BFME2 bodies are the same shape; RotWK's addresses above). Stops: S-340 (the client's FX), S-345 (what is not exact: the script topple direction, onDie's RotWK address).
+// Local 171: RW 0x64EAEF (StructureToppleUpdate newInstance), RW 0x65788B (~StructureToppleUpdateModuleData)
 #pragma once
 
 #include "Common/INI.h"

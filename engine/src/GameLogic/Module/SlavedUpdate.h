@@ -73,6 +73,7 @@
 // (the AI's path is not kept as RotWK's + 0x140), AI command 15's second argument (RW 0x68B58C(0) + 0x34) and its state (ported as the attack-move of COMBAT-1,
 // S-328), the onSlaverDamage AI command 0x1D (ZH go prone: no RotWK object reacts), the AI's vslot 0x238 and the locomotor bits of endRepair, the player's
 // RW 0x79F486 and the drawable links (client), RW 0x6CA525's sphere variant (the bounding circle distance of ApproachMath).
+// Local 171: RW 0x655D44 (~SlavedUpdateModuleData)
 
 #pragma once
 

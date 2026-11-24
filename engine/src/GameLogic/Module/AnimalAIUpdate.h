@@ -30,6 +30,7 @@
 //   (zero never scans), RW 0x882298 / 0x88229D TheGameLogic `[RW 0xDE412C]` frame `[eax+0x40]`, RW 0x8822A2
 //   `div ecx`, RW 0x8822A4 / 0x8822A6 `test edx, edx` / `jne RW 0x882508`. RW 0x882508 is the idle test, not a
 //   return, so the gate covers the scan alone and stands before that test.
+// Local 171: RW 0x64BB7E (AnimalAIUpdate newInstance)
 
 #pragma once
 

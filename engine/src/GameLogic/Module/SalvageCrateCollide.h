@@ -63,6 +63,7 @@
 //   * the floating texts: the money's goes through Economy::noteIncome (the crate as its anchor, raised 10, as RW 0x8C13BB); "GUI:GainRank" and the
 //     ExecuteAnimation (client only, no 2.01 crate sets one) are not shown (S-260);
 //   * the snapshot is OpenBFME native (S-4190): RW's two versions and the ever-executed byte.
+// Local 171: RW 0x656172 (~SalvageCrateCollideModuleData)
 
 #pragma once
 

@@ -1,5 +1,6 @@
 // OpenBFME. GPL-3.0.
 // ModuleFactory: see ModuleFactory.h for the RotWK addresses and the stops.
+// Local 171: RW 0x65644C (ModuleFactory::findModuleTemplate), RW 0x6579C9 (ModuleFactory::init)
 
 #include "Common/Thing/ModuleFactory.h"
 #include "Common/ModEngineFeatures.h"

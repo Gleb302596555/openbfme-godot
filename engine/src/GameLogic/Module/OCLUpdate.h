@@ -14,6 +14,7 @@
 //     both are equal);
 //   * xfer RW 0x89EC00: version 2, UpdateModule, + 0x20, + 0x24, and from version 2 + 0x28.
 // NOT PORTED: none (PORT-237 closed stop S-5501: CreateAtEdge uses TerrainLogic::findClosestEdgePoint RW 0x67D949 / 0x89EC81, and getCountdownPercent RW 0x89EA88 is ported).
+// Local 171: RW 0x64E283 (OCLUpdate newInstance), RW 0x64E2BB (OCLUpdate newData)
 
 #pragma once
 

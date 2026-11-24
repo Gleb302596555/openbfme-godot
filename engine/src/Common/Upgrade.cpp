@@ -1,5 +1,6 @@
 // OpenBFME. GPL-3.0.
 // See Common/Upgrade.h for the target facts and the addresses.
+// Local 171: RW 0x66F26A (UpgradeCenter::removeFromList), RW 0x66F189 (Upgrade::xfer), RW 0x66F13C (xferUpgradeStatusType)
 
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"

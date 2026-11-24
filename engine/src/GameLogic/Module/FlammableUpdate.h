@@ -93,6 +93,7 @@
 //   * the under-water test reads the pathfinder's terrain view (TerrainPathfindSource::isUnderwater); a game without one (no map) cannot answer and says so;
 //   * FireSpreadUpdate's closest-object query runs on ThePartitionManager (lane MODULES-2, S-1020); the terrain-object branch (TheGlobalData flag) is reported;
 //   * the OCLEmbers list runs the position variant of OCL::create (S-980).
+// Local 171: RW 0x64CD41 (FlammableUpdate newData)
 
 #pragma once
 

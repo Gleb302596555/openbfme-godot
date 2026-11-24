@@ -42,6 +42,7 @@
 // UpdateModule pointers; destroying an object goes through GameLogic::destroyObject and processDestroyList, which removes them first.
 
 // Local 169: RW 0x69A6EA (Object::getClassName), RW 0x69A705 (Object Snapshot deleting dtor thunk)
+// Local 171: RW 0x68BF2A (Object::getLastDamageSourceId), RW 0x6915E4 (Object::getName), RW 0x68BC38 (Object::getHeightAboveTerrain)
 #pragma once
 
 #include "Common/Thing/Thing.h"

@@ -40,6 +40,7 @@
 //     and FloodUpdate.cpp (was reverse/attempts/0x0048dc51.cpp, matched since; the path builder above is read from the RotWK disassembly).
 // INFERENCE (S-924): the weapon's firing path is WEAPON-1's privateFireWeapon at a position through the object's weapon host; ObjectWeapons made for an
 // object without a WeaponSet only to host this weapon (the object's own weapon state is not changed).
+// Local 171: RW 0x64CE1B (FloodUpdate newInstance), RW 0x64CE53 (FloodUpdate newData)
 
 #pragma once
 

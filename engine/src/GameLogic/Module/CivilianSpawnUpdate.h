@@ -23,6 +23,7 @@
 //     - Returns m_spawnFrame.
 //   * xfer (RW 0x89A1AC):
 //     Version (1, 2); if version >= 2, xferUpdateModule(x).
+// Local 171: RW 0x64BC45 (CivilianSpawnUpdate newData), RW 0x64BC0D (CivilianSpawnUpdate newInstance)
 
 #pragma once
 

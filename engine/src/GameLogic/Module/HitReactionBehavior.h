@@ -25,6 +25,7 @@
 // INFERENCE (stop S-1024): the interface RW 0x68C409 finds (the first module answering behavior slot 0x84) is ClickReactionBehavior's click interface (lane
 // MODCOMPAT-MOD1, taken as the only class answering slot 0x84): its slot 8(0) after a reaction ends a click reaction; the drawable refresh RW 0x67449C(0) is the client's; the drawable exists for every object (RW 0x628882 makes
 // one for each), so the "no drawable" exit never applies in the logic; the drawable's flag is read as the object's HIT_REACTION (the synced copy above).
+// Local 171: RW 0x64AAFF (HitReactionBehavior newInstance), RW 0x64AB37 (HitReactionBehavior newData)
 
 #pragma once
 

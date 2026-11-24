@@ -77,6 +77,7 @@
 //     (RW 0x776F03) the look changes (+0x46); the reveal's end disables the module and clears STEALTHED / DETECTED. A disguised object is never invisible (RW
 //     0x81B995); a DISGUISER (KindOf) disguised is stealthed only for viewers the disguise player does not hold as ENEMIES (RW 0x694C86) and only attackers
 //     whose player holds the disguise team as ENEMIES, or a forced attack, may attack it (RW 0x6C9261 .. 0x6C92E2).
+// Local 171: RW 0x655E66 (~InvisibilityUpdateModuleData), RW 0x655D9F (~StealthDetectorUpdateModuleData)
 
 #pragma once
 

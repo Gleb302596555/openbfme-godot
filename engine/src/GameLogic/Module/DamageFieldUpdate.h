@@ -20,6 +20,7 @@
 //     dtor RW 0x008948B8 (calls FireWeaponUpdate::~FireWeaponUpdate RW 0x0088F37D) / scalar deleting dtor RW 0x00894986.
 //   * xfer (RW 0x00894C09; DONOR BFME2 0x89157D):
 //     Version (1, 1), xferSTLObjectIDList (m_victims), FireWeaponUpdate::xfer(x).
+// Local 171: RW 0x64D499 (DamageFieldUpdate newData)
 
 #pragma once
 

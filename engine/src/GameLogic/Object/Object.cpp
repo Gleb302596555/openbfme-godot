@@ -2,6 +2,7 @@
 // See GameLogic/Object/Object.h for the creation order and its sources.
 
 // Local 169: RW 0x68DFF5 (Object::friend_adjustPowerForPlayer), RW 0x69A760 (~Object), RW 0x69AB8B (Object deleting dtor)
+// Local 171: RW 0x68B7E8 (isAngleDifferent)
 #include "Common/Upgrade.h"
 #include "Common/SpecialPower.h"
 #include "Common/ModEngineFeatures.h"

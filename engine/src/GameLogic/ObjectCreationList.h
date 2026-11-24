@@ -48,6 +48,8 @@
 // The client parts (fades, FadeSound, ParticleSystem, InheritAttributesFromSource, the drawable flags) are the client's.
 // INFERENCE (S-161): the terrain layer of a spot (RW 0x680B70) and of the source (RW 0x68BBE0) is the ground, as everywhere in the port; the ground
 // layer's height (TerrainLogic vslot 0x1C) is getGroundHeight.
+// Local 171: RW 0x5EFB69 (~ApplyRandomForceNugget (base dtor)), RW 0x60E107 (~ApplyRandomForceNugget (variant dtor)), RW 0x5EFDFC (AttackNugget ctor), RW 0x5F017E (ObjectCreationListStore ctor)
+// Local 171: RW 0x5F01EA (~ObjectCreationListStore)
 
 #pragma once
 

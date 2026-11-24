@@ -9,6 +9,7 @@
 // onCreate nothing (RW 0x63F3BF); onBuildComplete RW 0x8BCF6C: when the flag is set (RW 0x4986C4) it is cleared and, for every player from the last
 // (ThePlayerList + 0x14 - 1) down to 0, a player with a ResourceGatheringManager (Player + 0x304) gets addSupplyCenter(object) (RW 0x8FAA11); xfer
 // RW 0x8BD56C: version 1, then the create module base's (RW 0x8BCE8F: the flag). DONOR: ZH SupplyCenterCreate.cpp has the same body.
+// Local 171: RW 0x65086B (SupplyWarehouseCreate newInstance)
 
 #pragma once
 
