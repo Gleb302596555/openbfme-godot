@@ -1200,6 +1200,7 @@ void SkirmishAIManager::checkLoaded() const
 	}
 }
 
+// Local 177: RW 0x6A9702 (SkirmishAIManager::xfer), RW 0x6C70D8 (TacticalAI::DoXfer)
 void SkirmishAIManager::xfer(Xfer &x)
 {
 	if (!x.isLoading())

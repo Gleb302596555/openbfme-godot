@@ -156,6 +156,7 @@ bool AIUpdateInterface::aiGuardTunnelNetwork(int mode, CommandSourceType source)
 // rejects null target, HORDE_MEMBER (status 0x26), !isMobile (RW 0x690E97), or PROJECTILE (template +0x10B bit 1);
 // writes GUARDTARGET_OBJECT (1) to +0x54 when NONE (else +0x50), sets +0x4C = mode and +0x64 = target->getID(),
 // clears machine, sets +0x48 = source, enters AI_GUARD (0x10).
+// Local 177: RW 0x771805 (AICommandInterface::aiGuardObject)
 bool AIUpdateInterface::aiGuardObject(Object *target, int mode, CommandSourceType source)
 {
 	if (!target)

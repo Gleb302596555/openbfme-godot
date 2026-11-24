@@ -1020,6 +1020,7 @@ void AIGuardState::crc(StateHasher &h) const
 }
 
 // lane SAVE-4c (obfme:AIWorld, OpenBFME layout: S-4220)
+// Local 177: RW 0x7437B7 (AIGuardState::xfer)
 void AIGuardState::xfer(Xfer &x)
 {
 	XferVersion v{ 1, 1 };

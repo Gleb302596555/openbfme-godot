@@ -125,6 +125,7 @@ public:
 		// A game that ends with its queues gone starts the next one at id 0, as a new manager does (retail resets the manager on a new game)
 		if (m_queues.empty() && m_orders.empty()) m_nextId = 0;
 	}
+	// Local 177: RW 0x756C45 (AiOrdersManager::reset), RW 0x7576A4 (AiOrdersManager ctor)
 	void reset()
 	{
 		m_orders.clear();
@@ -208,6 +209,7 @@ private:
 		if (clone) removed(clone, object, true);
 		if (order.m_objects.empty()) m_orders.erase(it);
 	}
+	// Local 177: RW 0x75714E (AiOrdersManager::cloneOrderForPatrol)
 	OrderId cloneForPatrol(OrderId id) override
 	{
 		auto it = m_orders.find(id);

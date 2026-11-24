@@ -1290,6 +1290,7 @@ void AIWaitUntilFinishedFiringState::onExit(StateExitType)
 // ---------------------------------------------------------------------------------------------------------------------------------
 // AIDeadState (ZH AIStates.cpp:1476-1545): dying objects are never firing or moving; the DYING condition stays until the state exits
 // ---------------------------------------------------------------------------------------------------------------------------------
+// Local 177: RW 0x748A60 (AIDeadState::onEnter)
 StateReturnType AIDeadState::onEnter()
 {
 	Object &obj = owner();
@@ -1316,12 +1317,14 @@ StateReturnType AIDeadState::onEnter()
 	return STATE_CONTINUE;
 }
 
+// Local 177: RW 0x7418B2 (AIDeadState::update)
 StateReturnType AIDeadState::update()
 {
 	ai().setLocomotorGoalNone();
 	return STATE_CONTINUE;
 }
 
+// Local 177: RW 0x748AF6 (AIDeadState::onExit)
 void AIDeadState::onExit(StateExitType)
 {
 	if (ai().isDestroying())

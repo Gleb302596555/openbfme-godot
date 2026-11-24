@@ -140,6 +140,7 @@ private:
 	bool m_whichDeathEntry = false; ///< +0x21 (RW stores bool: index != 0)
 };
 
+// Local 177: RW 0x65353F (DetachableRiderBodyModuleData::friend_newModuleData)
 class DetachableRiderBodyModuleData : public ActiveBodyModuleData
 {
 public:

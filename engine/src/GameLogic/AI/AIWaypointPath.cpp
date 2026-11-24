@@ -268,6 +268,7 @@ void AIFollowWaypointPathState::crc(StateHasher &h) const
 // (+ 0x4C / + 0x50, set from the formation offset by RW 0x750790 .. 0x7507A2 and added to every later waypoint's goal by startMove), hashed since
 // BACKLOG-8 but not saved before: a loaded team-path unit lost it, walked other goals, and the save's own hash check refused the game (Evil Erebor's
 // porters); a version 1 snapshot loads with no offset, as before
+// Local 177: RW 0x7429EC (AIFollowWaypointPathState::xfer), RW 0x7509AF / RW 0x74BB00 / RW 0x74BB46 (AIFollowWaypointPathExactState onEnter/onExit/update)
 void AIFollowWaypointPathState::xfer(Xfer &x)
 {
 	XferVersion v{ 1, 2 };
@@ -496,6 +497,7 @@ bool AIUpdateInterface::aiWander(int waypointId, CommandSourceType source)
 
 // ---- lane WARG-1: the attack-follow states 0x22 / 0x23 (AIWaypointPath.h) ----
 
+// Local 177: RW 0x747944 (AIAttackFollowWaypointPathState ctor/dtor), RW 0x742B2D (AIAttackFollowWaypointPathState::xfer)
 AIAttackFollowWaypointPathState::AIAttackFollowWaypointPathState(AIStateMachine &m, bool asTeam)
 	: AIFollowWaypointPathState(m, asTeam, false) // RW 0x744603(machine, asTeam, 0)
 {

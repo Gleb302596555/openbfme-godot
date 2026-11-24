@@ -3691,6 +3691,7 @@ void updateTactic(GameLogic &logic, AISkirmishPlayer &ai, AIBrainState &b, AITac
 	AITarget *t = !tac.targetless && tac.targetIndex >= 0 && tac.targetIndex < (int)owner.targets.size() ? &owner.targets[(size_t)tac.targetIndex] : nullptr;
 	if (!tac.started)
 	{
+		// Local 177: RW 0x6D45FA (TacticalAI::UnRegister)
 		// RW 0x6C77B2 (SkirmishAI::UnRegister(Team*)) -> RW 0x6C6C71 -> RW 0x90B9F9 -> RW 0x8F2727 (AITactic::NotifyTeamCancelled):
 		// when a handed-over team is destroyed before the tactic starts (+0x10 == 0) and leaves m_teams (+0x14) empty (0x8F275F..0x8F277A), end(false, false).
 		if ((t && t->dropped) || (prunedHandedOver && tac.teams.empty()))
