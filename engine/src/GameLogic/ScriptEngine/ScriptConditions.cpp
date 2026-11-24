@@ -2182,6 +2182,7 @@ bool ScriptConditions::evaluate(ScriptEngine &engine, const ScriptCondition &c)
 	case PLAYER_HAS_NUMBER_UNITS_DISTANCE_FROM_OBJECT:
 	{
 		// LOCAL-160 (both editions): RW 0x007E6C7C (DONOR BFME2 ScriptConditions::evaluatePlayerHasNumberUnitsDistanceFromObject),
+		// helper struct ctor RW 0x7E6140,
 		// callback RW 0x007E6C0F, unit kind filter RW 0x006618E6 ({INFANTRY, CAVALRY, MONSTER, MACHINE, AIRCRAFT} and none of
 		// {STRUCTURE, INERT, HORDE}). Distance is clamped to >= 0 and squared; if the named object does not exist (RW 0x007E6CE5),
 		// origin is (0,0,0) and distSq = -1.0f (RW 0x00BD19DC) so every matching unit counts. 3D squared distance must be strictly

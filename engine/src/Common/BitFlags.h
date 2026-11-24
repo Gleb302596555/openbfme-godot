@@ -25,7 +25,7 @@ public:
 		NUM_WORDS = (NUMBITS + 31) / 32
 	};
 
-	// Both editions: RW 0x0064C39A (DONOR BFME2 0x0024B8FA) zero-initializes all words.
+	// Both editions: RW 0x0064C39A (DONOR BFME2 0x0024B8FA), RW 0x7FC3B8 (BitFlags<11>) zero-initializes all words.
 	BitFlags() { std::memset(m_words, 0, sizeof(m_words)); }
 	// Both editions: RW 0x00444D65 (DONOR BFME2 0x0004493A) copies all words.
 	BitFlags(const BitFlags &other) { std::memcpy(m_words, other.m_words, sizeof(m_words)); }

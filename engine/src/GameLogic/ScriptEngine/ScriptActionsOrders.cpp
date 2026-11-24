@@ -990,7 +990,7 @@ bool ScriptActions::executeOrderAction(ScriptEngine &engine, const ScriptActionR
 	}
 	if (name == "HUMAN_IMPASSABLE_AREA")
 	{
-		// lane BFME2CAMP1: RW 0x7C4040 (area, on): the area by name (RW 0x759194; none: nothing); TheAI's pathfinder (+ 0x10) RW 0x934D51(area, on): the
+		// lane BFME2CAMP1: RW 0x7C4040 (area, on; reload wrapper RW 0x7C408D passes reload=1): the area by name (RW 0x759194; none: nothing); TheAI's pathfinder (+ 0x10) RW 0x934D51(area, on): the
 		// area's integer bounds (RW 0x6E4D2C: floor of the low corner, ceil of the high) divided by 10 (C division) give the cell range; every ground cell
 		// (RW 0x5E2E9C(1, x, y)) whose centre (x * 10 + 5, y * 10 + 5) is in the area (RW 0x6E4DC7: the integers as floats) whose bit 18 (impassable to
 		// human players, cell + 0xC) changes (RW 0x9349C8) marks its zone block dirty (RW 0x937D96). Then (not a reload: the third argument 0) the

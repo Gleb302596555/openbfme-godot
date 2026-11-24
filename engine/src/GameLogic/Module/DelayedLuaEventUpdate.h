@@ -10,7 +10,7 @@
 // - ModuleData buildFieldParse RW 0x8AC4C9 (table RW 0xC84858 is empty: no fields).
 // - ctor RW 0x8AC560: base UpdateModule, m_events ctor, setWakeFrame(object, UPDATE_SLEEP_FOREVER), m_event=0,
 //   m_range=0.0f, m_f74=false, m_f75=false.
-// - configure RW 0x8AC5E1: m_event=f20, m_events=events, m_f74=f74, m_f75=f75, m_range=range,
+// - configure RW 0x8AC5E1: m_event=f20, m_events=events (DelayedLuaEventList::operator= RW 0x8AC4B4), m_f74=f74, m_f75=f75, m_range=range,
 //   setWakeFrame(object, sleep > 0 ? sleep : UPDATE_SLEEP_NONE).
 // - update() RW 0x8AC628: flags = m_f74 ? 6 : 2; if m_f75 flags |= 1; iterateObjectsInRange(obj.pos, m_range,
 //   FROM_CENTER_2D, {relationship(flags), alive, !offMap}, NEAR_TO_FAR); for each other != self

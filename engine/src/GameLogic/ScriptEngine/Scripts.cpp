@@ -319,6 +319,7 @@ bool parsePlayerScriptsList(DataChunkInput &file, DataChunkInfo *info, void *use
 	return file.parse(userData);
 }
 
+// RW 0x7B8315 (ScriptList chunk reader, table 0xC35650[1])
 bool parseScriptList(DataChunkInput &file, DataChunkInfo *, void *userData)
 {
 	ScriptParseContext *ctx = (ScriptParseContext *)userData;
@@ -331,6 +332,7 @@ bool parseScriptList(DataChunkInput &file, DataChunkInfo *, void *userData)
 }
 
 // ZH ScriptGroup::ParseGroupDataChunk (Scripts.cpp:889-900) + BFME2 ScriptGroupWriteGroup.cpp:90.
+// RW 0x7B8F5F (ScriptGroup chunk reader, table 0xC3566C[1]), RW 0x7B7E23 (ScriptGroup copy/ctor, table 0xC35674), RW 0x7B906F (Script chunk reader, table 0xC3568C[1])
 bool parseScriptGroup(DataChunkInput &file, DataChunkInfo *info, void *userData)
 {
 	ScriptParseContext *ctx = (ScriptParseContext *)userData;
@@ -463,6 +465,7 @@ bool parseAction(DataChunkInput &file, DataChunkInfo *info, void *userData, bool
 	return true;
 }
 
+// RW 0x7B7013 (ScriptAction::ParseActionDataChunk)
 bool parseScriptAction(DataChunkInput &f, DataChunkInfo *i, void *u) { return parseAction(f, i, u, false); }
 bool parseScriptActionFalse(DataChunkInput &f, DataChunkInfo *i, void *u) { return parseAction(f, i, u, true); }
 
