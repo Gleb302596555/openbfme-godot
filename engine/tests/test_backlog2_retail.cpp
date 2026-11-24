@@ -751,7 +751,11 @@ TEST_CASE("BACKLOG2 r1 determinism: three units on a build site: the draw assign
 	// pin: the fork's merge of upstream efbdfad9 (2026-11-10, measured once on the merged tree, Windows MSVC, station-0: upstream's 0x162264F8 with the fork's ports on top): -> 0x1C71DDCD
 	// pin: the fork's merge of upstream 1d505ac3 (2026-11-13, measured once on the merged tree, Windows MSVC, station-2; upstream's 0xB240D889 with the
 	// fork's ports on top): 0x1C71DDCD -> 0x1C269611, goals and positions unchanged
-	CHECK(a.hashes.back() == 0x1C269611U);   // q19: BACKLOG-8 hashes the formation and march rows of AIData / GameData in GameLogicSettings::crc (unconditionally) and moves the march;
+	// pin: PROCESS 7 rule 3.3: first mover upstream merge e77a78460 (GameLogicSettings::crc flipped attackMoveUsesFormations gate) and later fork ports
+	// up to cf628e585 (incl. Port 296 a6b05e101 ActiveBody::crc): 0x1C269611 -> 0x7BEA79D9 (Windows MSVC, the landing of PR #951 on main 8c7797850, 2026-11-24).
+	// PROCESS 7 "Платформа": measured on MSVC only. Colab Linux GCC gives 0xD24E63A9 here since then (both gave 0x1C269611 before): a GCC / MSVC
+	// divergence like save4b T4 and camp1 bonus; a red here on a sandbox is checked against clean main there, never re-pinned from Colab.
+	CHECK(a.hashes.back() == 0x7BEA79D9U);  // q19: BACKLOG-8 hashes the formation and march rows of AIData / GameData in GameLogicSettings::crc (unconditionally) and moves the march;
 	                                         // re-measured on the merged tree (a CI host); was 0x78A9CB12 (q18: DEVPORT-3C castle keep gate / Horde removal record, before 0x2BD4804B); goals and positions unchanged
 	// every unit left the spot it stood on
 	CHECK(a.positions[0] != a.goals[0]);
@@ -767,7 +771,9 @@ TEST_CASE("BACKLOG2 r1 S-653: a wall segment that repairs itself sends the allie
 	GameLogic &logic = live.logic();
 	Player *men = live.players().findPlayerWithName(live.report().startSlotPlayers[0]);
 	REQUIRE(men);
-	const Coord3D site{ 1500.0f, 1500.0f, 0.0f };
+	// RW 0x5E7E64..0x5E7E84 (Local 120, a319166e7): maintainCurrentPosition snaps idle ground units to terrain z,
+	// so place the wall on the terrain surface too instead of z = 0.
+	const Coord3D site{ 1500.0f, 1500.0f, logic.getGroundHeight(1500.0f, 1500.0f) };
 	Object *wall = spawn(logic, "IsengardCastleWallSegment", *men, site); // a WALL_SEGMENT whose GettingBuiltBehavior has no WorkerName: it heals itself
 	wall->friend_onBuildComplete();
 	for (int i = 0; i < 8; ++i)

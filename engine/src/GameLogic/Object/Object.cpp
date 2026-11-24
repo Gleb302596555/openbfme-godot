@@ -3644,6 +3644,12 @@ void Object::xfer(Xfer &x)
 	x.xferBool(&m_effectivelyDead);
 	SnapshotXfer::maskWithin(x, m_armorSetFlags, SnapshotXfer::lowBits(SnapshotXfer::nameCount(TheArmorSetNames)), "an object's armor set flags",
 		"the " + std::to_string(SnapshotXfer::nameCount(TheArmorSetNames)) + " armor set conditions");
+	if (!saving && m_armorSetFlags != 0 && getBodyModule() && getBodyModule()->ignoresArmorSetFlagChanges())
+	{
+		// PORT-302 review (#347): InactiveBody's flags read zero in retail (RW 0x8C1AC3) and setArmorSetFlag no longer writes them, so a save from before that
+		// guard that carries an upgraded InactiveBody's flag loads clean instead of keeping a flag nothing can clear
+		m_armorSetFlags = 0;
+	}
 	SnapshotXfer::maskWithin(x, m_weaponBonusMask, SnapshotXfer::lowBits(WEAPONBONUS_CONDITION_COUNT), "an object's weapon bonus conditions",
 		"the " + std::to_string(WEAPONBONUS_CONDITION_COUNT) + " conditions");
 	x.xferBool(&m_recordedValid);

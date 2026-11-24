@@ -1094,6 +1094,11 @@ UpdateSleepTime ProductionUpdate::update()
 			{
 				cancelUnitCreateByTemplate(tt, true);
 			}
+			else
+			{
+				// RW keeps the template pointer itself; the port keeps its name, so a name no template answers (a snapshot of another data set) is an error
+				logic.reportError("ProductionUpdate: the deferred cancellation names no template: " + name);
+			}
 		}
 	}
 	pauseHeroEntries(); // RW 0x8A0669 (lane HERO-1)

@@ -153,6 +153,21 @@ PY
 
 st() { mkdir -p /content/status && echo "$*" > /content/status/maps.txt; }   # the dashboard's "what it does" line (watchdog.py)
 
+# The button matrix, its review and MATRIX_GREY: run() starts it in the background (see there). Exit 1 = the matrix itself failed.
+matrix_block() {
+  local rev=$1
+  st "карты на main $rev: матрица кнопок (все фракции, параллельно с аудитом и свипом)"
+  python3 tools/matrix_run.py all --jobs 5 > "$RUNS/nightly_matrix.log" 2>&1 || return 1
+  # the matrix review (owner 2026-11-17): layer 1 ran inside `all` (recheck: every red object swept again alone, ORDER when fine alone);
+  # layers 2 and 3 here: the lint against the mod's INI, and every button whose verdict moved since the main the previous run measured
+  python3 tools/mod/matrix_review.py --ini "$INI" --before "$(cat "$RUNS/last_rev" 2>/dev/null)" > "$RUNS/nightly_review.log" 2>&1       || echo "matrix review failed at $rev (the run goes on)" >> "$LOG"
+  # why the DISABLED buttons are grey (MATRIX_GREY, Port 220), from this run's matrix: the next run's sweep reads it (2026-11-23: it was
+  # last made by hand on 2026-11-18)
+  python3 tools/mod/matrix_grey.py --ini "$INI" --matrix docs/ennorath/MATRIX.tsv --out docs/ennorath/MATRIX_GREY.tsv \
+      --md docs/ennorath/MATRIX_GREY.md > "$RUNS/nightly_grey.log" 2>&1 || echo "matrix grey failed at $rev (the run goes on)" >> "$LOG"
+  return 0
+}
+
 # Only what changed (owner 2026-11-24: "чтобы прогон гонял только то что обновилось а не все"): a step runs when its inputs moved since the
 # main of the previous run ($RUNS/last_rev): its own tools, engine/ for what runs the engine (matrix, audit, sweep), engine/src's citations
 # for the function maps. The inputs outside git (game.dat, BFME2's game.dat, the mod's INI archive, the newest hand verdicts) are one key
@@ -210,17 +225,13 @@ run() {
   st "карты на main $rev: карта скриптов"
   python3 tools/mod/script_map.py "$ROTWK_INSTALL" "$OPENBFME_ENNORATH_INSTALL" --out docs/ennorath --full "$AUDIT/script-map"       > "$RUNS/nightly_scripts.log" 2>&1 || echo "script map failed at $rev (the run goes on)" >> "$LOG"
   fi
+  # the matrix in parallel (owner 2026-11-24): its 5 faction processes leave cores idle, so the audit, the sweep and the function maps run
+  # beside it; the steps that read MATRIX.tsv (the gaps, the drafts, the progress row) wait for it below. Its own process group: a run that
+  # stops early takes the whole matrix down with it (the RETURN trap), so no orphan writes into the next run's tree.
+  local mpid=""
   if [ "$s_matrix" = 1 ]; then
-  st "карты на main $rev: матрица кнопок (все фракции)"
-  python3 tools/matrix_run.py all --jobs 5 > "$RUNS/nightly_matrix.log" 2>&1 || { echo "matrix failed at $rev" >> "$LOG"; return 1; }
-  # the matrix review (owner 2026-11-17): layer 1 ran inside `all` (recheck: every red object swept again alone, ORDER when fine alone);
-  # layers 2 and 3 here: the lint against the mod's INI, and every button whose verdict moved since the main the previous run measured
-  python3 tools/mod/matrix_review.py --ini "$INI" --before "$(cat "$RUNS/last_rev" 2>/dev/null)" > "$RUNS/nightly_review.log" 2>&1       || echo "matrix review failed at $rev (the run goes on)" >> "$LOG"
-  # why the DISABLED buttons are grey (MATRIX_GREY, Port 220), from this run's matrix: the next run's sweep reads it (2026-11-23: it was
-  # last made by hand on 2026-11-18)
-  st "карты на main $rev: серые кнопки (MATRIX_GREY)"
-  python3 tools/mod/matrix_grey.py --ini "$INI" --matrix docs/ennorath/MATRIX.tsv --out docs/ennorath/MATRIX_GREY.tsv \
-      --md docs/ennorath/MATRIX_GREY.md > "$RUNS/nightly_grey.log" 2>&1 || echo "matrix grey failed at $rev (the run goes on)" >> "$LOG"
+    set -m; ( matrix_block "$rev" ) & mpid=$!; set +m
+    trap '[ -n "${mpid:-}" ] && kill -- -"$mpid" 2>/dev/null; trap - RETURN' RETURN
   fi
   # the field audit on this main (2026-11-17): the engine's module coverage table, then field_audit.py with the newest hand verdicts
   if [ "$s_audit" = 1 ]; then
@@ -245,6 +256,7 @@ run() {
   st "карты на main $rev: свип карт Эннората"
   local sw="$RUNS/map-sweep"; rm -rf "$sw"; mkdir -p "$sw"
   local jobs; jobs=$(( $(nproc) > 4 ? $(nproc) - 2 : 2 ))
+  [ -n "$mpid" ] && jobs=$(( jobs > 3 ? 3 : jobs ))   # the matrix's 5 processes share the cores
   if python3 tools/maps/map_sweep.py --tests engine/build/openbfme_tests --out "$sw" --jobs "$jobs" --seconds 60 --timeout 600 \
         > "$RUNS/nightly_sweep.log" 2>&1; then
     python3 tools/maps/map_sweep.py --summary "$sw/map-sweep.tsv" --docs docs/ennorath >> "$RUNS/nightly_sweep.log" 2>&1 \
@@ -270,6 +282,13 @@ run() {
   python3 tools/mod/rw_function_map.py --game "$RW_GAME_DAT" --ini "$INI" --inventory workspace/rebuild_inventory.json \
       --decomp "$XMAP/rw_map.csv" --out docs/ennorath/RW_FUNCTION_MAP > "$RUNS/nightly_map.log" 2>&1 || { echo "map failed at $rev" >> "$LOG"; return 1; }
   cmp -s workspace/rebuild_inventory.json "$INV" || cp -f workspace/rebuild_inventory.json "$INV"   # a new game.dat: share the new cache
+  fi
+  # the matrix started in parallel above: the gaps, the drafts and the progress row read its MATRIX.tsv
+  if [ -n "$mpid" ]; then
+    st "карты на main $rev: жду матрицу кнопок"
+    local mrc=0; wait "$mpid" || mrc=$?
+    mpid=""
+    [ "$mrc" = 0 ] || { echo "matrix failed at $rev" >> "$LOG"; return 1; }
   fi
   if [ "$s_gaps" = 1 ]; then
   python3 tools/mod/matrix_gaps.py --base "$ROTWK_INSTALL" --overlay "$OPENBFME_ENNORATH_INSTALL" --inventory workspace/rebuild_inventory.json \
