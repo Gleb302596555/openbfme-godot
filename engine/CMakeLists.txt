@@ -601,6 +601,7 @@ include(cmake/Local152.cmake)   # LOCAL-152: Ennorath 1.9.8.4 War of the Ring on
 include(cmake/Local159.cmake)   # LOCAL-159: ShroudManager in logic-only test rigs (fork issue 926; OPENBFME_LOCAL159_TESTS)
 include(cmake/Local166.cmake)   # LOCAL-166: War of the Ring logic binary-map audit and ports (fork issue 933; OPENBFME_LOCAL166_TESTS)
 include(cmake/Local170.cmake)   # LOCAL-170: binary map audit of 300 uncited RotWK object-module functions (fork issue 937; OPENBFME_LOCAL170_TESTS)
+include(cmake/Local165.cmake)   # LOCAL-165: AITactic::NotifyTeamCancelled (RW 0x8F2727) & SkirmishAI::UnRegister(Team*) (RW 0x6C77B2) (fork issue 932; OPENBFME_LOCAL165_TESTS)
 include(cmake/Local130.cmake)   # LOCAL-130: 50 most shared helpers + RW 0x6760CA / 0x677898 construction ambient (fork issue 829; OPENBFME_LOCAL130_TESTS)
 include(cmake/Local133.cmake)   # LOCAL-133: W3DLaserDraw width/fanWidth and tile factor clamps (fork issue 849; OPENBFME_LOCAL133_TESTS)
 include(cmake/Local139.cmake)   # LOCAL-139: global game data fields (fork issue 856; OPENBFME_LOCAL139_TESTS)
@@ -1489,6 +1490,7 @@ add_executable(openbfme_tests
     ${OPENBFME_LOCAL159_TESTS}
     ${OPENBFME_LOCAL166_TESTS}
     ${OPENBFME_LOCAL170_TESTS}
+    ${OPENBFME_LOCAL165_TESTS}
         ${OPENBFME_LOCAL130_TESTS}
         ${OPENBFME_LOCAL133_TESTS}
         ${OPENBFME_LOCAL136_TESTS}

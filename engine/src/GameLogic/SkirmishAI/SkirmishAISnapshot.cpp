@@ -3,6 +3,11 @@
 // The obfme:SkirmishAI block (lane SAVE-4c, docs/SAVES.md section 8): TheSkirmishAIManager's state. OpenBFME native layout (stop S-4220): retail saves
 // CHUNK_SkirmishAISystem (lists 0 and 1, GameState::init RW 0x6DF73E) through AIPlayer::xfer RW 0x8F5756 ((1, 2)), AISkirmishPlayer::xfer RW 0x8F3F6C
 // ((1, 1): AIPlayer's, then two ints and six reals) and AIBuilder::DoXfer RW 0x8F03FA ((1, 5): the dozer manager, base, economy and wall builders;
+// SkirmishAI::DoXfer RW 0x6C7D4F, AITacticsGenerator::DoXfer RW 0x90C6FE, AITactic::xfer RW 0x8F2466, AITacticSiege::xfer RW 0x9EF74B,
+// SiegeGates::xfer RW 0x9B3256, SimpleSiege::xfer RW 0x9B3385, PincerAttack::xfer RW 0x9B431F, AIFlankAttackTacticImp::DoXfer RW 0x9B4805,
+// FlankAttack::xfer RW 0x9B4953, FormationAttack::xfer RW 0x9B49EB, SimpleExpansion::xfer RW 0x9B50C2, AIStartWoTRBattleTactic::xfer RW 0x9B84A9,
+// AIReturnTheRingTactic::xfer RW 0x9B8675, AIFarmKillSquad::xfer RW 0x9BC050).
+//
 // docs/SAVES-RETAIL.md section 6). This port's skirmish AI is a partial port (S-412: the sub systems are structs of what is ported, laid out by the port), so
 // the block is OpenBFME's own, in this order:
 //   the started flag, the attacked-at id counter, the spell book assist timers, the data's identity (SkirmishAIStore::crc: a snapshot of another data set is
