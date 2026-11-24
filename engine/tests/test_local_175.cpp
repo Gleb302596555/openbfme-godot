@@ -77,10 +77,13 @@ AutoResolveArmor AutoResolve_DefaultArmor
 	Armor = AutoResolveUnit_Soldier 100%
 End
 AutoResolveBody AutoResolve_DefaultBody
-	HitpointsAtLevel = Hitpoints:300 Level:1
+	HitpointsAtLevel = Hitpoints:300 Level:0
 End
 AutoResolveBody AutoResolve_HeroBody
-	HitpointsAtLevel = Hitpoints:3000 Level:1
+	HitpointsAtLevel = Hitpoints:2000 Level:1
+	LeaveInArmySummary = Yes
+End
+AutoResolveCombatChain AutoResolve_DefaultCombatChain
 End
 AutoResolveReinforcementSchedule Defender
 	1 = 0
