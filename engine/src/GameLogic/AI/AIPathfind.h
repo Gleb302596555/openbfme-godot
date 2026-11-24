@@ -384,6 +384,7 @@ private:
 
 enum { COST_ORTHOGONAL = 10, COST_DIAGONAL = 14 };
 
+// RW 0x9346CF (~PathfindCell), RW 0x6E8559 (PathfindCell vector deleting dtor)
 class PathfindCell
 {
 public:
@@ -561,6 +562,7 @@ struct PathfindRegion
 // (profile, kind): `kind` comes from the unit's surface mask, the profile from its template (RW 0x93894B). The equivalence tables
 // of retail are built from the zone adjacency; this port derives the same relation lazily with a union-find over the adjacent zone
 // pairs (docs/STOPS.md S-162).
+// RW 0x938CCB (PathfindZoneManager ctor), RW 0x93A4B8 (~PathfindZoneManager)
 class PathfindZoneManager
 {
 public:
@@ -822,7 +824,7 @@ public:
 	size_t size() const { return (size_t)((m_tail - m_head + m_len) % m_len); }
 	// the i-th queued id from the head (state hash, MOVE-1)
 	PathfindObjectID at(size_t i) const { return m_slots[(size_t)((m_head + (int)i) % m_len)]; }
-	// RW 0x6EC096 (linear duplicate scan) then 0x6EC069: true when queued or already queued, false when the ring is full
+	// RW 0x6EC096 (linear duplicate scan), RW 0x6EC048 (hasRoom), RW 0x6EC069 (push): true when queued or already queued, false when full
 	bool push(PathfindObjectID id)
 	{
 		for (int s = m_head; s != m_tail; s = (s + 1) % m_len)
@@ -1402,6 +1404,7 @@ private:
 	};
 	// lane WALL-2: a raised layer (RW PathfindLayer, 0x40 bytes at pathfinder + 0x60 + layer * 0x40, the wall kind: its area list + 0x38 set). The port keeps
 	// the areas' surfaces with the pieces they came from
+	// RW 0x768AA7 (PathfindLayer::rva00366DEC reset/clear)
 	struct RaisedLayer
 	{
 		std::vector<std::pair<PathfindObjectID, PathfindWallSurface>> areas; // + 0x38 (newest first in RW; insertion order here: the union is the same)

@@ -313,6 +313,7 @@ LocomotorTemplate *LocomotorTemplate::getFinalOverride()
 }
 
 // ---- LocomotorStore ------------------------------------------------------------------------------------------
+// RW 0x5E67F2 (LocomotorStore::findLocomotorTemplate)
 const LocomotorTemplate *LocomotorStore::findLocomotorTemplate(const std::string &name) const
 {
 	const auto it = m_templates.find(name);

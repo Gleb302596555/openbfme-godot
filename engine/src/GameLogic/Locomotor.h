@@ -136,6 +136,7 @@ enum LocomotorSetType
 // One Locomotor INI block (RW 0x154 bytes). Plain standard-layout struct: the FieldParse offsets are
 // offsetof() of these members, in the table order of RW 0xBF4478. Times are frames (5/s), speeds and
 // accelerations per frame, angles radians (the INI parsers convert; spec 2.13).
+// RW 0x5E4653 (copy ctor), RW 0x5E31DF (operator=), RW 0x5E4618 (~LocomotorTemplate), RW 0x63945E (COMDAT ~LocomotorTemplate), RW 0x5E600B (deleting dtor 0xBF4A34[0])
 struct LocomotorTemplate
 {
 	LocomotorTemplate(); // RW 0x5E4326 defaults
@@ -248,6 +249,7 @@ struct LocomotorTemplate
 };
 
 // ---- LocomotorStore (ZH LocomotorStore; global TheLocomotorStore, RW 0xDE369C) ---------------------------
+// RW 0x5E6A52 (ctor, table 0xBF4AF0), RW 0x5E6A96 (dtor, table 0xBF4AF0), RW 0x5E7690 (deleting dtor 0xBF4AF0[0]), RW 0x5E42E9 (newLocomotor)
 class LocomotorStore
 {
 public:
@@ -538,6 +540,7 @@ enum LocomotorFlags
 		LOCOMOTOR_FLAG_BACKING_UP | LOCOMOTOR_FLAG_CLOSE_ENOUGH_DIST_3D
 };
 
+// RW 0x5E3E8D (deleting dtor 0xBF4A08[0]), RW 0x5E42CB (getTemplateName via getTemplate().m_name)
 class Locomotor
 {
 public:

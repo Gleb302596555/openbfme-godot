@@ -141,7 +141,7 @@ void xferMove(Xfer &x, AIMover &ai, std::unique_ptr<AIMoveToState> &move, int *b
 	move = std::move(loaded);
 }
 
-// Locomotor::xfer RW: the instance is part of LocomotorSet::DoXfer RW 0x5E7F12 ((1, 2)) in retail; OpenBFME layout (S-4220): crc's fields in its order
+// RW 0x5E4AC2 (Locomotor::xfer, 0xBF4A08[3]): part of LocomotorSet::DoXfer RW 0x5E7F12 ((1, 2)) in retail; OpenBFME layout (S-4220): crc's fields in its order
 void Locomotor::xfer(Xfer &x)
 {
 	XferVersion v{ 1, 1 };

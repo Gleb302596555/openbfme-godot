@@ -225,6 +225,7 @@ Coord2D PathfindObject::getUnitDirection2D() const
 	return d;
 }
 
+// RW 0x6F827D (Pathfinder::Pathfinder)
 Pathfinder::Pathfinder(const PathfindConfig &config, const PathfindWorld *world)
 	: m_config(config), m_world(world)
 {
@@ -238,6 +239,7 @@ Pathfinder::Pathfinder(const PathfindConfig &config, const PathfindWorld *world)
 	m_uberBurst = false;
 }
 
+// RW 0x6F354C (Pathfinder::~Pathfinder)
 Pathfinder::~Pathfinder() {}
 
 void Pathfinder::freeGrid()
@@ -246,6 +248,7 @@ void Pathfinder::freeGrid()
 	m_isMapReady = false;
 }
 
+// RW 0x6F5A5E (Pathfinder::rva002F462C reset), RW 0x6E85A4 (Pathfinder::ForceMapRecalculation)
 void Pathfinder::reset()
 {
 	freeGrid();

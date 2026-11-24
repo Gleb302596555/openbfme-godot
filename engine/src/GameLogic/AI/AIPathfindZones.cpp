@@ -68,6 +68,7 @@ void PathfindZoneManager::allocateBlocks(const PathfindRegion &globalBounds)
 	m_blocks.assign((size_t)m_zoneBlockExtent.x * (size_t)m_zoneBlockExtent.y, Block());
 }
 
+// RW 0x93930C (PathfindZoneManager::rva005329C8 block zone flood-fill)
 void PathfindZoneManager::calculateZones(const PathfindGridView &map, const PathfindRegion &globalBounds)
 {
 	m_zones.clear();
@@ -218,6 +219,7 @@ void PathfindZoneManager::calculateZones(const PathfindGridView &map, const Path
 	m_dirty = false;
 }
 
+// RW 0x93992E (PathfindZoneManager::rva00532FEA block zone rebuild)
 void PathfindZoneManager::rebuildZoneBlocks(const PathfindGridView &map, const PathfindRegion &globalBounds)
 {
 	// every ground cell's zone lies in the block calculateZones labelled it in (its zones never cross a block border); raised-layer zones keep -1
@@ -412,6 +414,7 @@ int PathfindZoneManager::kindOf(const PathfindMovement &mv)
 	}
 }
 
+// RW 0x938045 (PathfindZoneManager::rva005316E0 zone compatibility)
 bool PathfindZoneManager::joins(const ZoneInfo &a, const ZoneInfo &b, int profile, int kind, bool terrainVariant) const
 {
 	// the profile filter (RW 0x938085): a zone with bit 17 (profile bit 1) or bit 18 (profile bit 2) is blocked and joins nothing
@@ -542,6 +545,7 @@ zoneStorageType PathfindZoneManager::getTerrainZone(zoneStorageType zone) const
 	return it->second[zone];
 }
 
+// RW 0x93813C (PathfindZoneManager::InEquivSet)
 bool PathfindZoneManager::zonesJoin(const PathfindMovement &mv, zoneStorageType a, zoneStorageType b) const
 {
 	// lane PATHPERF-1. TARGET RW 0x938240 (BFME2 0x5318DB, decomp Rva002E99F9Sub460::rva005318DB, tier A): the movement's byte 0 bit 3 (AIR) -> true; the kind

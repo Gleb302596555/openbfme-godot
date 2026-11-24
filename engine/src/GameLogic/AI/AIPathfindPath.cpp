@@ -13,6 +13,7 @@
 // ---------------------------------------------------------------------------------------------------------
 // PathNode
 // ---------------------------------------------------------------------------------------------------------
+// RW 0x661E04 (PathNode::PathNode)
 PathNode::PathNode()
 	: m_nextOpti(nullptr), m_next(nullptr), m_prev(nullptr), m_layer(LAYER_INVALID), m_canOptimize(false), m_waypointID(NO_WAYPOINT), m_nextOptiDist2D(0.0f)
 {

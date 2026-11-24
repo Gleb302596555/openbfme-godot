@@ -9,7 +9,10 @@
 
 #include <cstdlib>
 
-// RW Bresenham (0x6F7F7D for the shortcut, 0x6F03B1 for the passability walk): N = max(|dx|, |dy|) + 1 cells, the decision variable
+// RW Bresenham cell-line walk instantiations (all share this single algorithm, differing only in callback):
+// ICoord2D walks: RW 0x6E96D5, RW 0x6E98CC, RW 0x6E99CC, RW 0x6ECB06, RW 0x6F03B1, RW 0x6F04B1, RW 0x6F344C, RW 0x6F7F7D, RW 0x6F817D
+// Coord3D wrappers: RW 0x6EC231, RW 0x6EC827, RW 0x6EC8F2, RW 0x6F0156, RW 0x6F20D5, RW 0x6F2114, RW 0x6F2153, RW 0x6F44FC, RW 0x6FAA2E
+// N = max(|dx|, |dy|) + 1 cells, the decision variable
 // d = 2 * minor - major, incE = 2 * minor, incNE = 2 * (minor - major); d >= 0 steps both axes. `visit(from, to, x, y)` returns true to
 // stop; the walk ends (returning false) at a cell outside the grid. `from` is the previous cell, null at the first.
 template <class Grid, class Visit>

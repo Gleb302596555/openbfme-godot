@@ -1,0 +1,34 @@
+function	name	verdict	evidence
+0x005E36E0	0xBF4A08[2]	not reached	dc=0 vc=0; returns literal "Locomotor" (MemoryPool diagnostic name, unused in gameplay)
+0x005E4A14	Rva001E72B4::rva001E51AC (0xBF4AF0[4])	not reached	dc=0 vc=0; debug/dev INI hot-reload callback for LocomotorStore (DONOR BFME2 Rva001E72B4Reload.cpp)
+0x005E6085	LocomotorStore::reset (0xBF4AF0[9])	not reached	dc=0 vc=0; SubsystemInterface::reset clears LocomotorTemplate overrides; port recreates LocomotorStore per RetailObjectWorld
+0x006204C8	LocomotorStore::LocomotorStore (misnamed in BFME2 map)	not reached	Not LocomotorStore (no vtable; real LocomotorStore ctor is RW 0x5E6A52); callers 0x620D0E
+0x006204FE	LocomotorStore::~LocomotorStore (misnamed in BFME2 map)	not reached	Not LocomotorStore (no vtable; real LocomotorStore dtor is RW 0x5E6A96); callers 0x620640 0x62065D 0x6207E9 0x620D3B
+0x006E8926	Pathfinder::SetDebugPathPosition	not reached	Debug-only: stores Coord3D at Pathfinder+0x4C for debug path overlay
+0x006EF275	Pathfinder::SetDebugPath	not reached	Debug-only: gated on TheGlobalData+0x9B8 (m_debugAI), stores debug path at Pathfinder+0x58
+0x005E6B6B	Locomotor::moveTowardsPositionHordeOnClimbPortal	too big	Wall climbing portal traversal; owned by Port 210 (#492, PR #922; Do not touch)
+0x006E8630	Pathfinder::AddBridge	too big	Bridge raised-layer registration; covered by existing stops S-161 / S-7223 (Local 40 #296; Do not touch)
+0x006EAE41	Pathfinder::FindBrokenBridge	too big	Broken-bridge lookup; covered by existing stop S-161 (Local 40 #296; Do not touch)
+0x006ECC06	Pathfinder::ProcessConvexPoly (Rva002E9D09)	too big	Rotated LARGE_RECTANGLE_PATHFIND polygon fill; covered by existing stop S-164 (Port 326 #843; Do not touch)
+0x008E1E64	Pathfinder::ProcessConvexPoly (Rva004DD9E3)	too big	Rotated LARGE_RECTANGLE_PATHFIND reservation polygon fill; covered by existing stop S-164 (Port 326 #843; Do not touch)
+0x006EF804	Pathfinder_FuncTightenPath::Pathfinder_FuncTightenPath	too big	Functor ctor for TightenPath (RW 0x6FDDE5); covered by existing stop S-163 (Port 326 #843; Do not touch)
+0x006EF8A8	Pathfinder::AdjustFlingDestination	too big	Fling landing clip; covered by existing stop S-782 (PhysicsBehavior.cpp:48)
+0x006F66D9	Pathfinder::CheckForAdjust	too big	Already partial in AIPathfindUnits.cpp:1646 (steps 1-8 ported, group-height step omitted; existing stop S-163, Port 326 #843)
+0x006F70D5	Pathfinder::CheckPathCost	too big	Group destination tighten cost check; covered by existing stop S-163 (Port 326 #843; Do not touch)
+0x006F9F71	Pathfinder::ExamineNeighboringCellsForSidewaysAttack	too big	Helper of FindAttackPathSideways (RW 0x6FDE38); covered by existing stop S-784 (Port 326 #843; Do not touch)
+0x006FDDE5	Pathfinder::TightenPath	too big	Group destination tighten of adjustDestination; covered by existing stop S-163 (Port 326 #843; Do not touch)
+0x006FDE38	Pathfinder::FindAttackPathSideways	too big	Ship sideways attack search; covered by existing stop S-784 (Port 326 #843; Do not touch)
+0x00765E44	Path::rva003641F2	too big	Removed portal under a horde fallback position; covered by existing stop S-4852 (Port 326 #843; Do not touch)
+0x00767E36	Path::AdvancePastPortal	too big	Advance path past climb/wall portal; callers in climb portal / AIUpdate (Port 210 #492 / S-4852; Do not touch)
+0x009346E0	PathfindCell::rva0052DD75	too big	Averaged path facing along closed-list parents; called by 0x6F1AAB, 0x6F9FD5, 0x6FE266 (existing stops S-163 / S-784)
+0x006EB02D	Pathfinder::CircleClipsTallBuilding	too big	S-7939: aircraft tall-building avoidance (PartitionManager query 0xDE4354); called by GetAircraftPath RW 0x6F4DA3
+0x006F479F	Pathfinder::rva002F3392	too big	S-7939: aircraft tall-building detour waypoint builder; called by GetAircraftPath RW 0x6F4DA3
+0x006F4DA3	Pathfinder::GetAircraftPath	too big	S-7939: aircraft pathfinding around tall buildings; called by computeQuickPath RW 0x665B31 (AIMove.cpp builds 2-node line)
+0x006EDC8D	Pathfinder::_GetOverlapUnits	too big	S-7940: unit overlap query over pathfind cells; caller 0x6F0881
+0x006EDDAB	Pathfinder::GetOverlapGoalUnits	too big	S-7940: goal-slot overlap query over pathfind cells; callers 0x86E1C8, 0x98BF07..0x98E71E
+0x006EDEC9	Pathfinder::CountOverlapHordeGoalUnits	too big	S-7940: horde goal-slot overlap counter; callers 0x874C82, 0x874DAC (HordeContain::_updatePosition)
+0x006EFA14	Pathfinder::IsValidObjectMovement	too big	S-7940: horde member step validity check; caller 0x874DEA (HordeContain::_updatePosition)
+0x006EADB6	Pathfinder::IsBuildRestrictedCell	too big	S-7941: build-restricted cell predicate (cliff/water/impassable); callers 0x755D50, 0x756621, 0x756808 (unported SkirmishAI/build)
+0x006F43B1	Pathfinder::CheckForTarget	too big	S-7941: target-cell check for AdjustTargetDestination; caller 0x6F4797
+0x006F4BD0	Pathfinder::rva002F379E	too big	S-7941: spiral cell scan for AdjustTargetDestination; caller 0x6F5031
+0x006F4FE5	Pathfinder::AdjustTargetDestination	too big	S-7941: weapon approach target destination adjustment; caller 0x6CBFCD (unported Weapon::computeApproachTarget)
