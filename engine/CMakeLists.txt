@@ -566,6 +566,7 @@ include(cmake/Port257.cmake)    # PORT-257: GiantBirdAIUpdate onCollide/collisio
 include(cmake/Port261.cmake)    # PORT-261: the player-side powers PlayerHealSpecialPower and StoreObjectsSpecialPower (issue #609; OPENBFME_PORT261_TESTS)
 include(cmake/Local80.cmake)    # LOCAL-80: script library rank actions and PLAYER_COMPARE_RANK (issue #704; OPENBFME_LOCAL80_TESTS)
 include(cmake/Local94.cmake)    # LOCAL-94: the last 8 condition / action types of the script map (issue #720; OPENBFME_LOCAL94_TESTS)
+include(cmake/Local161.cmake)   # LOCAL-161: ScriptActions first half binary-map ports (fork issue 928; OPENBFME_LOCAL161_TESTS)
 include(cmake/Local95.cmake)    # LOCAL-95: W3DScriptedModelDraw / W3DHordeModelDraw uncited functions (issue #760; OPENBFME_LOCAL95_TESTS)
 include(cmake/Local106.cmake)   # LOCAL-106: model drawing second pass & shouldAnimate wiring (issue #784; OPENBFME_LOCAL106_TESTS)
 include(cmake/Local123.cmake)   # LOCAL-123: draw, client, collide, contain, body and power modules tail (issue #807; OPENBFME_LOCAL123_TESTS)
@@ -1438,6 +1439,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT261_TESTS}
     ${OPENBFME_LOCAL80_TESTS}
     ${OPENBFME_LOCAL94_TESTS}
+	${OPENBFME_LOCAL161_TESTS}
     ${OPENBFME_LOCAL95_TESTS}
     ${OPENBFME_LOCAL106_TESTS}
     ${OPENBFME_LOCAL123_TESTS}

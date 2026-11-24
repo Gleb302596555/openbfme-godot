@@ -40,7 +40,7 @@ const ScriptParameter &param(const ScriptActionRec &a, size_t i)
 
 bool ScriptActions::executeCampaignAction(ScriptEngine &engine, const ScriptActionRec &a, const std::string &name)
 {
-	if (name == "GATE_OPEN" || name == "GATE_CLOSE") // RW 0x7BD8B8 / 0x7BD826
+	if (name == "GATE_OPEN" || name == "GATE_CLOSE") // RW 0x7BD8B8 / RW 0x7BD826
 	{
 		Object *o = engine.getUnitNamed(param(a, 0).stringValue);
 		auto *gate = o ? dynamic_cast<GateOpenAndCloseBehavior *>(o->findModule("GateOpenAndCloseBehavior")) : nullptr;
