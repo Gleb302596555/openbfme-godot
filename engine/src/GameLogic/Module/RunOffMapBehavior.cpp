@@ -26,6 +26,7 @@ const FieldParse kRunOffMapBehaviorFieldParse[] = {
 #undef ROMB_OFF
 } // namespace
 
+// RW 0x865278 (RunToLocation +0x8 has no reader in RW 0x86540A and 0 uses in Ennorath)
 void RunOffMapBehaviorModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kRunOffMapBehaviorFieldParse);

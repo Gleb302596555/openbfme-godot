@@ -28,6 +28,7 @@ const FieldParse kRainOfFireUpdateFieldParse[] = {
 #undef ROFU_OFF
 } // namespace
 
+// RW 0x8AF6A7 (ctor)
 void RainOfFireUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kRainOfFireUpdateFieldParse);

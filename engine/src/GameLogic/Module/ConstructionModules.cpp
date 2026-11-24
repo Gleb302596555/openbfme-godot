@@ -117,10 +117,12 @@ void FoundationAIUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kFoundationFieldParse);
 }
+// RW 0x856423
 void GettingBuiltBehaviorModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kGettingBuiltFieldParse);
 }
+// RW 0x85926A
 void BuildingBehaviorModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kBuildingFieldParse);

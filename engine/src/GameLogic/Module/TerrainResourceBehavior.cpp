@@ -51,6 +51,7 @@ const FieldParse kTerrainResourceFieldParse[] = {
 #undef TR_OFF
 } // namespace
 
+// RW 0x8852B8
 void TerrainResourceBehaviorModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kTerrainResourceFieldParse);

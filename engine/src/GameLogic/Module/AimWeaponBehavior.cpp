@@ -47,6 +47,7 @@ Object::ModelConditionBits bit(int index)
 }
 } // namespace
 
+// RW 0x85E289
 void AimWeaponBehaviorModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kFields);

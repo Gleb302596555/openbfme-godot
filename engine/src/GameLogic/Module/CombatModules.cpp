@@ -264,9 +264,12 @@ float ClearanceTestingSlowDeathBehaviorModuleData::clearanceBoundingSphereRadius
 	return g.computeBoundingSphereRadius();
 }
 
+// RW 0x654BCC (friend_newModuleData)
 void DestroyDieModuleData::buildFieldParse(MultiIniFieldParse &p) { p.add(kDestroyDieParse); }
 void KeepObjectDieModuleData::buildFieldParse(MultiIniFieldParse &p) { p.add(kKeepObjectDieParse); }
+// RW 0x6537DB (ctor)
 void FXListDieModuleData::buildFieldParse(MultiIniFieldParse &p) { p.add(kFXListDieParse); }
+// RW 0x861999
 void SlowDeathBehaviorModuleData::buildFieldParse(MultiIniFieldParse &p) { p.add(kSlowDeathParse); }
 
 void CombatModules::registerAll(ModuleFactory &modules)

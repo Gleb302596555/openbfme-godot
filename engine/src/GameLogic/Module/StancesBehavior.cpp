@@ -105,6 +105,7 @@ const StanceTemplate *StanceTemplateStore::find(const std::string &name) const
 }
 
 // ---- the module ---------------------------------------------------------------------------------------------------------------------------------------------------
+// RW 0x861DCE
 void StancesBehaviorModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kModuleParse);

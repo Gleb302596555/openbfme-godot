@@ -128,6 +128,7 @@ std::vector<Coord3D> commandCentres(GameLogic &logic, const Player *player)
 } // namespace
 
 // ---- WallHubBehavior -------------------------------------------------------------------------------------------------------------------------
+// RW 0x855E8F
 void WallHubBehaviorModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kWallHubFieldParse);

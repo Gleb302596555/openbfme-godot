@@ -43,6 +43,7 @@ const char *const kStop =
 } // namespace
 
 // ---- the module ----------------------------------------------------------------------------------------------------------------------------
+// RW 0x7EDD2C
 void ThreatFinderUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kFields);

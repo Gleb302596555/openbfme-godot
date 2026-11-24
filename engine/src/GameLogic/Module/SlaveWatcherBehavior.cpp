@@ -40,6 +40,7 @@ const UpgradeTemplate *upgradeNamed(const std::string &name)
 }
 } // namespace
 
+// RW 0x887846
 void SlaveWatcherBehaviorModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kFields);

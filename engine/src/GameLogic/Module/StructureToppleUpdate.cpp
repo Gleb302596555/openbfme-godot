@@ -218,6 +218,7 @@ bool hasFX(const std::string &name)
 }
 } // namespace
 
+// RW 0x8A9B79
 void StructureToppleUpdateModuleData::buildFieldParse(MultiIniFieldParse &p) { p.add(kStructureToppleParse); }
 
 // RW 0x8A8BB4 (A)

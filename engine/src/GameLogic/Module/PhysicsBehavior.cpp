@@ -124,6 +124,7 @@ PhysicsBehaviorModuleData::PhysicsBehaviorModuleData()
 {
 }
 
+// RW 0x792609
 void PhysicsBehaviorModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kPhysicsParse);

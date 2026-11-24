@@ -64,6 +64,7 @@ NameKeyType ModuleFactory::makeDecoratedNameKey(const std::string &name, ModuleT
 	return m_keys.nameToKey(decorated);
 }
 
+// RW 0x464AC1 (W3DModuleFactory::init)
 void ModuleFactory::init()
 {
 	const RwBinaryData &data = m_grammar.data();
