@@ -96,7 +96,7 @@ const char kAiScriptTestIni[] =
     "    MaxHealth = 100\n"
     "  End\n"
     "  Behavior = RainOfFireUpdate ModuleTag_RainOfFire\n"
-    "    Darkness = 0.5\n"
+    "    DarknessLevel = 0.5\n" // RW 0xC6B618: the 9-row RainOfFireUpdate field table has DarknessLevel, no "Darkness" (Local 169)
     "  End\n"
     "End\n"
     "Object TestDestroySpell\n"
