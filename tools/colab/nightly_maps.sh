@@ -80,6 +80,7 @@ binary_map() {
   local xf=$PWD/workspace/rebuild/xmap-full; mkdir -p "$xf"; rm -f "$xf/rw_map.csv"
   { python3 tools/rw_object_model/binary_map.py export-blocks --out workspace/rebuild/rw_binary_blocks.json &&
     python3 tools/re/inventory.py --bin "$RW_GAME_DAT" --angr workspace/rebuild/rw_binary_blocks.json --out "$xf/rotwk_functions.csv"; } >> "$log" 2>&1 || return 1
+  cp -f workspace/rebuild/rw_binary_blocks.json "$DRIVE/openbfme-audit/rw_binary_blocks.json"   # the dossier loop's exact bounds (autostart.d/dossier.sh)
   # BFME2's side is decomp_map's (the same clone, the same night)
   if [ -f "$XMAP/bfme2_functions.csv" ] && [ -f "$XMAP/bfme2_ledger.csv" ]; then
     python3 tools/re/match_rotwk.py --rotwk "$RW_GAME_DAT" --rotwk-inv "$xf/rotwk_functions.csv" --bfme2 "$BFME2_INSTALL/game.dat" \

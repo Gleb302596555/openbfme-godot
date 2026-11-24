@@ -372,9 +372,25 @@ TEST_CASE("grabpassenger retail: a version 1 OpenContain snapshot (before the ea
 	auto at = std::search(bytes.begin(), bytes.end(), eat.begin(), eat.end());
 	REQUIRE(at != bytes.end());
 	CHECK(std::search(at + 1, bytes.end(), eat.begin(), eat.end()) == bytes.end()); // the fields are found once
+	const std::ptrdiff_t eatAt = at - bytes.begin();
 	bytes.erase(at, at + (std::ptrdiff_t)eat.size());
-	REQUIRE(bytes.size() == fresh.data().size() - 12);
-	CHECK(bytes[1] == 2);
+	// version 3 (PORT-90) put the sound state before the eat: last unload frame, last load frame (32-bit words), load enabled (bool). Version 1
+	// has none: find the bool as the one byte a toggle of it changes, and drop the 9 bytes ending there
+	XferSave enabledOn, enabledOff;
+	contain->enableLoadSounds(true);
+	contain->xfer(enabledOn);
+	contain->enableLoadSounds(false);
+	contain->xfer(enabledOff);
+	contain->enableLoadSounds(true);
+	const std::vector<std::uint8_t> on = enabledOn.data(), off = enabledOff.data();
+	REQUIRE(on.size() == off.size());
+	const std::ptrdiff_t flag = std::mismatch(on.begin(), on.end(), off.begin()).first - on.begin();
+	REQUIRE(flag >= 10); // tolerance: the flag's offset depends on the update / behavior module data before it; only the two version bytes and the two frames (8) must precede it
+	REQUIRE(flag < eatAt); // tolerance: an order, not a value: the sound state is written before the eat fields (OpenContain::xfer)
+	CHECK(std::equal(on.begin() + flag + 1, on.end(), off.begin() + flag + 1)); // the toggle changed that one byte
+	bytes.erase(bytes.begin() + (flag - 8), bytes.begin() + (flag + 1));
+	REQUIRE(bytes.size() == fresh.data().size() - 12 - 9);
+	CHECK(bytes[1] == 3);
 	bytes[1] = 1;
 	{
 		XferLoad load(bytes);
@@ -386,7 +402,7 @@ TEST_CASE("grabpassenger retail: a version 1 OpenContain snapshot (before the ea
 	contain->crc(loaded);
 	CHECK(loaded.value() == notEating.value());
 	// a version above the current one is refused
-	bytes[1] = 3;
+	bytes[1] = 4;
 	XferLoad bad(bytes);
 	CHECK_THROWS_AS(contain->xfer(bad), XferException);
 }

@@ -154,6 +154,20 @@ def write_reports(b, rec, m, ty, vc, out_dir: Path, src: Path = Path("engine/src
         "",
         "Tables: RW_BINARY_MAP.tsv (one row per function), RW_CLASSES.tsv, RW_VCALLS.tsv.",
         "",
+        "## Limits (what the map does not know yet)",
+        "",
+        f"- Virtual calls: {vcount['object type unproven']} of {len(vc)} have a receiver whose type is not proven, most often an argument of a",
+        "  virtual method (its callers are not all known) or a global written by code the inventory does not cover;",
+        f"  {vcount['receiver not a vtable load']} call through a pointer that is not a table load; {vcount['table / slot mismatch']} name a table or slot",
+        "  the model does not have at that subobject. `resolved virtual callers` is therefore a lower bound: 0 does not mean nobody calls it.",
+        f"- Subsystem: {sum(by_sub['unclassified'].values())} functions have no subsystem (the BFME2 pairing found no partner or no label);",
+        "  the `?` labels are the pairing's guesses.",
+        "- Status is by citation only: a function ported without a `RW 0x...` citation is `none`, a citation inside a body does not count.",
+        "- Refreshed by every maps run (tools/colab/nightly_maps.sh, binary_map()): the inventory and facts are cached on the Drive by",
+        "  game.dat's SHA256 and the tools' blob ids; the port status and the BFME2 pairing are recomputed each run.",
+        "- Users: the task dossier (tools/ci/port_dossier.py, section «Карта бинарника») and its disassembly (refs/arena/inventory holds this",
+        "  inventory's exact bounds since 2026-11-24).",
+        "",
     ]
     (out_dir / "RW_BINARY_MAP.md").write_text("\n".join(md), encoding="utf-8")
     return counts, vcount
