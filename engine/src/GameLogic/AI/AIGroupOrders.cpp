@@ -122,13 +122,11 @@ bool MoveToGroupOrder::complete(ObjectID id)
 	return false;
 }
 
+// RW 0x94E2E7 (MoveToGroupOrder copy constructor): copies destination (+0x18..+0x20) and attackMove (+0x25),
+// sets the moved flag (+0x24 = 1), and initializes the cached destination map (+0x28, RW 0x94E213) empty and stuck (+0x3C) = 0.
 std::unique_ptr<AIOrdersManager::GroupOrder> MoveToGroupOrder::clone() const
 {
-	// the C++ copy (BFME2's MoveToGroupOrder copy constructor was not read); only a patrol reaches it and no live command starts one (S-1831)
-	auto copy = std::make_unique<MoveToGroupOrder>(m_logic, objects(), m_destination, m_attackMove);
-	copy->m_positions = m_positions;
-	copy->m_stuck = m_stuck;
-	return copy;
+	return std::make_unique<MoveToGroupOrder>(m_logic, objects(), m_destination, m_attackMove);
 }
 
 void MoveToGroupOrder::setState(const State &state)
