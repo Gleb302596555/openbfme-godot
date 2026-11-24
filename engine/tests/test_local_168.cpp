@@ -16,6 +16,7 @@
 #include "GameLogic/Object/Object.h"
 
 #include <string>
+#include <vector>
 
 using namespace combattest;
 
@@ -136,29 +137,37 @@ HordeContain *getHordeContain(Object &horde)
 {
 	return dynamic_cast<HordeContain *>(horde.getContain());
 }
+
+std::vector<Object *> membersVec(const HordeContain &hc)
+{
+	const auto *lst = hc.getContainedItemsList();
+	if (!lst)
+	{
+		return {};
+	}
+	return std::vector<Object *>(lst->begin(), lst->end());
+}
 } // namespace
 
 // Expectations from RW 0x875F18 (HordeContain::applyRankWeaponSetFlags, 0xC5B5F8[32]):
 // Rank 1 grants PLAYER_UPGRADE and revokes HERO; Rank 2 has hasWeaponConditions == false and leaves flags untouched.
 TEST_CASE("LOCAL-168 HordeContain: applyRankWeaponSetFlags grants and revokes rank weapon conditions (RW 0x875F18)")
 {
-	CombatWorld w;
-	REQUIRE(w.loadIni(kLocal168Ini));
-	Object *horde = w.spawn("L168Horde", 0, { 100.0f, 100.0f, 0.0f });
+	CombatWorld w(kLocal168Ini);
+	Object *horde = w.unit("L168Horde", 'A', 100.0f, 100.0f);
 	REQUIRE(horde != nullptr);
 	HordeContain *hc = getHordeContain(*horde);
 	REQUIRE(hc != nullptr);
-	const auto *members = hc->getContainedItemsList();
-	REQUIRE(members != nullptr);
-	REQUIRE(members->size() == 2);
+	const auto members = membersVec(*hc);
+	REQUIRE(members.size() == 2);
 
 	const int flagUpgrade = CombatNames::weaponCondition("PLAYER_UPGRADE");
 	const int flagHero = CombatNames::weaponCondition("HERO");
 	REQUIRE(flagUpgrade >= 0); // tolerance: valid CombatNames weapon condition index
 	REQUIRE(flagHero >= 0); // tolerance: valid CombatNames weapon condition index
 
-	Object *m0 = (*members)[0]; // Rank 1: GrantedWeaponCondition:PLAYER_UPGRADE RevokedWeaponCondition:HERO
-	Object *m1 = (*members)[1]; // Rank 2: no weapon conditions
+	Object *m0 = members[0]; // Rank 1: GrantedWeaponCondition:PLAYER_UPGRADE RevokedWeaponCondition:HERO
+	Object *m1 = members[1]; // Rank 2: no weapon conditions
 	m0->setWeaponSetFlag(flagHero, true);
 	m0->setWeaponSetFlag(flagUpgrade, false);
 	m1->setWeaponSetFlag(flagHero, true);
@@ -178,38 +187,36 @@ TEST_CASE("LOCAL-168 HordeContain: applyRankWeaponSetFlags grants and revokes ra
 // When the horde AI is moving, stops every contained member's AI and then the horde AI; when idle, no-op.
 TEST_CASE("LOCAL-168 HordeContain: endMove stops moving horde and every contained member (RW 0x86D1FE)")
 {
-	CombatWorld w;
-	REQUIRE(w.loadIni(kLocal168Ini));
-	Object *horde = w.spawn("L168Horde", 0, { 100.0f, 100.0f, 0.0f });
+	CombatWorld w(kLocal168Ini);
+	Object *horde = w.unit("L168Horde", 'A', 100.0f, 100.0f);
 	REQUIRE(horde != nullptr);
 	HordeContain *hc = getHordeContain(*horde);
 	REQUIRE(hc != nullptr);
 	AIUpdateInterface *hai = horde->getAIUpdateInterface();
 	REQUIRE(hai != nullptr);
-	const auto *members = hc->getContainedItemsList();
-	REQUIRE(members != nullptr);
-	REQUIRE(members->size() == 2);
+	const auto members = membersVec(*hc);
+	REQUIRE(members.size() == 2);
 
 	// Move the horde and its members.
 	hai->aiMoveToPosition({ 250.0f, 100.0f, 0.0f }, CMD_FROM_PLAYER);
-	for (Object *m : *members)
+	for (Object *m : members)
 	{
 		m->getAIUpdateInterface()->aiMoveToPosition({ 250.0f, 100.0f, 0.0f }, CMD_FROM_AI);
 	}
-	w.step(2);
+	w.frames(2);
 	REQUIRE(hai->isMoving());
 
 	hc->endMove();
 	CHECK_FALSE(hai->isMoving());
-	for (Object *m : *members)
+	for (Object *m : members)
 	{
 		CHECK_FALSE(m->getAIUpdateInterface()->isMoving());
 	}
 
 	// Adjacent behaviour: if the horde itself is NOT moving, endMove does not stop a member that is moving.
-	Object *m0 = (*members)[0];
+	Object *m0 = members[0];
 	m0->getAIUpdateInterface()->aiMoveToPosition({ 220.0f, 100.0f, 0.0f }, CMD_FROM_AI);
-	w.step(1);
+	w.frames(1);
 	REQUIRE_FALSE(hai->isMoving());
 	const bool m0WasMoving = m0->getAIUpdateInterface()->isMoving();
 	hc->endMove();
@@ -220,23 +227,21 @@ TEST_CASE("LOCAL-168 HordeContain: endMove stops moving horde and every containe
 // and RW 0x875619 (memberMatchesRankUnitType).
 TEST_CASE("LOCAL-168 HordeContain: anyMemberAttacking, anyMemberAttackingTarget, memberMatchesRankUnitType (RW 0x86D5BB, 0x86D4CD, 0x875619)")
 {
-	CombatWorld w;
-	REQUIRE(w.loadIni(kLocal168Ini));
-	Object *horde = w.spawn("L168Horde", 0, { 100.0f, 100.0f, 0.0f });
-	Object *enemy = w.spawn("L168Enemy", 1, { 112.0f, 100.0f, 0.0f });
-	Object *other = w.spawn("L168Enemy", 1, { 260.0f, 100.0f, 0.0f });
+	CombatWorld w(kLocal168Ini);
+	Object *horde = w.unit("L168Horde", 'A', 100.0f, 100.0f);
+	Object *enemy = w.unit("L168Enemy", 'B', 112.0f, 100.0f);
+	Object *other = w.unit("L168Enemy", 'B', 260.0f, 100.0f);
 	REQUIRE(horde != nullptr);
 	REQUIRE(enemy != nullptr);
 	REQUIRE(other != nullptr);
 	HordeContain *hc = getHordeContain(*horde);
 	REQUIRE(hc != nullptr);
-	const auto *members = hc->getContainedItemsList();
-	REQUIRE(members != nullptr);
-	REQUIRE(members->size() == 2);
+	const auto members = membersVec(*hc);
+	REQUIRE(members.size() == 2);
 
 	// RW 0x875619: rank unitType check
-	CHECK(hc->memberMatchesRankUnitType(*(*members)[0], "L168Member"));
-	CHECK_FALSE(hc->memberMatchesRankUnitType(*(*members)[0], "WrongUnit"));
+	CHECK(hc->memberMatchesRankUnitType(*members[0], "L168Member"));
+	CHECK_FALSE(hc->memberMatchesRankUnitType(*members[0], "WrongUnit"));
 	CHECK_FALSE(hc->memberMatchesRankUnitType(*enemy, "L168Member"));
 
 	// RW 0x86D5BB / 0x86D4CD: initially idle -> false
@@ -244,8 +249,8 @@ TEST_CASE("LOCAL-168 HordeContain: anyMemberAttacking, anyMemberAttackingTarget,
 	CHECK_FALSE(hc->anyMemberAttackingTarget(*enemy));
 
 	// Order one member to attack enemy
-	(*members)[0]->getAIUpdateInterface()->aiAttackObject(enemy, 100, CMD_FROM_AI);
-	w.step(1);
+	members[0]->getAIUpdateInterface()->aiAttackObject(enemy, 100, CMD_FROM_AI);
+	w.frames(1);
 	CHECK(hc->anyMemberAttacking());
 	CHECK(hc->anyMemberAttackingTarget(*enemy));
 	CHECK_FALSE(hc->anyMemberAttackingTarget(*other));
@@ -255,20 +260,18 @@ TEST_CASE("LOCAL-168 HordeContain: anyMemberAttacking, anyMemberAttackingTarget,
 // Wakes idle Amoeba members (idle -> false, timer -> m_delayUntilIdle); non-idle members keep their timer.
 TEST_CASE("LOCAL-168 HordeMeleeAmoeba: notifyAmoebaMemberDeath wakes idle rear members (RW 0x98F9D8)")
 {
-	CombatWorld w;
-	REQUIRE(w.loadIni(kLocal168Ini));
-	Object *horde = w.spawn("L168Horde", 0, { 100.0f, 100.0f, 0.0f });
+	CombatWorld w(kLocal168Ini);
+	Object *horde = w.unit("L168Horde", 'A', 100.0f, 100.0f);
 	REQUIRE(horde != nullptr);
 	HordeContain *hc = getHordeContain(*horde);
 	HordeAIUpdate *hai = dynamic_cast<HordeAIUpdate *>(horde->getAIUpdateInterface());
 	REQUIRE(hc != nullptr);
 	REQUIRE(hai != nullptr);
-	const auto *members = hc->getContainedItemsList();
-	REQUIRE(members != nullptr);
-	REQUIRE(members->size() == 2);
+	const auto members = membersVec(*hc);
+	REQUIRE(members.size() == 2);
 
-	const ObjectID id0 = (*members)[0]->getID();
-	const ObjectID id1 = (*members)[1]->getID();
+	const ObjectID id0 = members[0]->getID();
+	const ObjectID id1 = members[1]->getID();
 	const unsigned expectedDelay = hc->meleeBehaviorData()->m_delayUntilIdle;
 	REQUIRE(expectedDelay == 15u); // 3000 ms at 5 logic frames/sec (RW 0x98FA64)
 
