@@ -480,6 +480,9 @@ public:
 	// MSG_LW_DISBAND_ARMY_MEMBER 0x6B1 (RW 0x6B4933 then RW 0x71AAEC): a member that is not KindOf HERO leaves the army at once, its owner paid the
 	// unit's cost now (RW 0x80F018, capped by ScenarioMaxResources); the army stays, even empty
 	bool disbandArmyMember(int player, int armyId, int memberKey, std::string *error);
+	// MSG_LW_DISBAND_ARMY 0x6B2 (DisbandAllArmyMembers RW 0x6B48F2): disbands every disbandable member
+	// of the army (CanDisbandArmyMember RW 0x6B4876), canceling upgrades (RW 0x80EDB8) and refunding cost.
+	bool disbandArmy(int player, int armyId, std::string *error = nullptr);
 	bool canDisbandArmyMember(int armyId, int memberKey) const; // CanDisband RW 0x6B48CE
 	bool orderRecruit(int player, int region, int buildingSlot, int armyIndex, std::string *error);
 	bool canRecruit(int player, int region, int buildingSlot, int armyIndex, std::string *error) const; // orderRecruit's checks, nothing changed

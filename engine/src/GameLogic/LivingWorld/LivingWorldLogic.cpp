@@ -1803,6 +1803,37 @@ bool LivingWorldLogic::disbandArmyMember(int player, int armyId, int memberKey, 
 	return false;
 }
 
+// DisbandAllArmyMembers RW 0x6B48F2 (MSG_LW_DISBAND_ARMY 0x6B2): iterates over the army's summary
+// entries, calling CanDisbandArmyMember (RW 0x6B4876), canceling upgrades (RW 0x80EDB8), and
+// disbanding every eligible member while leaving non-disbandable members (heroes) intact.
+bool LivingWorldLogic::disbandArmy(int player, int armyId, std::string *error)
+{
+	if (m_phase != PHASE_ORDERS)
+	{
+		setError(error, "not the orders phase");
+		return false;
+	}
+	const Army *found = findArmy(armyId);
+	if (!found || found->owner != player)
+	{
+		setError(error, "the army is not the player's");
+		return false;
+	}
+	std::vector<int> keys;
+	for (const ArmyMember &m : found->members)
+	{
+		if (canDisbandArmyMember(armyId, m.key))
+		{
+			keys.push_back(m.key);
+		}
+	}
+	for (int key : keys)
+	{
+		disbandArmyMember(player, armyId, key, nullptr);
+	}
+	return true;
+}
+
 bool LivingWorldLogic::endTurn(int player, std::string *error)
 {
 	if (m_phase != PHASE_ORDERS || player < 0 || player >= (int)m_players.size())
