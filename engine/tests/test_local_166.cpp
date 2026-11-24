@@ -351,8 +351,8 @@ End
 
 	// Good moves its hero army into B (undefended by any combat units) and both players end orders.
 	REQUIRE(logic.orderMove(0, goodHeroId, 1, &err));
-	REQUIRE(logic.endOrders(0, &err));
-	REQUIRE(logic.endOrders(1, &err));
+	REQUIRE(logic.endTurn(0, &err));
+	REQUIRE(logic.endTurn(1, &err));
 
 	// Region B now belongs to Good, and Evil's garrison in B was removed by OnRegionChangedOwnership (RW 0x6BB2EF).
 	CHECK(logic.regions()[1].owner == 0);
