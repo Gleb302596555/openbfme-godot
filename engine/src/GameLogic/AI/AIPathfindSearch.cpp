@@ -168,6 +168,7 @@ void Pathfinder::cleanOpenAndClosedLists()
 		++count;
 		c->releaseInfo(m_pool);
 	}
+	// RW 0x6F4B1A (Pathfinder::rva002F370D drain open list)
 	m_open.clear();
 	if (m_closedList)
 	{
@@ -491,6 +492,7 @@ bool Pathfinder::canApproachToTarget(const PathfindObject &obj, const PathfindLo
 	return false;
 }
 
+// RW 0x6F2F51 (Pathfinder::IsLinePassable)
 bool Pathfinder::isLinePassable(const PathfindObject *obj, unsigned acceptableSurfaces, PathfindLayerEnum layer, const Coord3D &startWorld, const Coord3D &endWorld,
 	bool blocked, bool allowPinched)
 {

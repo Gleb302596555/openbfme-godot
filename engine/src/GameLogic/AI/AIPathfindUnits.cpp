@@ -214,6 +214,15 @@ unsigned Pathfinder::validLocomotorSurfacesForCellType(PathfindCell::CellType t)
 	return i < 9u ? table[i] : 0u;
 }
 
+// RW 0x6E8937 (Pathfinder::ChooseBestLocomotorForPosition; DONOR BFME2 0x002E74C6 Pathfinder_ChooseBestLocomotorForPosition.cpp):
+// floor(pos * 0.1f) to cell on `layer`; null cell uses CELL_CLEAR (0, RW 0x6E899E xor eax, eax), then indexes RW 0xDA2444.
+unsigned Pathfinder::chooseBestLocomotorSurfacesForPosition(PathfindLayerEnum layer, const Coord3D *pos)
+{
+	const PathfindCell *cell = pos ? getCell(layer, pos) : nullptr;
+	const PathfindCell::CellType type = cell ? cell->getType() : PathfindCell::CELL_CLEAR;
+	return validLocomotorSurfacesForCellType(type);
+}
+
 PathfindMovement Pathfinder::makeMovement(const PathfindObject *obj, const PathfindLocomotorInfo &loco)
 {
 	// TARGET RW 0x6EA04D
@@ -1182,7 +1191,7 @@ void Pathfinder::releaseSlot(PathfindObjectID id, Slot &slot)
 
 void Pathfinder::registerSlot(PathfindObject &obj, Slot &slot)
 {
-	// RW 0x8E231B + 0x8E216E + 0x8E1DAD: the footprint box around the slot cell gets a node of the slot's kind
+	// RW 0x8E231B + RW 0x8E216E + RW 0x6F0195 (IterateCellsInRectangle) + RW 0x8E1DAD: the footprint box around the slot cell gets a node of the slot's kind
 	footprintCells(obj, slot.cell, slot.angleCode, slot.cells);
 	for (const ICoord2D &c : slot.cells)
 	{
@@ -1267,7 +1276,7 @@ void Pathfinder::updateGoalAngle(PathfindObject &obj, const Coord3D *newGoalPos,
 
 void Pathfinder::removeGoal(PathfindObject &obj)
 {
-	// RW 0x8E2138
+	// RW 0x8E2138, RW 0x8E214A (PathfinderPosGoalManager::rva004DDD80), RW 0x6E860C (Pathfinder::RemoveObjectGoalFromPathfindMap)
 	UnitRecord *u = indexedUnit(obj.getID());
 	if (!u)
 	{
@@ -1700,7 +1709,7 @@ bool Pathfinder::checkForAdjust(PathfindObject &obj, const PathfindLocomotorInfo
 
 bool Pathfinder::adjustDestination(PathfindObject &obj, const PathfindLocomotorInfo &loco, Coord3D *dest, const Coord3D *groupDest)
 {
-	// TARGET RW 0x6FE456: ring search 0x6FA2A4 over checkForAdjust. The ring visits the centre, then layers of 4, 12, 20 ... cells; a layer
+	// TARGET RW 0x6FE456: ring search RW 0x6FA2A4 / RW 0x6FA560 / RW 0x6EC56B (spiral scan) over checkForAdjust; clamped cell RW 0x6E8D88. The ring visits the centre, then layers of 4, 12, 20 ... cells; a layer
 	// is scanned completely once a valid cell was found in it and the one nearest the centre wins (strict <, so the first of equals);
 	// `limit` is charged for the whole layer up front. ZH returned the first valid cell.
 	if (obj.isKindOf(PK_PROJECTILE))

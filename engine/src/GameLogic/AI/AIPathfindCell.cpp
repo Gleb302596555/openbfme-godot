@@ -386,6 +386,7 @@ bool PathfindCell::removeObstacleId(PathfindCellInfoPool &pool, PathfindObjectID
 }
 
 // ---- the closed list (links through the info; the open list is the heap) ----
+// RW 0x934806 (PathfindCell::ReleaseClosedList)
 int PathfindCell::releaseClosedList(PathfindCellInfoPool &pool, PathfindCell *list)
 {
 	int count = 0;

@@ -82,6 +82,7 @@ void Pathfinder::setClassWordWide(PathfindCell &c, std::uint32_t w)
 	::setClassWord(c, w);
 }
 
+// RW 0x6EC0F4 (PathfindRequestRing::rva002EAC9F xfer)
 void PathfindRequestRing::xfer(Xfer &x)
 {
 	std::int32_t head = m_head, tail = m_tail;
@@ -195,6 +196,7 @@ std::uint32_t Pathfinder::configHash() const
 	return h.value();
 }
 
+// RW 0x6F3606 (Pathfinder::xfer, 0xC1B8C8[3]), RW 0x9341B7 (PathfindCell::DoXfer), RW 0x8E1A22 (PathfinderPosGoalManager::rva004DD658 xfer)
 void Pathfinder::xfer(Xfer &x)
 {
 	XferVersion v{ 1, 3 }; // 2: the Uber profile's limits, the request rings' lengths and the burst latch (lane PATHPERF-4); 3: the walls, the raised
@@ -626,6 +628,7 @@ void Pathfinder::xfer(Xfer &x)
 	applyWalls(walls, version >= 3); // its raised infos come from the pool after the ground's (the limit set above)
 }
 
+// RW 0x767EB7 (Path::DoXfer)
 void Path::xfer(Xfer &x)
 {
 	XferVersion v{ 1, 1 };
