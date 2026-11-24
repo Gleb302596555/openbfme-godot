@@ -176,6 +176,11 @@ constexpr size_t kEventMin = 4 * 2 + 1;
 
 } // namespace
 
+// RotWK 2.01 War of the Ring xfer helpers (Local 175):
+//   XferLivingWorldArmyID vector RW 0x6B98E0, RegionAwardDispute player-ID vector RW 0x6B99D6,
+//   RegionAwardDispute map RW 0x6BA8C9, XferLivingWorldArmyID RW 0x71A658,
+//   XferArmyIconSize RW 0x71A670, LivingWorldArmy::xfer vector RW 0x71BA5E,
+//   XferLivingWorldRegionID RW 0x7F10F4.
 void LivingWorldLogic::xfer(Xfer &x)
 {
 	XferVersion v{ 5, 8 }; // 2 (WOTR2 milestone 4): building ids, the entry keys and homes, the retreat list; 3: the command point counters; 8: award disputes (RW 0x900E58);

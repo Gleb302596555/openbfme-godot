@@ -146,6 +146,32 @@ const BuildingTemplate *LivingWorldLogic::buildingTemplate(const Building &b) co
 //     GetHumanPlayerCountOnSide RW 0x7F5E84, GetTotalHumanPlayerCount RW 0x7F5ECF,
 //     HasPlayerID RW 0x7F5F0A, HasPlayer RW 0x7F5F8D, GetArmy RW 0x7F5F9C,
 //     ForEachArmy RW 0x7F6028, GetGarrisonArmyForPlayer RW 0x7F65F9.
+//   Local 175 uncited War of the Ring logic helpers:
+//     RegionManager & bonuses: findBattleByID RW 0x60E2AB, getActiveBattle RW 0x60E461,
+//       AddRegionUpgradesToPlayer RW 0x60EA87, RemoveRegionUpgradesFromPlayer RW 0x60EAC4,
+//       applyRegionBonusRules RW 0x60F126, recalculateRegionBonuses RW 0x60F25B,
+//       clearBattles RW 0x60F447, reset RW 0x60F557, getRegionsOwnedByPlayer RW 0x60FB41.
+//     Logic: spawnBuildingsInRegionsForPlayer owner check RW 0x6B3066, orderArmyMove RW 0x6B31A6,
+//       findRegionByID wrapper RW 0x6B351E, hasActiveBlockingDialog RW 0x6B4019,
+//       CheckTurnPhaseTransitions army phase/turn-end passes RW 0x6B455E / RW 0x6B4706,
+//       MoveArmyMembers RW 0x6B4848, findArmyByID RW 0x6B5351, GetPlayerAtIndex RW 0x6B5E90,
+//       ConsumeGarrisonUnitsFromRTS copy remaining RW 0x6B6C7D,
+//       CheckHeadToHeadBattles collect moving armies RW 0x6B9B01, removeBuildingByID RW 0x6B9EE9,
+//       addRegionAwardDispute RW 0x6BA65D.
+//     Player & Building: isAllowedForPlayerTemplate RW 0x6E0BE6, getHeroTemplate RW 0x6E1911,
+//       RegionBonus::operator= RW 0x6E19A1, Player::findArmyByID RW 0x6E1D8C,
+//       updateBattleRegionBonus RW 0x6E1EEF, findArmyByName RW 0x6E2CC0,
+//       findBuildableHeroByName RW 0x6E2D16, CreateRevivalEntry RW 0x6E2E18,
+//       addMultiRegionBonus RW 0x6E35FD, addRevivalUnit RW 0x6E4853.
+//     Army: getGarrisonPlacementSpot RW 0x71A4DF, getCurrentRegion RW 0x71A56C,
+//       getCurrentRegionID RW 0x71A5B3, getDestinationRegion RW 0x71A5C7,
+//       getSummaryCount RW 0x71A8F9, countGarrisonUnitsByCategoryAndCP RW 0x71A901,
+//       findLastGarrisonUnitByCategoryAndCP RW 0x71A963, isEmpty RW 0x71AA69,
+//       getHeroThingTemplate RW 0x71AA94, hasHeroName RW 0x71AF63,
+//       countSummaryEntriesByName RW 0x71B222, findLastSummaryEntryByName RW 0x71B26B.
+//     Region: applyTurnIncome RW 0x7F16EC, getPerTurnIncome RW 0x7F173F,
+//       findBuildPlotByBuildingID RW 0x7F1A2B, removeArmyFromGroups RW 0x7F2121,
+//       canDestroyBuilding RW 0x7F227A.
 bool LivingWorldLogic::start(const GameSetup &setup, std::string *error)
 {
 	if (m_started)

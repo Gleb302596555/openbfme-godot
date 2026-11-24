@@ -51,6 +51,9 @@ bool LivingWorldLogic::dispatch(const ::GameMessage &m, int sender, std::string 
 	return ok;
 }
 
+// RotWK 2.01 message argument extractors and dispatch helpers (Local 175):
+//   getRegionFromMessage RW 0x6B36D8, getUnitIndexFromMessage RW 0x6B4B00,
+//   getArmyFromMessage RW 0x6B6025, recordEnableRegion RW 0x6B9F16, addUniquePendingID RW 0x6B9F53.
 bool LivingWorldLogic::dispatchOrder(const ::GameMessage &m, int sender, std::string *error)
 {
 	const std::string name = GameMessageTypeName(m.getType());
