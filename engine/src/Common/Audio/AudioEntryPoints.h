@@ -62,6 +62,7 @@ Eva *currentEva();
 bool reportEva(const std::string &eventName, const Coord3D *position, const Coord3D *position2);
 bool reportEva(int eventIndex, const Coord3D *position, const Coord3D *position2);
 std::uint64_t callsWithoutEva();
+std::uint64_t deathReports(); // per installed manager, read on the audio owner
 // lane LOCAL-13: EnemySightedMaxVoicePositionScanRange from MiscEvaData (RW 0x672DFB / TheEva +0x80)
 float enemySightedMaxVoicePositionScanRange();
 // Local 139: EnemyCampDestroyedDamageTimeoutMS (+0x84) / FriendlyCampDestroyedDamageTimeoutMS (+0x88) from MiscEvaData (RW 0x799440)

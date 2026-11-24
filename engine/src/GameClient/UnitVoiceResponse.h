@@ -121,6 +121,7 @@ public:
 		ObjectID producer = INVALID_ID; ///< VOICE_EVENT_CREATED / FULLY_CREATED: the object that made the unit
 		std::string commandSound;       ///< VOICE_EVENT_STANCE: the button's current UnitSpecificSound (RW info + 0x20 -> 0x75D0B9)
 		const SpecialPowerTemplate *powerTemplate = nullptr; ///< RW info + 0x10: special power template
+		bool toggleStanceButton = false; // RW 0x8DFAFF: info +20 points to a button of command type 0x39
 	};
 
 	// The client services (the device layer implements them). playSound: the audio event attached to the object (AudioApi::playSoundForObject); reportEva:

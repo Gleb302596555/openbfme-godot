@@ -170,7 +170,7 @@ public:
 	// (GameLogic + 0x114), loading_save, picture } -> { kind: "still" | "players" | "other", picture }
 	Dictionary choose_load_screen(const Dictionary &spec);
 	// lane MENU-1: the picture loading screen of a campaign mission (RW 0x7583CC) over everything until hide_still_load_screen: { ok, error }
-	Dictionary show_still_load_screen(const String &picture);
+	Dictionary show_still_load_screen(const String &picture, bool filmStill, const String &voice, const String &music);
 	void hide_still_load_screen();
 	Dictionary get_still_load_screen() const; // { on, slots: [{ image, rect }], movie, movie_playing, movie_error, text_label, progress, progress_text }
 	// lane SAVE-4e: the catch-up of an old (log-only) save on the picture screen: `text` and a bar at `percent` (0 .. 100) between the "Loading" text and

@@ -18,6 +18,8 @@ namespace AudioApi
 // lane CAMP-1H: an Eva event by name at a position (or none) for TheEva (RW 0x5DD9EE); from the logic worker it is queued for the audio owner (S-814).
 // false: unknown / no Eva / dropped (the logic never reads it). Also declared in AudioEntryPoints.h
 bool reportEva(const std::string &eventName, const Coord3D *position, const Coord3D *position2 = nullptr);
+// RW 0x698F06: same queue as reportEva, counted for the live audio report.
+void reportDeathEva(const std::string &eventName, const Coord3D &position);
 // Parsed EvaEventStore index (RW 0x5DD9EE); -1 is None. Uses the same audio-owner queue as named reports.
 bool reportEva(int eventIndex, const Coord3D *position, const Coord3D *position2 = nullptr);
 // Local 139: MiscEvaData camp-destroyed damage timeouts in logic frames (RW 0x799440: TheEva +0x84 / +0x88)
@@ -26,6 +28,9 @@ unsigned friendlyCampDestroyedDamageTimeoutFrames();
 std::uint32_t playSoundForObject(const std::string &eventName, std::uint32_t objectId, int owningPlayerIndex = -1);
 // play a MiscAudio slot's sound for an object (e.g. DefectorTimerTickSound RW 0x852C40 .. 0x852C7F for capture tick)
 std::uint32_t playMiscAudioForObject(const std::string &slotName, std::uint32_t objectId, int owningPlayerIndex = -1);
+// PORT-234: RW 0x7B18B8 (+38, player but no object) and RW 0x6907F1 (+40/+48/+50, fixed position, not an object that can move).
+std::uint32_t playMiscAudioForPlayer(const std::string &slotName, int player);
+std::uint32_t playMiscAudioAtPosition(const std::string &slotName, const Coord3D &position);
 std::uint32_t playSoundForDrawable(const std::string &eventName, std::uint32_t drawableId, int owningPlayerIndex = -1);
 // lane SPELL-3: an event at a world position with the player it belongs to (SpecialPowerModule::aboutToDoSpecialPower RW 0x89713F: the
 // InitiateAtLocationSound, RW 0x6DA67E position, RW 0x66ECE1 player index, TheAudio slot 25)
@@ -67,7 +72,9 @@ enum HeldSoundSlot
 	HELD_PRODUCTION_SPEED_BONUS_LOOP = 5,
 	// PORT-231: CastleMemberBehavior BeingBuiltSound (data +0x14, handle +0x20; RW 0x798057 / 0x797C40).
 	HELD_CASTLE_BEING_BUILT = 6,
-	HELD_SOUND_SLOTS = 7
+	// PORT-234: RW 0x89C261 / 0x89C1A4: one gate motion, removed before the finished cue.
+	HELD_GATE_LOOP = 7,
+	HELD_SOUND_SLOTS = 8
 };
 void postHeldSound(int slot, const std::string &eventName, std::uint32_t holderId, std::uint32_t objectId);
 // lane PORT-93: RW 0x854008 .. 0x85405B (the trigger of every special ability): when the data's ActiveLoopSound (data + 0x34) is set and the manager says the

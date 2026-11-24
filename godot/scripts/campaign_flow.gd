@@ -144,7 +144,7 @@ func start_tutorial(which: String) -> bool:
 	begun += 1
 	var t: Dictionary = info.tutorial
 	print("CAMPAIGN tutorial %s: %s" % [which, t.map])
-	if not await show_load_screen({"load_screen_music": t.load_screen_music, "load_screen_image": t.load_screen_image}):
+	if not await show_load_screen(t):
 		return false
 	var rep: Dictionary = world.start_tutorial({"tutorial": which, "progress": Callable(game, "_on_load_progress"), "test_hooks": hooks})
 	game._report = rep
@@ -231,21 +231,19 @@ func begin_mission(intro := true) -> void:
 
 ## the mission's loading screen (lane SAVE-2: also a loaded save's): false when it could not be shown (the run failed)
 ## lane SAVE-4e: `loading_save` (a saved mission loading): retail's getLoadScreen (RW 0x626A87) shows a film still (StillImage_Film01 .. 21), not the
-## mission's picture, and not the mission's music (retail passes the AudioSettings' LoadScreenMusic there, which is not played here: S-5012)
+## mission's picture, and not the mission's music (RW 0x626C4C passes MiscAudio SaveFileLoadMusic to the film still)
 func show_load_screen(m: Dictionary, loading_save := false) -> bool:
 	_ended_at = -1
 	_win_step = 0
 	game._state = game.State.LOADING
 	game._shell_leave_for_game() # lane CAMP-2: the shell backdrop and the front-end background go, as for every game (CAMP-2 bug 1)
-	if not loading_save and not String(m.load_screen_music).is_empty():
-		game._audio.play_music(m.load_screen_music)
 	# lane MENU-1: a campaign mission (game mode 0) loads behind the picture screen with its LoadScreenImage (GameLogic::getLoadScreen RW 0x626A87 ->
 	# RW 0x757CA0, init RW 0x7583CC), never the players' LoadScreen.apt of a skirmish
 	var choice: Dictionary = game._shell.choose_load_screen({"game_mode": 0, "picture": String(m.load_screen_image), "loading_save": loading_save})
 	if not String(choice.get("error", "")).is_empty():
 		game._fail("CAMPAIGN load screen: " + String(choice.error))
 		return false
-	var shown: Dictionary = game._shell.show_still_load_screen(String(choice.picture))
+	var shown: Dictionary = game._shell.show_still_load_screen(String(choice.picture), bool(choice.film_still), String(m.get("load_screen_voice", "")), String(m.load_screen_music))
 	print("CAMPAIGN load screen: %s %s %s" % [choice.kind, choice.picture, "" if shown.ok else str(shown.error)])
 	if not shown.ok:
 		game._fail("CAMPAIGN load screen: " + str(shown.error))

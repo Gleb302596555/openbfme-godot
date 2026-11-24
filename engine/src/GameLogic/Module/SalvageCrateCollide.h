@@ -59,7 +59,6 @@
 //     (AIWorld::processCrateContacts): each live crate in id order meets the AI objects (no NO_COLLIDE, no HORDE) whose shapes overlap its own (the
 //     projectile pass's narrow test, lower id's geometry first), in id order, both ways, the lower id's collide modules first (S-780 / S-581). An object
 //     without an AI can never execute a 2.01 crate (no BuildingPickup in the data), so the pass leaves them out;
-//   * the undetected defector bit is never set in this build (S-1020): the last test of isValidToExecute is true;
 //   * the floating texts: the money's goes through Economy::noteIncome (the crate as its anchor, raised 10, as RW 0x8C13BB); "GUI:GainRank" and the
 //     ExecuteAnimation (client only, no 2.01 crate sets one) are not shown (S-260);
 //   * the snapshot is OpenBFME native (S-4190): RW's two versions and the ever-executed byte.
