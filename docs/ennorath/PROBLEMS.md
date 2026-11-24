@@ -1840,14 +1840,18 @@
 - Проверка: —
 
 ### P-178. Тесты `BACKLOG2 S-950` и `BACKLOG2 r1 S-653` красные в форке (у upstream проходят)
-- Статус: [ ] **НЕ НАЧАТО**
+- Статус: [ ] **ПРИОСТАНОВЛЕНО** (`S-653` исправлен, `S-950` открыт — исчерпан лимит 3 сборок)
 - Добавлено: 2026-11-23, Claude (при слиянии upstream f24af7fe; красные и на сборке `main` до слияния)
-- Описание: `test_backlog2_retail.cpp:363-365` (S-950: `walked == 22`, позиция Боромира после выталкивания с площадки) и `:818-819` (S-653: стена, которая чинит себя, не отправляет союзника прочь: `draws 0` вместо 2). Тот же тест на дереве upstream проходит; в форке падает и до слияния (`tests_main.exe`, Windows MSVC). Причина в одной из правок форка в выталкивании юнитов с площадки (RW 0x858CFC) или в самопочинке стены (RW 0x857FD6 .. 0x85805E) — не найдена.
+- Описание: `test_backlog2_retail.cpp:363-365` (S-950: `walked == 22`, позиция Боромира после выталкивания с площадки) и `:818-819` (S-653: стена, которая чинит себя, не отправляет союзника прочь: `draws 0` вместо 2).
 - Подсистема: строительство, площадки и стены (INFERENCE)
-- Взял: —
-- Причина и исправление: —
-- Проверка: `BACKLOG2*` (3 красных: эти два и хеш P-32)
-- Бисекция на ПК 2026-11-24 (Windows MSVC, по одной сборке на точку, тесты по одному): S-653 проходит на `cded4bd01` (2026-11-21 07:43) и падает на `37d9bf28e` (2026-11-22 00:13) — правки посадок 2026-11-21 (Locals 105-126, партия 21d); S-950 проходит на `37d9bf28e` и падает на `5a910338c` (2026-11-22) — кандидаты Port 292 (`ad38ba065`), посадка `sb4-accept` (`b392a7e3c`), партия 22a / Port 289 (`c1342400a`). Слияние upstream `015b0c401` ни при чём (падают и до него).
+- Взял: локальный агент (`agent/local/sb4-st3`, 2026-11-24)
+- Причина и исправление:
+  - **S-653 (`ВЫПОЛНЕНО`)**: причина — Local 120 (`a319166e7`, RW `0x5E7E64..0x5E7E84`): `Locomotor::locomotorMaintainCurrentPosition` теперь опускает недвижущегося юнита на высоту террейна, тогда как тест спавнил стену на `z = 0` вместо `logic.getGroundHeight(1500.0f, 1500.0f)`. Исправлен тест (коммит `c4e7fa9b0`).
+  - **S-950 (`ОТКРЫТ`)**: на `64e531084` по-прежнему падает (`walked == 18` вместо `22`, `x == 1142792192`, `y == 1166660608`). Выполнены 3 проверки временного отката (лимит 3 сборок на запись): (1) `chk1b` — откат Port 225 (`ab1e45681` `WeaponState.cpp`); (2) `chk2c` — откат поведенческих правок Port 198 (`Construction.cpp`, `ProductionUpdate.cpp`, `StartingBase.cpp`, `ConstructionModules.cpp::reEnslaveSlaves`, `AIUpdateCombat.cpp`, `AIGarrisonStates.cpp`, `AIGroup.cpp`); (3) `chk2d` — совместный откат `WeaponState.cpp`, тех же правок Port 198 + `SpawnBehavior::createSpawn` и `DozerAIUpdate::repair` (`canRepairObject`). Во всех трёх проверках результат остался `18`, `(1142792192, 1166660608)`. INFERENCE: причина в одном из не отключавшихся файлов (`ObjectWeapons.cpp`, `Object.cpp`, `ActionManager.cpp`, `SkirmishAI`) или в коммите после `5a910338c` на Linux GCC (напр. `a7334f759` в `AIPathfindUnits.cpp` / `AIUpdate.cpp`).
+- Проверка:
+  - `BACKLOG2 r1 S-653*` (на `64e531084`): `[doctest] test cases:   1 |   1 passed | 0 failed | 7525 skipped [doctest] assertions: 197 | 197 passed | 0 failed |`
+  - `BACKLOG2 S-950*` (на `64e531084`): `[doctest] test cases:  1 |  0 passed | 1 failed | 7525 skipped [doctest] assertions: 32 | 29 passed | 3 failed |` (`walked == 18`).
+- Бисекция на ПК 2026-11-24 (Windows MSVC): S-653 проходит на `cded4bd01` и падает на `37d9bf28e`; S-950 проходит на `37d9bf28e` и падает на `5a910338c`.
 
 ### P-179. Тест `blocks: the lazily built Flammability table…` красный после Local 140
 - Статус: [x] **ВЫПОЛНЕНО — Claude, 2026-11-24** (тест; в игре не видно)
@@ -1869,94 +1873,116 @@
 - Проверка: `group command retail*` 6/6 (483 проверки), `campui1*` 14/14 на станции 0.
 
 ### P-181. `RAI-POW` Soul Freeze и `BUILD-3 U17` красные после партии 2026-11-16
-- Статус: [ ] **НЕ НАЧАТО**
+- Статус: [x] **ВЫПОЛНЕНО — локальный агент (sb4-st3), 2026-11-24** (тесты; в игре не видно)
 - Добавлено: 2026-11-24, Claude (ночной прогон `43a14cb4` на песочнице 4, пункт 3; причины — бисекция на ПК, Windows MSVC: на `f7255b2f` (2026-11-13) все проходят)
 - Описание: `test_aipow1.cpp:1148` `frame == 23` (24); `test_build3_builders.cpp:428` `faceNoted` (false).
 - Подсистема: ИИ: силы; строители
-- Взял: —
-- Причина и исправление: Проходят на `945bbc70c` (Port 221), падают на `1dfe2996a` (до слияния upstream 2026-11-16). Между ними PR #539 Port 205 (оружие, гарнизон, знамя орды), #500 Local 56 (экраны Apt), #540 Port 217 (`DozerAIUpdate`, `BuildStops`), #524 Port 209 (`Construction`, орды), #528 Local 65 (декали, Godot). Вероятно: Soul Freeze — Port 205, U17 — Port 217 или 209; по сборке на каждый PR не проверено.
-- Проверка: `RAI-POW end to end*`, `BUILD-3 U17*`.
+- Взял: локальный агент (`agent/local/sb4-st3`, 2026-11-24)
+- Причина и исправление:
+  - `BUILD-3 U17`: Port 217 (`07589f4fe` / `b2a818189`, RW `0x88DD38..0x88DD3E`) портировал команду поворота `0x26` в `DozerAIUpdate::updateDoAction` и убрал отметку `[S-1282] ... face command 0x26` из runtime-отчёта; устаревшая проверка `faceNoted` удалена из `test_build3_builders.cpp` (коммит `c4e7fa9b0`).
+  - `RAI-POW end to end` (Soul Freeze): Port 209 (`da3d247a4` / `79e8e6f5c`, `HordeContain::onBuildComplete` RW `0x8718F5..0x87190E -> 0x870204` спавн знаменосца в кадре создания орды). Доказано сборками `chk3` (откат Port 209 + Port 217 вернул кадр `23`, `35/35`) и `chk3b` (откат только Port 217 оставил `24`). Пин `frame == 24` обновлён в `test_aipow1.cpp` (коммит `64e531084`).
+- Проверка (на `64e531084`):
+  - `RAI-POW end to end*`: `[doctest] test cases:  1 |  1 passed | 0 failed | 7525 skipped [doctest] assertions: 33 | 33 passed | 0 failed |`
+  - `BUILD-3 U17*`: `[doctest] test cases:  1 |  1 passed | 0 failed | 7525 skipped [doctest] assertions: 29 | 29 passed | 0 failed |`
 
 ### P-182. `audio3 walls`, `build4 walls`, `skirmish ai units` красные после партий 2026-11-16b … 17
-- Статус: [ ] **НЕ НАЧАТО**
+- Статус: [x] **ВЫПОЛНЕНО — локальный агент (sb4-st3), 2026-11-24** (тесты; в игре не видно)
 - Добавлено: 2026-11-24, Claude (ночной прогон `43a14cb4` на песочнице 4, пункт 3; причины — бисекция на ПК, Windows MSVC: на `f7255b2f` (2026-11-13) все проходят)
 - Описание: `test_audio3.cpp:473` (`building loop` 1 вместо 2); `test_build4_walls.cpp:254` (`percent 2.06667, model 1.06667 after 1 heals`) и `:263` `floorHidden[1]`; `test_skirmish_ai_base.cpp:295` `member`.
 - Подсистема: строительство стен, звук стройки, ИИ
-- Взял: —
-- Причина и исправление: Проходят на слиянии upstream `20cd5360a` (2026-11-16 19:16), падают на `c14a3a956` (2026-11-17 11:24): партии 16b / 16c / 17a / 17b (PR #587-#598, #616, #580-#586, #573, #547, #546). Общая черта первых двух — стены и стройка: искать среди PR этих партий правку строительства (`Construction`, `BuildStops`, стены).
-- Проверка: `audio3 walls*`, `build4 walls*`, `skirmish ai units*`.
+- Взял: локальный агент (`agent/local/sb4-st3`, 2026-11-24)
+- Причина и исправление:
+  - `audio3 walls` и `build4 walls`: Port 224 (`90cc9795f`, `Construction.cpp`, RW `0x797964..0x79796E` проверено в `game.dat`): `buildObjectNow` не вызывает `onStructureConstructionComplete` при строителе `WALL_HUB`, поэтому `m_constructing` остаётся `true` с `onObjectCreated` (RW `0x856434`) — звук стройки запрашивается 1 раз вместо 2, нет паузы в 1 с на 1 HP, а отложенные тайлы уже делают 1 лечение в `runNowThenSleep` (RW `0x795425`). Тесты обновлены в `c4e7fa9b0`.
+  - `skirmish ai units`: Port 227 (`95e40d911`, `AIUpgrade.cpp`, RW `0x9EC539 / 0x9EC8A1 / 0x9ECC0D / 0x9ECF7F`) портировал 4 эвристики призыва Thrall Master (`SUMMON_ANTI*`), поэтому ИИ Ангмара призывает `AngmarRhudaurSlingers`, `AngmarRhudaurSpearmen`, `AngmarWolfRiders`, `AngmarHillTrollHorde` через `AngmarThrallMaster`. Тест `test_skirmish_ai_base.cpp` обновлён в `b6ffc421f`.
+- Проверка (на `64e531084`):
+  - `audio3 walls*`: `[doctest] test cases:  1 |  1 passed | 0 failed | 7525 skipped [doctest] assertions: 53 | 53 passed | 0 failed |`
+  - `build4 walls*`: `[doctest] test cases:    2 |    2 passed | 0 failed | 7524 skipped [doctest] assertions: 3956 | 3956 passed | 0 failed |`
+  - `skirmish ai units*`: `[doctest] test cases:  2 |  2 passed | 0 failed | 7524 skipped [doctest] assertions: 96 | 96 passed | 0 failed |`
 
 ### P-183. `FACT-A abilities` красный (с 2026-11-14 … 16)
-- Статус: [ ] **НЕ НАЧАТО**
+- Статус: [x] **ВЫПОЛНЕНО — локальный агент (sb4-st3), 2026-11-24** (тесты; в игре не видно)
 - Добавлено: 2026-11-24, Claude (ночной прогон `43a14cb4` на песочнице 4, пункт 3; причины — бисекция на ПК, Windows MSVC: на `f7255b2f` (2026-11-13) все проходят)
 - Описание: `test_hud_facta_abilities.cpp:576` `problems == 0` (2 на `91359cd3`, 5 на `06dd06e4`).
 - Подсистема: панель команд, способности
-- Взял: —
-- Причина и исправление: Проходит на `32abfaa1f` (2026-11-14 20:03), падает на `bdda1229e` (2026-11-16 12:20). К 2026-11-23 проблем стало 5: позже добавились другие причины.
-- Проверка: `FACT-A abilities*`.
+- Взял: локальный агент (`agent/local/sb4-st3`, 2026-11-24)
+- Причина и исправление: Local 75 (`bdda1229e`, RW `0x82D925`) проверяет `ObjectFilter = ANY +STRUCTURE` для `SpecialAbilityDwarvenGloinShakeFoundation`; Port 252 (`fce1d9de9`, RW `0x896156`) и Port 273 (`b794ef011`, RW `0x82DFB7`) проверяют `MinimumAttackRange` при точечном применении (`SpecialAbilityMightyCatapultLauncher`, `SpecialAbilityDwarvenIronHillsCatapultOilBarrels`); при этом `FactionElves NoldorWarriorHorde Command_ArcherBombard` теперь проходит (`knownIssues` `1 -> 0`). В `test_hud_facta_abilities.cpp` для `ShakeFoundation` поставлено здание (`MordorSlaughterHouse`), для `MightyCatapultLauncher` / `OilBarrels` цель вынесена за минимальную дальность (`310` / `380`, окно ожидания полёта `150` кадров), `knownIssues == 0` (коммит `3ce5c167c`).
+- Проверка (на `64e531084`): `FACT-A abilities*`: `[doctest] test cases:   1 |   1 passed | 0 failed | 7525 skipped [doctest] assertions: 841 | 841 passed | 0 failed |`
 
 ### P-184. `BACKLOG2 r1 determinism`, `decomp3 S-418`, `proj2 retail: the timing` красные с 2026-11-13 … 14
-- Статус: [ ] **НЕ НАЧАТО**
+- Статус: [x] **ВЫПОЛНЕНО — локальный агент (sb4-st3), 2026-11-24** (тесты; в игре не видно)
 - Добавлено: 2026-11-24, Claude (ночной прогон `43a14cb4` на песочнице 4, пункт 3; причины — бисекция на ПК, Windows MSVC: на `f7255b2f` (2026-11-13) все проходят)
-- Описание: `test_backlog2_retail.cpp:754` хэш (`0xB56F9C8E` вместо `0x1C269611`); `test_decomp3.cpp:246` `h0 != h1` (хэши равны); `test_hud_proj2_retail.cpp:687` `st.gone` 19 вместо 18.
+- Описание: `test_backlog2_retail.cpp:754` хэш (`0xD24E63A9` на `main` вместо `0x1C269611`); `test_decomp3.cpp:246` `h0 != h1` (хэши равны); `test_hud_proj2_retail.cpp:687` `st.gone` 19 вместо 18.
 - Подсистема: хэши записи, снаряды
-- Взял: —
-- Причина и исправление: Проходят на `f7255b2fa` (2026-11-13), падают на `32abfaa1f` (2026-11-14 20:03): первые 86 коммитов после полного прогона 2026-11-13. Хэш BACKLOG2 — пин (раздел 7, правило 3): переснимать с названной причиной; S-418 — объект, записанный в армию дважды, хэш больше не различает.
-- Проверка: `BACKLOG2 r1 determinism*`, `decomp3 S-418*`, `proj2 retail: the timing*`.
+- Взял: локальный агент (`agent/local/sb4-st3`, 2026-11-24)
+- Причина и исправление:
+  - `BACKLOG2 r1 determinism`: первый сдвиг — слияние upstream `e77a78460` (`GameLogicSettings::crc` инвертировал `attackMoveUsesFormations` для ванильных карт) и позднейшие правки форка до `cf628e585` (в т.ч. Port 296 `a6b05e101` в `ActiveBody::crc`). По PROCESS 7 правило 3.3 пин переснят `0x1C269611U -> 0xD24E63A9U` в `test_backlog2_retail.cpp` (коммит `64e531084`, измерено на Linux GCC — Claude перепроверить на Windows MSVC при приёмке).
+  - `decomp3 S-418`: Port 172 (`a5851ae18`, issue #425) намеренно устранил двойную регистрацию ID в `AIStatCollector::registerObject` (отступление от `RW 0x5F1B20` ради закрытия вылета при захвате); `test_decomp3.cpp` обновлён в `c4e7fa9b0`.
+  - `proj2 retail: the timing`: Local 41 (`6d89e9910`, RW `0x6CB8EC -> 0x690BD2 -> 0xAD30E0` прицел в контактную точку, S-362 закрыт) сдвинул траекторию камня `MordorCatapult` так, что он больше не задевает казарму на 1 кадр раньше последней точки (`early` `1 -> 0` в `test_hud_proj2_retail.cpp`, коммит `c4e7fa9b0`).
+- Проверка (на `64e531084`):
+  - `BACKLOG2 r1 determinism*`: `[doctest] test cases:  1 |  1 passed | 0 failed | 7525 skipped [doctest] assertions: 43 | 43 passed | 0 failed |`
+  - `decomp3 S-418*`: `[doctest] test cases:   3 |   3 passed | 0 failed | 7523 skipped [doctest] assertions: 124 | 124 passed | 0 failed |`
+  - `proj2 retail: the timing*`: `[doctest] test cases:   1 |   1 passed | 0 failed | 7525 skipped [doctest] assertions: 137 | 137 passed | 0 failed |`
+- Приёмка на ПК (Claude, 2026-11-24, Windows MSVC): хэш `BACKLOG2 r1 determinism` на MSVC — `0x7BEA79D9`, на GCC — `0xD24E63A9` (замер агента). Пин — по MSVC (PROCESS 7, «Платформа»), расхождение записано там же.
 
 ### P-185. `FACT-A unit upgrades` красный (с 2026-11-18 … 19)
-- Статус: [ ] **НЕ НАЧАТО**
+- Статус: [x] **ВЫПОЛНЕНО — локальный агент (sb4-st3), 2026-11-24** (тесты; в игре не видно)
 - Добавлено: 2026-11-24, Claude (ночной прогон `43a14cb4` на песочнице 4, пункт 3; причины — бисекция на ПК, Windows MSVC: на `f7255b2f` (2026-11-13) все проходят)
-- Описание: `test_hud_facta_commands.cpp:1707` `problems == 0` (1).
+- Описание: `test_hud_facta_commands.cpp:1707` `problems == 0` (1: `GondorTrebuchet` `Command_PurchaseUpgradeGondorFireStones`).
 - Подсистема: панель команд, улучшения
-- Взял: —
-- Причина и исправление: Проходит на `f538ab31a` (2026-11-18 19:06), падает на `91359cd3` (2026-11-19).
-- Проверка: `FACT-A unit upgrades*`.
+- Взял: локальный агент (`agent/local/sb4-st3`, 2026-11-24)
+- Причина и исправление: в RotWK `INI.big` (`data/ini/weapon.ini`) у `GondorTrebuchetRock` и `GondorTrebuchetRockFlaming` задано `MinimumAttackRange = 150.0` (как и у `DwarvenIronHillsCatapultRock` `150.0`), тогда как `dealt()` ставил цель в `dx = 120.0f` внутри минимальной дистанции и требушет уходил в отход (`AI state 50`). Для `GondorTrebuchet` в `test_hud_facta_commands.cpp` дистанция вынесена на `190.0f` (коммит `3ce5c167c`).
+- Проверка (на `64e531084`): `FACT-A unit upgrades*`: `[doctest] test cases:   1 |   1 passed | 0 failed | 7525 skipped [doctest] assertions: 744 | 744 passed | 0 failed |`
 
 ### P-186. `synthetic HUD: horde members select their horde` и `large group audio review r2` красные с 2026-11-20 … 21
-- Статус: [ ] **НЕ НАЧАТО**
+- Статус: [x] **ВЫПОЛНЕНО — локальный агент (sb4-st3), 2026-11-24** (тесты; в игре не видно)
 - Добавлено: 2026-11-24, Claude (ночной прогон `43a14cb4` на песочнице 4, пункт 3; причины — бисекция на ПК, Windows MSVC: на `f7255b2f` (2026-11-13) все проходят)
 - Описание: `SyntheticHudTestUtil.h:122`, `:131` `actual == ids`; `test_music_scripts.cpp:472` смещение 0 вместо 100, `:475` `v1 < v0`.
 - Подсистема: выделение орд, звук больших групп
-- Взял: —
-- Причина и исправление: Проходят на `e65f5239b` (2026-11-20 21:06), падают на `cded4bd01` (2026-11-21 07:43): партии 20g / 20h (Ports 307, 309, 287, 310), Locals 95-98, партии 21a / 21c и станции sb3-sb5. Оба теста об участниках орды: вероятно, одна правка членства в орде.
-- Проверка: `synthetic HUD: horde members*`, `large group audio review r2*`.
+- Взял: локальный агент (`agent/local/sb4-st3`, 2026-11-24)
+- Причина и исправление:
+  - `synthetic HUD: horde members select their horde`: Port 287 (`3bf7d2d0a`, `HudObjects.cpp`, RW `0x7109CE..0x710A09` проверено в `game.dat`) выбирает орду солдата по `Object + 0x78` (`m_producerID`). В `test_hud_input.cpp` добавлены `a->setProducer(horde); b->setProducer(horde);` (коммит `c4e7fa9b0`).
+  - `large group audio review r2`: Port 290 (`5e1caec4c` / `fd664be15`, RW `0x9D7DF6` / `0x9D8018` проверено в `game.dat`) считает позицию звука по центрам ячеек сетки и 8 соседям и при `HandOffModeDuration > 0` включает скольжение hand-off вместо `MaximumAudioSpeed`. В `test_music_scripts.cpp` для `TestSoldiers` заданы `Size = 400` и `HandOffModeDuration = 0` (коммит `b6ffc421f`).
+- Проверка (на `64e531084`):
+  - `synthetic HUD: horde members*`: `[doctest] test cases:  1 |  1 passed | 0 failed | 7525 skipped [doctest] assertions: 15 | 15 passed | 0 failed |`
+  - `large group audio review r2*`: `[doctest] test cases:  1 |  1 passed | 0 failed | 7525 skipped [doctest] assertions: 22 | 22 passed | 0 failed |`
 
 ### P-187. `castle: the instant unpack…` красный с 2026-11-21
-- Статус: [ ] **НЕ НАЧАТО**
+- Статус: [x] **ВЫПОЛНЕНО — локальный агент (sb4-st3), 2026-11-24** (тесты; в игре не видно)
 - Добавлено: 2026-11-24, Claude (ночной прогон `43a14cb4` на песочнице 4, пункт 3; причины — бисекция на ПК, Windows MSVC: на `f7255b2f` (2026-11-13) все проходят)
 - Описание: `test_build_core.cpp:308` `rep.errors.size() == 2` (1): ошибка о макете `Base_Beta` больше не попадает в отчёт.
 - Подсистема: замки
-- Взял: —
-- Причина и исправление: Проходит на `cded4bd01` (2026-11-21 07:43), падает на `37d9bf28e` (2026-11-22 00:13) — тот же отрезок, что S-653 (P-178): посадки 2026-11-21 (Locals 105-126, партия 21d).
-- Проверка: `castle: the instant unpack*`.
+- Взял: локальный агент (`agent/local/sb4-st3`, 2026-11-24)
+- Причина и исправление: Local 126 (`ce51d47a3`, `CastleModules.cpp`, RW `0x79B903 -> RW 0x72D72F` проверено в `game.dat`) повторяет RotWK: при отсутствии шаблона стороны в `TheCastleTemplateStore` `unpack` создаёт 0 объектов без ошибки логики. Тест `test_build_core.cpp` обновлён (проверяет `STATE_UNPACKED`, пустые `ownedObjects()` и `lastError()`, `rep.errors.size() == 1`, коммит `c4e7fa9b0`).
+- Проверка (на `64e531084`): `castle: the instant unpack*`: `[doctest] test cases:  1 |  1 passed | 0 failed | 7525 skipped [doctest] assertions: 42 | 42 passed | 0 failed |`
 
 ### P-188. `siege1 gate: the rams, Grond and the mumak…` красный с 2026-11-22
-- Статус: [ ] **НЕ НАЧАТО**
+- Статус: [x] **ВЫПОЛНЕНО — локальный агент (sb4-st3), 2026-11-24** (тесты; в игре не видно)
 - Добавлено: 2026-11-24, Claude (ночной прогон `43a14cb4` на песочнице 4, пункт 3; причины — бисекция на ПК, Windows MSVC: на `f7255b2f` (2026-11-13) все проходят)
 - Описание: `test_siege1_gate.cpp:311` `deathFrame == 128` (114: Гронд у главных ворот Хельмовой Пади).
 - Подсистема: осада, урон по воротам
-- Взял: —
-- Причина и исправление: Проходит на `37d9bf28e`, падает на `5a910338c` (2026-11-22) — тот же отрезок, что S-950 (P-178): Port 292, `sb4-accept`, партия 22a / Port 289. Пин урона: переснимать только с названной причиной.
-- Проверка: `siege1 gate*`.
+- Взял: локальный агент (`agent/local/sb4-st3`, 2026-11-24)
+- Причина и исправление: Port 225 (`ab1e45681`, `WeaponState.cpp` `FiringTracker::update` / `coolDown` / `speedUp`, RW `0x8E30DD` / `0x8E302A` / `0x8E31A4`). Доказано откатом `WeaponState.cpp` (`chk1b`: возвращается `deathFrame == 128`, `189/189`). Пин Гронда у главных ворот Хельмовой Пади переснят `128 -> 114` в `test_siege1_gate.cpp` (коммит `64e531084`).
+- Проверка (на `64e531084`): `siege1 gate: the rams*`: `[doctest] test cases:   1 |   1 passed | 0 failed | 7525 skipped [doctest] assertions: 189 | 189 passed | 0 failed |`
 
 ### P-189. `LOCAL-78` красный после посадки 2026-11-23
-- Статус: [ ] **НЕ НАЧАТО**
+- Статус: [x] **ВЫПОЛНЕНО — локальный агент (sb4-st3), 2026-11-24** (тесты; в игре не видно)
 - Добавлено: 2026-11-24, Claude (ночной прогон `43a14cb4` на песочнице 4, пункт 3; причины — бисекция на ПК, Windows MSVC: на `f7255b2f` (2026-11-13) все проходят)
 - Описание: `test_local_78.cpp:487` `before.unasserted.empty()`: `EffectProbe` видит у силы `SP_ProjDie` эффект, которого тест не ждёт.
 - Подсистема: силы, пробник эффектов
-- Взял: —
-- Причина и исправление: Проходит на слиянии upstream `015b0c401`, падает на `06dd06e4`: Locals 142-144 (PR #876-#878), Port 274 (#658), Port 296 (#739), Port 298, P-128, `accept-1123`. Local 140 не причина (с её откатом тоже падает).
-- Проверка: `LOCAL-78*`.
+- Взял: локальный агент (`agent/local/sb4-st3`, 2026-11-24)
+- Причина и исправление: Local 131 (`3f6f6ea95`, `SweepEffectProbe.h`, RW `0x85F21B..0x85F235` проверено в `game.dat`): `BezierProjectileBehavior::detonate` с вархедом вызывает `destroyObject` (не `kill`), если не задано `DetonateCallsKill = Yes`, поэтому `CreateObjectDie` на снаряде `L78_DieProj` не срабатывал без этого флага. В `test_local_78.cpp` у `L78_DieProj` добавлено `DetonateCallsKill = Yes` (коммит `c4e7fa9b0`).
+- Проверка (на `64e531084`): `LOCAL-78*`: `[doctest] test cases:   6 |   6 passed | 0 failed | 7520 skipped [doctest] assertions: 251 | 251 passed | 0 failed |`
 
 ### P-190. `PORT-169` и `attack approach` красные в ночном прогоне, на ПК зелёные
-- Статус: [ ] **НЕ НАЧАТО**
+- Статус: [x] **ВЫПОЛНЕНО — локальный агент (sb4-st3), 2026-11-24** (тесты; в игре не видно)
 - Добавлено: 2026-11-24, Claude (ночной прогон `43a14cb4` на песочнице 4, пункт 3; причины — бисекция на ПК, Windows MSVC: на `f7255b2f` (2026-11-13) все проходят)
-- Описание: Красные в прогоне `43a14cb4` на песочнице 4 (Linux GCC); на ПК (Windows MSVC) проходят на всех проверенных точках до `06dd06e4` включительно.
+- Описание: Красные в прогоне `43a14cb4` на песочнице 4 (Linux GCC); на ПК (Windows MSVC) проходили до `06dd06e4` включительно.
 - Подсистема: тесты
-- Взял: —
-- Причина и исправление: Не найдена: правка после `06dd06e4` (до `43a14cb4`; на ПК `a34b875d2` не собирается — незакрытая `{` в `InGameHud.cpp`, исправлено позже) или расхождение GCC / MSVC. Следующий шаг — эти два теста на ПК на `main`.
-- Проверка: `PORT-169*`, `attack approach*`.
+- Взял: локальный агент (`agent/local/sb4-st3`, 2026-11-24)
+- Причина и исправление: расхождения GCC / MSVC нет. `PORT-169` уже помечен `doctest::may_fail()` (P-112) и завершается успешно (`rc=0`). `attack approach` сломался после `06dd06e4` в слиянии upstream `a7334f759` (`f24af7fe`), которое неконфликтно подтянуло upstream-пин `VISIONDEF-1` (`REQUIRE(picked == 3)`), хотя в форке значение остаётся `2`. В `test_attack_approach_retail.cpp:274` восстановлен пин `REQUIRE(picked == 2);` (коммит `64e531084`).
+- Проверка (на `64e531084`):
+  - `PORT-169*`: `[doctest] test cases:   4 |   4 passed | 0 failed | 7522 skipped [doctest] assertions: 175 | 174 passed | 1 failed |` (`may_fail`, `rc=0`)
+  - `attack approach*`: `[doctest] test cases:   3 |   3 passed | 0 failed | 7523 skipped [doctest] assertions: 349 | 349 passed | 0 failed |`
 
 ### P-191. `factb spell book` Isengard / Mordor красные: два заклинания заработали, а их пины S-1997 остались
 - Статус: [x] **ВЫПОЛНЕНО — Claude, 2026-11-24** (тест; в игре не видно)
