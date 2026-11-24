@@ -454,7 +454,7 @@ public:
 	unsigned long long memberUpdates() const { return m_memberUpdates; } ///< frames run through RW 0x66C748 (a counter, not state)
 	static std::string hordeMemberUpdateStop();
 	bool isDoingGroundMovement() const;       // B1 AIUpdate.cpp:3978
-	bool isAircraftThatAdjustsDestination() const; // B1 AIUpdate.cpp:4010
+	virtual bool isAircraftThatAdjustsDestination() const; // RW 0x66299F (AIUpdateInterface::isAircraftThatAdjustsDestination): vslot +0x168 (RW 0x9188EB false; GiantBirdAIUpdate RW 0x8BD372 true), else LOCO_HOVER / LOCO_WINGS
 	bool canPathThroughUnits() const override { return m_canPathThroughUnits; } // AI + 0x3BA
 	void setCanPathThroughUnits(bool v) { m_canPathThroughUnits = v; }
 	CommandSourceType lastCommandSource() const { return m_lastCommandSource; }

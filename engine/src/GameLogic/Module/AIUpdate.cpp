@@ -1118,16 +1118,27 @@ void AIUpdateInterface::setQueueForPathTime(unsigned frames)
 // ---------------------------------------------------------------------------------------------------------------------------------
 // commands (B1 AIUpdate.cpp:4511-5075)
 // ---------------------------------------------------------------------------------------------------------------------------------
+// RW 0x6636D9 (AIUpdateInterface::setGoalPositionClipped): when source == CMD_FROM_PLAYER (0), clips goal to map extent inset by fudge = PartitionCellSize * 0.5f,
+// raised to max(fudge, m_curLocomotor->preferredHeight()) when KINDOF_AIRCRAFT (tmpl+0x109 bit 4) && isSignificantlyAboveTerrain() (RW 0x70C55D) && m_curLocomotor != nullptr.
 void AIUpdateInterface::goalPositionClipped(const Coord3D &pos, CommandSourceType source, Coord3D &out) const
 {
 	out = pos;
 	if (source == CMD_FROM_PLAYER)
 	{
-		// B1 setGoalPositionClipped (0x273DE0): a player's goal is clipped to the map extent minus half a partition cell (GameData
-		// PartitionCellSize, 40 in the retail data); the extent is the pathfinder's logical extent
 		ICoord2D lo, hi;
 		m_world->pathfinder().getLogicalExtent(lo, hi);
-		const float fudge = 20.0f;
+		float fudge = 20.0f; // PartitionCellSize (40.0f) * 0.5f (RW 0x663714..0x663736)
+		if (Object *obj = getObject())
+		{
+			static const int kAircraft = ObjectTemplateInfoBuilder::kindOfIndex("AIRCRAFT");
+			if (kAircraft >= 0 && obj->isKindOf((unsigned)kAircraft) &&
+				m_world->adapterFor(*obj).isSignificantlyAboveTerrain() &&
+				m_curLocomotor != nullptr)
+			{
+				const float prefH = m_curLocomotor->preferredHeight(); // RW 0x663750 (+0x48)
+				if (prefH > fudge) fudge = prefH;
+			}
+		}
 		const float x0 = SimMath::addf32(SimMath::mulf32((float)lo.x, 10.0f), fudge), y0 = SimMath::addf32(SimMath::mulf32((float)lo.y, 10.0f), fudge);
 		const float x1 = SimMath::subf32(SimMath::mulf32((float)(hi.x + 1), 10.0f), fudge), y1 = SimMath::subf32(SimMath::mulf32((float)(hi.y + 1), 10.0f), fudge);
 		if (out.x < x0) out.x = x0;
@@ -1846,6 +1857,8 @@ bool AIUpdateInterface::isDoingGroundMovement() const
 }
 
 // B1 AIUpdate.cpp:4010: hover and wings adjust
+// RW 0x66299F (AIUpdateInterface::isAircraftThatAdjustsDestination): calls vslot +0x168 (base RW 0x9188EB returns false; GiantBirdAIUpdate RW 0x8BD372 returns true),
+// then checks m_curLocomotor != nullptr and appearance == LOCO_HOVER (2) || LOCO_WINGS (3).
 bool AIUpdateInterface::isAircraftThatAdjustsDestination() const
 {
 	if (!m_curLocomotor)
