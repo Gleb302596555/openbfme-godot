@@ -10,6 +10,7 @@
 
 class ModuleFactory;
 
+// RW 0x008CC9CB (~SplitHordeSpecialPower)
 class SplitHordeSpecialPower : public SpecialPowerModule
 {
 public:

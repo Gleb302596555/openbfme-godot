@@ -341,7 +341,7 @@ void DetachableRiderUpdate::registerClass(ModuleFactory &modules)
 		});
 }
 
-// RW 0x8C5D2B / DONOR BFME2 0x4C1B80 (DetachableRiderBodyFieldParse.cpp)
+// RW 0x008C5D2A / DONOR BFME2 0x4C1B80 (DetachableRiderBodyFieldParse.cpp)
 void DetachableRiderBodyModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	ActiveBodyModuleData::buildFieldParse(p); // RW 0x8C5D3F -> RW 0x8C2379

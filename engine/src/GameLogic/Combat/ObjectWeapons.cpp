@@ -2084,7 +2084,7 @@ bool ObjectWeapons::fireCurrentWeapon(Object *victim, const Coord3D *pos)
 	}
 	ObjectWeaponDelivery delivery(*m_owner, *this, t, *w);
 	const bool reloaded = w->privateFireWeapon(host(), delivery, args);
-	// RW 0x6920AD .. 0x69212B (disassembled): after 0x6CF34B -> 0x6CEF6D (privateFireWeapon) the release (0x68DF11(1) at RW 0x69212B) is gated
+	// RW 0x6920AD .. 0x69212B (disassembled): after RW 0x006CF34B -> 0x6CEF6D (privateFireWeapon) the release (0x68DF11(1) at RW 0x69212B) is gated
 	// only by that call's reloaded answer (`cmp [ebp-1], bl; je` at RW 0x692122). The ZH-era `|| IdleAfterFiringDelay == -1` clause is not in
 	// RW's function: it released the ordered FIRE_WEAPON lock at the strike's shot, the next chooseBestWeaponForTarget re-picked the SECONDARY
 	// (a ready weapon while the fired one reloads), and the attack left at RW 0x751482's weapon-changed gate before the run-through could run

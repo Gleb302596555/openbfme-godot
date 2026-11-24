@@ -32,6 +32,7 @@
 
 class ModuleFactory;
 
+// RW 0x0064D461 (DamageFieldUpdate::friend_newModuleInstance), RW 0x008947F6 (~DamageFieldUpdateModuleData)
 class DamageFieldUpdateModuleData : public FireWeaponUpdateModuleData
 {
 public:

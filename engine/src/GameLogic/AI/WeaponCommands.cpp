@@ -135,6 +135,7 @@ void setNoAutoAcquire(Object &o, bool on)
 }
 
 // RW 0x693C53..0x693C7B: inspect each live weapon of the member; RW 0x6CBABB..0x6CBAC9 asks each nugget's slot 0x34.
+// RW 0x006CBAAB: WeaponTemplate nugget query (called by RW 0x693C2D)
 bool hasSlaveAttackWeapon(const Object &o)
 {
 	const ObjectWeapons *weapons = o.getWeapons();

@@ -1,0 +1,432 @@
+function	name	verdict	evidence
+0x00474426	?Rva00074B3BGet@@YGPAVRva000748F6@@PBVVector3@@0HEH@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (table 0xBDC5C0; dc=0 vc=6), rebuilt on Godot
+0x0047452A	?Rva00074C3FGet@@YGPAVRva000748F6@@PBVMatrix3D@@PBMHEH@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (table 0xBDC5C0; dc=0 vc=1), rebuilt on Godot
+0x0047469F	?Rva00074DB4Get@@YGPAVRva000748F6@@PBVMatrix3D@@MHEH@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (table 0xBDC5C0; dc=0 vc=1), rebuilt on Godot
+0x00474810	?Rva00074F25Get@@YGPAVRva000748F6@@PBVMatrix3D@@MMHEH@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (table 0xBDC5C0; dc=0 vc=1), rebuilt on Godot
+0x0047497C	?Rva00075091Get@@YGPAVRva000748F6@@PBVMatrix3D@@MHEH@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (table 0xBDC5C0; dc=0 vc=1), rebuilt on Godot
+0x008985BE	?triggerAbilityEffect@ScaleWallSpecialAbilityUpdate@@UAEXXZ	not reached	Compiler glue / non-code padding or jump-table fragment (push esi; mov esi, ecx; call 0x853edf; dc=0 vc=0)
+0x008985E5	?xfer@ScaleWallSpecialAbilityUpdate@@MAEXPAVXfer@@@Z	not reached	ScaleWallSpecialAbilityUpdate has 0 active INI occurrences in Ennorath 1.9.8.7 (field-audit.tsv; dc=0 vc=1)
+0x00898611	?getModuleNameKey@ScaleWallSpecialAbilityUpdate@@UBE?AW4NameKeyType@@XZ	not reached	ScaleWallSpecialAbilityUpdate has 0 active INI occurrences in Ennorath 1.9.8.7 (field-audit.tsv; dc=0 vc=0)
+0x00686309	0xC11820[0]	not reached	Compiler glue: MSVC multiple-inheritance this-adjustor thunk (sub ecx, 4; jmp 0x6869bc; dc=0 vc=0)
+0x00686A60	?cleanup@Rva0028691CTreeCleanupForward@@QAEXXZ	not reached	Compiler glue: single-instruction thunk/stub (jmp 0x6869d8; dc=0 vc=0)
+0x00686A65	?rva00286356@Rva00286356@@QAE?AVRva003ED658@@XZ	not reached	Unreferenced small helper (29B; dc=0 vc=0; table 0xC11830)
+0x006876B4	0xC118DC[2]	not reached	MemoryPoolObject diagnostic name getter returning literal 'FireLogicSystem' (mov eax, imm; ret; dc=0 vc=0)
+0x006876BA	0xC118DC[0]	not reached	Compiler glue: MSVC multiple-inheritance this-adjustor thunk (sub ecx, 0xc; jmp 0x688338; dc=0 vc=0)
+0x00687743	??1?$map@W4ObjectID@@HU?$less@W4ObjectID@@@_STL@@V?$allocator@U?$pair@$$CBW4ObjectID@@H@_STL@@@3@@_STL@@QAE@XZ	not reached	Compiler glue: single-instruction thunk/stub (jmp 0x6873f7; dc=0 vc=0)
+0x00794378	0xC307D8[9]	unchecked	52B BuildAssistant::0xC307D8[9] (dc=0 vc=0); deferred to follow-up Local
+0x00794996	0xC307D8[16]	unchecked	149B BuildAssistant::0xC307D8[16] (dc=0 vc=0); deferred to follow-up Local
+0x00796117	0xC307D8[22]	unchecked	1119B BuildAssistant::0xC307D8[22] wall/build helper (dc=0 vc=0); deferred to follow-up Local
+0x00651749	?friend_newModuleInstance@CashHackSpecialPower@@SAPAVModule@@PAVThing@@PBVModuleData@@@Z	not reached	CashHackSpecialPower has 0 active INI occurrences in Ennorath 1.9.8.7 (field-audit.tsv; dc=0 vc=0)
+0x008C68D6	?doSpecialPowerAtObject@CashHackSpecialPower@@UAEXPAVObject@@I@Z	not reached	CashHackSpecialPower has 0 active INI occurrences in Ennorath 1.9.8.7 (field-audit.tsv; dc=0 vc=0)
+0x00651781	?friend_newModuleData@DefectorSpecialPowerModuleData@@SAPAVModuleData@@PAVINI@@@Z	not reached	DefectorSpecialPowerModuleData has 0 active INI occurrences in Ennorath 1.9.8.7 (field-audit.tsv; dc=0 vc=0)
+0x008C895C	??0DefectorSpecialPowerModuleData@@QAE@XZ	not reached	DefectorSpecialPowerModuleData has 0 active INI occurrences in Ennorath 1.9.8.7 (field-audit.tsv; dc=2 vc=0)
+0x00650254	?friend_newModuleData@InvisibilitySpecialPowerModuleData@@SAPAVModuleData@@PAVINI@@@Z	unchecked	Deferred to follow-up Local (84B; InvisibilitySpecialPowerModuleData; dc=0 vc=0)
+0x008BEB2D	?mapLoadPostProcess@TransitionDamageFX@@UAEXPBVDict@@@Z	too big	S-686 / S-342: TransitionDamageFX::mapLoadPostProcess resolves RubbleNeighbor IDs (rubble neighbors not ported)
+0x004CE74B	?buildFieldParse@W3DModelDrawModuleData@@SAXAAVMultiIniFieldParse@@@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (W3DModelDrawModuleData; dc=1 vc=0), rebuilt on Godot
+0x004D0501	?buildFieldParse@W3DModelDrawModuleData@@SAXAAVMultiIniFieldParse@@@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (W3DModelDrawModuleData; dc=0 vc=0), rebuilt on Godot
+0x006CBB54	?findWeaponTemplatePrivate@WeaponStore@@IBEPAVWeaponTemplate@@W4NameKeyType@@@Z	not reached	WeaponStore::findWeaponTemplatePrivate (dc=0 vc=0; toggles debug flag 0xDE4A20)
+0x004E0B5F	??1?$hash_map@HURva000E0AC3Element@@U?$hash@H@_STL@@U?$equal_to@H@3@V?$allocator@U?$pair@$$CBHURva000E0AC3Element@@@_STL@@@3@@_STL@@QAE@XZ	not reached	Compiler glue: single-instruction thunk/stub (jmp 0x465fc0; dc=0 vc=0)
+0x004E0B64	??1?$hash_map@HURva000E0AC3Element@@U?$hash@H@_STL@@U?$equal_to@H@3@V?$allocator@U?$pair@$$CBHURva000E0AC3Element@@@_STL@@@3@@_STL@@QAE@XZ	not reached	Compiler glue: single-instruction thunk/stub (jmp 0x46611a; dc=0 vc=0)
+0x00740DD0	ctor/dtor	unchecked	Deferred to follow-up Local (29B; table 0xC27730; dc=1 vc=0)
+0x00740DED	0xC27730[2]	not reached	MemoryPoolObject diagnostic name getter returning literal 'AIWaitState' (mov eax, imm; ret; dc=0 vc=0)
+0x00740EBA	0xC27920[15]	unchecked	Not ported in Local 164 (size guard / follow-up Local; table 0xC27920 `0xC27920[15]`; dc=0, vc=0)
+0x00740ED8	0xC27920[2]	not reached	MemoryPoolObject diagnostic name getter returning literal 'AIAttackSquadState' (mov eax, imm; ret; dc=0 vc=0)
+0x0074449D	ctor/dtor	too big	S-786: AIAttackMeleeApproachState ctor (vtable 0xC28E60) tracked under stop S-786
+0x007444D7	0xC28E60[2]	not reached	MemoryPoolObject diagnostic name getter returning literal 'AIAttackMeleeApproachState' (mov eax, imm; ret; dc=0 vc=0)
+0x007FBCAF	?BeginTurn@Rva003FA62B@@UAEXHH@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (table 0xC4DD4C; dc=0 vc=0), rebuilt on Godot
+0x007FBED9	??0Rva003FA62B@@QAE@PAURva003FA62BOwner@@@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (table 0xC4DD4C; dc=1 vc=0), rebuilt on Godot
+0x00895ABF	0xC64780[2]	not reached	MemoryPoolObject diagnostic name getter returning literal 'WeaponSetSpecialAbilityUpdate' (mov eax, imm; ret; dc=0 vc=0)
+0x00895AE5	0xC64780[4]	not reached	Unused module getModuleNameKey (table 0xC64780; 0 active INI uses in Ennorath; dc=0 vc=0)
+0x008B997B	0xC6ECF8[2]	not reached	MemoryPoolObject diagnostic name getter returning literal 'GarrisonUpgrade' (mov eax, imm; ret; dc=0 vc=1)
+0x008B9981	0xC6ECF8[4]	not reached	Unused module getModuleNameKey (table 0xC6ECF8; 0 active INI uses in Ennorath; dc=0 vc=0)
+0x008BF5B3	0xC70C94[2]	not reached	MemoryPoolObject diagnostic name getter returning literal 'CallHelpOnDamage' (mov eax, imm; ret; dc=0 vc=0)
+0x008BF5B9	0xC70C94[4]	not reached	Unused module getModuleNameKey (table 0xC70C94; 0 active INI uses in Ennorath; dc=0 vc=0)
+0x008D1579	0xC76670[2]	not reached	MemoryPoolObject diagnostic name getter returning literal 'GiveOrRestoreUpgradeSpecialPower' (mov eax, imm; ret; dc=0 vc=0)
+0x008D157F	0xC76670[4]	not reached	Unused module getModuleNameKey (table 0xC76670; 0 active INI uses in Ennorath; dc=0 vc=0)
+0x008D209D	0xC76858[2]	not reached	MemoryPoolObject diagnostic name getter returning literal 'EvacuateGarrisonSpecialPower' (mov eax, imm; ret; dc=0 vc=0)
+0x008D20C3	0xC76858[4]	not reached	Unused module getModuleNameKey (table 0xC76858; 0 active INI uses in Ennorath; dc=0 vc=0)
+0x0074373D	??1ArmorSetFinderView@@QAE@XZ	not reached	Compiler glue: single-instruction thunk/stub (jmp 0x74356a; dc=0 vc=0)
+0x008C52B5	?bfmeGoCCD@BfmeThingCCD@@QAEHXZ	too big	S-7618 / S-1242: SymbioticStructuresBody getFrontCrushed/getBackCrushed (blocked on CrushDie S-1242)
+0x0090DB89	?v4@DamageNugget@@UAEXPAX0@Z	unchecked	435B DamageNugget::v4 DelayedLuaEventUpdate spawn helper; deferred to follow-up Local
+0x0096B7BD	?rva00563F34@FXGate@@QAEXXZ	not reached	Compiler glue / non-code padding or jump-table fragment (push ebx; push esi; mov esi, ecx; dc=0 vc=0)
+0x0087C273	?rva00478FD7@GarrisonContain@@QAEXXZ	too big	S-1100: GarrisonContain MobileGarrison (0x87C273) explicitly tracked under stop S-1100
+0x0064FDA0	?friend_newModuleInstance@GarrisonUpgrade@@SAPAVModule@@PAVThing@@PBVModuleData@@@Z	not reached	GarrisonUpgrade has 0 active INI occurrences in Ennorath 1.9.8.7 (field-audit.tsv; dc=0 vc=0)
+0x00651810	?friend_newModuleData@GiveOrRestoreUpgradeSpecialPowerModuleData@@SAPAVModuleData@@PAVINI@@@Z	not reached	GiveOrRestoreUpgradeSpecialPowerModuleData has 0 active INI occurrences in Ennorath 1.9.8.7 (field-audit.tsv; dc=0 vc=0)
+0x0085FFC9	?onDie@InstantDeathBehavior@@UAEXPBVDamageInfo@@@Z	not reached	InstantDeathBehavior has 0 active INI occurrences in Ennorath 1.9.8.7 (field-audit.tsv; dc=0 vc=0)
+0x0090EEC1	??1Made002CC64B@@UAE@XZ	unchecked	Deferred to follow-up Local (56B; Made002CC64B; dc=1 vc=0)
+0x008C633D	?rva004C21A9@PorcupineFormationBodyModule@@QAEXPAVDamageInfo@@@Z	not reached	S-7191: PorcupineFormationBodyModule dead-branch field reader (only caller 0x8C63DC is in not-taken branch)
+0x00652829	?friend_newModuleData@SiegeDeployHordeSpecialPowerModuleData@@SAPAVModuleData@@PAVINI@@@Z	unchecked	Do not touch: SiegeDeployHordeSpecialPowerModuleData owned by Port 259 (fork issue 607)
+0x00889D73	?xfer@SpecialPowerCompletionDie@@MAEXPAVXfer@@@Z	not reached	SpecialPowerCompletionDie has 0 active INI occurrences in Ennorath 1.9.8.7 (field-audit.tsv; dc=0 vc=1)
+0x008C4DE3	?rva004C0C52@SymbioticStructuresBody@@QAEXXZ	too big	S-7618: SymbioticStructuresBody client stealth-look opacity sync (Drawable::setStealthLook 0x6760F9)
+0x004D0B7F	??0W3DProjectileStreamDraw@@QAE@PAVThing@@PBVModuleData@@@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (W3DProjectileStreamDraw; dc=1 vc=0), rebuilt on Godot
+0x00743738	??1WeaponSetFinderView@@QAE@XZ	not reached	Compiler glue: single-instruction thunk/stub (jmp 0x74352d; dc=0 vc=0)
+0x00860887	?rva0045D859@WeaponTemplateSetHead@@QAE?AV1@XZ	unchecked	Deferred to follow-up Local (46B; WeaponTemplateSetHead; dc=1 vc=0)
+0x0079C6E6	ctor/dtor	unchecked	MemoryPoolObject base destructor chain (table 0xBD15B0, non-AI class dtor; dc=1, vc=0)
+0x008D12AA	??0Rva0004584D@@QAE@ABV0@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??0BfmeFixedStorage0004543D@@QAE@ABV0@@Z, ??0BfmeFixedStorage0004543D@@QAE@ABV0@@Z; dc=1 vc=0)
+0x006C9BCE	0xBDBD50[71]	not reached	Unreferenced small helper (7B; dc=0 vc=0; table 0xBDBD50)
+0x00483A52	??0Rva0084096@@QAE@XZ	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (table 0xBDD35C; dc=1 vc=0), rebuilt on Godot
+0x0048F998	?Resize@?$SimpleVecClass@M@@UAE_NH@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (table 0xBDDD1C; dc=3 vc=0), rebuilt on Godot
+0x004980EF	??1Rva00098690@@UAE@XZ	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (table 0xBDE280; dc=1 vc=0), rebuilt on Godot
+0x00567C01	??0?$SimpleDynVecClass@M@@QAE@H@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (table 0xBEA220; dc=1 vc=0), rebuilt on Godot
+0x00580633	?rva00180D4A@Rva00180B94_Prototype@@QAEXXZ	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (table 0xBEB0B8; dc=0 vc=0), rebuilt on Godot
+0x0068D230	0xC11F24[2]	not reached	MemoryPoolObject diagnostic name getter returning literal 'ObjectWeaponStatusHelper' (mov eax, imm; ret; dc=0 vc=0)
+0x006C8246	?rva002C7492@Rva002C7492@@QAEXPBV1@@Z	not reached	MemoryPoolObject diagnostic name getter returning literal 'WeaponSet' (mov eax, imm; ret; dc=0 vc=0)
+0x006CD016	0xC18404[2]	not reached	MemoryPoolObject diagnostic name getter returning literal 'Weapon' (mov eax, imm; ret; dc=0 vc=0)
+0x006CE1C6	??1Rva002CD4A6@@UAE@XZ	unchecked	Deferred to follow-up Local (314B; table 0xC18428; dc=1 vc=0)
+0x00740D9F	0xC27668[2]	not reached	MemoryPoolObject diagnostic name getter returning literal 'AIAttackAimAtTargetState' (mov eax, imm; ret; dc=0 vc=0)
+0x00740E10	0xC27780[2]	not reached	MemoryPoolObject diagnostic name getter returning literal 'AIWaitUntilFinishedFiringState' (mov eax, imm; ret; dc=0 vc=0)
+0x00740E33	0xC277E8[2]	not reached	MemoryPoolObject diagnostic name getter returning literal 'AIWaitUntilMembersFinishedBeforeExitState' (mov eax, imm; ret; dc=0 vc=0)
+0x00740E61	0xC27858[2]	not reached	MemoryPoolObject diagnostic name getter returning literal 'AIAttackFireWeaponState' (mov eax, imm; ret; dc=0 vc=0)
+0x00740E8F	0xC278B8[2]	not reached	MemoryPoolObject diagnostic name getter returning literal 'AIAttackPositionFireWeaponState' (mov eax, imm; ret; dc=0 vc=0)
+0x007415E9	0xC28410[2]	not reached	MemoryPoolObject diagnostic name getter returning literal 'AIMoveOntoWallState' (mov eax, imm; ret; dc=0 vc=0)
+0x007425D8	0xC287B0[2]	not reached	MemoryPoolObject diagnostic name getter returning literal 'AIAttackMeleeEngageState' (mov eax, imm; ret; dc=0 vc=0)
+0x00744836	0xC29418[2]	not reached	MemoryPoolObject diagnostic name getter returning literal 'AIAttackMoveToAndEvacuateState' (mov eax, imm; ret; dc=0 vc=0)
+0x00744926	0xC295A0[2]	not reached	MemoryPoolObject diagnostic name getter returning literal 'AIEnterAndAttackState' (mov eax, imm; ret; dc=0 vc=0)
+0x00758B62	0xC2B744[2]	not reached	MemoryPoolObject diagnostic name getter returning literal 'AttackPriorityInfo' (mov eax, imm; ret; dc=0 vc=0)
+0x00762842	??0?$hashtable@U?$pair@$$CBW4NameKeyType@@VArmorTemplate@@@_STL@@W4NameKeyType@@U?$hash@W4NameKeyType@@@rts@@U?$_Select1st@U?$pair@$$CBW4NameKeyType@@VArmorTemplate@@@_STL@@@2@U?$equal_to@W4NameKeyType@@@2@V?$allocator@U?$pair@$$CBW4NameKeyType@@VArmorTemplate@@@_STL@@@2@@_STL@@QAE@IABU?$hash@W4NameKeyType@@@rts@@ABU?$equal_to@W4NameKeyType@@@1@ABV?$allocator@U?$pair@$$CBW4NameKeyType@@VArmorTemplate@@@_STL@@@1@@Z	unchecked	Deferred to follow-up Local (70B; table 0xC2D010; dc=1 vc=0)
+0x00769263	0xC2DA48[2]	not reached	MemoryPoolObject diagnostic name getter returning literal 'AIGiantBirdAttack' (mov eax, imm; ret; dc=0 vc=0)
+0x00769440	0xC2DB68[2]	not reached	MemoryPoolObject diagnostic name getter returning literal 'AIAttackSwoopThenIdleStateMachine' (mov eax, imm; ret; dc=0 vc=0)
+0x007694CC	0xC2DBD0[2]	not reached	MemoryPoolObject diagnostic name getter returning literal 'GiantBirdAttackMoveToState' (mov eax, imm; ret; dc=0 vc=0)
+0x007885BA	??1Rva004D9A3C@@QAE@XZ	not reached	Compiler glue: MSVC multiple-inheritance this-adjustor thunk (add ecx, 0x14; jmp 0x436030; dc=0 vc=1)
+0x00793D9C	0xC307C4[0]	not reached	Compiler glue / non-code padding or jump-table fragment (test byte ptr [esp + 4], 1; push esi; mov esi, ecx; dc=0 vc=0)
+0x0096BED6	?rva005645FE@Rva005645FE@@QAEXXZ	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (table 0xC32E28; dc=0 vc=0), rebuilt on Godot
+0x0096B9C6	??0Rva003AE0D5@@QAE@IAAULifeInput413D@@@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (table 0xC334B4; dc=1 vc=0), rebuilt on Godot
+0x00963101	??0LightningDrawModule@FXParticleSystem@@QAE@AAV?$TrackingPtr@VParticleSystem@FXParticleSystem@@@1@PBVLightningDrawModuleTemplate@1@@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (table 0xC336D0; dc=1 vc=0), rebuilt on Godot
+0x00969BF4	??0Rva003AEA42@@QAE@ABVRvaSmartPtr12@@H@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (table 0xC33748; dc=1 vc=0), rebuilt on Godot
+0x009663C9	??0Rva003AEF9B@@QAE@ABVRvaSmartPtr12@@H@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (table 0xC338C0; dc=1 vc=0), rebuilt on Godot
+0x007B0F90	??0Rva003B0344@@QAE@ABVRvaSmartPtr12@@@Z	unchecked	Deferred to follow-up Local (264B; table 0xC33B48; dc=2 vc=0)
+0x007B1C36	??1Rva003B1101@@UAE@XZ	unchecked	Deferred to follow-up Local (172B; table 0xC34F4C; dc=1 vc=0)
+0x007B209F	??1Rva003B1546@@UAE@XZ	unchecked	Deferred to follow-up Local (146B; table 0xC34F50; dc=1 vc=0)
+0x008619ED	ctor/dtor	unchecked	Deferred to follow-up Local (74B; table 0xC58C14; dc=1 vc=0)
+0x00895D5A	ctor/dtor	unchecked	Deferred to follow-up Local (62B; table 0xC64890; dc=1 vc=0)
+0x00898598	0xC65278[2]	not reached	MemoryPoolObject diagnostic name getter returning literal 'ScaleWallSpecialAbilityUpdate' (mov eax, imm; ret; dc=0 vc=0)
+0x008B956C	ctor/dtor	unchecked	Deferred to follow-up Local (32B; table 0xC6EA98; dc=1 vc=0)
+0x008BD89A	0xC7059C[2]	not reached	MemoryPoolObject diagnostic name getter returning literal 'DamageModule' (mov eax, imm; ret; dc=0 vc=0)
+0x008C3A7B	0xC71B78[15]	not reached	Unreferenced small helper (14B; dc=0 vc=0; table 0xC71B78)
+0x008C6A8F	ctor/dtor	unchecked	Deferred to follow-up Local (56B; table 0xC73308; dc=1 vc=0)
+0x008C802E	ctor/dtor	unchecked	Deferred to follow-up Local (75B; table 0xC73BB8; dc=1 vc=0)
+0x009463CE	??0Rva0053FADE@@QAE@XZ	unchecked	Deferred to follow-up Local (39B; table 0xC804DC; dc=2 vc=0)
+0x0094C77B	0xC81250[2]	not reached	MemoryPoolObject diagnostic name getter returning literal 'AITNGuardAttackAggressorState' (mov eax, imm; ret; dc=0 vc=0)
+0x009910F5	0xC8739C[2]	not reached	MemoryPoolObject diagnostic name getter returning literal 'DamagerModule' (mov eax, imm; ret; dc=0 vc=0)
+0x00991166	??1Rva00589079@@UAE@XZ	not reached	MemoryPoolObject diagnostic name getter returning literal 'SpecialPowerUpdateModule' (mov eax, imm; ret; dc=0 vc=0)
+0x009F4FC8	??0Rva005E1FBC@@QAE@PAX0ABUPageContext@@@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (table 0xC9007C; dc=1 vc=0), rebuilt on Godot
+0x009F5BD6	??0Rva005E21EB@@QAE@PAX0ABUPageContext@@@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (table 0xC900EC; dc=1 vc=0), rebuilt on Godot
+0x009F7E93	??0Rva005E4F6D@@QAE@PAU_Rva005E4AE2In@@H@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (table 0xC90358; dc=2 vc=0), rebuilt on Godot
+0x00A0C2A4	??0Rva005F86C3@@QAE@HH@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (table 0xC927A0; dc=1 vc=0), rebuilt on Godot
+0x0042C368	?_M_bkt_num_key@?$hashtable@U?$pair@$$CBVAsciiString@@W4BuildableStatus@@@_STL@@VAsciiString@@U?$hash@VAsciiString@@@rts@@U?$_Select1st@U?$pair@$$CBVAsciiString@@W4BuildableStatus@@@_STL@@@2@U?$equal_to@VAsciiString@@@5@V?$allocator@U?$pair@$$CBVAsciiString@@W4BuildableStatus@@@_STL@@@2@@_STL@@ABEIABVAsciiString@@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??R?$hash@VAsciiString@@@rts@@QBEIABVAsciiString@@@Z; dc=1 vc=0)
+0x00498098	?destroyParticleSystems@Rva00098690@@QAEXXZ	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=2 vc=0), rebuilt on Godot
+0x004B5CB6	?Rva000B64C5Build@@YA?AURva000B64C5S28@@ABURva000B64C5S16@@ABURva000B64C5S12@@@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=1 vc=0), rebuilt on Godot
+0x004B623E	?Rva000B6AA9Build@@YAPAURva000B6AA9Rec@@PAU1@PAPAXH@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=3 vc=0), rebuilt on Godot
+0x004B628A	?Rva000B6AF5Build@@YAPAURva000B6AF5Rec@@PAU1@PAPAXH@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=4 vc=0), rebuilt on Godot
+0x004B9100	?Rva000B992CBuild@@YA?AVAsciiString@@ABV1@0H_NH@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=2 vc=0), rebuilt on Godot
+0x004DFAC7	??1Rva000E025FHashTableView@@QAE@XZ	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=2 vc=0), rebuilt on Godot
+0x004DFCC7	??1Rva000E0AE2@@QAE@XZ	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=1 vc=0), rebuilt on Godot
+0x0052C299	?ExecuteAssetCacheBuilder@@YA_NPBG@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=1 vc=0), rebuilt on Godot
+0x0056C430	??$_Construct@U?$pair@$$CBHUBfmePod8@@@_STL@@U12@@_STL@@YAXPAU?$pair@$$CBHUBfmePod8@@@0@ABU10@@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=1 vc=0), rebuilt on Godot
+0x0056D550	?resize@?$hashtable@U?$pair@$$CBW4NameKeyType@@VDamageFX@@@_STL@@W4NameKeyType@@U?$hash@W4NameKeyType@@@rts@@U?$_Select1st@U?$pair@$$CBW4NameKeyType@@VDamageFX@@@_STL@@@2@U?$equal_to@W4NameKeyType@@@5@V?$allocator@U?$pair@$$CBW4NameKeyType@@VDamageFX@@@_STL@@@2@@_STL@@QAEXI@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=1 vc=0), rebuilt on Godot
+0x00572D07	?Rva004C6F77Median@@YAPAXPAX00P6A_N00@Z@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=2 vc=0), rebuilt on Godot
+0x00598260	??_GCullNodeStruct@AABTreeBuilderClass@@QAEPAXI@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=2 vc=0), rebuilt on Godot
+0x00598350	??4SplitChoiceStruct@AABTreeNodeClass@@QAEAAU01@ABU01@@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=1 vc=0), rebuilt on Godot
+0x005985A0	sub_005985A0	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=2 vc=0), rebuilt on Godot
+0x005D869A	??1Rva001D92BB@@QAE@XZ	unchecked	Deferred to follow-up Local (54B; no class; dc=0 vc=0)
+0x005D88E5	??1Rva001D904A@@QAE@XZ	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (__EH_prolog, ?clear@?$hashtable@U?$pair@$$CBW4NameKeyType@@VArmorTemplate@@@_STL@@W4NameKeyType@@U?$hash@W4NameKeyType@@@rts@@U?$_Select1st@U?$pair@$$CBW4NameKeyType@@VArmorTemplate@@@_STL@@@2@U?$equal_to@W4NameKeyType@@@5@V?$allocator@U?$pair@$$CBW4NameKeyType@@VArmorTemplate@@@_STL@@@2@@_STL@@QAEXXZ; dc=2 vc=0)
+0x005D8EB2	??0?$hashtable@U?$pair@$$CBHURva001D9611Element@@@_STL@@HU?$hash@H@2@U?$_Select1st@U?$pair@$$CBHURva001D9611Element@@@_STL@@@2@U?$equal_to@H@2@V?$allocator@U?$pair@$$CBHURva001D9611Element@@@_STL@@@2@@_STL@@QAE@IABU?$hash@H@1@ABU?$equal_to@H@1@ABV?$allocator@U?$pair@$$CBHURva001D9611Element@@@_STL@@@1@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (__EH_prolog, ??0?$vector@IV?$allocator@I@_STL@@@_STL@@QAE@ABV?$allocator@I@1@@Z; dc=1 vc=0)
+0x005D8EF2	??0?$hash_map@HURva001D9651Element@@U?$hash@H@_STL@@U?$equal_to@H@3@V?$allocator@U?$pair@$$CBHURva001D9651Element@@@_STL@@@3@@_STL@@QAE@XZ	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??0?$hashtable@U?$pair@$$CBHURva001D9611Element@@@_STL@@HU?$hash@H@2@U?$_Select1st@U?$pair@$$CBHURva001D9611Element@@@_STL@@@2@U?$equal_to@H@2@V?$allocator@U?$pair@$$CBHURva001D9611Element@@@_STL@@@2@@_STL@@QAE@IABU?$hash@H@1@ABU?$equal_to@H@1@ABV?$allocator@U?$pair@$$CBHURva001D9611Element@@@_STL@@@1@@Z; dc=1 vc=0)
+0x0060E64C	?Rva005F17C6Build@@YA?AURva005F17C6S16@@ABURva005F17C6S12@@H@Z	unchecked	Deferred to follow-up Local (39B; no class; dc=16 vc=0)
+0x0061922F	?allocate@?$allocator@UBfmeStringRecord002CF4C6@@@_STL@@QBEPAUBfmeStringRecord002CF4C6@@IPBX@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?allocate@?$allocator@D@_STL@@SAPADIPBX@Z, 0x619248; dc=29 vc=0)
+0x0061B50A	??0Rva0022C68CMetadataTree@@QAE@ABURvaMapCacheEmptyAllocator@@0@Z	unchecked	Deferred to follow-up Local (42B; no class; dc=1 vc=0)
+0x006362B8	??0Rva002299F1MetadataHeader@@QAE@ABURvaMapCacheEmptyAllocator@@@Z	unchecked	Deferred to follow-up Local (39B; no class; dc=1 vc=0)
+0x006390F4	??0Rva0022C68CMetadataTree@@QAE@ABURvaMapCacheEmptyAllocator@@0@Z	unchecked	Deferred to follow-up Local (42B; no class; dc=1 vc=0)
+0x0063ACDD	??0Rva0022E272MetadataMap@@QAE@XZ	unchecked	Deferred to follow-up Local (25B; no class; dc=1 vc=0)
+0x006535CC	sub_006535CC	not reached	Unreferenced small helper (33B; dc=0 vc=0; no class)
+0x00654A59	?freeTree@Rva00254D0B@@QAEXPAURva00254D0BNode@@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?freeTree@Rva00254D0B@@QAEXPAURva00254D0BNode@@@Z, 0x430170; dc=2 vc=0)
+0x00654A86	?rva00254D38@Rva00254D38@@QAEXPAURva00254D38Node@@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?rva00254D38@Rva00254D38@@QAEXPAURva00254D38Node@@@Z, 0x430170; dc=2 vc=0)
+0x00655AE9	?_M_create_node@?$_Rb_tree@UTreeKey00286693@@U?$pair@$$CBUTreeKey00286693@@UTreeMapped00286693@@@_STL@@U?$_Select1st@U?$pair@$$CBUTreeKey00286693@@UTreeMapped00286693@@@_STL@@@3@U?$less@UTreeKey00286693@@@3@V?$allocator@U?$pair@$$CBUTreeKey00286693@@UTreeMapped00286693@@@_STL@@@3@@_STL@@IAEPAU?$_Rb_tree_node@U?$pair@$$CBUTreeKey00286693@@UTreeMapped00286693@@@_STL@@@2@ABU?$pair@$$CBUTreeKey00286693@@UTreeMapped00286693@@@2@@Z	unchecked	Deferred to follow-up Local (34B; no class; dc=1 vc=0)
+0x00656E9F	?erase@Rva002571A7Vector@@QAEPAURva002571A7Elem@@PAU2@0@Z	unchecked	Deferred to follow-up Local (54B; no class; dc=1 vc=0)
+0x006821A9	?push_front@?$list@V?$list@UCoord3D@@V?$allocator@UCoord3D@@@_STL@@@_STL@@V?$allocator@V?$list@UCoord3D@@V?$allocator@UCoord3D@@@_STL@@@_STL@@@2@@_STL@@QAEXABV?$list@UCoord3D@@V?$allocator@UCoord3D@@@_STL@@@2@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?insert@?$list@UCoord3D@@V?$allocator@UCoord3D@@@_STL@@@_STL@@QAE?AU?$_List_iterator@UCoord3D@@U?$_Nonconst_traits@UCoord3D@@@_STL@@@2@U32@ABUCoord3D@@@Z; dc=4 vc=0)
+0x00683AF4	?insert@?$list@V?$list@UCoord3D@@V?$allocator@UCoord3D@@@_STL@@@_STL@@V?$allocator@V?$list@UCoord3D@@V?$allocator@UCoord3D@@@_STL@@@_STL@@@2@@_STL@@QAE?AU?$_List_iterator@V?$list@UCoord3D@@V?$allocator@UCoord3D@@@_STL@@@_STL@@U?$_Nonconst_traits@V?$list@UCoord3D@@V?$allocator@UCoord3D@@@_STL@@@_STL@@@2@@2@U32@ABV?$list@UCoord3D@@V?$allocator@UCoord3D@@@_STL@@@2@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?Rva00282FE0CreateNode@@YGPAXPBX@Z; dc=1 vc=0)
+0x006843BD	?push_front@?$list@V?$list@UCoord3D@@V?$allocator@UCoord3D@@@_STL@@@_STL@@V?$allocator@V?$list@UCoord3D@@V?$allocator@UCoord3D@@@_STL@@@_STL@@@2@@_STL@@QAEXABV?$list@UCoord3D@@V?$allocator@UCoord3D@@@_STL@@@2@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?insert@?$list@V?$list@UCoord3D@@V?$allocator@UCoord3D@@@_STL@@@_STL@@V?$allocator@V?$list@UCoord3D@@V?$allocator@UCoord3D@@@_STL@@@_STL@@@2@@_STL@@QAE?AU?$_List_iterator@V?$list@UCoord3D@@V?$allocator@UCoord3D@@@_STL@@@_STL@@U?$_Nonconst_traits@V?$list@UCoord3D@@V?$allocator@UCoord3D@@@_STL@@@_STL@@@2@@2@U32@ABV?$list@UCoord3D@@V?$allocator@UCoord3D@@@_STL@@@2@@Z; dc=1 vc=0)
+0x006866CE	?Rva00285FA9Parse@@YAXPAVINI@@PAX1PBX@Z	unchecked	Deferred to follow-up Local (294B; no class; dc=0 vc=0)
+0x006867F4	?rva002860CF@Rva002860CFHost@@QAEXURva002860CFIterator@@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?_Rebalance_for_erase@?$_Rb_global@_N@_STL@@SAPAU_Rb_tree_node_base@2@PAU32@AAPAU32@11@Z, 0x430170; dc=3 vc=0)
+0x0068685B	?Rva00286136Free@@YAXPAX@Z	unchecked	Deferred to follow-up Local (22B; no class; dc=2 vc=0)
+0x00686871	?rva0028614C@Rva0028614C@@QAEXPAUNode0028614C@@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?rva0028614C@Rva0028614C@@QAEXPAUNode0028614C@@@Z, 0x430170; dc=2 vc=0)
+0x006868D5	?Rva002861B0Copy@@YAXPAXPBX@Z	unchecked	Deferred to follow-up Local (25B; no class; dc=4 vc=0)
+0x006868EE	?Rva002861C9Copy@@YAPAXPBX0PAX@Z	unchecked	Deferred to follow-up Local (38B; no class; dc=1 vc=0)
+0x00686914	?Rva002861EFFill@@YAPAXPAXIPBX@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?Rva002861B0Copy@@YAXPAXPBX@Z; dc=1 vc=0)
+0x00686939	?rva00286214@Rva00286214@@QAEPAURva00286214Node@@PBVRva00285672@@@Z	unchecked	Deferred to follow-up Local (73B; no class; dc=3 vc=0)
+0x006869D8	?rva002862C9@Rva002862C9@@QAEPAVLargeGroupAudioKeyMap@@XZ	unchecked	Deferred to follow-up Local (136B; no class; dc=2 vc=0)
+0x00686D3C	?rva0028662D@Rva0028614C@@QAEXXZ	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?rva0028614C@Rva0028614C@@QAEXPAUNode0028614C@@@Z; dc=3 vc=0)
+0x00686D8E	sub_00686D8E	unchecked	Deferred to follow-up Local (36B; no class; dc=2 vc=0)
+0x00686DC6	?_M_create_node@?$_Rb_tree@UTreeKey00286693@@U?$pair@$$CBUTreeKey00286693@@UTreeMapped00286693@@@_STL@@U?$_Select1st@U?$pair@$$CBUTreeKey00286693@@UTreeMapped00286693@@@_STL@@@3@U?$less@UTreeKey00286693@@@3@V?$allocator@U?$pair@$$CBUTreeKey00286693@@UTreeMapped00286693@@@_STL@@@3@@_STL@@IAEPAU?$_Rb_tree_node@U?$pair@$$CBUTreeKey00286693@@UTreeMapped00286693@@@_STL@@@2@ABU?$pair@$$CBUTreeKey00286693@@UTreeMapped00286693@@@2@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?allocate@?$allocator@D@_STL@@SAPADIPBX@Z, ?Rva002889E4Construct@@YAXPAUTreeKey00242F5E@@ABU1@@Z; dc=1 vc=0)
+0x00686F4D	??1?$_Rb_tree@HU?$pair@$$CBHURva0028681ARecord@@@_STL@@U?$_Select1st@U?$pair@$$CBHURva0028681ARecord@@@_STL@@@2@U?$less@H@2@V?$allocator@U?$pair@$$CBHURva0028681ARecord@@@_STL@@@2@@_STL@@QAE@XZ	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (__EH_prolog, ?rva0028662D@Rva0028614C@@QAEXXZ; dc=2 vc=0)
+0x00686FBD	?rva0028688A@Rva0028688A@@QAE?AURva0028688AIter@@PAURva0028688ANode@@0ABURva0028688AKey@@0@Z	unchecked	Deferred to follow-up Local (146B; no class; dc=1 vc=0)
+0x00687375	sub_00687375	not reached	Compiler glue / non-code padding or jump-table fragment (dec ebp; int3; dc=0 vc=0)
+0x00687566	?rva00286E33@Rva0028688A@@QAE?AURva00286E33Result@@ABURva0028688AKey@@@Z	unchecked	Deferred to follow-up Local (149B; no class; dc=1 vc=0)
+0x0068825D	?rva00287B2A@Rva00286214@@QAE?AURva00287B2AResult@@PBVRva00285672@@@Z	unchecked	Deferred to follow-up Local (35B; no class; dc=2 vc=0)
+0x00688280	?_M_insert_overflow@?$vector@URva00287F76Element@@V?$allocator@URva00287F76Element@@@_STL@@@_STL@@IAEXPAURva00287F76Element@@ABU3@ABU__false_type@2@I_N@Z	unchecked	Deferred to follow-up Local (184B; no class; dc=1 vc=0)
+0x006886A9	?push_back@?$vector@URva00287F76Element@@V?$allocator@URva00287F76Element@@@_STL@@@_STL@@QAEXABURva00287F76Element@@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?Rva002861B0Copy@@YAXPAXPBX@Z, 0x6886db; dc=1 vc=0)
+0x006C8356	?rva002C760B@Rva002C7492@@QAEPAV1@HHHHHHHH@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?ji_006291c0@@YAXXZ; dc=1 vc=0)
+0x006CA14B	sub_006CA14B	unchecked	Deferred to follow-up Local (7B; no class; dc=3 vc=0)
+0x006CA248	?clipToTerrainExtent@@YAXAAUCoord3D@@@Z	unchecked	clipToTerrainExtent helper (dc=1 from unported Weapon::computeApproachTarget 0x6CBBC3)
+0x006CAA84	?makeAssistanceRequest@@YAHPAVObject@@PAX@Z	not reached	AssistedTargetingUpdate iterateObjectsInRange callback (0 active INI occurrences of AssistedTargetingUpdate in Ennorath)
+0x006CB690	?rva002CA970@Rva002CA9CA@@QAEXHHPBXH@Z	unchecked	WeaponTemplate preFireNuggets helper (dc=1 from Weapon::preFireWeapon 0x6CE95D); deferred to follow-up Local
+0x006CB98E	?rva002CAC6E@Rva002CA9CA@@QAEXHH@Z	unchecked	Deferred to follow-up Local (105B; no class; dc=5 vc=0)
+0x006CDDB8	??4?$vector@UCoord3D@@V?$allocator@UCoord3D@@@_STL@@@_STL@@QAEAAV01@ABV01@@Z	unchecked	Deferred to follow-up Local (209B; no class; dc=1 vc=0)
+0x006E77BF	??$__pop_heap_aux@PAUBfmeE8@@U1@P6A_NABU1@0@Z@_STL@@YAXPAUBfmeE8@@00P6A_NABU1@1@Z@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??$__pop_heap@PAUStringLookUp@@U1@URva002E5678Cmp@@H@_STL@@YAXPAUStringLookUp@@00U1@URva002E5678Cmp@@PAH@Z; dc=1 vc=0)
+0x0070755F	sub_0070755F	not reached	Unreferenced small helper (16B; dc=0 vc=0; no class)
+0x0070EDEF	?Rva0030D5EEConstruct@@YA?AVAsciiString@@ABV1@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??0?$StringBase@D@@AAE@ABV0@@Z; dc=1 vc=0)
+0x0072CF87	??$uninitialized_fill_n@PAURva00196D90Element@@IU1@@_STL@@YAPAURva00196D90Element@@PAU1@IABU1@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?__uninitialized_fill_n@_STL@@YAPAURva00196D90Element@@PAU2@IABU2@ABU__false_type@1@@Z; dc=1 vc=0)
+0x007303EB	?push_back@?$vector@UCoord3D@@V?$allocator@UCoord3D@@@_STL@@@_STL@@QAEXABUCoord3D@@@Z	unchecked	Deferred to follow-up Local (55B; no class; dc=1 vc=0)
+0x0076253C	sub_0076253C	not reached	Unreferenced small helper (21B; dc=0 vc=0; no class)
+0x00762551	??0Rva003608C9@@QAE@XZ	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (0x401399; dc=1 vc=0)
+0x007625A2	??$_Construct@U?$pair@$$CBW4NameKeyType@@VDamageFX@@@_STL@@U12@@_STL@@YAXPAU?$pair@$$CBW4NameKeyType@@VDamageFX@@@0@ABU10@@Z	unchecked	Deferred to follow-up Local (34B; no class; dc=1 vc=0)
+0x007625C4	?_M_new_node@?$hashtable@U?$pair@$$CBW4NameKeyType@@VDamageFX@@@_STL@@W4NameKeyType@@U?$hash@W4NameKeyType@@@rts@@U?$_Select1st@U?$pair@$$CBW4NameKeyType@@VDamageFX@@@_STL@@@2@U?$equal_to@W4NameKeyType@@@5@V?$allocator@U?$pair@$$CBW4NameKeyType@@VDamageFX@@@_STL@@@2@@_STL@@AAEPAU?$_Hashtable_node@U?$pair@$$CBW4NameKeyType@@VDamageFX@@@_STL@@@2@ABU?$pair@$$CBW4NameKeyType@@VDamageFX@@@2@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?allocate@?$allocator@D@_STL@@SAPADIPBX@Z, ??$_Construct@U?$pair@$$CBW4NameKeyType@@VDamageFX@@@_STL@@U12@@_STL@@YAXPAU?$pair@$$CBW4NameKeyType@@VDamageFX@@@0@ABU10@@Z; dc=1 vc=0)
+0x00762644	??1?$hashtable@U?$pair@$$CBW4NameKeyType@@VArmorTemplate@@@_STL@@W4NameKeyType@@U?$hash@W4NameKeyType@@@rts@@U?$_Select1st@U?$pair@$$CBW4NameKeyType@@VArmorTemplate@@@_STL@@@2@U?$equal_to@W4NameKeyType@@@2@V?$allocator@U?$pair@$$CBW4NameKeyType@@VArmorTemplate@@@_STL@@@2@@_STL@@QAE@XZ	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (__EH_prolog, ?clear@?$hashtable@U?$pair@$$CBW4NameKeyType@@VArmorTemplate@@@_STL@@W4NameKeyType@@U?$hash@W4NameKeyType@@@rts@@U?$_Select1st@U?$pair@$$CBW4NameKeyType@@VArmorTemplate@@@_STL@@@2@U?$equal_to@W4NameKeyType@@@5@V?$allocator@U?$pair@$$CBW4NameKeyType@@VArmorTemplate@@@_STL@@@2@@_STL@@QAEXXZ; dc=2 vc=0)
+0x0076267D	?_M_insert@?$hashtable@U?$pair@$$CBHURva003609F7Element@@@_STL@@HU?$hash@H@2@U?$_Select1st@U?$pair@$$CBHURva003609F7Element@@@_STL@@@2@U?$equal_to@H@2@V?$allocator@U?$pair@$$CBHURva003609F7Element@@@_STL@@@2@@_STL@@QAEAAU?$pair@$$CBHURva003609F7Element@@@2@ABU32@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?resize@?$hashtable@U?$pair@$$CBW4NameKeyType@@VArmorTemplate@@@_STL@@W4NameKeyType@@U?$hash@W4NameKeyType@@@rts@@U?$_Select1st@U?$pair@$$CBW4NameKeyType@@VArmorTemplate@@@_STL@@@2@U?$equal_to@W4NameKeyType@@@5@V?$allocator@U?$pair@$$CBW4NameKeyType@@VArmorTemplate@@@_STL@@@2@@_STL@@QAEXI@Z, ?_M_new_node@?$hashtable@U?$pair@$$CBW4NameKeyType@@VDamageFX@@@_STL@@W4NameKeyType@@U?$hash@W4NameKeyType@@@rts@@U?$_Select1st@U?$pair@$$CBW4NameKeyType@@VDamageFX@@@_STL@@@2@U?$equal_to@W4NameKeyType@@@5@V?$allocator@U?$pair@$$CBW4NameKeyType@@VDamageFX@@@_STL@@@2@@_STL@@AAEPAU?$_Hashtable_node@U?$pair@$$CBW4NameKeyType@@VDamageFX@@@_STL@@@2@ABU?$pair@$$CBW4NameKeyType@@VDamageFX@@@2@@Z; dc=1 vc=0)
+0x007627E3	??0?$hashtable@U?$pair@$$CBW4NameKeyType@@VArmorTemplate@@@_STL@@W4NameKeyType@@U?$hash@W4NameKeyType@@@rts@@U?$_Select1st@U?$pair@$$CBW4NameKeyType@@VArmorTemplate@@@_STL@@@2@U?$equal_to@W4NameKeyType@@@2@V?$allocator@U?$pair@$$CBW4NameKeyType@@VArmorTemplate@@@_STL@@@2@@_STL@@QAE@IABU?$hash@W4NameKeyType@@@rts@@ABU?$equal_to@W4NameKeyType@@@1@ABV?$allocator@U?$pair@$$CBW4NameKeyType@@VArmorTemplate@@@_STL@@@1@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (__EH_prolog, ??0?$vector@IV?$allocator@I@_STL@@@_STL@@QAE@ABV?$allocator@I@1@@Z; dc=1 vc=0)
+0x00762823	??0?$hash_map@W4NameKeyType@@VArmorTemplate@@U?$hash@W4NameKeyType@@@rts@@U?$equal_to@W4NameKeyType@@@_STL@@V?$allocator@U?$pair@$$CBW4NameKeyType@@VArmorTemplate@@@_STL@@@6@@_STL@@QAE@XZ	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??0?$hashtable@U?$pair@$$CBW4NameKeyType@@VArmorTemplate@@@_STL@@W4NameKeyType@@U?$hash@W4NameKeyType@@@rts@@U?$_Select1st@U?$pair@$$CBW4NameKeyType@@VArmorTemplate@@@_STL@@@2@U?$equal_to@W4NameKeyType@@@2@V?$allocator@U?$pair@$$CBW4NameKeyType@@VArmorTemplate@@@_STL@@@2@@_STL@@QAE@IABU?$hash@W4NameKeyType@@@rts@@ABU?$equal_to@W4NameKeyType@@@1@ABV?$allocator@U?$pair@$$CBW4NameKeyType@@VArmorTemplate@@@_STL@@@1@@Z; dc=1 vc=0)
+0x00793A27	sub_00793A27	not reached	Compiler glue: single-instruction thunk/stub (ret 4; dc=0 vc=0)
+0x00793A60	sub_00793A60	not reached	Unreferenced small helper (7B; dc=0 vc=0; no class)
+0x00793D8F	sub_00793D8F	not reached	Compiler glue: single-instruction thunk/stub (jmp dword ptr [ecx]; dc=0 vc=0)
+0x00793DB9	sub_00793DB9	too big	S-657: BuildAssistant wall end-hub link path (RW 0x793DB9 then slot 0x58) tracked under stop S-657
+0x00794370	??1Rva004D9A3C@@QAE@XZ	not reached	Compiler glue: MSVC multiple-inheritance this-adjustor thunk (add ecx, 0x14; jmp 0x435d50; dc=2 vc=0)
+0x007943BF	sub_007943BF	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?releaseBuffer@?$StringBase@D@@AAEXXZ; dc=0 vc=0)
+0x007943E1	sub_007943E1	not reached	Compiler glue / non-code padding or jump-table fragment (inc dword ptr [ebx - 0x7400e7b2]; dec ebp; hlt; dc=0 vc=0)
+0x007943F9	??_ERva004D9A3C@@QAEPAXI@Z	unchecked	Deferred to follow-up Local (75B; no class; dc=1 vc=0)
+0x00794444	??1Rva0039205C@@QAE@XZ	unchecked	Deferred to follow-up Local (26B; no class; dc=7 vc=0)
+0x0079445E	?rva00392092@Rva00392092Target@@QAEXXZ	unchecked	Deferred to follow-up Local (101B; no class; dc=12 vc=0)
+0x007944C3	?rva003920F7@Rva003920F7@@QAEXIPBURva003920F7Src@@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?rva00392092@Rva00392092Target@@QAEXXZ; dc=2 vc=0)
+0x007944F5	?rva00392129@Rva0039205C@@QAEXIM@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?rva00392092@Rva00392092Target@@QAEXXZ; dc=2 vc=0)
+0x0079452B	?rva0039215F@Rva0039205C@@QAEXIABVAsciiString@@@Z	unchecked	Deferred to follow-up Local (55B; no class; dc=2 vc=0)
+0x00794562	?rva00392196@Rva0039205C@@QAEXIH@Z	unchecked	Deferred to follow-up Local (50B; no class; dc=2 vc=0)
+0x00794594	?rva003921C8@Rva0039205C@@QAEXIE@Z	unchecked	Deferred to follow-up Local (50B; no class; dc=1 vc=0)
+0x007948BC	sub_007948BC	not reached	Compiler glue / non-code padding or jump-table fragment (dec ebp; hlt; dc=0 vc=0)
+0x00794A9C	sub_00794A9C	unchecked	568B BuildAssistant/Castle helper (evidence=data, dc=0 vc=0); deferred to follow-up Local
+0x00794E3E	sub_00794E3E	not reached	Compiler glue / non-code padding or jump-table fragment (pop eax; inc ebp; hlt; dc=0 vc=0)
+0x00794E98	sub_00794E98	not reached	Compiler glue / non-code padding or jump-table fragment (dec ebp; hlt; dc=0 vc=0)
+0x0079510D	?rva00392CAC@Rva0039205C@@QAEXXZ	unchecked	Deferred to follow-up Local (25B; no class; dc=2 vc=0)
+0x0079515A	?rva00392CF9@Rva0039205C@@QAEPAVRva004D9A3C@@I@Z	unchecked	Deferred to follow-up Local (36B; no class; dc=2 vc=0)
+0x0079517E	?rva00392D1D@Rva0039205C@@QAEMI@Z	unchecked	Deferred to follow-up Local (44B; no class; dc=2 vc=0)
+0x007951AA	?rva00392D49@Rva0039205C@@QAEEI@Z	unchecked	Deferred to follow-up Local (45B; no class; dc=1 vc=0)
+0x007951D2	?rva00392D71@Rva0039205C@@QAEHH@Z	unchecked	Deferred to follow-up Local (51B; no class; dc=3 vc=0)
+0x00796089	sub_00796089	not reached	Compiler glue / non-code padding or jump-table fragment (inc ebp; call 0x45897082; int3; dc=0 vc=0)
+0x007960C7	sub_007960C7	not reached	Compiler glue / non-code padding or jump-table fragment (dec ebp; hlt; dc=0 vc=0)
+0x0079654B	sub_0079654B	not reached	Compiler glue / non-code padding or jump-table fragment (push esi; cmp eax, 0xc38affcb; jmp 0x796565; dc=0 vc=0)
+0x00796A24	sub_00796A24	not reached	Compiler glue / non-code padding or jump-table fragment (ret 0x33; dc=0 vc=0)
+0x00796D1F	sub_00796D1F	not reached	Compiler glue / non-code padding or jump-table fragment (dec ebp; xchg esp, eax; leave; dc=0 vc=0)
+0x00797456	sub_00797456	not reached	Compiler glue / non-code padding or jump-table fragment (hlt; dc=0 vc=0)
+0x00797E22	?set@Rva0036BDD0@@QAEAAV1@PBURva0036BDD0Vec@@0@Z	unchecked	Deferred to follow-up Local (50B; no class; dc=1 vc=0)
+0x00797E54	sub_00797E54	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?set@?$StringBase@D@@QAEXABV1@@Z, ?set@?$StringBase@D@@QAEXABV1@@Z; dc=1 vc=0)
+0x00798177	?rva00395CEB@Rva00395CEB@@QAEXPAX@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?rva00395CEB@Rva00395CEB@@QAEXPAX@Z, 0x430170; dc=2 vc=0)
+0x007981A4	?rva00395D18@Rva00395D18@@QAEXPAX@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?rva00395D18@Rva00395D18@@QAEXPAX@Z, 0x430170; dc=2 vc=0)
+0x007981D1	?Rva00395D45Copy@@YAPAVRva0039597C@@PAV1@00@Z	unchecked	Deferred to follow-up Local (50B; no class; dc=1 vc=0)
+0x007985D3	?rva00396147@Rva00395D18@@QAEXXZ	unchecked	Deferred to follow-up Local (41B; no class; dc=1 vc=0)
+0x00798644	??$_Construct@UBfmeStringRecord00395E75@@U1@@_STL@@YAXPAUBfmeStringRecord00395E75@@ABU1@@Z	unchecked	Deferred to follow-up Local (45B; no class; dc=4 vc=0)
+0x00798671	??$_Construct@URva0039A48EElement@@U1@@_STL@@YAXPAURva0039A48EElement@@ABU1@@Z	unchecked	Deferred to follow-up Local (45B; no class; dc=4 vc=0)
+0x0079869E	??$__uninitialized_copy@PAURva0039A48EElement@@PAU1@@_STL@@YAPAURva0039A48EElement@@PAU1@00ABU__false_type@0@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (0x7986b9, ??$_Construct@UBfmeStringRecord00395E75@@U1@@_STL@@YAXPAUBfmeStringRecord00395E75@@ABU1@@Z; dc=1 vc=0)
+0x007986C4	??$__uninitialized_fill_n@PAURva0039A48EElement@@IU1@@_STL@@YAPAURva0039A48EElement@@PAU1@IABU1@ABU__false_type@0@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??$_Construct@UBfmeStringRecord00395E75@@U1@@_STL@@YAXPAUBfmeStringRecord00395E75@@ABU1@@Z; dc=1 vc=0)
+0x007986E9	?Rva00396260Copy@@YAPAVRva0039597C@@PAV1@00PAX@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??$__copy@PAURva00254D65Element@@PAU1@H@_STL@@YAPAURva00254D65Element@@PAU1@00ABUrandom_access_iterator_tag@0@PAH@Z; dc=3 vc=0)
+0x00798706	??$__uninitialized_copy@PBUBfmeStringRecord00395E75@@PAU1@@_STL@@YAPAUBfmeStringRecord00395E75@@PBU1@0PAU1@ABU__false_type@0@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (0x798721, ??$_Construct@URva0039A48EElement@@U1@@_STL@@YAXPAURva0039A48EElement@@ABU1@@Z; dc=1 vc=0)
+0x0079872C	??$__uninitialized_fill_n@PAUBfmeStringRecord00395E75@@IU1@@_STL@@YAPAUBfmeStringRecord00395E75@@PAU1@IABU1@ABU__false_type@0@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??$_Construct@URva0039A48EElement@@U1@@_STL@@YAXPAURva0039A48EElement@@ABU1@@Z; dc=1 vc=0)
+0x00798751	?Rva00396260Copy@@YAPAVRva0039597C@@PAV1@00PAX@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?Rva00395D45Copy@@YAPAVRva0039597C@@PAV1@00@Z; dc=1 vc=0)
+0x0079878B	??0Rva0039627D@@QAE@ABU0@@Z	unchecked	Deferred to follow-up Local (29B; no class; dc=2 vc=0)
+0x007987A0	??_GRva00395D77@@QAEPAXI@Z	not reached	Compiler glue / non-code padding or jump-table fragment (push es; add byte ptr [ebx + 0x4c25ec6], cl; add byte ptr [esi - 0x75], dl; dc=0 vc=0)
+0x00798970	sub_00798970	not reached	Compiler glue / non-code padding or jump-table fragment (inc ebp; int3; dc=0 vc=0)
+0x00798AB3	sub_00798AB3	not reached	Compiler glue / non-code padding or jump-table fragment (leave; jmp ptr [eax + 0x3f]; dc=0 vc=0)
+0x00798BF0	sub_00798BF0	not reached	Compiler glue / non-code padding or jump-table fragment (hlt; dc=0 vc=0)
+0x00798C01	?rva00396722@Rva00396722@@QAE_NPAX@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?_M_increment@?$_Rb_global@_N@_STL@@SAPAU_Rb_tree_node_base@2@PAU32@@Z, 0x798c7b; dc=1 vc=0)
+0x00798CA8	?rva003967A5@@YAXPAVRva003967A5Owner@@HH@Z	unchecked	Deferred to follow-up Local (261B; no class; dc=0 vc=0)
+0x00798CC4	sub_00798CC4	not reached	Compiler glue / non-code padding or jump-table fragment (stc; jmp dword ptr [ecx]; dc=0 vc=0)
+0x00798DAD	sub_00798DAD	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??0?$_Vector_base@HV?$Rva002444BEAllocator@H@@@_STL@@QAE@IABV?$Rva002444BEAllocator@H@@@Z, ??$fill_n@PAPAXIPAX@_STL@@YAPAPAXPAPAXIABQAX@Z; dc=2 vc=0)
+0x00798DD8	sub_00798DD8	not reached	Compiler glue / non-code padding or jump-table fragment (add cl, ch; int3; dc=0 vc=0)
+0x00798DDE	??1Rva00395CEB@@QAE@XZ	unchecked	Deferred to follow-up Local (56B; no class; dc=2 vc=0)
+0x00798E16	??1Rva00395D18@@QAE@XZ	unchecked	Deferred to follow-up Local (56B; no class; dc=2 vc=0)
+0x00798E4E	?Rva00396943Construct@@YA?AURva0039627D@@PAPAXABUBfmeStringRecord004071F7@@@Z	unchecked	Deferred to follow-up Local (27B; no class; dc=1 vc=0)
+0x00798E72	??$_Construct@UBfmeStringRecord00395E75@@U1@@_STL@@YAXPAUBfmeStringRecord00395E75@@ABU1@@Z	unchecked	Deferred to follow-up Local (45B; no class; dc=1 vc=0)
+0x00798EAD	?rva00396999@@YAXPAV?$vector@W4ObjectID@@V?$allocator@W4ObjectID@@@_STL@@@_STL@@PAVPlayer@@1@Z	too big	S-952: CastleBehavior team-change list broadcast (+0x50/+0x5C/+0x68/+0x74) tracked under CastleBehavior stops
+0x007990D9	?Rva00396BC5SetCastleId@@YAXPAV?$vector@W4ObjectID@@V?$allocator@W4ObjectID@@@_STL@@@_STL@@W4ObjectID@@@Z	too big	S-952: CastleBehavior member+0x14 keep ID propagation at unpack tracked under stop S-952
+0x00799422	sub_00799422	not reached	Compiler glue / non-code padding or jump-table fragment (dec ebp; hlt; dc=0 vc=0)
+0x00799F33	sub_00799F33	not reached	Unreferenced small helper (24B; dc=0 vc=0; no class)
+0x0079A1A8	?rva00397C94@Rva00397C94@@QAEXPAURva00397C94Node@@@Z	unchecked	Deferred to follow-up Local (53B; no class; dc=2 vc=0)
+0x0079A1FF	??$_Destroy@PAURva00395D77@@@_STL@@YAXPAURva00395D77@@0@Z	unchecked	Deferred to follow-up Local (25B; no class; dc=3 vc=0)
+0x0079A3D9	?isPlayerAllowedToCapture@Rva00397EAC@@QAE_NPAVPlayer@@H@Z	unchecked	Deferred to follow-up Local (153B; no class; dc=1 vc=0)
+0x0079A784	?rva00398257@Rva00397C94@@QAEXXZ	unchecked	Deferred to follow-up Local (41B; no class; dc=2 vc=0)
+0x0079A7AD	?Rva00398280Xfer@@YAPAVXfer@@PAV1@PAV?$vector@W4ScienceType@@V?$allocator@W4ScienceType@@@_STL@@@_STL@@@Z	unchecked	Deferred to follow-up Local (204B; no class; dc=2 vc=0)
+0x0079A879	?rva0039834C@Rva0039834C@@QAEXAAPAURvaNode0039834C@@PAU2@1PBURva0039627D@@1@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?_M_create_node@?$_Rb_tree@V?$basic_string@DV?$char_traits@D@_STL@@V?$allocator@D@2@@_STL@@U?$pair@$$CBV?$basic_string@DV?$char_traits@D@_STL@@V?$allocator@D@2@@_STL@@I@2@U?$_Select1st@U?$pair@$$CBV?$basic_string@DV?$char_traits@D@_STL@@V?$allocator@D@2@@_STL@@I@_STL@@@2@U?$less@V?$basic_string@DV?$char_traits@D@_STL@@V?$allocator@D@2@@_STL@@@2@V?$allocator@U?$pair@$$CBV?$basic_string@DV?$char_traits@D@_STL@@V?$allocator@D@2@@_STL@@I@_STL@@@2@@_STL@@IAEPAU?$_Rb_tree_node@U?$pair@$$CBV?$basic_string@DV?$char_traits@D@_STL@@V?$allocator@D@2@@_STL@@I@_STL@@@2@ABU?$pair@$$CBV?$basic_string@DV?$char_traits@D@_STL@@V?$allocator@D@2@@_STL@@I@2@@Z, 0x79a8d9; dc=1 vc=0)
+0x0079B588	sub_0079B588	not reached	Unreferenced small helper (7B; dc=0 vc=0; no class)
+0x0079B6FF	sub_0079B6FF	not reached	Unreferenced small helper (22B; dc=0 vc=0; no class)
+0x0079B7A2	??1Rva00397C94@@QAE@XZ	unchecked	Deferred to follow-up Local (56B; no class; dc=2 vc=0)
+0x0079B7DA	?rva003992B0@Rva0039834C@@QAEPAURvaInsertOut@@PAU2@PBURva0039627D@@@Z	unchecked	Deferred to follow-up Local (134B; no class; dc=1 vc=0)
+0x0079BCDE	?rva003997CD@Rva00399800@@QAEPAVRva0039597C@@PAV2@0@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?Rva00396260Copy@@YAPAVRva0039597C@@PAV1@00PAX@Z, ??$_Destroy@PAURva00395D77@@@_STL@@YAXPAURva00395D77@@0@Z; dc=1 vc=0)
+0x0079BD11	??1Rva00399800@@QAE@XZ	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??$_Destroy@PAURva00395D77@@@_STL@@YAXPAURva00395D77@@0@Z, 0x430170; dc=1 vc=0)
+0x0079C3DA	?_M_insert_overflow@?$vector@URva0039A48EElement@@V?$allocator@URva0039A48EElement@@@_STL@@@_STL@@IAEXPAURva0039A48EElement@@ABU3@ABU__false_type@2@I_N@Z	unchecked	Deferred to follow-up Local (178B; no class; dc=1 vc=0)
+0x0079C48C	?_M_insert_overflow@?$vector@UBfmeStringRecord00395E75@@V?$allocator@UBfmeStringRecord00395E75@@@_STL@@@_STL@@IAEXPAUBfmeStringRecord00395E75@@ABU3@ABU__false_type@2@I_N@Z	unchecked	Deferred to follow-up Local (183B; no class; dc=1 vc=0)
+0x0079C566	sub_0079C566	not reached	Compiler glue / non-code padding or jump-table fragment (push es; mov al, 0xf; ret; dc=0 vc=0)
+0x0079C9AA	?push_back@?$vector@URva0039A48EElement@@V?$allocator@URva0039A48EElement@@@_STL@@@_STL@@QAEXABURva0039A48EElement@@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??$_Construct@UBfmeStringRecord00395E75@@U1@@_STL@@YAXPAUBfmeStringRecord00395E75@@ABU1@@Z, 0x79c9dc; dc=1 vc=0)
+0x0079C9E1	?push_back@?$vector@UBfmeStringRecord00395E75@@V?$allocator@UBfmeStringRecord00395E75@@@_STL@@@_STL@@QAEXABUBfmeStringRecord00395E75@@@Z	unchecked	Deferred to follow-up Local (55B; no class; dc=1 vc=0)
+0x007AAA8D	??1Rva005FEAD0DefaultModule7@FXParticleSystem@@UAE@XZ	not reached	Compiler glue: single-instruction thunk/stub (jmp 0x7a9306; dc=1 vc=0)
+0x007B0F6F	?rva003B0433@Rva003B0433@@QAEXAAPBVModuleData@@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?push_back@?$vector@PBVModuleData@@V?$allocator@PBVModuleData@@@_STL@@@_STL@@QAEXABQBVModuleData@@@Z, ??$push_heap@PAHU?$greater@H@_STL@@@_STL@@YAXPAH0U?$greater@H@0@@Z; dc=2 vc=0)
+0x007B1C26	sub_007B1C26	not reached	Compiler glue / non-code padding or jump-table fragment (dec ebp; hlt; dc=0 vc=0)
+0x007B2029	sub_007B2029	not reached	Compiler glue / non-code padding or jump-table fragment (sub eax, 0xec83ffc9; sbb al, 0x8b; int3; dc=0 vc=0)
+0x007FB7A7	??0Rva003F9FA9@@QAE@ABVAsciiString@@@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=1 vc=0), rebuilt on Godot
+0x007FBBD7	??0Upgrades@CashHackSpecialPowerModuleData@@QAE@HABH@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=1 vc=0), rebuilt on Godot
+0x007FBBFA	??0Upgrades@CashHackSpecialPowerModuleData@@QAE@ABU01@@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=1 vc=0), rebuilt on Godot
+0x007FBC1E	??$_Construct@UUpgrades@CashHackSpecialPowerModuleData@@U12@@_STL@@YAXPAUUpgrades@CashHackSpecialPowerModuleData@@ABU12@@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=4 vc=0), rebuilt on Godot
+0x007FBC30	??$__uninitialized_copy@PAUUpgrades@CashHackSpecialPowerModuleData@@PAU12@@_STL@@YAPAUUpgrades@CashHackSpecialPowerModuleData@@PAU12@00ABU__false_type@0@@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=1 vc=0), rebuilt on Godot
+0x007FBC56	??$__uninitialized_fill_n@PAUUpgrades@CashHackSpecialPowerModuleData@@IU12@@_STL@@YAPAUUpgrades@CashHackSpecialPowerModuleData@@PAU12@IABU12@ABU__false_type@0@@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=1 vc=0), rebuilt on Godot
+0x007FBC7B	?rva003FA430@Rva003FA430@@QAE_NH@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=1 vc=0), rebuilt on Godot
+0x007FBD26	?_M_insert_overflow@?$vector@UUpgrades@CashHackSpecialPowerModuleData@@V?$allocator@UUpgrades@CashHackSpecialPowerModuleData@@@_STL@@@_STL@@IAEXPAUUpgrades@CashHackSpecialPowerModuleData@@ABU34@ABU__false_type@2@I_N@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=1 vc=0), rebuilt on Godot
+0x007FBE19	?push_back@?$vector@UUpgrades@CashHackSpecialPowerModuleData@@V?$allocator@UUpgrades@CashHackSpecialPowerModuleData@@@_STL@@@_STL@@QAEXABUUpgrades@CashHackSpecialPowerModuleData@@@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=1 vc=0), rebuilt on Godot
+0x007FBEA6	?rva003FA681@Rva003FA681@@QAEXHABH@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=1 vc=0), rebuilt on Godot
+0x007FCD9B	?rva003B1017@Rva003B1017@@QAEXPAVINI@@PAX@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=1 vc=0), rebuilt on Godot
+0x0080014F	?enablePlayerMagicButton@@YAX_N@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=1 vc=0), rebuilt on Godot
+0x008001AF	?setHideScroll@@YAXXZ	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=3 vc=0), rebuilt on Godot
+0x008001E8	?setPlayerButtonsState@@YAX_N@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=1 vc=0), rebuilt on Godot
+0x0080027F	?playCommandPointEffect@@YAXXZ	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=1 vc=0), rebuilt on Godot
+0x0080029E	?playPlayerSpellPointEffect@@YAXXZ	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=1 vc=0), rebuilt on Godot
+0x008002DC	?playPlayerLevelUpEffect@@YAXXZ	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=1 vc=0), rebuilt on Godot
+0x00800306	sub_00800306	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=1 vc=0), rebuilt on Godot
+0x00800336	?setResourceIconState@@YAX_N@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=1 vc=0), rebuilt on Godot
+0x008047F9	??0Rva00402BE3@@QAE@ABVAsciiString@@@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=1 vc=0), rebuilt on Godot
+0x00804AD4	??0Rva00402EFA@@QAE@ABVAsciiString@@@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=1 vc=0), rebuilt on Godot
+0x0080FB2E	??$_Construct@UUpgrades@CashHackSpecialPowerModuleData@@U12@@_STL@@YAXPAUUpgrades@CashHackSpecialPowerModuleData@@ABU12@@Z	unchecked	Deferred to follow-up Local (18B; no class; dc=4 vc=0)
+0x0080FB40	??$__uninitialized_copy@PAUUpgrades@CashHackSpecialPowerModuleData@@PAU12@@_STL@@YAPAUUpgrades@CashHackSpecialPowerModuleData@@PAU12@00ABU__false_type@0@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (0x80fb5b, ??$_Construct@UUpgrades@CashHackSpecialPowerModuleData@@U12@@_STL@@YAXPAUUpgrades@CashHackSpecialPowerModuleData@@ABU12@@Z; dc=3 vc=0)
+0x0081312E	?allocate@?$allocator@UBfmeStringRecord000B9534@@@_STL@@QBEPAUBfmeStringRecord000B9534@@IPBX@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?allocate@?$allocator@D@_STL@@SAPADIPBX@Z, 0x813147; dc=22 vc=0)
+0x008286CC	?rva003B1017@Rva003B1017@@QAEXPAVINI@@PAX@Z	unchecked	Deferred to follow-up Local (234B; no class; dc=1 vc=0)
+0x00828B2F	?Rva0041826BConstruct@@YAXPAVRva004181F5@@PBV1@@Z	unchecked	Deferred to follow-up Local (45B; no class; dc=1 vc=0)
+0x0082C119	?Rva0041B80FCheck@@YA_NPAVObject@@0@Z	unchecked	Deferred to follow-up Local (78B; no class; dc=1 vc=0)
+0x00833C59	??0?$vector@V?$vector@UBfmePod88@@V?$allocator@UBfmePod88@@@_STL@@@_STL@@V?$allocator@V?$vector@UBfmePod88@@V?$allocator@UBfmePod88@@@_STL@@@_STL@@@2@@_STL@@QAE@ABV01@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (__EH_prolog, ?get_allocator@?$vector@VCreateAHeroSubClass@CreateAHeroManager@@V?$allocator@VCreateAHeroSubClass@CreateAHeroManager@@@_STL@@@_STL@@QBE?AV?$allocator@VCreateAHeroSubClass@CreateAHeroManager@@@2@XZ; dc=1 vc=0)
+0x0083D4A3	?doAttackMoveCommand@@YAHPAXPAUICoord2D@@@Z	unchecked	Deferred to follow-up Local (154B; no class; dc=1 vc=0)
+0x00860165	??1Rva0045D137@@QAE@XZ	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (__EH_prolog, ??$_Destroy@PAUOpaqueRefElement4@@@_STL@@YAXPAUOpaqueRefElement4@@0@Z; dc=1 vc=0)
+0x008601EB	sub_008601EB	unchecked	Deferred to follow-up Local (67B; no class; dc=0 vc=0)
+0x0086022E	sub_0086022E	unchecked	Deferred to follow-up Local (113B; no class; dc=0 vc=0)
+0x00860324	sub_00860324	unchecked	Deferred to follow-up Local (105B; no class; dc=0 vc=0)
+0x0086038D	sub_0086038D	not reached	Unreferenced small helper (34B; dc=0 vc=0; no class)
+0x008608B5	??0Rva0045D887@@QAE@HHHHHH@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?ji_006291c0@@YAXXZ; dc=1 vc=0)
+0x00865C86	??$_Construct@VRva0046267A@@V1@@_STL@@YAXPAVRva0046267A@@ABV1@@Z	unchecked	Deferred to follow-up Local (18B; no class; dc=1 vc=0)
+0x0086DB90	??$_Construct@VRva00469BEA@@V1@@_STL@@YAXPAVRva00469BEA@@ABV1@@Z	unchecked	Deferred to follow-up Local (18B; no class; dc=1 vc=0)
+0x0087B994	sub_0087B994	unchecked	Deferred to follow-up Local (114B; no class; dc=1 vc=0)
+0x00889200	sub_00889200	not reached	Unreferenced small helper (34B; dc=0 vc=0; no class)
+0x008899F7	sub_008899F7	not reached	Unreferenced small helper (34B; dc=0 vc=0; no class)
+0x0088C1BC	??1?$pair@$$CBVAsciiString@@UTreeHintPayload005B3786@@@_STL@@QAE@XZ	not reached	Compiler glue: single-instruction thunk/stub (jmp 0x66e524; dc=1 vc=0)
+0x0088EFEB	?Rva0048B97A_InitObject@@YAXPAVINI@@PAXHH@Z	unchecked	Deferred to follow-up Local (58B; no class; dc=1 vc=0)
+0x008A032B	?Rva0049CBA0_InitObject@@YAXPAVINI@@PAXHH@Z	unchecked	Deferred to follow-up Local (58B; no class; dc=1 vc=0)
+0x008B96DC	?rva004B554F@Rva004B554FHolder@@QBEHXZ	unchecked	Deferred to follow-up Local (16B; no class; dc=1 vc=0)
+0x008BE319	??1Rva004BA1D0@@QAE@XZ	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??0?$vector@VAsciiString@@V?$allocator@VAsciiString@@@_STL@@@_STL@@QAE@ABV01@@Z; dc=2 vc=0)
+0x008BE362	??$_Construct@VRva004BA1D0@@V1@@_STL@@YAXPAVRva004BA1D0@@ABV1@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (__EH_prolog, ??1Rva004BA1D0@@QAE@XZ; dc=4 vc=0)
+0x008BE38F	??$__uninitialized_copy@PBVRva004BA1D0@@PAV1@@_STL@@YAPAVRva004BA1D0@@PBV1@0PAV1@ABU__false_type@0@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (0x8be3aa, ??$_Construct@VRva004BA1D0@@V1@@_STL@@YAXPAVRva004BA1D0@@ABV1@@Z; dc=1 vc=0)
+0x008BE3B5	??$__uninitialized_fill_n@PAVRva004BA1D0@@IV1@@_STL@@YAPAVRva004BA1D0@@PAV1@IABV1@ABU__false_type@0@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??$_Construct@VRva004BA1D0@@V1@@_STL@@YAXPAVRva004BA1D0@@ABV1@@Z; dc=1 vc=0)
+0x008BE3DA	??4Rva004BA1C8@@QAEAAV0@ABV0@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??4?$vector@VAsciiString@@V?$allocator@VAsciiString@@@_STL@@@_STL@@QAEAAV01@ABV01@@Z; dc=1 vc=0)
+0x008BE46D	?Rva004BA324CopyRange@@YAPAVRva004BA1C8@@PAV1@00H@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??$__copy@PAVScoredKillTracker@@PAV1@H@_STL@@YAPAVScoredKillTracker@@PAV1@00ABUrandom_access_iterator_tag@0@PAH@Z; dc=1 vc=0)
+0x008BE4E2	?EraseRange@Rva004BA399Vector@@QAEPAVRva004BA1C8@@PAV2@0@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?Rva004BA324CopyRange@@YAPAVRva004BA1C8@@PAV1@00H@Z, ?Rva004BA341DestroyRange@@YAXPAVRva004BA1C8@@0@Z; dc=1 vc=0)
+0x008BE515	?clear@Rva004BA3CC@@QAEXXZ	unchecked	Deferred to follow-up Local (30B; no class; dc=1 vc=0)
+0x008BE61C	?_M_insert_overflow@?$vector@VRva004BA1D0@@V?$allocator@VRva004BA1D0@@@_STL@@@_STL@@IAEXPAVRva004BA1D0@@ABV3@ABU__false_type@2@I_N@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (0x824c2e, ??$__uninitialized_copy@PBVRva004BA1D0@@PAV1@@_STL@@YAPAVRva004BA1D0@@PBV1@0PAV1@ABU__false_type@0@@Z; dc=1 vc=0)
+0x008BE929	?push_back@?$vector@VRva004BA1D0@@V?$allocator@VRva004BA1D0@@@_STL@@@_STL@@QAEXABVRva004BA1D0@@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??$_Construct@VRva004BA1D0@@V1@@_STL@@YAXPAVRva004BA1D0@@ABV1@@Z, 0x8be95b; dc=2 vc=0)
+0x008C2267	?rva004BE0C7@Rva004BE0C7@@QAEPAXI@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (0x8c228e; dc=1 vc=0)
+0x008C2291	?setBitByName@?$BitFlags@$0BF@@@QAE_NPBD@Z	unchecked	Deferred to follow-up Local (47B; no class; dc=1 vc=0)
+0x008C28C2	?rva004BE722@Rva004BE722@@QAEXPAX@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?ji_006291c0@@YAXXZ; dc=1 vc=0)
+0x008C2921	?xfer@?$BitFlags@$0BF@@@QAEXPAVXfer@@@Z	unchecked	Deferred to follow-up Local (316B; no class; dc=1 vc=0)
+0x008C366E	??4?$vector@UBfmeE12@@V?$allocator@UBfmeE12@@@_STL@@@_STL@@QAEAAV01@ABV01@@Z	unchecked	Deferred to follow-up Local (209B; no class; dc=1 vc=0)
+0x008C5D25	??1Rva004C1B7B@@UAE@XZ	not reached	Compiler glue: single-instruction thunk/stub (jmp 0x8c5713; dc=1 vc=0)
+0x008C6269	sub_008C6269	not reached	S-7191: PorcupineFormationBodyModule dead-branch 3D range helper (gate 0x8C6244 always returns 0 at 0x8C6266)
+0x008C6843	sub_008C6843	unchecked	Deferred to follow-up Local (50B; no class; dc=1 vc=0)
+0x008C74A7	?Rva004BA324CopyRange@@YAPAVRva004BA1C8@@PAV1@00H@Z	unchecked	Deferred to follow-up Local (29B; no class; dc=4 vc=0)
+0x008C7D42	?Rva004C3A9FConstruct@@YAXPAXPBX@Z	unchecked	Deferred to follow-up Local (45B; no class; dc=4 vc=0)
+0x008C7D6F	??$__uninitialized_copy@PAUBfmePod8@@PAU1@@_STL@@YAPAUBfmePod8@@PAU1@00ABU__false_type@0@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (0x8c7d8a, ?Rva004C3A9FConstruct@@YAXPAXPBX@Z; dc=1 vc=0)
+0x008C7D95	??$__uninitialized_fill_n@PAURva004C3AF2Element@@IU1@@_STL@@YAPAURva004C3AF2Element@@PAU1@IABU1@ABU__false_type@0@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?Rva004C3A9FConstruct@@YAXPAXPBX@Z; dc=1 vc=0)
+0x008C7FEF	??1?$vector@URvaPair004C3D4C@@V?$allocator@URvaPair004C3D4C@@@_STL@@@_STL@@QAE@XZ	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (__EH_prolog, ??$_Destroy@PAURva00511E48@@@_STL@@YAXPAURva00511E48@@0@Z; dc=2 vc=0)
+0x008C8079	?_M_insert_overflow@?$vector@URva004C3F09Element@@V?$allocator@URva004C3F09Element@@@_STL@@@_STL@@IAEXPAURva004C3F09Element@@ABU3@ABU__false_type@2@I_N@Z	unchecked	Deferred to follow-up Local (178B; no class; dc=1 vc=0)
+0x008CB401	sub_008CB401	not reached	Unreferenced small helper (24B; dc=0 vc=0; no class)
+0x008CB419	?Rva004C6FD0Insert@@YAXPAXURva004C6FD0Val@@P6A_N00@Z@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (0x8cb435; dc=2 vc=0)
+0x008CB452	sub_008CB452	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (0x8cb495; dc=1 vc=0)
+0x008CB513	??$__unguarded_insertion_sort_aux@PAUBfmeE8@@U1@P6A_NABU1@0@Z@_STL@@YAXPAUBfmeE8@@00P6A_NABU1@1@Z@Z	unchecked	Deferred to follow-up Local (36B; no class; dc=1 vc=0)
+0x008CB537	??$__adjust_heap@PAUBfmeE8@@HU1@P6A_NABU1@0@Z@_STL@@YAXPAUBfmeE8@@HHU1@P6A_NABU1@2@Z@Z	unchecked	Deferred to follow-up Local (111B; no class; dc=2 vc=0)
+0x008CB612	??$__unguarded_partition@PAUBfmeE8@@U1@P6A_NABU1@0@Z@_STL@@YAPAUBfmeE8@@PAU1@0U1@P6A_NABU1@2@Z@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (0x8cb622, ??$swap@URva005A9125Element@@@_STL@@YAXAAURva005A9125Element@@0@Z; dc=1 vc=0)
+0x008CB656	??$__unguarded_insertion_sort@PAUBfmeE8@@P6A_NABU1@0@Z@_STL@@YAXPAUBfmeE8@@0P6A_NABU1@1@Z@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??$__unguarded_insertion_sort_aux@PAUBfmeE8@@U1@P6A_NABU1@0@Z@_STL@@YAXPAUBfmeE8@@00P6A_NABU1@1@Z@Z; dc=1 vc=0)
+0x008CB66D	??$__pop_heap@PAUBfmeE8@@U1@P6A_NABU1@0@ZH@_STL@@YAXPAUBfmeE8@@00U1@P6A_NABU1@2@ZPAH@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??$__adjust_heap@PAUBfmeE8@@HU1@P6A_NABU1@0@Z@_STL@@YAXPAUBfmeE8@@HHU1@P6A_NABU1@2@Z@Z; dc=2 vc=0)
+0x008CB69F	??$__make_heap@PAUBfmeE8@@P6A_NABU1@0@ZU1@H@_STL@@YAXPAUBfmeE8@@0P6A_NABU1@1@Z0PAH@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (0x8cb6e0, ??$__adjust_heap@PAUBfmeE8@@HU1@P6A_NABU1@0@Z@_STL@@YAXPAUBfmeE8@@HHU1@P6A_NABU1@2@Z@Z; dc=1 vc=0)
+0x008CB6F1	??$__pop_heap_aux@PAUBfmeE8@@U1@P6A_NABU1@0@Z@_STL@@YAXPAUBfmeE8@@00P6A_NABU1@1@Z@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??$__pop_heap@PAUBfmeE8@@U1@P6A_NABU1@0@ZH@_STL@@YAXPAUBfmeE8@@00U1@P6A_NABU1@2@ZPAH@Z; dc=1 vc=0)
+0x008CB712	??$make_heap@PAUBfmeE8@@P6A_NABU1@0@Z@_STL@@YAXPAUBfmeE8@@0P6A_NABU1@1@Z@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??$__make_heap@PAUBfmeE8@@P6A_NABU1@0@ZU1@H@_STL@@YAXPAUBfmeE8@@0P6A_NABU1@1@Z0PAH@Z; dc=1 vc=0)
+0x008CB72B	??$pop_heap@PAUBfmeE8@@P6A_NABU1@0@Z@_STL@@YAXPAUBfmeE8@@0P6A_NABU1@1@Z@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??$__pop_heap_aux@PAUBfmeE8@@U1@P6A_NABU1@0@Z@_STL@@YAXPAUBfmeE8@@00P6A_NABU1@1@Z@Z; dc=1 vc=0)
+0x008CB7ED	?Rva004C73C5Insert@@YAXPAX0URva004C6FD0Val@@P6A_N00@Z@Z	unchecked	Deferred to follow-up Local (74B; no class; dc=1 vc=0)
+0x008CB837	??$sort_heap@PAUBfmeE8@@P6A_NABU1@0@Z@_STL@@YAXPAUBfmeE8@@0P6A_NABU1@1@Z@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??$pop_heap@PAUBfmeE8@@P6A_NABU1@0@Z@_STL@@YAXPAUBfmeE8@@0P6A_NABU1@1@Z@Z; dc=1 vc=0)
+0x008CB871	?Rva004C7449Sort@@YAXPAX0P6A_N00@Z@Z	unchecked	Deferred to follow-up Local (48B; no class; dc=1 vc=0)
+0x008CB8A1	??$__partial_sort@PAUBfmeE8@@U1@P6A_NABU1@0@Z@_STL@@YAXPAUBfmeE8@@000P6A_NABU1@1@Z@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??$make_heap@PAUBfmeE8@@P6A_NABU1@0@Z@_STL@@YAXPAUBfmeE8@@0P6A_NABU1@1@Z@Z, ??$__pop_heap@PAUBfmeE8@@U1@P6A_NABU1@0@ZH@_STL@@YAXPAUBfmeE8@@00U1@P6A_NABU1@2@ZPAH@Z; dc=1 vc=0)
+0x008CB8FC	??$__final_insertion_sort@PAUBfmeE8@@P6A_NABU1@0@Z@_STL@@YAXPAUBfmeE8@@0P6A_NABU1@1@Z@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?Rva004C7449Sort@@YAXPAX0P6A_N00@Z@Z, ??$__unguarded_insertion_sort@PAUBfmeE8@@P6A_NABU1@0@Z@_STL@@YAXPAUBfmeE8@@0P6A_NABU1@1@Z@Z; dc=1 vc=0)
+0x008CB946	??$partial_sort@PAUBfmeE8@@P6A_NABU1@0@Z@_STL@@YAXPAUBfmeE8@@00P6A_NABU1@1@Z@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??$__partial_sort@PAUBfmeE8@@U1@P6A_NABU1@0@Z@_STL@@YAXPAUBfmeE8@@000P6A_NABU1@1@Z@Z; dc=1 vc=0)
+0x008CB961	??$__introsort_loop@PAUBfmeE8@@U1@HP6A_NABU1@0@Z@_STL@@YAXPAUBfmeE8@@00HP6A_NABU1@1@Z@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?Rva004C6F77Median@@YAPAXPAX00P6A_N00@Z@Z, ??$__unguarded_partition@PAUBfmeE8@@U1@P6A_NABU1@0@Z@_STL@@YAPAUBfmeE8@@PAU1@0U1@P6A_NABU1@2@Z@Z; dc=2 vc=0)
+0x008CB9E4	??$sort@PAUBfmeE8@@P6A_NABU1@0@Z@_STL@@YAXPAUBfmeE8@@0P6A_NABU1@1@Z@Z	unchecked	Deferred to follow-up Local (67B; no class; dc=1 vc=0)
+0x008CF2FE	?_M_clear@?$vector@URva004C7878Record@@V?$allocator@URva004C7878Record@@@_STL@@@_STL@@IAEXXZ	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??$_Destroy@PAUBfmeObject544@@@_STL@@YAXPAUBfmeObject544@@0@Z, 0x430170; dc=1 vc=0)
+0x008CFE10	?_M_clear@?$vector@URva004C7878Record@@V?$allocator@URva004C7878Record@@@_STL@@@_STL@@IAEXXZ	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??$_Destroy@PAUBfmeRecordOwner900@@@_STL@@YAXPAUBfmeRecordOwner900@@0@Z, 0x430170; dc=1 vc=0)
+0x008D064A	?_M_clear@?$vector@URva004C7878Record@@V?$allocator@URva004C7878Record@@@_STL@@@_STL@@IAEXXZ	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??$_Destroy@PAUBfmeStringTailRecord156@@@_STL@@YAXPAUBfmeStringTailRecord156@@0@Z, 0x430170; dc=1 vc=0)
+0x008E9977	??$_Construct@VRva004E5012@@V1@@_STL@@YAXPAVRva004E5012@@ABV1@@Z	unchecked	Deferred to follow-up Local (45B; no class; dc=1 vc=0)
+0x008EC506	??1Rva003F9FE6@@QAE@XZ	unchecked	Deferred to follow-up Local (81B; no class; dc=1 vc=0)
+0x008EDA1D	?rva004E9337@Rva004E9337@@QAEXXZ	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?erase@?$vector@PAXV?$allocator@PAX@_STL@@@_STL@@QAEPAPAXPAPAX0@Z, 0x430170; dc=1 vc=0)
+0x008FB89A	??$_Construct@URva004F6352@@U1@@_STL@@YAXPAURva004F6352@@ABU1@@Z	unchecked	Deferred to follow-up Local (18B; no class; dc=4 vc=0)
+0x009067B9	??0?$vector@V?$vector@UBfmePod88@@V?$allocator@UBfmePod88@@@_STL@@@_STL@@V?$allocator@V?$vector@UBfmePod88@@V?$allocator@UBfmePod88@@@_STL@@@_STL@@@2@@_STL@@QAE@ABV01@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (__EH_prolog, ?get_allocator@?$vector@VCreateAHeroSubClass@CreateAHeroManager@@V?$allocator@VCreateAHeroSubClass@CreateAHeroManager@@@_STL@@@_STL@@QBE?AV?$allocator@VCreateAHeroSubClass@CreateAHeroManager@@@2@XZ; dc=2 vc=0)
+0x00906D52	??0?$vector@V?$vector@UBfmePod88@@V?$allocator@UBfmePod88@@@_STL@@@_STL@@V?$allocator@V?$vector@UBfmePod88@@V?$allocator@UBfmePod88@@@_STL@@@_STL@@@2@@_STL@@QAE@ABV01@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (__EH_prolog, ?get_allocator@?$vector@VCreateAHeroSubClass@CreateAHeroManager@@V?$allocator@VCreateAHeroSubClass@CreateAHeroManager@@@_STL@@@_STL@@QBE?AV?$allocator@VCreateAHeroSubClass@CreateAHeroManager@@@2@XZ; dc=2 vc=0)
+0x0090DB70	??$__destroy_aux@PAUBfmeStringRecord00426A5B@@@_STL@@YAXPAUBfmeStringRecord00426A5B@@0ABU__false_type@0@@Z	unchecked	Deferred to follow-up Local (25B; no class; dc=2 vc=0)
+0x0090DD3C	??1?$vector@UMade002CC5E1DamageScalar@@V?$allocator@UMade002CC5E1DamageScalar@@@_STL@@@_STL@@QAE@XZ	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (__EH_prolog, ??$__destroy_aux@PAUBfmeStringRecord00426A5B@@@_STL@@YAXPAUBfmeStringRecord00426A5B@@0ABU__false_type@0@@Z; dc=3 vc=0)
+0x0090DD7B	?_M_clear@?$vector@UMade002CC5E1DamageScalar@@V?$allocator@UMade002CC5E1DamageScalar@@@_STL@@@_STL@@IAEXXZ	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??$__destroy_aux@PAUBfmeStringRecord00426A5B@@@_STL@@YAXPAUBfmeStringRecord00426A5B@@0ABU__false_type@0@@Z, 0x430170; dc=1 vc=0)
+0x0090E73D	?_M_insert_overflow@?$vector@UMade002CC5E1DamageScalar@@V?$allocator@UMade002CC5E1DamageScalar@@@_STL@@@_STL@@IAEXPAUMade002CC5E1DamageScalar@@ABU3@ABU__false_type@2@I_N@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (?allocate@?$allocator@UBfmeE8@@@_STL@@QBEPAUBfmeE8@@IPBX@Z, ??$__uninitialized_copy@PBUBfmeStringRecord000B94D2@@PAU1@@_STL@@YAPAUBfmeStringRecord000B94D2@@PBU1@0PAU1@ABU__false_type@0@@Z; dc=1 vc=0)
+0x0090E9B2	?push_back@?$vector@UMade002CC5E1DamageScalar@@V?$allocator@UMade002CC5E1DamageScalar@@@_STL@@@_STL@@QAEXABUMade002CC5E1DamageScalar@@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??$_Construct@URva0060C9D9Element@@U1@@_STL@@YAXPAURva0060C9D9Element@@ABU1@@Z, 0x90e9e4; dc=1 vc=0)
+0x0090EA55	?buildFieldParse@Rva005088CE@@SAXAAVMultiIniFieldParse@@@Z	unchecked	Deferred to follow-up Local (34B; no class; dc=2 vc=0)
+0x0091102F	?Rva0050AD97BuildFieldParse@@YAXAAVMultiIniFieldParse@@@Z	unchecked	Deferred to follow-up Local (34B; no class; dc=1 vc=0)
+0x0091139F	?buildFieldParse@Rva0050B107@@SAXAAVMultiIniFieldParse@@@Z	unchecked	Deferred to follow-up Local (51B; no class; dc=1 vc=0)
+0x00924003	??$__pop_heap_aux@PAUBfmeE8@@U1@P6A_NABU1@0@Z@_STL@@YAXPAUBfmeE8@@00P6A_NABU1@1@Z@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??$__pop_heap@PAUS4SortElem8@@U1@U?$less@US4SortElem8@@@_STL@@H@_STL@@YAXPAUS4SortElem8@@00U1@U?$less@US4SortElem8@@@0@PAH@Z; dc=1 vc=0)
+0x0092B9A9	??0?$hash_map@W4NameKeyType@@VDamageFX@@U?$hash@W4NameKeyType@@@rts@@U?$equal_to@W4NameKeyType@@@4@V?$allocator@U?$pair@$$CBW4NameKeyType@@VDamageFX@@@_STL@@@_STL@@@_STL@@QAE@XZ	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??0?$hashtable@U?$pair@$$CBHURva0052B7B8Element@@@_STL@@HU?$hash@H@2@U?$_Select1st@U?$pair@$$CBHURva0052B7B8Element@@@_STL@@@2@U?$equal_to@H@2@V?$allocator@U?$pair@$$CBHURva0052B7B8Element@@@_STL@@@2@@_STL@@QAE@IABU?$hash@H@1@ABU?$equal_to@H@1@ABV?$allocator@U?$pair@$$CBHURva0052B7B8Element@@@_STL@@@1@@Z; dc=1 vc=0)
+0x0092BC90	?Rva00525203Fire@@YAHPAX0PBD1PBVAsciiString@@@Z	unchecked	Deferred to follow-up Local (50B; no class; dc=2 vc=0)
+0x0092C385	?rva00525916@Rva00525916@@QAEAAV1@PBUDelegateDesc@@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (0x42f6e0, 0x92c3b1; dc=1 vc=0)
+0x0092F65F	?rva00528BC1@Rva00528BC1@@QAEPAV1@PAX@Z	unchecked	Deferred to follow-up Local (28B; no class; dc=1 vc=0)
+0x009311E1	?rva0052A786@Rva0052A786@@QAEAAV1@PBUDelegateDesc@@@Z	unchecked	Deferred to follow-up Local (59B; no class; dc=1 vc=0)
+0x0093121C	?rva0052A786@Rva0052A786@@QAEAAV1@PBUDelegateDesc@@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (0x42f6e0, 0x931248; dc=1 vc=0)
+0x0093228A	??0?$hash_map@W4NameKeyType@@VDamageFX@@U?$hash@W4NameKeyType@@@rts@@U?$equal_to@W4NameKeyType@@@4@V?$allocator@U?$pair@$$CBW4NameKeyType@@VDamageFX@@@_STL@@@_STL@@@_STL@@QAE@XZ	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??0?$hashtable@U?$pair@$$CBHURva0052B7B8Element@@@_STL@@HU?$hash@H@2@U?$_Select1st@U?$pair@$$CBHURva0052B7B8Element@@@_STL@@@2@U?$equal_to@H@2@V?$allocator@U?$pair@$$CBHURva0052B7B8Element@@@_STL@@@2@@_STL@@QAE@IABU?$hash@H@1@ABU?$equal_to@H@1@ABV?$allocator@U?$pair@$$CBHURva0052B7B8Element@@@_STL@@@1@@Z; dc=1 vc=0)
+0x0094798E	??$_Construct@URva00541021@@U1@@_STL@@YAXPAURva00541021@@ABU1@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??4Rva00541021@@QAEAAU0@ABU0@@Z; dc=5 vc=0)
+0x009479A0	??$_Construct@VRva0054103E@@V1@@_STL@@YAXPAVRva0054103E@@ABV1@@Z	not reached	STL/container/allocator internal helper replaced by C++ std containers in port (??0Rva0054103E@@QAE@ABV0@@Z; dc=5 vc=0)
+0x009492D8	?Rva00542997Parse@@YAXPAVINI@@PAX11@Z	too big	S-1323: AutoResolve INI block parse helper (called by 0x9493FA) tracked under stop S-1323
+0x009493FA	?Rva00542B24Parse@@YAXPAVINI@@PAX11@Z	too big	S-1323: ThingTemplate AutoResolveArmor/Weapon typed sub-block parser tracked under stop S-1323
+0x00949437	?Rva00542B61Parse@@YAXPAVINI@@PAX11@Z	too big	S-1323: AutoResolve INI block parse helper (called by 0x9494E2) tracked under stop S-1323
+0x009494E2	?Rva00542BA1Parse@@YAXPAVINI@@PAX11@Z	too big	S-1323: ThingTemplate AutoResolveArmor/Weapon typed sub-block parser tracked under stop S-1323
+0x0096DF22	??1Rva004D9A3C@@QAE@XZ	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=1 vc=0), rebuilt on Godot
+0x009E2553	?Rva005D2F96Build@@YA?AURva005D2F96S24@@ABURva005D2F96S16@@PBD@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=11 vc=0), rebuilt on Godot
+0x009F6DDF	??$_Construct@UGeometryShape@@U1@@_STL@@YAXPAUGeometryShape@@ABU1@@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=1 vc=0), rebuilt on Godot
+0x009F7F3E	??1Rva005E4F6D@@UAE@XZ	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=5 vc=0), rebuilt on Godot
+0x009FD7E9	??$_Construct@UGeometryShape@@U1@@_STL@@YAXPAUGeometryShape@@ABU1@@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=4 vc=0), rebuilt on Godot
+0x009FD7FB	??$__uninitialized_copy@PAUGeometryShape@@PAU1@@_STL@@YAPAUGeometryShape@@PAU1@00ABU__false_type@0@@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=1 vc=0), rebuilt on Godot
+0x00A01371	??0?$vector@UBfmeStringRecord005ED5F3@@V?$allocator@UBfmeStringRecord005ED5F3@@@_STL@@@_STL@@QAE@I@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=1 vc=0), rebuilt on Godot
+0x00A04455	??$_Construct@URva005EFD53Element@@U1@@_STL@@YAXPAURva005EFD53Element@@ABU1@@Z	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=6 vc=0), rebuilt on Godot
+0x00A70DC0	??0Rva007F01B0@@QAE@XZ	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=1 vc=0), rebuilt on Godot
+0x00A754D0	??0Rva7F4CC0ConstructorThunk@@QAE@XZ	rebuilt on Godot	Client W3D/FXParticleSystem/LivingWorld/UI/Audio subsystem (no class; dc=2 vc=0), rebuilt on Godot
+0x00B6FD37	$L8699	not reached	Compiler glue: MSVC C++ EH unwind funclet (lea ecx, [ebp - 0x9c]; jmp 0xa34370; dc=0 vc=0)
+0x00B7912E	uw_0076562e	not reached	Compiler glue: MSVC C++ EH unwind funclet (mov ecx, dword ptr [ebp - 0x10]; add ecx, 0x2dc; jmp 0x465717; dc=0 vc=0)
+0x00B79306	uw_0076562e	not reached	Compiler glue: MSVC C++ EH unwind funclet (mov ecx, dword ptr [ebp - 0x10]; add ecx, 0x2dc; jmp 0x465717; dc=0 vc=0)
+0x00B79840	uw_00765620	not reached	Compiler glue: MSVC C++ EH unwind funclet (mov ecx, dword ptr [ebp - 0x10]; add ecx, 0x2d4; jmp 0x465717; dc=0 vc=0)
+0x00B7984E	uw_0076562e	not reached	Compiler glue: MSVC C++ EH unwind funclet (mov ecx, dword ptr [ebp - 0x10]; add ecx, 0x2dc; jmp 0x465717; dc=0 vc=0)
+0x00B7985C	uw_0076562e	not reached	Compiler glue: MSVC C++ EH unwind funclet (mov ecx, dword ptr [ebp - 0x10]; add ecx, 0x2e0; jmp 0x465717; dc=0 vc=0)
+0x00B7C03D	Unwind@00b6959d	not reached	Compiler glue: MSVC C++ EH unwind funclet (lea ecx, [ebp + 0xc]; jmp 0x525d79; dc=0 vc=0)
+0x00B7C340	Unwind@00b6959d	not reached	Compiler glue: MSVC C++ EH unwind funclet (lea ecx, [ebp + 0xc]; jmp 0x525d79; dc=0 vc=0)
+0x00B7C3F6	Unwind@00b6959d	not reached	Compiler glue: MSVC C++ EH unwind funclet (lea ecx, [ebp + 0xc]; jmp 0x525d79; dc=0 vc=0)
+0x00B7C492	Unwind@00b6959d	not reached	Compiler glue: MSVC C++ EH unwind funclet (lea ecx, [ebp + 0xc]; jmp 0x525d79; dc=0 vc=0)
+0x00B7C512	Unwind@00b6959d	not reached	Compiler glue: MSVC C++ EH unwind funclet (lea ecx, [ebp + 0xc]; jmp 0x525d79; dc=0 vc=0)
+0x00B7C593	Unwind@00b6959d	not reached	Compiler glue: MSVC C++ EH unwind funclet (lea ecx, [ebp + 0xc]; jmp 0x525d79; dc=0 vc=0)
+0x00B7C613	Unwind@00b6959d	not reached	Compiler glue: MSVC C++ EH unwind funclet (lea ecx, [ebp + 0xc]; jmp 0x525d79; dc=0 vc=0)
+0x00B7C770	$L467	not reached	Compiler glue: MSVC C++ EH unwind funclet (lea ecx, [ebp - 0x10]; jmp 0x465717; dc=0 vc=0)
+0x00B7C7F8	$L467	not reached	Compiler glue: MSVC C++ EH unwind funclet (lea ecx, [ebp - 0x10]; jmp 0x525d79; dc=0 vc=0)
+0x00B7C818	$L467	not reached	Compiler glue: MSVC C++ EH unwind funclet (lea ecx, [ebp - 0x10]; jmp 0x525d79; dc=0 vc=0)
+0x00B7C83B	$L467	not reached	Compiler glue: MSVC C++ EH unwind funclet (lea ecx, [ebp - 0x10]; jmp 0x525d79; dc=0 vc=0)
+0x00B7C850	$L467	not reached	Compiler glue: MSVC C++ EH unwind funclet (lea ecx, [ebp - 0x10]; jmp 0x525d79; dc=0 vc=0)
+0x00B7C87B	$L467	not reached	Compiler glue: MSVC C++ EH unwind funclet (lea ecx, [ebp - 0x10]; jmp 0x465717; dc=0 vc=0)
+0x00B8B2AF	Unwind@00b76f9c	not reached	Compiler glue: MSVC C++ EH unwind funclet (lea ecx, [ebp - 0x10]; jmp 0x5fcbc4; dc=0 vc=0)
+0x00B952E7	uw_00780e1a	not reached	Compiler glue: MSVC C++ EH unwind funclet (lea ecx, [ebp - 0x98]; jmp 0x72bbef; dc=0 vc=0)
+0x00B952F2	Unwind@00b80e25	not reached	Compiler glue: MSVC C++ EH unwind funclet (lea ecx, [ebp + 8]; jmp 0x5fcbc4; dc=0 vc=0)
+0x00B952FA	$L16847	not reached	Compiler glue: MSVC C++ EH unwind funclet (lea ecx, [ebp - 0x18]; jmp 0x5fcbc4; dc=0 vc=0)
+0x00B95355	uw_00780e82	not reached	Compiler glue: MSVC C++ EH unwind funclet (lea ecx, [ebp - 0x1c]; jmp 0x798203; dc=0 vc=0)
+0x00B96A84	$L8673	not reached	Compiler glue: MSVC C++ EH unwind funclet (lea ecx, [ebp - 0x20]; jmp 0x72a4c8; dc=0 vc=0)
+0x00B9893B	$L1278	not reached	Compiler glue: MSVC C++ EH unwind funclet (mov ecx, dword ptr [ebp - 0x10]; add ecx, 4; jmp 0x5fcbc4; dc=0 vc=0)
+0x00B98946	$L1279	not reached	Compiler glue: MSVC C++ EH unwind funclet (mov ecx, dword ptr [ebp - 0x10]; add ecx, 8; jmp 0x42c978; dc=0 vc=0)
+0x00BA39E1	Unwind@00b8f95b	not reached	Compiler glue: MSVC C++ EH unwind funclet (lea ecx, [ebp - 0x10]; jmp 0x44a2a5; dc=0 vc=0)
+0x00BA469F	$L6568	not reached	Compiler glue: MSVC C++ EH unwind funclet (lea ecx, [ebp - 0x10]; jmp 0x5fcbc4; dc=0 vc=0)
+0x00BAEE37	$L456	not reached	Compiler glue: MSVC C++ EH unwind funclet (mov ecx, dword ptr [ebp - 0x10]; jmp 0x972722; dc=0 vc=0)
+0x00BAEE54	$L456	not reached	Compiler glue: MSVC C++ EH unwind funclet (mov ecx, dword ptr [ebp - 0x10]; jmp 0x972722; dc=0 vc=0)
+0x00BAEE71	$L456	not reached	Compiler glue: MSVC C++ EH unwind funclet (mov ecx, dword ptr [ebp - 0x10]; jmp 0x972722; dc=0 vc=0)
+0x00BC9A29	sub_00BC9A29	not reached	Compiler glue: static CRT dynamic initializer (AsciiString + _atexit; dc=0 vc=0)

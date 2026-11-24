@@ -15,6 +15,7 @@
 
 struct DamageInfo;
 
+// RW 0x008BD831 (~DamageModule)
 class DamageModuleInterface
 {
 public:

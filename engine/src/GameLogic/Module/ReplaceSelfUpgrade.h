@@ -42,6 +42,7 @@
 class ModuleFactory;
 class ThingTemplate;
 
+// RW 0x008AAF3F (~ReplaceSelfUpgradeModuleData)
 class ReplaceSelfUpgradeModuleData : public UpgradeModuleData
 {
 public:

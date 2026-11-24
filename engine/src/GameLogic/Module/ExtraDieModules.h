@@ -142,6 +142,7 @@ public:
 };
 
 // RW 0x00889E20 (getModuleName), RW 0x00889E26 (getModuleNameKey), RW 0x00889E95 / RW 0x00889E07 (dtor)
+// RW 0x0085FF83 (UpgradeDie::ctor)
 class UpgradeDie : public BehaviorModule, public DieModuleInterface
 {
 public:

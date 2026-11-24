@@ -119,6 +119,7 @@ private:
 // returns false on every path (`xor al, al` at 0x8C6266). This class is therefore ActiveBody, as retail is.
 // RW 0x6515A8 (PorcupineFormationBodyModuleData::friend_newModuleData), RW 0x8C63F1 (PorcupineFormationBodyModuleData::ctor)
 // RW 0x651532 (PorcupineFormationBodyModule::friend_newModuleInstance), RW 0x8C5524 (PorcupineFormationBodyModule::xfer)
+// RW 0x0065156D (PorcupineFormationBodyModule::friend_newModuleInstance)
 class PorcupineFormationBodyModuleData : public ActiveBodyModuleData
 {
 public:
@@ -248,6 +249,7 @@ private:
 // table's parsers BFME2 0x42F02F ("invalid Real value %1.7f -- expected >= 0") and 0x42F082 ("... expected <= 0"), the same 0x53 bytes apart as RW 0x42ED6F /
 // 0x42EDC2 (INFERENCE: the same parsers); the data ctor BFME2 0x883E25 (GeometryInfo(type 0, small no, 1.0, 1.0, 1.0), offset 0, MaxHeight 20, MinHeight -20,
 // both fractions 1.1). Verified against RotWK RW 0x88709D / 0x887191 (PORT-237 closed S-7163).
+// RW 0x0088709D (ClearanceTestingSlowDeathBehaviorModuleData::ctor)
 class ClearanceTestingSlowDeathBehaviorModuleData : public SlowDeathBehaviorModuleData
 {
 public:

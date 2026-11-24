@@ -253,6 +253,7 @@ private:
 
 // Local 87: RW 0x008CC2C7 (getModuleName), RW 0x008CC31A (getModuleNameKey), RW 0x008CC35F (dtor), RW 0x008C6583 (base dtor thunk).
 // RW 0x008CC2CD (dtor -> RW 0x00897583)
+// RW 0x00652364 (PlayerHealSpecialPowerModuleData::friend_newModuleData)
 class PlayerHealSpecialPower : public SpecialPowerModule
 {
 public:

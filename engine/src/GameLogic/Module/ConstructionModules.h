@@ -174,6 +174,7 @@ private:
 	UnsignedInt m_healWeaponShots = 0; // the port's count of HealWeapon pulses (not a retail field)
 };
 
+// RW 0x0064C43B (friend_newModuleData), RW 0x008594ED (ctor), RW 0x0085954A (dtor)
 class BuildingBehaviorModuleData : public ModuleData
 {
 public:

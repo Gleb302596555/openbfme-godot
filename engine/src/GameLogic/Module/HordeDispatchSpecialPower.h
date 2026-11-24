@@ -30,6 +30,7 @@
 
 class ModuleFactory;
 
+// RW 0x008CCE3D (~HordeDispatchSpecialPower)
 class HordeDispatchSpecialPower : public SpecialPowerModule
 {
 public:

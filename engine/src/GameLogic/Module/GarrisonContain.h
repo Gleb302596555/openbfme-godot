@@ -28,6 +28,7 @@
 #include <cstddef>
 #include <string>
 
+// RW 0x006571FF (~GarrisonContainModuleData)
 struct GarrisonContainModuleData
 {
 	GarrisonContainModuleData(); // RW 0x87CCCB

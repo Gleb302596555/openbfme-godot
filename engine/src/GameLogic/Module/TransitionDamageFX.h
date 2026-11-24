@@ -65,6 +65,7 @@
 #include <string>
 #include <vector>
 
+// RW 0x00650AED (TransitionDamageFX::friend_newModuleInstance), RW 0x008BE85E (~TransitionDamageFXModuleData)
 class TransitionDamageFXModuleData : public ModuleData
 {
 public:

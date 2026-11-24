@@ -60,6 +60,7 @@
 class ModuleFactory;
 
 // ---- PlayerUpgradeSpecialPower -----------------------------------------------------------------------------------------------------------
+// RW 0x006522D8 (friend_newModuleData), RW 0x008CC187 (ctor)
 class PlayerUpgradeSpecialPowerModuleData : public SpecialPowerModuleData
 {
 public:
@@ -100,18 +101,21 @@ public:
 	int m_burnRateModifier = 0; // + 0x84
 	static void buildFieldParse(MultiIniFieldParse &p); // RW 0xC74348
 };
+// RW 0x008C8C53 (CloudBreakSpecialPowerModuleData::CloudBreakSpecialPowerModuleData): +0x7C m_radius = 10.0f (0xBD83D8), +0x88 m_objectSpacing = 100.0f (0xBD88D8)
 class CloudBreakSpecialPowerModuleData : public AreaSpecialPowerModuleData
 {
 public:
+	CloudBreakSpecialPowerModuleData() { m_radius = 10.0f; } // RW 0x008C8C53
 	std::string m_sunbeamObject; // + 0x84
-	float m_objectSpacing = 0.0f; // + 0x88
+	float m_objectSpacing = 100.0f; // + 0x88 (RW 0x008C8C53: 0xBD88D8 = 100.0f)
 	static void buildFieldParse(MultiIniFieldParse &p); // RW 0xC74000
 };
+// RW 0x008C8F71 (TaintSpecialPowerModuleData::TaintSpecialPowerModuleData): +0x80 m_taintRadius = 10.0f (0xBD83D8)
 class TaintSpecialPowerModuleData : public SpecialPowerModuleData
 {
 public:
 	std::string m_taintObject; // + 0x7C
-	float m_taintRadius = 0.0f; // + 0x80
+	float m_taintRadius = 10.0f; // + 0x80 (RW 0x008C8F71: 0xBD83D8 = 10.0f)
 	std::string m_taintFX;     // + 0x84
 	std::string m_taintOCL;    // + 0x88
 	static void buildFieldParse(MultiIniFieldParse &p); // RW 0xC741A0
@@ -164,6 +168,7 @@ private:
 };
 // Local 87: RW 0x008C9084 (getModuleName), RW 0x008C90A3 (getModuleNameKey), RW 0x008C90E8 (dtor), RW 0x008C6583 (base dtor thunk).
 // RW 0x008C908A (dtor -> RW 0x00897583)
+// RW 0x00651D61 (friend_newModuleInstance), RW 0x00651D0D (FreezingRainSpecialPowerModuleData::friend_newModuleData)
 class FreezingRainSpecialPower : public WeatherFamilySpecialPower
 {
 public:
@@ -176,6 +181,7 @@ private:
 };
 // Local 87: RW 0x008C89BB (getModuleName), RW 0x008C89DA (getModuleNameKey), RW 0x008C8A1F / RW 0x008C8C90 (dtors), RW 0x008C6583 (base dtor thunk), RW 0x004B612F (empty-string helper).
 // RW 0x008C89C1 (dtor -> RW 0x00897583), RW 0x008C8CAC (ModuleData dtor)
+// RW 0x00651C49 (friend_newModuleInstance), RW 0x00651C81 (CloudBreakSpecialPowerModuleData::friend_newModuleData)
 class CloudBreakSpecialPower : public WeatherFamilySpecialPower
 {
 public:
@@ -194,6 +200,7 @@ private:
 };
 // Local 87: RW 0x008C8D79 (getModuleName), RW 0x008C8D98 (getModuleNameKey), RW 0x008C8DDD / RW 0x008C8FA4 (dtors), RW 0x008C6583 (base dtor thunk), RW 0x004B612F (empty-string helper).
 // RW 0x008C8D7F (dtor -> RW 0x00897583), RW 0x008C8FC0 (ModuleData dtor)
+// RW 0x00651CD5 (friend_newModuleInstance), RW 0x00651BF5 (TaintSpecialPowerModuleData::friend_newModuleData)
 class TaintSpecialPower : public WeatherFamilySpecialPower
 {
 public:
@@ -257,6 +264,7 @@ public:
 };
 // Local 87: RW 0x008C8820 (getModuleName), RW 0x008C885B (getModuleNameKey), RW 0x008C8826 (dtor), RW 0x008C891C (xfer), RW 0x008C6583 (base dtor thunk).
 // RW 0x008C8842 (dtor -> RW 0x00897583)
+// RW 0x00651B31 (ScavengerSpecialPower::friend_newModuleInstance)
 class ScavengerSpecialPower : public SpecialPowerModule
 {
 public:
@@ -275,6 +283,7 @@ private:
 // ---- UntamedAllegianceSpecialPower ---------------------------------------------------------------------------------------------------------
 // Local 87: RW 0x008CBF4F (getModuleName), RW 0x008CBF6E (getModuleNameKey), RW 0x008CBFB3 (dtor), RW 0x008C6583 (base dtor thunk).
 // RW 0x008CBF55 (dtor -> RW 0x00897583)
+// RW 0x00652556 (friend_newModuleInstance), RW 0x008CCEB7 (UntamedAllegianceSpecialPowerModuleData::ctor)
 class UntamedAllegianceSpecialPower : public SpecialPowerModule
 {
 public:
