@@ -268,10 +268,9 @@ TEST_CASE("attack approach: a guarding fortress catapult that picked a structure
 		}
 	}
 	MESSAGE("the guard picked the far farm after " << picked << " frames");
-	// pin: lane VISIONDEF-1 (the vision height bonus with RotWK's ThingTemplate defaults and per-object ground reference, RW 0x73FB7A / 0x69264D; measured on the
-	// lane's tree): the guard takes the farm a frame later, 3 (2). Its guard range holds at 1027.8 over those frames (the farm 800 away), so the range is not what
-	// moved the scan's frame: the rest of the game did (every unit with a VisionBonusPercentPerFoot sees otherwise from the start)
-	REQUIRE(picked == 3); // the guard took the far farm; a miss here means a later shot is not the give-up
+	// pin: upstream merge a7334f759 (f24af7fe) pulled in upstream's VISIONDEF-1 pin (3) on a non-conflicting line; on the fork's tree picked stays 2
+	// (not a GCC/MSVC divergence: PC bisect stopped at parent 06dd06e4).
+	REQUIRE(picked == 2); // the guard took the far farm; a miss here means a later shot is not the give-up
 	const unsigned before = lastShot(*catapult);
 	Object *nearFarm = placeAt(logic, "GondorFarm", m.men, spot.x + dir * 300.0f, spot.y + 40.0f); // inside the 500 range, beyond the minimum 150
 	REQUIRE(nearFarm != nullptr);
