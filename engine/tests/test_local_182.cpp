@@ -47,7 +47,7 @@ TEST_CASE("LOCAL-182 CloudBreakSpecialPowerModuleData retail 2.01 defaults (RW 0
 			ini->initFromINIMulti(&overridden, mp);
 		});
 		const std::string err = loadError(fx.env, "local182_cloudbreak_override.ini",
-			"CloudBreakBlock\n  SunbeamObject = TestSunbeam\n  SunbeamObjectSpacing = 250.0\nEnd\n", INI_LOAD_OVERWRITE);
+			"CloudBreakBlock\n  SunbeamObject = TestSunbeam\n  ObjectSpacing = 250.0\nEnd\n", INI_LOAD_OVERWRITE);
 		REQUIRE(err.empty());
 	}
 	CHECK(overridden.m_objectSpacing == 250.0f);
