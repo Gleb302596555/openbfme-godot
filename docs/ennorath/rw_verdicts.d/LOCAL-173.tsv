@@ -1,0 +1,367 @@
+function	name	verdict	evidence
+0x007AEB04	?clone@?$ConcreteModuleTemplate@V?$ModuleTag@$03$E?SPHERICAL_EMISSION_VELOCITY_MODULE_KEY@FXParticleSystem@@3QBDB$E?SPHERICAL_EMISSION_VELOCITY_MODULE_NAME@2@3QBDBVSphericalEmissionVelocityModule@2@VSphericalEmissionVelocityModuleTemplate@2@V?$DefaultParticleModule@$03@2@@FXParticleSystem@@@FXParticleSystem@@UBEPAVSphericalEmissionVelocityModuleTemplate@2@XZ	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (FXParticleSystem); particle rendering rebuilt on Godot
+0x007AEBAE	?clone@?$ConcreteModuleTemplate@V?$ModuleTag@$05$E?LIGHTNING_DRAW_MODULE_KEY@FXParticleSystem@@3QBDB$E?LIGHTNING_DRAW_MODULE_NAME@2@3QBDBVLightningDrawModule@2@VLightningDrawModuleTemplate@2@V?$DefaultParticleModule@$05@2@@FXParticleSystem@@@FXParticleSystem@@UBEPAVLightningDrawModuleTemplate@2@XZ	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (FXParticleSystem); particle rendering rebuilt on Godot
+0x007AEC7C	DefaultParticleUpdateModuleInfo	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (DefaultParticleUpdateModuleInfo); particle rendering rebuilt on Godot
+0x007AECA1	?clone@?$ConcreteModuleTemplate@V?$ModuleTag@$04$E?SPHERE_EMISSION_VOLUME_MODULE_KEY@FXParticleSystem@@3QBDB$E?SPHERE_EMISSION_VOLUME_MODULE_NAME@2@3QBDBVSphereEmissionVolumeModule@2@VSphereEmissionVolumeModuleTemplate@2@V?$DefaultParticleModule@$04@2@@FXParticleSystem@@@FXParticleSystem@@UBEPAVSphereEmissionVolumeModuleTemplate@2@XZ	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (FXParticleSystem); particle rendering rebuilt on Godot
+0x007AEF43	RenderObjectParticleUpdateModuleInfo	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (RenderObjectParticleUpdateModuleInfo); particle rendering rebuilt on Godot
+0x007AEF49	?clone@?$ConcreteModuleTemplate@V?$ModuleTag@$03$E?OUTWARD_EMISSION_VELOCITY_MODULE_KEY@FXParticleSystem@@3QBDB$E?OUTWARD_EMISSION_VELOCITY_MODULE_NAME@2@3QBDBVOutwardEmissionVelocityModule@2@VOutwardEmissionVelocityModuleTemplate@2@V?$DefaultParticleModule@$03@2@@FXParticleSystem@@@FXParticleSystem@@UBEPAVOutwardEmissionVelocityModuleTemplate@2@XZ	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (FXParticleSystem); particle rendering rebuilt on Godot
+0x007AEFF3	ParticleTerrainCollisionModuleInfo	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ParticleTerrainCollisionModuleInfo); particle rendering rebuilt on Godot
+0x007AF0B7	??0Rva003AE43F@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007AF0DD	??0Rva003AE465@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007AF10A	??0Rva003AE43F@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007AF130	StreakDrawModuleInfo	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (StreakDrawModuleInfo); particle rendering rebuilt on Godot
+0x007AF1B9	??0Rva003AE4E5@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007AF1DF	??0Rva003AE50B@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007AF243	??0Rva003AE56F@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007AF269	??0Rva003AE595@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007AF2CD	??0Rva003AE5F9@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007AF2F3	??0Rva003AE61F@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007AF54F	?clone@Rva003AE928@@QBEPAV1@XZ	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (Rva003AE928); particle rendering rebuilt on Godot
+0x007AF586	??0Rva003AE928@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007AF5AC	??0Rva003AE94E@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007AF66F	??0Rva003AEB0A@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007AF7C4	??0Rva003AEB0A@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007AF81F	?clone@Rva003AEB9C@@QBEPAV1@XZ	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (Rva003AEB9C); particle rendering rebuilt on Godot
+0x007AF856	??0Rva003AEB9C@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007AF883	??0Rva003AEBC9@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007AF918	??0Rva003AEC5E@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007AF945	??0Rva003AEC8B@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007AF9A0	?clone@Rva003AECE6@@QBEPAV1@XZ	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (Rva003AECE6); particle rendering rebuilt on Godot
+0x007AF9F8	??0Rva003AED3E@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007AFA25	??0Rva003AED6B@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007AFBD3	??0Rva003AEF6E@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007AFC00	??0Rva003AEF9B@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007AFDD2	??0Rva003AF15E@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007AFDF8	??0Rva003AF184@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007AFE38	??0Rva003AF208@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007AFE95	??0Rva003AF208@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007AFEBB	??0Rva003AF22E@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007AFF4C	??0Rva003AF2CC@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007AFFB1	??0Rva003AF329@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007AFFD7	??0Rva003AF34F@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007B004E	??0Rva003AF3D3@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007B0074	??0Rva003AF3F9@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007B00EB	??0Rva003AF47D@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007B0118	??0Rva003AF4AA@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007B0160	??0Rva003AF47D@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007B01CB	??0Rva003AF57F@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007B01F8	??0Rva003AED6B@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007B0276	??0Gen005EDB10@@QAE@PAVHost005EDA90@@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (Gen005EDB10); particle rendering rebuilt on Godot
+0x007B02A3	??0Rva003AF672@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007B033B	??0Rva003AF70B@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007B0368	??0Rva003AED6B@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007B03E6	??0Rva003AF7D1@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007B0413	??0Rva003AED6B@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007B0494	??0Rva003AF89A@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007B04C1	??0Rva003AED6B@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007B0547	??0Rva003AF97C@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007B0574	??0Rva003AED6B@@QAE@ABV0@@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (ABV0); particle rendering rebuilt on Godot
+0x007B05BB	?rva003AFA0B@Rva003AFA0B@@QAE?AURva003AFA0BVector@@PAXPBU2@M0@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (Rva003AFA0B); particle rendering rebuilt on Godot
+0x007B0F29	GPUParticleSystemStorageModule	not reached	Compiler/vtable thunk or trivial getter (6B; dc=0, vc=0 in RW_BINARY_MAP.tsv)
+0x007ED938	?rva003ECAE0@Rva003ECA69Element@@QAEXPAVXfer@@@Z	not reached	Internal MSVC/STLport struct/container/parser helper (?rva003ECAE0@Rva003ECA69Element@@QAEXPAVXfer@@@Z, 43B, dc=2, vc=0); replaced by port C++ types
+0x007EDEA4	no class	not reached	Internal MSVC/STLport struct/container/parser helper (no class, 42B, dc=3, vc=0); replaced by port C++ types
+0x007F409D	?rva003F2A11@Rva003F2A11@@QAEAAV1@ABV1@@Z	rebuilt on Godot	Client/WOTR LivingWorld animation, region-connection vector, or audio helper (Rva003F2A11); rebuilt on Godot
+0x007F435D	?Rva003F2A3E@@YAPAVRva003F2A11@@PAV1@00@Z	rebuilt on Godot	Client/WOTR LivingWorld animation, region-connection vector, or audio helper (YAPAVRva003F2A11); rebuilt on Godot
+0x007F47D8	?rva003F3159@Rva003F3159@@QAEPAUDynamicPortalLink@@PAU2@0@Z	rebuilt on Godot	Client/WOTR LivingWorld animation, region-connection vector, or audio helper (Rva003F3159); rebuilt on Godot
+0x007F48D9	?Rva003F325ACopy@@YAPAVRva003F2A11@@PAV1@00@Z	rebuilt on Godot	Client/WOTR LivingWorld animation, region-connection vector, or audio helper (YAPAVRva003F2A11); rebuilt on Godot
+0x007F4C2F	?rva003F35B0@ConnectionVec@@QAEPAVLivingWorldRegionConnection@@PAV2@0@Z	rebuilt on Godot	Client/WOTR LivingWorld animation, region-connection vector, or audio helper (ConnectionVec); rebuilt on Godot
+0x007FCD50	?append@Rva0049B6AE@@QAEXPBDPAV?$StringBase@D@@@Z	not reached	Internal MSVC/STLport struct/container/parser helper (?append@Rva0049B6AE@@QAEXPBDPAV?$StringBase@D@@@Z, 47B, dc=10, vc=0); replaced by port C++ types
+0x007FECC6	??1Rva003FD3EF@@UAE@XZ	rebuilt on Godot	Client/WOTR LivingWorld animation, region-connection vector, or audio helper (table 0xBD15B0); rebuilt on Godot
+0x007FED12	?rva003FD43B@Rva003FD3EF@@UAE_NXZ	rebuilt on Godot	Client/WOTR LivingWorld animation, region-connection vector, or audio helper (DelayedAudioEventModule); rebuilt on Godot
+0x007FEF67	?rva003FD690@Rva003FD690@@QAEXPBUCoord@@@Z	rebuilt on Godot	Client/WOTR LivingWorld animation, region-connection vector, or audio helper (Rva003FD690); rebuilt on Godot
+0x007FEF94	?xfer@Rva003FD789@@MAEXPAVXfer@@@Z	rebuilt on Godot	Client/WOTR LivingWorld animation, region-connection vector, or audio helper (LivingWorldAnimObject); rebuilt on Godot
+0x007FEFB7	?rva003FD6E0@Rva003FD6E0@@QAEXXZ	rebuilt on Godot	Client/WOTR LivingWorld animation, region-connection vector, or audio helper (Rva003FD6E0); rebuilt on Godot
+0x007FEFED	??0Rva003FD789@@QAE@ABV?$StringBase@D@@@Z	rebuilt on Godot	Client/WOTR LivingWorld animation, region-connection vector, or audio helper (LivingWorldAnimObject); rebuilt on Godot
+0x007FF060	??1Rva003FD789@@UAE@XZ	rebuilt on Godot	Client/WOTR LivingWorld animation, region-connection vector, or audio helper (table 0xBD15B0); rebuilt on Godot
+0x007FF0A5	?Rva003FD7CEParse@@YAXPAVINI@@@Z	rebuilt on Godot	Client/WOTR LivingWorld animation, region-connection vector, or audio helper (YAXPAVINI); rebuilt on Godot
+0x00804DAA	?rva004031F3@Rva004031F3@@QAEXPAUObj@@PAUInfo@@@Z	not reached	Internal file/record/tree helper (?rva004031F3@Rva004031F3@@QAEXPAUObj@@PAUInfo@@@Z, 64B); replaced by C++ std/port I/O
+0x008054DE	??4Rva00403927@@QAEAAV0@ABV0@@Z	not reached	Internal file/record/tree helper (??4Rva00403927@@QAEAAV0@ABV0@@Z, 35B); replaced by C++ std/port I/O
+0x00805501	??0Rva0040394A@@QAE@XZ	not reached	Internal file/record/tree helper (??0Rva0040394A@@QAE@XZ, 22B); replaced by C++ std/port I/O
+0x00805574	??0Rva00403927@@QAE@ABV0@@Z	not reached	Internal file/record/tree helper (??0Rva00403927@@QAE@ABV0@@Z, 35B); replaced by C++ std/port I/O
+0x00805597	??$__copy@PAVRva00403927@@PAV1@H@_STL@@YAPAVRva00403927@@PAV1@00ABUrandom_access_iterator_tag@0@PAH@Z	not reached	MSVC STLport container/allocator helper (??$__copy@PAVRva00403927@@PAV1@H@_STL@@YAPAVRva00403927@@PAV1@00A); replaced by C++ std:: containers in port
+0x00805789	??$copy@PAVRva00403927@@PAV1@@_STL@@YAPAVRva00403927@@PAV1@00@Z	not reached	MSVC STLport container/allocator helper (??$copy@PAVRva00403927@@PAV1@@_STL@@YAPAVRva00403927@@PAV1@00@Z); replaced by C++ std:: containers in port
+0x0080689D	?Rva003F2A3E@@YAPAVRva003F2A11@@PAV1@00@Z	not reached	Internal file/record/tree helper (?Rva003F2A3E@@YAPAVRva003F2A11@@PAV1@00@Z, 50B); replaced by C++ std/port I/O
+0x0080731E	?DoXfer@VictorySystem@@UAEXPAVXfer@@@Z	too big	S-4254: VictorySystem::DoXfer (CHUNK_VictorySystem; OpenBFME uses obfme:Victory)
+0x00809616	?rva00406DE3RollChance@@YA_NXZ	rebuilt on Godot	Client audio random-chance roll (GetGameAudioRandomValueReal); audio rebuilt on Godot
+0x008097CF	no class	not reached	Compiler/vtable thunk or trivial getter (7B; dc=3, vc=0 in RW_BINARY_MAP.tsv)
+0x0080A2BD	?rva004079D5@Rva004079D5@@QAEDHPAH@Z	not reached	Internal file/record/tree helper (?rva004079D5@Rva004079D5@@QAEDHPAH@Z, 31B); replaced by C++ std/port I/O
+0x0080B12F	??0?$_Rb_tree@VAsciiString@@U?$pair@$$CBVAsciiString@@UTreeHintPayload001F8ACB@@@_STL@@U?$_Select1st@U?$pair@$$CBVAsciiString@@UTreeHintPayload001F8ACB@@@_STL@@@3@U?$less@VAsciiString@@@3@V?$allocator@U?$pair@$$CBVAsciiString@@UTreeHintPayload001F8ACB@@@_STL@@@3@@_STL@@QAE@ABV01@@Z	not reached	MSVC STLport container/allocator helper (??0?$_Rb_tree@VAsciiString@@U?$pair@$$CBVAsciiString@@UTreeHintPa); replaced by C++ std:: containers in port
+0x0080B2AB	?rva004089C7@Rva0021937DTarget@@QAEXHH@Z	not reached	Internal MSVC/STLport struct/container/parser helper (?rva004089C7@Rva0021937DTarget@@QAEXHH@Z, 142B, dc=7, vc=0); replaced by port C++ types
+0x0080BE3B	?SplitString@@YAHAAV?$vector@VAsciiString@@V?$allocator@VAsciiString@@@_STL@@@_STL@@ABVAsciiString@@PBD@Z	not reached	MSVC STLport container/allocator helper (?SplitString@@YAHAAV?$vector@VAsciiString@@V?$allocator@VAsciiStr); replaced by C++ std:: containers in port
+0x0080BEE4	?Rva004095D5@@YA_NAAVAsciiString@@ABV1@@Z	not reached	Internal MSVC/STLport struct/container/parser helper (?Rva004095D5@@YA_NAAVAsciiString@@ABV1@@Z, 273B, dc=1, vc=0); replaced by port C++ types
+0x0080BFF5	?Rva004096E6@@YA_NABVAsciiString@@@Z	not reached	Internal MSVC/STLport struct/container/parser helper (?Rva004096E6@@YA_NABVAsciiString@@@Z, 201B, dc=1, vc=0); replaced by port C++ types
+0x0080C0BE	_Rva004097AFWorker	not reached	Internal file/record/tree helper (_Rva004097AFWorker, 227B); replaced by C++ std/port I/O
+0x0080C1A1	?Rva00409892@@YAPAVFile@@ABVAsciiString@@_N@Z	not reached	Internal file/record/tree helper (?Rva00409892@@YAPAVFile@@ABVAsciiString@@_N@Z, 23B); replaced by C++ std/port I/O
+0x0080C1B8	?Rva004098A9@@YAPAVFile@@ABVAsciiString@@_N@Z	not reached	Internal file/record/tree helper (?Rva004098A9@@YAPAVFile@@ABVAsciiString@@_N@Z, 21B); replaced by C++ std/port I/O
+0x00810077	??$__copy@PAUCameraMarker@@PAU1@H@_STL@@YAPAUCameraMarker@@PAU1@00ABUrandom_access_iterator_tag@0@PAH@Z	not reached	MSVC STLport container/allocator helper (??$__copy@PAUCameraMarker@@PAU1@H@_STL@@YAPAUCameraMarker@@PAU1@0); replaced by C++ std:: containers in port
+0x00823F27	?_M_insert@?$_Rb_tree@W4NameKeyType@@U?$pair@$$CBW4NameKeyType@@VModuleTemplate@ModuleFactory@@@_STL@@U?$_Select1st@U?$pair@$$CBW4NameKeyType@@VModuleTemplate@ModuleFactory@@@_STL@@@3@U?$less@W4NameKeyType@@@3@V?$allocator@U?$pair@$$CBW4NameKeyType@@VModuleTemplate@ModuleFactory@@@_STL@@@3@@_STL@@AAE?AU?$_Rb_tree_iterator@U?$pair@$$CBW4NameKeyType@@VModuleTemplate@ModuleFactory@@@_STL@@U?$_Nonconst_traits@U?$pair@$$CBW4NameKeyType@@VModuleTemplate@ModuleFactory@@@_STL@@@2@@2@PAU_Rb_tree_node_base@2@0ABU?$pair@$$CBW4NameKeyType@@VModuleTemplate@ModuleFactory@@@2@0@Z	not reached	MSVC STLport container/allocator helper (?_M_insert@?$_Rb_tree@W4NameKeyType@@U?$pair@$$CBW4NameKeyType@@V); replaced by C++ std:: containers in port
+0x00824166	??0Rva00413F8B@@QAE@XZ	not reached	Internal MSVC/STLport struct/container/parser helper (??0Rva00413F8B@@QAE@XZ, 54B, dc=1, vc=0); replaced by port C++ types
+0x0082423A	?rva0041393F@Rva0041386B@@QAEXPAVINI@@@Z	not reached	Internal MSVC/STLport struct/container/parser helper (?rva0041393F@Rva0041386B@@QAEXPAVINI@@@Z, 18B, dc=1, vc=0); replaced by port C++ types
+0x00824886	??0Rva00413F8B@@QAE@XZ	not reached	Internal MSVC/STLport struct/container/parser helper (??0Rva00413F8B@@QAE@XZ, 54B, dc=1, vc=0); replaced by port C++ types
+0x0082F142	??0Rva0041E732@@QAE@XZ	not reached	Internal MSVC/STLport struct/container/parser helper (??0Rva0041E732@@QAE@XZ, 50B, dc=1, vc=0); replaced by port C++ types
+0x0082F174	?rva0041E764@Rva0041E764@@QAEPAVArmorTemplate@@W4NameKeyType@@@Z	not reached	Internal MSVC/STLport struct/container/parser helper (?rva0041E764@Rva0041E764@@QAEPAVArmorTemplate@@W4NameKeyType@@@Z, 27B, dc=1, vc=0); replaced by port C++ types
+0x008334A5	?rva00423D2F@Rva00423D2FOwner@@QAEXVRva00421A16@@@Z	not reached	Internal MSVC/STLport struct/container/parser helper (?rva00423D2F@Rva00423D2FOwner@@QAEXVRva00421A16@@@Z, 54B, dc=1, vc=0); replaced by port C++ types
+0x00852590	no class	too big	S-860: SpecialAbilityUpdate SpecialObject helper (SpecialObject mechanism not ported)
+0x00852914	?initLaser@SpecialAbilityUpdate@@IAE_NPAVObject@@0@Z	too big	S-860: SpecialAbilityUpdate::initLaser (SpecialObject laser beam not ported)
+0x00852CA2	?rva0044FEB6@SpecialAbilityUpdate@@QAEPAVObject@@XZ	too big	S-860: SpecialAbilityUpdate::createSpecialObject (SpecialObject mechanism not ported)
+0x0085589B	?checkForAutoHeal@@YAHPAVObject@@PAX@Z	not reached	Internal MSVC/STLport struct/container/parser helper (?checkForAutoHeal@@YAHPAVObject@@PAX@Z, 37B, dc=0, vc=0); replaced by port C++ types
+0x00856170	??0Rva004530ED@@QAE@XZ	not reached	Internal MSVC/STLport struct/container/parser helper (??0Rva004530ED@@QAE@XZ, 29B, dc=1, vc=0); replaced by port C++ types
+0x008563A2	??1GettingBuiltBehaviorModuleData@@UAE@XZ	unchecked	Owned by open PR #727 (Port 295) (GettingBuiltBehaviorModuleData); do not touch
+0x00859789	?rva00456725@Rva00456725@@QAE?AVAsciiString@@HH@Z	too big	BridgeBehavior (Rva00456725, 1 INI hit in system.ini:2361); bridge destruction/repair subsystem not ported
+0x008597B1	?rva0045674D@Rva0045674D@@QAE?AVAsciiString@@HH@Z	too big	BridgeBehavior (Rva0045674D, 1 INI hit in system.ini:2361); bridge destruction/repair subsystem not ported
+0x008597D8	?rva00456774@Rva00456774@@QAE?AVAsciiString@@HH@Z	too big	BridgeBehavior (Rva00456774, 1 INI hit in system.ini:2361); bridge destruction/repair subsystem not ported
+0x008597FF	?parseTimeAndLocationInfo@@YAXPAVINI@@PAXPAUTimeAndLocationInfo@@@Z	too big	BridgeBehavior (YAXPAVINI, 1 INI hit in system.ini:2361); bridge destruction/repair subsystem not ported
+0x00859AA2	BridgeBehavior	too big	BridgeBehavior (BridgeBehavior, 1 INI hit in system.ini:2361); bridge destruction/repair subsystem not ported
+0x0085A204	BridgeBehavior	too big	BridgeBehavior (BridgeBehavior, 1 INI hit in system.ini:2361); bridge destruction/repair subsystem not ported
+0x0085A249	BridgeBehavior	too big	BridgeBehavior (BridgeBehavior, 1 INI hit in system.ini:2361); bridge destruction/repair subsystem not ported
+0x0085A24F	BridgeBehavior	too big	BridgeBehavior (BridgeBehavior, 1 INI hit in system.ini:2361); bridge destruction/repair subsystem not ported
+0x0085A256	BridgeBehavior	too big	BridgeBehavior (BridgeBehavior, 1 INI hit in system.ini:2361); bridge destruction/repair subsystem not ported
+0x0085A30C	BridgeBehavior	too big	BridgeBehavior (BridgeBehavior, 1 INI hit in system.ini:2361); bridge destruction/repair subsystem not ported
+0x0085A399	BridgeBehavior	too big	BridgeBehavior (BridgeBehavior, 1 INI hit in system.ini:2361); bridge destruction/repair subsystem not ported
+0x0085A491	?_M_create_node@?$list@UBridgeBehaviorListValue12@@V?$allocator@UBridgeBehaviorListValue12@@@_STL@@@_STL@@IAEPAU?$_List_node@UBridgeBehaviorListValue12@@@2@ABUBridgeBehaviorListValue12@@@Z	too big	BridgeBehavior (UBridgeBehaviorListValue12, 1 INI hit in system.ini:2361); bridge destruction/repair subsystem not ported
+0x0085A4B3	?clear@?$_List_base@UBridgeBehaviorListValue12@@V?$allocator@UBridgeBehaviorListValue12@@@_STL@@@_STL@@QAEXXZ	too big	BridgeBehavior (UBridgeBehaviorListValue12, 1 INI hit in system.ini:2361); bridge destruction/repair subsystem not ported
+0x0085A5C4	?insert@?$list@UBridgeBehaviorListValue12@@V?$allocator@UBridgeBehaviorListValue12@@@_STL@@@_STL@@QAE?AU?$_List_iterator@UBridgeBehaviorListValue12@@U?$_Nonconst_traits@UBridgeBehaviorListValue12@@@_STL@@@2@U32@ABUBridgeBehaviorListValue12@@@Z	too big	BridgeBehavior (UBridgeBehaviorListValue12, 1 INI hit in system.ini:2361); bridge destruction/repair subsystem not ported
+0x0085B049	?push_back@?$list@UBridgeBehaviorListValue12@@V?$allocator@UBridgeBehaviorListValue12@@@_STL@@@_STL@@QAEXABUBridgeBehaviorListValue12@@@Z	too big	BridgeBehavior (UBridgeBehaviorListValue12, 1 INI hit in system.ini:2361); bridge destruction/repair subsystem not ported
+0x0085B063	??0BridgeBehaviorModuleData@@QAE@XZ	too big	BridgeBehavior (BridgeBehaviorModuleData, 1 INI hit in system.ini:2361); bridge destruction/repair subsystem not ported
+0x0085B0BC	??1BridgeBehaviorModuleData@@UAE@XZ	too big	BridgeBehavior (BridgeBehaviorModuleData, 1 INI hit in system.ini:2361); bridge destruction/repair subsystem not ported
+0x0085B11B	?parseFX@BridgeBehaviorModuleData@@SAXPAVINI@@PAX1PBX@Z	too big	BridgeBehavior (BridgeBehaviorModuleData, 1 INI hit in system.ini:2361); bridge destruction/repair subsystem not ported
+0x0085B1C5	?parseOCL@BridgeBehaviorModuleData@@SAXPAVINI@@PAX1PBX@Z	too big	BridgeBehavior (BridgeBehaviorModuleData, 1 INI hit in system.ini:2361); bridge destruction/repair subsystem not ported
+0x0085B36E	no class	not reached	BridgeScaffoldBehavior helper (0 active INI occurrences of BridgeScaffoldBehavior in Ennorath 1.9.8.7)
+0x0085B42A	?rva0004583BD@BridgeScaffoldBehavior@@SA?AW4NameKeyType@@XZ	not reached	Module BridgeScaffoldBehavior has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0085B48F	?update@BridgeScaffoldBehavior@@UAE?AW4UpdateSleepTime@@XZ	not reached	Module BridgeScaffoldBehavior has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0085B6A5	?xfer@BridgeScaffoldBehavior@@MAEXPAVXfer@@@Z	not reached	Module BridgeScaffoldBehavior has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0085B764	BridgeTowerBehavior	not reached	Module BridgeTowerBehavior has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0085B77A	BridgeTowerBehavior	not reached	Module BridgeTowerBehavior has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0085B7CF	BridgeTowerBehavior	not reached	Module BridgeTowerBehavior has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0085B7D5	BridgeTowerBehavior	not reached	Module BridgeTowerBehavior has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0085BC4A	no class	too big	S-7946: RampageBehavior enemy-count helper (calls AI::countEnemies RW 0x700509; RampageBehavior not ported)
+0x0085BC78	ModuleData	too big	S-7946: RampageBehaviorModuleData ctor (RampageBehavior not ported)
+0x0085BD04	??1RampageBehaviorModuleData@@UAE@XZ	too big	S-7946: RampageBehaviorModuleData::~RampageBehaviorModuleData (RampageBehavior not ported)
+0x0085C00C	EnragedBehavior	not reached	Module EnragedBehavior has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0085C065	EnragedBehavior	not reached	Module EnragedBehavior has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0085C06B	EnragedBehavior	not reached	Module EnragedBehavior has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0085C0B5	?xfer@EnragedBehavior@@MAEXPAVXfer@@@Z	not reached	Module EnragedBehavior has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00861E99	?apply@Rva0045EF37List@@QAEXABURva0045EE57Call@@@Z	not reached	Internal MSVC/STLport struct/container/parser helper (?apply@Rva0045EF37List@@QAEXABURva0045EE57Call@@@Z, 109B, dc=1, vc=0); replaced by port C++ types
+0x00861F06	?apply@Rva0045EF55List@@QAEXABURva0045EEC4Call@@@Z	not reached	Internal MSVC/STLport struct/container/parser helper (?apply@Rva0045EF55List@@QAEXABURva0045EEC4Call@@@Z, 115B, dc=1, vc=0); replaced by port C++ types
+0x00861FC2	??0Rva00330757Member@@QAE@XZ	not reached	Internal MSVC/STLport struct/container/parser helper (??0Rva00330757Member@@QAE@XZ, 23B, dc=45, vc=0); replaced by port C++ types
+0x008632C6	?Rva00460216XferList@@YAPAVXfer@@PAV1@PAV?$list@HV?$allocator@H@_STL@@@_STL@@@Z	not reached	MSVC STLport container/allocator helper (?Rva00460216XferList@@YAPAVXfer@@PAV1@PAV?$list@HV?$allocator@H@_); replaced by C++ std:: containers in port
+0x008638A2	??0?$DefaultParticleModule@$03@FXParticleSystem@@QAE@PAX0@Z	rebuilt on Godot	Client FXParticleSystem module template clone/copy-ctor (WargBehavior); particle rendering rebuilt on Godot
+0x008638C5	WargBehavior	not reached	Module WargBehavior has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008638CB	WargBehavior	not reached	Module WargBehavior has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00863FD5	?Rva00460F18Construct@@YAXPAXPBX@Z	not reached	MSVC STLport container/allocator helper (?Rva00460F18Construct@@YAXPAXPBX@Z); replaced by C++ std:: containers in port
+0x00864002	??$__uninitialized_copy@PBV?$vector@IV?$allocator@I@_STL@@@_STL@@PAV12@@_STL@@YAPAV?$vector@IV?$allocator@I@_STL@@@0@PBV10@0PAV10@ABU__false_type@0@@Z	not reached	MSVC STLport container/allocator helper (??$__uninitialized_copy@PBV?$vector@IV?$allocator@I@_STL@@@_STL@@); replaced by C++ std:: containers in port
+0x00864028	??$__uninitialized_fill_n@PAURva00460F6BElement@@IU1@@_STL@@YAPAURva00460F6BElement@@PAU1@IABU1@ABU__false_type@0@@Z	not reached	MSVC STLport container/allocator helper (??$__uninitialized_fill_n@PAURva00460F6BElement@@IU1@@_STL@@YAPAU); replaced by C++ std:: containers in port
+0x008644CE	??1?$vector@UDynamicPortalLink@@V?$allocator@UDynamicPortalLink@@@_STL@@@_STL@@QAE@XZ	not reached	MSVC STLport container/allocator helper (??1?$vector@UDynamicPortalLink@@V?$allocator@UDynamicPortalLink@@); replaced by C++ std:: containers in port
+0x00864612	?_M_insert_overflow@?$vector@VDynamicPortalLink@@V?$allocator@VDynamicPortalLink@@@_STL@@@_STL@@IAEXPAVDynamicPortalLink@@ABV3@ABU__false_type@2@I_N@Z	not reached	MSVC STLport container/allocator helper (?_M_insert_overflow@?$vector@VDynamicPortalLink@@V?$allocator@VDy); replaced by C++ std:: containers in port
+0x0086475D	?push_back@?$vector@VDynamicPortalLink@@V?$allocator@VDynamicPortalLink@@@_STL@@@_STL@@QAEXABVDynamicPortalLink@@@Z	not reached	MSVC STLport container/allocator helper (?push_back@?$vector@VDynamicPortalLink@@V?$allocator@VDynamicPort); replaced by C++ std:: containers in port
+0x00866557	??0Rva00463469@@QAE@I@Z	not reached	Internal MSVC/STLport struct/container/parser helper (??0Rva00463469@@QAE@I@Z, 36B, dc=1, vc=0); replaced by port C++ types
+0x0086657B	no class	not reached	Internal MSVC/STLport struct/container/parser helper (no class, 33B, dc=1, vc=0); replaced by port C++ types
+0x0086659C	?Rva004634BACreate@@YGPAURva004634BANode@@ABVRva0046267A@@@Z	not reached	Internal MSVC/STLport struct/container/parser helper (?Rva004634BACreate@@YGPAURva004634BANode@@ABVRva0046267A@@@Z, 34B, dc=1, vc=0); replaced by port C++ types
+0x008666F4	?getNaturalRallyPoint@OpenContain@@UBE_NAAUCoord3D@@_N@Z	too big	S-4190: OpenContain::getNaturalRallyPoint (ExitEnd bone-based rally point; OpenContainRuntime uses owner pos)
+0x008667EB	??0Rva00463736@@QAE@ABEI@Z	not reached	Internal MSVC/STLport struct/container/parser helper (??0Rva00463736@@QAE@ABEI@Z, 42B, dc=1, vc=0); replaced by port C++ types
+0x00866815	?Rva004634DCConstruct@@YAXPAUTreeKey00242F5E@@ABU1@@Z	not reached	MSVC STLport container/allocator helper (?Rva004634DCConstruct@@YAXPAUTreeKey00242F5E@@ABU1@@Z); replaced by C++ std:: containers in port
+0x00866842	?_M_insert@?$_Rb_tree@IU?$pair@$$CBIVWeaponTemplateSetHead@@@_STL@@U?$_Select1st@U?$pair@$$CBIVWeaponTemplateSetHead@@@_STL@@@2@U?$less@I@2@V?$allocator@U?$pair@$$CBIVWeaponTemplateSetHead@@@_STL@@@2@@_STL@@AAE?AU?$_Rb_tree_iterator@U?$pair@$$CBIVWeaponTemplateSetHead@@@_STL@@U?$_Nonconst_traits@U?$pair@$$CBIVWeaponTemplateSetHead@@@_STL@@@2@@2@PAU_Rb_tree_node_base@2@0ABU?$pair@$$CBIVWeaponTemplateSetHead@@@2@0@Z	not reached	MSVC STLport container/allocator helper (?_M_insert@?$_Rb_tree@IU?$pair@$$CBIVWeaponTemplateSetHead@@@_STL); replaced by C++ std:: containers in port
+0x008668CA	?insert_unique@?$_Rb_tree@IU?$pair@$$CBIVWeaponTemplateSetHead@@@_STL@@U?$_Select1st@U?$pair@$$CBIVWeaponTemplateSetHead@@@_STL@@@2@U?$less@I@2@V?$allocator@U?$pair@$$CBIVWeaponTemplateSetHead@@@_STL@@@2@@_STL@@QAE?AU?$pair@U?$_Rb_tree_iterator@U?$pair@$$CBIVWeaponTemplateSetHead@@@_STL@@U?$_Nonconst_traits@U?$pair@$$CBIVWeaponTemplateSetHead@@@_STL@@@2@@_STL@@_N@2@ABU?$pair@$$CBIVWeaponTemplateSetHead@@@2@@Z	not reached	MSVC STLport container/allocator helper (?insert_unique@?$_Rb_tree@IU?$pair@$$CBIVWeaponTemplateSetHead@@@); replaced by C++ std:: containers in port
+0x00866950	??$_Construct@UBfmeContainerRecord00462D62@@U1@@_STL@@YAXPAUBfmeContainerRecord00462D62@@ABU1@@Z	not reached	MSVC STLport container/allocator helper (??$_Construct@UBfmeContainerRecord00462D62@@U1@@_STL@@YAXPAUBfmeC); replaced by C++ std:: containers in port
+0x00866DEF	??0?$set@URva00463D59Element@@U?$less@URva00463D59Element@@@_STL@@V?$allocator@URva00463D59Element@@@3@@_STL@@QAE@XZ	not reached	MSVC STLport container/allocator helper (??0?$set@URva00463D59Element@@U?$less@URva00463D59Element@@@_STL@); replaced by C++ std:: containers in port
+0x00866E51	?_M_create_node@?$list@UBfmeContainerRecord00462D62@@V?$allocator@UBfmeContainerRecord00462D62@@@_STL@@@_STL@@IAEPAU?$_List_node@UBfmeContainerRecord00462D62@@@2@ABUBfmeContainerRecord00462D62@@@Z	not reached	MSVC STLport container/allocator helper (?_M_create_node@?$list@UBfmeContainerRecord00462D62@@V?$allocator); replaced by C++ std:: containers in port
+0x00866EA8	?insert_unique@?$_Rb_tree@IU?$pair@$$CBIVWeaponTemplateSetHead@@@_STL@@U?$_Select1st@U?$pair@$$CBIVWeaponTemplateSetHead@@@_STL@@@2@U?$less@I@2@V?$allocator@U?$pair@$$CBIVWeaponTemplateSetHead@@@_STL@@@2@@_STL@@QAE?AU?$_Rb_tree_iterator@U?$pair@$$CBIVWeaponTemplateSetHead@@@_STL@@U?$_Nonconst_traits@U?$pair@$$CBIVWeaponTemplateSetHead@@@_STL@@@2@@2@U32@ABU?$pair@$$CBIVWeaponTemplateSetHead@@@2@@Z	not reached	MSVC STLport container/allocator helper (?insert_unique@?$_Rb_tree@IU?$pair@$$CBIVWeaponTemplateSetHead@@@); replaced by C++ std:: containers in port
+0x00866FCE	?rva004638C5@Rva004638C5@@QAEPAURva004638C5Node@@ABUTreeKey00242F5E@@@Z	not reached	Internal MSVC/STLport struct/container/parser helper (?rva004638C5@Rva004638C5@@QAEPAURva004638C5Node@@ABUTreeKey00242F5E@@@Z, 34B, dc=1, vc=0); replaced by port C++ types
+0x0086732E	?insert@?$list@UBfmeContainerRecord00462D62@@V?$allocator@UBfmeContainerRecord00462D62@@@_STL@@@_STL@@QAE?AU?$_List_iterator@UBfmeContainerRecord00462D62@@U?$_Nonconst_traits@UBfmeContainerRecord00462D62@@@_STL@@@2@U32@ABUBfmeContainerRecord00462D62@@@Z	not reached	MSVC STLport container/allocator helper (?insert@?$list@UBfmeContainerRecord00462D62@@V?$allocator@UBfmeCo); replaced by C++ std:: containers in port
+0x00867353	?insert@?$map@IVWeaponTemplateSetHead@@U?$less@I@_STL@@V?$allocator@U?$pair@$$CBIVWeaponTemplateSetHead@@@_STL@@@3@@_STL@@QAE?AU?$_Rb_tree_iterator@U?$pair@$$CBIVWeaponTemplateSetHead@@@_STL@@U?$_Nonconst_traits@U?$pair@$$CBIVWeaponTemplateSetHead@@@_STL@@@2@@2@U32@ABU?$pair@$$CBIVWeaponTemplateSetHead@@@2@@Z	not reached	MSVC STLport container/allocator helper (?insert@?$map@IVWeaponTemplateSetHead@@U?$less@I@_STL@@V?$allocat); replaced by C++ std:: containers in port
+0x00867370	?erase@?$_Rb_tree@HU?$pair@$$CBHURva00463E09Record@@@_STL@@U?$_Select1st@U?$pair@$$CBHURva00463E09Record@@@_STL@@@2@U?$less@H@2@V?$allocator@U?$pair@$$CBHURva00463E09Record@@@_STL@@@2@@_STL@@QAEXU?$_Rb_tree_iterator@U?$pair@$$CBHURva00463E09Record@@@_STL@@U?$_Nonconst_traits@U?$pair@$$CBHURva00463E09Record@@@_STL@@@2@@2@0@Z	not reached	MSVC STLport container/allocator helper (?erase@?$_Rb_tree@HU?$pair@$$CBHURva00463E09Record@@@_STL@@U?$_Se); replaced by C++ std:: containers in port
+0x008673B4	?rva00463F73@Rva004638C5@@QAEPAPAU_Rb_tree_node_base@_STL@@PAPAU23@PAU23@1PBUTreeKey00242F5E@@H@Z	not reached	MSVC STLport container/allocator helper (?rva00463F73@Rva004638C5@@QAEPAPAU_Rb_tree_node_base@_STL@@PAPAU2); replaced by C++ std:: containers in port
+0x0086743C	?rva00463FFB@Rva004638C5@@QAEPAU_Rb_tree_node_base@_STL@@PAURva00463FFBOut@@PBUTreeKey00242F5E@@@Z	not reached	MSVC STLport container/allocator helper (?rva00463FFB@Rva004638C5@@QAEPAU_Rb_tree_node_base@_STL@@PAURva00); replaced by C++ std:: containers in port
+0x008675E8	?push_back@?$list@UBfmeContainerRecord00462D62@@V?$allocator@UBfmeContainerRecord00462D62@@@_STL@@@_STL@@QAEXABUBfmeContainerRecord00462D62@@@Z	not reached	MSVC STLport container/allocator helper (?push_back@?$list@UBfmeContainerRecord00462D62@@V?$allocator@UBfm); replaced by C++ std:: containers in port
+0x00867602	?rva00464923@Rva00464923@@QAEAAVWeaponTemplateSetHead@@ABI@Z	not reached	Internal MSVC/STLport struct/container/parser helper (?rva00464923@Rva00464923@@QAEAAVWeaponTemplateSetHead@@ABI@Z, 97B, dc=1, vc=0); replaced by port C++ types
+0x008676AC	?insert_unique@?$_Rb_tree@HU?$pair@$$CBHURva0046444ERecord@@@_STL@@U?$_Select1st@U?$pair@$$CBHURva0046444ERecord@@@_STL@@@2@U?$less@H@2@V?$allocator@U?$pair@$$CBHURva0046444ERecord@@@_STL@@@2@@_STL@@QAE?AU?$_Rb_tree_iterator@U?$pair@$$CBHURva0046444ERecord@@@_STL@@U?$_Nonconst_traits@U?$pair@$$CBHURva0046444ERecord@@@_STL@@@2@@2@U32@ABU?$pair@$$CBHURva0046444ERecord@@@2@@Z	not reached	MSVC STLport container/allocator helper (?insert_unique@?$_Rb_tree@HU?$pair@$$CBHURva0046444ERecord@@@_STL); replaced by C++ std:: containers in port
+0x00867DFE	?insert@?$map@HURva00464984Record@@U?$less@H@_STL@@V?$allocator@U?$pair@$$CBHURva00464984Record@@@_STL@@@3@@_STL@@QAE?AU?$_Rb_tree_iterator@U?$pair@$$CBHURva00464984Record@@@_STL@@U?$_Nonconst_traits@U?$pair@$$CBHURva00464984Record@@@_STL@@@2@@2@U32@ABU?$pair@$$CBHURva00464984Record@@@2@@Z	not reached	MSVC STLport container/allocator helper (?insert@?$map@HURva00464984Record@@U?$less@H@_STL@@V?$allocator@U); replaced by C++ std:: containers in port
+0x00869496	?rva00466398@Rva00466398@@QAE?AVRva0036AE51ListView@@XZ	not reached	Internal MSVC/STLport struct/container/parser helper (?rva00466398@Rva00466398@@QAE?AVRva0036AE51ListView@@XZ, 26B, dc=8, vc=0); replaced by port C++ types
+0x008694B0	CaveContain	not reached	Module CaveContain has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008694FD	CaveContain	not reached	Module CaveContain has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00869542	CaveContain	not reached	Module CaveContain has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00869548	CaveContain	not reached	Module CaveContain has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00869555	CaveContain	not reached	Module CaveContain has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00869565	CaveContain	not reached	Module CaveContain has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0086956C	CaveContain	not reached	Module CaveContain has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00869584	CaveContain	not reached	Module CaveContain has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008695B9	CaveContain	not reached	Module CaveContain has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008695DF	CaveContain	not reached	Module CaveContain has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00869602	CaveContain	not reached	Module CaveContain has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0086961A	CaveContain	not reached	Module CaveContain has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00869632	CaveContain	not reached	Module CaveContain has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00869655	CaveContain	not reached	Module CaveContain has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00869713	CaveContain	not reached	Module CaveContain has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008697AC	CaveContain	not reached	Module CaveContain has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00869807	CaveContain	not reached	Module CaveContain has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00869863	CaveContain	not reached	Module CaveContain has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00869873	CaveContain	not reached	Module CaveContain has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008698B4	CaveContain	not reached	Module CaveContain has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0086992B	?rva00466848@CaveContain@@QAEXPAVTeam@@_N@Z	not reached	Module CaveContain has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00869C22	HealContain	not reached	Module HealContain has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00869C28	HealContain	not reached	Module HealContain has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00869C6B	HealContain	not reached	Module HealContain has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00869CCC	?xfer@HealContain@@MAEXPAVXfer@@@Z	not reached	Module HealContain has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00869CE7	?rva00466C04@Rva00466C04@@QAE_NPAVObject@@I@Z	not reached	Internal MSVC/STLport struct/container/parser helper (?rva00466C04@Rva00466C04@@QAE_NPAVObject@@I@Z, 144B, dc=1, vc=0); replaced by port C++ types
+0x00869D77	?update@Rva00466C94@@UAE?AW4UpdateSleepTime@@XZ	not reached	Module HealContain has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0086A688	?ModuleFactoryHookAt00467564@@YAXPAXH0@Z	not reached	Internal MSVC/STLport struct/container/parser helper (?ModuleFactoryHookAt00467564@@YAXPAXH0@Z, 169B, dc=1, vc=0); replaced by port C++ types
+0x0086A80F	??$_Construct@UBfmeStringRecord00466E64@@U1@@_STL@@YAXPAUBfmeStringRecord00466E64@@ABU1@@Z	not reached	MSVC STLport container/allocator helper (??$_Construct@UBfmeStringRecord00466E64@@U1@@_STL@@YAXPAUBfmeStri); replaced by C++ std:: containers in port
+0x0086A83C	??$__uninitialized_copy@PBUBfmeStringRecord00466E64@@PAU1@@_STL@@YAPAUBfmeStringRecord00466E64@@PBU1@0PAU1@ABU__false_type@0@@Z	not reached	MSVC STLport container/allocator helper (??$__uninitialized_copy@PBUBfmeStringRecord00466E64@@PAU1@@_STL@@); replaced by C++ std:: containers in port
+0x0086A862	??$__uninitialized_fill_n@PAUBfmeStringRecord00466E64@@IU1@@_STL@@YAPAUBfmeStringRecord00466E64@@PAU1@IABU1@ABU__false_type@0@@Z	not reached	MSVC STLport container/allocator helper (??$__uninitialized_fill_n@PAUBfmeStringRecord00466E64@@IU1@@_STL@); replaced by C++ std:: containers in port
+0x0086A921	?_M_create_node@?$list@URva004677FDRecord@@V?$allocator@URva004677FDRecord@@@_STL@@@_STL@@IAEPAU?$_List_node@URva004677FDRecord@@@2@ABURva004677FDRecord@@@Z	not reached	MSVC STLport container/allocator helper (?_M_create_node@?$list@URva004677FDRecord@@V?$allocator@URva00467); replaced by C++ std:: containers in port
+0x0086AEB2	?insert@?$list@PAVRva00467DB3Obj@@V?$allocator@PAVRva00467DB3Obj@@@_STL@@@_STL@@QAE?AU?$_List_iterator@PAVRva00467DB3Obj@@U?$_Nonconst_traits@PAVRva00467DB3Obj@@@_STL@@@2@U32@ABQAVRva00467DB3Obj@@@Z	not reached	MSVC STLport container/allocator helper (?insert@?$list@PAVRva00467DB3Obj@@V?$allocator@PAVRva00467DB3Obj@); replaced by C++ std:: containers in port
+0x0086AED7	?push_back@?$list@PAVRva00467DB3Obj@@V?$allocator@PAVRva00467DB3Obj@@@_STL@@@_STL@@QAEXABQAVRva00467DB3Obj@@@Z	not reached	MSVC STLport container/allocator helper (?push_back@?$list@PAVRva00467DB3Obj@@V?$allocator@PAVRva00467DB3O); replaced by C++ std:: containers in port
+0x0086AEF1	??$_Destroy@PAUDynamicPortalLink@@@_STL@@YAXPAUDynamicPortalLink@@0@Z	not reached	MSVC STLport container/allocator helper (??$_Destroy@PAUDynamicPortalLink@@@_STL@@YAXPAUDynamicPortalLink@); replaced by C++ std:: containers in port
+0x0086B0F0	??1Rva00467FCC@@QAE@XZ	not reached	Internal MSVC/STLport struct/container/parser helper (??1Rva00467FCC@@QAE@XZ, 63B, dc=2, vc=0); replaced by port C++ types
+0x0086B12F	?rva0046800B@Rva0046800B@@QAEXXZ	not reached	Internal MSVC/STLport struct/container/parser helper (?rva0046800B@Rva0046800B@@QAEXXZ, 30B, dc=1, vc=0); replaced by port C++ types
+0x0086B36E	?_M_insert_overflow@?$vector@UBfmeStringRecord00466E64@@V?$allocator@UBfmeStringRecord00466E64@@@_STL@@@_STL@@IAEXPAUBfmeStringRecord00466E64@@ABU3@ABU__false_type@2@I_N@Z	not reached	MSVC STLport container/allocator helper (?_M_insert_overflow@?$vector@UBfmeStringRecord00466E64@@V?$alloca); replaced by C++ std:: containers in port
+0x0086B9F5	?push_back@?$vector@UBfmeStringRecord00466E64@@V?$allocator@UBfmeStringRecord00466E64@@@_STL@@@_STL@@QAEXABUBfmeStringRecord00466E64@@@Z	not reached	MSVC STLport container/allocator helper (?push_back@?$vector@UBfmeStringRecord00466E64@@V?$allocator@UBfme); replaced by C++ std:: containers in port
+0x0086DB6E	?rva004638C5@Rva004638C5@@QAEPAURva004638C5Node@@ABUTreeKey00242F5E@@@Z	not reached	Internal MSVC/STLport struct/container/parser helper (?rva004638C5@Rva004638C5@@QAEPAURva004638C5Node@@ABUTreeKey00242F5E@@@Z, 34B, dc=1, vc=0); replaced by port C++ types
+0x0087992C	?xfer@Rva004851E3@@MAEXPAVXfer@@@Z	unchecked	Owned by open PR #746 (Port 283) (HorseHordeContain); do not touch
+0x00881717	?parseRiderInfo@RiderChangeContainModuleData@@SAXPAVINI@@PAX1PBX@Z	not reached	Module RiderChangeContain has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00881D4B	??0RiderChangeContainModuleData@@QAE@XZ	not reached	Module RiderChangeContain has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00881DC5	??1RiderChangeContainModuleData@@UAE@XZ	not reached	Module RiderChangeContain has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00884BB2	??_GRva0048180C@@UAEPAXI@Z	not reached	Compiler/vtable thunk or trivial getter (29B; dc=0, vc=0 in RW_BINARY_MAP.tsv)
+0x00884BCF	ModuleData	not reached	Internal MSVC/STLport struct/container/parser helper (ModuleData, 66B, dc=1, vc=0); replaced by port C++ types
+0x00888696	??1Rva004BCB0D@@UAE@XZ	not reached	Module CreateCrateDie has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008886AF	CreateCrateDie	not reached	Module CreateCrateDie has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008886F1	?testKillerScience@CreateCrateDie@@AAE_NPBVCrateTemplate@@PAVObject@@@Z	not reached	Module CreateCrateDie has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0088871C	CreateCrateDie	not reached	Module CreateCrateDie has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00888761	CreateCrateDie	not reached	Module CreateCrateDie has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008887A7	?testKillerType@CreateCrateDie@@AAE_NPBVCrateTemplate@@PAVObject@@@Z	not reached	Module CreateCrateDie has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00888BE6	?cacheGameLogicFrame@StatusBitsEldestFrame@@QAEPAU1@XZ	not reached	CreateObjectDieIfEldestKindof / StatusBitsEldestFrame helper (0 active INI occurrences in Ennorath 1.9.8.7)
+0x00888BF4	??1Rva004BCB0D@@UAE@XZ	not reached	Module CreateObjectDieIfEldestKindof has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00888C0D	CreateObjectDieIfEldestKindof	not reached	Module CreateObjectDieIfEldestKindof has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00888C20	no class	not reached	CreateObjectDieIfEldestKindof / StatusBitsEldestFrame helper (0 active INI occurrences in Ennorath 1.9.8.7)
+0x00888CAD	CreateObjectDieIfEldestKindof	not reached	Module CreateObjectDieIfEldestKindof has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00888CF2	no class	not reached	CreateObjectDieIfEldestKindof / StatusBitsEldestFrame helper (0 active INI occurrences in Ennorath 1.9.8.7)
+0x00888E36	?xfer@Rva00485BB8@@QAEXPAVXfer@@@Z	not reached	CreateObjectDieIfEldestKindof / StatusBitsEldestFrame helper (0 active INI occurrences in Ennorath 1.9.8.7)
+0x00888E52	?xfer@Rva00485BD4@@MAEXPAVXfer@@@Z	not reached	Module CreateObjectDieIfEldestKindof has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00888E97	?rva00485C19@StatusBitsEldestFrame@@QAE_NPAVObject@@PBURva00485C19Data@@PBW4NameKeyType@@@Z	not reached	CreateObjectDieIfEldestKindof / StatusBitsEldestFrame helper (0 active INI occurrences in Ennorath 1.9.8.7)
+0x00888F8F	?onDie@CreateObjectDieIfEldestKindof@@UAEXPBVDamageInfo@@@Z	not reached	Module CreateObjectDieIfEldestKindof has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00889097	??0CreateObjectDieIfEldestKindofModuleData@@QAE@XZ	not reached	Module CreateObjectDieIfEldestKindof has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00889106	??1CreateObjectDieIfEldestKindofModuleData@@UAE@XZ	not reached	Module CreateObjectDieIfEldestKindof has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008893E7	??1Rva004BCB0D@@UAE@XZ	not reached	Module CrushDie has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00889400	CrushDie	not reached	Module CrushDie has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00889406	CrushDie	not reached	Module CrushDie has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0088944B	?crushLocationCheck@@YA?AW4CrushEnum@@PAVObject@@0@Z	not reached	CrushDie::crushLocationCheck helper (0 active INI occurrences of CrushDie in Ennorath 1.9.8.7)
+0x00889592	CrushDie	not reached	Module CrushDie has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008895D8	?onDie@CrushDie@@UAEXPBVDamageInfo@@@Z	not reached	Module CrushDie has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0088A0C9	??1Rva004BCB0D@@UAE@XZ	not reached	Module AssistedTargetingUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0088A0E2	AssistedTargetingUpdate	not reached	Module AssistedTargetingUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0088A127	AssistedTargetingUpdate	not reached	Module AssistedTargetingUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0088A13E	??0ObjectRecoveryHelper@@QAE@PAVThing@@PBVModuleData@@@Z	not reached	Module ObjectRecoveryHelper has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0088A1AE	no class	not reached	AssistedTargetingUpdate helper (0 active INI occurrences of AssistedTargetingUpdate in Ennorath 1.9.8.7)
+0x0088A1E6	?makeFeedbackLaser@AssistedTargetingUpdate@@AAEXPBVThingTemplate@@PBVObject@@1@Z	not reached	Module AssistedTargetingUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0088A2C1	no class	not reached	AssistedTargetingUpdate helper (0 active INI occurrences of AssistedTargetingUpdate in Ennorath 1.9.8.7)
+0x0088A326	?assistAttack@AssistedTargetingUpdate@@QAEXPBVObject@@PAV2@@Z	not reached	Module AssistedTargetingUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0088A3A2	?parseGameClientRandomDelay@@YAXPAVINI@@PAXPAVGameClientRandomVariable@@@Z	not reached	BoneFXUpdate helper (0 active INI occurrences of BoneFXUpdate in Ennorath 1.9.8.7)
+0x0088A453	?parseFXLocInfo@@YAXPAVINI@@PAXPAUBoneLocInfo@@@Z	not reached	BoneFXUpdate helper (0 active INI occurrences of BoneFXUpdate in Ennorath 1.9.8.7)
+0x0088A4AC	?parseFXList@BoneFXUpdateModuleData@@SAXPAVINI@@PAX1PBX@Z	not reached	Module BoneFXUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0088A55B	?parseObjectCreationList@BoneFXUpdateModuleData@@SAXPAVINI@@PAX1PBX@Z	not reached	Module BoneFXUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0088A60A	?parseParticleSystem@BoneFXUpdateModuleData@@SAXPAVINI@@PAX1PBX@Z	not reached	Module BoneFXUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0088A7A0	no class	not reached	BoneFXUpdate helper (0 active INI occurrences of BoneFXUpdate in Ennorath 1.9.8.7)
+0x0088AA43	??0BoneFXUpdateModuleData@@QAE@XZ	not reached	Module BoneFXUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0088AB23	??1BoneFXUpdateModuleData@@UAE@XZ	not reached	Module BoneFXUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0088AD0A	BoneFXUpdate	not reached	Module BoneFXUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0088AD10	no class	not reached	BoneFXUpdate helper (0 active INI occurrences of BoneFXUpdate in Ennorath 1.9.8.7)
+0x0088AD41	no class	not reached	BoneFXUpdate helper (0 active INI occurrences of BoneFXUpdate in Ennorath 1.9.8.7)
+0x0088AE0C	no class	not reached	BoneFXUpdate helper (0 active INI occurrences of BoneFXUpdate in Ennorath 1.9.8.7)
+0x0088B8CD	DozerActionPickActionPosState	not reached	Module DozerActionPickActionPosState has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0088B8F5	?rva004884B7@@YA_NPAVObject@@@Z	not reached	Module DozerActionPickActionPosState has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0088FED5	?Rva0048C84CUninitializedCopy@@YAPAUTreeKey00242F5E@@PBU1@0PAU1@ABU__false_type@_STL@@@Z	not reached	MSVC STLport container/allocator helper (?Rva0048C84CUninitializedCopy@@YAPAUTreeKey00242F5E@@PBU1@0PAU1@A); replaced by C++ std:: containers in port
+0x0088FEFB	??$__uninitialized_fill_n@PAURva0048C872Element@@IU1@@_STL@@YAPAURva0048C872Element@@PAU1@IABU1@ABU__false_type@0@@Z	not reached	MSVC STLport container/allocator helper (??$__uninitialized_fill_n@PAURva0048C872Element@@IU1@@_STL@@YAPAU); replaced by C++ std:: containers in port
+0x0088FF3C	??0Rva0048C8C6@@QAE@XZ	not reached	Internal MSVC/STLport struct/container/parser helper (??0Rva0048C8C6@@QAE@XZ, 23B, dc=1, vc=0); replaced by port C++ types
+0x0089067D	??1CameraMarkerVec@@QAE@XZ	not reached	MSVC STLport container/allocator helper (??1CameraMarkerVec@@QAE@XZ); replaced by C++ std:: containers in port
+0x008906BC	?erase@CameraMarkerVec@@QAEPAVCameraMarker@@PAV2@0@Z	not reached	MSVC STLport container/allocator helper (?erase@CameraMarkerVec@@QAEPAVCameraMarker@@PAV2@0@Z); replaced by C++ std:: containers in port
+0x00890B09	?_M_insert_overflow@?$vector@URva0048D48FRecord@@V?$allocator@URva0048D48FRecord@@@_STL@@@_STL@@IAEXPAURva0048D48FRecord@@ABU3@ABU__false_type@2@I_N@Z	not reached	MSVC STLport container/allocator helper (?_M_insert_overflow@?$vector@URva0048D48FRecord@@V?$allocator@URv); replaced by C++ std:: containers in port
+0x00890CA2	?push_back@?$vector@URva0048D628Record@@V?$allocator@URva0048D628Record@@@_STL@@@_STL@@QAEXABURva0048D628Record@@@Z	not reached	MSVC STLport container/allocator helper (?push_back@?$vector@URva0048D628Record@@V?$allocator@URva0048D628); replaced by C++ std:: containers in port
+0x00890DBC	??1Rva004BCB0D@@UAE@XZ	not reached	Module FloatUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00890DD5	FloatUpdate	not reached	Module FloatUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00890DDB	FloatUpdate	not reached	Module FloatUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00890E8D	?update@FloatUpdate@@UAE?AW4UpdateSleepTime@@XZ	not reached	Module FloatUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008917E0	??0Rva0048E16C@@QAE@XZ	not reached	Internal MSVC/STLport struct/container/parser helper (??0Rva0048E16C@@QAE@XZ, 29B, dc=2, vc=0); replaced by port C++ types
+0x0089324F	??1Rva004BCB0D@@UAE@XZ	not reached	Module HeightDieUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00893268	HeightDieUpdate	not reached	Module HeightDieUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008932C5	HeightDieUpdate	not reached	Module HeightDieUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00893650	??1Rva0049C3FC@@UAE@XZ	unchecked	Owned by open PR #774 (Port 308) (LargeGroupBonusUpdate); do not touch
+0x00893871	??0LargeGroupBonusUpdateModuleData@@QAE@XZ	unchecked	Owned by open PR #774 (Port 308) (LargeGroupBonusUpdateModuleData); do not touch
+0x00893B42	??1LargeGroupBonusUpdateModuleData@@UAE@XZ	unchecked	Owned by open PR #774 (Port 308) (LargeGroupBonusUpdateModuleData); do not touch
+0x00894C89	ModuleData	not reached	Internal MSVC/STLport struct/container/parser helper (ModuleData, 54B, dc=1, vc=0); replaced by port C++ types
+0x00895907	ModuleData	not reached	Internal MSVC/STLport struct/container/parser helper (ModuleData, 90B, dc=1, vc=0); replaced by port C++ types
+0x00895AC5	??1Rva0049C3FC@@UAE@XZ	not reached	Module WeaponSetSpecialAbilityUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00895B46	?triggerAbilityEffect@Rva00492402@@UAEXXZ	not reached	Module WeaponSetSpecialAbilityUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0089859E	??1Rva0049C3FC@@UAE@XZ	not reached	Module ScaleWallSpecialAbilityUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008985E0	??1AutoPickUpEatObjectEntry@@QAE@XZ	not reached	AutoPickUpEatObjectEntry vector/dtor helper; replaced by std::vector in AutoPickUpUpdateModuleData
+0x008987FC	??1Rva004BCB0D@@UAE@XZ	not reached	Module AutoFindHealingUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00898815	AutoFindHealingUpdate	not reached	Module AutoFindHealingUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0089881B	?xfer@ProneUpdate@@MAEXPAVXfer@@@Z	not reached	Module ProneUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00898842	AutoFindHealingUpdate	not reached	Module AutoFindHealingUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00898911	?rva00495183@Rva00495183@@QAEPAVObject@@XZ	not reached	AutoFindHealingUpdate helper (0 active INI occurrences of AutoFindHealingUpdate in Ennorath 1.9.8.7)
+0x008990A4	??1Rva004BCB0D@@UAE@XZ	not reached	Module DemoTrapUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008990BD	DemoTrapUpdate	not reached	Module DemoTrapUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008990C3	DemoTrapUpdate	not reached	Module DemoTrapUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0089913F	DemoTrapUpdate	not reached	Module DemoTrapUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0089918D	?onObjectCreated@DemoTrapUpdate@@UAEXXZ	not reached	Module DemoTrapUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008991B9	?rva00495A2B@Rva00495A2B@@QAEXXZ	not reached	DemoTrapUpdate helper (0 active INI occurrences of DemoTrapUpdate in Ennorath 1.9.8.7)
+0x00899202	?xfer@DemoTrapUpdate@@MAEXPAVXfer@@@Z	not reached	Module DemoTrapUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x00899248	?update@DemoTrapUpdate@@UAE?AW4UpdateSleepTime@@XZ	not reached	Module DemoTrapUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008993D1	??1AutoPickUpEatObjectEntry@@QAE@XZ	not reached	AutoPickUpEatObjectEntry vector/dtor helper; replaced by std::vector in AutoPickUpUpdateModuleData
+0x00899A20	?destroyRange@@YAXPAX0@Z	not reached	MSVC STLport container/allocator helper (?destroyRange@@YAXPAX0@Z); replaced by C++ std:: containers in port
+0x00899A39	??1Rva004962ABVector@@QAE@XZ	not reached	AutoPickUpEatObjectEntry vector/dtor helper; replaced by std::vector in AutoPickUpUpdateModuleData
+0x00899A78	??1Rva004962EA@@QAE@XZ	not reached	AutoPickUpEatObjectEntry vector/dtor helper; replaced by std::vector in AutoPickUpUpdateModuleData
+0x00899B2D	?_M_insert_overflow@?$vector@UAutoPickUpEatObjectEntry@@V?$allocator@UAutoPickUpEatObjectEntry@@@_STL@@@_STL@@IAEXPAUAutoPickUpEatObjectEntry@@ABU3@ABU__false_type@2@I_N@Z	not reached	MSVC STLport container/allocator helper (?_M_insert_overflow@?$vector@UAutoPickUpEatObjectEntry@@V?$alloca); replaced by C++ std:: containers in port
+0x0089A223	no class	not reached	Internal MSVC/STLport struct/container/parser helper (no class, 53B, dc=1, vc=0); replaced by port C++ types
+0x0089AF4D	no class	not reached	BattlePlanUpdate helper (0 active INI occurrences of BattlePlanUpdate in Ennorath 1.9.8.7)
+0x0089AF75	no class	not reached	BattlePlanUpdate helper (0 active INI occurrences of BattlePlanUpdate in Ennorath 1.9.8.7)
+0x0089AFC5	??0BattlePlanUpdateModuleData@@QAE@XZ	not reached	Module BattlePlanUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0089B0D0	BattlePlanUpdate	not reached	Module BattlePlanUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0089B115	BattlePlanUpdate	not reached	Module BattlePlanUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0089B11B	BattlePlanUpdate	not reached	Module BattlePlanUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0089B124	BattlePlanUpdate	not reached	Module BattlePlanUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0089B591	??1BattlePlanUpdateModuleData@@UAE@XZ	not reached	Module BattlePlanUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0089B7AE	?setStatus@BattlePlanUpdate@@IAEXW4TransitionStatus@@@Z	not reached	Module BattlePlanUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0089BC87	?cleanUp@SpectreGunshipUpdate@@QAEXXZ	not reached	Module SpectreGunshipUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0089BDE6	?update@Rva0049862B@@QAEHXZ	not reached	Module BattlePlanUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0089EACA	no class	not reached	Compiler/vtable thunk or trivial getter (13B; dc=1, vc=0 in RW_BINARY_MAP.tsv)
+0x0089F02A	?parse@Rva0049B8A0@@QAEXPAVINI@@PAX@Z	not reached	Internal MSVC/STLport struct/container/parser helper (?parse@Rva0049B8A0@@QAEXPAVINI@@PAX@Z, 234B, dc=1, vc=0); replaced by port C++ types
+0x0089FC55	ModuleData	not reached	Internal MSVC/STLport struct/container/parser helper (ModuleData, 72B, dc=1, vc=0); replaced by port C++ types
+0x008A04AF	?rva0049CD24@ProductionUpdate@@QAEXPAVObject@@@Z	too big	S-952: ProductionUpdate::rva0049CD24 calls unported RW 0x625E0A (object group/colour index)
+0x008A0924	??1Rva0049D1B1@@UAE@XZ	not reached	Internal MSVC/STLport struct/container/parser helper (??1Rva0049D1B1@@UAE@XZ, 25B, dc=1, vc=0); replaced by port C++ types
+0x008A14A9	?Rva0049DD0BConstruct@@YAXPAXPBX@Z	not reached	MSVC STLport container/allocator helper (?Rva0049DD0BConstruct@@YAXPAXPBX@Z); replaced by C++ std:: containers in port
+0x008A14D6	??$__uninitialized_copy@PAUQuantityModifier@@PAU1@@_STL@@YAPAUQuantityModifier@@PAU1@00ABU__false_type@0@@Z	not reached	MSVC STLport container/allocator helper (??$__uninitialized_copy@PAUQuantityModifier@@PAU1@@_STL@@YAPAUQua); replaced by C++ std:: containers in port
+0x008A14FC	??$__uninitialized_fill_n@PAUQuantityModifier@@IU1@@_STL@@YAPAUQuantityModifier@@PAU1@IABU1@ABU__false_type@0@@Z	not reached	MSVC STLport container/allocator helper (??$__uninitialized_fill_n@PAUQuantityModifier@@IU1@@_STL@@YAPAUQu); replaced by C++ std:: containers in port
+0x008A1521	?rva0049DD83@Rva0049DD83@@QAEXPAVINI@@PAX@Z	not reached	Internal MSVC/STLport struct/container/parser helper (?rva0049DD83@Rva0049DD83@@QAEXPAVINI@@PAX@Z, 234B, dc=1, vc=0); replaced by port C++ types
+0x008A1A40	??1?$vector@UQuantityModifier@@V?$allocator@UQuantityModifier@@@_STL@@@_STL@@QAE@XZ	not reached	MSVC STLport container/allocator helper (??1?$vector@UQuantityModifier@@V?$allocator@UQuantityModifier@@@_); replaced by C++ std:: containers in port
+0x008A1A7F	??1Rva004962EA@@QAE@XZ	not reached	Internal MSVC/STLport struct/container/parser helper (??1Rva004962EA@@QAE@XZ, 30B, dc=13, vc=0); replaced by port C++ types
+0x008A2F20	?_M_insert_overflow@?$vector@UQuantityModifier@@V?$allocator@UQuantityModifier@@@_STL@@@_STL@@IAEXPAUQuantityModifier@@ABU3@ABU__false_type@2@I_N@Z	not reached	MSVC STLport container/allocator helper (?_M_insert_overflow@?$vector@UQuantityModifier@@V?$allocator@UQua); replaced by C++ std:: containers in port
+0x008A35FC	?push_back@?$vector@UQuantityModifier@@V?$allocator@UQuantityModifier@@@_STL@@@_STL@@QAEXABUQuantityModifier@@@Z	not reached	MSVC STLport container/allocator helper (?push_back@?$vector@UQuantityModifier@@V?$allocator@UQuantityModi); replaced by C++ std:: containers in port
+0x008A36B5	??1Rva004BCB0D@@UAE@XZ	not reached	Module ProneUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008A36CE	ProneUpdate	not reached	Module ProneUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008A36D4	ProneUpdate	not reached	Module ProneUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008A378A	no class	not reached	S-7704: ProneUpdate helper (0 active INI occurrences of ProneUpdate in Ennorath 1.9.8.7)
+0x008A37B2	no class	not reached	S-7704: ProneUpdate helper (0 active INI occurrences of ProneUpdate in Ennorath 1.9.8.7)
+0x008A37DA	ProneUpdate	not reached	Module ProneUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008A42DA	??1Rva004BCB0D@@UAE@XZ	not reached	Module RadarUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008A42F3	RadarUpdate	not reached	Module RadarUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008A42F9	RadarUpdate	not reached	Module RadarUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008A433E	RadarUpdate	not reached	Module RadarUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008A4879	RepairDockUpdate	not reached	Module RepairDockUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008A489F	RepairDockUpdate	not reached	Module RepairDockUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008A4900	?xfer@RepairDockUpdate@@MAEXPAVXfer@@@Z	not reached	Module RepairDockUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008A4942	??0RepairDockUpdateModuleData@@QAE@XZ	not reached	Module RepairDockUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008A4BC7	??0MonsterDockUpdateModuleData@@QAE@XZ	not reached	Module MonsterDockUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008A4C1E	??1MonsterDockUpdateModuleData@@UAE@XZ	not reached	Module MonsterDockUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008A501F	?setRepairModelConditionStates@SlavedUpdate@@QAEXW4ModelConditionFlagType@@@Z	too big	S-1426: SlavedUpdate::setRepairModelConditionStates (repair path unported; 0 RepairRatePerSecond in Ennorath)
+0x008A54DD	?doScoutLogic@SlavedUpdate@@QAEXPBUCoord3D@@@Z	too big	S-1426: SlavedUpdate::doScoutLogic (scout path unported; 0 ScoutRange in Ennorath)
+0x008A57E6	?moveToNewRepairSpot@SlavedUpdate@@QAEXXZ	too big	S-1426: SlavedUpdate::moveToNewRepairSpot (repair path unported; 0 RepairRange in Ennorath)
+0x008A6A45	no class	not reached	BroadcastStealthUpdate helper (0 active INI occurrences of BroadcastStealthUpdate in Ennorath 1.9.8.7)
+0x008A6A67	no class	not reached	BroadcastStealthUpdate helper (0 active INI occurrences of BroadcastStealthUpdate in Ennorath 1.9.8.7)
+0x008A6BCE	??1BroadcastStealthUpdate@@UAE@XZ	not reached	Module BroadcastStealthUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008A6C42	?update@BroadcastStealthUpdate@@UAE?AW4UpdateSleepTime@@XZ	not reached	Module BroadcastStealthUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008A7754	?update@HijackerUpdate@@UAE?AW4UpdateSleepTime@@XZ	not reached	Module HijackerUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008AA6E1	??1?$set@UBfmePod20@@U?$less@UBfmePod20@@@_STL@@V?$allocator@UBfmePod20@@@3@@_STL@@QAE@XZ	not reached	MSVC STLport container/allocator helper (??1?$set@UBfmePod20@@U?$less@UBfmePod20@@@_STL@@V?$allocator@UBfm); replaced by C++ std:: containers in port
+0x008AAC8F	MissileUpdate	not reached	Module MissileUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008AAD5A	MissileUpdate	not reached	Module MissileUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008AAD60	MissileUpdate	not reached	Module MissileUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x008AAD67	MissileUpdate	not reached	Module MissileUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
