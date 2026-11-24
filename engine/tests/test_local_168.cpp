@@ -44,7 +44,6 @@ const char kLocal168Ini[] =
 	"Locomotor L168Foot\n"
 	"  Surfaces = GROUND\n"
 	"  Speed = 50\n"
-	"  TurnRate = 720\n"
 	"  Acceleration = 1000\n"
 	"  Braking = 1000\n"
 	"  MinTurnSpeed = 0\n"
@@ -104,12 +103,13 @@ const char kLocal168Ini[] =
 	"  End\n"
 	"  Behavior = HordeContain ModuleTag_HordeContain\n"
 	"    ObjectStatusOfContained =\n"
-	"    InitialPayload = L168Member 2\n"
-	"    Slots = 2\n"
+	"    InitialPayload = L168Member 3\n"
+	"    Slots = 3\n"
 	"    PassengerFilter = NONE +INFANTRY\n"
 	"    ShowPips = No\n"
-	"    RankInfo = RankNumber:1 UnitType:L168Member Position:X:0 Y:10 GrantedWeaponCondition:PLAYER_UPGRADE RevokedWeaponCondition:HERO\n"
-	"    RankInfo = RankNumber:2 UnitType:L168Member Position:X:-15 Y:10\n"
+	"    RankInfo = RankNumber:1 UnitType:L168Member Position:X:0 Y:10 GrantedWeaponCondition:PLAYER_UPGRADE\n"
+	"    RankInfo = RankNumber:2 UnitType:L168Member Position:X:-15 Y:10 RevokedWeaponCondition:HERO\n"
+	"    RankInfo = RankNumber:3 UnitType:L168Member Position:X:-30 Y:10\n"
 	"    MeleeBehavior = Amoeba\n"
 	"      DelayUntilIdle = 3000\n"
 	"    End\n"
@@ -159,28 +159,31 @@ TEST_CASE("LOCAL-168 HordeContain: applyRankWeaponSetFlags grants and revokes ra
 	HordeContain *hc = getHordeContain(*horde);
 	REQUIRE(hc != nullptr);
 	const auto members = membersVec(*hc);
-	REQUIRE(members.size() == 2);
+	REQUIRE(members.size() == 3);
 
 	const int flagUpgrade = CombatNames::weaponSetBit("PLAYER_UPGRADE");
 	const int flagHero = CombatNames::weaponSetBit("HERO");
 	REQUIRE(flagUpgrade >= 0); // tolerance: valid CombatNames weapon condition index
 	REQUIRE(flagHero >= 0); // tolerance: valid CombatNames weapon condition index
 
-	Object *m0 = members[0]; // Rank 1: GrantedWeaponCondition:PLAYER_UPGRADE RevokedWeaponCondition:HERO
-	Object *m1 = members[1]; // Rank 2: no weapon conditions
-	m0->setWeaponSetFlag(flagHero, true);
+	Object *m0 = members[0]; // Rank 1: GrantedWeaponCondition:PLAYER_UPGRADE
+	Object *m1 = members[1]; // Rank 2: RevokedWeaponCondition:HERO
+	Object *m2 = members[2]; // Rank 3: no weapon conditions
 	m0->setWeaponSetFlag(flagUpgrade, false);
 	m1->setWeaponSetFlag(flagHero, true);
-	m1->setWeaponSetFlag(flagUpgrade, false);
+	m2->setWeaponSetFlag(flagHero, true);
+	m2->setWeaponSetFlag(flagUpgrade, false);
 
 	hc->applyRankWeaponSetFlags(*m0);
 	CHECK(hasWeaponFlag(*m0, flagUpgrade));
-	CHECK_FALSE(hasWeaponFlag(*m0, flagHero));
 
-	// Adjacent behaviour: Rank 2 has hasWeaponConditions == false, so its flags are untouched.
 	hc->applyRankWeaponSetFlags(*m1);
-	CHECK_FALSE(hasWeaponFlag(*m1, flagUpgrade));
-	CHECK(hasWeaponFlag(*m1, flagHero));
+	CHECK_FALSE(hasWeaponFlag(*m1, flagHero));
+
+	// Adjacent behaviour: Rank 3 has hasWeaponConditions == false, so its flags are untouched.
+	hc->applyRankWeaponSetFlags(*m2);
+	CHECK_FALSE(hasWeaponFlag(*m2, flagUpgrade));
+	CHECK(hasWeaponFlag(*m2, flagHero));
 }
 
 // Expectations from RW 0x86D1FE (HordeContain::endMove, 0xC5B1F8[156]):
@@ -195,7 +198,7 @@ TEST_CASE("LOCAL-168 HordeContain: endMove stops moving horde and every containe
 	AIUpdateInterface *hai = horde->getAIUpdateInterface();
 	REQUIRE(hai != nullptr);
 	const auto members = membersVec(*hc);
-	REQUIRE(members.size() == 2);
+	REQUIRE(members.size() == 3);
 
 	// Move the horde and its members.
 	hai->aiMoveToPosition({ 250.0f, 100.0f, 0.0f }, CMD_FROM_PLAYER);
@@ -237,7 +240,7 @@ TEST_CASE("LOCAL-168 HordeContain: anyMemberAttacking, anyMemberAttackingTarget,
 	HordeContain *hc = getHordeContain(*horde);
 	REQUIRE(hc != nullptr);
 	const auto members = membersVec(*hc);
-	REQUIRE(members.size() == 2);
+	REQUIRE(members.size() == 3);
 
 	// RW 0x875619: rank unitType check
 	CHECK(hc->memberMatchesRankUnitType(*members[0], "L168Member"));
@@ -268,7 +271,7 @@ TEST_CASE("LOCAL-168 HordeMeleeAmoeba: notifyAmoebaMemberDeath wakes idle rear m
 	REQUIRE(hc != nullptr);
 	REQUIRE(hai != nullptr);
 	const auto members = membersVec(*hc);
-	REQUIRE(members.size() == 2);
+	REQUIRE(members.size() == 3);
 
 	const ObjectID id0 = members[0]->getID();
 	const ObjectID id1 = members[1]->getID();
