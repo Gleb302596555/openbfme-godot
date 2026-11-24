@@ -201,7 +201,9 @@ const char kLocal78Ini[] =
 	"Weapon W_HordeQuinary\n  AttackRange = 250\n  WeaponSpeed = 200\n  DamageNugget\n    Damage = 40\n    DamageType = PIERCE\n    DeathType = NORMAL\n  End\nEnd\n"
 	"Weapon W_ChainBlast\n  AttackRange = 200\n  RadiusDamageAffects = ENEMIES\n  DamageNugget\n    Damage = 50\n    Radius = 100\n    DamageType = MAGIC\n    DeathType = NORMAL\n  End\n  MetaImpactNugget\n    ShockWaveAmount = 20\n    ShockWaveRadius = 100\n  End\nEnd\n"
 	"Object L78_VisionDummy\n  KindOf = NO_COLLIDE INERT\n  Body = ActiveBody BodyTag\n    MaxHealth = 10\n  End\nEnd\n"
-	"Object L78_DieProj\n  KindOf = PROJECTILE\n  Body = ActiveBody BodyTag\n    MaxHealth = 1\n  End\n  Behavior = BezierProjectileBehavior ProjTag\n    FirstHeight = 10\n    SecondHeight = 10\n    FirstPercentIndent = 30%\n    SecondPercentIndent = 70%\n  End\n  Behavior = CreateObjectDie DieTag\n    CreationList = L78_OCLVision\n  End\nEnd\n"
+	// RW 0x85F21B..0x85F235 (Local 131, 3f6f6ea95): BezierProjectileBehavior::detonate with a warhead calls destroyObject
+	// unless DetonateCallsKill = Yes, so CreateObjectDie only runs when DetonateCallsKill = Yes.
+	"Object L78_DieProj\n  KindOf = PROJECTILE\n  Body = ActiveBody BodyTag\n    MaxHealth = 1\n  End\n  Behavior = BezierProjectileBehavior ProjTag\n    DetonateCallsKill = Yes\n    FirstHeight = 10\n    SecondHeight = 10\n    FirstPercentIndent = 30%\n    SecondPercentIndent = 70%\n  End\n  Behavior = CreateObjectDie DieTag\n    CreationList = L78_OCLVision\n  End\nEnd\n"
 	L78_UNIT("L78_WeaponCaster",
 		"  Behavior = SpecialPowerModule PDirectMod\n    SpecialPowerTemplate = SP_DirectMod\n    UpdateModuleStartsAttack = Yes\n  End\n"
 		"  Behavior = WeaponFireSpecialAbilityUpdate UDirectMod\n    SpecialPowerTemplate = SP_DirectMod\n    SpecialWeapon = W_DirectMod\n    UnpackTime = 0\n    PreparationTime = 0\n    PackTime = 0\n    IgnoreFacingCheck = Yes\n  End\n"

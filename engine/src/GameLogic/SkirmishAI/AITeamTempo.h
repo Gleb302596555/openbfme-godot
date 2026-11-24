@@ -21,7 +21,7 @@
 // (+ 0x134 / + 0x1D8, RW 0x8F54E4) and Team::update's production — the port's Team is a script/production subset without recruitment or AI state
 // (Common/Team.h). The timer that spends this delay (AIPlayer slot 0x48 RW 0x8F3EFE: + 0x14 the ready flag, + 0x18 the countdown clamped to 3 x
 // LOGICFRAMES_PER_SECOND = 15 at RW 0x8F3F2A, + 0x28 the 2 x LOGICFRAMES_PER_SECOND = 10 frame cadence at RW 0x8F3F51, then slot 0x68 when ready)
-// is not ported either. Stop S-7188 in docs/STOPS.md names the whole chain; the commit that ports the AI team build calls these three rules and
+// is not ported either. Stop S-7999 in docs/STOPS.md names the whole chain; the commit that ports the AI team build calls these three rules and
 // then hashes the six AIData values in GameLogicSettings::crc.
 //
 // The arithmetic is the port's own spelling of the retail instructions, not a re-design: every conversion goes through SimMath (the registered
@@ -48,7 +48,7 @@ int delayFrames(const GameLogicSettings &settings, int money);
 // 0x18 bytes at [arg1 + 0x134], name at entry + 0xC, resolved with RW 0x6D1305) it adds `(mid of the entry's min/max counts x 0.5 (RW 0xBD869C))
 // x the player's count of that template` (RW 0x73C25F / player + 0x758 RW 0x780AD3; 0 when the entry's template has KindOf bit 0x20 at [template +
 // 0x11B]), each step truncated back to an int (RW 0x8F559F). So the gate is the money per unit the player has of the team's templates. The caller
-// supplies that count, because the port has no TeamTemplateInfo (stop S-7188).
+// supplies that count, because the port has no TeamTemplateInfo (stop S-7999).
 int startCost(const GameLogicSettings &settings, int unitCount);
 
 // RW 0x8F55D2 .. 0x8F55E3: whether the player's money (`[Player + 0x94]`, compared unsigned) reaches that cost. False = RW's "not enough" flag: the

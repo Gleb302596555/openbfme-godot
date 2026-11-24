@@ -170,7 +170,15 @@ void runObject(FactRig &r, const std::string &faction, const std::string &name, 
 			r.frames(2);
 			continue;
 		}
-		Object *enemy = r.make("MordorFighterHorde", Coord3D{ at.x + 170.0f, at.y + 40.0f, 0.0f }, r.enemy());
+		// RW 0x82D925 (Local 75, bdda1229e): SpecialAbilityDwarvenGloinShakeFoundation has ObjectFilter = ANY +STRUCTURE.
+		// RW 0x896156 / 0x82DFB7 (Port 252 / Port 273): MightyCatapult and IronHillsCatapultOilBarrels enforce MinimumAttackRange.
+		const bool needsStructure = b->m_specialPowerName == "SpecialAbilityDwarvenGloinShakeFoundation";
+		const bool needsFarRange = b->m_specialPowerName == "SpecialAbilityMightyCatapultLauncher"
+			|| b->m_specialPowerName == "SpecialAbilityDwarvenIronHillsCatapultOilBarrels";
+		const float enemyDx = b->m_specialPowerName == "SpecialAbilityDwarvenIronHillsCatapultOilBarrels" ? 380.0f
+			: (b->m_specialPowerName == "SpecialAbilityMightyCatapultLauncher" ? 310.0f : 170.0f);
+		Object *enemy = r.make(needsStructure ? "MordorSlaughterHouse" : "MordorFighterHorde",
+			Coord3D{ at.x + enemyDx, at.y + 40.0f, 0.0f }, r.enemy());
 		// Train Archers levels an archer horde (its filter): the ally is one
 		const bool trainsArchers = b->m_specialPowerName == "SpecialAbilityTrainArchers";
 		Object *ally = r.make(trainsArchers ? "GondorArcherHorde" : "GondorFighterHorde", Coord3D{ at.x - 260.0f, at.y - 60.0f, 0.0f });
@@ -432,7 +440,7 @@ void runObject(FactRig &r, const std::string &faction, const std::string &name, 
 				}
 			}
 			// the effect may follow the recharge (a summon walks in, a capture takes its time, a projectile flies): 60 more frames, 90 for a capture
-			for (int f = 0; f < (flag ? 400 : 60); ++f)
+			for (int f = 0; f < (flag ? 400 : (needsFarRange ? 150 : 60)); ++f)
 			{
 				r.frames(1);
 				watch.sample(r.logic(), r.local(), fx);
@@ -574,5 +582,5 @@ TEST_CASE("FACT-A abilities: every hero and unit ability of Men, Elves and Dwarv
 		CHECK(out.fired > 10);
 	}
 	CHECK(problems == 0);
-	CHECK(knownIssues == 1);
+	CHECK(knownIssues == 0); // NoldorWarriorHorde Command_ArcherBombard now passes
 }

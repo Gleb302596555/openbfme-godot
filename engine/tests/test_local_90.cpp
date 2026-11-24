@@ -126,6 +126,8 @@ TEST_CASE("LOCAL-90 SymbioticStructuresBody forwards grab, dodge, and indestruct
 	// RW vtable 0xC72200 +0x88 is 0x009F3A3C (no-op): setting indestructible on the proxy does nothing.
 	proxyBody->setIndestructible(true);
 	CHECK_FALSE(proxyBody->isIndestructible());
+	// the body's own flag stays clear too (review: isIndestructible delegates, so only the base flag shows that the no-op override ran)
+	CHECK_FALSE(proxyBody->ActiveBody::isIndestructible());
 
 	// Linked: all 6 queries forward to the symbiote's body.
 	proxyBody->setSymbiote(keep->getID());
