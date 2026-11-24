@@ -70,6 +70,7 @@ PartitionManager::PartitionManager(GameLogic &logic)
 	m_scale = SimMath::pc24DivD(1.0, 0.0);
 }
 
+// RW 0xA3BB50 (~PartitionManagerImpl), RW 0xA3A810 (PartitionManagerImpl::_ClearNumObjBelow)
 PartitionManager::~PartitionManager() = default;
 
 void PartitionManager::reset()

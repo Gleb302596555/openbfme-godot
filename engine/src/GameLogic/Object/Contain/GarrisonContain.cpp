@@ -1965,6 +1965,7 @@ const char *CitadelSlaughterHordeContain::stopLine()
 		   "ring delivery is retained; the inherited contain presentation stops (S-1100) and the cash text's random offset, colour and scale (S-283) remain";
 }
 
+// RW 0x64BDAE (CitadelSlaughterHordeContain::friend_newModuleInstance), RW 0x883801 (CitadelSlaughterHordeContain ctor 0xC5F470)
 CitadelSlaughterHordeContain::CitadelSlaughterHordeContain(Thing *thing, const CitadelSlaughterHordeContainBehaviorData *data)
 	: SlaughterHordeContain(thing, data), m_citadel(data)
 {

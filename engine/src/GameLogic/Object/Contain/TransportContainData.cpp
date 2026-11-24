@@ -93,6 +93,7 @@ void SiegeEngineContainBehaviorData::buildFieldParse(MultiIniFieldParse &p)
 	p.add(SiegeEngineContainModuleData::getFieldParse(false), base);
 }
 
+// RW 0x87EC53 (SiegeEngineContain::buildFieldParse table 0xC5D590), RW 0x87FCF4 (HordeSiegeEngineContain::buildFieldParse table 0xC5D900)
 void HordeSiegeEngineContainBehaviorData::buildFieldParse(MultiIniFieldParse &p)
 {
 	const unsigned base = (unsigned)offsetof(HordeSiegeEngineContainBehaviorData, siege);

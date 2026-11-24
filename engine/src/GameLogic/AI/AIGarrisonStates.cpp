@@ -700,6 +700,7 @@ private:
 class AIHordeEnterState : public AIState
 {
 public:
+	// RW 0x740F74 (AIHordeEnterState::getStateName 0xC27A70[2])
 	explicit AIHordeEnterState(AIStateMachine &m) : AIState(m, "AIHordeEnterState") {}
 
 	// RW 0x747C37

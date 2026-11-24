@@ -123,6 +123,7 @@ bool parseObject(DataChunkInput &file, DataChunkInfo *info, void *ud)
 }
 
 // ZH PolygonTrigger::ParsePolygonTriggersDataChunk (PolygonTrigger.cpp:135-230); v5 per spec 1.7.11.
+// RW 0x72AF3B (OldPolygonTriggerDataChunkParserBase::parsePolygonTriggersChunkImpl)
 bool parsePolygonTriggers(DataChunkInput &file, DataChunkInfo *info, void *ud)
 {
 	MapChunks *m = (MapChunks *)ud;
@@ -220,6 +221,7 @@ bool parseStandingWaterAreas(DataChunkInput &file, DataChunkInfo *, void *ud)
 	return true;
 }
 
+// RW 0x70DB6B / RW 0x70DD7C (RiverAreaSetView::insert)
 bool parseRiverAreas(DataChunkInput &file, DataChunkInfo *info, void *ud)
 {
 	MapChunks *m = (MapChunks *)ud;
@@ -266,6 +268,7 @@ bool parseRiverAreas(DataChunkInput &file, DataChunkInfo *info, void *ud)
 	return true;
 }
 
+// RW 0x70E666 (StandingWaveAreaSetView::insert)
 bool parseStandingWaveAreas(DataChunkInput &file, DataChunkInfo *info, void *ud)
 {
 	MapChunks *m = (MapChunks *)ud;
