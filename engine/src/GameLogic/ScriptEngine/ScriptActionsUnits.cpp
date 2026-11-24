@@ -738,7 +738,7 @@ bool ScriptActions::executeUnitAction(ScriptEngine &engine, const ScriptActionRe
 	}
 	if (name == "TEAM_FOLLOW_WAYPOINTS" || name == "TEAM_FOLLOW_WAYPOINTS_EXACT" || name == "TEAM_ATTACK_MOVE_FOLLOW_WAYPOINTS")
 	{
-		// RW 0x7BFE32 / 0x7C0091 (team, label, asTeam[, formation]): the team's AI group; the waypoint of the label closest to the average position of
+		// RW 0x7BFE32 / RW 0x7C0091 (team, label, asTeam[, formation]): the team's AI group; the waypoint of the label closest to the average position of
 		// the team's members (summed in order, times 1 / count); every group member gets command 6 / 7 (exact 0x32 / 0x33); the formation (RW 0x771E7D)
 		// moves as a team (its offsets: S-1189). Lane WARG-1: TEAM_ATTACK_MOVE_FOLLOW_WAYPOINTS RW 0x7CB239 -> RW 0x7BFF62 is RW 0x7BFE32 with the group
 		// commands' mode 1: the attack-follow commands 0x10 / 0x11 (RW 0x754A3C / 0x754AAA, 0x7FFFFFFF shots) for 6 / 7
@@ -892,7 +892,7 @@ bool ScriptActions::executeUnitAction(ScriptEngine &engine, const ScriptActionRe
 	if (name == "UNIT_EXECUTE_SEQUENTIAL_SCRIPT" || name == "UNIT_EXECUTE_SEQUENTIAL_SCRIPT_LOOPING" || name == "TEAM_EXECUTE_SEQUENTIAL_SCRIPT" ||
 		name == "TEAM_EXECUTE_SEQUENTIAL_SCRIPT_LOOPING")
 	{
-		// RW 0x7C14FE (unit) / 0x7C15D7 (team: its AI group stops first, RW 0x771F49): the script by its (qualified) name (RW 0x758C6F -> 0x604A5D)
+		// RW 0x7C14FE (unit) / RW 0x7C15D7 (team: its AI group stops first, RW 0x771F49): the script by its (qualified) name (RW 0x758C6F -> 0x604A5D)
 		// with the side it was found in, the loops (the _LOOPING forms' third parameter, else 0); RW 0x606FDA appends the record
 		ScriptEngine::RScript *script = engine.findScript(param(a, 1).stringValue);
 		if (!script)
@@ -950,7 +950,7 @@ bool ScriptActions::executeUnitAction(ScriptEngine &engine, const ScriptActionRe
 	}
 	if (name == "UNIT_FORCE_EMOTION" || name == "TEAM_FORCE_EMOTION" || name == "PLAYER_FORCE_EMOTION")
 	{
-		// RW 0x7BDDD8 / 0x7C41F0 / 0x7C4256 (unit / team / player, emotion type 0 .. 11, seconds): each object (a player's: every member of its teams)
+		// RW 0x7BDDD8 / RW 0x7C41F0 / RW 0x7C4256 (unit / team / player, emotion type 0 .. 11, seconds): each object (a player's: every member of its teams)
 		// -> RW 0x68F3CB -> EmotionTrackerUpdate::force
 		const int type = param(a, 1).intValue;
 		const float seconds = param(a, 2).realValue;

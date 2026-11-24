@@ -92,6 +92,19 @@ const std::set<int> &clientActions()
 			// LOCAL-94 (issue #720): case 331 (RW 0x7CE53A) -> RW 0x7BD6E9 (DONOR BFME2 0x003BCC08, ScriptActions::doResizeViewGuardband) ->
 			// TheTacticalView vslot 0x1BC = W3DView::setGuardBandBias (RW 0x48B5FC: View + 0x78 / + 0x7C); client tactical view state only
 			"RESIZE_VIEW_GUARDBAND",
+			// LOCAL-162 (issue #929): already-present client actions cited with their RotWK 2.01 entry addresses:
+			//   DISPLAY_TEXT (RW 0x7C081B), DISPLAY_CINEMATIC_TEXT (RW 0x7C083E), MOVIE_PLAY_FULLSCREEN (RW 0x7C0A7F),
+			//   CAMERA_MOD_LOOK_TOWARD (RW 0x7C57F3), CAMERA_MOD_FINAL_LOOK_TOWARD (RW 0x7C5859), RESET_CAMERA (RW 0x7C58BF),
+			//   DISPLAY_COUNTER (RW 0x7C5E9F), DISPLAY_COUNTDOWN_TIMER (RW 0x7C5F37), HIDE_COUNTDOWN_TIMER / HIDE_COUNTER (RW 0x7C5FCF).
+			// Additional client-only audio / drawable / UI actions (no simulation state):
+			"TEAM_FLASH_WHITE",                             // RW 0x7C09E3 (case 247: Drawable flash white on team members)
+			"AUDIO_SET_REVERB_SUPPRESSION_POLYGON",         // RW 0x7C0AE0 (case 525: TheAudio vslot 0x174)
+			"AUDIO_REMOVE_REVERB_SUPPRESSION_POLYGON",      // RW 0x7C0B24 (case 526: TheAudio vslot 0x178)
+			"MUSIC_SCRIPT_PUSH_TRACK_FINITE_TIMES_AND_NOTIFY", // RW 0x7C0EB8 (case 478: TheAudio music script push)
+			"TEAM_SET_EMOTICON",                            // RW 0x7C299D (case 287: Drawable emoticon on team members)
+			"UNIT_ENABLE_HOUSE_COLOR",                      // RW 0x7C4156 (case 516: Drawable house color toggle on unit)
+			"TEAM_ENABLE_HOUSE_COLOR",                      // RW 0x7C4194 (case 517: Drawable house color toggle on team)
+			"OBJECT_FORCE_SELECT",                          // RW 0x7C6552 (case 209: TheInGameUI selection / audio / view center)
 		};
 		std::set<int> out;
 		for (const char *n : names)
@@ -712,7 +725,7 @@ void ScriptActions::execute(ScriptEngine &engine, const ScriptActionRec &a)
 		}
 		return;
 	}
-	if (name == "MOVE_NAMED_UNIT_TO" || name == "MOVE_TEAM_TO") // RW 0x7C84CC / 0x7BF4A3: aiMoveToPosition from the script
+	if (name == "MOVE_NAMED_UNIT_TO" || name == "MOVE_TEAM_TO") // RW 0x7C84CC / RW 0x7BF4A3: aiMoveToPosition from the script
 	{
 		Coord3D pos;
 		if (!positionOf(engine, param(a, 1).stringValue, pos))
