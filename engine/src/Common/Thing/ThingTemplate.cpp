@@ -1,3 +1,4 @@
+#include <cmath>
 // OpenBFME. GPL-3.0.
 // ThingTemplate, ModuleInfo and the module-editing parsers. See ThingTemplate.h for the addresses.
 
