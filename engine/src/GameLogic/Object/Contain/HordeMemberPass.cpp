@@ -1045,23 +1045,29 @@ void HordeContain::moveHub(Object &member, const Coord3D &destIn, float orientat
 // revoked (+0x24) weapon-set flags across all 104 (0x68) bits (RW 0x691059 / RW 0x691106).
 void HordeContain::applyRankWeaponSetFlags(Object &member) const
 {
-	const int slot = m_core.slotOf(member.getID());
-	if (slot < 0 || (size_t)slot >= m_core.slots().size())
+	if (!m_core)
 	{
 		return;
 	}
-	const RankInfo *rank = m_core.findRank(m_core.slots()[(size_t)slot].rank);
+	const int slot = m_core->slotOf(member.getID());
+	if (slot < 0 || (size_t)slot >= m_core->slots().size())
+	{
+		return;
+	}
+	const RankInfo *rank = m_core->findRank(m_core->slots()[(size_t)slot].rank);
 	if (!rank || !rank->hasWeaponConditions)
 	{
 		return;
 	}
 	for (int i = 0; i < 0x68; ++i)
 	{
-		if (rank->grantedWeaponConditions.test((unsigned)i))
+		const unsigned word = (unsigned)i >> 5;
+		const unsigned mask = 1u << (i & 31);
+		if (rank->grantedWeaponConditions[word] & mask)
 		{
 			member.setWeaponSetFlag(i, true);
 		}
-		else if (rank->revokedWeaponConditions.test((unsigned)i))
+		else if (rank->revokedWeaponConditions[word] & mask)
 		{
 			member.setWeaponSetFlag(i, false);
 		}
@@ -1163,11 +1169,15 @@ bool HordeContain::anyMemberAttackingTarget(const Object &target) const
 // (RW 0x86C3E7) and returns true when its unitType matches name.
 bool HordeContain::memberMatchesRankUnitType(const Object &member, const std::string &name) const
 {
-	const int slot = m_core.slotOf(member.getID());
-	if (slot < 0 || (size_t)slot >= m_core.slots().size())
+	if (!m_core)
 	{
 		return false;
 	}
-	const RankInfo *rank = m_core.findRank(m_core.slots()[(size_t)slot].rank);
+	const int slot = m_core->slotOf(member.getID());
+	if (slot < 0 || (size_t)slot >= m_core->slots().size())
+	{
+		return false;
+	}
+	const RankInfo *rank = m_core->findRank(m_core->slots()[(size_t)slot].rank);
 	return rank && rank->unitType == name;
 }

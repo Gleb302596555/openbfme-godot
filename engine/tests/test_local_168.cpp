@@ -127,6 +127,11 @@ const char kLocal168Ini[] =
 	"  End\n"
 	"End\n";
 
+bool hasWeaponFlag(const Object &obj, int bit)
+{
+	return (obj.getWeaponSetFlags()[(unsigned)bit >> 5] & (1u << (bit & 31))) != 0;
+}
+
 HordeContain *getHordeContain(Object &horde)
 {
 	return dynamic_cast<HordeContain *>(horde.getContain());
@@ -160,13 +165,13 @@ TEST_CASE("LOCAL-168 HordeContain: applyRankWeaponSetFlags grants and revokes ra
 	m1->setWeaponSetFlag(flagUpgrade, false);
 
 	hc->applyRankWeaponSetFlags(*m0);
-	CHECK(m0->getWeaponSetFlags().test((unsigned)flagUpgrade));
-	CHECK_FALSE(m0->getWeaponSetFlags().test((unsigned)flagHero));
+	CHECK(hasWeaponFlag(*m0, flagUpgrade));
+	CHECK_FALSE(hasWeaponFlag(*m0, flagHero));
 
 	// Adjacent behaviour: Rank 2 has hasWeaponConditions == false, so its flags are untouched.
 	hc->applyRankWeaponSetFlags(*m1);
-	CHECK_FALSE(m1->getWeaponSetFlags().test((unsigned)flagUpgrade));
-	CHECK(m1->getWeaponSetFlags().test((unsigned)flagHero));
+	CHECK_FALSE(hasWeaponFlag(*m1, flagUpgrade));
+	CHECK(hasWeaponFlag(*m1, flagHero));
 }
 
 // Expectations from RW 0x86D1FE (HordeContain::endMove, 0xC5B1F8[156]):
