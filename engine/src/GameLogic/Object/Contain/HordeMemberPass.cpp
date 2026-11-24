@@ -1054,7 +1054,15 @@ void HordeContain::applyRankWeaponSetFlags(Object &member) const
 	{
 		return;
 	}
-	const RankInfo *rank = m_core->findRank(m_core->slots()[(size_t)slot].rank);
+	const int rankNum = m_core->slots()[(size_t)slot].rank;
+	const RankInfo *rank = nullptr;
+	if (m_data)
+	{
+		for (const RankInfo &r : m_data->horde.m_rankInfo)
+		{
+			if (r.rankNumber == rankNum) { rank = &r; break; }
+		}
+	}
 	if (!rank || !rank->hasWeaponConditions)
 	{
 		return;
@@ -1178,6 +1186,14 @@ bool HordeContain::memberMatchesRankUnitType(const Object &member, const std::st
 	{
 		return false;
 	}
-	const RankInfo *rank = m_core->findRank(m_core->slots()[(size_t)slot].rank);
+	const int rankNum = m_core->slots()[(size_t)slot].rank;
+	const RankInfo *rank = nullptr;
+	if (m_data)
+	{
+		for (const RankInfo &r : m_data->horde.m_rankInfo)
+		{
+			if (r.rankNumber == rankNum) { rank = &r; break; }
+		}
+	}
 	return rank && rank->unitType == name;
 }
