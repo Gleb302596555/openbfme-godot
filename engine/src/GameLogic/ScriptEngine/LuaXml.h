@@ -1,4 +1,5 @@
 // OpenBFME. GPL-3.0.
+// Local 180: RW 0x94924A (XmlNameSlotList::tagAt, bounds-checked tag accessor used by ProcessInternalEvent/ProcessScriptedEvent/ProcessEventList)
 //
 // EaXmlLexer: the XML reader EA's LuaScriptEngine reads ScriptEvents.xml with (RW 0x949147 constructor, 0x9491D1 next-token). It is NOT a
 // conforming XML parser: it is a small tokenizer, and the retail loader's control flow depends on exactly what it accepts and returns, so the

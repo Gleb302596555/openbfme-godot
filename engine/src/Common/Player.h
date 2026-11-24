@@ -211,6 +211,8 @@ public:
 			m_disabledTemplateIds.insert(templateId);
 		}
 	}
+	// RW 0x6AC4CD: clear all disabled templates (ALLOW_DISALLOW_ALL_BUILDINGS RW 0x7C6B06)
+	void clearDisabledTemplates() { m_disabledTemplateIds.clear(); }
 	bool isTemplateDisabled(unsigned short templateId) const { return m_disabledTemplateIds.count(templateId) != 0; }
 	// lane SCRIPT-3: the scripts' science availability (PLAYER_SCIENCE_AVAILABILITY): RW + 0x31C the disabled sciences, + 0x328 the hidden ones (vectors).
 	// RW 0x6AE412(science, availability 0 Available / 1 Disabled / 2 Hidden): the first entry in the disabled list is erased, else the first in the

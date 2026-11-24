@@ -130,6 +130,7 @@ enum ConditionType
 	UNIT_HAS_GAINED_LEVEL = 117, // lane BFME2CAMP1
 	UNIT_IS_AT_LEVEL = 118,
 	UNIT_THREAT_LEVEL = 115, // lane THREATLEVEL-1
+	UNIT_HAS_PASSENGER = 162, // Local 180: RW 0x7E5F5A
 	TEAM_THREAT_LEVEL = 116,
 	PLAYER_HAS_COMPARISON_UNIT_TYPE_IN_TRIGGER_AREA_COMPLETELY_BUILT = 188,
 	PLAYER_HAS_CREDITS = 26,
@@ -2360,6 +2361,13 @@ bool ScriptConditions::evaluate(ScriptEngine &engine, const ScriptCondition &c)
 			threat = ScriptThreat::getThreatInRange(logic, *tm, radius);
 		}
 		return compareReal(param(c, 1).intValue, threat, param(c, 2).realValue);
+	}
+	case UNIT_HAS_PASSENGER:
+	{
+		// Local 180: RW 0x7EB7CD case 162 -> RW 0x7E5F5A: getUnitNamed(p0) (RW 0x75A3D8) -> obj->getContain() (+0x258) -> getContainCount() (vslot 0x114) > 0
+		Object *unit = engine.getUnitNamed(param(c, 0).stringValue);
+		ContainModuleInterface *contain = unit ? unit->getContain() : nullptr;
+		return contain && contain->getContainCount() > 0;
 	}
 	default:
 		engine.noteUnportedCondition(t->name);
