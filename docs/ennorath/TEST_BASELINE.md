@@ -80,7 +80,6 @@
 | Тест | Место | Причина (отрезок) |
 |---|---|---|
 | `blocks: the lazily built Flammability table…` | `test_object_model.cpp:904` | Local 140; тест исправлен (P-179), запись уходит с переносом |
-| `group command retail` (3 теста) | `test_hud_group_commands.cpp:58`, `REQUIRE( button )` | Port 221, PR #542 (P-180) |
 | `RAI-POW end to end` (Soul Freeze), `BUILD-3 U17` | `test_aipow1.cpp:1148`, `test_build3_builders.cpp:428` | партия 2026-11-16 после Port 221 (P-181) |
 | `audio3 walls`, `build4 walls`, `skirmish ai units` | `test_audio3.cpp:473`, `test_build4_walls.cpp:254`, `test_skirmish_ai_base.cpp:295` | партии 16b … 17b (P-182) |
 | `FACT-A abilities` | `test_hud_facta_abilities.cpp:576` | 2026-11-14 … 16 (P-183) |

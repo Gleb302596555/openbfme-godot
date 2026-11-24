@@ -48,13 +48,18 @@ struct GroupRig
 		REQUIRE(rig.input->ui().selected().size() == objects.size());
 		bar.update();
 	}
-	void press(GUICommandType command)
+	const ControlBarButton *find(GUICommandType command)
 	{
 		bar.update();
 		const ControlBarButton *button = nullptr;
 		for (const auto *list : { &bar.palantirButtons(), &bar.sideButtons(), &bar.offBarButtons() })
 			for (const auto &b : *list)
 				if (b.button && b.button->m_command == command) button = &b;
+		return button;
+	}
+	void press(GUICommandType command)
+	{
+		const ControlBarButton *button = find(command);
 		REQUIRE(button);
 		REQUIRE(bar.pressButton(button->slot, button->inPalantir));
 		rig.input->update();
@@ -97,6 +102,15 @@ TEST_CASE("group command retail: multi-horde formation uses one voted target and
 		REQUIRE(porcupine(c));
 	}
 	g.select(selected); // c is the source; in the mixed case it disagrees with the majority.
+	if (selected.size() != 3)
+	{
+		// addCommonCommands (RW 0x944534): past the first object a slot stays only while every selected object has the very same button there
+		// (RW 0x94472E; ATTACK_MOVE is the one union, RW 0x9446DE): archers and a single soldier have no formation button, so a mixed
+		// selection has none either and nobody can become pikemen
+		CHECK(g.find(GUI_COMMAND_HORDE_TOGGLE_FORMATION) == nullptr);
+		for (Object *o : { a, b, c }) CHECK_FALSE(porcupine(o));
+		return;
+	}
 	const auto before = g.rig.logic().computeStateHash();
 	g.press(GUI_COMMAND_HORDE_TOGGLE_FORMATION);
 	CHECK(g.rig.logic().computeStateHash() == before); // no client-side simulation mutation
@@ -150,19 +164,34 @@ TEST_CASE("group command retail: stances and weapon toggles retain their group d
 	auto on = [bit](Object *o) { return (o->getWeaponSetFlags()[(size_t)bit / 32] & (1u << (bit % 32))) != 0; };
 	REQUIRE(on(a));
 	REQUIRE_FALSE(on(b));
+	// the Fighters have no weapon toggle: with them selected the bar has none (addCommonCommands RW 0x944534, slot by slot the same button)
 	g.select({ single, a, b });
+	CHECK(g.find(GUI_COMMAND_TOGGLE_WEAPONSET) == nullptr);
+	g.select({ a, b });
 	g.press(GUI_COMMAND_TOGGLE_WEAPONSET);
 	g.rig.frame();
 	CHECK(on(a));
 	CHECK(on(b));
 	CHECK_FALSE(on(single));
-	// lane CAMPUI-1: the stance toggle's own press sends no stance in retail (RW 0x96FAC6 opens the Palantir's radial, test_campui1_stance.cpp); the group
-	// dispatch of a stance is a SET_STANCE press (the same MSG_CHANGE_STANCE, RW 0x96F53C)
+	// lane CAMPUI-1: the stance toggle's own press sends no stance in retail (RW 0x96FAC6 opens the Palantir's radial, test_campui1_stance.cpp).
+	// addCommonCommands (RW 0x944534) puts a slot on a multi-selection's bar only for a button with OK_FOR_MULTI_SELECT (RW 0x9445DA) that every
+	// selected object has in that slot: the retail SET_STANCE buttons have no OK_FOR_MULTI_SELECT, so a group keeps only the radial's toggle and
+	// its stances reach the group through the radial (campui1); the bar's SET_STANCE is a single selection's
+	g.select({ single, a, b });
+	CHECK(g.find(GUI_COMMAND_SET_STANCE) == nullptr);
+	g.select({ a, b });
+	CHECK(g.find(GUI_COMMAND_SET_STANCE) == nullptr);
+	CHECK(g.find(GUI_COMMAND_TOGGLE_STANCE) != nullptr);
+	const auto singleBefore = singleStance->getStance();
+	const auto bBefore = stanceB->getStance();
+	g.select({ a });
+	const ControlBarButton *setStance = g.find(GUI_COMMAND_SET_STANCE);
+	REQUIRE(setStance);
+	CHECK_FALSE(setStance->button->hasOption(COMMAND_OPTION_OK_FOR_MULTI_SELECT));
 	g.press(GUI_COMMAND_SET_STANCE);
 	g.rig.frame();
-	const auto expected = stanceB->getStance();
-	CHECK(stanceA->getStance() == expected);
-	CHECK(singleStance->getStance() == expected);
+	CHECK(stanceB->getStance() == bBefore);
+	CHECK(singleStance->getStance() == singleBefore);
 }
 
 TEST_CASE("group command retail: shield wall and wedge dispatch use the same formation path")
@@ -308,7 +337,11 @@ TEST_CASE("group command retail: multiplayer relays the HUD selection and format
 		Object *single = g.make("GondorFighter");
 		g.rig.frame(5);
 		firstFrame = g.rig.logic().getFrame();
+		// a single soldier has no formation button, so with him selected the bar has none (addCommonCommands RW 0x944534): the relay
+		// is checked on the two hordes alone
 		g.select({ single, a, b });
+		CHECK(g.find(GUI_COMMAND_HORDE_TOGGLE_FORMATION) == nullptr);
+		g.select({ a, b });
 		g.press(GUI_COMMAND_HORDE_TOGGLE_FORMATION);
 		CHECK_FALSE(porcupine(a));
 		CHECK_FALSE(porcupine(b));
@@ -363,7 +396,7 @@ TEST_CASE("group command retail: multiplayer relays the HUD selection and format
 		CHECK(remote.errors().empty());
 		CHECK(porcupine(a));
 		CHECK(porcupine(b));
-		CHECK(g.rig.local->selection().size() == 3);
+		CHECK(g.rig.local->selection().size() == 2);
 	}
 	// Replay the other peer's decoded batches in a fresh identical world, without a local selection or button press.
 	GroupRig peer;
@@ -389,5 +422,5 @@ TEST_CASE("group command retail: multiplayer relays the HUD selection and format
 		CHECK(peer.rig.logic().computeStateHash() == senderHashes[i]);
 	}
 	CHECK(peer.rig.input->ui().selected().empty());
-	CHECK(peer.rig.local->selection().size() == 3);
+	CHECK(peer.rig.local->selection().size() == 2);
 }
