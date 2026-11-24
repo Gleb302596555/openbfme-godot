@@ -42,6 +42,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p); // RW 0x8BEEAD
 };
 
+// RW 0x00650BB1 (EvacuateDamage::friend_newModuleInstance)
 class EvacuateDamage : public BehaviorModule, public DamageModuleInterface
 {
 public:

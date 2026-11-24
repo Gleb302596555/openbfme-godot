@@ -187,6 +187,7 @@ private:
 	unsigned m_aflameDamageTicks = 0;   ///< how many aflame damage hits the module made (tests)
 };
 
+// RW 0x0064CBA6 (FireSpreadUpdateModuleData::friend_newModuleData)
 class FireSpreadUpdateModuleData : public ModuleData
 {
 public:

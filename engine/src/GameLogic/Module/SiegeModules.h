@@ -219,6 +219,7 @@ private:
 };
 
 // ---- SiegeDeploySpecialPower ------------------------------------------------------------------------------------------------------------------------------
+// RW 0x00651F40 (SiegeDeploySpecialPowerModuleData::friend_newModuleData)
 class SiegeDeploySpecialPowerModuleData : public SpecialPowerUpdateBaseModuleData
 {
 public:
@@ -337,6 +338,7 @@ private:
 };
 
 // ---- StopSpecialPower ---------------------------------------------------------------------------------------------------------------------------------------
+// RW 0x00651B69 (StopSpecialPowerModuleData::friend_newModuleData)
 class StopSpecialPowerModuleData : public SpecialPowerModuleData
 {
 public:

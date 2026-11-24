@@ -302,6 +302,7 @@ public:
 // RW vtable 0xC71ED0: getModuleName RW 0x008C4947, getModuleNameKey RW 0x008C4966, dtor RW 0x008C49AB;
 // attemptDamage RW 0x8C49C7: a hit never takes more than health - 1 unless UNRESISTABLE
 // RW 0x008C494D (dtor -> RW 0x008C3AED)
+// RW 0x006511D7 (HighlanderBody::friend_newModuleInstance), RW 0x00651212 (ImmortalBody::friend_newModuleInstance), RW 0x008C4A0A (ImmortalBody::ctor)
 class HighlanderBody : public ActiveBody
 {
 public:

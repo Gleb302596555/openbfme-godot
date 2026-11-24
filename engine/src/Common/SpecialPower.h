@@ -109,6 +109,7 @@ public:
 	int m_unitCostDeathType = 0;                     // +0x84
 };
 
+// RW 0x007B1CE2 (SpecialPowerStore::SpecialPowerStore)
 class SpecialPowerStore
 {
 public:

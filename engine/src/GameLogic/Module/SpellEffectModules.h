@@ -65,6 +65,7 @@ struct FireWeaponNuggetData
 	Coord3D offset{};        ///< + 0xC
 };
 
+// RW 0x0088F2B2 (~FireWeaponUpdateModuleData)
 class FireWeaponUpdateModuleData : public ModuleData
 {
 public:

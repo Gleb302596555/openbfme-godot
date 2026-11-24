@@ -51,6 +51,7 @@ class Object;
 class Player;
 class ThingTemplate;
 
+// RW 0x0085603F (~WallHubBehaviorModuleData)
 class WallHubBehaviorModuleData : public ModuleData
 {
 public:

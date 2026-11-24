@@ -73,6 +73,7 @@ private:
 	const RefundDieModuleData *m_data;
 };
 
+// RW 0x006535ED (PillageModuleData::friend_newModuleData), RW 0x00653593 (PillageModuleData::ctor)
 class PillageModuleData : public ModuleData
 {
 public:

@@ -194,6 +194,7 @@ private:
 
 class SpecialPowerTemplate;
 
+// RW 0x0064F6C4 (UnpauseSpecialPowerUpgradeModuleData::friend_newModuleData)
 class UnpauseSpecialPowerUpgradeModuleData : public UpgradeModuleData
 {
 public:

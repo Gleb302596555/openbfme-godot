@@ -23,6 +23,7 @@
 
 class ModuleFactory;
 
+// RW 0x008C5CE5 (FreeLifeBodyModuleData::FreeLifeBodyModuleData)
 class FreeLifeBodyModuleData : public RespawnBodyModuleData
 {
 public:

@@ -41,6 +41,7 @@
 class ModuleFactory;
 class StateHasher;
 
+// RW 0x008D2ADB (NotifyCrushModuleData::ctor)
 class NotifyCrushModuleData : public ModuleData
 {
 public:

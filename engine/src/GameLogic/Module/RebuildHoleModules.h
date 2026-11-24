@@ -81,6 +81,7 @@ class ModuleFactory;
 class Object;
 class ThingTemplate;
 
+// RW 0x00889C7D (~RebuildHoleExposeDieModuleData)
 class RebuildHoleExposeDieModuleData : public ModuleData
 {
 public:
@@ -111,6 +112,7 @@ private:
 	unsigned m_holes = 0;
 };
 
+// RW 0x008865C7 (~RebuildHoleBehaviorModuleData)
 class RebuildHoleBehaviorModuleData : public ModuleData
 {
 public:

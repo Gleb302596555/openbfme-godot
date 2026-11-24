@@ -33,6 +33,7 @@
 class ModuleFactory;
 class MultiIniFieldParse;
 
+// RW 0x0064F0D7 (RainOfFireUpdateModuleData::friend_newModuleData)
 class RainOfFireUpdateModuleData : public ModuleData
 {
 public:

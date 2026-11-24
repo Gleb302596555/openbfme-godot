@@ -37,6 +37,7 @@
 
 class ModuleFactory;
 
+// RW 0x00651D99 (GrabPassengerSpecialPowerModuleData::friend_newModuleData)
 class GrabPassengerSpecialPowerModuleData : public SpecialPowerModuleData
 {
 public:

@@ -92,6 +92,7 @@ class MultiIniFieldParse;
 class Object;
 class Player;
 
+// RW 0x0089C4F5 (~GateOpenAndCloseBehaviorModuleData)
 class GateOpenAndCloseBehaviorModuleData : public ModuleData
 {
 public:
@@ -205,6 +206,7 @@ public:
 };
 
 // RW 0x64DFA5 (DONOR BFME2 0x0024E2CC)
+// RW 0x00653D2C (friend_newModuleInstance), RW 0x00653D6D (GateProxyBehaviorModuleData::friend_newModuleData)
 class GateProxyBehavior : public GateOpenAndCloseBehavior
 {
 public:

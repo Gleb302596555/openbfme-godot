@@ -414,6 +414,7 @@ private:
 
 // Local 87: RW 0x008C6D2B (getModuleName), RW 0x008C6DAD (getModuleNameKey), RW 0x008C6E46 (data dtor).
 // RW 0x008C6E62 (dtor -> RW 0x00854D9A)
+// RW 0x006517D5 (LevelGrantSpecialPower::friend_newModuleInstance)
 class LevelGrantSpecialPower : public SpecialAbilityUpdate
 {
 public:

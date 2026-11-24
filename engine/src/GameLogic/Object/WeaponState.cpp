@@ -305,6 +305,7 @@ int Weapon::preFireWeapon(WeaponHost &host, const WeaponShotTarget &target)
 {
 	const WeaponTemplate &t = *m_template;
 	// 1. the jitter is drawn on EVERY call, before any other test
+	// RW 0x006CA2DB: rebuildPreAttackRandomDelay (PreAttackRandomAmount at WeaponTemplate+0x13C -> Weapon+0x58)
 	if (t.m_preAttackRandomAmount != 0)
 	{
 		m_preAttackJitter = host.logicRandom().getValue(0, asInt32(t.m_preAttackRandomAmount), kWeaponCpp, 3644);

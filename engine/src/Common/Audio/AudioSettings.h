@@ -4,7 +4,7 @@
 //
 // Port of ZH GameEngine/Include/Common/AudioSettings.h, changed to RotWK (RW 0x44107A, caveat S-001):
 //   * ONE block with TWO field tables applied to the same object (RW 0xBD7698, 74 rows, and 0xC04440, 15 rows; the second is
-//     added by 0x645132) - the object is TheAudio+0x10 (RW 0x4410B5).
+//     added by RW 0x00645132) - the object is TheAudio+0x10 (RW 0x4410B5).
 //   * a map.ini may not define it (load type 2: INIException(3, "You cannot define or override the AudioSettings in map.ini"), 0xBD83DC).
 //   * post-processing after the fields (RW 0x4410F1-0x441194): the microphone / zoom fields of the Living World group (and a third,
 //     INI-less group 0x90 further on) that were not given (NaN) copy the tactical value; the distance-like fields get their squares

@@ -35,6 +35,7 @@
 class ModuleFactory;
 class StateHasher;
 
+// RW 0x008C9AFB (DeflectSpecialPowerModuleData::DeflectSpecialPowerModuleData)
 class DeflectSpecialPowerModuleData : public SpecialPowerUpdateBaseModuleData
 {
 public:

@@ -91,6 +91,7 @@ private:
 	bool m_flag20 = false; ///< +0x20
 };
 
+// RW 0x00654638 (CommandPointsUpgradeModuleData::friend_newModuleData)
 class CommandPointsUpgradeModuleData : public UpgradeModuleData
 {
 public:

@@ -94,6 +94,7 @@ public:
 
 // Local 87: RW 0x008C657D (getModuleName), RW 0x008C6588 (getModuleNameKey), RW 0x006548BC / RW 0x008C6697 (dtors), RW 0x008C6583 (base dtor thunk), RW 0x004B612F (empty-string helper).
 // RW 0x008C66B3 (ModuleData dtor -> RW 0x00896AE3)
+// RW 0x006516BD (InvisibilitySpecialPower::friend_newModuleInstance)
 class InvisibilitySpecialPower : public SpecialPowerModule
 {
 public:

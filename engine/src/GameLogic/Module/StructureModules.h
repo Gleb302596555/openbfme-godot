@@ -285,6 +285,7 @@ private:
 };
 
 // ---- RespawnBody / DelayedDeathBody -------------------------------------------------------------------------------------------------------------
+// RW 0x008C5689 (RespawnBodyModuleData::RespawnBodyModuleData)
 class RespawnBodyModuleData : public ActiveBodyModuleData
 {
 public:
@@ -312,6 +313,7 @@ private:
 	const RespawnBodyModuleData *m_respawn;
 };
 
+// RW 0x00651385 (DelayedDeathBody::friend_newModuleInstance), RW 0x006513C0 (friend_newModuleData), RW 0x008C59B4 (ctor)
 class DelayedDeathBodyModuleData : public RespawnBodyModuleData
 {
 public:

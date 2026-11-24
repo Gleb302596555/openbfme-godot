@@ -40,6 +40,7 @@
 
 class ModuleFactory;
 
+// RW 0x0064B2BA (GiantBirdSlowDeathBehaviorModuleData::friend_newModuleData)
 class GiantBirdSlowDeathBehaviorModuleData : public SlowDeathBehaviorModuleData
 {
 public:

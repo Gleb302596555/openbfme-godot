@@ -1,3 +1,4 @@
+// RW 0x005FD3D9 (AsciiString::AsciiString)
 // OpenBFME: faithful rebuild of The Battle for Middle-earth II: Rise of the Witch-king 2.01.
 // Derived from Command & Conquer Generals Zero Hour, (c) 2001-2003 Electronic Arts Inc., GPL-3.0.
 //

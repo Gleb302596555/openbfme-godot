@@ -15,6 +15,7 @@ public:
 
 // Local 87: RW 0x008D1DD3 (getModuleName), RW 0x008D1DD9 (getModuleNameKey), RW 0x008D1E77 (data dtor).
 // RW 0x008D1E1E (dtor -> RW 0x00854D9A)
+// RW 0x00652E87 (StoreObjectsSpecialPower::friend_newModuleInstance)
 class StoreObjectsSpecialPower : public SpecialAbilityUpdate {
 public:
     OBFME_MODULE_XFER(StoreObjectsSpecialPower)

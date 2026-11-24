@@ -185,6 +185,7 @@ private:
 //     primary, the dead object's position); the dead object is then destroyed (RW 0x62BBAB) whether or not anything was made; another death within
 //     PostFilterTriggeredDuration of the last duration-type hit: the recorded player (ThePlayerList RW 0x6A844E), not defeated (RW 0x6AAC4B), with a spell book
 //     object (RW 0x6AD0F8) creates the list with that object as primary and the object is destroyed; after the duration the player is forgotten (-1).
+// RW 0x0064C6BC (DamageFilteredCreateObjectDieModuleData::friend_newModuleData)
 class DamageFilteredCreateObjectDieModuleData : public ModuleData
 {
 public:
@@ -371,6 +372,7 @@ public:
 // lane FACT-C: the special power update interface at + 0x20 (vtable RW 0xC65158; the behaviour interface's slot 0x64, RW 0x8A18E0, hands it out) is what
 // SpecialPowerModule's initiate (RW 0x897F25 .. 0x897F77) finds when another module of the object holds the same template: slot 0x1C (RW 0x89827C) answers
 // "the data's template is t", slot 0 (RW 0x89841E) is the initiate. A goblin warrior's SpecialPowerModule (listed before it) thus turns its Poisoned Blades on
+// RW 0x009914DA (getPowerName 0xC650F0[5]), RW 0x009912A1 (0xC650F0[13])
 class WeaponModeSpecialPowerUpdate : public UpdateModule, public SpecialPowerModuleInterface, public SpecialPowerUpdateInterface
 {
 public:
@@ -506,6 +508,7 @@ public:
 // RW 0x008D0DE6 (ctor), RW 0x008E38D8 (loadPostProcess -> no-op RW 0x0063F3BF)
 // Local 87: RW 0x008D0F50 (scalar deleting destructor).
 // RW 0x008D0E1D (dtor -> RW 0x00854D9A)
+// RW 0x00652FE0 (DominateEnemySpecialPower::friend_newModuleInstance)
 class DominateEnemySpecialPower : public SpecialAbilityUpdate
 {
 public:
