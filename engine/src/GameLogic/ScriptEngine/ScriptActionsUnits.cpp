@@ -1853,7 +1853,18 @@ bool ScriptActions::executeUnitAction(ScriptEngine &engine, const ScriptActionRe
 	{
 		// RW 0x7CAFA5 case 509 -> RW 0x7C3A31: players of mask (RW 0x758F7C / RW 0x6A85EE), model condition name -> bit (RW 0x4B3B5B),
 		// count each player's objects whose model condition bit is set -> counter (RW 0x60817A).
-		const int bit = AIUpdateInterface::modelConditionBit(param(a, 1).stringValue.c_str());
+		int bit = -1;
+		if (!param(a, 1).stringValue.empty())
+		{
+			for (int i = 0; TheModelConditionNames[i]; ++i)
+			{
+				if (param(a, 1).stringValue == TheModelConditionNames[i])
+				{
+					bit = i;
+					break;
+				}
+			}
+		}
 		std::int32_t total = 0;
 		if (bit >= 0)
 		{
