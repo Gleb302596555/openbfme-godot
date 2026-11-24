@@ -3660,13 +3660,17 @@ void updateTactic(GameLogic &logic, AISkirmishPlayer &ai, AIBrainState &b, AITac
 {
 	// RW 0x8F28DD prunes active teams (+0x14), not pending prototypes (+4, RW 0x8F232F).
 	// This port stores both together: a team waiting for recruitment must survive until handover (RW 0x6C779B).
+	const size_t beforePrune = tac.teams.size();
 	tac.teams.erase(std::remove_if(tac.teams.begin(), tac.teams.end(), [&](const AITacticTeam &team) {
 		return team.handedOver && !teamAlive(logic, team);
 	}), tac.teams.end());
+	const bool prunedHandedOver = tac.teams.size() < beforePrune;
 	AITarget *t = !tac.targetless && tac.targetIndex >= 0 && tac.targetIndex < (int)owner.targets.size() ? &owner.targets[(size_t)tac.targetIndex] : nullptr;
 	if (!tac.started)
 	{
-		if (t && t->dropped)
+		// RW 0x6C77B2 (SkirmishAI::UnRegister(Team*)) -> RW 0x6C6C71 -> RW 0x90B9F9 -> RW 0x8F2727 (AITactic::NotifyTeamCancelled):
+		// when a handed-over team is destroyed before the tactic starts (+0x10 == 0) and leaves m_teams (+0x14) empty (0x8F275F..0x8F277A), end(false, false).
+		if ((t && t->dropped) || (prunedHandedOver && tac.teams.empty()))
 		{
 			endAnyTactic(logic, ai, b, tac, owner, false);
 			return;
