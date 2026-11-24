@@ -34,13 +34,13 @@
 
 class ModuleFactory;
 
-// Local 173: RW 0x882D1C (~CivilianSpawnUpdateModuleData)
+// Local 173: RW 0x882CB2 (CivilianSpawnUpdateModuleData ctor: m_spawnDelay = [0xD9F608] = 5 frames, m_maximumDistance = 0x12C = 300), RW 0x882D1C (~CivilianSpawnUpdateModuleData)
 class CivilianSpawnUpdateModuleData : public ModuleData
 {
 public:
-	unsigned int m_spawnDelay = 0;        ///< +0x8 SpawnDelayTime (frames)
+	unsigned int m_spawnDelay = 5;        ///< +0x8 SpawnDelayTime (frames; RW 0x882CE2..0x882CEA: LOGICFRAMES_PER_SECOND = 5)
 	ObjectFilter m_runToFilter;           ///< +0xC RunToFilter
-	float m_maximumDistance = 0.0f;       ///< +0x10 MaximumDistance
+	int m_maximumDistance = 300;          ///< +0x10 MaximumDistance (RW 0x882CED: 0x12C = 300; RW 0xC5EC68 uses INI::parseInt RW 0x42EC5E)
 	std::vector<std::string> m_civilians; ///< +0x14 Civilian template names
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
