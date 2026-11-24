@@ -45,14 +45,14 @@
 
 class ModuleFactory;
 
-// Local 173: RW 0x89A816 (~BannerCarrierUpdateModuleData), RW 0x89A29E (BannerMorphCondition ctor), RW 0x89A6F0 (~BannerMorphCondition)
+// Local 173: RW 0x89A765 (BannerCarrierUpdateModuleData ctor: 15s/10s/10s/10s defaults at 5 Hz = 75/50/50/50 frames), RW 0x89A816 (~BannerCarrierUpdateModuleData), RW 0x89A29E (BannerMorphCondition ctor), RW 0x89A6F0 (~BannerMorphCondition)
 class BannerCarrierUpdateModuleData : public ModuleData
 {
 public:
-	unsigned m_idleSpawnRate = 0;              ///< +8 (frames)
-	unsigned m_meleeFreeUnitSpawnTime = 0;     ///< +0xC
-	unsigned m_diedRespawnTime = 0;            ///< +0x10
-	unsigned m_meleeFreeBannerReSpawnTime = 0; ///< +0x14
+	unsigned m_idleSpawnRate = 75;              ///< +8 (frames; RW 0x89A795..0x89A79E: 15 * LOGICFRAMES_PER_SECOND)
+	unsigned m_meleeFreeUnitSpawnTime = 50;     ///< +0xC (frames; RW 0x89A7A1..0x89A7AA: 10 * LOGICFRAMES_PER_SECOND)
+	unsigned m_diedRespawnTime = 50;            ///< +0x10 (frames; RW 0x89A7AD..0x89A7B6: 10 * LOGICFRAMES_PER_SECOND)
+	unsigned m_meleeFreeBannerReSpawnTime = 50; ///< +0x14 (frames; RW 0x89A7B9..0x89A7C2: 10 * LOGICFRAMES_PER_SECOND)
 	/// lane PORT-75: one MorphCondition line (DONOR BFME2 0x00496ADE, the record RW 0x89A90F's parser builds)
 	struct BannerMorphCondition
 	{

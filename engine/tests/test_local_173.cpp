@@ -88,3 +88,62 @@ TEST_CASE("LOCAL-173 CivilianSpawnUpdateModuleData retail defaults (RW 0x882CB2)
 	CHECK(expData->m_spawnDelay == 10u);
 	CHECK(expData->m_maximumDistance == 150);
 }
+
+TEST_CASE("LOCAL-173 BannerCarrierUpdateModuleData retail defaults (RW 0x89A765)")
+{
+	// Source: RW 0x89A765 (m_idleSpawnRate = 15*5 = 75, m_meleeFreeUnitSpawnTime = 10*5 = 50,
+	// m_diedRespawnTime = 10*5 = 50, m_meleeFreeBannerReSpawnTime = 10*5 = 50)
+	const char *kIni =
+		"Object Local173BannerDefault\n"
+		"  KindOf = INFANTRY BANNER\n"
+		"  Behavior = BannerCarrierUpdate ModuleTag_BannerDefault\n"
+		"  End\n"
+		"End\n"
+		"Object Local173BannerExplicit\n"
+		"  KindOf = INFANTRY BANNER\n"
+		"  Behavior = BannerCarrierUpdate ModuleTag_BannerExplicit\n"
+		"    IdleSpawnRate = 4000\n"
+		"    MeleeFreeUnitSpawnTime = 2000\n"
+		"    DiedRespawnTime = 6000\n"
+		"    MeleeFreeBannerReSpawnTime = 8000\n"
+		"  End\n"
+		"End\n";
+
+	GameLogic logic;
+	parseIniString(kIni, logic.things(), logic.modules());
+
+	const ThingTemplate *defTpl = logic.things().findTemplate("Local173BannerDefault");
+	REQUIRE(defTpl != nullptr);
+	const BannerCarrierUpdateModuleData *defData = nullptr;
+	for (const auto &entry : defTpl->getBehaviorModules())
+	{
+		if (auto *d = dynamic_cast<const BannerCarrierUpdateModuleData *>(entry.data.get()))
+		{
+			defData = d;
+			break;
+		}
+	}
+	REQUIRE(defData != nullptr);
+	CHECK(defData->m_idleSpawnRate == 75u);
+	CHECK(defData->m_meleeFreeUnitSpawnTime == 50u);
+	CHECK(defData->m_diedRespawnTime == 50u);
+	CHECK(defData->m_meleeFreeBannerReSpawnTime == 50u);
+
+	// Neighbor check: explicit INI durations override the retail defaults (at 5 Hz)
+	const ThingTemplate *expTpl = logic.things().findTemplate("Local173BannerExplicit");
+	REQUIRE(expTpl != nullptr);
+	const BannerCarrierUpdateModuleData *expData = nullptr;
+	for (const auto &entry : expTpl->getBehaviorModules())
+	{
+		if (auto *d = dynamic_cast<const BannerCarrierUpdateModuleData *>(entry.data.get()))
+		{
+			expData = d;
+			break;
+		}
+	}
+	REQUIRE(expData != nullptr);
+	CHECK(expData->m_idleSpawnRate == 20u);
+	CHECK(expData->m_meleeFreeUnitSpawnTime == 10u);
+	CHECK(expData->m_diedRespawnTime == 30u);
+	CHECK(expData->m_meleeFreeBannerReSpawnTime == 40u);
+}
