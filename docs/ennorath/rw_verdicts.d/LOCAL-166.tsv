@@ -1,0 +1,134 @@
+function	name	verdict	evidence
+0x0048162B	Rva00082EF5::~Rva00082EF5	not reached	base/UI callback helper ctor/dtor in table 0xBDCE40 (dc=7, vc=0); client/UI listener wrapper
+0x0060E0F0	LivingWorldRegion::rva003EFE72	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x0060E83D	LivingWorldRegionManager::GetRegionCenterPoint	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=10, vc=0)
+0x0060F1C0	LivingWorldRegionCampaign::rva0020F3E8	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=2, vc=0)
+0x00610272	0xBFA508[2]	not reached	6-byte Snapshot::getClassName() string-literal stub (0xBFA508[2], dc=0, vc=0); port uses obfme:LivingWorld snapshot block
+0x006109D2	deleting_dtor:LivingWorldRegionManager	not reached	compiler-generated scalar deleting destructor (0xBFA508[0], dc=0, vc=1); port uses value types / std::unique_ptr
+0x00610CC0	0xBFB538[1]	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=0, vc=0)
+0x00610E0E	LivingWorldManager::rva0021100E	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x00611A72	LivingWorldManager::OnSwapArmyMembers	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=0, vc=0)
+0x00611F70	LivingWorldManager::rva00212183	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x00611F8B	LivingWorldManager::rva0021219E	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x006121C5	LivingWorldManager::update	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=0, vc=0)
+0x00612EDB	LivingWorldManager::CreateBeaconObject	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=4, vc=0)
+0x00613704	LivingWorldManager::CreateSound	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x006139D8	LivingWorldManager::rva00213C6E	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x00613C59	LivingWorldManager::LivingWorldManager	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x00613DBC	0xBFB538[2]	not reached	6-byte Snapshot::getClassName() string-literal stub (0xBFB538[2], dc=0, vc=0); port uses obfme:LivingWorld snapshot block
+0x00613DC2	0xBFB538[0]	not reached	compiler-generated multiple-inheritance adjustor thunk to deleting dtor (0xBFB538[0], dc=0, vc=0)
+0x00613DCA	LivingWorldManager::rva00214156	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x00613E45	LivingWorldManager::rva00214060	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x00613EC0	LivingWorldManager::rva002140DB	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x00613FE4	LivingWorldManager::rva0021427A	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=6, vc=0)
+0x00614054	LivingWorldManager::rva002142EA	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x0061416F	LivingWorldManager::~LivingWorldManager	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x006B32D7	LivingWorldLogic::AdjustArmyMoveTargetPos	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x006B33FB	LivingWorldLogic::rva002B2A0A	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x006B3486	Rva002B2A95Callback::rva002B2A95	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=0, vc=0)
+0x006B3E0E	LivingWorldLogic::rva002B3416	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=3, vc=0)
+0x006B3E7C	LivingWorldLogic::rva002B3484	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=3, vc=0)
+0x006B41F7	LivingWorldLogic::rva002B37FF	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x006B5286	LivingWorldLogic::rva002B47C3	too big	S-7950: scripted multi-act LivingWorld campaign / tutorial / act-event manager not ported (dc=1, vc=0)
+0x006B5646	LivingWorldLogic::rva002B4B83	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x006B66EF	LivingWorldLogic::rva002B5AF7	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x006B73CD	LivingWorldLogic::rva002B676D	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x006B8277	LivingWorldLogic::rva002B768F	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x006B923A	LivingWorldLogic::UseGenericSpawnArmyForPlayer	too big	S-7950: scripted multi-act LivingWorld campaign / tutorial / act-event manager not ported (dc=1, vc=0)
+0x006BA20E	0xC14564[2]	not reached	6-byte Snapshot::getClassName() string-literal stub (0xC14564[2], dc=0, vc=0); port uses obfme:LivingWorld snapshot block
+0x006BA214	0xC14564[0]	not reached	compiler-generated multiple-inheritance adjustor thunk to deleting dtor (0xC14564[0], dc=0, vc=0)
+0x006BB118	LivingWorldLogic::rva002BA654	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=0, vc=0)
+0x006BB983	deleting_dtor:LivingWorldLogic	not reached	compiler-generated scalar deleting destructor (0xC14574[0], dc=1, vc=0); port uses value types / std::unique_ptr
+0x006BF4A4	LivingWorld::ZoomInTo	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x006BFF7B	LivingWorld::rva002BF391	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x006C0751	LivingWorld::~LivingWorld	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=4, vc=0)
+0x006C0986	deleting_dtor:LivingWorld	not reached	compiler-generated scalar deleting destructor (0xC14770[0], dc=0, vc=0); port uses value types / std::unique_ptr
+0x006C09E1	LivingWorld::FindClickableObject	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=4, vc=0)
+0x006C0D53	LivingWorld::LivingWorld	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x006E1062	LivingWorldBuildingTemplate::rva002DFE36	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x006E10CA	LivingWorldBuildingTemplate::getConstructButtonHelp	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x006E1E34	LivingWorldPlayer::rva002E0B30	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x006E22C3	LivingWorldPlayer::SetColorIndex	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x0071A7FB	LivingWorldArmy::rva00318EC0	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x0071AC61	LivingWorldArmy::createVisualObjects	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=2, vc=0)
+0x0071B774	0xC22EA4[2]	not reached	6-byte Snapshot::getClassName() string-literal stub (0xC22EA4[2], dc=0, vc=0); port uses obfme:LivingWorld snapshot block
+0x0071B90C	deleting_dtor:LivingWorldArmy	not reached	compiler-generated scalar deleting destructor (0xC22EA4[0], dc=0, vc=0); port uses value types / std::unique_ptr
+0x007B95C2	LivingWorldCampaignManager::rva003B8B85	too big	S-7950: scripted multi-act LivingWorld campaign / tutorial / act-event manager not ported (dc=1, vc=0)
+0x007B95E7	LivingWorldCampaignManager::rva003B8BAA	too big	S-7950: scripted multi-act LivingWorld campaign / tutorial / act-event manager not ported (dc=15, vc=0)
+0x007B9669	LivingWorldCampaignManager::StartNewCampaign	too big	S-7950: scripted multi-act LivingWorld campaign / tutorial / act-event manager not ported (dc=2, vc=0)
+0x007B9743	LivingWorldCampaignManager::UseGenericSpawnArmyForPlayer	too big	S-7950: scripted multi-act LivingWorld campaign / tutorial / act-event manager not ported (dc=1, vc=0)
+0x007B9761	LivingWorldCampaignManager::GetCurrentActName	too big	S-7950: scripted multi-act LivingWorld campaign / tutorial / act-event manager not ported (dc=0, vc=0)
+0x007B97B0	LivingWorldCampaignManager::rva003B8D4D	too big	S-7950: scripted multi-act LivingWorld campaign / tutorial / act-event manager not ported (dc=2, vc=0)
+0x007B9983	LivingWorldCampaignManager::rva003B8EDC	too big	S-7950: scripted multi-act LivingWorld campaign / tutorial / act-event manager not ported (dc=1, vc=0)
+0x007B9D2C	LivingWorldCampaignManager::rva003B92B9	too big	S-7950: scripted multi-act LivingWorld campaign / tutorial / act-event manager not ported (dc=1, vc=0)
+0x007B9D80	LivingWorldCampaignManager::rva003B930D	too big	S-7950: scripted multi-act LivingWorld campaign / tutorial / act-event manager not ported (dc=1, vc=0)
+0x007EF90F	LivingWorldRegionEffectsManager::rva003EE84A	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=2, vc=0)
+0x007EF949	LivingWorldRegionEffectsManager::rva003EE884	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x007EFBC0	LivingWorldRegionEffectsManager::LivingWorldRegionEffectsManager	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x007F0150	LivingWorldRegionEffectsManager::SyncRegion	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=6, vc=0)
+0x007F02E7	LivingWorldRegionEffectsManager::rva003EF1D9	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x007F040D	LivingWorldRegionEffectsManager::rva003EF2FF	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=6, vc=0)
+0x007F15D4	LivingWorldRegion::GetFortressPortrait	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x007F15F8	LivingWorldRegion::GetFortressDisplayDescription	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x007F1672	LivingWorldRegion::GetFortressDisplayName	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x007F17BF	LivingWorldRegion::rva003F05CE	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=3, vc=0)
+0x007F20EC	LivingWorldRegion::GetGarrisonArmyPlacementSpot	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=5, vc=0)
+0x007F2199	LivingWorldRegion::rva003F0FA3	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=2, vc=0)
+0x007F3B4D	0xC4D2E0[2]	not reached	6-byte Snapshot::getClassName() string-literal stub (0xC4D2E0[2], dc=0, vc=0); port uses obfme:LivingWorld snapshot block
+0x007F3D27	LivingWorldRegionConnection::rva003F26AA	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=2, vc=0)
+0x007F40CA	deleting_dtor:LivingWorldRegionConnection	not reached	compiler-generated scalar deleting destructor (0xC4D2E0[0], dc=0, vc=0); port uses value types / std::unique_ptr
+0x007F4A97	0xC4D43C[2]	not reached	6-byte Snapshot::getClassName() string-literal stub (0xC4D43C[2], dc=0, vc=0); port uses obfme:LivingWorld snapshot block
+0x007F4B5C	LivingWorldRegion::PrepareSkirmishOpponents	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x007F4D6B	deleting_dtor:LivingWorldRegion	not reached	compiler-generated scalar deleting destructor (0xC4D43C[0], dc=0, vc=0); port uses value types / std::unique_ptr
+0x007F5D90	LivingWorldBattle::rva003F46F2	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x007F5DAC	LivingWorldBattle::rva003F470E	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=2, vc=0)
+0x007F5FBF	LivingWorldBattle::rva003F4921	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x007F60E4	LivingWorldBattle::rva003F4A46	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x007F69EE	LivingWorldBattle::rva003F5397	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x007F821A	?reserve@?$vector@UBfmeStringRecord00111ACF@@V?$allocator@UBfmeStringRecord00111ACF@@@_STL@@@_STL@@QAEXI@Z	not reached	6-byte Snapshot::getClassName() string-literal stub (0xC4D534[2], dc=0, vc=0); port uses obfme:LivingWorld snapshot block
+0x007F846C	deleting_dtor:LivingWorldBattle	not reached	compiler-generated scalar deleting destructor (0xC4D534[0], dc=0, vc=0); port uses value types / std::unique_ptr
+0x007FAB5D	LivingWorldEyeTower::rva003F935A	too big	S-7949: LivingWorldEyeTower strategic-map eye tower subsystem not ported (dc=1, vc=0)
+0x007FAB71	LivingWorldEyeTower::rva003F936E	too big	S-7949: LivingWorldEyeTower strategic-map eye tower subsystem not ported (dc=1, vc=0)
+0x007FAE32	LivingWorldEyeTower::rva003F962F	too big	S-7949: LivingWorldEyeTower strategic-map eye tower subsystem not ported (dc=1, vc=0)
+0x007FB22E	LivingWorldEyeTower::getPair	too big	S-7949: LivingWorldEyeTower strategic-map eye tower subsystem not ported (dc=2, vc=0)
+0x007FB35D	LivingWorldEyeTower::rva003F9B5A	too big	S-7949: LivingWorldEyeTower strategic-map eye tower subsystem not ported (dc=2, vc=0)
+0x007FB396	LivingWorldEyeTower::beginState	too big	S-7949: LivingWorldEyeTower strategic-map eye tower subsystem not ported (dc=1, vc=0)
+0x007FB414	ctor/dtor	too big	S-7949: LivingWorldEyeTower strategic-map eye tower subsystem not ported (dc=1, vc=0)
+0x007FB4CF	LivingWorldEyeTower::updateState	not reached	6-byte Snapshot::getClassName() string-literal stub (0xC4DA88[2], dc=0, vc=0); port uses obfme:LivingWorld snapshot block
+0x007FB5C1	deleting_dtor:Rva003F9D08	not reached	compiler-generated scalar deleting destructor (0xC4DA88[0], dc=0, vc=0); port uses value types / std::unique_ptr
+0x007FB5E5	LivingWorldEyeTower::xfer	too big	S-7949: LivingWorldEyeTower strategic-map eye tower subsystem not ported (dc=0, vc=0)
+0x007FC8E1	LivingWorldSound::ParseSound	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=0, vc=0)
+0x008E4A21	LivingWorldBuilding::rva004E060C	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=2, vc=0)
+0x008E4A54	LivingWorldBuilding::createIcon	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x008E4B8C	0xC782D8[2]	not reached	6-byte Snapshot::getClassName() string-literal stub (0xC782D8[2], dc=0, vc=0); port uses obfme:LivingWorld snapshot block
+0x008E4EB7	LivingWorldBuilding::createGhostObject	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x008E505B	LivingWorldBuilding::updateArmySummaryEntryRepresentation	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x008E51CD	LivingWorldBuildingTemplateStore::getEmergencyBackupTemplateForBadLoads	not reached	corrupt-save emergency fallback template lookup (dc=2, vc=0); port rejects invalid template names on load
+0x008F29F1	LivingWorldScoreKeeper::rva004EE016	too big	covered by existing stop S-1331 (tactical battle ScoreKeeper merge / wall-clock timer, dc=1, vc=0)
+0x008F2A12	LivingWorldScoreKeeper::rva004EE037	too big	covered by existing stop S-1331 (tactical battle ScoreKeeper merge / wall-clock timer, dc=1, vc=0)
+0x008F2A81	LivingWorldScoreKeeper::event3_0	too big	covered by existing stop S-1331 (tactical battle ScoreKeeper merge / wall-clock timer, dc=0, vc=0)
+0x008F2B30	LivingWorldScoreKeeper::event3_1	not reached	6-byte Snapshot::getClassName() string-literal stub (0xC796B4[2], dc=0, vc=0); port uses obfme:LivingWorld snapshot block
+0x008F33A0	LivingWorldScoreKeeper::rva004EE950	too big	covered by existing stop S-1331 (tactical battle ScoreKeeper merge / wall-clock timer, dc=1, vc=0)
+0x008F374C	0xC79750[2]	not reached	6-byte Snapshot::getClassName() string-literal stub (0xC79750[2], dc=0, vc=0); port uses obfme:LivingWorld snapshot block
+0x008FF304	LivingWorldBuildingNuggetSpawnArmy::rva004FA618	not reached	6-byte Snapshot::getClassName() string-literal stub (0xC7A0D0[2], dc=0, vc=0); port uses obfme:LivingWorld snapshot block
+0x00901A5F	deleting_dtor:LivingWorldBuildPlot	not reached	compiler-generated scalar deleting destructor (0xC7A1B0[0], dc=0, vc=0); port uses value types / std::unique_ptr
+0x009029DD	LivingWorldBuildPlot::CreateIcon	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=2, vc=0)
+0x00902A96	0xC7A7A8[0]	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=0, vc=0)
+0x00902DE8	LivingWorldBuildPlot::~LivingWorldBuildPlot	not reached	6-byte Snapshot::getClassName() string-literal stub (0xC7A7B0[2], dc=0, vc=0); port uses obfme:LivingWorld snapshot block
+0x00902DEE	deleting_dtor:Rva004FFE39	not reached	compiler-generated scalar deleting destructor (0xC7A7B0[0], dc=0, vc=0); port uses value types / std::unique_ptr
+0x00932AE9	LivingWorldCampaign::rva0052C0C8	too big	S-7950: scripted multi-act LivingWorld campaign / tutorial / act-event manager not ported (dc=1, vc=0)
+0x00933905	0xC7F75C[2]	not reached	6-byte Snapshot::getClassName() string-literal stub (0xC7F75C[2], dc=0, vc=0); port uses obfme:LivingWorld snapshot block
+0x00933C98	deleting_dtor:LivingWorldCampaign	not reached	compiler-generated scalar deleting destructor (0xC7F75C[0], dc=0, vc=0); port uses value types / std::unique_ptr
+0x0093F924	LivingWorldArmyLine::rva00538F6B	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x0093FA67	LivingWorldArmyLine::allocatePoints	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x0096C74B	LivingWorldCampaignAct::rva00564EC0	too big	S-7950: scripted multi-act LivingWorld campaign / tutorial / act-event manager not ported (dc=1, vc=0)
+0x0096C991	LivingWorldCampaignAct::rva00565106	too big	S-7950: scripted multi-act LivingWorld campaign / tutorial / act-event manager not ported (dc=1, vc=0)
+0x0096C9D3	LivingWorldCampaignAct::rva00565148	too big	S-7950: scripted multi-act LivingWorld campaign / tutorial / act-event manager not ported (dc=1, vc=0)
+0x0097351B	LivingWorldArmyIconSubObject::LivingWorldArmyIconSubObject	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x009735B7	deleting_dtor:Rva0056B9A2	not reached	compiler-generated scalar deleting destructor (0xC84B18[0], dc=0, vc=0); port uses value types / std::unique_ptr
+0x009A37E7	deleting_dtor:LivingWorldAutoResolveUnit	not reached	compiler-generated scalar deleting destructor (0xC88360[0], dc=0, vc=0); port uses value types / std::unique_ptr
+0x009EE259	LivingWorldBuildPlotIconSubObject::LivingWorldBuildPlotIconSubObject	too big	S-7948: Living World 3D strategic map client scene / icons / camera / region effects / tooltips / EVA / sounds (dc=1, vc=0)
+0x009FB918	Rva005E8AAF::~Rva005E8AAF	not reached	base/UI callback helper ctor/dtor in table 0xBDCE40 (dc=1, vc=0); client/UI listener wrapper
+0x009FBBDA	ctor/dtor	not reached	base/UI callback helper ctor/dtor in table 0xBDCE40 (dc=1, vc=0); client/UI listener wrapper
+0x009FC012	ctor/dtor	not reached	base/UI callback helper ctor/dtor in table 0xBDCE40 (dc=1, vc=0); client/UI listener wrapper
+0x009FC160	Rva005E92F7::~Rva005E92F7	not reached	base/UI callback helper ctor/dtor in table 0xBDCE40 (dc=1, vc=0); client/UI listener wrapper
