@@ -2633,7 +2633,7 @@ unsigned AIUpdateInterface::handleEngagedFlag()
 				Object *holder = obj->getContainedBy();
 				if (holder && holder->testModelCondition(cAttacking))
 				{
-					if (AIUpdateInterface *holderAI = holder->getAI())
+					if (AIUpdateInterface *holderAI = holder->getAIUpdateInterface())
 					{
 						const float holderMaxDist = holder->getTemplate() ? holder->getTemplate()->maxDistanceForEngaged() : 50.0f;
 						if (holderAI->mover().locomotorDistanceToGoal() > holderMaxDist)
