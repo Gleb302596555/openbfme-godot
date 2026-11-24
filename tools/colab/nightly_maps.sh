@@ -200,7 +200,7 @@ run() {
   echo "steps: ran${RAN:- none}; skipped${SKIPPED:- none} (since ${BASE:-no previous run})" >> "$LOG"
   if [ $((s_matrix + s_audit + s_sweep)) -gt 0 ]; then
     st "карты на main $rev: сборка"
-    bash tools/colab/build_tests.sh > "$RUNS/nightly_build.log" 2>&1 || { echo "build failed at $rev" >> "$LOG"; return 1; }
+    OPENBFME_BUILD_TARGETS=openbfme_tests bash tools/colab/build_tests.sh > "$RUNS/nightly_build.log" 2>&1   # the tests only: no GDExtension here || { echo "build failed at $rev" >> "$LOG"; return 1; }
   fi
   mkdir -p "$AUDIT"
   # the script map (owner 2026-11-19: mechanics the sides' script libraries give, like the Manwe science): before the matrix (matrix_run.py collect

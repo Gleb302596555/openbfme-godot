@@ -60,6 +60,31 @@ def run_one(tests: str, map_path: str, report: Path, logs: Path, n: int, seconds
     return f"{map_path}: done"
 
 
+def run_batch(tests: str, batch: list[str], maps: list[str], report: Path, logs: Path, seconds: float, timeout: float) -> list[str]:
+    """One process for several maps (2026-11-24: loading the world is half of a map's time). The maps of the batch with no row after it
+    (a crash, a hang) run again one per process (run_one), so a crash is still its own map's row."""
+    if len(batch) == 1:
+        return [run_one(tests, batch[0], report, logs, maps.index(batch[0]), seconds, timeout)]
+    n = maps.index(batch[0])
+    listing = logs / f"batch-{n:03d}.txt"
+    listing.write_text("".join(m + "\n" for m in batch), encoding="utf-8")
+    env = dict(os.environ, OPENBFME_MAP_SWEEP_MAPS=str(listing), OPENBFME_MAP_SWEEP_REPORT=str(report), OPENBFME_MAP_SWEEP_SECONDS=str(seconds))
+    env.setdefault("OPENBFME_LOGIC_THREADS", "2")
+    log = logs / f"batch-{n:03d}.log"
+    try:
+        with open(log, "w", encoding="utf-8", errors="replace") as f:
+            flags = getattr(subprocess, "BELOW_NORMAL_PRIORITY_CLASS", 0)
+            subprocess.run([tests, f"-tc={CASE}"], env=env, stdout=f, stderr=subprocess.STDOUT, timeout=timeout * len(batch), creationflags=flags)
+    except subprocess.TimeoutExpired:
+        pass
+    done = done_maps(report)
+    out = [f"{m}: done" for m in batch if m in done]
+    for m in batch:
+        if m not in done:
+            out.append(run_one(tests, m, report, logs, maps.index(m), seconds, timeout))
+    return out
+
+
 def done_maps(report: Path) -> set[str]:
     if not report.exists():
         return set()
@@ -128,6 +153,7 @@ def main() -> int:
     ap.add_argument("--seconds", type=float, default=60.0)
     ap.add_argument("--timeout", type=float, default=600.0)
     ap.add_argument("--only", default="", help="only the maps whose path holds this text (case-insensitive)")
+    ap.add_argument("--batch", type=int, default=8, help="maps per process (the world loads once per batch; 1 = one map per process)")
     ap.add_argument("--summary", help="a finished run's map-sweep.tsv")
     ap.add_argument("--docs", default="docs/ennorath")
     a = ap.parse_args()
@@ -142,11 +168,16 @@ def main() -> int:
     report = out / "map-sweep.tsv"
     maps = [m for m in list_maps(a.tests) if a.only.lower() in m.lower()]
     todo = [m for m in maps if m not in done_maps(report)]
-    print(f"{len(maps)} maps, {len(todo)} to run, {a.jobs} at once", flush=True)
+    size = max(1, a.batch)
+    batches = [todo[i:i + size] for i in range(0, len(todo), size)]
+    print(f"{len(maps)} maps, {len(todo)} to run, {a.jobs} at once, {size} per process", flush=True)
+    i = 0
     with concurrent.futures.ThreadPoolExecutor(max_workers=a.jobs) as pool:
-        futs = [pool.submit(run_one, a.tests, m, report, logs, maps.index(m), a.seconds, a.timeout) for m in todo]
-        for i, f in enumerate(concurrent.futures.as_completed(futs), 1):
-            print(f"[{i}/{len(todo)}] {f.result()}", flush=True)
+        futs = [pool.submit(run_batch, a.tests, b, maps, report, logs, a.seconds, a.timeout) for b in batches]
+        for f in concurrent.futures.as_completed(futs):
+            for line in f.result():
+                i += 1
+                print(f"[{i}/{len(todo)}] {line}", flush=True)
     summary(report, Path(a.docs))
     return 0
 
