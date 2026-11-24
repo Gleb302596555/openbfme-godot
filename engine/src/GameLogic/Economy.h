@@ -94,8 +94,8 @@ public:
 	void objectLost(Player &player, const Object &obj);              // RW 0x6AA590
 	int commandPointLimit(const Player &player) const override;      // RW 0x6A7B9F
 	bool canAffordCommandPoints(const Player &player, const ThingTemplate &tt) const override; // RW 0x6A7F79
-	// lane UPGRADE-1 (PlayerEconomyHost), lane PORT-328 (issue #845, stop S-482 closed): RW 0x6AE483 / 0x6AE546 walk the player's team prototypes in creation order,
-	// each prototype's teams newest first, each team's members newest first (see Economy::walkPlayerTeamMembers)
+	// lane UPGRADE-1 (PlayerEconomyHost): RW 0x6AE483 / 0x6AE546 walk the player's teams' members; here the objects of the logic list the player controls, in
+	// list order (INFERENCE: the order of RW's team walk was not reproduced; stop S-482)
 	void updateUpgradeModulesOfPlayer(const Player &player) override;
 	void removeUpgradeFromObjectsOfPlayer(const Player &player, const UpgradeTemplate &upgrade) override;
 	void reportUpgradeEva(const Player &player, const UpgradeTemplate &upgrade, bool gained) override;

@@ -977,8 +977,9 @@ std::vector<std::string> UpgradeModuleClasses::stopLines()
 		"UnpauseSpecialPowerUpgrade, GeometryUpgrade, MaxHealthUpgrade, LocomotorSetUpgrade, "
 		"...; DoCommandUpgrade runs since lane SUMMON-1 (S-5145); CastleUpgrade, ObjectCreationUpgrade and ReplaceSelfUpgrade run since lane FACT-A) and InheritUpgradeCreate / UpgradeDie are UnportedModules (S-140): a granted upgrade does nothing through them; " +
 			std::to_string(unknownUpgradeNames().size()) + " unknown upgrade names met at run time (RW's debug messages)",
-		"[S-482] closed (lane PORT-328, issue #845): onUpgradeCompleted / onUpgradeRemoved (RW 0x6AE483 / 0x6AE546) walk the player's team prototypes in creation order, "
-		"each prototype's teams newest first (RW 0x79FA5C -> RW 0x79F9D0), each team's members newest first (RW 0x68AD89)",
+		"[S-482] upgrade walks: onUpgradeCompleted / onUpgradeRemoved (RW 0x6AE483 / 0x6AE546) walk the player's teams' members; here the logic object list in list order "
+		"(the order an upgrade reaches the objects in is inferred); a team-walk port was tried under issue #845 (lane PORT-328) and moved the "
+		"skirmish games (test_skirmish_ai_vs_ai.cpp:1006), so it was not merged — the stop stays open (RW reads only possible with RotWK 2.01 game.dat)",
 		"[S-483] closed (lane DECOMP-2): Object::hasUpgrade asks a horde's members first (RW 0x68E040 -> contain slot 0x7C -> RW 0x86EC2D) and "
 		"Object::updateUpgradeModules adds the upgrades of a castle member's keep (RW 0x797BEF, member + 0x14 written at the unpack by RW 0x7990D9)",
 		"[S-484] SubObjectsUpgrade: the fade (FadeTimeInSeconds / WaitBeforeFadeInSeconds, RW 0x8B8F40) is not drawn: " +
