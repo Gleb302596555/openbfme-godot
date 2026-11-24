@@ -2,6 +2,7 @@
 // See GameLogic/Module/InvisibilityModules.h for the target facts, the donors and what is inference.
 
 #if defined(__GNUC__) || defined(__clang__)
+// Local 169: RW 0x8A6409 (DetectionRate), RW 0x8A6E95 (InvisibilityNugget)
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 

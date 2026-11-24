@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 // See GameLogic/Module/AttachUpdate.h (lane CAMP-1).
 
+// Local 169: RW 0x894FE3 (ObjectFilter)
 #include "GameLogic/Module/AttachUpdate.h"
 #include "GameLogic/SnapshotXfer.h"
 

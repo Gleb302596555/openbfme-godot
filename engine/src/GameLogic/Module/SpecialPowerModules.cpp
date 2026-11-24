@@ -4,6 +4,7 @@
 // The special power modules. See GameLogic/Module/SpecialPowerModules.h for the target facts. Lane SPELL-1.
 
 #if defined(__GNUC__) || defined(__clang__)
+// Local 169: RW 0x651ADD (WeaponChangeSpecialPowerModuleData::friend_newModuleData), RW 0x6521DF (ManTheWallsSpecialPower::friend_newModuleInstance), RW 0x65232C (PlayerHealSpecialPower::friend_newModuleInstance)
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 

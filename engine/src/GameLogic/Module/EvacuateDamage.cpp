@@ -2,6 +2,7 @@
 // See GameLogic/Module/EvacuateDamage.h for the target facts and the addresses.
 
 #if defined(__GNUC__) || defined(__clang__)
+// Local 169: RW 0x8BD28C (~EvacuateDamageModuleData_8BD28C), RW 0x8BEEBE (EvacuateDamageModuleData deleting dtor), RW 0x8BEEDA (~EvacuateDamageModuleData)
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 

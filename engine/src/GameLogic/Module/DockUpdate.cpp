@@ -1,6 +1,8 @@
 // OpenBFME. GPL-3.0.
 // See GameLogic/Module/DockUpdate.h for the target facts.
 
+// Local 169: RW 0x886C50 (~SupplyWarehouseCripplingBehavior), RW 0x886C70 (SupplyWarehouseCripplingBehavior::getModuleName), RW 0x886C99 (SupplyWarehouseCripplingBehavior::getModuleNameKey)
+// Local 169: RW 0x886D71 (SupplyWarehouseCripplingBehavior deleting dtor), RW 0x991742 (NumberApproachPositions)
 #include "GameLogic/Module/DockUpdate.h"
 
 #include "Common/NumericState.h"

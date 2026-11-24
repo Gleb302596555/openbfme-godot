@@ -41,6 +41,7 @@
 // Ownership: an Object owns its modules (helpers first, then the behaviors, in the retail array order). The scheduler holds raw
 // UpdateModule pointers; destroying an object goes through GameLogic::destroyObject and processDestroyList, which removes them first.
 
+// Local 169: RW 0x69A6EA (Object::getClassName), RW 0x69A705 (Object Snapshot deleting dtor thunk)
 #pragma once
 
 #include "Common/Thing/Thing.h"

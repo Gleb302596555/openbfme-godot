@@ -1,4 +1,5 @@
 // OpenBFME. GPL-3.0. See EvaAnnounceClientCreate.h.
+// Local 169: RW 0x8CDE48 (AnnouncementEventEnemy)
 #include "GameClient/EvaAnnounceClientCreate.h"
 #include "Common/INI.h"
 #include "Common/Thing/ModuleFactory.h"

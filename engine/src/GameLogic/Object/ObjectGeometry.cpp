@@ -1,6 +1,8 @@
 // OpenBFME. GPL-3.0.
 // See GameLogic/Object/ObjectGeometry.h.
 
+// Local 169: RW 0x66535A (Object::getVectorToObject), RW 0x68C706 (Object::getMaxHeightBelowPosition), RW 0x68C75C (Object::getMaxHeightAbovePosition)
+// Local 169: RW 0x6CA5A8 (Object::Get2DBorderVectorTo)
 #include "GameLogic/Object/ObjectGeometry.h"
 
 #include "Common/Thing/ThingTemplate.h"

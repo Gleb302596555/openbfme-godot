@@ -2,6 +2,7 @@
 // See GameLogic/Module/ExtraUpdateModules.h for the target facts and the addresses.
 
 #if defined(__GNUC__) || defined(__clang__)
+// Local 169: RW 0x894C41 (ModelConditionFlags)
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 

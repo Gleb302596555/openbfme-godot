@@ -25,6 +25,8 @@
 //   * MaxAttackPassengers is a parseInt (4 bytes) into the BYTE at +0x141: it overwrites +0x142, +0x143 and the low byte of
 //     FiringDuration (+0x144). Reproduced (parseMaxAttackPassengers).
 
+// Local 169: RW 0x5788E0 (Weapon::setLeechRangeActive), RW 0x6CA159 (WeaponStore slot 7), RW 0x6CBB1A (WeaponStore::reset)
+// Local 169: RW 0x6CBB8C (WeaponStore::update), RW 0x6CDA76 (~WeaponStore), RW 0x6CE300 (WeaponStore deleting dtor)
 #pragma once
 
 #include "Common/INI.h"

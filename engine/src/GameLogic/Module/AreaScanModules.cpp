@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 // See GameLogic/Module/AreaScanModules.h for the target facts and the stop S-1023.
 
+// Local 169: RW 0x893754 (UpdateRate)
 #include "Common/ModEngineFeatures.h"
 #include "GameLogic/Module/AreaScanModules.h"
 #include "Common/ModEngineFeatures.h"

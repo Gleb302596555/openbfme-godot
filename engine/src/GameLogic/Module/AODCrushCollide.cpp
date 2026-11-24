@@ -1,5 +1,6 @@
 // OpenBFME. GPL-3.0. See AODCrushCollide.h for both edition sources.
 #if defined(__GNUC__) || defined(__clang__)
+// Local 169: RW 0x8C0145 (SmallFXList)
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 #include "GameLogic/Module/AODCrushCollide.h"

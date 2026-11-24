@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 // See GameLogic/MapObjectLoop.h for the sources.
 
+// Local 169: RW 0x693A9A (Object::applyUpgradesList)
 #include "GameLogic/MapObjectLoop.h"
 
 #include "GameLogic/AI/AIWorld.h"

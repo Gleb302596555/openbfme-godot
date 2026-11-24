@@ -3,6 +3,8 @@
 // initiateIntentToDoSpecialPower, startPreparation, triggerAbilityEffect, onExit); every step below is RotWK's, from the addresses named.
 
 #if defined(__GNUC__) || defined(__clang__)
+// Local 169: RW 0x64D6DB (HeroModeSpecialAbilityUpdateModuleData::friend_newModuleData), RW 0x893D29 (~LevelGrantSpecialPowerModuleData), RW 0x89597D (~SpecialAbilityModuleData_89597D)
+// Local 169: RW 0x895E96 (~SpecialAbilityModuleData_895E96), RW 0x8C6C8C (~LevelGrantSpecialPowerModuleData_8C6C8C)
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 

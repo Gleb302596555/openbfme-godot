@@ -2,6 +2,7 @@
 // See GameLogic/Module/ActiveBody.h.
 
 #if defined(__GNUC__) || defined(__clang__)
+// Local 169: RW 0x8C3F92 (MaxHealth)
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 

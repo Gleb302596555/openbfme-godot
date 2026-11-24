@@ -40,6 +40,7 @@
 // (issue #100): BezierProjectileBehavior::calcLaunchTransform turns the launch bone by this turret's angle (+ 0x18) and pitch (+ 0x1C), gated by
 // Weapon/RotatingTurret and by whichTurretForWeaponSlot (the getter at RW 0x66246B).
 
+// Local 169: RW 0x8DC2B2 (TurretAIData)
 #pragma once
 
 #include "GameLogic/AI/AIAttack.h"

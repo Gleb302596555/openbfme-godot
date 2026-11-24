@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 // See GameLogic/GameLogic.h for the sources of every rule.
 
+// Local 169: RW 0x68BB6A (Object::appendToList), RW 0x68BC64 (Object::removeFromList)
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/NewGame/StartingBase.h"
 #include "Common/ModEngineFeatures.h"

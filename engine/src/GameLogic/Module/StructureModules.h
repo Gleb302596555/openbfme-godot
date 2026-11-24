@@ -65,6 +65,8 @@
 // maximum over the template's shapes that are active in the template (GeometryUpgrade modules switch shapes at run time: not ported); the BoneFXUpdate stop is not
 // ported; deselecting the object belongs to InGameUI (it forgets destroyed objects).
 
+// Local 169: RW 0x656A0A (SymbioticStructuresBodyModuleData ctor), RW 0x656DD5 (SymbioticStructuresBodyModuleData deleting dtor), RW 0x656DF1 (~SymbioticStructuresBodyModuleData)
+// Local 169: RW 0x8C5713 (~SymbioticStructuresBodyModuleData_8C5713)
 #pragma once
 
 #include "Common/INI.h"

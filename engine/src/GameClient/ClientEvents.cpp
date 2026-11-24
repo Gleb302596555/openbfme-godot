@@ -3,6 +3,7 @@
 // ClientEventRecorder (lane SMOOTH-1): see ClientEvents.h. Runs on the simulation owner's thread; it reads the object (template, owner, transform)
 // and writes only its own event list, never simulation state.
 
+// Local 169: RW 0x68D64A (Object::replaceDrawableModelConditions)
 #include "GameClient/ClientEvents.h"
 #include "Common/AsciiString.h"
 

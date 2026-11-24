@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 // See GameLogic/Module/AISpecialPowerUpdate.h for the sources and what is inference.
 
+// Local 169: RW 0x8B7029 (CommandButtonName)
 #include "GameLogic/Module/AISpecialPowerUpdate.h"
 #include "GameLogic/SnapshotXfer.h"
 

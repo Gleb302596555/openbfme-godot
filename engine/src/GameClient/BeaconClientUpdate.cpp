@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 // See GameClient/BeaconClientUpdate.h (lane CHAT-1).
 
+// Local 169: RW 0x8CDA9D (RadarPulseFrequency)
 #include "GameClient/BeaconClientUpdate.h"
 
 #include "Common/INI.h"

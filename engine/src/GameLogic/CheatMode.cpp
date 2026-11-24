@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 // See GameLogic/CheatMode.h. Lane CHEAT-1.
 
+// Local 169: RW 0x69067B (Object::healCompletely)
 #include "GameLogic/CheatMode.h"
 
 #include "Common/CommandPoints.h"

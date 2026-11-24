@@ -2,6 +2,7 @@
 // See GameLogic/Module/BoredUpdate.h for the target facts, the donors and what is inference.
 
 #if defined(__GNUC__) || defined(__clang__)
+// Local 169: RW 0x899F0E (ScanDelayTime)
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 

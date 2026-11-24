@@ -2,6 +2,7 @@
 // See GameLogic/Module/HeroModules.h.
 
 #if defined(__GNUC__) || defined(__clang__)
+// Local 169: RW 0x8B4259 (DeathAnim)
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 

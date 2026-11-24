@@ -2,6 +2,7 @@
 // See GameLogic/Module/CritterEmitterUpdate.h for the target facts, the donors and what is inference.
 
 #if defined(__GNUC__) || defined(__clang__)
+// Local 169: RW 0x8CD3EB (FX)
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 

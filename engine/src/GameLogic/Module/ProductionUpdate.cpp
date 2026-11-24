@@ -2,6 +2,7 @@
 // See GameLogic/Module/ProductionUpdate.h for the sources and what is not ported.
 
 #if defined(__GNUC__) || defined(__clang__)
+// Local 169: RW 0x8A36A4 (MaxQueueEntries)
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 

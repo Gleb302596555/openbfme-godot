@@ -4,6 +4,8 @@
 // TARGET W3DBuffDraw: RW 0x004B1B3F xfer, RW 0x004B612F getModelName, RW 0x004CE5CF GetSnapshotName,
 //   RW 0x004CE5D5 getModuleNameKey, RW 0x004CE62B ~W3DBuffDrawModuleData, RW 0x004CE672 ModuleData scalar deleting dtor.
 // TARGET TBuff: RW 0x004D13A7 GetSnapshotName, RW 0x004D13AD ~TBuff (via RW 0x00707F3E BuffLogic::removeBuff), RW 0x004D187F scalar deleting dtor, RW 0x004D18E9 xfer.
+// Local 169: RW 0x764442 (BuffInstance::Update), RW 0x7649CC (~BuffInstance), RW 0x764AEF (BuffInstance deleting dtor)
+// Local 169: RW 0x764B0B (BuffInstance subclass deleting dtor), RW 0x764B27 (BuffInstance vector deleting dtor)
 #include "GameClient/BuffDraw.h"
 #include "Common/Xfer.h"
 #include "GameLogic/SnapshotXfer.h"

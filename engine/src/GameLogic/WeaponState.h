@@ -29,6 +29,7 @@
 //   * ProjectileStreamName (template + 0x178, field row RW 0xC173F8, ascii parser RW 0x42EE5E): RW 0x6CD1FD, called by privateFireWeapon's step 6
 //     (RW 0x6CF012) right after the status write-back. Weapon + 0x5C holds the id of the stream object the weapon made (0 = none).
 
+// Local 169: RW 0x6CA31B (Weapon::setNextShotFrame), RW 0x6CCF5D (Weapon::Weapon)
 #pragma once
 
 #include <array>
