@@ -1844,6 +1844,83 @@ void SlaughterHordeContain::addHordeMember(Object &obj)
 		OpenContain::containReactToTransformChange(); // RW 0x883732..0x883736: dispatch virtual redeploy (+0x48), not Garrison's transform no-op
 }
 
+// RW 0x8840D4 (SlaughterHordeContain::update; DONOR BFME2 0x480E72): walks contained hordes
+// (RW 0x88408A, flags 1 and 0x10) and re-orders any member whose AI state (RW 0x660AC1) is neither
+// AI_MOVE_TO_POSITION_AND_ENTER (0x38) nor AI_ENTER (0x0F) via aiMoveToObject(building, CMD_FROM_AI)
+// (RW 0x884056 -> RW 0x770EDE), then tail-calls GarrisonContain::update (RW 0x87C8DF).
+UpdateSleepTime SlaughterHordeContain::update()
+{
+	if (Object *building = getObject())
+	{
+		GameLogic &logic = building->logic();
+		std::vector<ObjectID> containedIds;
+		containedIds.reserve(m_contained.size());
+		for (Object *o : m_contained)
+			if (o)
+				containedIds.push_back(o->getID());
+		for (ObjectID id : containedIds)
+		{
+			Object *obj = logic.findObjectByID(id);
+			if (!obj || !obj->isKindOf((unsigned)CombatNames::kindOf("HORDE")))
+				continue;
+			HordeContain *horde = dynamic_cast<HordeContain *>(hordeOf(*obj));
+			if (!horde)
+				continue;
+			// RW 0x88408A: iterateContained(0x884056, building, 1) then iterateContained(0x884056, building, 0x10)
+			const std::vector<Object *> members = horde->getMembersWithEntering();
+			for (Object *member : members)
+			{
+				if (!member)
+					continue;
+				AIUpdateInterface *ai = member->getAIUpdateInterface();
+				if (!ai)
+					continue;
+				const unsigned state = ai->currentStateId(); // RW 0x660AC1
+				if (state == (unsigned)AI_MOVE_TO_POSITION_AND_ENTER || state == (unsigned)AI_ENTER) // 0x38, 0x0F
+					continue;
+				ai->aiMoveToObject(building, CMD_FROM_AI); // RW 0x884056 -> RW 0x770EDE (source 2)
+			}
+		}
+	}
+	return GarrisonContain::update();
+}
+
+// RW 0x883A83 (shared DieModuleInterface 0xC5F2E0[0] of SlaughterHordeContain and CitadelSlaughterHordeContain;
+// DONOR BFME2 CitadelSlaughterHordeContain::onDie): snapshots contained objects, and for each KINDOF_HORDE
+// collects its members (HordeContain slot +0x10C RW 0x8704DA: contained + entering) and calls addToContain(member)
+// (RW 0x8836D3). Does not call GarrisonContain::onDie.
+void SlaughterHordeContain::onDie(const DieModuleInterface::Event &event)
+{
+	(void)event;
+	Object *building = getObject();
+	if (!building)
+		return;
+	GameLogic &logic = building->logic();
+	std::vector<ObjectID> containedIds;
+	containedIds.reserve(m_contained.size());
+	for (Object *o : m_contained)
+		if (o)
+			containedIds.push_back(o->getID());
+	for (ObjectID id : containedIds)
+	{
+		Object *obj = logic.findObjectByID(id);
+		if (!obj || !obj->isKindOf((unsigned)CombatNames::kindOf("HORDE")))
+			continue;
+		HordeContain *horde = dynamic_cast<HordeContain *>(hordeOf(*obj));
+		if (!horde)
+			continue;
+		const std::vector<Object *> members = horde->getMembersWithEntering(); // RW 0x8704DA
+		std::vector<ObjectID> memberIds;
+		memberIds.reserve(members.size());
+		for (Object *m : members)
+			if (m)
+				memberIds.push_back(m->getID());
+		for (ObjectID mid : memberIds)
+			if (Object *member = logic.findObjectByID(mid))
+				addToContain(member); // RW 0x8836D3 (vtable +0x9C)
+	}
+}
+
 void SlaughterHordeContain::onRemoving(Object *obj)
 {
 	GarrisonContain::onRemoving(obj);
@@ -1980,9 +2057,9 @@ UpdateSleepTime CitadelSlaughterHordeContain::update()
 				ai->aiExit(getObject(), ai->lastCommandSource());
 		}
 	m_ringExit = INVALID_ID;
-	// RotWK's update (RW 0x884244 -> 0x8840D4) never checks for a delivery: a battalion whose last approaching member dies after the others
-	// entered keeps the ring inside until it is evacuated and enters again (see addToContain)
-	return GarrisonContain::update();
+	// RotWK's update (RW 0x884244 -> 0x8840D4) chains to SlaughterHordeContain::update and never checks for a delivery:
+	// a battalion whose last approaching member dies after the others entered keeps the ring inside until it is evacuated and enters again
+	return SlaughterHordeContain::update();
 }
 
 void CitadelSlaughterHordeContain::crc(StateHasher &h) const

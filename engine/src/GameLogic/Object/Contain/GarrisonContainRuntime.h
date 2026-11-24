@@ -231,6 +231,8 @@ public:
 	SlaughterHordeContain(Thing *thing, const SlaughterHordeContainBehaviorData *data);
 	bool isValidContainerFor(const Object &obj, bool checkCapacity, bool checkPath) const override;
 	bool addToContain(Object *obj) override;
+	UpdateSleepTime update() override; // RW 0x8840D4 (callbacks RW 0x88408A / 0x884056)
+	void onDie(const DieModuleInterface::Event &event) override; // RW 0x883A83 (shared DieModuleInterface 0xC5F2E0[0])
 	bool isSlaughterContain() const override { return true; }
 	bool getContainerPipCounts(int &maximum, int &occupants, int &heroes) const override
 	{
