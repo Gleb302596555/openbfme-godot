@@ -149,8 +149,16 @@ LivingWorldRegionCampaign Local175RegionCampaign
 	End
 End
 LivingWorldCampaign Local175Scenario
-	RegionCampaign = Local175RegionCampaign
-	Act ActOne
+	Scenario
+		RegionCampaign = Local175RegionCampaign
+		MaxPlayers = 2
+		DefaultStartSpots = RegA RegB
+		PlayerDefeatCondition
+			Teams = 1 2
+			NumControlledRegionsLessOrEqualTo = 0
+		End
+	End
+	Act One
 		SpawnArmy
 			Player = Good
 			PlayerArmy = GoodHeroArmyA
