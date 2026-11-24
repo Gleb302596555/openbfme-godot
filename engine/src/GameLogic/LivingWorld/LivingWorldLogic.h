@@ -480,6 +480,9 @@ public:
 	// MSG_LW_DISBAND_ARMY_MEMBER 0x6B1 (RW 0x6B4933 then RW 0x71AAEC): a member that is not KindOf HERO leaves the army at once, its owner paid the
 	// unit's cost now (RW 0x80F018, capped by ScenarioMaxResources); the army stays, even empty
 	bool disbandArmyMember(int player, int armyId, int memberKey, std::string *error);
+	// MSG_LW_DISBAND_ARMY 0x6B2 (DisbandAllArmyMembers RW 0x6B48F2): disbands every disbandable member
+	// of the army (CanDisbandArmyMember RW 0x6B4876), canceling upgrades (RW 0x80EDB8) and refunding cost.
+	bool disbandArmy(int player, int armyId, std::string *error = nullptr);
 	bool canDisbandArmyMember(int armyId, int memberKey) const; // CanDisband RW 0x6B48CE
 	bool orderRecruit(int player, int region, int buildingSlot, int armyIndex, std::string *error);
 	bool canRecruit(int player, int region, int buildingSlot, int armyIndex, std::string *error) const; // orderRecruit's checks, nothing changed
@@ -509,6 +512,10 @@ public:
 	// The next battle a human must decide (index into battles()), -1 none.
 	int pendingHumanBattle() const;
 	bool chooseAutoResolve(int battleIndex, std::string *error);
+	// MSG_LW_SWAP_ARMIES_IN_BATTLE 0x6B4 (HandleSwapArmiesInBattleMessage RW 0x6B4B39, getBattleFromMessage RW 0x6B379E,
+	// getBattleArmyIndexFromMessage RW 0x6B3822, LivingWorldBattle::swapArmies RW 0x7F69EE): swaps two army slots
+	// belonging to the sending player on the given battle side.
+	bool swapArmiesInBattle(int sender, int battleIndex, int sideIndex, int playerIndex, int slotA, int slotB, std::string *error = nullptr);
 	// WOTR2 milestone 8: the strategic command path (LivingWorldLogicMessages.cpp; RW 0x6BE6A6): an MSG_LW_* message from `sender` (a player index) runs
 	// the order it names; false + error when it is malformed or the order is refused. A real-time battle vote leaves its setup for takeBattleSetup
 	// Port decision (stricter than retail, coordinator 10-30): the owner and phase checks refuse an order the same way on every peer inside the frame,

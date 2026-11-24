@@ -58,6 +58,11 @@ void parseBuildingTypeList(INI *ini, void *, void *store, const void *)
 	}
 }
 
+// RotWK 2.01 data lookup & INI helpers (Local 175):
+//   RegionCampaign::findRegionByName RW 0x60F21A, findRegionIDByName RW 0x610152,
+//   parseLivingWorldBuildingDefinition entry ctor RW 0x6E12F8, PlayerTemplate::findByName RW 0x6E2C7C,
+//   Region::resolveConnectedRegionIDs RW 0x7F1282, Region::checkSkirmishMapExists RW 0x7F21C7.
+
 // ---- LivingWorldPlayerTemplate (RW 0xC1AC78) ----
 #define PT(m) (int)offsetof(PlayerTemplate, m)
 const FieldParse kPlayerTemplateFields[] = {

@@ -600,6 +600,7 @@ include(cmake/Local160.cmake)   # LOCAL-160: script engine core (RW 0x007E6C7C, 
 include(cmake/Local152.cmake)   # LOCAL-152: Ennorath 1.9.8.4 War of the Ring online — >2 players, host-free land transfer, observer seat (fork issue 885; OPENBFME_LOCAL152_TESTS)
 include(cmake/Local159.cmake)   # LOCAL-159: ShroudManager in logic-only test rigs (fork issue 926; OPENBFME_LOCAL159_TESTS)
 include(cmake/Local166.cmake)   # LOCAL-166: War of the Ring logic binary-map audit and ports (fork issue 933; OPENBFME_LOCAL166_TESTS)
+include(cmake/Local175.cmake)   # LOCAL-175: War of the Ring logic binary-map audit part 1 and ports (fork issue 956; OPENBFME_LOCAL175_TESTS)
 include(cmake/Local170.cmake)   # LOCAL-170: binary map audit of 300 uncited RotWK object-module functions (fork issue 937; OPENBFME_LOCAL170_TESTS)
 include(cmake/Local171.cmake)   # LOCAL-171: binary map audit of 449 uncited RotWK objects/modules functions (fork issue 952; OPENBFME_LOCAL171_TESTS)
 include(cmake/Local172.cmake)   # LOCAL-172: binary map audit of 449 uncited RotWK object-module functions (fork issue 953; OPENBFME_LOCAL172_TESTS)
@@ -1497,6 +1498,7 @@ add_executable(openbfme_tests
     ${OPENBFME_LOCAL160_TESTS}
     ${OPENBFME_LOCAL159_TESTS}
     ${OPENBFME_LOCAL166_TESTS}
+    ${OPENBFME_LOCAL175_TESTS}
     ${OPENBFME_LOCAL170_TESTS}
     ${OPENBFME_LOCAL171_TESTS}
     ${OPENBFME_LOCAL172_TESTS}
