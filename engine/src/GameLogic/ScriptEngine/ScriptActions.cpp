@@ -40,6 +40,16 @@ const ScriptParameter &param(const ScriptActionRec &a, size_t i)
 	return i < a.params.size() ? a.params[i] : kEmpty;
 }
 
+// RW adds 32-bit registers (add): two's complement wrap-around, as PlayerScience's wrapAdd. The sum is computed on uint32_t and its bits moved
+// to int32_t (memcpy), so an overflow is the retail result and never C++ signed overflow (#342 review).
+std::int32_t wrapAdd(std::int32_t a, std::int32_t b)
+{
+	const std::uint32_t u = (std::uint32_t)a + (std::uint32_t)b;
+	std::int32_t r;
+	std::memcpy(&r, &u, sizeof r);
+	return r;
+}
+
 int ordinal(const char *name)
 {
 	return ScriptTemplates::findAction(name);
@@ -593,7 +603,7 @@ void ScriptActions::execute(ScriptEngine &engine, const ScriptActionRec &a)
 		const int delta = param(a, 1).intValue;
 		for (Player *p : ScriptConditions::players(engine, param(a, 0).stringValue))
 		{
-			p->science().setRankLevel(p->science().getRankLevel() + delta);
+			p->science().setRankLevel(wrapAdd(p->science().getRankLevel(), delta)); // RW add: wraps
 			p->science().setScalarBaseRank(p->science().getRankLevel()); // RW 0x71C311 (+0x18 = +0x14)
 		}
 		return;

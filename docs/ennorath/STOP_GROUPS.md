@@ -3848,7 +3848,7 @@ Existing task matches: #688 Port 296: Castles вЂ” CastleBehavior, CastleMemb
 
 ### G364: RW 0x008F3EFE
 
-Stops: S-7188. Kinds: project.
+Stops: S-7999. Kinds: project.
 Functions: RW 0x008F3EFE (unknown), RW 0x008F54BA (unknown), RW 0x008F6DE9 (unknown), RW 0x008F7F2B (unknown), RW 0x008F805D (unknown), RW 0x008F81BE (unknown), RW 0x008F9487 (unknown), RW 0x008F994F (unknown), RW 0x00A3CFA4 (ported). Classes: GameLogicSettings, SkirmishAI, TeamPrototype.
 Candidates: 0 none/partial functions; 8 unknown status.
 Red buttons: none linked.

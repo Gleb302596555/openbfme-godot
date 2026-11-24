@@ -2116,6 +2116,10 @@ bool ScriptConditions::evaluate(ScriptEngine &engine, const ScriptCondition &c)
 	}
 	case SKIRMISH_SPECIAL_POWER_READY: // RW 0x7EC79F -> RW 0x7E9C33 (player, specialPower; Parameter + 0x20 retry cache not ported: evaluated every time)
 	{
+		logic.noteStop("[S-7188] SKIRMISH_SPECIAL_POWER_READY (RW 0x7E9C33, #343): retail's retry cache (the power parameter's int, Parameter + 0x20: -1 for an "
+			"unknown power, else the frame before which the condition answers no without a scan, set after a scan that finds no ready power to "
+			"min(now + 10 * LOGICFRAMES_PER_SECOND, the earliest module ready frame, vslot 0x10)) is not ported: the condition scans every evaluation, so it can "
+			"answer yes earlier than retail"); // S-7188 (#343 review)
 		const SpecialPowerTemplate *sp = TheSpecialPowerStore ? TheSpecialPowerStore->findSpecialPowerTemplate(param(c, 1).stringValue) : nullptr; // RW 0x69C146
 		if (!sp)
 		{

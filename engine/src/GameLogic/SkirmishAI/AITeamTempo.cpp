@@ -1,5 +1,5 @@
 // OpenBFME. GPL-3.0.
-// See GameLogic/SkirmishAI/AITeamTempo.h for the targets and what is not ported (stop S-7188).
+// See GameLogic/SkirmishAI/AITeamTempo.h for the targets and what is not ported (stop S-7999).
 
 #include "GameLogic/SkirmishAI/AITeamTempo.h"
 
