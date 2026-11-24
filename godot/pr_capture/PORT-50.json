@@ -1,0 +1,15 @@
+{
+ "map": "map mp fall back 4p",
+ "objects": [{"name": "cat", "template": "MordorCatapult", "player": 1, "dx": 0, "dy": 0, "angle": 0},
+             {"name": "tgt", "template": "GondorBarracks", "player": 0, "dx": 420, "dy": 0, "angle": 0, "complete": true}],
+ "camera": {"eye": [-40, -130, 60], "focus": [0, 0, 30]},
+ "steps": [
+  {"caption": "PORT-50: catapult arm bone moves while firing; particle systems follow it (ParticlesAttachedToAnimatedBones)", "wait": 10},
+  {"call": "order_attack", "args": [["@cat"], "@tgt"]},
+  {"wait": 30, "shot": "1-aim"},
+  {"wait": 25, "shot": "2-fire-a"},
+  {"wait": 25, "shot": "3-fire-b"},
+  {"wait": 25, "shot": "4-fire-c"},
+  {"wait": 40, "shot": "5-reload"}
+ ]
+}

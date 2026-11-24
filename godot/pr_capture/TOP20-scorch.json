@@ -1,0 +1,91 @@
+{
+ "map": "map mp fall back 4p",
+ "objects": [
+  {
+   "name": "cat",
+   "template": "MordorCatapult",
+   "player": 1,
+   "dx": -420,
+   "dy": 0,
+   "angle": 0
+  },
+  {
+   "name": "tgt",
+   "template": "GondorBarracks",
+   "player": 0,
+   "dx": 0,
+   "dy": 0,
+   "angle": 0,
+   "complete": true
+  }
+ ],
+ "camera": {
+  "eye": [
+   -20,
+   -230,
+   40
+  ],
+  "focus": [
+   0,
+   0,
+   8
+  ]
+ },
+ "steps": [
+  {
+   "caption": "TOP20 scorch: a catapult shell scorches the ground by the barracks: the mark's depth bias (low camera angle)",
+   "wait": 10,
+   "shot": "1-before-fire"
+  },
+  {
+   "call": "order_attack",
+   "args": [
+    [
+     "@cat"
+    ],
+    "@tgt"
+   ]
+  },
+  {
+   "wait": 150,
+   "shot": "2-impact-a"
+  },
+  {
+   "wait": 90,
+   "shot": "3-impact-b"
+  },
+  {
+   "cam": {
+    "eye": [
+     -60,
+     -120,
+     18
+    ],
+    "focus": [
+     0,
+     0,
+     5
+    ]
+   },
+   "wait": 120,
+   "shot": "4-low-closer"
+  },
+  {
+   "cam": {
+    "eye": [
+     0,
+     -120,
+     320
+    ],
+    "focus": [
+     0,
+     0,
+     0
+    ]
+   },
+   "caption": "TOP20 scorch: the same ground seen from above (scorch marks of the shells)",
+   "wait": 5,
+   "shot": "5-top-down"
+  }
+ ]
+}

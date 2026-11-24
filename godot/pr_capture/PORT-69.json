@@ -1,0 +1,89 @@
+{
+ "map": "map mp fall back 4p",
+ "objects": [
+  {
+   "name": "cat",
+   "template": "MordorCatapult",
+   "player": 1,
+   "dx": -300,
+   "dy": 0,
+   "angle": 0
+  }
+ ],
+ "camera": {
+  "eye": [
+   -380,
+   -120,
+   70
+  ],
+  "focus": [
+   -300,
+   0,
+   10
+  ]
+ },
+ "steps": [
+  {
+   "caption": "PORT-69: wheel tracks on the ground behind a moving catapult",
+   "wait": 10
+  },
+  {
+   "call": "order_move",
+   "args": [
+    [
+     "@cat"
+    ],
+    "x:400",
+    "y:0"
+   ]
+  },
+  {
+   "follow": "cat",
+   "eye": [
+    -170,
+    -60,
+    45
+   ],
+   "focus": [
+    -60,
+    0,
+    0
+   ]
+  },
+  {
+   "wait": 100,
+   "shot": "1-moving"
+  },
+  {
+   "wait": 120,
+   "shot": "2-later"
+  },
+  {
+   "call": "get_track_report",
+   "log": true
+  },
+  {
+   "wait": 150,
+   "shot": "3-end"
+  },
+  {
+   "follow": "cat",
+   "eye": [
+    -90,
+    70,
+    60
+   ],
+   "focus": [
+    -50,
+    0,
+    0
+   ],
+   "wait": 3,
+   "shot": "4-trail-side"
+  },
+  {
+   "call": "get_track_report",
+   "log": true
+  }
+ ]
+}
