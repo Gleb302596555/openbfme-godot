@@ -353,6 +353,7 @@ bool parseScriptGroup(DataChunkInput &file, DataChunkInfo *info, void *userData)
 }
 
 // ZH Script::ParseScriptFromListDataChunk (:1264-1290) + BFME2 ScriptSubRecordWrite.cpp:38-45.
+
 bool parseScript(DataChunkInput &file, DataChunkInfo *info, void *userData)
 {
 	ScriptParseContext *ctx = (ScriptParseContext *)userData;
@@ -374,6 +375,7 @@ bool parseScript(DataChunkInput &file, DataChunkInfo *info, void *userData)
 	}
 	if (info->version >= 3)
 	{
+		// RW 0x7B4066: Script v3 sequential-execution subrecord
 		s->actionsFireSequentially = file.readByte() != 0;
 		s->loopActions = file.readByte() != 0;
 		s->loopCount = file.readInt();
@@ -382,7 +384,9 @@ bool parseScript(DataChunkInput &file, DataChunkInfo *info, void *userData)
 	}
 	if (info->version >= 4)
 	{
+		// RW 0x7B636C: LivingWorldTurnPhase bitmask string (defaults to kScriptAllTurnPhasesMask for v<4)
 		s->unknownV4 = file.readAsciiString();
+		s->turnPhaseMask = parseScriptTurnPhaseMask(s->unknownV4);
 	}
 	Script *raw = s.get();
 	ScriptItem item;
@@ -493,6 +497,7 @@ namespace ScriptsParse
 {
 void registerParsers(DataChunkInput &file, ScriptParseContext *ctx)
 {
+	// RW 0x7B3F47 (PlayerScriptsList), RW 0x7B3FB5 (ScriptGroup), RW 0x7B42F8 (Script) DataChunk parser registration
 	file.registerParser("PlayerScriptsList", "", parsePlayerScriptsList, ctx);
 	file.registerParser("ScriptList", "PlayerScriptsList", parseScriptList, ctx);
 	file.registerParser("ScriptGroup", "ScriptList", parseScriptGroup, ctx);
@@ -505,3 +510,127 @@ void registerParsers(DataChunkInput &file, ScriptParseContext *ctx)
 	file.registerParser("ScriptActionFalse", "Script", parseScriptActionFalse, ctx);
 }
 } // namespace ScriptsParse
+
+namespace
+{
+// RW 0xDB7ABC: LivingWorldTurnPhase bitflag names (7 bits, null-terminated)
+constexpr const char *kLivingWorldTurnPhaseNames[] = {
+	"Planning",
+	"MoveArmies",
+	"ResolveBattles",
+	"FakePhaseOne",
+	"PlanRetreats",
+	"RetreatArmies",
+	"Complete",
+};
+
+bool equalsIgnoreCaseAscii(const char *a, const char *b)
+{
+	while (*a && *b)
+	{
+		unsigned char ca = (unsigned char)*a++;
+		unsigned char cb = (unsigned char)*b++;
+		if (ca >= 'A' && ca <= 'Z') ca = (unsigned char)(ca - 'A' + 'a');
+		if (cb >= 'A' && cb <= 'Z') cb = (unsigned char)(cb - 'A' + 'a');
+		if (ca != cb) return false;
+	}
+	return *a == *b;
+}
+
+int findTurnPhaseBit(const char *name)
+{
+	for (int i = 0; i < (int)(sizeof(kLivingWorldTurnPhaseNames) / sizeof(kLivingWorldTurnPhaseNames[0])); ++i)
+	{
+		if (equalsIgnoreCaseAscii(name, kLivingWorldTurnPhaseNames[i]))
+		{
+			return i;
+		}
+	}
+	throw std::invalid_argument(std::string("unknown LivingWorldTurnPhase token: ") + name);
+}
+
+// RW 0x7B5038: BitFlags<7, LivingWorldTurnPhase>::parseSingleBit (RW 0xBD1584 "NONE", '+' / '-', plain)
+bool parseTurnPhaseToken(std::uint32_t &mask, const char *token, bool &foundNormal, bool &foundAddOrSub)
+{
+	if (equalsIgnoreCaseAscii(token, "NONE"))
+	{
+		if (foundNormal || foundAddOrSub)
+		{
+			throw std::invalid_argument("cannot combine NONE with other LivingWorldTurnPhase tokens");
+		}
+		mask = 0;
+		return false;
+	}
+	if (token[0] == '+')
+	{
+		if (foundNormal)
+		{
+			throw std::invalid_argument("cannot mix +/- LivingWorldTurnPhase tokens with plain tokens");
+		}
+		int bit = findTurnPhaseBit(token + 1);
+		mask |= (1u << bit);
+		foundAddOrSub = true;
+		return true;
+	}
+	if (token[0] == '-')
+	{
+		if (foundNormal)
+		{
+			throw std::invalid_argument("cannot mix +/- LivingWorldTurnPhase tokens with plain tokens");
+		}
+		int bit = findTurnPhaseBit(token + 1);
+		mask &= ~(1u << bit);
+		foundAddOrSub = true;
+		return true;
+	}
+	if (foundAddOrSub)
+	{
+		throw std::invalid_argument("cannot mix plain LivingWorldTurnPhase tokens with +/- tokens");
+	}
+	if (!foundNormal)
+	{
+		mask = 0;
+	}
+	int bit = findTurnPhaseBit(token);
+	mask |= (1u << bit);
+	foundNormal = true;
+	return true;
+}
+} // namespace
+
+// RW 0x7B636C (ReadScriptPlayerMask_Rva003B5918) + RW 0x7B616D (token loop) + RW 0x7B5038 (token parser)
+std::uint32_t parseScriptTurnPhaseMask(const std::string &text)
+{
+	if (text == "ALL")
+	{
+		return kScriptAllTurnPhasesMask;
+	}
+	std::uint32_t mask = 0;
+	bool foundNormal = false;
+	bool foundAddOrSub = false;
+	size_t i = 0;
+	const size_t n = text.size();
+	while (i < n)
+	{
+		while (i < n && (text[i] == ' ' || text[i] == '\t' || text[i] == '\r' || text[i] == '\n'))
+		{
+			++i;
+		}
+		if (i >= n)
+		{
+			break;
+		}
+		size_t start = i;
+		while (i < n && text[i] != ' ' && text[i] != '\t' && text[i] != '\r' && text[i] != '\n')
+		{
+			++i;
+		}
+		std::string tok = text.substr(start, i - start);
+		if (!parseTurnPhaseToken(mask, tok.c_str(), foundNormal, foundAddOrSub))
+		{
+			break;
+		}
+	}
+	return mask;
+}
+

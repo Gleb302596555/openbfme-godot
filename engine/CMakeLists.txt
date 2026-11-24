@@ -603,6 +603,7 @@ include(cmake/Local166.cmake)   # LOCAL-166: War of the Ring logic binary-map au
 include(cmake/Local170.cmake)   # LOCAL-170: binary map audit of 300 uncited RotWK object-module functions (fork issue 937; OPENBFME_LOCAL170_TESTS)
 include(cmake/Local165.cmake)   # LOCAL-165: AITactic::NotifyTeamCancelled (RW 0x8F2727) & SkirmishAI::UnRegister(Team*) (RW 0x6C77B2) (fork issue 932; OPENBFME_LOCAL165_TESTS)
 include(cmake/Local167.cmake)   # LOCAL-167: War of the Ring strategic UI — build plot help and radial right-click (fork issue 934; OPENBFME_LOCAL167_TESTS)
+include(cmake/Local179.cmake)   # LOCAL-179: script engine part 1 binary-map audit and LivingWorldTurnPhase mask (fork issue 960; OPENBFME_LOCAL179_TESTS)
 include(cmake/Local168.cmake)   # LOCAL-168: hordes and formations (fork issue 935; OPENBFME_LOCAL168_TESTS)
 include(cmake/Local152.cmake)
 include(cmake/Local169.cmake)   # LOCAL-169: object and combat core (fork issue 936; OPENBFME_LOCAL169_TESTS)   # LOCAL-152: Ennorath 1.9.8.4 War of the Ring online — >2 players, host-free land transfer, observer seat (fork issue 885; OPENBFME_LOCAL152_TESTS)
@@ -1496,6 +1497,7 @@ add_executable(openbfme_tests
     ${OPENBFME_LOCAL170_TESTS}
     ${OPENBFME_LOCAL165_TESTS}
     ${OPENBFME_LOCAL167_TESTS}
+    ${OPENBFME_LOCAL179_TESTS}
     ${OPENBFME_LOCAL168_TESTS}
     ${OPENBFME_LOCAL169_TESTS}
         ${OPENBFME_LOCAL130_TESTS}

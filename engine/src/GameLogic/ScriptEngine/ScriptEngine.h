@@ -162,6 +162,9 @@ public:
 	// difficulty goes to GameLogic::gameDifficulty (TheGameLogic + 0xA4) instead
 	void setGameDifficulty(int d) { m_gameDifficulty = d; }
 	int gameDifficulty() const { return m_gameDifficulty; }
+	// RW 0x6038E4..0x603901: when >= 0 (LivingWorld / War of the Ring), shouldEvaluate gates scripts on Script::turnPhaseMask (RW 0x7B636C)
+	void setLivingWorldTurnPhase(int phase) { m_livingWorldTurnPhase = phase; }
+	int livingWorldTurnPhase() const { return m_livingWorldTurnPhase; }
 	// lane CAMP-1H: ScriptEngine + 0x1A5D5, whether a new object receives the difficulty bonus (Object::initObject RW 0x693D63); reset (RW 0x609685) sets
 	// it, OBJECT_ALLOW_BONUSES (RW 0x7BD718) sets every object's flag and this one
 	void setObjectsReceiveDifficultyBonus(bool b) { m_objectsReceiveDifficultyBonus = b; }
@@ -356,6 +359,7 @@ public:
 	// lane SCRIPT-2: a sequential script of a team or a unit (RW record 0x2C bytes, ctor RW 0x604121): + 4 the team, + 8 the object id, + 0xC the side
 	// whose names its actions use, + 0x10 the script's name, + 0x14 the script, + 0x18 the action index (-1 before the first), + 0x1C the loops left
 	// (-1 forever), + 0x20 frames to wait (-1), + 0x24 the action asked to be run again, + 0x28 the next record of the same team / unit
+	// RW 0x604D46 (SequentialScript::~SequentialScript)
 	struct SequentialScript
 	{
 		std::uint32_t team = 0; ///< TeamID, 0 none
@@ -505,6 +509,7 @@ private:
 	bool m_firstUpdate = true;
 	bool m_warOfTheRing = false;
 	int m_gameDifficulty = 1;
+	int m_livingWorldTurnPhase = -1; ///< -1 outside LivingWorld; 0..6 = LivingWorldTurnPhase (RW 0x6038EA)
 	bool m_objectsReceiveDifficultyBonus = true; ///< lane CAMP-1H: + 0x1A5D5 (hashed)
 	std::vector<RSide> m_sides;
 	std::map<std::pair<std::string, std::string>, Counter> m_counters;
