@@ -62,8 +62,8 @@ const char *const kStopUpdate =
 	"that need weapons, bodies and emotions); the movement-complete refresh of the pathfinder goal is the B1 body (AIUpdate.cpp:2574-2594), RW forces m_doFinalPosition off";
 const char *const kStopLocomotor =
 	"S-222 chooseGoodLocomotorFromCurrentSet (RW 0x663D70; its fallback, SHIP surface 0x80 / slot 0x184 AIR / GROUND, and the flag clears are ported: lane LOCOPICK-1) "
-	"takes the first locomotor of the set whose surfaces fit the cell under the unit as the best one: the retail Pathfinder::chooseBestLocomotorForPosition (RW 0x6E8937) "
-	"was not read. The locomotor 'crusher' flag of the path searches (RW loco+0x15) is ScalesWalls (inference)";
+	"takes the first locomotor of the set whose surfaces fit the cell under the unit as the best one (Pathfinder::chooseBestLocomotorSurfacesForPosition, RW 0x6E8937). "
+	"The locomotor 'crusher' flag of the path searches (RW loco+0x15) is ScalesWalls (inference)";
 const char *const kStopStates =
 	"S-221 the AI state ids are BFME1's (Idle 0, MoveTo 1, FollowPath 6, FollowExitProductionPath 7, Wait 8, Busy 42; RotWK's own numbering is not read: RW tests 0x2A = Busy and "
 	"0x47 = a state RotWK added); AIIdleState::onEnter draws its random sleep offset as ZH does (GetGameLogicRandomValue(0, 10, \"AIStates.cpp\", 0x520)): the RW draw was not read, "
@@ -1940,18 +1940,15 @@ void AIUpdateInterface::chooseGoodLocomotorFromCurrentSet()
 	Locomotor *chosen = nullptr;
 	if (m_world->mapReady())
 	{
+		// RW 0x663DA1 -> RW 0x6E8937 (Pathfinder::ChooseBestLocomotorForPosition): off-grid cell uses CELL_CLEAR (0x09 = GROUND|AIR)
 		const Coord3D pos = *getObject()->getPosition();
-		PathfindCell *cell = m_world->pathfinder().getCell(m_adapter->getLayer(), &pos);
-		if (cell)
+		const unsigned fit = m_world->pathfinder().chooseBestLocomotorSurfacesForPosition(m_adapter->getLayer(), &pos);
+		for (const std::unique_ptr<Locomotor> &l : m_locomotors)
 		{
-			const unsigned fit = Pathfinder::validLocomotorSurfacesForCellType(cell->getType());
-			for (const std::unique_ptr<Locomotor> &l : m_locomotors)
+			if (l->getTemplate().m_surfaces & fit)
 			{
-				if (l->getTemplate().m_surfaces & fit)
-				{
-					chosen = l.get();
-					break;
-				}
+				chosen = l.get();
+				break;
 			}
 		}
 	}

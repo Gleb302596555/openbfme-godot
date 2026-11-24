@@ -957,6 +957,8 @@ public:
 
 	// ---- movement validity ----
 	static unsigned validLocomotorSurfacesForCellType(PathfindCell::CellType t);
+	// RW 0x6E8937 (Pathfinder::ChooseBestLocomotorForPosition): surface mask from RW 0xDA2444 for the cell under `pos` (CELL_CLEAR when off-grid)
+	unsigned chooseBestLocomotorSurfacesForPosition(PathfindLayerEnum layer, const Coord3D *pos);
 	static PathfindMovement makeMovement(const PathfindObject *obj, const PathfindLocomotorInfo &loco);
 	// RW 0x6E8200
 	bool validMovementPosition(const PathfindMovement &mv, const PathfindCell *cell) const;

@@ -214,6 +214,15 @@ unsigned Pathfinder::validLocomotorSurfacesForCellType(PathfindCell::CellType t)
 	return i < 9u ? table[i] : 0u;
 }
 
+// RW 0x6E8937 (Pathfinder::ChooseBestLocomotorForPosition; DONOR BFME2 0x002E74C6 Pathfinder_ChooseBestLocomotorForPosition.cpp):
+// floor(pos * 0.1f) to cell on `layer`; null cell uses CELL_CLEAR (0, RW 0x6E899E xor eax, eax), then indexes RW 0xDA2444.
+unsigned Pathfinder::chooseBestLocomotorSurfacesForPosition(PathfindLayerEnum layer, const Coord3D *pos)
+{
+	const PathfindCell *cell = pos ? getCell(layer, pos) : nullptr;
+	const PathfindCell::CellType type = cell ? cell->getType() : PathfindCell::CELL_CLEAR;
+	return validLocomotorSurfacesForCellType(type);
+}
+
 PathfindMovement Pathfinder::makeMovement(const PathfindObject *obj, const PathfindLocomotorInfo &loco)
 {
 	// TARGET RW 0x6EA04D
