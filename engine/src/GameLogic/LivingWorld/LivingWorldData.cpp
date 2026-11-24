@@ -356,6 +356,7 @@ const FieldParse kRestrictBuildingsFields[] = {
 	{ nullptr, nullptr, nullptr, 0 }
 };
 #undef BR
+// RW 0x7F3BF3 (LivingWorldRegion::ModuleData::BuildingRestriction::ParseINI) -> RW 0x7F3BD9 (push_back into restrictBuildings)
 void parseRestrictBuildings(INI *ini, void *instance, void *, const void *)
 {
 	BuildingRestriction r;
@@ -419,6 +420,8 @@ const FieldParse kRegionFields[] = {
 };
 #undef RG
 
+// RW 0x7F558C (LivingWorldRegion::ParseINI: initFromINI + RW 0x7F45B0 connection/spot setup + RW 0x7F51C9);
+// Scenario::addTeamVictoryCondition RW 0x90210B.
 // Region <Name> inside a LivingWorldRegionCampaign (RW 0x6103E2): the index is the count of regions so far
 void parseRegion(INI *ini, void *instance, void *, const void *)
 {

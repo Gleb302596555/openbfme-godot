@@ -87,6 +87,7 @@ bool LivingWorldAI::canBuild(int region, const std::string &building, int player
 
 float LivingWorldAI::scoreFarm(PlayerAI &ai, int player, int n, const AIRegionInfo &ri)
 {
+	// RW 0x9A634C (recursive depth+1 wrapper -> RW 0x9A5F6C)
 	// RW 0x9A5F6C
 	float s = n > 0 ? (float)ai.wFarm : 0.0f;
 	if (!(s > 0.0f))
@@ -101,6 +102,7 @@ float LivingWorldAI::scoreFarm(PlayerAI &ai, int player, int n, const AIRegionIn
 
 float LivingWorldAI::scoreBarracks(PlayerAI &ai, int player, int n, const AIRegionInfo &ri)
 {
+	// RW 0x9A6369 (recursive depth+1 wrapper -> RW 0x9A6004)
 	// RW 0x9A6004
 	const int w = n > 0 ? ai.wBarracks : 0;
 	float s = (float)w;
