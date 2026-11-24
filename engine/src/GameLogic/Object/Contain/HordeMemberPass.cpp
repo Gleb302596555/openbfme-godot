@@ -1067,3 +1067,107 @@ void HordeContain::applyRankWeaponSetFlags(Object &member) const
 		}
 	}
 }
+
+// RW 0x86D1FE (HordeContain::endMove, 0xC5B1F8[156]): if the horde's AI is moving (RW 0x664485), stops every
+// contained member's AI (RW 0x662A0E: destroyPath + idleFromAI) and then stops the horde's own AI.
+void HordeContain::endMove()
+{
+	Object *horde = getObject();
+	if (!horde)
+	{
+		return;
+	}
+	AIUpdateInterface *ai = horde->getAIUpdateInterface();
+	if (!ai || !ai->isMoving())
+	{
+		return;
+	}
+	for (Object *member : m_members)
+	{
+		if (member)
+		{
+			if (AIUpdateInterface *memberAI = member->getAIUpdateInterface())
+			{
+				memberAI->mover().destroyPath();
+				memberAI->idleFromAI();
+			}
+		}
+	}
+	ai->mover().destroyPath();
+	ai->idleFromAI();
+}
+
+// RW 0x86D5BB (HordeContain::anyMemberAttacking, 0xC5B1F8[81]): true when any live contained member with an AI
+// has an active attack state (AI vslot 0x1BC).
+bool HordeContain::anyMemberAttacking() const
+{
+	for (const Object *member : m_members)
+	{
+		if (!member || member->isEffectivelyDead())
+		{
+			continue;
+		}
+		if (const AIUpdateInterface *memberAI = member->getAIUpdateInterface())
+		{
+			if (memberAI->isStateActive())
+			{
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+// RW 0x86D4CD (HordeContain::anyMemberAttackingTarget, 0xC5B1F8[80]): true when any live contained member with
+// an active AI has a current victim matching target's ID, or (for a HORDE target) contained by target.
+bool HordeContain::anyMemberAttackingTarget(const Object &target) const
+{
+	for (const Object *member : m_members)
+	{
+		if (!member || member->isEffectivelyDead())
+		{
+			continue;
+		}
+		const AIUpdateInterface *memberAI = member->getAIUpdateInterface();
+		if (!memberAI || !memberAI->isStateActive())
+		{
+			continue;
+		}
+		Object *victim = memberAI->currentVictim(); // RW 0x668303
+		if (!victim)
+		{
+			continue;
+		}
+		if (victim->getID() == target.getID())
+		{
+			return true;
+		}
+		if (target.isKindOfName("HORDE"))
+		{
+			if (const ContainModuleInterface *targetContain = target.getContain())
+			{
+				if (const auto *targetMembers = targetContain->getContainedItemsList())
+				{
+					if (std::find(targetMembers->begin(), targetMembers->end(), victim) != targetMembers->end())
+					{
+						return true;
+					}
+				}
+			}
+		}
+	}
+	return false;
+}
+
+// RW 0x875619 (HordeContain::memberMatchesRankUnitType): looks up the member's slot rank via findRank
+// (RW 0x86C3E7) and returns true when its unitType matches name.
+bool HordeContain::memberMatchesRankUnitType(const Object &member, const std::string &name) const
+{
+	const int slot = m_core.slotOf(member.getID());
+	if (slot < 0 || (size_t)slot >= m_core.slots().size())
+	{
+		return false;
+	}
+	const RankInfo *rank = m_core.findRank(m_core.slots()[(size_t)slot].rank);
+	return rank && rank->unitType == name;
+}

@@ -354,6 +354,14 @@ public:
 	Object *closestMemberTo(const Object &victim) const;
 	// RW 0x875F18 (0xC5B5F8[32]): apply RankInfo granted/revoked weapon-set flags to a member
 	void applyRankWeaponSetFlags(Object &member) const;
+	// RW 0x86D1FE (0xC5B1F8[156]): stop moving horde and all contained members
+	void endMove();
+	// RW 0x86D5BB (0xC5B1F8[81]): true if any live contained member's AI is active
+	bool anyMemberAttacking() const;
+	// RW 0x86D4CD (0xC5B1F8[80]): true if any live contained member is attacking target (or a member of target horde)
+	bool anyMemberAttackingTarget(const Object &target) const;
+	// RW 0x875619: true if member's slot rank unitType matches name
+	bool memberMatchesRankUnitType(const Object &member, const std::string &name) const;
 	struct AttackStats
 	{
 		unsigned long long fires = 0;            // attackTargetNow calls that ran (the MELEE_HORDE guard RW 0x86C6EB passed)
