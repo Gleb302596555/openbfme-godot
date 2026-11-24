@@ -157,13 +157,26 @@ def build(a) -> int:
         return 0
     starts, ranges = cu_ranges(binary)
     units: set[str] = set()
-    unmapped = 0
+    outside: list[int] = []
     for off in offs:
         i = bisect.bisect_right(starts, off) - 1
         if i >= 0 and ranges[i][0] <= off < ranges[i][1] and ranges[i][2]:
             units.add(str(Path(ranges[i][2]).resolve()))
         else:
-            unmapped += 1
+            outside.append(off)
+    # GCC's static initializers (.text.startup: __static_initialization_and_destruction_0, _GLOBAL__sub_I_<file>) are not in .debug_aranges; the
+    # line table still names their file. A .c / .cpp file is the unit itself; anything else (a header, no line) leaves the set unproven.
+    unmapped = 0
+    if outside:
+        lines = run(["addr2line", "-e", str(binary)] + [hex(o) for o in outside]).splitlines()
+        for off, line in zip(outside, lines):
+            src = line.rsplit(":", 1)[0]
+            cands = [Path(src)] if Path(src).is_absolute() else [REPO / src, build_dir / src]
+            hit = next((c for c in cands if c.exists()), None) if src.endswith((".cpp", ".c", ".cc")) else None
+            if hit is not None:
+                units.add(str(hit.resolve()))
+            else:
+                unmapped += 1
     if unmapped:
         # a function outside every unit's ranges (a runtime or libc thunk would not be instrumented): the set cannot be proved whole
         Path(a.deps).unlink(missing_ok=True)
