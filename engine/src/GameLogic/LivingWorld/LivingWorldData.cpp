@@ -320,6 +320,9 @@ const FieldParse kPlayerArmyFields[] = {
 };
 #undef PA
 
+// Region description & connection value structs: LivingWorldRegionDescription ctor RW 0x7F4DC8,
+// LivingWorldRegionConnection ctors/dtor RW 0x7F3AFA / RW 0x7F3B70 / RW 0x7F3B94,
+// LivingWorldRegionBonusRule::CacheRegionIDs RW 0x610178.
 // ---- Region (RW 0xC4C8A0) ----
 #define RC(m) (int)offsetof(RegionConnection, m)
 const FieldParse kConnectionFields[] = {

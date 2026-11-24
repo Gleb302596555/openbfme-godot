@@ -14,6 +14,9 @@
 #include <map>
 #include <stdexcept>
 
+// LivingWorldAutoResolveBattle helpers: enumerateCurrentUnits RW 0x8FB03B, enumerateReinforcementUnits RW 0x8FC3E4,
+// next reinforcement round query RW 0x8FCF22, level-order sort RW 0x8FE318, ~LivingWorldAutoResolveUnit RW 0x9A3727.
+
 namespace LivingWorld
 {
 

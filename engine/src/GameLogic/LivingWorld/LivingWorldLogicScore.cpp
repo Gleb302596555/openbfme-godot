@@ -24,6 +24,10 @@
 
 #include <algorithm>
 
+// Ported LivingWorldScoreKeeper lifecycle & queries: ctor RW 0x8F352E, dtor RW 0x8F3752,
+// PerTurnStats copy ctor RW 0x8F2B84, turns survived RW 0x8F2A1E, GetBuildingsOfTypeBuilt RW 0x8F2A32,
+// total units recruited sum RW 0x8F2D30.
+
 namespace LivingWorld
 {
 
@@ -226,6 +230,24 @@ void LivingWorldLogic::setRegionOwner(int region, int owner)
 	if (owner >= 0 && !m_players[(size_t)owner].score.detached)
 	{
 		++m_players[(size_t)owner].score.territoriesConquered;
+	}
+	// LivingWorldLogic::OnRegionChangedOwnership RW 0x6BB2EF: when a region changes ownership to a
+	// player hostile to the previous owner, remove garrisons in that region belonging to players
+	// hostile to the new owner (RW 0x6B540B -> RW 0x6B9679 / processArmyDestroyList RW 0x6B87A9).
+	if (old >= 0 && owner >= 0 && hostile(old, owner))
+	{
+		std::vector<int> destroyIds;
+		for (const Army &a : m_armies)
+		{
+			if (a.region == region && a.garrison && a.owner >= 0 && hostile(a.owner, owner))
+			{
+				destroyIds.push_back(a.id);
+			}
+		}
+		for (int id : destroyIds)
+		{
+			removeArmy(id);
+		}
 	}
 }
 

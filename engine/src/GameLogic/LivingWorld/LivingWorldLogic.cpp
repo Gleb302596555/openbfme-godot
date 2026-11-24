@@ -119,6 +119,33 @@ const BuildingTemplate *LivingWorldLogic::buildingTemplate(const Building &b) co
 	return m_stores.findBuilding(b.templateName);
 }
 
+// RotWK 2.01 LivingWorldLogic / Campaign / Region / Player / Army / Building / Battle counterparts:
+//   Logic lifecycle & queries: startNewLivingWorldGame RW 0x6BE09E, startGame RW 0x6B90A7, reset RW 0x6BA47A,
+//     dtor RW 0x6BA21C, getStartingMoney RW 0x6B5274, active-team count RW 0x6B83DF, processArmyDestroyList RW 0x6B87A9,
+//     canBuildUnit RW 0x6B3D1D, spawnBuilding RW 0x6BA5C5, AutoResolveBattle RW 0x6BE1A9,
+//     OnBattleComplete RW 0x6BBA1C, LetAIResolveRegionAwardDispute RW 0x6BB9FB.
+//   Campaign & RegionManager: AdjustStartingPositionForScenario RW 0x932533, Campaign::AddPlayer RW 0x933D18,
+//     RegionManager ctor/dtor RW 0x6101EF / RW 0x6108F3, SelectCampaign RW 0x60EF0E, OnTurnEnding RW 0x60F903,
+//     AddBattle RW 0x60F9D1, CompleteBattle RW 0x60F94D, SetActiveBattleID RW 0x60E3E9,
+//     FindPendingBattleForRegion RW 0x60E329, FindPendingBattleByID RW 0x60E365, FindCompletedBattleByID RW 0x60E3A7.
+//   Region & BuildPlot & Building: Region ctor/dtor RW 0x7F4FE1 / RW 0x7F49AD, CreateBuildPlots RW 0x7F3DC9,
+//     ConstructBuildingImmediately wrapper RW 0x7F10E4, region owner query thunk RW 0x7F12DC,
+//     GetBuildingByIndex RW 0x7F1902, FindPlotById RW 0x7F1A7D, BuildPlot ctor RW 0x903092,
+//     Building ctor RW 0x8E561B, Building::onTurnEnding nugget loop RW 0x8E4C5A,
+//     BuildingNuggetSpawnArmy getOwningPlayer RW 0x8FF2DF, vslot2 hasQueued RW 0x8FF34A,
+//     vslot8 RW 0x8FF2B7, vslot14 totalQueuedCP RW 0x8FF393.
+//   Player & Army: Player GetConflictResolveType RW 0x6E18B8, GetGameSlot RW 0x6E18DA, AddArmy RW 0x6E37E5,
+//     RemoveArmy RW 0x6E2430, InitBuildableHeroes RW 0x6E48C2, AddRevivalEntry RW 0x6E47EC,
+//     GetRevivalUnitData RW 0x6E2783, RemoveRevivalUnit RW 0x6E359D, AddUpgrade RW 0x6E28BF,
+//     RemoveUpgrade RW 0x6E28F3, CheckForRemovedMultiRegionBonuses RW 0x6E333A;
+//     Army ctors/dtor RW 0x71BB55 / RW 0x71BC70 / RW 0x71B5FF, KillSummaryEntry RW 0x71AE2D, initiateMove RW 0x71BE8F.
+//   Battle: ctors/dtor RW 0x7F81C9 / RW 0x7F869C / RW 0x7F8220, loadPostProcess RW 0x7F6176,
+//     GetTeamNumberForSide RW 0x7F5C0F, GetTotalPlayerCount RW 0x7F5C1F, GetFirstNonEmptySide RW 0x7F5C64,
+//     FindSideForPlayer RW 0x7F5CB9, FindBattlePlayer RW 0x7F5D12, GetRetreatedPlayerCount RW 0x7F5D46,
+//     GetRetreatedPlayerID RW 0x7F5D5F, FindSideIndexForPlayer RW 0x7F5DF0, FindPlayerIndexOnSide RW 0x7F5E36 / RW 0x7F65E6,
+//     GetHumanPlayerCountOnSide RW 0x7F5E84, GetTotalHumanPlayerCount RW 0x7F5ECF,
+//     HasPlayerID RW 0x7F5F0A, HasPlayer RW 0x7F5F8D, GetArmy RW 0x7F5F9C,
+//     ForEachArmy RW 0x7F6028, GetGarrisonArmyForPlayer RW 0x7F65F9.
 bool LivingWorldLogic::start(const GameSetup &setup, std::string *error)
 {
 	if (m_started)
@@ -267,6 +294,24 @@ bool LivingWorldLogic::start(const GameSetup &setup, std::string *error)
 	m_turn = 1;
 	m_phase = PHASE_ORDERS;
 	// ownership, buildings and armies
+	// LivingWorldRegion::SetupRegionOwnership RW 0x7F4696: a region with OwnedByPlayer goes to the
+	// player with that exact name (LivingWorldLogic::findPlayerByName RW 0x6B774C).
+	for (int ri = 0; ri < (int)m_regions.size(); ++ri)
+	{
+		const std::string &ownerName = m_regionCampaign->regions[(size_t)ri].ownedByPlayer;
+		if (ownerName.empty())
+		{
+			continue;
+		}
+		for (int pi = 0; pi < n; ++pi)
+		{
+			if (m_players[(size_t)pi].name == ownerName)
+			{
+				m_regions[(size_t)ri].owner = pi;
+				break;
+			}
+		}
+	}
 	const Act *actOne = m_campaign->acts.empty() ? nullptr : &m_campaign->acts[0];
 	for (int i = 0; i < n; ++i)
 	{
@@ -381,6 +426,19 @@ bool LivingWorldLogic::start(const GameSetup &setup, std::string *error)
 					return false;
 				}
 				spawnArmy(i, *spawn, idx);
+			}
+		}
+	}
+	// LivingWorldLogic::EnforceArmyRegionOwnership RW 0x6B56F8 (called from StartGame RW 0x6B90A7):
+	// any non-garrison army standing in an unowned region claims that region for its owner.
+	for (int pi = 0; pi < n; ++pi)
+	{
+		for (const Army &a : m_armies)
+		{
+			if (a.owner == pi && !a.garrison && a.region >= 0 && a.region < (int)m_regions.size() &&
+			    m_regions[(size_t)a.region].owner < 0)
+			{
+				m_regions[(size_t)a.region].owner = pi;
 			}
 		}
 	}
