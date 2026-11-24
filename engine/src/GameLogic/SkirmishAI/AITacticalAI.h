@@ -117,6 +117,7 @@ struct AISkirmishPlayer;
 struct AISkirmishGroup;
 
 // AITarget (0x3C bytes, ctor RW 0x6C689D)
+// RW 0x90B43D (~AITargetChooser), RW 0x97D6C5 / RW 0x97D6D9 (AITargetHeuristicBaseDefense ctor/dtor)
 struct AITarget
 {
 	int type = 0;                    ///< + 0x04 (AITARGET index)

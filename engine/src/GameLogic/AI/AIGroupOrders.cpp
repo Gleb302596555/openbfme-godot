@@ -30,6 +30,7 @@ namespace
 const float kCloseEnoughSquared = 20.0f; // RW 0xBDBC6C
 }
 
+// RW 0x94E292 (MoveToGroupOrder ctor)
 MoveToGroupOrder::MoveToGroupOrder(GameLogic &logic, std::vector<ObjectID> objects, const Coord3D &destination, bool attackMove)
 	: GroupOrder(std::move(objects))
 	, m_logic(logic)
@@ -49,6 +50,7 @@ bool MoveToGroupOrder::closeEnough(const Object &object, const Coord3D &target)
 	return kCloseEnoughSquared > d2;
 }
 
+// RW 0x94DA72 (MoveToGroupOrder::isNearDestination, 0xC81430[9])
 bool MoveToGroupOrder::isNearDestination(const Coord3D &pos) const
 {
 	float dx = pos.x - m_destination.x;
@@ -138,6 +140,7 @@ void MoveToGroupOrder::setState(const State &state)
 }
 
 
+// RW 0x94D7D2 / RW 0x94D7FE (AttackObjectGroupOrder ctors)
 AttackObjectGroupOrder::AttackObjectGroupOrder(GameLogic &logic, std::vector<ObjectID> objects, ObjectID targetID)
 	: GroupOrder(std::move(objects))
 	, m_logic(logic)
@@ -203,6 +206,7 @@ void AttackObjectGroupOrder::activate(ObjectID id)
 	}
 }
 
+// RW 0x94D90D (AttackObjectGroupOrder::complete, 0xC813D8[5])
 bool AttackObjectGroupOrder::complete(ObjectID id)
 {
 	(void)id;
@@ -238,6 +242,7 @@ void AttackObjectGroupOrder::setState(const State &state)
 	m_lastTargetPos = state.lastTargetPos;
 }
 
+// RW 0x94D526 / RW 0x94D54E (GarrisonObjectGroupOrder ctors)
 GarrisonObjectGroupOrder::GarrisonObjectGroupOrder(GameLogic &logic, std::vector<ObjectID> objects, ObjectID targetID)
 	: GroupOrder(std::move(objects))
 	, m_logic(logic)
@@ -245,6 +250,7 @@ GarrisonObjectGroupOrder::GarrisonObjectGroupOrder(GameLogic &logic, std::vector
 {
 }
 
+// RW 0x94D6A3 (GarrisonObjectGroupOrder::activate, 0xC8137C[4])
 void GarrisonObjectGroupOrder::activate(ObjectID id)
 {
 	Object *target = m_logic.findObjectByID(m_targetID);
@@ -273,6 +279,7 @@ void GarrisonObjectGroupOrder::activate(ObjectID id)
 	}
 }
 
+// RW 0x94D6FD (GarrisonObjectGroupOrder::complete, 0xC8137C[5])
 bool GarrisonObjectGroupOrder::complete(ObjectID id)
 {
 	if (m_completed)

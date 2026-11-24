@@ -99,7 +99,7 @@ UpdateSleepTime AmbientAIUpdate::update()
 	// source paths and the +0xC4 runtime-layout shift are normalized. Capture the state BEFORE the base
 	// update; first processed position AFTER it; one [0,100] draw per idle update,
 	// then angle [-15,15] and distance [0,MaxWanderDistance] only on success.
-	// RW WanderAIUpdate::update 0x8ACAFA (499 bytes) matches BFME2 0x8A9424
+	// RW WanderAIUpdate::update 0x8ACAFA (499 bytes) matches BFME2 0x8A9424; state machine creation (RW 0x8ACA9F) and module data dtor (RW 0x892AFD) use standard AIStateMachine / ModuleData
 	// except image addresses and source paths. See docs/AMBIENT_MOVEMENT.md.
 	// S-001: the available target image has disputed provenance.
 	const unsigned state = currentStateId();
