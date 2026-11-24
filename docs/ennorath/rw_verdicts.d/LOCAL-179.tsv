@@ -1,0 +1,312 @@
+function	name	verdict	evidence
+0x47940F	??$__partial_sort@PAHHVRva00204BB8@@@_STL@@YAXPAH000VRva00204BB8@@@Z	glue	STLport template instantiation (92B, dc=1, vc=0): push ebp; mov ebp, esp; push ebx
+0x4AD288	??$__copy@PAURva00332F29Element@@PAU1@H@_STL@@YAPAURva00332F29Element@@PAU1@00ABUrandom_access_iterator_tag@0@PAH@Z	glue	STLport template instantiation (50B, dc=1, vc=0): push ebp; mov ebp, esp; mov eax, dword ptr [ebp + 0xc]
+0x4B652C	0xBDFC48	not reached	6-byte Snapshot::getClassName() string-literal stub ('LuaEventParameters', 0xBDFC48[2], dc=0, vc=0)
+0x4B91E2	?rva000B9A0E@Rva000B9A0E@@QAEXPAXHH@Z	too big	S-090: W3DScriptedModelDraw OnGenericEvent Lua dispatch (dc=3, vc=0)
+0x4DD1F4	?getConditionTeamName@Script@@QBE?AVAsciiString@@XZ	too big	S-1183: Script::getConditionTeamName per-member condition team iteration (dc=3, vc=0)
+0x6032A9	??4Rva00336C90@@QAEAAV0@ABV0@@Z	glue	Compiler/STL container helper (87B, dc=1, vc=0): push esi; push edi; mov edi, dword ptr [esp + 0xc]
+0x603300	?rva002039B6@Rva002039B6Host@@QAEXXZ	too big	ScriptEngine::notifyOfObjectChange (sets +0x1A25C frame cache); port evaluates conditions every frame without cache (semantically equivalent)
+0x60330F	?rva002039C5@Rva002039C5Host@@QAEXXZ	too big	ScriptEngine::notifyOfTeamChange (sets +0x1A260 frame cache); port evaluates conditions every frame without cache (semantically equivalent)
+0x60342F	?rva00203AE5@Rva00203B08@@QAE_NXZ	not reached	Particle Editor DLL helper (0xDE3B98); only active when particle editor DLL is loaded
+0x603452	?rva00203B08@Rva00203B08@@QAE_NXZ	not reached	Particle Editor DLL helper (0xDE3B98); only active when particle editor DLL is loaded
+0x603475	?rva00203B2B@Rva00203B2BHost@@QAEXXZ	not reached	Particle Editor DLL helper (0xDE3B98); only active when particle editor DLL is loaded
+0x603491	?rva00203B47@Rva00203B47Host@@QAE_NXZ	not reached	Particle Editor DLL launcher/check (0xDE3B98 / GetProcAddress 0xBD018C); editor-only
+0x6034FB	sub_6034FB	not reached	Particle Editor DLL ForceAppContinue call (0xDE3B98 / GetProcAddress 0xBD018C); editor-only
+0x603524	sub_603524	not reached	7-byte getter of ScriptEngine+0x1A5D7 (particle editor flag); editor-only
+0x60352B	sub_60352B	not reached	8-byte setter of ScriptEngine+0x1A5D7 (particle editor flag); editor-only
+0x60356B	?rva00203C21@@YAXXZ	not reached	Particle Editor DLL init callback (0xDE3B98 / GetProcAddress 0xBD018C); editor-only
+0x60364E	0xBF9B4C	glue	37-byte MSVC scalar deleting destructor (test [esp+4], 1; ...; 0xBF9B4C[0], dc=0, vc=0)
+0x603673	0xBF9B50	glue	37-byte MSVC scalar deleting destructor (test [esp+4], 1; ...; 0xBF9B50[0], dc=0, vc=0)
+0x603698	?Rva00203D4EChain@@YAXPAVRva00203D4EA@@PAX@Z	glue	Compiler/STL container helper (28B, dc=1, vc=0): mov ecx, dword ptr [esp + 4]; mov eax, dword ptr [ecx]; push esi
+0x6036B4	?Rva00203D6AChain@@YAXPAVRva00203D6AA@@PAX@Z	glue	Compiler/STL container helper (28B, dc=1, vc=0): mov ecx, dword ptr [esp + 4]; mov eax, dword ptr [ecx]; push esi
+0x6036D0	?Rva00203D86Chain@@YAXPAVRva00203D86A@@PAX@Z	glue	Compiler/STL container helper (28B, dc=1, vc=0): mov ecx, dword ptr [esp + 4]; mov eax, dword ptr [ecx]; push esi
+0x6036EC	?Rva00203DA2Chain@@YAXPAVRva00203DA2A@@PAX@Z	glue	Compiler/STL container helper (28B, dc=1, vc=0): mov ecx, dword ptr [esp + 4]; mov eax, dword ptr [ecx]; push esi
+0x603708	?Rva00203DBEChain@@YAXPAVRva00203DBEA@@PAX@Z	glue	Compiler/STL container helper (28B, dc=1, vc=0): mov ecx, dword ptr [esp + 4]; mov eax, dword ptr [ecx]; push esi
+0x60375B	?Rva00203E11Xfer@@YAXPAVRva00203E11A@@PAVRva00203E11B@@@Z	glue	Compiler/STL container helper (27B, dc=1, vc=0): mov eax, dword ptr [esp + 8]; lea ecx, [eax + 4]; push ecx
+0x6037FC	??0LoadFailure@DllHandle@@QAE@XZ	not reached	DllHandle::LoadFailure exception ctor; only used by Particle Editor DLL loader
+0x60399C	?particleEditorUpdate@ScriptEngine@@IAEXXZ	not reached	Particle Editor debug loop; only active when particle editor DLL is loaded (RW_BINARY_MAP dc=1, vc=0)
+0x603B9F	?rva002041FC@Rva002041E1@@QAEXVAsciiString@@@Z	not reached	Particle Editor template name helper; editor-only
+0x603DC7	?rva0020443D@Rva0020453CHolderBase@@UAEXPBD@Z	not reached	Particle Editor interface 0xBF9B54[8] (dc=0, vc=0); editor-only
+0x603E51	?rva002044C7@Rva0020453CHolderBase@@UAEXPBDABVParticleSystemTemplate@FXParticleSystem@@@Z	not reached	Particle Editor interface 0xBF9B54[9] (FXParticleSystem::ParticleSystemTemplate, dc=0, vc=0); editor-only
+0x603EC6	?release@Rva0020453CHolderBase@@QAEXXZ	not reached	Particle Editor interface holder release; editor-only
+0x603F35	??1Rva003B39C7@@QAE@XZ	not reached	Temporary INI record dtor used only by parseScriptAction (0x606834) / parseScriptCondition (0x606898)
+0x604009	??1?$pair@U?$pair@VAsciiString@@V1@@_STL@@UScriptFlag@@@_STL@@QAE@XZ	glue	STLport template instantiation (5B, dc=32, vc=0): jmp 0x42bd78
+0x60400E	??1?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@VAsciiString@@@_STL@@QAE@XZ	glue	STLport template instantiation (53B, dc=6, vc=0): mov eax, 0xb80a2d; call 0xa3cef0; push ecx
+0x60414C	??0SequentialScript@@QAE@XZ	not reached	6-byte Snapshot::getClassName() string-literal stub ('SequentialScript', 0xBF9BF0[2], dc=0, vc=0)
+0x604152	sub_604152	not reached	Particle Editor update hook (checks +0x1A5D9 and 0xDE3B98 DLL); editor-only
+0x604189	?_bfme_updateClientDebugFrame@ScriptEngine@@QAEXXZ	not reached	Client debug frame counter (GameEngine::update); no simulation effect (RW_BINARY_MAP dc=1, vc=0)
+0x604392	?rva00206EC7@Rva00206593@@QAEXXZ	glue	Compiler/STL container helper (41B, dc=2, vc=0): push esi; mov esi, ecx; cmp dword ptr [esi + 4], 0
+0x6044A4	??0?$pair@U?$pair@VAsciiString@@V1@@_STL@@VAsciiString@@@_STL@@QAE@ABU?$pair@VAsciiString@@V1@@1@ABVAsciiString@@@Z	glue	STLport template instantiation (57B, dc=2, vc=0): mov eax, 0xb80a2d; call 0xa3cef0; push ecx
+0x6045FF	??RRva00204BB8@@QBE_NHH@Z	not reached	Particle Editor template sort comparator (used by _writeOutINI 0x60CAC9); editor-only
+0x604E30	?rva0020530E@Rva0020530EHost@@QAEXXZ	too big	ScriptEngine::loadPostProcess (0xBF9EC0[1]): syncs TerrainVisual/Display shroud state on save load (dc=0, vc=0)
+0x604E7A	?rva00205358@ScriptEngine@@QAEXPAVAssetList@@PAUAssetLoadMode@@@Z	not reached	AssetList preloader walk (calls Script::rva003B3836); port loads assets on demand (RW_BINARY_MAP dc=1, vc=0)
+0x604F1C	?_appendMessage@@YAXABVAsciiString@@_N1@Z	not reached	Script debugger window _appendMessage; debug-only UI helper (dc=1, vc=0)
+0x605021	?_adjustVariable@@YAXABVAsciiString@@H_N1@Z	not reached	Script debugger window _adjustVariable; debug-only UI helper (dc=1, vc=0)
+0x605177	?insert@?$list@U?$pair@VAsciiString@@UCoord3D@@@_STL@@V?$allocator@U?$pair@VAsciiString@@UCoord3D@@@_STL@@@2@@_STL@@QAE?AU?$_List_iterator@U?$pair@VAsciiString@@UCoord3D@@@_STL@@U?$_Nonconst_traits@U?$pair@VAsciiString@@UCoord3D@@@_STL@@@2@@2@U32@ABU?$pair@VAsciiString@@UCoord3D@@@2@@Z	glue	STLport template instantiation (37B, dc=2, vc=0): push dword ptr [esp + 0xc]; call 0x6043bb; mov ecx, dword ptr [esp + 8]
+0x6051E6	??$make_pair@VAsciiString@@E@_STL@@YA?AU?$pair@VAsciiString@@E@0@ABVAsciiString@@ABE@Z	glue	STLport template instantiation (27B, dc=8, vc=0): push ebp; mov ebp, esp; push ecx
+0x605201	??$make_pair@U?$pair@VAsciiString@@V1@@_STL@@UScriptFlag@@@_STL@@YA?AU?$pair@U?$pair@VAsciiString@@V1@@_STL@@UScriptFlag@@@0@ABU?$pair@VAsciiString@@V1@@0@ABUScriptFlag@@@Z	glue	STLport template instantiation (27B, dc=1, vc=0): push ebp; mov ebp, esp; push ecx
+0x60521C	??$make_pair@U?$pair@VAsciiString@@V1@@_STL@@UScriptCounter@@@_STL@@YA?AU?$pair@U?$pair@VAsciiString@@V1@@_STL@@UScriptCounter@@@0@ABU?$pair@VAsciiString@@V1@@0@ABUScriptCounter@@@Z	glue	STLport template instantiation (27B, dc=2, vc=0): push ebp; mov ebp, esp; push ecx
+0x605237	??$_Construct@UBfmeStringRecord00204A30@@U1@@_STL@@YAXPAUBfmeStringRecord00204A30@@ABU1@@Z	glue	STLport template instantiation (45B, dc=4, vc=0): mov eax, 0xb80afb; call 0xa3cef0; push ecx
+0x605264	?Rva00205709UninitializedCopy@@YAPAURva00205709Record@@PBU1@0PAU1@ABU__false_type@_STL@@@Z	glue	STLport template instantiation (38B, dc=1, vc=0): push esi; mov esi, dword ptr [esp + 0x10]; push edi
+0x60528A	??$__uninitialized_fill_n@PAURva0020572FElement@@IU1@@_STL@@YAPAURva0020572FElement@@PAU1@IABU1@ABU__false_type@0@@Z	glue	STLport template instantiation (37B, dc=1, vc=0): push esi; mov esi, dword ptr [esp + 8]; push edi
+0x6052AF	??$__uninitialized_copy@PBUBfmeStringRecord00204A30@@PAU1@@_STL@@YAPAUBfmeStringRecord00204A30@@PBU1@0PAU1@ABU__false_type@0@@Z	glue	STLport template instantiation (38B, dc=1, vc=0): push esi; mov esi, dword ptr [esp + 0x10]; push edi
+0x605303	??$_Construct@U?$pair@VAsciiString@@UCoord3D@@@_STL@@U12@@_STL@@YAXPAU?$pair@VAsciiString@@UCoord3D@@@0@ABU10@@Z	glue	STLport template instantiation (45B, dc=1, vc=0): mov eax, 0xb80afb; call 0xa3cef0; push ecx
+0x605330	??$__median@PAHVRva00204BB8@@@_STL@@YAPAHPAH00VRva00204BB8@@@Z	glue	STLport template instantiation (107B, dc=1, vc=0): push ebp; mov ebp, esp; push ebx
+0x60539B	??$__unguarded_partition@PAHHVRva00204BB8@@@_STL@@YAPAHPAH0HVRva00204BB8@@@Z	glue	STLport template instantiation (73B, dc=1, vc=0): push ebp; mov ebp, esp; push esi
+0x6053E4	??$_Construct@U?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@UScriptFlag@@@_STL@@U12@@_STL@@YAXPAU?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@UScriptFlag@@@0@ABU10@@Z	glue	STLport template instantiation (45B, dc=1, vc=0): mov eax, 0xb80afb; call 0xa3cef0; push ecx
+0x605411	??$_Construct@U?$pair@$$CBVAsciiString@@UTreeHintPayload00207343@@@_STL@@U12@@_STL@@YAXPAU?$pair@$$CBVAsciiString@@UTreeHintPayload00207343@@@0@ABU10@@Z	glue	STLport template instantiation (45B, dc=1, vc=0): mov eax, 0xb80afb; call 0xa3cef0; push ecx
+0x60543E	?scriptMapConstruct00205910@@YAXPAU?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@H@_STL@@ABU12@@Z	glue	STLport template instantiation (45B, dc=2, vc=0): mov eax, 0xb80afb; call 0xa3cef0; push ecx
+0x60546B	??$_Construct@U?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@VAsciiString@@@_STL@@U12@@_STL@@YAXPAU?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@VAsciiString@@@0@ABU10@@Z	glue	STLport template instantiation (45B, dc=1, vc=0): mov eax, 0xb80afb; call 0xa3cef0; push ecx
+0x605498	??$_Construct@U?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@UScriptCounter@@@_STL@@U12@@_STL@@YAXPAU?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@UScriptCounter@@@0@ABU10@@Z	glue	STLport template instantiation (45B, dc=1, vc=0): mov eax, 0xb80afb; call 0xa3cef0; push ecx
+0x6054C5	??$_Construct@U?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@VAsciiString@@@_STL@@U12@@_STL@@YAXPAU?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@VAsciiString@@@0@ABU10@@Z	glue	STLport template instantiation (45B, dc=5, vc=0): mov eax, 0xb80afb; call 0xa3cef0; push ecx
+0x6054FB	??$__unguarded_linear_insert@PAHHVRva00204BB8@@@_STL@@YAXPAHHVRva00204BB8@@@Z	glue	STLport template instantiation (47B, dc=2, vc=0): push ebx; mov ebx, dword ptr [esp + 0xc]; push esi
+0x605586	?rva00205A2B@Rva00205A2B@@QAEXPAUArg205A2B@@@Z	not reached	Action Template m_uiName override helper; only caller 0x606834 (parseScriptAction, dc=0)
+0x6055E8	?rva00205A8D@Rva00205A8D@@QAEXPAUArg205A8D@@@Z	not reached	Condition Template m_uiName override helper; only caller 0x606898 (parseScriptCondition, dc=0)
+0x605653	??1Rva00204D66@@QAE@XZ	not reached	Unreferenced dtor (dc=0, vc=0) in ScriptEngine TU
+0x605E03	?checkConditionsForTeamNames@ScriptEngine@@QAEXPAVScript@@ABVAsciiString@@@Z	too big	Initial delayEvalSeconds RNG jitter at newMap; evaluation order / frame loop out of scope for #927 (S-7931) (RW_BINARY_MAP dc=1, vc=0)
+0x6060D4	?push_back@?$list@UBfmeFloat4Record00469C61@@V?$allocator@UBfmeFloat4Record00469C61@@@_STL@@@_STL@@QAEXABUBfmeFloat4Record00469C61@@@Z	glue	STLport template instantiation (26B, dc=2, vc=0): push ebp; mov ebp, esp; push dword ptr [ebp + 8]
+0x6060EE	?rva00206593@Rva00206593@@QAEXPAURvaTreeValueNode@@@Z	glue	Compiler/STL container helper (53B, dc=2, vc=0): push ebx; push esi; mov esi, dword ptr [esp + 0xc]
+0x606123	?rva002065C8@Rva002065C8@@QAEXPAURvaTreeValueNode@@@Z	glue	Compiler/STL container helper (53B, dc=2, vc=0): push ebx; push esi; mov esi, dword ptr [esp + 0xc]
+0x606158	?rva002065FD@Rva002065FD@@QAEXPAURvaTreeValueNode@@@Z	glue	Compiler/STL container helper (53B, dc=2, vc=0): push ebx; push esi; mov esi, dword ptr [esp + 0xc]
+0x60618D	?rva00206632@Rva00206632@@QAEXPAURvaTreeValueNode@@@Z	glue	Compiler/STL container helper (53B, dc=2, vc=0): push ebx; push esi; mov esi, dword ptr [esp + 0xc]
+0x6061C2	?rva00206667@Rva00206667@@QAEXPAURva00206667Node@@@Z	glue	Compiler/STL container helper (53B, dc=2, vc=0): push ebx; push esi; mov esi, dword ptr [esp + 0xc]
+0x6061F7	?rva0020669C@Rva0020669C@@QAEXPAURvaTreeValueNode@@@Z	glue	Compiler/STL container helper (53B, dc=2, vc=0): push ebx; push esi; mov esi, dword ptr [esp + 0xc]
+0x60622C	?rva002066D1@Rva002066D1@@QAEXPAURvaTreeValueNode@@@Z	glue	Compiler/STL container helper (53B, dc=2, vc=0): push ebx; push esi; mov esi, dword ptr [esp + 0xc]
+0x606261	?rva00206706@Rva00206706@@QAEXPAURva00206706Node@@@Z	glue	Compiler/STL container helper (53B, dc=2, vc=0): push ebx; push esi; mov esi, dword ptr [esp + 0xc]
+0x606296	?xferListInt@@YAPAVXfer@@PAV1@PAV?$list@HV?$allocator@H@_STL@@@_STL@@@Z	glue	STLport template instantiation (194B, dc=2, vc=0): push ebp; mov ebp, esp; sub esp, 0xc
+0x606358	?Rva00206923XferList@@YAPAVXfer@@PAV1@PAV?$list@UBfmeSpecialPowerTimer8@@V?$allocator@UBfmeSpecialPowerTimer8@@@_STL@@@_STL@@@Z	glue	STLport template instantiation (205B, dc=1, vc=0): push ebp; mov ebp, esp; sub esp, 0x14
+0x606425	?xferList2069F0@@YAPAVXfer@@PAV1@PAV?$list@UBfmeFloat4Record00469C61@@V?$allocator@UBfmeFloat4Record00469C61@@@_STL@@@_STL@@@Z	glue	STLport template instantiation (206B, dc=1, vc=0): push ebp; mov ebp, esp; sub esp, 0x1c
+0x6064F3	?_M_create_node@?$list@U?$pair@$$CBVAsciiString@@UNoCaseTreeValue4@@@_STL@@V?$allocator@U?$pair@$$CBVAsciiString@@UNoCaseTreeValue4@@@_STL@@@2@@_STL@@IAEPAU?$_List_node@U?$pair@$$CBVAsciiString@@UNoCaseTreeValue4@@@_STL@@@2@ABU?$pair@$$CBVAsciiString@@UNoCaseTreeValue4@@@2@@Z	glue	STLport template instantiation (34B, dc=1, vc=0): push esi; push 0; push 0x10
+0x606515	?_M_create_node@?$list@U?$pair@VAsciiString@@UCoord3D@@@_STL@@V?$allocator@U?$pair@VAsciiString@@UCoord3D@@@_STL@@@2@@_STL@@IAEPAU?$_List_node@U?$pair@VAsciiString@@UCoord3D@@@_STL@@@2@ABU?$pair@VAsciiString@@UCoord3D@@@2@@Z	glue	STLport template instantiation (34B, dc=1, vc=0): push esi; push 0; push 0x18
+0x606537	?Rva00206B02Xfer@@YAPAVXfer@@PAV1@PAV?$list@UBfmeSpecialPowerTimer8@@V?$allocator@UBfmeSpecialPowerTimer8@@@_STL@@@_STL@@@Z	glue	STLport template instantiation (205B, dc=1, vc=0): push ebp; mov ebp, esp; sub esp, 0x14
+0x606689	?_M_create_node@?$_Rb_tree@U?$pair@VAsciiString@@V1@@_STL@@U?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@H@2@U?$_Select1st@U?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@H@_STL@@@2@UTeamLess0019B850@@V?$allocator@U?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@H@_STL@@@2@@_STL@@IAEPAU?$_Rb_tree_node@U?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@H@_STL@@@2@ABU?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@H@2@@Z	glue	STLport template instantiation (34B, dc=1, vc=0): push esi; push 0; push 0x1c
+0x6066AB	?_M_create_node@?$_Rb_tree@VAsciiString@@U?$pair@$$CBVAsciiString@@UTreeHintPayload00207343@@@_STL@@U?$_Select1st@U?$pair@$$CBVAsciiString@@UTreeHintPayload00207343@@@_STL@@@3@U?$less@VAsciiString@@@3@V?$allocator@U?$pair@$$CBVAsciiString@@UTreeHintPayload00207343@@@_STL@@@3@@_STL@@IAEPAU?$_Rb_tree_node@U?$pair@$$CBVAsciiString@@UTreeHintPayload00207343@@@_STL@@@2@ABU?$pair@$$CBVAsciiString@@UTreeHintPayload00207343@@@2@@Z	glue	STLport template instantiation (34B, dc=1, vc=0): push esi; push 0; push 0x18
+0x6066CD	?_M_create_node@?$_Rb_tree@U?$pair@VAsciiString@@V1@@_STL@@U?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@VAsciiString@@@2@U?$_Select1st@U?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@VAsciiString@@@_STL@@@2@U?$less@U?$pair@VAsciiString@@V1@@_STL@@@2@V?$allocator@U?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@VAsciiString@@@_STL@@@2@@_STL@@IAEPAU?$_Rb_tree_node@U?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@VAsciiString@@@_STL@@@2@ABU?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@VAsciiString@@@2@@Z	glue	STLport template instantiation (34B, dc=1, vc=0): push esi; push 0; push 0x1c
+0x6066EF	??$_Destroy@PAUBfmeStringRecord00204A30@@@_STL@@YAXPAUBfmeStringRecord00204A30@@0@Z	glue	STLport template instantiation (25B, dc=3, vc=0): push esi; mov esi, dword ptr [esp + 8]; jmp 0x606700
+0x606708	??$__linear_insert@PAHHVRva00204BB8@@@_STL@@YAXPAH0HVRva00204BB8@@@Z	glue	STLport template instantiation (63B, dc=1, vc=0): push ebp; mov ebp, esp; push esi
+0x606747	??$__unguarded_insertion_sort_aux@PAHHVRva00204BB8@@@_STL@@YAXPAH00VRva00204BB8@@@Z	glue	STLport template instantiation (33B, dc=1, vc=0): push esi; mov esi, dword ptr [esp + 8]; jmp 0x606760
+0x6067D9	?Rva00206DA4Enumerate@@YGXPAVRva002082F1Visitor@@@Z	not reached	Particle Editor interface 0xBF9B54[3] enumerator (dc=0, vc=0); editor-only
+0x606834	?parseScriptAction@@YAXPAVINI@@@Z	not reached	parseScriptAction INI block parser (dc=0, vc=0, no xrefs in game.dat); overrides Template m_uiName for WorldBuilder
+0x606898	?parseScriptCondition@@YAXPAVINI@@@Z	not reached	parseScriptCondition INI block parser (dc=0, vc=0, no xrefs in game.dat); overrides Template m_uiName for WorldBuilder
+0x6068FC	?rva00206EC7@Rva00206593@@QAEXXZ	glue	Compiler/STL container helper (41B, dc=4, vc=0): push esi; mov esi, ecx; cmp dword ptr [esi + 4], 0
+0x606925	?rva00206EF0@Rva002065C8@@QAEXXZ	glue	Compiler/STL container helper (41B, dc=4, vc=0): push esi; mov esi, ecx; cmp dword ptr [esi + 4], 0
+0x60694E	?rva00206F19@Rva002065FD@@QAEXXZ	glue	Compiler/STL container helper (41B, dc=4, vc=0): push esi; mov esi, ecx; cmp dword ptr [esi + 4], 0
+0x606977	?rva00206F42@Rva00206632@@QAEXXZ	glue	Compiler/STL container helper (41B, dc=4, vc=0): push esi; mov esi, ecx; cmp dword ptr [esi + 4], 0
+0x6069A0	?rva00206F6B@Rva00206667@@QAEXXZ	glue	Compiler/STL container helper (41B, dc=4, vc=0): push esi; mov esi, ecx; cmp dword ptr [esi + 4], 0
+0x6069C9	?rva00206F94@Rva0020669C@@QAEXXZ	glue	Compiler/STL container helper (41B, dc=2, vc=0): push esi; mov esi, ecx; cmp dword ptr [esi + 4], 0
+0x6069F2	?rva00206FBD@Rva002066D1@@QAEXXZ	glue	Compiler/STL container helper (41B, dc=2, vc=0): push esi; mov esi, ecx; cmp dword ptr [esi + 4], 0
+0x606A1B	?rva00206FE6@Rva00206706@@QAEXXZ	glue	Compiler/STL container helper (41B, dc=2, vc=0): push esi; mov esi, ecx; cmp dword ptr [esi + 4], 0
+0x606A44	?Rva0020700FXfer@@YAPAVXfer@@PAV1@PAV?$list@VAsciiString@@V?$allocator@VAsciiString@@@_STL@@@_STL@@@Z	glue	STLport template instantiation (232B, dc=1, vc=0): mov eax, 0xb80bf9; call 0xa3cef0; sub esp, 0x10
+0x606B2C	?Rva00209A09Xfer@@YAPAVXfer@@PAV1@PAV?$list@U?$pair@$$CBVAsciiString@@UNoCaseTreeValue4@@@_STL@@V?$allocator@U?$pair@$$CBVAsciiString@@UNoCaseTreeValue4@@@_STL@@@2@@_STL@@@Z	glue	STLport template instantiation (89B, dc=1, vc=0): push ebp; mov ebp, esp; sub esp, 0xc
+0x606B97	?insert@?$list@U?$pair@VAsciiString@@UCoord3D@@@_STL@@V?$allocator@U?$pair@VAsciiString@@UCoord3D@@@_STL@@@2@@_STL@@QAE?AU?$_List_iterator@U?$pair@VAsciiString@@UCoord3D@@@_STL@@U?$_Nonconst_traits@U?$pair@VAsciiString@@UCoord3D@@@_STL@@@2@@2@U32@ABU?$pair@VAsciiString@@UCoord3D@@@2@@Z	glue	STLport template instantiation (37B, dc=1, vc=0): push dword ptr [esp + 0xc]; call 0x606515; mov ecx, dword ptr [esp + 8]
+0x606CE4	?_M_insert@?$_Rb_tree@U?$pair@VAsciiString@@V1@@_STL@@U?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@H@2@U?$_Select1st@U?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@H@_STL@@@2@UTeamLess0019B850@@V?$allocator@U?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@H@_STL@@@2@@_STL@@AAE?AU?$_Rb_tree_iterator@U?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@H@_STL@@U?$_Nonconst_traits@U?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@H@_STL@@@2@@2@PAU_Rb_tree_node_base@2@0ABU?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@H@2@0@Z	glue	STLport template instantiation (148B, dc=2, vc=0): push ebp; mov ebp, esp; push ebx
+0x606D78	?_M_insert@?$_Rb_tree@VAsciiString@@U?$pair@$$CBVAsciiString@@UTreeHintPayload00207343@@@_STL@@U?$_Select1st@U?$pair@$$CBVAsciiString@@UTreeHintPayload00207343@@@_STL@@@3@U?$less@VAsciiString@@@3@V?$allocator@U?$pair@$$CBVAsciiString@@UTreeHintPayload00207343@@@_STL@@@3@@_STL@@AAE?AU?$_Rb_tree_iterator@U?$pair@$$CBVAsciiString@@UTreeHintPayload00207343@@@_STL@@U?$_Nonconst_traits@U?$pair@$$CBVAsciiString@@UTreeHintPayload00207343@@@_STL@@@2@@2@PAU_Rb_tree_node_base@2@0ABU?$pair@$$CBVAsciiString@@UTreeHintPayload00207343@@@2@0@Z	glue	STLport template instantiation (148B, dc=1, vc=0): push ebp; mov ebp, esp; push ebx
+0x606E0C	?_M_insert@?$_Rb_tree@U?$pair@VAsciiString@@V1@@_STL@@U?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@VAsciiString@@@2@U?$_Select1st@U?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@VAsciiString@@@_STL@@@2@U?$less@U?$pair@VAsciiString@@V1@@_STL@@@2@V?$allocator@U?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@VAsciiString@@@_STL@@@2@@_STL@@AAE?AU?$_Rb_tree_iterator@U?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@VAsciiString@@@_STL@@U?$_Nonconst_traits@U?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@VAsciiString@@@_STL@@@2@@2@PAU_Rb_tree_node_base@2@0ABU?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@VAsciiString@@@2@0@Z	glue	STLport template instantiation (148B, dc=1, vc=0): push ebp; mov ebp, esp; push ebx
+0x606EEE	?insert@?$list@U?$pair@$$CBVAsciiString@@UNoCaseTreeValue4@@@_STL@@V?$allocator@U?$pair@$$CBVAsciiString@@UNoCaseTreeValue4@@@_STL@@@2@@_STL@@QAE?AU?$_List_iterator@U?$pair@$$CBVAsciiString@@UNoCaseTreeValue4@@@_STL@@U?$_Nonconst_traits@U?$pair@$$CBVAsciiString@@UNoCaseTreeValue4@@@_STL@@@2@@2@U32@ABU?$pair@$$CBVAsciiString@@UNoCaseTreeValue4@@@2@@Z	glue	STLport template instantiation (37B, dc=1, vc=0): push dword ptr [esp + 0xc]; call 0x6064f3; mov ecx, dword ptr [esp + 8]
+0x606F13	??$__insertion_sort@PAHVRva00204BB8@@@_STL@@YAXPAH0VRva00204BB8@@@Z	glue	STLport template instantiation (45B, dc=1, vc=0): push ebp; mov ebp, esp; push edi
+0x606F40	??$__unguarded_insertion_sort@PAHVRva00204BB8@@@_STL@@YAXPAH0VRva00204BB8@@@Z	glue	STLport template instantiation (23B, dc=1, vc=0): push dword ptr [esp + 0xc]; push 0; push dword ptr [esp + 0x10]
+0x606F57	??$__pop_heap@PAHHVRva00204BB8@@H@_STL@@YAXPAH00HVRva00204BB8@@0@Z	glue	STLport template instantiation (41B, dc=2, vc=0): push ebp; mov ebp, esp; mov eax, dword ptr [ebp + 8]
+0x606F80	??$__make_heap@PAHVRva00204BB8@@@_STL@@YAXPAH0VRva00204BB8@@@Z	glue	STLport template instantiation (60B, dc=1, vc=0): push ebx; mov ebx, dword ptr [esp + 8]; push edi
+0x606FBC	??$__pop_heap_aux@PAHHVRva00204BB8@@@_STL@@YAXPAH00VRva00204BB8@@@Z	glue	STLport template instantiation (30B, dc=1, vc=0): mov eax, dword ptr [esp + 8]; push 0; push dword ptr [esp + 0x14]
+0x607076	??1Rva00206706@@QAE@XZ	glue	Compiler/STL container helper (56B, dc=2, vc=0): mov eax, 0xb80ae3; call 0xa3cef0; push ecx
+0x6070B3	??1Rva00206706@@QAE@XZ	glue	Compiler/STL container helper (56B, dc=2, vc=0): mov eax, 0xb80ae3; call 0xa3cef0; push ecx
+0x6070F0	??1Rva00206706@@QAE@XZ	glue	Compiler/STL container helper (56B, dc=2, vc=0): mov eax, 0xb80ae3; call 0xa3cef0; push ecx
+0x60712D	??1Rva00206706@@QAE@XZ	glue	Compiler/STL container helper (56B, dc=2, vc=0): mov eax, 0xb80ae3; call 0xa3cef0; push ecx
+0x60716A	??1Rva00206706@@QAE@XZ	glue	Compiler/STL container helper (56B, dc=3, vc=0): mov eax, 0xb80ae3; call 0xa3cef0; push ecx
+0x6071A7	??1Rva00206706@@QAE@XZ	glue	Compiler/STL container helper (56B, dc=2, vc=0): mov eax, 0xb80ae3; call 0xa3cef0; push ecx
+0x6071E4	??1Rva00206706@@QAE@XZ	glue	Compiler/STL container helper (56B, dc=2, vc=0): mov eax, 0xb80ae3; call 0xa3cef0; push ecx
+0x607221	??1Rva00206706@@QAE@XZ	glue	Compiler/STL container helper (56B, dc=2, vc=0): mov eax, 0xb80ae3; call 0xa3cef0; push ecx
+0x607387	?insert_unique@?$_Rb_tree@U?$pair@VAsciiString@@V1@@_STL@@U?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@UScriptFlag@@@2@U?$_Select1st@U?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@UScriptFlag@@@_STL@@@2@U?$less@U?$pair@VAsciiString@@V1@@_STL@@@2@V?$allocator@U?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@UScriptFlag@@@_STL@@@2@@_STL@@QAE?AU?$pair@U?$_Rb_tree_iterator@U?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@UScriptFlag@@@_STL@@U?$_Nonconst_traits@U?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@UScriptFlag@@@_STL@@@2@@_STL@@_N@2@ABU?$pair@$$CBU?$pair@VAsciiString@@V1@@_STL@@UScriptFlag@@@2@@Z	glue	STLport template instantiation (151B, dc=3, vc=0): push ebp; mov ebp, esp; push ecx
+0x6074B5	?insert_unique@?$_Rb_tree@VAsciiString@@U?$pair@$$CBVAsciiString@@UTreeHintPayload00207343@@@_STL@@U?$_Select1st@U?$pair@$$CBVAsciiString@@UTreeHintPayload00207343@@@_STL@@@3@U?$less@VAsciiString@@@3@V?$allocator@U?$pair@$$CBVAsciiString@@UTreeHintPayload00207343@@@_STL@@@3@@_STL@@QAE?AU?$pair@U?$_Rb_tree_iterator@U?$pair@$$CBVAsciiString@@UTreeHintPayload00207343@@@_STL@@U?$_Nonconst_traits@U?$pair@$$CBVAsciiString@@UTreeHintPayload00207343@@@_STL@@@2@@_STL@@_N@2@ABU?$pair@$$CBVAsciiString@@UTreeHintPayload00207343@@@2@@Z	glue	STLport template instantiation (151B, dc=2, vc=0): push ebp; mov ebp, esp; push ecx
+0x607560	?push_back@?$list@U?$pair@$$CBVAsciiString@@UNoCaseTreeValue4@@@_STL@@V?$allocator@U?$pair@$$CBVAsciiString@@UNoCaseTreeValue4@@@_STL@@@2@@_STL@@QAEXABU?$pair@$$CBVAsciiString@@UNoCaseTreeValue4@@@2@@Z	glue	STLport template instantiation (26B, dc=1, vc=0): push ebp; mov ebp, esp; push dword ptr [ebp + 8]
+0x60757A	??$__final_insertion_sort@PAHVRva00204BB8@@@_STL@@YAXPAH0VRva00204BB8@@@Z	glue	STLport template instantiation (68B, dc=1, vc=0): push ebp; mov ebp, esp; mov ecx, dword ptr [ebp + 0xc]
+0x6075BE	?push_back@?$list@U?$pair@VAsciiString@@UCoord3D@@@_STL@@V?$allocator@U?$pair@VAsciiString@@UCoord3D@@@_STL@@@2@@_STL@@QAEXABU?$pair@VAsciiString@@UCoord3D@@@2@@Z	glue	STLport template instantiation (26B, dc=2, vc=0): push ebp; mov ebp, esp; push dword ptr [ebp + 8]
+0x6075D8	?Rva00207BAAWrap@@YAXPAH0VRva00204BB8@@@Z	not reached	Particle Editor sort wrapper (used by _writeOutINI 0x60CAC9); editor-only
+0x6075F1	??$pop_heap@PAHVRva00204BB8@@@_STL@@YAXPAH0VRva00204BB8@@@Z	glue	STLport template instantiation (23B, dc=1, vc=0): push dword ptr [esp + 0xc]; push 0; push dword ptr [esp + 0x10]
+0x607854	??1?$vector@URvaPair00207E26@@V?$allocator@URvaPair00207E26@@@_STL@@@_STL@@QAE@XZ	glue	STLport template instantiation (63B, dc=3, vc=0): mov eax, 0xb80ae3; call 0xa3cef0; push ecx
+0x607893	??1?$vector@URvaPair00207E26@@V?$allocator@URvaPair00207E26@@@_STL@@@_STL@@QAE@XZ	glue	STLport template instantiation (63B, dc=2, vc=0): mov eax, 0xb80ae3; call 0xa3cef0; push ecx
+0x607936	?erase@?$vector@UFXBoneInfo@@V?$allocator@UFXBoneInfo@@@_STL@@@_STL@@QAEPAUFXBoneInfo@@PAU3@0@Z	glue	STLport template instantiation (51B, dc=7, vc=0): push ebp; mov ebp, esp; push esi
+0x607969	?erase@?$vector@UBfmeStringRecord00204A30@@V?$allocator@UBfmeStringRecord00204A30@@@_STL@@@_STL@@QAEPAUBfmeStringRecord00204A30@@PAU3@0@Z	glue	STLport template instantiation (51B, dc=1, vc=0): push ebp; mov ebp, esp; push esi
+0x60799C	?_M_clear@?$vector@UBfmeStringRecord00204A30@@V?$allocator@UBfmeStringRecord00204A30@@@_STL@@@_STL@@IAEXXZ	glue	STLport template instantiation (30B, dc=1, vc=0): push esi; mov esi, ecx; push dword ptr [esi + 4]
+0x6079BA	?Rva00207F91XferList@@YAPAVXfer@@PAV1@PAV?$list@U?$pair@$$CBVAsciiString@@UNoCaseTreeValue4@@@_STL@@V?$allocator@U?$pair@$$CBVAsciiString@@UNoCaseTreeValue4@@@_STL@@@2@@_STL@@@Z	glue	STLport template instantiation (240B, dc=1, vc=0): mov eax, 0xb80c1d; call 0xa3cef0; sub esp, 0x14
+0x607B03	?Rva002080DAXferList@@YAPAVXfer@@PAV1@PAV?$list@U?$pair@VAsciiString@@UCoord3D@@@_STL@@V?$allocator@U?$pair@VAsciiString@@UCoord3D@@@_STL@@@2@@_STL@@@Z	glue	STLport template instantiation (237B, dc=1, vc=0): mov eax, 0xb80c2f; call 0xa3cef0; sub esp, 0x1c
+0x607BF0	?Rva002081C7XferList@@YAPAVXfer@@PAV1@PAV?$list@U?$pair@$$CBVAsciiString@@UNoCaseTreeValue4@@@_STL@@V?$allocator@U?$pair@$$CBVAsciiString@@UNoCaseTreeValue4@@@_STL@@@2@@_STL@@@Z	glue	STLport template instantiation (240B, dc=1, vc=0): mov eax, 0xb80c1d; call 0xa3cef0; sub esp, 0x14
+0x607CE0	??$sort_heap@PAHVRva00204BB8@@@_STL@@YAXPAH0VRva00204BB8@@@Z	glue	STLport template instantiation (58B, dc=1, vc=0): push ebp; mov ebp, esp; mov eax, dword ptr [ebp + 0xc]
+0x607D1A	?Rva002082F1Enumerate@@YGXPAVRva002082F1Visitor@@@Z	not reached	Particle Editor interface 0xBF9B54[4] enumerator (dc=0, vc=0); editor-only
+0x6080E6	0xBF9ED0	not reached	6-byte Snapshot::getClassName() string-literal stub ('ScriptEngine', 0xBF9EC0[2], dc=0, vc=0)
+0x6080EC	0xBF9ED0	glue	8-byte MSVC this-adjustor thunk (sub ecx, 0xc; jmp 0x60bcc9) for ScriptEngine Snapshot base (0xBF9EC0[0])
+0x608627	?rva00208B2C@ScriptEngine@@QAEXABVAsciiString@@PAVTeam@@@Z	too big	Named team reference binder; called only by ScriptActions (out of scope, S-7931) (RW_BINARY_MAP dc=1, vc=0)
+0x608794	?rva00208BCD@ScriptEngine@@QAEXABVAsciiString@@V2@@Z	too big	Named team reference copy; called only by ScriptActions (out of scope, S-7931) (RW_BINARY_MAP dc=1, vc=0)
+0x6088B7	?rva00208CF0@ScriptEngine@@QAEPAXVAsciiString@@@Z	too big	Named int(-1) ref map; called only by ScriptActions (out of scope, S-7931) (RW_BINARY_MAP dc=2, vc=0)
+0x60897F	?rva00208DB8@ScriptEngine@@QAEPAXVAsciiString@@@Z	too big	Named string ref map; called by ScriptActions / LivingWorld (out of scope, S-7931) (RW_BINARY_MAP dc=4, vc=0)
+0x608A60	?rva00208E99@ScriptEngine@@QAEPAXVAsciiString@@@Z	too big	Named int(0) ref map; called only by ScriptActions (out of scope, S-7931) (RW_BINARY_MAP dc=3, vc=0)
+0x609467	?_M_insert_overflow@?$vector@URva0020A227Element@@V?$allocator@URva0020A227Element@@@_STL@@@_STL@@IAEXPAURva0020A227Element@@ABU3@ABU__false_type@2@I_N@Z	glue	STLport template instantiation (178B, dc=1, vc=0): push ebp; mov ebp, esp; push ecx
+0x609519	?_M_insert_overflow@?$vector@UBfmeStringRecord00204A30@@V?$allocator@UBfmeStringRecord00204A30@@@_STL@@@_STL@@IAEXPAUBfmeStringRecord00204A30@@ABU3@ABU__false_type@2@I_N@Z	glue	STLport template instantiation (183B, dc=1, vc=0): push ebp; mov ebp, esp; push ecx
+0x6095D0	?Rva00209A09Xfer@@YAPAVXfer@@PAV1@PAV?$list@U?$pair@$$CBVAsciiString@@UNoCaseTreeValue4@@@_STL@@V?$allocator@U?$pair@$$CBVAsciiString@@UNoCaseTreeValue4@@@_STL@@@2@@_STL@@@Z	glue	STLport template instantiation (89B, dc=1, vc=0): push ebp; mov ebp, esp; sub esp, 0xc
+0x609629	??$__partial_sort@PAHHVRva00204BB8@@@_STL@@YAXPAH000VRva00204BB8@@@Z	glue	STLport template instantiation (92B, dc=1, vc=0): push ebp; mov ebp, esp; push ebx
+0x6099DC	?executeScript@ScriptEngine@@QAEXPAVScript@@ABVAsciiString@@@Z	too big	S-1183: ScriptEngine::executeScript condition-team member loop 0x6099DC..0x609A99; base path ported
+0x609DEE	?push_back@?$vector@URva0020A227Element@@V?$allocator@URva0020A227Element@@@_STL@@@_STL@@QAEXABURva0020A227Element@@@Z	glue	STLport template instantiation (55B, dc=3, vc=0): push ebp; mov ebp, esp; push esi
+0x609E25	?push_back@?$vector@UBfmeStringRecord00204A30@@V?$allocator@UBfmeStringRecord00204A30@@@_STL@@@_STL@@QAEXABUBfmeStringRecord00204A30@@@Z	glue	STLport template instantiation (55B, dc=2, vc=0): push ebp; mov ebp, esp; push esi
+0x609E5C	??$partial_sort@PAHVRva00204BB8@@@_STL@@YAXPAH00VRva00204BB8@@@Z	glue	STLport template instantiation (27B, dc=1, vc=0): push dword ptr [esp + 0x10]; push 0; push dword ptr [esp + 0x14]
+0x60BC4E	??$__introsort_loop@PAHHHVRva00204BB8@@@_STL@@YAXPAH00HVRva00204BB8@@@Z	glue	STLport template instantiation (123B, dc=2, vc=0): push ebp; mov ebp, esp; push ebx
+0x60CA86	??$sort@PAHVRva00204BB8@@@_STL@@YAXPAH0VRva00204BB8@@@Z	not reached	STL sort instantiation used only by Particle Editor _writeOutINI (0x60CAC9); editor-only
+0x60CAC9	?_writeOutINI@@YAXXZ	not reached	Particle Editor _writeOutINI (writes Data\INI\FXParticleSystem.ini, 0xBF9B54[10], dc=0, vc=0); editor-only
+0x614674	?rva00333B02@Rva00333B02@@QAEXVAsciiString@@@Z	glue	Compiler/STL container helper (52B, dc=2, vc=0): mov eax, 0xb82374; call 0xa3cef0; and dword ptr [ebp - 4], 0
+0x6B8E53	??$__uninitialized_fill_n@PAVRva003371B1@@IV1@@_STL@@YAPAVRva003371B1@@PAV1@IABV1@ABU__false_type@0@@Z	glue	STLport template instantiation (37B, dc=1, vc=0): push esi; mov esi, dword ptr [esp + 8]; push edi
+0x72C9F7	?rva0032AFD4@Rva0032AFD4@@QAEXPADHH@Z	not reached	Unreferenced helper (dc=0, vc=0) in Lua/ScriptEngine TU
+0x733042	?xfer@DelayedLuaEventList@@UAEXPAVXfer@@@Z	too big	DelayedLuaEventList::xfer (0xBDFC48[3]): saves 3 DelayedLuaEvent records; port Lua engine is client-side LiveScripting
+0x7347DA	??0Rva00332EC8@@QAE@ABV0@@Z	glue	Compiler/STL container helper (43B, dc=1, vc=0): push esi; push edi; mov edi, dword ptr [esp + 0xc]
+0x734805	??$__copy@PAURva00332EF3Element@@PAU1@H@_STL@@YAPAURva00332EF3Element@@PAU1@00ABUrandom_access_iterator_tag@0@PAH@Z	glue	STLport template instantiation (54B, dc=1, vc=0): push ebp; mov ebp, esp; mov eax, dword ptr [ebp + 0xc]
+0x73484E	??0Rva00332F5B@@QAE@ABVWeaponTemplateSetHead@@0@Z	glue	Compiler/STL container helper (38B, dc=1, vc=0): push esi; mov esi, ecx; call 0x78b099
+0x734874	?equals@Rva00332F5B@@QBE_NABV1@@Z	glue	Compiler/STL container helper (64B, dc=1, vc=0): push esi; mov esi, ecx; mov eax, dword ptr [esi]
+0x7348B4	??0Rva00332FC1@@QAE@ABVBfmeObject872Header@@0@Z	glue	Compiler/STL container helper (38B, dc=1, vc=0): push esi; mov esi, ecx; call 0x78b099
+0x7348DA	sub_7348DA	glue	Internal container/dtor/helper thunk (64B, dc=1, vc=0): push esi; mov esi, ecx; mov eax, dword ptr [esi]
+0x734B0E	?rva0033321B@Rva00332E60@@QAEPAXH@Z	glue	Compiler/STL container helper (34B, dc=1, vc=0): mov eax, dword ptr [ecx + 0xa0]; mov ecx, dword ptr [ecx + 0xa4]; jmp 0x734b27
+0x734B30	?rva0033323D@Rva00332E60@@QAEPAXH@Z	glue	Compiler/STL container helper (36B, dc=1, vc=0): mov eax, dword ptr [ecx + 0xbc]; mov ecx, dword ptr [ecx + 0xc0]; jmp 0x734b4b
+0x734B54	?rva00333261@Rva00332E60@@QAEPAXH@Z	glue	Compiler/STL container helper (34B, dc=1, vc=0): mov eax, dword ptr [ecx + 0xc8]; mov ecx, dword ptr [ecx + 0xcc]; jmp 0x734b6d
+0x734B88	?Rva00333295Construct@@YAXPAVRva00332EC8@@ABV1@@Z	glue	Compiler/STL container helper (18B, dc=4, vc=0): mov ecx, dword ptr [esp + 4]; test ecx, ecx; je 0x734b99
+0x734C2B	?Rva0033331BCopy@@YAPAVRva00332EC8@@PAV1@00PBX@Z	glue	Compiler/STL container helper (38B, dc=1, vc=0): push esi; mov esi, dword ptr [esp + 0x10]; push edi
+0x734CF0	sub_734CF0	glue	Internal container/dtor/helper thunk (57B, dc=1, vc=0): mov eax, dword ptr [esp + 0xc]; mov eax, dword ptr [eax]; test eax, eax
+0x735572	?rva00333B02@Rva00333B02@@QAEXVAsciiString@@@Z	glue	Compiler/STL container helper (52B, dc=4, vc=0): mov eax, 0xb90573; call 0xa3cef0; and dword ptr [ebp - 4], 0
+0x73563A	?Rva00333BCALog@@YAXPAXPAULuaAr@@@Z	not reached	Lua interactive debugger stack frame formatter (lua_getinfo 'Snl'); debug-only
+0x735741	?Rva00333CD1Console@@YAHPAXPAULuaAr@@@Z	not reached	Lua interactive debugger console ('cont', 'step', 'where'); debug-only
+0x735E9B	?rva00334506@Rva003339CE@@QAEXVAsciiString@@@Z	glue	Compiler/STL container helper (129B, dc=2, vc=0): mov eax, 0xb90561; call 0xa3cef0; push ecx
+0x73617F	sub_73617F	too big	LUA_STOP_SPY (S-129): LuaScriptEngine ObjectSpy re-dispatch; unused by retail data
+0x736464	0xC50D00	not reached	Mid-function / non-entry fragment (dc=0, vc=0, 181B, sub=script engine?): test eax, eax; mov dword ptr [ebp - 0x14], eax; je 0x736508
+0x736579	sub_736579	not reached	Mid-function / non-entry fragment (dc=0, vc=0, 69B, sub=script engine?): inc dword ptr [ebx + 0x6a00fc65]; add edx, dword ptr [edi - 0x18]; cmp dl, byte ptr [eax + 0x42]
+0x736761	sub_736761	not reached	Mid-function / non-entry fragment (dc=0, vc=0, 114B, sub=script engine?): lea ecx, [ebp - 4]; call 0x435d50; xor eax, eax
+0x736B63	sub_736B63	not reached	Mid-function / non-entry fragment (dc=0, vc=0, 61B, sub=script engine?): inc edx; add byte ptr [ebx + 0x59f685f0], cl; pop ecx
+0x736C61	sub_736C61	not reached	Mid-function / non-entry fragment (dc=0, vc=0, 178B, sub=script engine?): push edi; call 0x449681; mov edi, eax
+0x736D61	?ObjectCreateAndFireTempWeapon@@YAHPAUlua_State@@@Z	not reached	Mid-function split (dc=0, vc=0) inside ObjectCreateAndFireTempWeapon (RW 0x736D3B, already ported in LuaBindings.cpp)
+0x736F50	sub_736F50	not reached	Mid-function / non-entry fragment (dc=0, vc=0, 97B, sub=script engine?): add byte ptr [ebp - 0x17af0fbb], cl; mov eax, dword ptr [esi + 0x4d83fff3]; cld
+0x737061	sub_737061	not reached	Mid-function / non-entry fragment (dc=0, vc=0, 156B, sub=script engine?): sub al, 1; add byte ptr [eax], al; lea ecx, [ebp - 0x14]
+0x737261	sub_737261	not reached	Mid-function / non-entry fragment (dc=0, vc=0, 8B, sub=script engine?): push dword ptr [ebx]; rol byte ptr [eax + 0x5e], 0x5f; leave
+0x737275	?ObjectDispatchEvent@@YAHPAUlua_State@@@Z	not reached	Mid-function split (dc=0, vc=0, starts 'pop eax; push ebx' after __EH_prolog) inside ObjectDispatchEvent (RW 0x737269, already ported in LuaBindings.cpp)
+0x737452	sub_737452	not reached	Mid-function / non-entry fragment (dc=0, vc=0, 85B, sub=script engine?): add edi, edi; nop; or al, 1
+0x737561	sub_737561	not reached	Mid-function / non-entry fragment (dc=0, vc=0, 27B, sub=script engine?): pop ecx; jmp 0x737579; mov ecx, dword ptr [edi + 0x260]
+0x737581	?erase@?$vector@UBfmeOpaqueRecord156@@V?$allocator@UBfmeOpaqueRecord156@@@_STL@@@_STL@@QAEPAUBfmeOpaqueRecord156@@PAU3@0@Z	glue	STLport template instantiation (38B, dc=1, vc=0): push ebp; mov ebp, esp; push esi
+0x7375A7	?Rva00335CAELowerBound@@YAPBURva00335CAERec@@PAU1@0ABVAsciiString@@@Z	glue	Compiler/STL container helper (79B, dc=1, vc=0): push ebp; mov ebp, esp; mov eax, dword ptr [ebp + 0xc]
+0x7375F6	sub_7375F6	glue	Internal container/dtor/helper thunk (94B, dc=1, vc=0): push ebp; mov ebp, esp; push esi
+0x737954	?rva0033605B@BfmeObjectEventDispatch@@QAEXPBVBfmeObject872Header@@0PAX@Z	too big	S-129: BfmeObjectEventDispatch ObjectStatusEvent dispatch; call sites not wired in object lane
+0x7379FA	?_M_insert_overflow@?$vector@UBfmeOpaqueRecord156@@V?$allocator@UBfmeOpaqueRecord156@@@_STL@@@_STL@@IAEXPAUBfmeOpaqueRecord156@@ABU3@ABU__false_type@2@I_N@Z	glue	STLport template instantiation (197B, dc=1, vc=0): push ebp; mov ebp, esp; push ecx
+0x737B97	??0?$vector@UBfmeStringRecord000331962@@V?$allocator@UBfmeStringRecord000331962@@@_STL@@@_STL@@QAE@ABV01@@Z	glue	STLport template instantiation (96B, dc=1, vc=0): mov eax, 0xb907fb; call 0xa3cef0; push ecx
+0x7383AB	?push_back@?$vector@UBfmeOpaqueRecord156@@V?$allocator@UBfmeOpaqueRecord156@@@_STL@@@_STL@@QAEXABUBfmeOpaqueRecord156@@@Z	glue	STLport template instantiation (58B, dc=1, vc=0): push ebp; mov ebp, esp; push esi
+0x7383E5	?push_back@?$vector@URva00336AECElement@@V?$allocator@URva00336AECElement@@@_STL@@@_STL@@QAEXABURva00336AECElement@@@Z	glue	STLport template instantiation (55B, dc=1, vc=0): push ebp; mov ebp, esp; push esi
+0x738AAA	??0Rva003371B1@@QAE@ABV0@@Z	glue	Compiler/STL container helper (67B, dc=11, vc=0): mov eax, 0xb90789; call 0xa3cef0; push ecx
+0x738BB0	??1Rva003371B1@@QAE@XZ	glue	Compiler/STL container helper (53B, dc=16, vc=0): mov eax, 0xb90789; call 0xa3cef0; push ecx
+0x738C0C	??$_Construct@VRva003371B1@@V1@@_STL@@YAXPAVRva003371B1@@ABV1@@Z	glue	STLport template instantiation (45B, dc=4, vc=0): mov eax, 0xb907a1; call 0xa3cef0; push ecx
+0x738C39	??$__uninitialized_copy@PAVRva003371B1@@PAV1@@_STL@@YAPAVRva003371B1@@PAV1@00ABU__false_type@0@@Z	glue	STLport template instantiation (38B, dc=1, vc=0): push esi; mov esi, dword ptr [esp + 0x10]; push edi
+0x738C5F	??$__uninitialized_fill_n@PAVRva003371B1@@IV1@@_STL@@YAPAVRva003371B1@@PAV1@IABV1@ABU__false_type@0@@Z	glue	STLport template instantiation (37B, dc=1, vc=0): push esi; mov esi, dword ptr [esp + 8]; push edi
+0x738C84	?uninitializedCopy@@YAPAVRva002E9E70@@PAV1@00@Z	glue	Compiler/STL container helper (50B, dc=1, vc=0): push ebp; mov ebp, esp; mov eax, dword ptr [ebp + 0xc]
+0x738CD2	??$swap@US4SortElem20@@@_STL@@YAXAAUS4SortElem20@@0@Z	glue	STLport template instantiation (75B, dc=1, vc=0): mov eax, 0xb907b3; call 0xa3cef0; sub esp, 0x14
+0x738D1D	?Rva00337424Insert@@YAXPAVRva002E9E70@@VRva003371B1@@H@Z	glue	Compiler/STL container helper (85B, dc=2, vc=0): mov eax, 0xb907c5; call 0xa3cef0; push esi
+0x738D72	??$__push_heap@PAVRva003371B1@@HV1@URva00337C55Less@@@_STL@@YAXPAVRva003371B1@@HHV1@URva00337C55Less@@@Z	glue	STLport template instantiation (136B, dc=1, vc=0): mov eax, 0xb907d7; call 0xa3cef0; push esi
+0x738DFA	?uninitializedCopyBackward@@YAPAVRva002E9E70@@PAV1@00@Z	glue	Compiler/STL container helper (50B, dc=1, vc=0): push ebp; mov ebp, esp; mov eax, dword ptr [ebp + 0xc]
+0x738E2C	?Rva00337638Copy@@YAPAVRva002E9E70@@PAV1@00@Z	glue	Compiler/STL container helper (29B, dc=1, vc=0): push ebp; mov ebp, esp; push ecx
+0x738E4E	??$__unguarded_insertion_sort_aux@PAUS4SortElem20@@U1@US4Cmp002EB8E0@@@_STL@@YAXPAUS4SortElem20@@00US4Cmp002EB8E0@@@Z	glue	STLport template instantiation (46B, dc=1, vc=0): push ebp; mov ebp, esp; push esi
+0x738E85	??$__adjust_heap@PAVRva003371B1@@HV1@URva00337C55Less@@@_STL@@YAXPAVRva003371B1@@HHV1@URva00337C55Less@@@Z	glue	STLport template instantiation (172B, dc=2, vc=0): mov eax, 0xb907d7; call 0xa3cef0; push ebx
+0x738F31	?Rva00337638Copy@@YAPAVRva002E9E70@@PAV1@00@Z	glue	Compiler/STL container helper (29B, dc=1, vc=0): push ebp; mov ebp, esp; push ecx
+0x738F4E	??$__unguarded_partition@PAUS4SortElem20@@U1@US4Cmp002EB8E0@@@_STL@@YAPAUS4SortElem20@@PAU1@0U1@US4Cmp002EB8E0@@@Z	glue	STLport template instantiation (101B, dc=1, vc=0): mov eax, 0xb907e9; call 0xa3cef0; push esi
+0x738FB3	??$__unguarded_insertion_sort@PAUS4SortElem20@@US4Cmp002EB8E0@@@_STL@@YAXPAUS4SortElem20@@0US4Cmp002EB8E0@@@Z	glue	STLport template instantiation (23B, dc=1, vc=0): push dword ptr [esp + 0xc]; push 0; push dword ptr [esp + 0x10]
+0x738FCA	??$_Destroy@PAVRva003371B1@@@_STL@@YAXPAVRva003371B1@@0@Z	glue	STLport template instantiation (25B, dc=3, vc=0): push esi; mov esi, dword ptr [esp + 8]; jmp 0x738fdb
+0x738FE3	??$__pop_heap@PAVRva003371B1@@V1@URva00337C55Less@@H@_STL@@YAXPAVRva003371B1@@00V1@URva00337C55Less@@PAH@Z	glue	STLport template instantiation (95B, dc=2, vc=0): mov eax, 0xb907d7; call 0xa3cef0; push dword ptr [ebp + 8]
+0x739042	??$__make_heap@PAVRva003371B1@@URva00337C55Less@@V1@H@_STL@@YAXPAVRva003371B1@@0URva00337C55Less@@0PAH@Z	glue	STLport template instantiation (88B, dc=1, vc=0): push ebp; mov ebp, esp; mov eax, dword ptr [ebp + 0xc]
+0x73909A	?gen002EADF0@@YAXPAX0H0@Z	glue	Compiler/STL container helper (45B, dc=1, vc=0): push ebp; mov ebp, esp; push esi
+0x7390C7	??$make_heap@PAVRva003371B1@@URva00337C55Less@@@_STL@@YAXPAVRva003371B1@@0URva00337C55Less@@@Z	glue	STLport template instantiation (25B, dc=1, vc=0): push 0; push 0; push dword ptr [esp + 0x14]
+0x7390E0	?Rva003377A1Copy@@YAPAVRva002E9E70@@PAV1@00@Z	glue	Compiler/STL container helper (27B, dc=1, vc=0): push ebp; mov ebp, esp; push ecx
+0x7390FB	?Rva00337802Forward@@YAXPAX00@Z	glue	Compiler/STL container helper (23B, dc=1, vc=0): push dword ptr [esp + 0xc]; push 0; push dword ptr [esp + 0x10]
+0x739112	?Rva00337819Insert@@YAXPAVRva002E9E70@@0VRva003371B1@@H@Z	glue	Compiler/STL container helper (118B, dc=1, vc=0): mov eax, 0xb907e9; call 0xa3cef0; push ecx
+0x739188	?Rva0033788FSortHeap@@YAXPAX00@Z	glue	Compiler/STL container helper (65B, dc=1, vc=0): push ebp; mov ebp, esp; mov ecx, dword ptr [ebp + 0xc]
+0x7391C9	??1Rva003378D0@@QAE@XZ	glue	Compiler/STL container helper (63B, dc=2, vc=0): mov eax, 0xb907fb; call 0xa3cef0; push ecx
+0x739208	?erase@?$vector@VRva003371B1@@V?$allocator@VRva003371B1@@@_STL@@@_STL@@QAEPAVRva003371B1@@PAV3@0@Z	glue	STLport template instantiation (51B, dc=1, vc=0): push ebp; mov ebp, esp; push esi
+0x73923B	?_M_clear@?$vector@VRva003371B1@@V?$allocator@VRva003371B1@@@_STL@@@_STL@@IAEXXZ	glue	STLport template instantiation (30B, dc=1, vc=0): push esi; mov esi, ecx; push dword ptr [esi + 4]
+0x739259	?Rva00337960Sort@@YAXPAVRva003371B1@@0H@Z	glue	Compiler/STL container helper (57B, dc=1, vc=0): push ebp; mov ebp, esp; push esi
+0x739292	??$__partial_sort@PAVRva003371B1@@V1@URva00337C55Less@@@_STL@@YAXPAVRva003371B1@@000URva00337C55Less@@@Z	glue	STLport template instantiation (100B, dc=1, vc=0): push ebp; mov ebp, esp; push ebx
+0x73939B	0xC249E8	not reached	6-byte Snapshot::getClassName() string-literal stub ('LuaScriptEngine', 0xC249E8[15], dc=0, vc=0)
+0x739450	?_M_insert_overflow@?$vector@VRva003371B1@@V?$allocator@VRva003371B1@@@_STL@@@_STL@@IAEXPAVRva003371B1@@ABV3@ABU__false_type@2@I_N@Z	glue	STLport template instantiation (183B, dc=1, vc=0): push ebp; mov ebp, esp; push ecx
+0x739507	??$__final_insertion_sort@PAUS4SortElem20@@US4Cmp002EB8E0@@@_STL@@YAXPAUS4SortElem20@@0US4Cmp002EB8E0@@@Z	glue	STLport template instantiation (71B, dc=1, vc=0): push ebp; mov ebp, esp; mov eax, dword ptr [ebp + 0xc]
+0x73954E	??$partial_sort@PAVRva003371B1@@URva00337C55Less@@@_STL@@YAXPAVRva003371B1@@00URva00337C55Less@@@Z	glue	STLport template instantiation (27B, dc=1, vc=0): push dword ptr [esp + 0x10]; push 0; push dword ptr [esp + 0x14]
+0x73961A	??$__introsort_loop@PAURva00337D21Record@@U1@HU?$less@URva00337D21Record@@@_STL@@@_STL@@YAXPAURva00337D21Record@@00HU?$less@URva00337D21Record@@@0@@Z	glue	STLport template instantiation (136B, dc=2, vc=0): push ebp; mov ebp, esp; push ebx
+0x7396A2	?Rva002EBEF0@@YAXPAUS4SortElem20@@0US4Cmp002EB8E0@@@Z	glue	Compiler/STL container helper (70B, dc=1, vc=0): push esi; mov esi, dword ptr [esp + 8]; push edi
+0x758AF2	?rva00356FAF@ScriptEngine@@QAEXH@Z	too big	Object destructor notify (clears m_conditionObject/m_callingObject; port resolves by ObjectID; S-7931) (RW_BINARY_MAP dc=1, vc=0)
+0x758D21	?rva003571B8@ScriptEngine@@QAE_NHABVAsciiString@@_NH@Z	too big	S-7931: ScriptEngine::isSpecialPowerMidway/Completed helper (+0x1A3B8); unused in Ennorath SCRIPT_MAP.tsv
+0x758D83	?rva0035721A@ScriptEngine@@QAE_NHABVAsciiString@@_NH@Z	too big	isSpecialPowerMidway helper; only caller 0x007E4EF4 (unused in Ennorath SCRIPT_MAP.tsv, S-7931) (RW_BINARY_MAP dc=1, vc=0)
+0x758E47	?rva00357340@ScriptEngine@@QAEXPAXPAUCoord3D@@@Z	too big	S-345 / S-1180: ScriptEngine::adjustToppleDirection (NAMED_SET_TOPPLE_DIRECTION, action 230)
+0x7593A4	?undoNamedMapReveal@ScriptEngine@@QAEXABVAsciiString@@@Z	too big	S-6102: ScriptEngine::undoNamedMapReveal trigger per-cell test; waypoint/named reveal path already ported
+0x75953F	?rva00357A36@ScriptEngine@@QAE_NABVAsciiString@@_N@Z	too big	isVideoCompleted helper; only caller 0x007E4DC0 (unused in Ennorath SCRIPT_MAP.tsv, S-7931) (RW_BINARY_MAP dc=1, vc=0)
+0x7595A0	?rva00357A97@ScriptEngine@@QAE_NABVAsciiString@@_N@Z	too big	isSoundCompleted helper; unused in Ennorath SCRIPT_MAP.tsv (S-7931) (RW_BINARY_MAP dc=1, vc=0)
+0x75972A	?rva00357C1F@ScriptEngine@@QAEXPAX0@Z	too big	StructureToppleUpdate notification helper; unused in Ennorath SCRIPT_MAP.tsv (S-7931) (RW_BINARY_MAP dc=1, vc=0)
+0x7598B7	?rva00357DAC@ScriptEngine@@QAEXABVAsciiString@@@Z	not reached	BannerUI client interaction callback; no script in Ennorath reads it (RW_BINARY_MAP dc=1, vc=0)
+0x7598DD	?rva00357DD2@ScriptEngine@@QAEXABVAsciiString@@@Z	too big	Client video/menu completion notification; unused in Ennorath SCRIPT_MAP.tsv (S-7931) (RW_BINARY_MAP dc=3, vc=0)
+0x7599EA	?rva00357EDF@ScriptEngine@@QAEXHABVAsciiString@@H@Z	too big	notifyOfCompletedSpecialPower; paired with 0x007E4EF4 (unused in Ennorath SCRIPT_MAP.tsv, S-7931) (RW_BINARY_MAP dc=1, vc=0)
+0x759C9C	?rva0035818E@ScriptEngine@@QAEXABVAsciiString@@PAUCoord3D@@@Z	too big	setNamedPosition helper; called only by ScriptActions (out of scope, S-7931) (RW_BINARY_MAP dc=1, vc=0)
+0x75E5CC	?rva00333B02@Rva00333B02@@QAEXVAsciiString@@@Z	glue	Compiler/STL container helper (52B, dc=1, vc=0): mov eax, 0xb921d9; call 0xa3cef0; and dword ptr [ebp - 4], 0
+0x7B0E09	?popHeapAux@@YAXPAPAURva003BD485Keyed@@0HH@Z	glue	Compiler/STL container helper (30B, dc=1, vc=0): mov eax, dword ptr [esp + 8]; push 0; push dword ptr [esp + 0x14]
+0x7B3015	?WriteScriptSubRecord_Rva003B24F2@@YAXAAVDataChunkOutput@@PBUScriptSubRecord@@@Z	not reached	WorldBuilder WriteScriptSubRecord DataChunkOutput writer (dc=1, vc=0)
+0x7B30C8	sub_7B30C8	not reached	Mid-function / non-entry fragment (dc=0, vc=0, 40B, sub=script engine?): test edx, edx; je 0x7b30d4; mov ecx, dword ptr [eax + 4]
+0x7B3106	sub_7B3106	not reached	Mid-function / non-entry fragment (dc=0, vc=0, 44B, sub=script engine?): or byte ptr [ebp - 0xb], dh; test ecx, ecx; je 0x7b312f
+0x7B3132	sub_7B3132	not reached	Mid-function / non-entry fragment (dc=0, vc=0, 31B, sub=script engine?): mov eax, dword ptr [ecx + 0x30]; cmp eax, dword ptr [esp + 4]; je 0x7b314c
+0x7B3151	0xC35644	glue	Internal container/dtor/helper thunk (68B, dc=1, vc=0): push esi; mov esi, ecx; mov ecx, dword ptr [esi + 8]
+0x7B3195	sub_7B3195	glue	Internal container/dtor/helper thunk (47B, dc=1, vc=0): mov eax, dword ptr [ecx + 8]; xor edx, edx; jmp 0x7b31a1
+0x7B31BC	sub_7B31BC	not reached	Mid-function / non-entry fragment (dc=0, vc=0, 39B, sub=script engine?): or byte ptr [ebx - 0x3dffc3a0], al; add al, 0; push dword ptr [esp + 4]
+0x7B31E2	sub_7B31E2	not reached	Mid-function / non-entry fragment (dc=0, vc=0, 32B, sub=script engine?): add byte ptr [ebx + 0x443b0841], cl; and al, 4; je 0x7b31fd
+0x7B3210	sub_7B3210	not reached	Mid-function / non-entry fragment (dc=0, vc=0, 34B, sub=script engine?): mov dword ptr [edx + 0x3c], eax; mov dword ptr [edx + 0x40], eax; mov dword ptr [edx + 0x44], eax
+0x7B3232	sub_7B3232	glue	Internal container/dtor/helper thunk (75B, dc=2, vc=0): push ebx; push ebp; mov ebp, dword ptr [esp + 0xc]
+0x7B32A2	sub_7B32A2	not reached	Mid-function / non-entry fragment (dc=0, vc=0, 20B, sub=script engine?): or byte ptr [ebp + 0x4d8b185e], cl; or byte ptr [ebx - 0x18], dl; sub dword ptr [0x4583ffc8], 0x83470408
+0x7B3366	?getUiStrings@Condition@@QAEHQAVAsciiString@@@Z	not reached	WorldBuilder/debug UI helper; only caller 0x007B602F (ScriptAction::getUiText) (RW_BINARY_MAP dc=1, vc=0)
+0x7B3CFE	?equalTag_Rva003B31C7@@YA_NPBX0H@Z	glue	Compiler/STL container helper (24B, dc=1, vc=0): push 4; push dword ptr [esp + 0xc]; push dword ptr [esp + 0xc]
+0x7B3D16	sub_7B3D16	glue	Internal container/dtor/helper thunk (23B, dc=5, vc=0): push esi; mov esi, dword ptr [ecx]; test esi, esi
+0x7B3D3B	?clear@Rva003B3204@@QAEXXZ	glue	Compiler/STL container helper (23B, dc=4, vc=0): push esi; mov esi, dword ptr [ecx]; test esi, esi
+0x7B3D58	??0Rva003B31DF@@QAE@ABV0@@Z	glue	Compiler/STL container helper (86B, dc=2, vc=0): mov eax, 0xb96795; call 0xa3cef0; push esi
+0x7B3DAE	??0Rva003B31DF@@QAE@ABV0@@Z	glue	Compiler/STL container helper (86B, dc=2, vc=0): mov eax, 0xb96795; call 0xa3cef0; push esi
+0x7B3E15	??4Rva003B32E5@@QAEAAV0@ABV0@@Z	glue	Compiler/STL container helper (57B, dc=2, vc=0): push esi; push edi; mov edi, dword ptr [esp + 0xc]
+0x7B3EA1	?Rva003B3371Call@@YAXH@Z	glue	Compiler/STL container helper (81B, dc=6, vc=0): mov eax, 0xb96baa; call 0xa3cef0; push ecx
+0x7B3EE8	sub_7B3EE8	not reached	Mid-function / non-entry fragment (dc=0, vc=0, 1B, sub=script engine?): hlt
+0x7B3F2A	?bfmeSwap@Gen_00350E60@@QAEXPAV1@@Z	glue	Compiler/STL container helper (29B, dc=1, vc=0): mov eax, dword ptr [esp + 4]; mov edx, dword ptr [ecx]; push esi
+0x7B3F61	sub_7B3F61	not reached	Mid-function / non-entry fragment (dc=0, vc=0, 8B, sub=script engine?): mov eax, 0x6800dc62; pop eax; push esi
+0x7B4023	sub_7B4023	not reached	Mid-function / non-entry fragment (dc=0, vc=0, 20B, sub=script engine?): mov eax, ecx; xor ecx, ecx; mov byte ptr [eax], cl
+0x7B4037	??0Rva003B3536@@QAE@ABV0@@Z	glue	Compiler/STL container helper (49B, dc=2, vc=0): mov eax, dword ptr [esp + 4]; push esi; mov esi, ecx
+0x7B4192	0xC35674	not reached	6-byte Snapshot::getClassName() string-literal stub ('Script', 0xC35674[2], dc=0, vc=0)
+0x7B41F1	sub_7B41F1	not reached	Mid-function / non-entry fragment (dc=0, vc=0, 108B, sub=script engine?): mov dword ptr [edi + 0x24], eax; mov al, byte ptr [esi + 0x29]; mov byte ptr [edi + 0x29], al
+0x7B425D	?WriteScriptPlayerMask_Rva003B372D@@YAXAAVDataChunkOutput@@PBI@Z	not reached	WorldBuilder WriteScriptPlayerMask DataChunkOutput writer (dc=1, vc=0)
+0x7B4341	sub_7B4341	not reached	Mid-function / non-entry fragment (dc=0, vc=0, 7B, sub=script engine?): dec dword ptr [ebx + 0x4d8b0845]; hlt
+0x7B4366	?rva003B3836@Script@@QAEXPAVAssetList@@PAUAssetLoadMode@@@Z	not reached	AssetList preloader walk; only caller 0x00604E7A (ScriptEngine::rva00205358); port loads assets on demand (RW_BINARY_MAP dc=1, vc=0)
+0x7B44E2	?getUiStrings@Condition@@QAEHQAVAsciiString@@@Z	not reached	WorldBuilder UI helper; only caller 0x007B65F8 (Condition::getUiText <- 0x007B7493 dc=0) (RW_BINARY_MAP dc=1, vc=0)
+0x7B4568	?WriteParameter@Parameter@@QAEXAAVDataChunkOutput@@@Z	not reached	WorldBuilder chunk writer; only callers 0x007B492F (WriteActionDataChunk), 0x007B4DEA (WriteConditionDataChunk) (RW_BINARY_MAP dc=2, vc=0)
+0x7B4601	sub_7B4601	not reached	Mid-function / non-entry fragment (dc=0, vc=0, 17B, sub=script engine?): or byte ptr [ebx - 0x17affb40], al; and eax, 0x8bffc819; inc ebp
+0x7B4612	sub_7B4612	too big	Helper for 0x7B48A5 (resolves team parameter via getTeamNamed for ScriptTracker::setCurScript); only caller 0x7B48A5
+0x7B48A5	sub_7B48A5	too big	SequentialScript object/group ScriptTracker::setCurScript (0x662134 / 0x76FF65) hook from executeActions; ScriptTracker not ported
+0x7B492F	?WriteActionDataChunk@@YAXPADAAVDataChunkOutput@@PAVScriptAction@@@Z	not reached	WorldBuilder WriteActionDataChunk DataChunkOutput writer (dc=1, vc=0)
+0x7B49D8	?lookupTableEntry@Rva003B3F09Holder@@QAEPAXHH@Z	not reached	WorldBuilder Script/ScriptGroup tree/editor helper (38B, dc=2, vc=0): mov eax, dword ptr [esp + 4]; imul eax, eax, 0x14; add eax, dword ptr [ecx + 0xc]
+0x7B49FE	?rva003B3ECB@Rva003B3ECBOwner@@QAEXXZ	not reached	WorldBuilder Script/ScriptGroup tree/editor helper (31B, dc=1, vc=0): mov eax, dword ptr [ecx + 0x1c]; cmp eax, -1; je 0x7b4a1c
+0x7B4B0E	??4Rva003B32E5@@QAEAAV0@ABV0@@Z	glue	Compiler/STL container helper (57B, dc=1, vc=0): push esi; push edi; mov edi, dword ptr [esp + 0xc]
+0x7B4C1B	?captureGroup@Rva003B40A1Holder@@QAEPAXPAX@Z	not reached	WorldBuilder Script/ScriptGroup tree/editor helper (21B, dc=5, vc=0): mov eax, dword ptr [esp + 4]; push dword ptr [eax + 8]; add ecx, 0xc
+0x7B4C30	?captureGroup@Rva003B40B6Holder@@QAEPAXPAX@Z	not reached	WorldBuilder Script/ScriptGroup tree/editor helper (21B, dc=2, vc=0): mov eax, dword ptr [esp + 4]; push dword ptr [eax + 8]; add ecx, 0x2c
+0x7B4C88	??1Rva003B4100@@UAE@XZ	not reached	WorldBuilder Script/ScriptGroup tree/editor helper (57B, dc=3, vc=0): push esi; push edi; mov edi, dword ptr [esp + 0xc]
+0x7B4CBA	?rva00352a00@ScriptGroup@@QBEPAV1@XZ	not reached	WorldBuilder duplicate helper (overlaps dtor 0x007B4C88..0x007B4CC1); RW_BINARY_MAP dc=0, vc=0 (RW_BINARY_MAP dc=0, vc=0)
+0x7B4DEA	?WriteConditionDataChunk@Condition@@SAXAAVDataChunkOutput@@PAV1@@Z	not reached	WorldBuilder chunk writer; only caller 0x007B558F (OrCondition::WriteOrConditionDataChunk) (RW_BINARY_MAP dc=1, vc=0)
+0x7B4FD6	sub_7B4FD6	glue	Internal container/dtor/helper thunk (15B, dc=4, vc=0): mov dword ptr [ecx + 4], 0xbd15b0; add ecx, 8; jmp 0x7b4beb
+0x7B4FF5	??0Rva003B44AB@@QAE@PBV0@@Z	not reached	WorldBuilder Script/ScriptGroup tree/editor helper (28B, dc=1, vc=0): mov eax, dword ptr [esp + 4]; push esi; mov esi, ecx
+0x7B5011	??0Rva003B44AB@@QAE@PBVScriptGroup@@@Z	not reached	WorldBuilder Script/ScriptGroup tree/editor helper (21B, dc=1, vc=0): push esi; push dword ptr [esp + 8]; mov esi, ecx
+0x7B516C	??$_Construct@UBfmeStringRecord003B3F78@@U1@@_STL@@YAXPAUBfmeStringRecord003B3F78@@ABU1@@Z	glue	STLport template instantiation (45B, dc=4, vc=0): mov eax, 0xb9686b; call 0xa3cef0; push ecx
+0x7B51A2	??$__uninitialized_fill_n@PAUBfmeStringRecord003B3F78@@IU1@@_STL@@YAPAUBfmeStringRecord003B3F78@@PAU1@IABU1@ABU__false_type@0@@Z	glue	STLport template instantiation (37B, dc=1, vc=0): push esi; mov esi, dword ptr [esp + 8]; push edi
+0x7B51C7	??$__uninitialized_copy@PBUBfmeStringRecord003B3F78@@PAU1@@_STL@@YAPAUBfmeStringRecord003B3F78@@PBU1@0PAU1@ABU__false_type@0@@Z	glue	STLport template instantiation (38B, dc=2, vc=0): push esi; mov esi, dword ptr [esp + 0x10]; push edi
+0x7B51ED	??$_M_allocate_and_copy@PBUBfmeStringRecord003B3F78@@@?$vector@UBfmeStringRecord003B3F78@@V?$allocator@UBfmeStringRecord003B3F78@@@_STL@@@_STL@@IAEPAUBfmeStringRecord003B3F78@@IPBU2@0@Z	glue	STLport template instantiation (45B, dc=1, vc=0): push ebp; mov ebp, esp; push esi
+0x7B521A	??$_Destroy@PAVRva003371B1@@@_STL@@YAXPAVRva003371B1@@0@Z	glue	STLport template instantiation (25B, dc=2, vc=0): push esi; mov esi, dword ptr [esp + 8]; jmp 0x7b522b
+0x7B525F	sub_7B525F	not reached	Mid-function / non-entry fragment (dc=0, vc=0, 10B, sub=script engine?): imul eax, eax, 0x14; mov al, byte ptr [ecx + eax + 0xc]; ret 4
+0x7B5379	?rva003B4826@Rva003B483DHolder@@QBEHPBX@Z	not reached	WorldBuilder Script/ScriptGroup tree/editor helper (23B, dc=1, vc=0): mov eax, dword ptr [esp + 4]; mov eax, dword ptr [eax + 4]; mov ecx, dword ptr [ecx + 0x18]
+0x7B5390	?check@Rva003B483DHolder@@QBE_NPBX@Z	not reached	WorldBuilder Script/ScriptGroup tree/editor helper (29B, dc=3, vc=0): mov edx, dword ptr [esp + 4]; mov eax, dword ptr [edx + 4]; mov ecx, dword ptr [ecx + 0x18]
+0x7B53AD	?skipGroup@Rva003B485AHolder@@QAEHPAX@Z	not reached	WorldBuilder Script/ScriptGroup tree/editor helper (43B, dc=1, vc=0): push esi; push edi; mov edi, dword ptr [esp + 0xc]
+0x7B540C	?skipScript@Rva003B48B9Holder@@QAEHPAX@Z	not reached	WorldBuilder Script/ScriptGroup tree/editor helper (43B, dc=1, vc=0): push esi; push edi; mov edi, dword ptr [esp + 0xc]
+0x7B5437	?rva003B48E4@Rva003B48E4@@QAEXPAX@Z	not reached	WorldBuilder Script/ScriptGroup tree/editor helper (158B, dc=1, vc=0): push ebx; mov ebx, dword ptr [esp + 8]; cmp dword ptr [ebx], 0
+0x7B558F	?WriteOrConditionDataChunk@OrCondition@@SAXAAVDataChunkOutput@@PAV1@@Z	not reached	WorldBuilder chunk writer; only caller 0x007B64CE (Script::WriteScriptDataChunk) (RW_BINARY_MAP dc=1, vc=0)
+0x7B5670	?getUiText@Parameter@@QBE?AVAsciiString@@XZ	not reached	WorldBuilder/debug UI text; only callers 0x007B602F (ScriptAction::getUiText), 0x007B65F8 (Condition::getUiText) (RW_BINARY_MAP dc=2, vc=0)
+0x7B602F	?getUiText@ScriptAction@@QAE?AVAsciiString@@XZ	not reached	WorldBuilder ScriptAction::getUiText UI string formatter (dc=2, vc=0)
+0x7B614C	?back@?$deque@URva003B5603Element@@V?$allocator@URva003B5603Element@@@_STL@@@_STL@@QAEAAURva003B5603Element@@XZ	glue	STLport template instantiation (33B, dc=6, vc=0): push ebp; mov ebp, esp; sub esp, 0x10
+0x7B6190	sub_7B6190	not reached	Mid-function / non-entry fragment (dc=0, vc=0, 6B, sub=script engine?): and eax, 0x3bec458b; ret
+0x7B61EE	?swap@Rva003B56A5@@QAEXPAV1@@Z	glue	Compiler/STL container helper (55B, dc=2, vc=0): push esi; push edi; mov edi, dword ptr [esp + 0xc]
+0x7B62D7	?clearRva00359330Nodes@@YAXPAURva00359330Record@@@Z	glue	Compiler/STL container helper (47B, dc=3, vc=0): push esi; mov esi, dword ptr [esp + 8]; cmp dword ptr [esi + 0x10], 0
+0x7B6324	sub_7B6324	not reached	Mid-function / non-entry fragment (dc=0, vc=0, 10B, sub=script engine?): add al, 0xec; mov ecx, dword ptr [ecx + 4]; jmp 0x8bdda4
+0x7B63E8	?WriteScriptDataChunk@@YAXAAVDataChunkOutput@@PAVScriptList@@PAVScript@@@Z	not reached	WorldBuilder WriteScriptDataChunk DataChunkOutput writer (dc=2, vc=0)
+0x7B641E	sub_7B641E	not reached	Mid-function / non-entry fragment (dc=0, vc=0, 2B, sub=script engine?): push ebp; ret
+0x7B65F8	?getUiText@Condition@@QAE?AVAsciiString@@XZ	not reached	WorldBuilder UI text; only caller 0x007B7493 (Script::getUiText, dc=0, vc=0) (RW_BINARY_MAP dc=1, vc=0)
