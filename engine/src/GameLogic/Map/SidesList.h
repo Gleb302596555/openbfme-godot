@@ -24,6 +24,8 @@
 
 class DataChunkInput;
 
+// BuildListInfo lifecycle & script accessor: ctor RW 0x72BB37, copy ctor RW 0x72B84F, operator= RW 0x72B433,
+// dtor RW 0x72BBEF, deleting dtor RW 0x72BF24, getScript RW 0x72BF09.
 struct BuildListInfo
 {
 	std::string buildingName;
@@ -55,6 +57,9 @@ struct FactionBuildList
 	std::vector<BuildListInfo> entries;
 };
 
+// SidesList container lifecycle & helpers: ctor RW 0x7307D0, dtor RW 0x73060F, deleting dtor RW 0x7308CE,
+// addSide RW 0x72EA27, emptySides RW 0x72F1CC, emptyTeams RW 0x72EA0D, clear RW 0x72F78D, reset RW 0x72FF07,
+// swap RW 0x72D09A, copyTeams RW 0x72D1B1.
 struct SidesList
 {
 	int sidesVersion = 0;       // 5 or 6, 0 if the chunk is absent

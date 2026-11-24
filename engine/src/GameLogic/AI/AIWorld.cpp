@@ -1,5 +1,7 @@
 // OpenBFME. GPL-3.0.
 // See GameLogic/AI/AIWorld.h for the sources and what is inference.
+// AI singleton lifecycle & update counterparts: AI::AI RW 0x700264, AI::reset RW 0x700319,
+// ~AI RW 0x700396, AI deleting dtor RW 0x700498, AI::update RW 0x6FEC63.
 
 #include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/Object/ObjectGeometry.h"

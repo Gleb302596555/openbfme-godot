@@ -176,7 +176,7 @@ bool firstTokenIsEnd(const std::string &line)
 
 // the catch-all row (token NULL): userData is the field name. A `Field = value` line is consumed (the rest of the line is not read). A line without
 // `=` is a nested block of the block being read (AIData's SideInfo / SkirmishBuildList, with their own Structure / SkillSet sub blocks). Retail reads
-// these blocks token by token (ZH AI::parseSkirmishBuildList / BuildListInfo::parseStructure / AI::parseSideInfo through initFromINI; RotWK's AIData
+// these blocks token by token (ZH AI::parseSkirmishBuildList / BuildListInfo::parseStructure RW 0x72C3AB / AI::parseSideInfo through initFromINI; RotWK's AIData
 // field names at RW 0x81D3A4 SkirmishBuildList, 0x81D3B8 SideInfo, 0x81D738 .. 0x81D768 SkillSet5 .. 1): every sub block ends at its own End, and
 // the indentation means nothing (lane MODCOMPAT-1: Ennorath writes `SkirmishBuildList Rohan` at column 0 with deeper Ends, which the old
 // indentation rule read past the AIData block's own End). So the skip counts them: a line whose first token opens one of those sub blocks goes a

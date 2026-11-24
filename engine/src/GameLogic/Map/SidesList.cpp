@@ -39,6 +39,7 @@ std::int32_t readCount(DataChunkInput &file, const char *what)
 	return n;
 }
 
+// RW 0x730AE8 (SidesList::parseSidesDataChunk)
 bool parseSidesList(DataChunkInput &file, DataChunkInfo *info, void *userData)
 {
 	SidesList *s = (SidesList *)userData;
@@ -63,6 +64,7 @@ bool parseSidesList(DataChunkInput &file, DataChunkInfo *info, void *userData)
 	return true;
 }
 
+// RW 0x730A56 (SidesList::rva0032F0AA, Teams chunk parser)
 bool parseTeams(DataChunkInput &file, DataChunkInfo *, void *userData)
 {
 	SidesList *s = (SidesList *)userData;
@@ -75,6 +77,7 @@ bool parseTeams(DataChunkInput &file, DataChunkInfo *, void *userData)
 	return true;
 }
 
+// RW 0x72E84F (SidesList::parseBuildListDataChunk) + RW 0x72E7AF (SidesList::addToFactionBuildListMap)
 bool parseBuildLists(DataChunkInput &file, DataChunkInfo *, void *userData)
 {
 	SidesList *s = (SidesList *)userData;
@@ -94,6 +97,7 @@ bool parseBuildLists(DataChunkInput &file, DataChunkInfo *, void *userData)
 	return true;
 }
 
+// RW 0x72E121 (SidesList::parseLibraryMapListsChunk)
 bool parseLibraryMapLists(DataChunkInput &file, DataChunkInfo *, void *userData)
 {
 	SidesList *s = (SidesList *)userData;

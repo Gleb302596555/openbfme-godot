@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 // Derived from Command & Conquer Generals Zero Hour, (c) 2001-2003 Electronic Arts Inc., GPL-3.0.
 //
+// AI::xfer counterpart: RW 0x6FFE8D (TheAI Snapshot::xfer, 0xC1D898[3]).
 // The obfme:AIWorld block (lane SAVE-4c, docs/SAVES.md section 8): TheAI's movement world and the AI update module family. OpenBFME native layout (stop
 // S-4220). Retail has no such block: TheAI's own state is CHUNK_AiOrdersManager / the AIGroup xfers (AIGroup::xfer RW 0x7706EC, (1, 1)), the pathfinder is
 // not saved by ZH (rebuilt from the map and the objects), and the AI modules travel inside Object::xfer (RW 0x697F28). This port keeps state retail rebuilds

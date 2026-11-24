@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 // Derived from Command & Conquer Generals Zero Hour, (c) 2001-2003 Electronic Arts Inc., GPL-3.0.
 //
+// AI::destroyGroup counterpart: RW 0x6FFB68 (value-type AIGroup destruction in this port).
 // AIGroup (lane MOVE-1): a player's selected objects as an order target (ZH AIGroup.h / AIGroup.cpp; RW creates one per message from the player's selection,
 // RW 0x779A9E). The group move is ZH's AIGroup::groupMoveToPosition (AIGroup.cpp:1552-1760) in its plain, non-formation form: every unit keeps its offset from the
 // nearest unit and the destinations are adjusted by the pathfinder.

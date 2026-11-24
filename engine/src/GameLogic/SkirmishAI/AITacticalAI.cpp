@@ -878,6 +878,27 @@ enum OffensiveKind
 	FEINT_ATTACK,       // RW 0x9B3884 "FeintAttack" (RW 0xC8954C)
 	BASE_PENETRATION,   // RW 0x9B36E5 "AIBasePenetrationTroopsTactic" (RW 0xC894F4)
 	SIMPLE_SIEGE,       // RW 0x9B33B2 "SimpleSiege" (RW 0xC894B0)
+	// Local 165 (fork issue 932): ported AITactic/AITacticsGenerator lifecycle & factory counterparts:
+	//   AITactic (0xC79664): ctor RW 0x8F1AA9, dtor RW 0x8F26C3, deleting dtor RW 0x8F28C1; ~AITacticsGenerator RW 0x90BB5D
+	//   AITacticOffensive (0xC8EDEC): ctor RW 0x9EF96E, dtor RW 0x9EF988, deleting dtor RW 0x9EF993
+	//   AITacticSiege (0xC8EDB4): ctor RW 0x9EF708, dtor RW 0x9EF724, deleting dtor RW 0x9EF72F
+	//   AITacticDefensive (0xC8EE24): ctor RW 0x9EFAD6, dtor RW 0x9EFAF0, deleting dtor RW 0x9EFB74
+	//   AITacticExpansion (0xC8EEDC): deleting dtor RW 0x9EFBB7; AITacticTargetless (0xC8EF10): ctor RW 0x9EFBD3
+	//   SiegeGates (0xC89460): dtor RW 0x9B3131, deleting dtor RW 0x9B31A9, create RW 0x9B32D5
+	//   SimpleSiege (0xC894B0): dtor RW 0x9B3332, deleting dtor RW 0x9B3405, create RW 0x9B3421
+	//   AIBasePenetrationTroopsTactic (0xC894F4): dtor RW 0x9B363B, deleting dtor RW 0x9B36A1, create RW 0x9B380C
+	//   FeintAttack (0xC8954C): dtor RW 0x9B383E, deleting dtor RW 0x9B3868, create RW 0x9B3938
+	//   PincerAttack (0xC89634): create RW 0x9B3FF3, dtor RW 0x9B426D, deleting dtor RW 0x9B433B
+	//   FlankAttack (0xC89720): create RW 0x9B45EB, dtor RW 0x9B48A1, deleting dtor RW 0x9B496F
+	//   FormationAttack (0xC89800): create RW 0x9B4BC5, dtor RW 0x9B4BF7, deleting dtor RW 0x9B4C16
+	//   SimpleAttack (0xC89848): dtor RW 0x9B4DCF, deleting dtor RW 0x9B4E0F, create RW 0x9B4E7A
+	//   SimpleExpansion (0xC898D4): dtor RW 0x9B5010, deleting dtor RW 0x9B50A6
+	//   AIWoTRForfeitTactic (0xC89B74): dtor RW 0x9B71AC, deleting dtor RW 0x9B72FA
+	//   AIRoamingDefenseTactic (0xC89CF8): dtor RW 0x9B7EB2, ctor RW 0x9B7EE7, deleting dtor RW 0x9B7F3A, create RW 0x9B80C8
+	//   AIStartWoTRBattleTactic (0xC89E3C): dtor RW 0x9B8446, deleting dtor RW 0x9B848D, ctor RW 0x9B84D5, create RW 0x9B8524
+	//   AIReturnTheRingTactic (0xC89EA8): dtor RW 0x9B862A, deleting dtor RW 0x9B8659, ctor RW 0x9B86DF, create RW 0x9B8740
+	//   AIFarmKillSquad (0xC8A1E0): dtor RW 0x9BB1B9, deleting dtor RW 0x9BB28B
+	//   FlagCaptureSquad (0xC8A2FC): dtor RW 0x9BBFD1, create RW 0x9BC164
 	SIEGE_GATES,        // RW 0x9B3282 "SiegeGates" (RW 0xC89460)
 	// lane AIEXPAND-1: the generator's one EXPANSION prototype (+ 0x34, made by RW 0x90C09E), not an offensive one
 	SIMPLE_EXPANSION,   // RW 0x9B5190 "SimpleExpansion" (RW 0xC898D4)
@@ -1781,7 +1802,7 @@ float toAngle2(float x, float y)
 	return 0.0f <= y ? a : -a;
 }
 
-// RW 0x8F128B / 0x8F12C3: the team whose index (+ 0x2DC) is `index`
+// RW 0x8F128B / RW 0x8F12C3: the team whose index (+ 0x2DC) is `index`
 AITacticTeam *teamByIndex(AITactic &tac, int index)
 {
 	for (AITacticTeam &team : tac.teams)
@@ -2581,6 +2602,7 @@ void updateFlagCapture(GameLogic &logic, AISkirmishPlayer &ai, AIBrainState &b, 
 // port keeps only the member list, S-418), set IsRunning, head for the nearest non-summoned DOZER_FACTORY or the base (RW 0x9B8A06) and
 // mark the run created (+ 0x65 -> step 1). Without a team the tactic ends (0, 0). The update RW 0x9B8A47, once every team is done
 // (RW 0x8F175A), garrisons the nearest fortress (RW 0x9B8994 -> RW 0x8F18DE team 0) and marks it (+ 0x64 -> step 2), then ends.
+// RW 0x9B87DA (buildReturnTeam) and RW 0x9B8A06 (moveToFortress) inlined in ReturnTheRing start.
 void startReturnTheRing(GameLogic &logic, AISkirmishPlayer &ai, AIBrainState &b, AITactic &tac, AIBrainState &owner)
 {
 	if (namedCounter(ai.brain, "AIReturnTheRingTactic_IsRunning") != 0)
@@ -3026,6 +3048,7 @@ Object *chooseFarmKillTarget(GameLogic &logic, const AITactic &tac, int enemy)
 	return selectProductionTarget(logic, tac, enemy);
 }
 
+// RW 0x9BBE48 (AIFarmKillSquad vslot 7): started update
 void updateFarmKill(GameLogic &logic, AISkirmishPlayer &ai, AIBrainState &b, AITactic &tac, AIBrainState &owner)
 {
 	// RW 0x9BB27E: no team with index 0 (RW 0x8F128B(0)) ends it (0, 0)
@@ -4510,7 +4533,7 @@ void AITacticalAI::updateTeamBuilder(GameLogic &logic, AISkirmishPlayer &ai)
 				(team.type == kDefensive || count >= (std::uint32_t)team.maximum || teamMeetsThreat(logic, tac, team)))
 			{
 				team.wantsMembers = false;
-				team.handedOver = true; // RW 0x6C779B
+				team.handedOver = true; // RW 0x6C779B -> RW 0x8F1F90 (AITactic::NotifyTeamCreated)
 			}
 		}
 	}
