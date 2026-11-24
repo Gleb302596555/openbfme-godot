@@ -73,6 +73,25 @@
 | `warg1 retail: Isengard warg riders trained at a level 2 warg pit and sent with a player...` | `test_warg1_retail.cpp:224`, `CHECK( t.victimsEnd == 0 ) is NOT correct!` |
 | `warg1 retail: Rohirrim trained at a level 2 stable and sent with a player's attack orde...` | `test_warg1_retail.cpp:239`, `CHECK( t.crushes == 17 ) is NOT correct!` |
 
+## Полный прогон `43a14cb4` (2026-11-24, песочница 4, Linux GCC, `night_full.sh`)
+
+Неполный: файл `test_mods1_retail.cpp` оборвался. Остальное: 7302 прошли, 81 упали (82 случая). Около 25 падений — Port 273 (нет `ShroudManager` в тестовых мирах, Local 159 #926); версии xfer — исправлены 2026-11-24. Остальные 23 прошли бисекцию на ПК (Windows MSVC; на `f7255b2f` все 23 проходят). Записи — до исправления, каждая со своей P.
+
+| Тест | Место | Причина (отрезок) |
+|---|---|---|
+| `blocks: the lazily built Flammability table…` | `test_object_model.cpp:904` | Local 140; тест исправлен (P-179), запись уходит с переносом |
+| `group command retail` (3 теста) | `test_hud_group_commands.cpp:58`, `REQUIRE( button )` | Port 221, PR #542 (P-180) |
+| `RAI-POW end to end` (Soul Freeze), `BUILD-3 U17` | `test_aipow1.cpp:1148`, `test_build3_builders.cpp:428` | партия 2026-11-16 после Port 221 (P-181) |
+| `audio3 walls`, `build4 walls`, `skirmish ai units` | `test_audio3.cpp:473`, `test_build4_walls.cpp:254`, `test_skirmish_ai_base.cpp:295` | партии 16b … 17b (P-182) |
+| `FACT-A abilities` | `test_hud_facta_abilities.cpp:576` | 2026-11-14 … 16 (P-183) |
+| `BACKLOG2 r1 determinism`, `decomp3 S-418`, `proj2 retail: the timing` | `test_backlog2_retail.cpp:754`, `test_decomp3.cpp:246`, `test_hud_proj2_retail.cpp:687` | 2026-11-13 … 14 (P-184) |
+| `FACT-A unit upgrades` | `test_hud_facta_commands.cpp:1707` | 2026-11-18 … 19 (P-185) |
+| `synthetic HUD: horde members…`, `large group audio review r2` | `SyntheticHudTestUtil.h:122`, `test_music_scripts.cpp:472` | 2026-11-20 … 21 (P-186) |
+| `BACKLOG2 r1 S-653`, `castle: the instant unpack…` | `test_backlog2_retail.cpp:818`, `test_build_core.cpp:308` | 2026-11-21 (P-178, P-187) |
+| `BACKLOG2 S-950`, `siege1 gate…` | `test_backlog2_retail.cpp:363`, `test_siege1_gate.cpp:311` | 2026-11-22 до слияния upstream (P-178, P-188) |
+| `LOCAL-78` | `test_local_78.cpp:487` | посадка 2026-11-23 (P-189) |
+| `PORT-169`, `attack approach…` | — | на ПК зелёные; не найдено (P-190) |
+
 ## Нестабильные
 
 | Тест | Как ведёт себя |
