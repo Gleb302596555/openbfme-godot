@@ -17,17 +17,6 @@
 namespace
 {
 const char kLocal163Ini[] = R"ini(
-Locomotor L163DeepWater
-  Surfaces = DEEP_WATER
-  TurnTime = 500
-  TurnTimeDamaged = 500
-  Acceleration = 100
-  Braking = 100
-  MinSpeed = 0
-  ZAxisBehavior = NO_Z_MOTIVE_FORCE
-  Appearance = TWO_LEGS
-End
-
 Locomotor L163Ground
   Surfaces = GROUND
   TurnTime = 500
@@ -39,7 +28,7 @@ Locomotor L163Ground
   Appearance = TWO_LEGS
 End
 
-Object L163AmphibShip
+Object L163GroundShip
   KindOf = SHIP SELECTABLE
   Geometry = CYLINDER
   GeometryMajorRadius = 10
@@ -52,13 +41,13 @@ Object L163AmphibShip
   Behavior = PhysicsBehavior ModuleTag_Physics
   End
   LocomotorSet
-    Locomotor = L163DeepWater
+    Locomotor = L163Ground
     Condition = SET_NORMAL
     Speed = 20
   End
   LocomotorSet
     Locomotor = L163Ground
-    Condition = SET_NORMAL
+    Condition = SET_PANIC
     Speed = 20
   End
 End
@@ -75,15 +64,29 @@ TEST_CASE("LOCAL-163 Pathfinder: ChooseBestLocomotorForPosition (RW 0x6E8937) fa
 	REQUIRE_MESSAGE(err.empty(), err);
 	f.logic->partition().setRegion(0.0f, 0.0f, 1000.0f, 1000.0f);
 
-	// Place the SHIP off the pathfinder grid (-500, -500) so getCell() is nullptr.
-	Object *ship = f.unit("L163AmphibShip", 'A', -500.0f, -500.0f);
+	// Place the SHIP on a DEEP_WATER cell and switch to SET_PANIC (which holds only L163Ground):
+	// neither CELL_DEEP_WATER (0x88) nor SHIP's DEEP_WATER fallback matches L163Ground, so curLocomotor() becomes nullptr.
+	Pathfinder &pf = f.ai->pathfinder();
+	const Coord3D waterPos{ 105.0f, 105.0f, 0.0f };
+	PathfindCell *waterCell = pf.getCell(LAYER_GROUND, &waterPos);
+	REQUIRE(waterCell != nullptr);
+	waterCell->setType(PathfindCell::CELL_DEEP_WATER);
+
+	Object *ship = f.unit("L163GroundShip", 'A', waterPos.x, waterPos.y);
 	REQUIRE(ship != nullptr);
 	AIUpdateInterface *ai = ship->getAIUpdateInterface();
 	REQUIRE(ai != nullptr);
+	REQUIRE(ai->chooseLocomotorSet(LOCOMOTORSET_PANIC));
+	REQUIRE(ai->curLocomotor() == nullptr);
 
+	// Now move the SHIP off the pathfinder grid (-500, -500) so getCell() is nullptr.
+	// RW 0x6E8937 (0x6E899E xor eax, eax -> CELL_CLEAR -> 0x09 GROUND|AIR) picks L163Ground;
+	// without the fix, the port skips cell lookup and falls back to SHIP's DEEP_WATER (nullptr).
 	const Coord3D offGrid{ -500.0f, -500.0f, 0.0f };
-	REQUIRE(f.ai->pathfinder().getCell(LAYER_GROUND, &offGrid) == nullptr);
-	CHECK(f.ai->pathfinder().chooseBestLocomotorSurfacesForPosition(LAYER_GROUND, &offGrid) == 0x09u);
+	REQUIRE(pf.getCell(LAYER_GROUND, &offGrid) == nullptr);
+	CHECK(pf.chooseBestLocomotorSurfacesForPosition(LAYER_GROUND, &offGrid) == 0x09u);
+	ship->setPosition(&offGrid);
+	ai->chooseGoodLocomotorFromCurrentSet();
 
 	const Locomotor *chosen = ai->curLocomotor();
 	REQUIRE(chosen != nullptr);
