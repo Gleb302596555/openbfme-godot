@@ -767,7 +767,9 @@ TEST_CASE("BACKLOG2 r1 S-653: a wall segment that repairs itself sends the allie
 	GameLogic &logic = live.logic();
 	Player *men = live.players().findPlayerWithName(live.report().startSlotPlayers[0]);
 	REQUIRE(men);
-	const Coord3D site{ 1500.0f, 1500.0f, 0.0f };
+	// RW 0x5E7E64..0x5E7E84 (Local 120, a319166e7): maintainCurrentPosition snaps idle ground units to terrain z,
+	// so place the wall on the terrain surface too instead of z = 0.
+	const Coord3D site{ 1500.0f, 1500.0f, logic.getGroundHeight(1500.0f, 1500.0f) };
 	Object *wall = spawn(logic, "IsengardCastleWallSegment", *men, site); // a WALL_SEGMENT whose GettingBuiltBehavior has no WorkerName: it heals itself
 	wall->friend_onBuildComplete();
 	for (int i = 0; i < 8; ++i)
