@@ -114,6 +114,7 @@ public:
 //   5. touching a member of (or) a HORDE that self regards as ALLIES (RW 0x8C05FA `cmp eax, 2`; the horde spec says enemy: the binary says allied) whose own horde is in
 //      current melee with our target (its slot 0x160) and has a melee-attacking member (slot 0x15C) -> refresh with our target.
 // The melee target id / readiness live in the port's HordeAIUpdate (stop S-586).
+// RW 0x8C04D2 (HordeMemberCollide ctor 0xC711D0)
 class HordeMemberCollide : public BehaviorModule, public CollideModuleInterface
 {
 public:

@@ -334,6 +334,7 @@ void HordeContain::updateFormation()
 // payload RW 0x86A104), so the members are made around the horde where it stands: onContaining (RW 0x872D0A) puts each on its slot (RW 0x877D89 ->
 // 0x875847). The port made the payload in onCreate, inside newObject, before the horde had a position, and relied on containReactToTransformChange to carry the
 // members along when the creator then placed the horde (RotWK's moves no member).
+// RW 0x86C8F2 (HordeContain::loadPostProcess 0xC5B5F8[1])
 void HordeContain::onCreate()
 {
 }

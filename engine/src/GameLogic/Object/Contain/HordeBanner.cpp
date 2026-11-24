@@ -95,6 +95,7 @@ const FieldParse kBannerParse[] = {
 };
 } // namespace
 
+// RW 0x64DE84 (BannerCarrierUpdateModuleData::friend_newModuleData)
 void BannerCarrierUpdateModuleData::parseRawLine(INI *ini, void *, void *store, const void *)
 {
 	std::string line;

@@ -331,7 +331,7 @@ private:
 	bool nuggetAllowsCreate(Object &obj, const OCLNugget &nugget);
 };
 
-// LOCAL-18 (issue #143): CombineHordeSpecialPower (constructor RW 0x8CCBF0, vtable RW 0xC75420 / 0xC753B8) and its data (RW 0x8CCC95)
+// LOCAL-18 (issue #143): CombineHordeSpecialPower (constructor RW 0x8CCBEB, vtable RW 0xC75420 / 0xC753B8) and its data (RW 0x8CCC95)
 class CombineHordeSpecialPowerModuleData : public SpecialPowerModuleData
 {
 public:
