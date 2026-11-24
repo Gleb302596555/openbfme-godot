@@ -723,6 +723,7 @@ void DeployStyleAIUpdate::crc(StateHasher &h) const
 void DeployStyleAIUpdate::registerClass(ModuleFactory &modules)
 {
 	// after AIUpdateInterface::registerClasses: this class replaces the base AI's binding (as DozerAIUpdate does)
+	// RW 0x64CEA4 (DeployStyleAIUpdate::buildFieldParse)
 	modules.bindModuleProc("DeployStyleAIUpdate", MODULETYPE_BEHAVIOR, [](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &info) -> std::unique_ptr<Module> {
 		if (!thing->asObject() || !thing->asObject()->logic().aiWorld())
 		{
@@ -747,6 +748,7 @@ const FieldParse kToggleDeploy[] = {
 #undef TD_OFF
 } // namespace
 
+// RW 0x64F4AF (ToggleDeploySpecialAbilityUpdate::buildFieldParse)
 void ToggleDeploySpecialAbilityUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialAbilityUpdateModuleData::buildFieldParse(p);

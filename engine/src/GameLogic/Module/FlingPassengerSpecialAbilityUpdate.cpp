@@ -26,6 +26,7 @@ const FieldParse kFields[] = {
 #undef FLING_OFF
 }
 
+// RW 0x64DAF5 (FlingPassengerSpecialAbilityUpdate::buildFieldParse)
 void FlingPassengerSpecialAbilityUpdateModuleData::buildFieldParse(MultiIniFieldParse &p) {
     SpecialAbilityUpdateModuleData::buildFieldParse(p);
     p.add(kFields);

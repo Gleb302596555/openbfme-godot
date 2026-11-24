@@ -145,6 +145,7 @@ SlaughterHordeContainBehaviorData::SlaughterHordeContainBehaviorData()
 	canAlwaysEnter = ObjectFilter::none(KindOfMaskType{}, KindOfMaskType{});
 }
 
+// RW 0x8834C3 (SlaughterHordeContain::buildFieldParse)
 void SlaughterHordeContainBehaviorData::buildFieldParse(MultiIniFieldParse &p)
 {
 	HordeGarrisonContainBehaviorData::buildFieldParse(p);

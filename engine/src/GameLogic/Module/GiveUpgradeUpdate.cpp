@@ -349,6 +349,7 @@ void GiveUpgradeUpdate::xfer(Xfer &x) { SpecialAbilityUpdate::xfer(x); SnapshotX
 // RW 0x0089FB79 (getModuleName), RW 0x0089FBF4 (getModuleNameKey), RW 0x0089FC39 / RW 0x0089FB7F (dtor)
 void GiveUpgradeUpdate::registerClass(ModuleFactory &factory)
 {
+	// RW 0x89FB14 (GiveUpgradeUpdate::buildFieldParse)
 	factory.bindTypedData<Data>("GiveUpgradeUpdate", MODULETYPE_BEHAVIOR);
 	factory.bindModuleProc("GiveUpgradeUpdate", MODULETYPE_BEHAVIOR, [](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &) -> std::unique_ptr<Module> {
 		const auto *typed = dynamic_cast<const Data *>(data);

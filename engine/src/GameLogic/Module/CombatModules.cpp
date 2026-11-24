@@ -251,6 +251,7 @@ const FieldParse kClearanceParse[] = {
 };
 } // namespace
 
+// RW 0x886E97 (ClearanceTestingSlowDeathBehavior::buildFieldParse)
 void ClearanceTestingSlowDeathBehaviorModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SlowDeathBehaviorModuleData::buildFieldParse(p); // RW 0xC58A98 and the DieMux rows (0xC76BD8)
@@ -277,6 +278,7 @@ void CombatModules::registerAll(ModuleFactory &modules)
 	modules.bindTypedData<ActiveBodyModuleData>("HighlanderBody", MODULETYPE_BEHAVIOR);
 	bindRuntime<HighlanderBody, ActiveBodyModuleData>(modules, "HighlanderBody");
 	// PorcupineFormationBodyModule: getModuleName RW 0x008C61C4, getModuleNameKey RW 0x008C61E3 (DONOR BFME2 0x004C2010 / 0x004C2034)
+	// RW 0x8C617F (PorcupineFormationBodyModule::buildFieldParse)
 	modules.bindTypedData<PorcupineFormationBodyModuleData>("PorcupineFormationBodyModule", MODULETYPE_BEHAVIOR);
 	bindRuntime<PorcupineFormationBody, PorcupineFormationBodyModuleData>(modules, "PorcupineFormationBodyModule");
 	modules.bindTypedData<DestroyDieModuleData>("DestroyDie", MODULETYPE_BEHAVIOR);

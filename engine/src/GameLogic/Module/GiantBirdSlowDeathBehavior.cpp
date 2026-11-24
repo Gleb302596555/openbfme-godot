@@ -70,6 +70,7 @@ bool hasEveryKind(const Object &o, const KindOfMaskType &kinds)
 }
 } // namespace
 
+// RW 0x864F34 (GiantBirdSlowDeathBehavior::buildFieldParse)
 void GiantBirdSlowDeathBehaviorModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SlowDeathBehaviorModuleData::buildFieldParse(p); // RW 0xC58A98, 0xC76BD8

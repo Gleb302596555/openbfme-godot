@@ -219,11 +219,13 @@ void RespawnBodyModuleData::buildFieldParse(MultiIniFieldParse &p)
 	ActiveBodyModuleData::buildFieldParse(p); // RW 0xC71D68
 	p.add(kRespawnParse);                     // RW 0xC723FC
 }
+// RW 0x8C5748 (DelayedDeathBody::buildFieldParse)
 void DelayedDeathBodyModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	RespawnBodyModuleData::buildFieldParse(p);
 	p.add(kDelayedDeathParse); // RW 0xC72628
 }
+// RW 0x6512A3 (SymbioticStructuresBody::buildFieldParse)
 void SymbioticStructuresBodyModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	ActiveBodyModuleData::buildFieldParse(p);
@@ -240,6 +242,7 @@ void InactiveBodyModuleData::buildFieldParse(MultiIniFieldParse &) {} // RW 0x70
 void StructureModules::registerAll(ModuleFactory &modules)
 {
 	// StructureBody: ActiveBody's data (RW tables 0xC71D68 + the empty 0xC84858)
+	// RW 0x65124D (StructureBody::buildFieldParse)
 	modules.bindTypedData<ActiveBodyModuleData>("StructureBody", MODULETYPE_BEHAVIOR);
 	bindRuntime<StructureBody, ActiveBodyModuleData>(modules, "StructureBody");
 	// InactiveBody: getModuleName RW 0x008C18F1, getModuleNameKey RW 0x008C19A6

@@ -41,6 +41,7 @@ const FieldParse kAnimalAIUpdateFieldParse[] = {
 #undef AIU_OFF
 } // namespace
 
+// RW 0x64BB63 (AnimalAIUpdate::buildFieldParse)
 void AnimalAIUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kAnimalAIUpdateFieldParse);

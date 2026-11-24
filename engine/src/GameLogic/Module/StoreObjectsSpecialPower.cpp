@@ -23,6 +23,7 @@ const FieldParse kFields[] = {
 };
 }
 
+// RW 0x8D1D76 (StoreObjectsSpecialPower::buildFieldParse)
 void StoreObjectsSpecialPowerModuleData::buildFieldParse(MultiIniFieldParse &p) {
     SpecialAbilityUpdateModuleData::buildFieldParse(p);
     p.add(kFields);

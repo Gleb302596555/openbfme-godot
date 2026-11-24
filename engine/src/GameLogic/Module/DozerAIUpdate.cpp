@@ -163,6 +163,7 @@ DozerAIUpdate::DozerAIUpdate(Thing *thing, const ModuleData *data)
 // RW 0x0088C8CA (getModuleNameKey) / RW 0x0088C90F (getModuleName): "DozerAIUpdate" (0xC0B1E8)
 void DozerAIUpdate::registerClass(ModuleFactory &modules)
 {
+	// RW 0x88BD69 (DozerAIUpdate::buildFieldParse)
 	modules.bindModuleProc("DozerAIUpdate", MODULETYPE_BEHAVIOR, [](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &info) -> std::unique_ptr<Module> {
 		// a logic without an AIWorld has nothing to move on: the explicit unported module, as AIUpdateInterface::registerClasses does
 		if (!thing->asObject() || !thing->asObject()->logic().aiWorld())

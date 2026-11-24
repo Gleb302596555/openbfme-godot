@@ -157,6 +157,7 @@ void CrateCollideModuleData::buildFieldParse(MultiIniFieldParse &p)
 	p.add(kCrateFieldParse);
 }
 
+// RW 0x651037 (SalvageCrateCollide::buildFieldParse)
 void SalvageCrateCollideModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	CrateCollideModuleData::buildFieldParse(p);

@@ -119,46 +119,55 @@ void bindPower(ModuleFactory &modules, const char *name)
 }
 } // namespace
 
+// RW 0x8CC267 (PlayerUpgradeSpecialPower::buildFieldParse)
 void PlayerUpgradeSpecialPowerModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialPowerModuleData::buildFieldParse(p);
 	p.add(kPlayerUpgradeFields);
 }
+// RW 0x8C9209 (DarknessSpecialPower::buildFieldParse)
 void DarknessSpecialPowerModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialPowerModuleData::buildFieldParse(p);
 	p.add(kDarknessFields);
 }
+// RW 0x8C903F (FreezingRainSpecialPower::buildFieldParse)
 void FreezingRainSpecialPowerModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialPowerModuleData::buildFieldParse(p);
 	p.add(kFreezingRainFields);
 }
+// RW 0x8C8976 (CloudBreakSpecialPower::buildFieldParse)
 void CloudBreakSpecialPowerModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialPowerModuleData::buildFieldParse(p);
 	p.add(kCloudBreakFields);
 }
+// RW 0x8C8D34 (TaintSpecialPower::buildFieldParse)
 void TaintSpecialPowerModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialPowerModuleData::buildFieldParse(p);
 	p.add(kTaintFields);
 }
+// RW 0x8C8247 (ElvenWoodSpecialPower::buildFieldParse)
 void ElvenWoodSpecialPowerModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialPowerModuleData::buildFieldParse(p);
 	p.add(kElvenWoodFields);
 }
+// RW 0x8C70E1 (ProductionSpeedBonus::buildFieldParse)
 void ProductionSpeedBonusModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialPowerModuleData::buildFieldParse(p);
 	p.add(kProductionSpeedBonusFields);
 }
+// RW 0x8C87D7 (ScavengerSpecialPower::buildFieldParse)
 void ScavengerSpecialPowerModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialPowerModuleData::buildFieldParse(p);
 	p.add(kScavengerFields);
 }
+// RW 0x8CC5F4 (DevastateSpecialPower::buildFieldParse)
 void DevastateSpecialPowerModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialPowerModuleData::buildFieldParse(p);
@@ -619,6 +628,7 @@ void SpellBookPowers::registerAll(ModuleFactory &modules)
 	bindPower<ElvenWoodSpecialPower, ElvenWoodSpecialPowerModuleData>(modules, "ElvenWoodSpecialPower");
 	bindPower<ProductionSpeedBonus, ProductionSpeedBonusModuleData>(modules, "ProductionSpeedBonus");
 	bindPower<ScavengerSpecialPower, ScavengerSpecialPowerModuleData>(modules, "ScavengerSpecialPower");
+	// RW 0x8CBF0A (UntamedAllegianceSpecialPower::buildFieldParse)
 	bindPower<UntamedAllegianceSpecialPower, SpecialPowerModuleData>(modules, "UntamedAllegianceSpecialPower");
 	bindPower<DevastateSpecialPower, DevastateSpecialPowerModuleData>(modules, "DevastateSpecialPower");
 }

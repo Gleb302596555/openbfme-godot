@@ -78,12 +78,14 @@ InvisibilityUpdate *firstInvisibilityUpdate(const Object &obj)
 }
 } // namespace
 
+// RW 0x64F405 (ToggleHiddenSpecialAbilityUpdate::buildFieldParse)
 void ToggleHiddenSpecialAbilityUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialAbilityUpdateModuleData::buildFieldParse(p);
 	p.add(kToggleHidden);
 }
 
+// RW 0x8C6538 (InvisibilitySpecialPower::buildFieldParse)
 void InvisibilitySpecialPowerModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialPowerModuleData::buildFieldParse(p);

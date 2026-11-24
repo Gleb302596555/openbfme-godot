@@ -446,42 +446,49 @@ void SpecialAbilityUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 	p.add(kSpecialAbility);
 }
 
+// RW 0x64D7D9 (WeaponFireSpecialAbilityUpdate::buildFieldParse)
 void WeaponFireSpecialAbilityUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialAbilityUpdateModuleData::buildFieldParse(p);
 	p.add(kWeaponFire);
 }
 
+// RW 0x64F35B (ToggleMountedSpecialAbilityUpdate::buildFieldParse)
 void ToggleMountedSpecialAbilityUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialAbilityUpdateModuleData::buildFieldParse(p);
 	p.add(kToggleMounted);
 }
 
+// RW 0x64D685 (HeroModeSpecialAbilityUpdate::buildFieldParse)
 void HeroModeSpecialAbilityUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialAbilityUpdateModuleData::buildFieldParse(p);
 	p.add(kHeroMode);
 }
 
+// RW 0x8C6CDF (LevelGrantSpecialPower::buildFieldParse)
 void LevelGrantSpecialPowerModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialAbilityUpdateModuleData::buildFieldParse(p);
 	p.add(kLevelGrant);
 }
 
+// RW 0x64D32E (ModelConditionSpecialAbilityUpdate::buildFieldParse)
 void ModelConditionSpecialAbilityUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialAbilityUpdateModuleData::buildFieldParse(p);
 	p.add(kModelCondition);
 }
 
+// RW 0x64F559 (SummonReplacementSpecialAbilityUpdate::buildFieldParse)
 void SummonReplacementSpecialAbilityUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialAbilityUpdateModuleData::buildFieldParse(p);
 	p.add(kSummonReplacement); // RW 0xC05AF8
 }
 
+// RW 0x64F718 (SpecialDisguiseUpdate::buildFieldParse)
 void SpecialDisguiseUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialAbilityUpdateModuleData::buildFieldParse(p);

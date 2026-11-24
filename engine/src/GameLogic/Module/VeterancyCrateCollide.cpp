@@ -16,6 +16,7 @@
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 
+// RW 0x650FE4 (VeterancyCrateCollide::buildFieldParse)
 void VeterancyCrateCollideModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	CrateCollideModuleData::buildFieldParse(p);

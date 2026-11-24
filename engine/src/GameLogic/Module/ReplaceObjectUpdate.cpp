@@ -35,6 +35,7 @@ const FieldParse kFields[] = {
     { nullptr, nullptr, nullptr, 0 }
 };
 }
+// RW 0x64FA2E (ReplaceObjectUpdate::buildFieldParse)
 void ReplaceObjectUpdateModuleData::buildFieldParse(MultiIniFieldParse &p) {
     SpecialAbilityUpdateModuleData::buildFieldParse(p);
     p.add(kFields);

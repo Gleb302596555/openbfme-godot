@@ -1122,6 +1122,7 @@ const FieldParse kWeaponMode[] = { // RW 0xC650A0
 };
 #undef WM_OFF
 
+// RW 0x898210 (WeaponModeSpecialPowerUpdate::buildFieldParse)
 void WeaponModeSpecialPowerUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kWeaponModeBase); // RW 0x9911B3
@@ -1693,6 +1694,7 @@ void DominateEnemySpecialPower::crc(StateHasher &h) const
 // ---------------------------------------------------------------------------------------------------------------------------------
 // ActivateModuleSpecialPower
 // ---------------------------------------------------------------------------------------------------------------------------------
+// RW 0x8D242E (ActivateModuleSpecialPower::buildFieldParse)
 void ActivateModuleSpecialPowerModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialAbilityUpdateModuleData::buildFieldParse(p);
@@ -1775,6 +1777,7 @@ void ActivateModuleSpecialPower::crc(StateHasher &h) const
 // ---------------------------------------------------------------------------------------------------------------------------------
 // ArrowStormUpdate
 // ---------------------------------------------------------------------------------------------------------------------------------
+// RW 0x64D284 (ArrowStormUpdate::buildFieldParse)
 void ArrowStormUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialAbilityUpdateModuleData::buildFieldParse(p);
@@ -2179,6 +2182,7 @@ constexpr int kMcFollower = 201; // + 0x124 bit 9 / + 0x125 bit 1
 constexpr int kMcSpeech = 207;   // + 0x124 bit 15 / + 0x125 bit 7
 }
 
+// RW 0x8B03E7 (RousingSpeechUpdate::buildFieldParse)
 void RousingSpeechUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialAbilityUpdateModuleData::buildFieldParse(p);
@@ -2377,6 +2381,7 @@ void RousingSpeechUpdate::crc(StateHasher &h) const
 // ---------------------------------------------------------------------------------------------------------------------------------
 // TeleportSpecialAbilityUpdate
 // ---------------------------------------------------------------------------------------------------------------------------------
+// RW 0x64D883 (TeleportSpecialAbilityUpdate::buildFieldParse)
 void TeleportSpecialAbilityUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialAbilityUpdateModuleData::buildFieldParse(p);
@@ -2499,6 +2504,7 @@ void HeroAbilityModules::registerAll(ModuleFactory &modules)
 	bindRuntime<ActivateModuleSpecialPower, ActivateModuleSpecialPowerModuleData>(modules, "ActivateModuleSpecialPower");
 	bindRuntime<ArrowStormUpdate, ArrowStormUpdateModuleData>(modules, "ArrowStormUpdate");
 	bindRuntime<CurseSpecialPower, CurseSpecialPowerModuleData>(modules, "CurseSpecialPower"); // RW 0x00652CDA, RW 0x008D120E, RW 0x008D1249
+	// RW 0x652135 (FellBeastSwoopPower::buildFieldParse)
 	bindRuntime<FellBeastSwoopPower, SpecialAbilityUpdateModuleData>(modules, "FellBeastSwoopPower");
 	bindRuntime<RousingSpeechUpdate, RousingSpeechUpdateModuleData>(modules, "RousingSpeechUpdate");
 	bindRuntime<TeleportSpecialAbilityUpdate, TeleportSpecialAbilityUpdateModuleData>(modules, "TeleportSpecialAbilityUpdate");
