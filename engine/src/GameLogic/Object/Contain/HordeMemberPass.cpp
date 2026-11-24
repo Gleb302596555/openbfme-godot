@@ -1039,3 +1039,31 @@ void HordeContain::moveHub(Object &member, const Coord3D &destIn, float orientat
 	member.setModelConditionState(bits().moving, true);
 	++m_stats.walks;
 }
+
+// RW 0x875F18 (HordeContain::applyRankWeaponSetFlags, 0xC5B5F8[32]): looks up the member's slot rank via
+// findRank (RW 0x86C3E7); when RankInfo +0x34 (hasWeaponConditions) is set, applies granted (+0x14) and
+// revoked (+0x24) weapon-set flags across all 104 (0x68) bits (RW 0x691059 / RW 0x691106).
+void HordeContain::applyRankWeaponSetFlags(Object &member) const
+{
+	const int slot = m_core.slotOf(member.getID());
+	if (slot < 0 || (size_t)slot >= m_core.slots().size())
+	{
+		return;
+	}
+	const RankInfo *rank = m_core.findRank(m_core.slots()[(size_t)slot].rank);
+	if (!rank || !rank->hasWeaponConditions)
+	{
+		return;
+	}
+	for (int i = 0; i < 0x68; ++i)
+	{
+		if (rank->grantedWeaponConditions.test((unsigned)i))
+		{
+			member.setWeaponSetFlag(i, true);
+		}
+		else if (rank->revokedWeaponConditions.test((unsigned)i))
+		{
+			member.setWeaponSetFlag(i, false);
+		}
+	}
+}

@@ -352,6 +352,8 @@ public:
 	Object *firstMember() const;
 	// RW 0x870C29: the member (the contain list, then the members on the way) nearest to `victim` in the plane, within 1000 (1e6 squared, RW 0xBDCDC0)
 	Object *closestMemberTo(const Object &victim) const;
+	// RW 0x875F18 (0xC5B5F8[32]): apply RankInfo granted/revoked weapon-set flags to a member
+	void applyRankWeaponSetFlags(Object &member) const;
 	struct AttackStats
 	{
 		unsigned long long fires = 0;            // attackTargetNow calls that ran (the MELEE_HORDE guard RW 0x86C6EB passed)
