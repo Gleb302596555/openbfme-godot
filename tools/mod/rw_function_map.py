@@ -1021,7 +1021,8 @@ def display_command(argv: list[str]) -> str:
         path = Path(item)
         if path.is_absolute():
             try:
-                shown.append(str(path.resolve().relative_to(Path.cwd().resolve())))
+                # POSIX separators: the report reads the same whichever machine wrote it (the test failed on Windows with workspace\RotWK\...)
+                shown.append(path.resolve().relative_to(Path.cwd().resolve()).as_posix())
                 continue
             except ValueError:
                 pass
