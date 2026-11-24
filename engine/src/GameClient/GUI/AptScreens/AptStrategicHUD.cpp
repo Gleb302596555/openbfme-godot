@@ -2686,10 +2686,21 @@ void AptStrategicHUD::onRadialFrameLoaded(int id, const std::string &frameArg)
 		s.initialized = true;
 	});
 	reg(key + "_OnClicked", [this, id](const std::string &) {
+		// RW 0x9F3C24 / RW 0xA0C74F (QueueUnitButton::OnRightClicked): left click (button 0) orders when enabled;
+		// right click (button 2) dequeues from the building queue even when the button is disabled
 		m_log.push_back("RadialButton_OnClicked(" + std::to_string(id) + ")");
-		if (id < (int)m_radialButtons.size() && m_radialButtons[(size_t)id].button.enabled)
+		if (id >= (int)m_radialButtons.size())
+		{
+			return;
+		}
+		const int button = windows().pressButton();
+		if (button == 0 && m_radialButtons[(size_t)id].button.enabled)
 		{
 			m_requests.push_back("radial:" + std::to_string(id));
+		}
+		else if (button == 2)
+		{
+			m_requests.push_back("radial_right:" + std::to_string(id));
 		}
 	});
 	reg(key + "_OnRollOver", [this, id](const std::string &) { m_log.push_back("RadialButton_OnRollOver(" + std::to_string(id) + ")"); }); // the help box: not ported
