@@ -90,9 +90,9 @@ TEST_CASE("LOCAL-178 AttackObjectGroupOrder::activate forwards attack to non-HOR
 		"End\n";
 	MoveWorld mw(100, 100, kExtra);
 	mw.buildMap();
-	Object *carrier = mw.spawn("Carrier", 305.0f, 305.0f, "Alice");
-	Object *rider = mw.spawn("Rider", 315.0f, 305.0f, "Alice");
-	Object *enemy = mw.spawn("Rider", 420.0f, 305.0f, "Bob");
+	Object *carrier = mw.spawn("Carrier", 305.0f, 305.0f, 0.0f, mw.teamOf("Alice"));
+	Object *rider = mw.spawn("Rider", 315.0f, 305.0f, 0.0f, mw.teamOf("Alice"));
+	Object *enemy = mw.spawn("Rider", 420.0f, 305.0f, 0.0f, mw.teamOf("Bob"));
 	REQUIRE(carrier != nullptr);
 	REQUIRE(rider != nullptr);
 	REQUIRE(enemy != nullptr);
@@ -106,5 +106,5 @@ TEST_CASE("LOCAL-178 AttackObjectGroupOrder::activate forwards attack to non-HOR
 
 	CHECK_FALSE(carrier->getAIUpdateInterface()->isIdle());
 	CHECK_FALSE(rider->getAIUpdateInterface()->isIdle());
-	CHECK(rider->getAIUpdateInterface()->getCurrentVictim() == enemy);
+	CHECK(rider->getAIUpdateInterface()->currentVictim() == enemy);
 }
