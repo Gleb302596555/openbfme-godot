@@ -901,7 +901,9 @@ TEST_CASE("blocks: Prerequisites accumulates and a load type 2 declaration clear
 TEST_CASE("blocks: the lazily built Flammability table and the stack-built FormationPreviewDecal table are real tables")
 {
 	World w;
-	CHECK(w.load("Object Foo\n  Flammability\n    Fuel = 10\n    FuelFactor = 1\n    MaxBurnRate = 2\n    Decay = 3\n    Resistance = 4\n  End\nEnd\n").empty());
+	// FuelFactor reads the first Body's MaxHealth (RW 0x0073D0FD, Local 140): a Body comes first, as in every retail object
+	CHECK(w.load("Object Foo\n  Body = ActiveBody ModuleTag_Body\n    MaxHealth = 10\n  End\n  Flammability\n    Fuel = 10\n    FuelFactor = 1\n    MaxBurnRate = 2\n    Decay = 3\n    Resistance = 4\n  End\nEnd\n").empty());
+	CHECK(contains(w.load("Object Qux\n  Flammability\n    FuelFactor = 1\n  End\nEnd\n"), "Can't use FuelFactor without defining Body first"));
 	CHECK(contains(w.load("Object Bar\n  Flammability\n    Nope = 10\n  End\nEnd\n"), "Unknown field 'Nope'"));
 	CHECK(w.load("Object Baz\n  FormationPreviewDecal\n    Texture = X\n    Width = 1\n    Height = 2\n  End\nEnd\n").empty());
 }
