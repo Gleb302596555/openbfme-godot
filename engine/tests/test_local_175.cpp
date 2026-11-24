@@ -82,53 +82,89 @@ End
 AutoResolveBody AutoResolve_HeroBody
 	HitpointsAtLevel = Hitpoints:3000 Level:0
 End
-LivingWorldPlayerArmy GoodHeroArmyA
-	Hero = GoodHero
-	Entry = GoodSoldiers 1
-	Entry = GoodArchers 1
+AutoResolveReinforcementSchedule Defender
+	1 = 0
+	EachRemaining = +1
 End
-LivingWorldPlayerArmy GoodHeroArmyB
-	Hero = GoodHeroB
-	Entry = GoodSoldiers 1
+AutoResolveReinforcementSchedule Attacker
+	1 = 0
+	EachRemaining = +1
 End
-LivingWorldPlayerArmy EvilHeroArmy
-	Hero = EvilHero
-	Entry = EvilSoldiers 1
+LivingWorldAITemplate DefaultAITemplate
+	BuildingScoreArmory = 50
+	BuildingScoreBarracks = 40
+	BuildingScoreCastle = 40
+	BuildingScoreFarm = 50
 End
-RegionCampaign TestCampaign
+LivingWorldPlayerArmy
+	Name = GoodHeroArmyA
+	ArmyEntry
+		ThingTemplate = GoodHero
+		Quantity = 1
+	End
+	ArmyEntry
+		ThingTemplate = GoodSoldiers
+		Quantity = 1
+	End
+	ArmyEntry
+		ThingTemplate = GoodArchers
+		Quantity = 1
+	End
+End
+LivingWorldPlayerArmy
+	Name = GoodHeroArmyB
+	ArmyEntry
+		ThingTemplate = GoodHeroB
+		Quantity = 1
+	End
+	ArmyEntry
+		ThingTemplate = GoodSoldiers
+		Quantity = 1
+	End
+End
+LivingWorldPlayerArmy
+	Name = EvilHeroArmy
+	ArmyEntry
+		ThingTemplate = EvilHero
+		Quantity = 1
+	End
+	ArmyEntry
+		ThingTemplate = EvilSoldiers
+		Quantity = 1
+	End
+End
+LivingWorldRegionCampaign Local175RegionCampaign
 	Region RegA
-		DisplayName = RegA
-		ConnectedRegions = RegB
-		CreateAutoFort = No
-		BuildPlot = X:0 Y:0
+		MapName = "MAP A"
+		OwnedByPlayer = Good
+		ConnectsTo = RegB
 	End
 	Region RegB
-		DisplayName = RegB
-		ConnectedRegions = RegA
-		CreateAutoFort = No
-		BuildPlot = X:0 Y:0
+		MapName = "MAP B"
+		OwnedByPlayer = Evil
+		ConnectsTo = RegA
 	End
 End
-LivingWorldCampaign TestScenario
-	RegionCampaign = TestCampaign
+LivingWorldCampaign Local175Scenario
+	RegionCampaign = Local175RegionCampaign
 	Act ActOne
-		OwnershipSet Set1
-			Regions = RegA
-			SpawnArmy
-				PlayerArmy = GoodHeroArmyA
-				Region = RegA
-			End
-			SpawnArmy
-				PlayerArmy = GoodHeroArmyB
-				Region = RegA
-			End
+		SpawnArmy
+			Player = Good
+			PlayerArmy = GoodHeroArmyA
+			Region = RegA
+			SpawnAtActStart = Yes
 		End
-		OwnershipSet Set2
-			Regions = RegB
-			SpawnArmy
-				PlayerArmy = EvilHeroArmy
-				Region = RegB
-			End
+		SpawnArmy
+			Player = Good
+			PlayerArmy = GoodHeroArmyB
+			Region = RegA
+			SpawnAtActStart = Yes
+		End
+		SpawnArmy
+			Player = Evil
+			PlayerArmy = EvilHeroArmy
+			Region = RegB
+			SpawnAtActStart = Yes
 		End
 	End
 End
@@ -138,9 +174,20 @@ bool startLocal175Game(LivingWorldStores &stores, LivingWorldLogic &logic)
 {
 	parseLocal175Ini(stores, kLocal175Ini);
 	GameSetup setup;
-	setup.scenario = "TestScenario";
-	setup.players.push_back({ "PlayerGood", "FactionGood", 0, false });
-	setup.players.push_back({ "PlayerEvil", "FactionEvil", 1, false });
+	setup.campaign = "Local175Scenario";
+	setup.seed = 7;
+	SetupSlot a;
+	a.name = "Good";
+	a.faction = "FactionGood";
+	a.human = true;
+	a.team = 1;
+	SetupSlot b;
+	b.name = "Evil";
+	b.faction = "FactionEvil";
+	b.human = true;
+	b.team = 2;
+	setup.slots = { a, b };
+	setup.ranks = { { true, 5u, 0 } };
 	std::string err;
 	return logic.start(setup, &err);
 }
@@ -199,7 +246,7 @@ TEST_CASE("LOCAL-175 disbandArmy (RW 0x6B48F2): rejects foreign player")
 	}
 	REQUIRE(armyId == 1);
 
-	::GameMessage msg(MSG_LW_DISBAND_ARMY, 0);
+	::GameMessage msg(MSG_LW_DISBAND_ARMY, 1);
 	msg.appendIntegerArgument(armyId);
 	std::string err;
 	CHECK_FALSE(logic.dispatch(msg, 1, &err));
