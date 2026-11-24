@@ -17,7 +17,9 @@
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Map/TerrainLogic.h"
 #include "GameLogic/Module/DockUpdate.h"
+#include "GameLogic/Object/ExperienceTracker.h"
 #include "GameLogic/Object/Object.h"
+#include "GameLogic/ObjectTypes.h"
 #include "GameLogic/Object/PartitionManager.h"
 #include "GameLogic/ScriptEngine/ScriptConditions.h"
 #include "GameLogic/ScriptEngine/ScriptEngine.h"
@@ -92,6 +94,59 @@ const std::set<int> &clientActions()
 			// LOCAL-94 (issue #720): case 331 (RW 0x7CE53A) -> RW 0x7BD6E9 (DONOR BFME2 0x003BCC08, ScriptActions::doResizeViewGuardband) ->
 			// TheTacticalView vslot 0x1BC = W3DView::setGuardBandBias (RW 0x48B5FC: View + 0x78 / + 0x7C); client tactical view state only
 			"RESIZE_VIEW_GUARDBAND",
+			// Local 161 (fork issue 928): citations for client actions already in this list (S-1182, RotWK 2.01 game.dat):
+			// RW 0x7BB3AD (DISABLE_OBJECT_SOUND), RW 0x7BB3D9 (AUDIO_FADE_VOLUME), RW 0x7BB419 (AUDIO_MAKE_SOUND_IMMUNE_TO_FADE),
+			// RW 0x7BB5D6 (ZOOM_CAMERA), RW 0x7BB678 (PITCH_CAMERA), RW 0x7BB6C9 (ROLL_CAMERA), RW 0x7BB771 (SETUP_CAMERA),
+			// RW 0x7BB926 (ROTATE_CAMERA), RW 0x7BB9F1 (ROTATE_CAMERA_LOCKED), RW 0x7BBA44 (CAMERA_LOOK_TOWARD_OBJECT),
+			// RW 0x7BBABB (CAMERA_LOOK_TOWARD_WAYPOINT), RW 0x7BBB23 (MOVE_CAMERA_LOCATOR_ALONG_SPLINE_PATH), RW 0x7BBFB2 (CAMEO_FLASH),
+			// RW 0x7BC07A (MOVIE_PLAY_RADAR), RW 0x7BC2B1 (CAMERA_MOTION_BLUR_JUMP), RW 0x7BC34B (CAMERA_MOTION_BLUR),
+			// RW 0x7BC8F7 (CAMERA_BW_MODE_END), RW 0x7BC9A7 (SHOW_MILITARY_CAPTION), RW 0x7BCC65 (CAMERA_TETHER_NAMED),
+			// RW 0x7BCCEF (CAMERA_SET_DEFAULT), RW 0x7BCF3B (SCREEN_SHAKE), RW 0x7BD005 (AUDIO_OVERRIDE_VOLUME_TYPE),
+			// RW 0x7BD030 (AUDIO_RESTORE_VOLUME_TYPE), RW 0x7BD53E (EVA_SET_ENABLED_DISABLED), RW 0x7BD5BB (CAMERA_ENABLE_SLAVE_MODE),
+			// RW 0x7BD5C9 (CAMERA_DISABLE_SLAVE_MODE), RW 0x7BD5D7 (CAMERA_ADD_SHAKER_AT), RW 0x7BD618 (PLAYER_SELECT_SKILLSET),
+			// RW 0x7BD783 (TOGGLE_AVI_CAPTURE), RW 0x7BDC7F (SELECT_OBJECT), RW 0x7BDD97 (SELECT_BUILDER_BUTTON_FLASH),
+			// RW 0x7BDDB0 (ENABLE_HOUSE_COLOR), RW 0x7BDF39 (FLASH_SPELL_STORE_BUTTON), RW 0x7BDF63 (FLASH_PLANNING_MODE_BUTTON),
+			// RW 0x7BE0EA (PLAY_SOUND_EFFECT), RW 0x7BE183 (PLAY_SOUND_EFFECT_AT), RW 0x7BF36F (PLAY_SOUND_EFFECT_AT_TEAM).
+			// Local 161 (fork issue 928): client-only audio / camera / lighting / UI / drawable actions recorded as client requests (S-1182):
+			"COMMANDBAR_ADD_BUTTON_OBJECTTYPE_SLOT", // RW 0x7BD65B (case 312: ControlBar / GameLogic::setControlBarOverride)
+			"AUDIO_MAKE_SOUND_SUBJECT_TO_FADE", // RW 0x7BB434 (case 442: TheAudio vslot 0xFC)
+			"AUDIO_MAKE_ALL_SOUNDS_SUBJECT_TO_FADE", // RW 0x7BB44F (case 443: TheAudio vslot 0x100)
+			"DIM_WORLD_LIGHTS", // RW 0x7BB464 (case 437: TheTerrainVisual vslot 0xCC)
+			"RESTORE_WORLD_LIGHTS", // RW 0x7BB497 (case 438: TheTerrainVisual vslot 0xD0)
+			"OVERSIZE_TERRAIN", // RW 0x7BB726 (case 123: TheTacticalView vslot 0x5C)
+			"MOVE_CAMERA_TO_SELECTION", // RW 0x7BB860 (case 35: TheInGameUI / TheTacticalView)
+			"ROTATE_CAMERA_TO_ANGLE", // RW 0x7BB979 (case 529: TheTacticalView vslot 0x100 / 0xCC)
+			"NAMED_CUSTOM_COLOR", // RW 0x7BBFF2 (case 252: Object::setCustomIndicatorColor 0x68B6CB)
+			"NAMED_FLASH_WHITE", // RW 0x7BC013 (case 246: Drawable +0x168/+0x16C flash)
+			"AUDIO_SET_REVERB_ROOM_TYPE", // RW 0x7BC088 (case 448: TheAudio vslot 0x164)
+			"AUDIO_REMOVE_REVERB", // RW 0x7BC09D (case 449: TheAudio vslot 0x16C)
+			"AUDIO_REMOVE_ALL_REVERB_SUPPRESSION_POLYGONS", // RW 0x7BC0B0 (case 527: TheAudio vslot 0x17C)
+			"SOUND_AMBIENT_RESUME", // RW 0x7BC714 (case 101: TheAudio vslot 0x40/0x44)
+			"MUSIC_SCRIPT_POP_MUSIC", // RW 0x7BC734 (case 458: TheAudio vslot 0x88)
+			"MUSIC_TURN_OFF_MUSIC_SCRIPTING", // RW 0x7BC766 (case 459: TheAudio vslot 0x90)
+			"MUSIC_RETURN_TO_MUSIC_SCRIPTING", // RW 0x7BC785 (case 460: TheAudio vslot 0x94)
+			"NAMED_SET_CAMERA_FADING", // RW 0x7BC7B5 (case 530: Drawable camera fading)
+			"CAMERA_RING_MODE_END", // RW 0x7BC944 (case 350: TheTacticalView vslot 0xB4/0xBC)
+			"DISABLE_SPECIAL_POWER_DISPLAY", // RW 0x7BCA42 (case 159: TheDisplay vslot 0x94)
+			"ENABLE_SPECIAL_POWER_DISPLAY", // RW 0x7BCA53 (case 160: TheDisplay vslot 0x94)
+			"NAMED_HIDE_SPECIAL_POWER_DISPLAY", // RW 0x7BCA64 (case 161: TheDisplay vslot 0x9C)
+			"NAMED_SHOW_SPECIAL_POWER_DISPLAY", // RW 0x7BCA89 (case 162: TheDisplay vslot 0xA0)
+			"DISABLE_COUNTDOWN_TIMER_DISPLAY", // RW 0x7BCBBA (case 166: TheDisplay 0x69B0B1)
+			"ENABLE_COUNTDOWN_TIMER_DISPLAY", // RW 0x7BCBC8 (case 165: TheDisplay 0x69B0B1)
+			"SOUND_ENABLE_TYPE", // RW 0x7BCFB2 (case 222: TheAudio vslot 0xB4)
+			"SOUND_DISABLE_TYPE", // RW 0x7BCFC9 (case 221: TheAudio vslot 0xB8)
+			"SOUND_ENABLE_ALL", // RW 0x7BCFE0 (case 223: TheAudio vslot 0xBC)
+			"SOUND_REMOVE_TYPE", // RW 0x7BCFF1 (case 325: TheAudio vslot 0x68)
+			"NAMED_SET_EMOTICON", // RW 0x7BD477 (case 288: Drawable::setEmoticon 0x6739E0)
+			"CAMERA_BLOOM_EFFECT_END", // RW 0x7BD762 (case 342: GlobalData bloom flag)
+			"LOCK_CAMERA", // RW 0x7BDAB7 (case 513: TheInGameUI camera lock)
+			"LOCK_CAMERA_ZOOM", // RW 0x7BDACA (case 574: TheTacticalView vslot 0x24C)
+			"LOCK_CAMERA_ROTATION", // RW 0x7BDAD8 (case 575: TheTacticalView vslot 0x250)
+			"LOCK_CAMERA_SCROLL", // RW 0x7BDAE6 (case 576: TheTacticalView vslot 0x254)
+			"LOCK_CAMERA_RESET", // RW 0x7BDAF4 (case 577: TheTacticalView vslot 0x258)
+			"LOCK_CAMERA_ANGLE_AND_HEIGHT", // RW 0x7BDB02 (case 528: TheInGameUI angle/height lock)
+			"ENABLE_SPELL_STORE", // RW 0x7BDF0F (case 580: AptSpellStore 0x822D75)
+			"ENABLE_PLANNING_MODE", // RW 0x7BDF2E (case 584: TheAptUI 0x6D47F0)
 		};
 		std::set<int> out;
 		for (const char *n : names)
@@ -762,6 +817,8 @@ void ScriptActions::execute(ScriptEngine &engine, const ScriptActionRec &a)
 		}
 		return;
 	}
+	// RW 0x7BBD79 (PLAYER_DISABLE_BASE_CONSTRUCTION), RW 0x7BBE38 (PLAYER_ENABLE_BASE_CONSTRUCTION),
+	// RW 0x7BBDFA (PLAYER_DISABLE_UNIT_CONSTRUCTION), RW 0x7BBEB9 (PLAYER_ENABLE_UNIT_CONSTRUCTION)
 	if (name == "PLAYER_DISABLE_BASE_CONSTRUCTION" || name == "PLAYER_ENABLE_BASE_CONSTRUCTION" || name == "PLAYER_DISABLE_UNIT_CONSTRUCTION" ||
 		name == "PLAYER_ENABLE_UNIT_CONSTRUCTION")
 	{
@@ -780,6 +837,7 @@ void ScriptActions::execute(ScriptEngine &engine, const ScriptActionRec &a)
 		}
 		return;
 	}
+	// MAP_REVEAL_PERMANENTLY_IN_TRIGGER (case 554): RW 0x7BD4F3 -> createNamedMapReveal (RW 0x75A344) + doNamedMapReveal (RW 0x7592E1)
 	if (name == "MAP_REVEAL_AT_WAYPOINT" || name == "MAP_REVEAL_PERMANENTLY_AT_WAYPOINT" ||
 		name == "MAP_UNDO_REVEAL_PERMANENTLY_AT_WAYPOINT" || name == "MAP_REVEAL_IN_TRIGGER" ||
 		name == "MAP_REVEAL_PERMANENTLY_IN_TRIGGER" || name == "MAP_UNDO_REVEAL_PERMANENTLY_IN_TRIGGER")
@@ -787,6 +845,9 @@ void ScriptActions::execute(ScriptEngine &engine, const ScriptActionRec &a)
 		engine.executeMapReveal(a);
 		return;
 	}
+	// Local 161 (fork issue 928): MAP_REVEAL_ALL (case 105, RW 0x7BC3FF), MAP_REVEAL_ALL_PERM / MAP_REVEAL_ALL_UNDO_PERM
+	// (cases 233/234, RW 0x7BC479), MAP_SHROUD_ALL (case 149, RW 0x7BC50C): when the player mask is 0, RotWK iterates
+	// every PlayerList entry with playerType == PLAYER_HUMAN (Player + 0x5C == 0) instead of doing nothing.
 	if (name == "MAP_REVEAL_ALL" || name == "MAP_REVEAL_ALL_PERM" || name == "MAP_REVEAL_ALL_UNDO_PERM" || name == "MAP_SHROUD_ALL")
 	{
 		ShroudManager *shroud = logic.shroud();
@@ -795,13 +856,30 @@ void ScriptActions::execute(ScriptEngine &engine, const ScriptActionRec &a)
 			engine.note("[S-1180] " + name + ": the game has no shroud manager");
 			return;
 		}
-		for (Player *p : ScriptConditions::players(engine, param(a, 0).stringValue))
-		{
-			const int i = p->getPlayerIndex();
+		auto applyShroud = [&](int i) {
 			if (name == "MAP_REVEAL_ALL") shroud->revealMapForPlayer(i);
 			else if (name == "MAP_REVEAL_ALL_PERM") shroud->revealMapForPlayerPermanently(i);
 			else if (name == "MAP_REVEAL_ALL_UNDO_PERM") shroud->undoRevealMapForPlayerPermanently(i);
 			else shroud->shroudMapForPlayer(i);
+		};
+		std::vector<Player *> targets = ScriptConditions::players(engine, param(a, 0).stringValue);
+		if (targets.empty())
+		{
+			PlayerList &plist = logic.players();
+			for (int i = 0; i < plist.getPlayerCount(); ++i)
+			{
+				if (Player *p = plist.getNthPlayer(i); p && p->getPlayerType() == PLAYER_HUMAN)
+				{
+					applyShroud(i);
+				}
+			}
+		}
+		else
+		{
+			for (Player *p : targets)
+			{
+				applyShroud(p->getPlayerIndex());
+			}
 		}
 		return;
 	}
@@ -812,6 +890,91 @@ void ScriptActions::execute(ScriptEngine &engine, const ScriptActionRec &a)
 			if (auto *wh = dynamic_cast<SupplyWarehouseDockUpdate *>(o->findModule("SupplyWarehouseDockUpdate"))) // RW 0x68BDA5
 			{
 				wh->setCashValue(param(a, 1).intValue); // RW 0x8AB64E
+			}
+		}
+		return;
+	}
+	if (name == "NAMED_SET_STRICT_CONTROL_ENABLED") // Local 161: case 432, RW 0x7BC814 -> Object::setScriptStatus(0x20, on) (RW 0x69317D)
+	{
+		if (Object *o = engine.getUnitNamed(param(a, 0).stringValue))
+		{
+			o->setScriptStatus(0x20u, param(a, 1).intValue != 0);
+		}
+		return;
+	}
+	if (name == "NAMED_SET_HELD") // Local 161: case 229, RW 0x7BC9D6 -> Object::setDisabledUntil(DISABLED_HELD=3, held ? 0x3FFFFFFF : 0) (RW 0x6907F1)
+	{
+		if (Object *o = engine.getUnitNamed(param(a, 0).stringValue))
+		{
+			if (param(a, 1).intValue != 0)
+			{
+				o->setDisabled(DISABLED_HELD, 0x3FFFFFFFu);
+			}
+			else
+			{
+				o->clearDisabled(DISABLED_HELD);
+			}
+		}
+		return;
+	}
+	if (name == "UNIT_SET_EXPERIENCE_POINTS") // Local 161: case 360, RW 0x7BD41D -> ExperienceTracker::setExperienceAndLevel((float)pts, true) (RW 0x79D8EF)
+	{
+		if (Object *o = engine.getUnitNamed(param(a, 0).stringValue))
+		{
+			if (ExperienceTracker *xp = o->getExperienceTracker())
+			{
+				xp->setExperienceAndLevel(static_cast<float>(param(a, 1).intValue), true);
+			}
+		}
+		return;
+	}
+	if (name == "UNIT_GAIN_LEVEL") // Local 161: case 523, RW 0x7BDE10 -> ExperienceTracker::gainLevel(feedback) (RW 0x79D7AD)
+	{
+		if (Object *o = engine.getUnitNamed(param(a, 0).stringValue))
+		{
+			if (ExperienceTracker *xp = o->getExperienceTracker())
+			{
+				xp->gainLevel(param(a, 1).intValue != 0);
+			}
+		}
+		return;
+	}
+	if (name == "NAMED_SET_SPECIAL_WEAPONSET") // Local 161: case 431, RW 0x7BDB15 -> Object::setWeaponSetFlag(0x17, on) / clearWeaponSetFlag (RW 0x691059 / RW 0x691106)
+	{
+		if (Object *o = engine.getUnitNamed(param(a, 0).stringValue))
+		{
+			o->setWeaponSetFlag(0x17, param(a, 1).intValue > 0);
+		}
+		return;
+	}
+	if (name == "DAMAGE_MEMBERS_OF_TEAM") // Local 161: case 12, RW 0x7BF46E -> Team::damageTeamMembers(amount) (RW 0x7A1080)
+	{
+		if (Team *t = ScriptConditions::team(engine, param(a, 0).stringValue))
+		{
+			const float amount = param(a, 1).realValue;
+			std::vector<Object *> members;
+			for (Object *o = t->getFirstMember(); o; o = o->friend_teamNext())
+			{
+				members.push_back(o);
+			}
+			for (Object *o : members)
+			{
+				if (!o || o->isDestroyed() || o->isEffectivelyDead())
+				{
+					continue;
+				}
+				if (amount < 0.0f)
+				{
+					o->kill(DAMAGE_UNRESISTABLE, DEATH_NORMAL); // RW 0x7A10BA -> RW 0x698EC3
+				}
+				else
+				{
+					DamageInfo d;
+					d.m_input.m_damageType = DAMAGE_UNRESISTABLE;
+					d.m_input.m_deathType = DEATH_NORMAL;
+					d.m_input.m_amount = amount;
+					o->attemptDamage(d); // RW 0x7A10E8 -> RW 0x698E7D
+				}
 			}
 		}
 		return;

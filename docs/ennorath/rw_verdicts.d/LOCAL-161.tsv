@@ -1,0 +1,43 @@
+function	name	verdict	evidence
+0x0045627A	Rva003BC6C7Set	not reached	Not ScriptActions (18B TheAudio [0xDE42FC] tail-call wrapper to 0x455CAA; dc=0, vc=0; misattributed by code-imm)
+0x0045628C	Rva003BC6C7Set	not reached	Not ScriptActions (18B TheAudio [0xDE42FC] tail-call wrapper to 0x455D26; dc=0, vc=0; misattributed by code-imm)
+0x0045629E	Rva003BC6C7Set	not reached	Not ScriptActions (18B TheAudio [0xDE42FC] tail-call wrapper to 0x455DA2; dc=0, vc=0; misattributed by code-imm)
+0x0047AF59	Rva003BB7E2	not reached	Not ScriptActions (14B wrapper [0xDD90F4]->0x54F14E; callers 0x449FFA, 0x91A407 outside ScriptActions)
+0x00610BF4	doNamedCustomColor	not reached	Not ScriptActions (33B LivingWorld::FindClickableObject->0x7FBFA6; callers 0x9D4216, 0x9D4242)
+0x00648B13	0xC54CE0[61]	not reached	Not ScriptActions (78B Shell::pop UI callback in vtable 0xC54CE0[61]; dc=0, vc=0)
+0x006D4112	Rva003BD405Set	not reached	Not ScriptActions (13B AptMessenger::OnMessengerBttn wrapper; dc=0, vc=0)
+0x007BE076	ScriptActions::ScriptActions	not reached	Stateless ScriptActions in port (no SubsystemInterface instance / vtable 0xC36098)
+0x007BE08C	ScriptActions::~ScriptActions	not reached	Stateless ScriptActions in port (no SubsystemInterface instance / vtable 0xC36098)
+0x007BF040	ScriptActions::scalar_deleting_dtor	not reached	Stateless ScriptActions in port (no SubsystemInterface instance / vtable 0xC36098[0])
+0x007BC295	RADAR_DISABLE	unchecked	Do not touch: radar script action owned by Port 312 (fork issue 748, S-2453)
+0x007BC2A3	RADAR_ENABLE	unchecked	Do not touch: radar script action owned by Port 312 (fork issue 748, S-2453)
+0x007BBC8F	SET_BASE_CONSTRUCTION_SPEED	too big	S-7933: AIPlayer (Player+0x2FC)+0x20 base construction speed (0x6AA6F3) not ported
+0x007BBDB7	PLAYER_DISABLE_FACTORIES	too big	S-7933: Player::setObjectsEnabled (0x6AC7C5) not ported
+0x007BBF74	PLAYER_KILL	too big	S-7933: Player::killPlayer (0x6ABE7C) not ported
+0x007BC173	PLAYER_EXCLUDE_FROM_SCORE_SCREEN	too big	S-7933: ScoreKeeper exclusion flag (0x6AA7C1) not ported
+0x007BC1B3	DISABLE_SCORING	too big	S-7933: GameLogic+0x98 m_scoringDisabled has no reader in port
+0x007BC6A3	RESUME_SUPPLY_TRUCKING	too big	S-7933: Player::setUnitsShouldIdleOrResume (0x6AFBBC) not ported
+0x007BC837	PLAYER_GARRISON_ALL_BUILDINGS	too big	S-7933: Player::garrisonAllUnits (0x6AF99E) not ported
+0x007BC877	PLAYER_EXIT_ALL_BUILDINGS	too big	S-7933: Player::ungarrisonAllUnits (0x6AFB2E) not ported
+0x007BC991	FREEZE_TIME	too big	S-7933: ScriptEngine+0x1A5D4 (0x60341F) time-freeze loop gate not ported
+0x007BC99C	UNFREEZE_TIME	too big	S-7933: ScriptEngine+0x1A5D4 (0x603427) time-freeze loop gate not ported
+0x007BD582	SCRIPTING_OVERRIDE_HULK_LIFETIME	too big	S-7933: GameLogic+0xA0 hulk lifetime override has no reader in port
+0x007BD74F	CHOOSE_VICTIM_ALWAYS_USES_NORMAL	too big	S-7933: ScriptEngine+0x1A5D6 choose-victim override has no reader in port
+0x007BD775	LIVING_WORLD_EXIT_TO_REGION_VIEW	too big	S-7933: TheLivingWorld [0xDE4958] vslot 0x28 (War of the Ring not ported)
+0x007BDAAC	SET_LOGIC_FOG_STATE	too big	S-7933: PartitionManager 0xB4D950 + TheInGameUI logic fog state not ported
+0x007BDBAB	TOGGLE_AUTO_BUILD	too big	S-7933: Player auto-build flag not ported
+0x007BDBEB	MAP_EXIT	too big	S-7933: GameLogic::DoExitMap (0x625E36) not ported
+0x007BBF19	NAMED_SHOCK	too big	S-7934: Object::rva00291A8C shockwave/knockback (0x692223) not ported
+0x007BCA04	NAMED_SET_STOPPING_DISTANCE	too big	S-7934: AIUpdate(+0x260)->Path(+0x1F0)+0x3C stopping distance override not ported
+0x007BCDA5	UNIT_SET_FLAME_STATUS	too big	S-7934: FlammableUpdate flame-status helper (0x7BCD3C) not ported
+0x007BCDC7	WATER_CHANGE_HEIGHT	too big	S-7934: TerrainLogic vslot 0x74/0x7C dynamic water height not ported
+0x007BCDFE	WATER_CHANGE_HEIGHT_OVER_TIME	too big	S-7934: TerrainLogic vslot 0x74/0x80 dynamic water height over time not ported
+0x007BD94A	FIND_HOME_BASE_OF_PLAYER	too big	S-7934: Player::rva002ABCF0 home-base lookup (0x6AC722) not ported
+0x007BD9DE	SELL_BUILDING_ON_FOUNDATION	too big	S-7934: Object 0x68C3C3 -> BuildAssistant [0xDE8200] vslot 0x6C sell on foundation not ported
+0x007BDA12	BUILD_BUILDING_ON_FOUNDATION	too big	S-7934: BuildAssistant / FoundationAIUpdate build on foundation not ported
+0x007BDED5	CHANGE_BURN_RATE_AT_WAYPOINT	too big	S-7934: FireLogicSystem::ChangeBurnRateInArea (0x6878D7) not ported
+0x007BEEE9	BUILD_BASE_BUILDING_IN_SLOT	too big	S-7934: CastleBehavior slot build (0x7996D3 / 0x79A5EC) not ported
+0x007BE38E	NAMED_USE_COMMANDBUTTON_ON_NEAREST_ENEMY_UNIT	too big	S-7935: PartitionFilter::And + ControlBar::findCommandButton + Object::doCommandButtonAtObject (0x697890) not ported
+0x007BE58C	NAMED_USE_COMMANDBUTTON_ON_NEAREST_GARRISONED_BUILDING	too big	S-7935: PartitionFilter::And + ControlBar::findCommandButton + Object::doCommandButtonAtObject (0x697890) not ported
+0x007BE8E6	NAMED_USE_COMMANDBUTTON_ON_NEAREST_ENEMY_BUILDING	too big	S-7935: PartitionFilter::And + ControlBar::findCommandButton + Object::doCommandButtonAtObject (0x697890) not ported
+0x007BEA2E	NAMED_USE_COMMANDBUTTON_ON_NEAREST_ENEMY_BUILDING_CLASS	too big	S-7935: PartitionFilter::And + ControlBar::findCommandButton + Object::doCommandButtonAtObject (0x697890) not ported
