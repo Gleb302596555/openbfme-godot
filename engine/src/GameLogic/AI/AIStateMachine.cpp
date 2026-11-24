@@ -1185,6 +1185,13 @@ void AIMoveAndEvacuateState::crc(StateHasher &h) const
 // ---- Local 84: AIMoveAndDeleteState (state 30, AICMD 0x38 RW 0x0066B7A2), AIMoveToPositionAndDieState (state 55, AICMD 0x41 RW 0x0066B817),
 //      AIWanderInPlaceState (state 41, AICMD 0x2C RW 0x0066488A) ----
 
+StateReturnType AIMoveAndDeleteState::onEnter()
+{
+	m_appendGoalPosition = true;
+	return AIMoveToMachineState::onEnter();
+}
+
+// RW 0x74BA18 (AIMoveAndDeleteState::update): sets LOCOMOTOR_FLAG_ALLOW_INVALID_POSITION (0x74BA3F), appends ground-snapped goal to path once (0x74BA43..0x74BA8E), destroys owner on exit.
 StateReturnType AIMoveAndDeleteState::update()
 {
 	Object *obj = ai().getObject();
@@ -1192,12 +1199,33 @@ StateReturnType AIMoveAndDeleteState::update()
 	{
 		return STATE_FAILURE;
 	}
+	if (Locomotor *loco = ai().curLocomotor())
+	{
+		loco->setFlags(loco->flags() | LOCOMOTOR_FLAG_ALLOW_INVALID_POSITION); // RW 0x74BA3F
+	}
+	if (m_appendGoalPosition)
+	{
+		Path *thePath = ai().mover().path();
+		if (!ai().mover().isWaitingForPath() && thePath != nullptr)
+		{
+			Coord3D goal = machine().goalPosition();
+			goal.z = obj->logic().getGroundHeight(goal.x, goal.y); // RW 0x74BA5E..0x74BA81
+			thePath->appendNode(&goal, LAYER_GROUND); // RW 0x74BA89 -> 0x665429
+			m_appendGoalPosition = false; // RW 0x74BA8E
+		}
+	}
 	const StateReturnType status = AIMoveToMachineState::update();
 	if (status != STATE_CONTINUE)
 	{
 		obj->logic().destroyObject(obj);
 	}
 	return status;
+}
+
+void AIMoveAndDeleteState::crc(StateHasher &h) const
+{
+	AIMoveToMachineState::crc(h);
+	h.addI32(m_appendGoalPosition ? 1 : 0);
 }
 
 StateReturnType AIMoveToPositionAndDieState::update()
@@ -1215,6 +1243,18 @@ StateReturnType AIMoveToPositionAndDieState::update()
 	return status;
 }
 
+static int wanderDeltaCells(const AIUpdateInterface &ai)
+{
+	// RW 0x750CC0..0x750CF5 & 0x750DEF..0x750E27: default 3 cells, else floor(m_wanderAboutPointRadius * 0.1f + 0.5f)
+	if (const Locomotor *loco = ai.curLocomotor())
+	{
+		const float r = loco->getTemplate().m_wanderAboutPointRadius;
+		return (int)std::floor(SimMath::addf32(SimMath::mulf32(r, 0.1f), 0.5f));
+	}
+	return 3;
+}
+
+// RW 0x750C8B (AIWanderInPlaceState::onEnter): records m_origin, switches to LOCOMOTORSET_WANDER (3), picks random offset in [-delta, delta] * 10 around m_origin, sets m_waitFrames = 10 + (id & 7).
 StateReturnType AIWanderInPlaceState::onEnter()
 {
 	Object *obj = ai().getObject();
@@ -1222,11 +1262,21 @@ StateReturnType AIWanderInPlaceState::onEnter()
 	{
 		return STATE_FAILURE;
 	}
-	m_origin = *obj->getPosition();
-	machine().setGoalPosition(m_origin);
+	m_origin = *obj->getPosition(); // RW 0x750C9C..0x750CA4
+	ai().chooseLocomotorSet(LOCOMOTORSET_WANDER); // RW 0x750CB0..0x750CBA
+	const int delta = wanderDeltaCells(ai());
+	const int rx = obj->logic().random().getValue(-delta, delta, "AIStates.cpp", 0x29CD); // RW 0x750CF8..0x750D12
+	const int ry = obj->logic().random().getValue(-delta, delta, "AIStates.cpp", 0x29CE); // RW 0x750D15..0x750D2D
+	m_timer = 0; // RW 0x750D30
+	Coord3D goal = m_origin;
+	goal.x = SimMath::addf32(goal.x, (float)(rx * 10));
+	goal.y = SimMath::addf32(goal.y, (float)(ry * 10));
+	machine().setGoalPosition(goal);
+	m_waitFrames = 10 + (int)(obj->getID() & 7u);
 	return AIMoveToMachineState::onEnter();
 }
 
+// RW 0x750D7F (AIWanderInPlaceState::update): updates move; S-7581 repulsor check (RW 0x750DAC -> 0x6FF3A2) not ported; when move completes, picks a new random offset around m_origin and re-enters move.
 StateReturnType AIWanderInPlaceState::update()
 {
 	Object *obj = ai().getObject();
@@ -1234,7 +1284,31 @@ StateReturnType AIWanderInPlaceState::update()
 	{
 		return STATE_FAILURE;
 	}
-	return AIMoveToMachineState::update();
+	const StateReturnType status = AIMoveToMachineState::update(); // RW 0x750D89
+	if (status != STATE_CONTINUE)
+	{
+		const int delta = wanderDeltaCells(ai());
+		const int rx = obj->logic().random().getValue(-delta, delta, "AIStates.cpp", 0x29F4); // RW 0x750E2A..0x750E44
+		const int ry = obj->logic().random().getValue(-delta, delta, "AIStates.cpp", 0x29F5); // RW 0x750E47..0x750E5F
+		Coord3D goal = m_origin;
+		goal.x = SimMath::addf32(goal.x, (float)(rx * 10));
+		goal.y = SimMath::addf32(goal.y, (float)(ry * 10));
+		machine().setGoalPosition(goal);
+		AIMoveToMachineState::onEnter();
+		return STATE_CONTINUE;
+	}
+	return STATE_CONTINUE;
+}
+
+// RW 0x74BD43 (AIWanderInPlaceState::onExit): base onExit, then restores LOCOMOTORSET_NORMAL (0) (RW 0x74BD62 -> vslot +0x238).
+void AIWanderInPlaceState::onExit(StateExitType status)
+{
+	AIMoveToMachineState::onExit(status);
+	if (ai().isDestroying())
+	{
+		return;
+	}
+	ai().chooseLocomotorSet(LOCOMOTORSET_NORMAL);
 }
 
 void AIWanderInPlaceState::crc(StateHasher &h) const
@@ -1243,4 +1317,6 @@ void AIWanderInPlaceState::crc(StateHasher &h) const
 	h.addFloat(m_origin.x);
 	h.addFloat(m_origin.y);
 	h.addFloat(m_origin.z);
+	h.addI32(m_waitFrames);
+	h.addI32(m_timer);
 }

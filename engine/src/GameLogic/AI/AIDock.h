@@ -71,6 +71,7 @@ private:
 	int m_approachPosition = -1; ///< + 0x3C
 };
 
+// Local 164: RW 0x742FB6 (~AIDockState), RW 0x74485F (AIDockState deleting dtor)
 class AIDockState : public AIState
 {
 public:

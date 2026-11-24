@@ -107,6 +107,7 @@ bool AIGroup::damagedWithin(const Object &o, int seconds)
 	return body->lastDamageFrame() + frames >= now;
 }
 
+// Local 164: RW 0x77088A (~AIGroup), RW 0x770C10 (AIGroup deleting dtor)
 AIGroup::~AIGroup() = default;
 
 const char *AIGroup::marchStopLine()

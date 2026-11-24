@@ -126,6 +126,8 @@ public:
 	bool isIdle() const override;      // RW 0x769E8F: not while + 0x57C bit 0 is set
 	// AI vslot 0x25C: RW 0x769F9F jumps to RW 0x6629D3, whose vslot 0x224 is this class's RW 0x9188EB (false): always true (lane LOCODIST-1)
 	bool treatAsAircraftForLocoDistToGoal() const override { return true; }
+	// RW 0x66299F -> AI vslot +0x168 (0xC2E1C8[90] = RW 0x8BD372: mov al, 1; ret)
+	bool isAircraftThatAdjustsDestination() const override { return true; }
 
 	// Port 257: CollideModuleInterface at GiantBirdAIUpdate + 0x24 (vtable RW 0xC2E19C): onCollide RW 0x76B56B, wouldLikeToCollideWith RW 0x7FEAC1 (false)
 	CollideModuleInterface *getCollide() override { return this; }

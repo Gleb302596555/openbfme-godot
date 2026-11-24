@@ -80,6 +80,7 @@ struct TriggerArea;
 struct NamedCamera;
 
 // What the script engine needs from the game beyond GameLogic (the live game implements it; a test may install its own)
+// Local 164: RW 0x7B40E1 (~Script)
 class ScriptEngineHost
 {
 public:

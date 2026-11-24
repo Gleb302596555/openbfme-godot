@@ -56,6 +56,7 @@ void parseOptionalObjectFilter(INI *ini, void *instance, void *store, const void
 
 #define FD_OFF(member) (int)offsetof(FoundationAIUpdateModuleData, member)
 const FieldParse kFoundationFieldParse[] = {
+	// Local 164: RW 0x6531F8 (GettingBuiltBehaviorModuleData::buildFieldParse)
 	{ "RepairHealthPercentPerSecond", INI::parsePercentToReal, nullptr, FD_OFF(m_repairHealthPercentPerSecond) },
 	{ "BuildVariation", INI::parseInt, nullptr, FD_OFF(m_buildVariation) },
 	{ nullptr, nullptr, nullptr, 0 }

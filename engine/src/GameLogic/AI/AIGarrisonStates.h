@@ -18,6 +18,7 @@
 //     (RW 0x6936C7); the horde is added (slot 0x9C)), update RW 0x7433E3 (SUCCESS once no member is on the way, else horde slot 0xFC), onExit RW 0x747CD1;
 //   * 38 AIExitState (RW 0xC27C48): onEnter RW 0x74352D (slot 0x44(obj, 1)), update RW 0x74356A (the container's exit interface: busy -> CONTINUE, a door -> exit
 //     through it), onExit RW 0x752BF4 (slot 0x44(obj, 2));
+// Local 164: RW 0x740F7A (AIHordeExitState ctor), RW 0x740F9E (AIHordeExitState::getStateName)
 //   * 53 AIHordeExitState (RW 0xC27AC8): onEnter RW 0x743437 (slot 0x44(horde, 1)), update RW 0x747D04 (the exit interface: busy -> CONTINUE; a door: the exit, then
 //     SUCCESS once the horde is out), onExit RW 0x74347D;
 //   * ActionManager::canEnterObject RW 0x82CBD5 and its shroud test RW 0x82C167; Object::isMobile RW 0x690E97.

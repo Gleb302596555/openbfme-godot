@@ -56,6 +56,7 @@ std::unique_ptr<class AIState> makeMoveOutOfTheWayState(class AIStateMachine &ma
 // Base AIUpdateInterface no-op/compiler slots in RotWK 2.01: RW 0x0066ECF9 (construct -> nullptr, vslot 126),
 // RW 0x00A15F21 (AICMD 0x3F/0x40 -> return -1, vslots 36/37), and MI this-0x0C thunks RW 0x008A18ED / RW 0x008FF2DB
 // (port uses single inheritance without a separate AICommandInterface subobject).
+// Local 164: RW 0x898381 (~AIUpdateModuleData), RW 0x991323 (AIUpdateModuleData ctor)
 class AIUpdateInterface : public UpdateModule, public AIMoveHost
 {
 public:
@@ -454,7 +455,7 @@ public:
 	unsigned long long memberUpdates() const { return m_memberUpdates; } ///< frames run through RW 0x66C748 (a counter, not state)
 	static std::string hordeMemberUpdateStop();
 	bool isDoingGroundMovement() const;       // B1 AIUpdate.cpp:3978
-	bool isAircraftThatAdjustsDestination() const; // B1 AIUpdate.cpp:4010
+	virtual bool isAircraftThatAdjustsDestination() const; // RW 0x66299F (AIUpdateInterface::isAircraftThatAdjustsDestination): vslot +0x168 (RW 0x9188EB false; GiantBirdAIUpdate RW 0x8BD372 true), else LOCO_HOVER / LOCO_WINGS
 	bool canPathThroughUnits() const override { return m_canPathThroughUnits; } // AI + 0x3BA
 	void setCanPathThroughUnits(bool v) { m_canPathThroughUnits = v; }
 	CommandSourceType lastCommandSource() const { return m_lastCommandSource; }

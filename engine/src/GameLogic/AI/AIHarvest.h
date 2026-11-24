@@ -49,6 +49,7 @@ enum
 	AI_HARVEST = 47 // RW 0x753755: AIHarvestState (RW 0x740F2C)
 };
 
+// Local 164: RW 0x74318C (~AIHarvestState), RW 0x74487B (AIHarvestState deleting dtor)
 class AIHarvestState : public AIState
 {
 public:

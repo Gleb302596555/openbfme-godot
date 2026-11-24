@@ -248,6 +248,7 @@ struct LocomotorTemplate
 };
 
 // ---- LocomotorStore (ZH LocomotorStore; global TheLocomotorStore, RW 0xDE369C) ---------------------------
+// Local 164: RW 0x5E36CD (~Locomotor)
 class LocomotorStore
 {
 public:
@@ -278,6 +279,7 @@ extern thread_local LocomotorStore *TheLocomotorStore;
 // ---- LocomotorSet ---------------------------------------------------------------------------------------
 // What an object's `LocomotorSet` blocks produce: per SET_* condition the template list (one entry
 // per parse; unresolved names stay null like retail) and the Speed.
+// Local 164: RW 0x5E7EB2 (~LocomotorSet)
 class LocomotorSetTemplate
 {
 public:

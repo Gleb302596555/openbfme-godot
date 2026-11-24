@@ -549,6 +549,7 @@ int TurretAI::getTurretTarget(Object *&obj, Coord3D &pos)
 	return m_target;
 }
 
+// Local 164: RW 0x6622C7 (AIUpdateInterface::setTurretTargetObject)
 void TurretAI::setTurretTargetObject(Object *victim, bool forceAttacking)
 {
 	if (isDead(victim) || !isOwnersCurWeaponOnTurret())
@@ -579,6 +580,7 @@ void TurretAI::setTurretTargetObject(Object *victim, bool forceAttacking)
 	}
 }
 
+// Local 164: RW 0x662317 (AIUpdateInterface::setTurretTargetPosition)
 void TurretAI::setTurretTargetPosition(const Coord3D *pos)
 {
 	if (!pos || !isOwnersCurWeaponOnTurret())

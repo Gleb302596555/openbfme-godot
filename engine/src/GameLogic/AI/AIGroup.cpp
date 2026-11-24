@@ -79,6 +79,7 @@ const char *AIGroup::stopLine()
 		"the ZH column and tighten moves and the weapon locks are not ported; a formation move's drag direction becomes the units' final facing (inference)";
 }
 
+// Local 164: RW 0x76E9AE (AIGroup::computeIndividualDestination)
 Coord3D AIGroup::computeIndividualDestination(const Coord3D &groupDest, Object &obj, const Coord3D &center) const
 {
 	const Coord3D &pos = *obj.getPosition();

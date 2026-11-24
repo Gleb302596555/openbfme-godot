@@ -18,6 +18,7 @@ namespace {
 using Data = SpecialEnemySenseUpdateModuleData;
 // RW 0xC07E98: filter, radius, then interval in milliseconds.
 const FieldParse kFields[] = {
+	// Local 164: RW 0x653E47 (SpecialEnemySenseUpdateModuleData::buildFieldParse)
 	{ "SpecialEnemyFilter", ParseObjectFilter, nullptr, (int)offsetof(Data, m_filter) },
 	{ "ScanRange", INI::parseReal, nullptr, (int)offsetof(Data, m_scanRange) },
 	{ "ScanInterval", INI::parseDurationUnsignedInt, nullptr, (int)offsetof(Data, m_scanInterval) },
