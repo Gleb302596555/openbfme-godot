@@ -160,21 +160,27 @@ LivingWorldCampaign Local175Scenario
 	End
 	Act One
 		SpawnArmy
-			Player = Good
+			ScriptingName = GoodArmyA
+			SpawnForTemplates = PlayerGood
+			HeroTemplateName = GoodHero
 			PlayerArmy = GoodHeroArmyA
-			Region = RegA
+			InitialRegion = RegA
 			SpawnAtActStart = Yes
 		End
 		SpawnArmy
-			Player = Good
+			ScriptingName = GoodArmyB
+			SpawnForTemplates = PlayerGood
+			HeroTemplateName = GoodHeroB
 			PlayerArmy = GoodHeroArmyB
-			Region = RegA
+			InitialRegion = RegA
 			SpawnAtActStart = Yes
 		End
 		SpawnArmy
-			Player = Evil
+			ScriptingName = EvilArmyA
+			SpawnForTemplates = PlayerEvil
+			HeroTemplateName = EvilHero
 			PlayerArmy = EvilHeroArmy
-			Region = RegB
+			InitialRegion = RegB
 			SpawnAtActStart = Yes
 		End
 	End
