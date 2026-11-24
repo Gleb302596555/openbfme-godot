@@ -102,12 +102,13 @@ void ArmorStore::parseArmorDefinition(INI *ini)
 	}
 	if (ini->getLoadType() == INI_LOAD_RELOAD)
 	{
-		// RW 0x5D8D7D: the existing template is flagged as having an override; the new one (flag 0) goes on the override list
+		// RW 0x5D8D7D: the existing template is flagged as having an override; the new one (flag 0) goes on the pending override list
 		it->second->m_flag = 1;
 		std::shared_ptr<ArmorTemplate> fresh = std::make_shared<ArmorTemplate>();
 		fresh->m_name = name;
 		fresh->m_flag = 0;
 		m_overrides.push_back(fresh);
+		m_hasPendingOverrides = true;
 		ini->initFromINI(fresh.get(), ArmorTemplate::getFieldParse());
 		return;
 	}
@@ -115,6 +116,31 @@ void ArmorStore::parseArmorDefinition(INI *ini)
 	ArmorTemplate scratch;
 	scratch.m_name = name;
 	ini->initFromINI(&scratch, ArmorTemplate::getFieldParse());
+}
+
+
+// RW 0x5D8C69: applies pending INI_LOAD_RELOAD overrides (RW store +0x2C) into m_templates (+0x0C),
+// pushing replaced entries onto m_retired (+0x20) and returning true if any override was applied.
+bool ArmorStore::update()
+{
+	if (!m_hasPendingOverrides)
+	{
+		return false;
+	}
+	m_hasPendingOverrides = false;
+	const size_t count = m_overrides.size();
+	for (const std::shared_ptr<ArmorTemplate> &ovr : m_overrides)
+	{
+		auto it = m_templates.find(ovr->m_name);
+		if (it != m_templates.end())
+		{
+			m_retired.push_back(it->second);
+			m_templates.erase(it);
+		}
+		m_templates[ovr->m_name] = ovr;
+	}
+	m_overrides.clear();
+	return count > 0;
 }
 
 void ArmorStore::parseArmorDefinitionGlobal(INI *ini)

@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 // See GameLogic/Module/HordeTransportContainDamage.h for the target facts and the addresses.
 
+// Local 169: RW 0x8BF204 (HordeTransportContainDamageModuleData::buildFieldParse)
 #include "GameLogic/Module/HordeTransportContainDamage.h"
 
 #include "Common/Thing/ModuleFactory.h"

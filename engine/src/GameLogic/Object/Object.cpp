@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 // See GameLogic/Object/Object.h for the creation order and its sources.
 
+// Local 169: RW 0x68DFF5 (Object::friend_adjustPowerForPlayer), RW 0x69A760 (~Object), RW 0x69AB8B (Object deleting dtor)
 #include "Common/Upgrade.h"
 #include "Common/SpecialPower.h"
 #include "Common/ModEngineFeatures.h"

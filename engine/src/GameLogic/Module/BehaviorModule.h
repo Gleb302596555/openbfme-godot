@@ -11,6 +11,8 @@
 // SpecialPower) are placeholders so the accessor set matches the binary's slot list; a module that implements one derives from the
 // class its lane defines.
 
+// Local 169: RW 0x64A48C (BehaviorModule::getModuleName), RW 0x85B73D (~BehaviorModule_85B73D), RW 0x85BAF1 (BehaviorModule::0xC574C8[0])
+// Local 169: RW 0x8BF7D7 (~CollideModule_base)
 #pragma once
 
 #include "Common/Module.h"

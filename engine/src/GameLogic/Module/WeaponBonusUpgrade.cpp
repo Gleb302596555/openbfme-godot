@@ -1,5 +1,7 @@
 // OpenBFME. GPL-3.0. See GameLogic/Module/WeaponBonusUpgrade.h for the target facts and the addresses.
 
+// Local 169: RW 0x8B9755 (~WeaponBonusUpgrade), RW 0x8B9775 (WeaponBonusUpgrade::getModuleName), RW 0x8B977B (WeaponBonusUpgrade::getModuleNameKey)
+// Local 169: RW 0x8B97F1 (WeaponBonusUpgrade deleting dtor)
 #include "GameLogic/Module/WeaponBonusUpgrade.h"
 
 #include "Common/Thing/ModuleFactory.h"

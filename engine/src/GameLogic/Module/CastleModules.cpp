@@ -2,6 +2,7 @@
 // See GameLogic/Module/CastleModules.h for the sources of every rule.
 
 #if defined(__GNUC__) || defined(__clang__)
+// Local 169: RW 0x68D8A8 (Object::refreshIndicatorColor)
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 

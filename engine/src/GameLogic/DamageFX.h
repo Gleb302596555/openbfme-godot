@@ -17,6 +17,7 @@
 //     major, else minor. Veterancy is IGNORED: both getters read row 0 (ZH indexes by the source's veterancy). The throttle is read
 //     from row 0 as well.
 
+// Local 169: RW 0x7625EC (DamageFXStore::findDamageFX), RW 0x7626CB (~DamageFXStore), RW 0x76277D (DamageFXStore deleting dtor)
 #pragma once
 
 #include "Common/INI.h"

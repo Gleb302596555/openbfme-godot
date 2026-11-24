@@ -24,6 +24,7 @@
 //     GrabNugget::RemoveTargetFromOtherContain (+0x14A) is never written by the retail constructor (operator new does not zero it):
 //     the port reports it (S-18x) and defaults to false.
 
+// Local 169: RW 0x90DD99 (DamageNugget::DamageNugget), RW 0x90E7EF (DamageNugget deleting dtor)
 #pragma once
 
 #include "Common/INI.h"

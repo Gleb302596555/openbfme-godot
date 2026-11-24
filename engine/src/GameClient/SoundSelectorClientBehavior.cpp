@@ -2,6 +2,7 @@
 // See GameClient/SoundSelectorClientBehavior.h for the target facts and the addresses (lane DECOMP-2, stop S-701). Client presentation: no simulation state.
 
 #if defined(__GNUC__) || defined(__clang__)
+// Local 169: RW 0x8CF529 (SoundState), RW 0x8CFFEF (SoundUpgrade)
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 

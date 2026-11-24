@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 // See GameLogic/AttributeModifiers.h.
 
+// Local 169: RW 0x64A4E3 (AttributeModifierPoolUpdateModuleData::friend_newModuleData)
 #include "Common/ModEngineFeatures.h"
 #include "GameLogic/AttributeModifiers.h"
 

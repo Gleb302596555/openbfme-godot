@@ -4,6 +4,7 @@
 // FireWeaponUpdate (lane SPELL-2) and FloodUpdate (lane SPELL-3). See GameLogic/Module/SpellEffectModules.h for the target facts.
 
 #if defined(__GNUC__) || defined(__clang__)
+// Local 169: RW 0x88F720 (FireWeaponNugget), RW 0x8917CF (FloodMember)
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 

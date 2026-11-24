@@ -1,4 +1,5 @@
 // OpenBFME. GPL-3.0. See GameLogic/Module/DelayedLuaEventUpdate.h (issue #285, LOCAL-35).
+// Local 169: RW 0x8AC3DC (DelayedLuaEventUpdateModuleData::buildFieldParse)
 #include "GameLogic/Module/DelayedLuaEventUpdate.h"
 
 #include "Common/StateHash.h"

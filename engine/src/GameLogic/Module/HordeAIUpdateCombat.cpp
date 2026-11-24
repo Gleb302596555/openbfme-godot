@@ -17,6 +17,7 @@
 // DONOR: B1 for the machine shape. INFERENCE: the nearest-member choices, the cell passability (every cell is assumed passable), the nearest-enemy distance (centres, minus radii),
 // the logic RNG call site of the idle cycle (its file / line is not read).
 
+// Local 169: RW 0x6964FD (Object::hordeMeleeContactScan)
 #include "GameLogic/Module/HordeAIUpdate.h"
 
 #include "Common/GameCommon.h"

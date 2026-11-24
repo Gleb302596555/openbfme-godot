@@ -2,6 +2,7 @@
 //
 // WeaponTemplate, WeaponStore and WeaponBonusSet. See GameLogic/Weapon.h for the target facts. Lane WEAPON-1.
 
+// Local 169: RW 0x68B5C4 (Object::getAmmoPipShowingInfo)
 #include "GameLogic/Weapon.h"
 
 #include "Common/AsciiString.h"

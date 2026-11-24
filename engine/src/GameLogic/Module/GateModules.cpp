@@ -2,6 +2,7 @@
 // See GameLogic/Module/GateModules.h for the target facts and the addresses.
 
 #if defined(__GNUC__) || defined(__clang__)
+// Local 169: RW 0x8B49E4 (TriggerWidthX)
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 

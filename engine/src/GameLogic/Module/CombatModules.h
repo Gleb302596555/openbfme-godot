@@ -23,6 +23,9 @@
 // #243): the destroyed object simply stays, COLLAPSING (model condition 0x14F) is set for CollapsingTime and, with StayOnRadar (data + 0x3C), the remains stay on the
 // radar; FXListDie records the event without playing the FX list.
 
+// Local 169: RW 0x64B011 (SlowDeathBehaviorModuleData::friend_newModuleData), RW 0x64C22E (ClearanceTestingSlowDeathBehaviorModuleData::friend_newModuleData), RW 0x8613DA (SlowDeathBehaviorModuleData ctor)
+// Local 169: RW 0x8614FF (~SlowDeathBehaviorModuleData), RW 0x8618E7 (SlowDeathBehaviorModuleData deleting dtor), RW 0x88713D (ClearanceTestingSlowDeathBehaviorModuleData deleting dtor)
+// Local 169: RW 0x887159 (~ClearanceTestingSlowDeathBehaviorModuleData)
 #pragma once
 
 #include "Common/INI.h"

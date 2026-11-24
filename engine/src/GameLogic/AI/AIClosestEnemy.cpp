@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 // See GameLogic/AI/AIClosestEnemy.h.
 
+// Local 169: RW 0x68DB19 (Object::isNonFactionStructure)
 #include "GameLogic/AI/AIClosestEnemy.h"
 #include "GameLogic/AI/AIGuard.h"
 

@@ -1,5 +1,6 @@
 // OpenBFME. GPL-3.0. Both editions: RW 0x8BCC82, BFME2 0x8B8B41.
 #if defined(__GNUC__) || defined(__clang__)
+// Local 169: RW 0x8BCBBA (FadeOutTime)
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 #include "GameLogic/Module/OathbreakersFadeAwayBehavior.h"

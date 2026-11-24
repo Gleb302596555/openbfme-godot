@@ -16,6 +16,7 @@
 // hordes without the field get a carrier at rank 2), the Angmar hordes set 0 (a carrier at rank 1, from the start) or 6. A horde's rank gain calls bannerCheck(1)
 // (RW 0x873ACF, HordeContainExperience.cpp).
 
+// Local 169: RW 0x89AE8A (IdleSpawnRate)
 #include "GameLogic/Module/BannerCarrierUpdate.h"
 #include "GameLogic/SnapshotXfer.h"
 

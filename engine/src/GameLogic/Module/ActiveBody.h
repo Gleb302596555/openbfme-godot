@@ -34,6 +34,7 @@
 // needs the four GameData rows + 0xAD4 .. 0xAE0 (HealthBonus_Regular / _Veteran / _Elite / _Heroic) the port does not parse.
 // The damage creation list and the siege side damage run since upstream lane BLDGDEBRIS-1 (see ActiveBody.cpp).
 
+// Local 169: RW 0x6569AD (~ActiveBodyModuleData)
 #pragma once
 
 #include "Common/INI.h"

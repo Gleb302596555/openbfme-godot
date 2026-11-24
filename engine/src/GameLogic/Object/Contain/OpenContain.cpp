@@ -6,6 +6,7 @@
 // The FieldParse offsets use offsetof on structs that hold standard library containers; those are
 // "conditionally supported" and well defined on GCC, Clang and MSVC (ZH does the same).
 #if defined(__GNUC__) || defined(__clang__)
+// Local 169: RW 0x890E2D (Enabled)
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 

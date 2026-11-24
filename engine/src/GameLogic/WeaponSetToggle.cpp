@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 // See WeaponSetToggle.h.
 
+// Local 169: RW 0x694636 (Object::clearWeaponSetFlagForHorde)
 #include "GameLogic/WeaponSetToggle.h"
 
 #include "Common/Thing/ThingTemplate.h"

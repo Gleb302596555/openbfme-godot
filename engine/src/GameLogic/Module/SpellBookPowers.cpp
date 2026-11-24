@@ -3,6 +3,10 @@
 // The spell book special power classes. See GameLogic/Module/SpellBookPowers.h for the target facts. Lane SPELL-2.
 
 #if defined(__GNUC__) || defined(__clang__)
+// Local 169: RW 0x651864 (ProductionSpeedBonus::friend_newModuleInstance), RW 0x651A19 (ElvenWoodSpecialPower::friend_newModuleInstance), RW 0x652217 (UntamedAllegianceSpecialPower::friend_newModuleInstance)
+// Local 169: RW 0x6523B8 (DevastateSpecialPower::friend_newModuleInstance), RW 0x6523F0 (DevastateSpecialPowerModuleData::friend_newModuleData), RW 0x8C60A6 (~OCLSpecialPower)
+// Local 169: RW 0x8C812B (ElvenWoodSpecialPowerModuleData deleting dtor), RW 0x8C8147 (~ElvenWoodSpecialPowerModuleData), RW 0x8CC8E9 (DevastateSpecialPowerModuleData ctor)
+// Local 169: RW 0x8CC947 (DevastateSpecialPowerModuleData deleting dtor)
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 

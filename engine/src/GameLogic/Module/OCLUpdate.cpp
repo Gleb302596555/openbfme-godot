@@ -2,6 +2,7 @@
 // See GameLogic/Module/OCLUpdate.h for the target facts and the addresses.
 
 #if defined(__GNUC__) || defined(__clang__)
+// Local 169: RW 0x89EB37 (OCL)
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 

@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 // See GameLogic/Module/EmotionModules.h for the target facts and the stops S-1021 / S-1022.
 
+// Local 169: RW 0x8B6462 (TauntAndPointDistance)
 #include "GameLogic/Module/EmotionModules.h"
 #include "GameLogic/SnapshotXfer.h"
 #include "GameLogic/ScriptEngine/ScriptEngine.h"

@@ -2,6 +2,7 @@
 // See GameClient/ModelConditionAudioLoopClientBehavior.h for the target facts and the addresses. Client presentation: no simulation state.
 
 #if defined(__GNUC__) || defined(__clang__)
+// Local 169: RW 0x8D09E1 (ModelCondition)
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 

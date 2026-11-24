@@ -2,6 +2,7 @@
 // See GameLogic/Module/ExtraCreateModules.h for the target facts, the addresses and what is inference.
 
 #if defined(__GNUC__) || defined(__clang__)
+// Local 169: RW 0x8BCDDD (SlotToLock), RW 0x8BD331 (LevelToGrant), RW 0x8BD61B (Radius)
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 

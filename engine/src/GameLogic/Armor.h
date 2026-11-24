@@ -56,8 +56,13 @@ public:
 class ArmorStore
 {
 public:
+	ArmorStore() = default;  // RW 0x5D8F11
+	~ArmorStore() = default; // RW 0x5D8B5B, RW 0x5D8C4D
+
 	// RW 0x5D88B6: nullptr when absent
 	const ArmorTemplate *findArmorTemplate(const std::string &name) const;
+	// RW 0x5D8C69: applies pending INI_LOAD_RELOAD overrides into m_templates, retiring previous entries
+	bool update();
 	// RW 0x5D891E
 	bool isOverridden(const std::string &name) const;
 
@@ -71,7 +76,9 @@ public:
 
 private:
 	std::map<std::string, std::shared_ptr<ArmorTemplate>> m_templates;
-	std::vector<std::shared_ptr<ArmorTemplate>> m_overrides; ///< RW store +0x20
+	std::vector<std::shared_ptr<ArmorTemplate>> m_retired;   ///< RW store +0x20 (previous templates replaced on update)
+	std::vector<std::shared_ptr<ArmorTemplate>> m_overrides; ///< RW store +0x2C (pending reload overrides)
+	bool m_hasPendingOverrides = false;                      ///< RW 0xDE3608
 };
 
 extern thread_local ArmorStore *TheArmorStore;
