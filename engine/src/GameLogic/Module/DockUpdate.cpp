@@ -672,6 +672,7 @@ bool SupplyCenterDockUpdate::action(Object &docker, Object *)
 }
 
 // RW 0x8AB6C6 (ctor)
+// RW 0x8AB410 (SupplyWarehouseDockUpdate::buildFieldParse)
 void SupplyWarehouseDockUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	DockUpdateModuleData::buildFieldParse(p); // the base table first, as SupplyCenterDockUpdate's

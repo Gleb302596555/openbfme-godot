@@ -99,7 +99,11 @@ public:
 	};
 	const MeleeStats &meleeStats() const { return m_stats; }
 
+	// RW 0x98F9D8 (HordeMeleeAmoeba::notifyOfMemberDeath): wakes idle Amoeba members on member death
+	void notifyAmoebaMemberDeath();
+
 	friend struct Horde2HashAccess; // the HORDE-2 hash mutation tests (test_horde2_hash.cpp)
+	friend struct Local168AmoebaAccess; // LOCAL-168 Amoeba tests (test_local_168.cpp)
 
 private:
 	struct MemberRecord

@@ -153,6 +153,9 @@ float absF(float a)
 // stealth test of the goal is RW 0x694C0D (lane STEALTH-1).
 // NOT REACHED YET (S-583): RotWK's AIAttackState::update (RW 0x7510EC) keeps running this inner machine when the outer victim is dead (non-ARMY_OF_DEAD), the port's
 // AIAttackState (AIAttack.cpp, ZH donor) ends the attack first, so the re-acquisition only runs in a machine of its own (test_flank1.cpp).
+// RW 0x744D6E (AttackHordeStateMachine::AttackHordeStateMachine), RW 0x7414CD (~AttackHordeStateMachine), RW 0x744FE6 (deleting dtor), RW 0x74151A (getName)
+// RW 0x99002F (~HordeMeleeAmoeba), RW 0x990013 (HordeMeleeAmoeba deleting dtor), RW 0x990B63 (HordeMeleeAmoeba record count, 0xC872D8[2])
+// RW 0x98B981 (HordeMeleeHoldGround::HordeMeleeHoldGround), RW 0x98B9A8 (HordeMeleeHoldGround deleting dtor)
 struct HordeSquishState : AIState
 {
 	explicit HordeSquishState(AIStateMachine &m) : AIState(m, "AIAttackMeleeSquishState") {}
@@ -2017,4 +2020,43 @@ bool AttackTargetFleeing(Object &self, Object &victim)
 bool AttackCrushPolicy(Object &self, Object &victim)
 {
 	return HordeSquishState::crushPolicy(self, victim);
+}
+
+// RW 0x98F9D8 (HordeMeleeAmoeba::notifyOfMemberDeath): when a horde member dies during an Amoeba melee,
+// walks every live contained member with an AI; if its Amoeba record has idle set (+0x38), clears idle
+// and resets timer (+0x34) to data->m_delayUntilIdle (+0x64).
+void HordeAIUpdate::notifyAmoebaMemberDeath()
+{
+	Object *horde = getObject();
+	if (!horde)
+	{
+		return;
+	}
+	unsigned delayUntilIdle = 2u * (unsigned)LOGICFRAMES_PER_SECOND;
+	if (HordeContain *hc = hordeContainOf(*horde))
+	{
+		if (const MeleeBehaviorModuleData *mb = hc->meleeBehaviorData())
+		{
+			delayUntilIdle = mb->m_delayUntilIdle;
+		}
+	}
+	for (Object *m : membersOf())
+	{
+		if (!m || m->isEffectivelyDead() || !m->getAIUpdateInterface())
+		{
+			continue;
+		}
+		for (MemberRecord &rec : m_records)
+		{
+			if (rec.id == m->getID())
+			{
+				if (rec.idle)
+				{
+					rec.idle = false;
+					rec.timer = delayUntilIdle;
+				}
+				break;
+			}
+		}
+	}
 }

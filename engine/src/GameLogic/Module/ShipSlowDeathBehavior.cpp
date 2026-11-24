@@ -64,6 +64,7 @@ void ShipSlowDeathBehavior::xfer(Xfer &x) {
     x.xferReal(&m_rollRate);
 }
 void ShipSlowDeathBehavior::registerClass(ModuleFactory &factory) {
+    // RW 0x8619CD (ShipSlowDeathBehavior::buildFieldParse)
     factory.bindTypedData<SlowDeathBehaviorModuleData>("ShipSlowDeathBehavior", MODULETYPE_BEHAVIOR);
     factory.bindModuleProc("ShipSlowDeathBehavior", MODULETYPE_BEHAVIOR, [](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &) -> std::unique_ptr<Module> {
         auto *typed = dynamic_cast<const SlowDeathBehaviorModuleData *>(data);

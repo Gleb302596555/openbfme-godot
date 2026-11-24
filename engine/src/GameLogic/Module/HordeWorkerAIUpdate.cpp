@@ -73,6 +73,7 @@ void normalizeCoord3D(Coord3D &v)
 } // namespace
 
 // RW 0x64EE0E / BFME2 0x49AD15
+// RW 0x89E4DA (HordeWorkerAIUpdate::HordeWorkerAIUpdate)
 HordeWorkerAIUpdate::HordeWorkerAIUpdate(Thing *thing, const ModuleData *data)
 	: HordeAIUpdate(thing, data)
 {

@@ -42,6 +42,7 @@ const char kStop[] =
 }
 
 // RW 0x652E33 (friend_newModuleData)
+// RW 0x8D17E7 (TeleportToCasterSpecialPower::buildFieldParse)
 void TeleportToCasterSpecialPowerModuleData::buildFieldParse(MultiIniFieldParse &p) {
     SpecialAbilityUpdateModuleData::buildFieldParse(p);
     p.add(kFields);

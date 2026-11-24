@@ -196,6 +196,7 @@ void TunnelTracker::crc(StateHasher &h) const
 // ---------------------------------------------------------------------------------------------------------------------------------
 // TunnelContain
 // ---------------------------------------------------------------------------------------------------------------------------------
+// RW 0x64B9B7 (TunnelContain::buildFieldParse)
 void TunnelContainBehaviorData::buildFieldParse(MultiIniFieldParse &p)
 {
 	HordeGarrisonContainBehaviorData::buildFieldParse(p); // RW 0x87D2A3 and the DieMux table

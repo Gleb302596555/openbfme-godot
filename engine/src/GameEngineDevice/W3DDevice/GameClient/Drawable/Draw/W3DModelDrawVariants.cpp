@@ -87,30 +87,35 @@ const FieldParse kSupplyFieldParse[] = {
 #undef REAL_ROW
 } // namespace
 
+// RW 0x4CA91B (W3DTruckDraw::buildFieldParse)
 void W3DTruckDrawModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	W3DModelDrawModuleData::buildFieldParse(p); // registry: tables [0xBE1320, 0xBE22B8]
 	p.add(kTruckFieldParse);
 }
 
+// RW 0x4CFF67 (W3DSailModelDraw::buildFieldParse)
 void W3DSailModelDrawModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	W3DModelDrawModuleData::buildFieldParse(p);
 	p.add(kSailFieldParse);
 }
 
+// RW 0x4C97A1 (W3DQuadrupedDraw::buildFieldParse)
 void W3DQuadrupedDrawModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	W3DModelDrawModuleData::buildFieldParse(p);
 	p.add(kQuadrupedFieldParse);
 }
 
+// RW 0x4CD78A (W3DTankDraw::buildFieldParse)
 void W3DTankDrawModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	W3DModelDrawModuleData::buildFieldParse(p);
 	p.add(kTankFieldParse);
 }
 
+// RW 0x4CA601 (W3DSupplyDraw::buildFieldParse)
 void W3DSupplyDrawModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	W3DModelDrawModuleData::buildFieldParse(p);

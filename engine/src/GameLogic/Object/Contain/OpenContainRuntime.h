@@ -38,6 +38,7 @@ class AIUpdateInterface;
 struct DieMuxData;
 struct OpenContainModuleData;
 
+// RW 0x867A6F (OpenContain::getModuleName, 0xC59C68[2]), RW 0x867A2A (OpenContain::getModuleNameKey, 0xC59C68[4])
 class OpenContain : public UpdateModule, public ContainModuleInterface, public DieModuleInterface, public CollideModuleInterface
 {
 public:

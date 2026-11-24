@@ -1505,6 +1505,7 @@ void SiegeModules::registerAll(ModuleFactory &modules)
 	bindRuntime<StopSpecialPower, StopSpecialPowerModuleData>(modules, "StopSpecialPower");
 	DeployStyleModules::registerAll(modules); // the Demolisher deploy (GameLogic/Module/DeployStyleAIUpdate.cpp)
 	// after AIUpdateInterface::registerClasses: SiegeAIUpdate replaces the base AI's binding (as DozerAIUpdate does)
+	// RW 0x893B9F (SiegeAIUpdate::buildFieldParse)
 	modules.bindModuleProc("SiegeAIUpdate", MODULETYPE_BEHAVIOR, [](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &info) -> std::unique_ptr<Module> {
 		if (!thing->asObject() || !thing->asObject()->logic().aiWorld())
 		{

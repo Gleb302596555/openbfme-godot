@@ -67,8 +67,10 @@ const FieldParse kFields[] = {
 };
 } // namespace
 
+// RW 0x8C59F5 (FreeLifeBody::buildFieldParse)
 void FreeLifeBodyModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
+	// RW 0x8C545F (RespawnBody::buildFieldParse)
 	RespawnBodyModuleData::buildFieldParse(p); // RW 0xC71D68, 0xC723FC
 	p.add(kFields);                            // RW 0xC727F8
 }

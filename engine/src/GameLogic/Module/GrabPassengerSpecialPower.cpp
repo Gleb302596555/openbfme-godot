@@ -50,6 +50,7 @@ bool hasKind(const Object &o, int bit)
 }
 } // namespace
 
+// RW 0x8C9412 (GrabPassengerSpecialPower::buildFieldParse)
 void GrabPassengerSpecialPowerModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialPowerModuleData::buildFieldParse(p); // RW 0xC64DB0

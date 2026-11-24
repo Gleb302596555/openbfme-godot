@@ -1679,6 +1679,7 @@ void GarrisonContain::xfer(Xfer &x)
 }
 
 // RW 0x8835AB: the shared base of the two slaughter containers.
+// RW 0x64BD1F (friend_newModuleInstance), RW 0x88360D (getModuleName), RW 0x883618 (getModuleNameKey), RW 0x88365D (~SlaughterHordeContain), RW 0x8834F7 (xfer)
 SlaughterHordeContain::SlaughterHordeContain(Thing *thing, const SlaughterHordeContainBehaviorData *data)
 	: GarrisonContain(thing, data, data->horde.m_garrison, data->m_dieMux, &data->horde), m_slaughter(data)
 {

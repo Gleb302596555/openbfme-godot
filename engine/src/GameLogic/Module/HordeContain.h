@@ -113,6 +113,7 @@ struct MeleeBehaviorModuleData
 	static const FieldParse *getAmoebaFieldParse();
 };
 
+// RW 0x878B7E (~HordeContainModuleData), RW 0x8790EA (HordeContainModuleData deleting dtor)
 struct HordeContainModuleData
 {
 	HordeContainModuleData(); // RW 0x878EE5

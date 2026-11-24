@@ -140,6 +140,7 @@ void WeaponChangeSpecialPowerModule::doSpecialPower(unsigned options)
 
 void WeaponChangeSpecialPowerModule::registerClass(ModuleFactory &modules)
 {
+	// RW 0x8C8262 (WeaponChangeSpecialPowerModule::buildFieldParse)
 	modules.bindTypedData<WeaponChangeSpecialPowerModuleData>("WeaponChangeSpecialPowerModule", MODULETYPE_BEHAVIOR);
 	modules.bindModuleProc("WeaponChangeSpecialPowerModule", MODULETYPE_BEHAVIOR,
 						   [](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &) -> std::unique_ptr<Module> {

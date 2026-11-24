@@ -36,6 +36,7 @@ const FieldParse kFields[] = {
 };
 }
 // RW 0x64FA49 (friend_newModuleInstance)
+// RW 0x64FA2E (ReplaceObjectUpdate::buildFieldParse)
 void ReplaceObjectUpdateModuleData::buildFieldParse(MultiIniFieldParse &p) {
     SpecialAbilityUpdateModuleData::buildFieldParse(p);
     p.add(kFields);

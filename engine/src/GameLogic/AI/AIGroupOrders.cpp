@@ -320,6 +320,7 @@ MoveToFormationGroupOrder::MoveToFormationGroupOrder(GameLogic &logic, std::vect
 {
 }
 
+// RW 0x94E806 (MoveToFormationGroupOrder::activate, slot 4); RW 0x831CB0 (Formation::rotate slot offsets)
 void MoveToFormationGroupOrder::activate(ObjectID id)
 {
 	if (m_positions.empty())

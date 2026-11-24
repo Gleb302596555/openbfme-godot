@@ -26,6 +26,7 @@ struct DestinationTemplateEntry
 };
 
 // Data class size 0xE0 (RW 0x0064BE78, ctor RW 0x008849CE): base HordeGarrisonContainBehaviorData (0xD4) + vector at +0xD4
+// RW 0x8849F2 (ProductionQueueHordeContainModuleData deleting dtor)
 class ProductionQueueHordeContainBehaviorData : public HordeGarrisonContainBehaviorData
 {
 public:

@@ -1702,6 +1702,7 @@ GiantBirdAIUpdate::~GiantBirdAIUpdate() = default;
 
 void GiantBirdAIUpdate::registerClass(ModuleFactory &modules)
 {
+	// RW 0x769E35 (GiantBirdAIUpdate::buildFieldParse)
 	modules.bindModuleProc("GiantBirdAIUpdate", MODULETYPE_BEHAVIOR, [](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &info) -> std::unique_ptr<Module> {
 		// a logic without an AIWorld has nothing to fly on: the explicit unported module, as AIUpdateInterface::registerClasses does
 		if (!thing->asObject() || !thing->asObject()->logic().aiWorld())

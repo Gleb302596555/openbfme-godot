@@ -26,6 +26,8 @@ namespace
 constexpr const char *kProjectilePreciseZStop = "[S-7433] position approach: projectile locomotor precise-Z flag is not ported (RW 0x74E9EC / 0x74A51B)";
 }
 
+// RW 0x741564 (~AttackPositionHordeStateMachine), RW 0x7455B4 (deleting dtor), RW 0x7415B1 (getName)
+// RW 0x86D562 (HordeContain::allMembersAttacking, 0xC5B1F8[83]), RW 0x86D438 (HordeContain::allMembersAttackingTarget, 0xC5B1F8[82])
 AIHordePositionWaitState::AIHordePositionWaitState(AIStateMachine &machine)
 	: AIState(machine, "AIHordePositionWaitState")
 {

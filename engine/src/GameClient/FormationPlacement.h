@@ -10,6 +10,7 @@
 // TARGET FACT: RotWK attaches FormationTranslator at priority 35 (RW 0x646771).
 // Target parity of the donor gesture is unverified (S-4464). The slot layout and
 // per-object orders remain an OpenBFME reconstruction, also reported by S-4464.
+// RW 0x83E25D (FormationTranslator::FormationTranslator), RW 0x83E2EE (FormationTranslator::translateGameMessage, 0xC53DBC[0])
 class FormationPlacement : public MessageTranslator
 {
   public:

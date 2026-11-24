@@ -87,6 +87,7 @@ public:
 
 // RotWK tables 0xC5EFE8 / 0xC5F080; delivery runtime ported from BFME2's
 // CitadelSlaughterHordeContain (0x48071D, 0x4807C7, 0x480E9A, 0x480FE2).
+// RW 0x64BD5A (SlaughterHordeContainModuleData::friend_newModuleData), RW 0x884337 (~SlaughterHordeContainModuleData), RW 0x884375 (deleting dtor)
 class SlaughterHordeContainBehaviorData : public HordeGarrisonContainBehaviorData
 {
 public:

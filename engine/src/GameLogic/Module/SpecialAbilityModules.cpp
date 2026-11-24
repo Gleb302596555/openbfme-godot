@@ -448,6 +448,7 @@ void SpecialAbilityUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 }
 
 // RW 0x64D82F (friend_newModuleData), RW 0x64D7F4 (friend_newModuleInstance)
+// RW 0x64D7D9 (WeaponFireSpecialAbilityUpdate::buildFieldParse)
 void WeaponFireSpecialAbilityUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialAbilityUpdateModuleData::buildFieldParse(p);
@@ -455,6 +456,7 @@ void WeaponFireSpecialAbilityUpdateModuleData::buildFieldParse(MultiIniFieldPars
 }
 
 // RW 0x64F376 (friend_newModuleInstance)
+// RW 0x64F35B (ToggleMountedSpecialAbilityUpdate::buildFieldParse)
 void ToggleMountedSpecialAbilityUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialAbilityUpdateModuleData::buildFieldParse(p);
@@ -462,12 +464,14 @@ void ToggleMountedSpecialAbilityUpdateModuleData::buildFieldParse(MultiIniFieldP
 }
 
 // RW 0x64D6A0 (friend_newModuleInstance)
+// RW 0x64D685 (HeroModeSpecialAbilityUpdate::buildFieldParse)
 void HeroModeSpecialAbilityUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialAbilityUpdateModuleData::buildFieldParse(p);
 	p.add(kHeroMode);
 }
 
+// RW 0x8C6CDF (LevelGrantSpecialPower::buildFieldParse)
 void LevelGrantSpecialPowerModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialAbilityUpdateModuleData::buildFieldParse(p);
@@ -475,6 +479,7 @@ void LevelGrantSpecialPowerModuleData::buildFieldParse(MultiIniFieldParse &p)
 }
 
 // RW 0x64D349 (friend_newModuleInstance)
+// RW 0x64D32E (ModelConditionSpecialAbilityUpdate::buildFieldParse)
 void ModelConditionSpecialAbilityUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialAbilityUpdateModuleData::buildFieldParse(p);
@@ -482,6 +487,7 @@ void ModelConditionSpecialAbilityUpdateModuleData::buildFieldParse(MultiIniField
 }
 
 // RW 0x64F574 (friend_newModuleInstance)
+// RW 0x64F559 (SummonReplacementSpecialAbilityUpdate::buildFieldParse)
 void SummonReplacementSpecialAbilityUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialAbilityUpdateModuleData::buildFieldParse(p);
@@ -489,6 +495,7 @@ void SummonReplacementSpecialAbilityUpdateModuleData::buildFieldParse(MultiIniFi
 }
 
 // RW 0x64F733 (friend_newModuleInstance)
+// RW 0x64F718 (SpecialDisguiseUpdate::buildFieldParse)
 void SpecialDisguiseUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialAbilityUpdateModuleData::buildFieldParse(p);
