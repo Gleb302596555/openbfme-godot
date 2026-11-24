@@ -344,11 +344,17 @@ private:
 };
 
 // Local 84: AIMoveAndDeleteState (state 30 = 0x1E, AICMD 0x38 RW 0x0066B7A2; DONOR BFME2 0x0034A02D AIMoveAndDeleteStateUpdate.cpp).
+// RW 0x74BA18 (update), RW 0x7428F3 (xfer): sets LOCOMOTOR_FLAG_ALLOW_INVALID_POSITION, appends ground-snapped goal once when path is ready, destroys owner on finish.
 class AIMoveAndDeleteState : public AIMoveToMachineState
 {
 public:
 	explicit AIMoveAndDeleteState(AIStateMachine &m) : AIMoveToMachineState(m, "AIMoveAndDeleteState") {}
+	StateReturnType onEnter() override;
 	StateReturnType update() override;
+	void crc(class StateHasher &hasher) const override;
+	void xfer(class Xfer &x) override;
+private:
+	bool m_appendGoalPosition = true; // RW +0x4C
 };
 
 // Local 84: AIMoveToPositionAndDieState (state 55 = 0x37, AICMD 0x41 RW 0x0066B817; DONOR BFME2 0x003513C9 AIStatesBfmeOnExit.cpp).
@@ -360,16 +366,20 @@ public:
 };
 
 // Local 84: AIWanderInPlaceState (state 41 = 0x29, AICMD 0x2C RW 0x0066488A; DONOR BFME2 0x0034F2F7 AIWanderInPlaceStateUpdate.cpp).
+// RW 0x750C8B (onEnter), RW 0x750D7F (update), RW 0x74BD43 (onExit), RW 0x742B6E (xfer), RW 0x7446C6 (ctor), RW 0x74471A (name)
 class AIWanderInPlaceState : public AIMoveToMachineState
 {
 public:
 	explicit AIWanderInPlaceState(AIStateMachine &m) : AIMoveToMachineState(m, "AIWanderInPlaceState") {}
 	StateReturnType onEnter() override;
 	StateReturnType update() override;
+	void onExit(StateExitType status) override;
 	void crc(class StateHasher &hasher) const override;
 	void xfer(class Xfer &x) override;
 private:
-	Coord3D m_origin{ 0.0f, 0.0f, 0.0f };
+	Coord3D m_origin{ 0.0f, 0.0f, 0.0f }; // RW +0x4C
+	int m_waitFrames = 0;                 // RW +0x58
+	int m_timer = 0;                      // RW +0x5C
 };
 
 // AIFollowPathState (ZH AIStates.cpp:3253-3420): walks the machine's goal path node by node; the exit-production variant (id 7) does not

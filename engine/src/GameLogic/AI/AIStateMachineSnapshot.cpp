@@ -167,6 +167,16 @@ void AIMoveAndEvacuateState::xfer(Xfer &x)
 	AIXfer::coord(x, m_origin);
 }
 
+// RW 0x7428F3 (AIMoveAndDeleteState::xfer): version 1, base xfer, then m_appendGoalPosition (+0x4C)
+void AIMoveAndDeleteState::xfer(Xfer &x)
+{
+	XferVersion v{ 1, 1 };
+	x.xferVersion(v);
+	AIMoveToMachineState::xfer(x);
+	x.xferBool(&m_appendGoalPosition);
+}
+
+// RW 0x742B6E (AIWanderInPlaceState::xfer): version 1, base xfer, then m_origin (+0x4C), m_waitFrames (+0x58), m_timer (+0x5C)
 void AIWanderInPlaceState::xfer(Xfer &x)
 {
 	XferVersion v{ 1, 1 };
@@ -175,4 +185,6 @@ void AIWanderInPlaceState::xfer(Xfer &x)
 	x.xferReal(&m_origin.x);
 	x.xferReal(&m_origin.y);
 	x.xferReal(&m_origin.z);
+	x.xferInt(&m_waitFrames);
+	x.xferInt(&m_timer);
 }
