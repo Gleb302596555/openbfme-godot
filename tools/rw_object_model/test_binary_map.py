@@ -84,3 +84,97 @@ def test_ctor_facts_install_on_this_and_base_call_on_this_plus_4():
     assert f["vt"] == [(0x401002, ("this",), 0, 0x402000)]
     assert f["calls"] == [(0x40100B, 0x401020, ("add", ("this",), 4))]
     assert f["rets"] == [("ret", 0x401020, 0x40100B)]
+
+
+def test_binary_report_proven_glue_non_code_and_verdicts(tmp_path):
+    import binary_report as br
+    from collections import Counter
+
+    # Synthetic image:
+    # 0x401000: real function using _EH_prolog (mov eax, 0x401020; call 0x401080; ret)
+    # 0x401020: 10B __ehhandler$ (mov eax, 0x402000; jmp 0x401090)
+    # 0x401030: unwind funclet referenced by FuncInfo.pUnwindMap at 0x402020 (ret)
+    # 0x401040: real ~Class() dtor (ret)
+    # 0x401050: scalar deleting dtor wrapper calling 0x401040 and delete 0x4010A0 (ret 4)
+    # 0x401080: _EH_prolog stub (ret)
+    # 0x401090: __CxxFrameHandler stub (ret)
+    # 0x4010A0: operator delete stub (ret)
+    # 0x4010B0: phantom data entry with iretd (impossible in user-mode code)
+    # 0x4010C0: real data callback (ret) - MUST stay none!
+    # 0x4010D0: verdict `not reached` with evidence -> not-reached
+    # 0x4010E0: verdict `too big` -> MUST stay none!
+    # 0x4010F0: verdict `not reached` WITHOUT evidence -> MUST stay none!
+    def rel32(src_end, dst):
+        return struct.pack("<i", dst - src_end)
+
+    fn_prolog = b"\xB8" + dd(0x401020) + b"\xE8" + rel32(0x40100A, 0x401080) + b"\xC3"
+    eh_handler = b"\xB8" + dd(0x402000) + b"\xE9" + rel32(0x40102A, 0x401090)
+    # push esi; mov esi, ecx; call 0x401040; test byte ptr [esp+8], 1; je +7; push esi; call 0x4010A0; pop ecx; mov eax, esi; pop esi; ret 4
+    sdd = (
+        bytes.fromhex("56 8B F1 E8") + rel32(0x401058, 0x401040)
+        + bytes.fromhex("F6 44 24 08 01 74 07 56 E8") + rel32(0x401065, 0x4010A0)
+        + bytes.fromhex("59 8B C6 5E C2 04 00")
+    )
+    func_info = dd(0x19930520, 1, 0x402020)
+    unwind_map = struct.pack("<iI", -1, 0x401030)
+
+    b = fake(
+        {
+            0x401000: fn_prolog,
+            0x401020: eh_handler,
+            0x401030: b"\xC3",
+            0x401040: b"\xC3",
+            0x401050: sdd,
+            0x401080: b"\xC3",
+            0x401090: b"\xC3",
+            0x4010A0: b"\xC3",
+            0x4010B0: b"\xCF",  # iretd
+            0x4010C0: b"\xC3",
+            0x4010D0: b"\xC3",
+            0x4010E0: b"\xC3",
+            0x4010F0: b"\xC3",
+        },
+        {0x402000: func_info, 0x402020: unwind_map},
+    )
+    rec = {
+        "functions": [
+            {"address": 0x401000, "size": len(fn_prolog), "evidence": "call", "calls": [0x401080], "tails": []},
+            {"address": 0x401020, "size": len(eh_handler), "evidence": "code-imm", "calls": [], "tails": [0x401090]},
+            {"address": 0x401030, "size": 1, "evidence": "data", "calls": [], "tails": []},
+            {"address": 0x401040, "size": 1, "evidence": "call", "calls": [], "tails": []},
+            {"address": 0x401050, "size": len(sdd), "evidence": "vtable-slot", "calls": [0x401040, 0x4010A0], "tails": []},
+            {"address": 0x401080, "size": 1, "evidence": "call", "calls": [], "tails": []},
+            {"address": 0x401090, "size": 1, "evidence": "call", "calls": [], "tails": []},
+            {"address": 0x4010A0, "size": 1, "evidence": "call", "calls": [], "tails": []},
+            {"address": 0x4010B0, "size": 1, "evidence": "data", "calls": [], "tails": []},
+            {"address": 0x4010C0, "size": 1, "evidence": "data", "calls": [], "tails": []},
+            {"address": 0x4010D0, "size": 1, "evidence": "call", "calls": [], "tails": []},
+            {"address": 0x4010E0, "size": 1, "evidence": "call", "calls": [], "tails": []},
+            {"address": 0x4010F0, "size": 1, "evidence": "call", "calls": [], "tails": []},
+        ]
+    }
+    xmap = {0x4010A0: ("??3@YAXPAX@Z", "library", "A")}
+
+    assert br.proven_seh_glue(b, rec) == {0x401020, 0x401030}
+    assert br.proven_deleting_dtors(b, rec, xmap) == {0x401050}
+    # Wrapped ~Class() at 0x401040 is NOT excluded:
+    assert 0x401040 not in br.proven_deleting_dtors(b, rec, xmap)
+
+    tier = {fn["address"]: fn["evidence"] for fn in rec["functions"]}
+    nc = br.proven_non_code(b, rec, tier, Counter(), Counter(), {})
+    assert nc == {0x4010B0}
+    assert 0x4010C0 not in nc  # real data callback stays untouched!
+
+    vdir = tmp_path / "rw_verdicts.d"
+    vdir.mkdir()
+    (vdir / "LOCAL-999.tsv").write_text(
+        "function\tname\tverdict\tevidence\n"
+        "0x4010D0\tfnD\tnot reached\t0 callers in map\n"
+        "0x4010E0\tfnE\ttoo big\tneeds whole subsystem\n"
+        "0x4010F0\tfnF\tnot reached\t\n",
+        encoding="utf-8",
+    )
+    nr = br.load_not_reached_verdicts(vdir)
+    assert nr == {0x4010D0}
+    assert 0x4010E0 not in nr  # too big MUST remain open
+    assert 0x4010F0 not in nr  # verdict without evidence MUST remain open

@@ -350,3 +350,40 @@ def test_reports_accept_library_rows(tmp_path):
     rows = [MapRow('Low', 0, 0x401000, 'library', objects=1, instructions=20), MapRow('Low', 1, 0x401010, 'none', objects=1, instructions=5)]
     write_reports(rows, tsv, md, 'example', {}, {}, 200)
     assert '\tlibrary\t' in tsv.read_text(encoding='utf-8') and 'library 1' in md.read_text(encoding='utf-8')
+
+
+def test_scan_citations_ignores_string_literals_and_chains_slash_comma(tmp_path):
+    (tmp_path / 'stop_and_chain.cpp').write_text(
+        'const char *stop = "[S-657] walls: not ported: "\n'
+        '    "the end-hub link path (RW 0x401111) and consumers (RW 0x401112 / 0x401113)";\n'
+        '// RW 0x401200 / 0x401201 / 0x401202: all three ported\n'
+        '// RW 0x401210, 0x401211: pair ported\n'
+        '// RW 0x401220 -> 0x401221: arrow callee must not be auto-cited\n'
+        '// RW 0x401230..0x401231: range end must not be auto-cited\n'
+        '\n'
+        '// unported helper (RW 0x401240 / 0x401241)\n'
+        '/* block comment RW 0x401250 / 0x401251 */\n',
+        encoding='utf-8',
+    )
+    status = scan_citations(tmp_path)
+    # String literal stop descriptions must NEVER mark unported gaps as ported or partial.
+    assert 0x401111 not in status
+    assert 0x401112 not in status
+    assert 0x401113 not in status
+    # Explicit slash and comma chains in comments are recognized.
+    assert status[0x401200] == 'ported'
+    assert status[0x401201] == 'ported'
+    assert status[0x401202] == 'ported'
+    assert status[0x401210] == 'ported'
+    assert status[0x401211] == 'ported'
+    # Call arrows and address ranges only cite the first address.
+    assert status[0x401220] == 'ported'
+    assert 0x401221 not in status
+    assert status[0x401230] == 'ported'
+    assert 0x401231 not in status
+    # UNPORTED qualifies every address in the chain as partial (still open).
+    assert status[0x401240] == 'partial'
+    assert status[0x401241] == 'partial'
+    # Block comments work too.
+    assert status[0x401250] == 'ported'
+    assert status[0x401251] == 'ported'

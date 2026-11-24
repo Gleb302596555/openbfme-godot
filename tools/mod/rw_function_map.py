@@ -97,25 +97,124 @@ def walk_graph(roots: set[int], functions: dict[int, Function], stops: set[int])
     return depth, incoming
 
 
-CITE = re.compile(r"\bRW\s+0x([0-9a-fA-F]{6,8})\b")
-PARTIAL = re.compile(r"\bS-\d+\b|\bNOT PORTED\b|\bINFERENCE\b", re.I)
+CITE = re.compile(r"\bRW\s+0x([0-9a-fA-F]{6,8})((?:\s*[/,]\s*0x[0-9a-fA-F]{6,8})*)\b")
+_HEX_ADDR = re.compile(r"0x([0-9a-fA-F]{6,8})")
+PARTIAL = re.compile(r"\bS-\d+\b|\bNOT PORTED\b|\bUNPORTED\b|\bINFERENCE\b", re.I)
+
+
+def _extract_comment_lines(text: str) -> list[str]:
+    """Return per-line comment-only text (C/C++ // and /* */), stripping string/char literals.
+
+    Citations inside string literals (typically multi-line [S-NNN] stop descriptions listing unported
+    RotWK functions) must never be counted as ported citations.
+    """
+    out: list[str] = []
+    cur: list[str] = []
+    n = len(text)
+    i = 0
+    state = 'code'  # code, str, chr, line_cmt, blk_cmt
+    while i < n:
+        c = text[i]
+        nxt = text[i + 1] if i + 1 < n else ''
+        if state == 'code':
+            if c == '\n':
+                out.append(''.join(cur))
+                cur = []
+                i += 1
+            elif c == '/' and nxt == '/':
+                state = 'line_cmt'
+                cur.append('//')
+                i += 2
+            elif c == '/' and nxt == '*':
+                state = 'blk_cmt'
+                cur.append('/*')
+                i += 2
+            elif c == '"':
+                state = 'str'
+                i += 1
+            elif c == "'":
+                state = 'chr'
+                i += 1
+            else:
+                i += 1
+        elif state == 'str':
+            if c == '\\' and i + 1 < n:
+                if nxt == '\n':
+                    out.append(''.join(cur))
+                    cur = []
+                i += 2
+            elif c == '"':
+                state = 'code'
+                i += 1
+            elif c == '\n':
+                out.append(''.join(cur))
+                cur = []
+                state = 'code'
+                i += 1
+            else:
+                i += 1
+        elif state == 'chr':
+            if c == '\\' and i + 1 < n:
+                i += 2
+            elif c == "'":
+                state = 'code'
+                i += 1
+            elif c == '\n':
+                out.append(''.join(cur))
+                cur = []
+                state = 'code'
+                i += 1
+            else:
+                i += 1
+        elif state == 'line_cmt':
+            if c == '\n':
+                out.append(''.join(cur))
+                cur = []
+                state = 'code'
+                i += 1
+            else:
+                cur.append(c)
+                i += 1
+        else:  # blk_cmt
+            if c == '*' and nxt == '/':
+                cur.append('*/')
+                state = 'code'
+                i += 2
+            elif c == '\n':
+                out.append(''.join(cur))
+                cur = []
+                i += 1
+            else:
+                cur.append(c)
+                i += 1
+    out.append(''.join(cur))
+    return out
 
 
 def scan_citations(root: Path) -> dict[int, str]:
-    """Classify explicit cites; any unmarked citation takes precedence."""
+    """Classify explicit cites in comments; any unmarked citation takes precedence.
+
+    Recognizes single citations (`RW 0xAAA`) and explicit slash/comma chains (`RW 0xAAA / 0xBBB`,
+    `RW 0xAAA, 0xBBB`), while ignoring C++ string literals and call arrows (`->`) or ranges (`..`).
+    """
     found: dict[int, str] = {}
     for path in sorted(root.rglob('*')):
         if not path.is_file() or path.suffix.lower() not in {'.c', '.cc', '.cpp', '.h', '.hpp', '.inl', '.inc'}:
             continue
-        lines = path.read_text(encoding='utf-8', errors='replace').splitlines()
+        lines = _extract_comment_lines(path.read_text(encoding='utf-8', errors='replace'))
         for i, line in enumerate(lines):
-            # A marker on the citation line or the next line qualifies the citation.
+            if 'RW' not in line:
+                continue
+            # A marker on the citation line or the next comment line qualifies the citation.
             context = line + '\n' + (lines[i + 1] if i + 1 < len(lines) else '')
             status = 'partial' if PARTIAL.search(context) else 'ported'
             for match in CITE.finditer(line):
-                address = int(match.group(1), 16)
-                if address not in found or status == 'ported':
-                    found[address] = status
+                addrs = [int(match.group(1), 16)]
+                if match.group(2):
+                    addrs.extend(int(m.group(1), 16) for m in _HEX_ADDR.finditer(match.group(2)))
+                for address in addrs:
+                    if address not in found or status == 'ported':
+                        found[address] = status
     return found
 
 
