@@ -58,6 +58,7 @@ StrafeAreaUpdateModuleData::StrafeAreaUpdateModuleData()
 {
 }
 
+// RW 0x7A80A0
 void StrafeAreaUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kStrafeAreaUpdateFields);

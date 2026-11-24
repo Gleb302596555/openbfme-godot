@@ -26,6 +26,7 @@ const FieldParse kFields[] = {
 #undef FLING_OFF
 }
 
+// RW 0x64DB10 (friend_newModuleInstance)
 void FlingPassengerSpecialAbilityUpdateModuleData::buildFieldParse(MultiIniFieldParse &p) {
     SpecialAbilityUpdateModuleData::buildFieldParse(p);
     p.add(kFields);

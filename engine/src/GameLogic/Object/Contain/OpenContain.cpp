@@ -20,6 +20,7 @@
 #include <cstring>
 
 // RW 0x867E1B (the field defaults are the stores in that function; frame defaults are literal).
+// RW 0x657179 (~OpenContainModuleData), RW 0x867F18 (deleting dtor)
 OpenContainModuleData::OpenContainModuleData()
 	: m_passengerFilter(ObjectFilter::parserDefault())
 	, m_manualPickUpFilter(ObjectFilter::parserDefault())

@@ -65,6 +65,7 @@ const Bits &bits()
 constexpr unsigned kDisabledParalyzed = 4; // RW 0x6907F1(4, frame)
 } // namespace
 
+// RW 0x85C285 (ctor RW 0x85C258)
 void HitReactionBehaviorModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kParse);

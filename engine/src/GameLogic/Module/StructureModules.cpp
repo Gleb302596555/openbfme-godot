@@ -213,6 +213,7 @@ int pickPhaseIndices(GameLogic &logic, int size, int count, int picked[32], cons
 }
 } // namespace
 
+// RW 0x8A8255
 void StructureCollapseUpdateModuleData::buildFieldParse(MultiIniFieldParse &p) { p.add(kStructureCollapseParse); }
 void RespawnBodyModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
@@ -229,6 +230,7 @@ void SymbioticStructuresBodyModuleData::buildFieldParse(MultiIniFieldParse &p)
 	ActiveBodyModuleData::buildFieldParse(p);
 	p.add(kSymbioticParse); // RW 0xC0602C
 }
+// RW 0x7A7DFA
 void LifetimeUpdateModuleData::buildFieldParse(MultiIniFieldParse &p) { p.add(kLifetimeParse); }
 // RW 0x76406F + 0x763D11: PermanentlyKilledByFilter starts as NONE with empty masks
 RespawnBodyModuleData::RespawnBodyModuleData()

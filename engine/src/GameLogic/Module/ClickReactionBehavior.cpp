@@ -75,6 +75,7 @@ bool weaponSetFlag(const Object &obj, int bit)
 const char kFile[] = "ClickReactionBehavior.cpp"; // RW 0xC57B98 (the retail source path's file)
 } // namespace
 
+// RW 0x85C671
 void ClickReactionBehaviorModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kFields);

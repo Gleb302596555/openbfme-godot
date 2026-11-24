@@ -41,6 +41,7 @@ const char kStop[] =
     "[S-6003] TeleportToCasterSpecialPower (RW 0x8D1AEB, 0x8D1979): TargetFX (the drawable's slot 0x1EC, RW 0x8D193A) and TriggerFX (RW 0x494615 at the target point) are logged as object FX";
 }
 
+// RW 0x652E33 (friend_newModuleData)
 void TeleportToCasterSpecialPowerModuleData::buildFieldParse(MultiIniFieldParse &p) {
     SpecialAbilityUpdateModuleData::buildFieldParse(p);
     p.add(kFields);

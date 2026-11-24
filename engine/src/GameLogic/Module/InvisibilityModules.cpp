@@ -226,6 +226,7 @@ void bind(ModuleFactory &modules, const char *name)
 }
 } // namespace
 
+// RW 0x6552E8 (friend_newModuleData)
 void InvisibilityUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kInvisibilityUpdate);
@@ -234,6 +235,7 @@ void StealthDetectorUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kStealthDetectorUpdate);
 }
+// RW 0x776267
 void StealthUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kStealthUpdate);

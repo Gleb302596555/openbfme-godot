@@ -53,7 +53,9 @@ void ExtraModules::registerAll(ModuleFactory &modules)
 	CritterEmitterUpdate::registerModule(modules); // lane MODCOMPAT-MOD1
 	AudioLoopUpgrade::registerModule(modules);     // lane MODCOMPAT-MOD1
 	ClickReactionBehavior::registerModule(modules); // lane MODCOMPAT-MOD1
+	// RW 0x654E52 (friend_newModuleData)
 	bind<UpgradeDie, UpgradeDieModuleData>(modules, "UpgradeDie");
+	// RW 0x653868 (friend_newModuleData), RW 0x8C64A2 (ctor)
 	bind<HeroDie, HeroDieModuleData>(modules, "HeroDie");
 	bind<DeletionUpdate, DeletionUpdateModuleData>(modules, "DeletionUpdate");
 	bind<MonitorConditionUpdate, MonitorConditionUpdateModuleData>(modules, "MonitorConditionUpdate"); // RW 0x00894CED, RW 0x00894CF3, RW 0x00894D38, RW 0x00894DDC

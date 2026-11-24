@@ -46,6 +46,7 @@ constexpr float kTargetGeometryHeightScalar = 0.83f;
 constexpr float kParentGeometryHeightScalar = 0.5f;
 } // namespace
 
+// RW 0x764DBB
 void LaserUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kLaserUpdateModuleDataFieldParse);

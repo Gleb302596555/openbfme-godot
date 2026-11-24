@@ -162,6 +162,7 @@ bool OrnamentEnvelopeData::update(float *out)
 	}
 }
 
+// RW 0x6553AF (friend_newModuleData), RW 0x655F0A (~FadeAndDieOrnamentUpdateModuleData), RW 0x655EEE (deleting dtor)
 void FadeAndDieOrnamentUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kFadeAndDieOrnamentFieldParse);

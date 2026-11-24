@@ -27,6 +27,7 @@ const FieldParse kDestroyEnvironmentUpdateFieldParse[] = {
 #undef DEU_OFF
 } // namespace
 
+// RW 0x8AFC7F (ctor)
 void DestroyEnvironmentUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kDestroyEnvironmentUpdateFieldParse);

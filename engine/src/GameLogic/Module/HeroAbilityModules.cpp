@@ -295,6 +295,7 @@ const FieldParse kShareExperience[] = { // RW 0xC5EF30
 };
 #undef SE_OFF
 
+// RW 0x883139
 void ShareExperienceBehaviorModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kShareExperience);
@@ -618,6 +619,7 @@ float visionRangeOf(Object &o) // RW 0x68E43B: Object::getVisionRange (VisionRan
 	return AIUpdateInterface::objectVisionRangeOf(o);
 }
 
+// RW 0x85D3DC
 void AutoAbilityBehaviorModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kAutoAbility);
@@ -1358,6 +1360,7 @@ void WeaponModeSpecialPowerUpdate::crc(StateHasher &h) const
 // ---------------------------------------------------------------------------------------------------------------------------------
 #define DW_OFF(m) (int)offsetof(DualWeaponBehaviorModuleData, m)
 const FieldParse kDualWeapon[] = { // RW 0xC58088
+	// RW 0x85DEB8 (buildFieldParse)
 	{ "SwitchWeaponOnCloseRangeDistance", INI::parseReal, nullptr, DW_OFF(m_switchDistance) },
 	{ "UseCloseRangeWhileMounted", INI::parseBool, nullptr, DW_OFF(m_useCloseRangeWhileMounted) },
 	{ "MinimumSwitchTime", INI::parseDurationUnsignedInt, nullptr, DW_OFF(m_minimumSwitchTime) },
@@ -1603,6 +1606,7 @@ void TemporarilyDefectUpdate::crc(StateHasher &h) const
 // DominateEnemySpecialPower
 // ---------------------------------------------------------------------------------------------------------------------------------
 // RW 0x008D0DCB
+// RW 0x652C86 (friend_newModuleData)
 void DominateEnemySpecialPowerModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialAbilityUpdateModuleData::buildFieldParse(p);
@@ -2380,6 +2384,7 @@ void RousingSpeechUpdate::crc(StateHasher &h) const
 // ---------------------------------------------------------------------------------------------------------------------------------
 // TeleportSpecialAbilityUpdate
 // ---------------------------------------------------------------------------------------------------------------------------------
+// RW 0x64D89E (friend_newModuleInstance)
 void TeleportSpecialAbilityUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialAbilityUpdateModuleData::buildFieldParse(p);

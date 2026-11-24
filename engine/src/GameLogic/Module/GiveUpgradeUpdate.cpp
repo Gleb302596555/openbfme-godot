@@ -60,6 +60,7 @@ const FieldParse kFields[] = {
 const RGBColor kGiveUpgradeFlash{ 0.99f, 0.99f, 0.99f }; // RW 0xBE53BC, the same float in all three components
 }
 
+// RW 0x89FDC3 (~GiveUpgradeUpdateModuleData), RW 0x89FDA7 (deleting dtor)
 void Data::buildFieldParse(MultiIniFieldParse &p) { SpecialAbilityUpdateModuleData::buildFieldParse(p); p.add(kFields); }
 GiveUpgradeUpdate::GiveUpgradeUpdate(Thing *thing, const Data *data) : SpecialAbilityUpdate(thing, data), m_giveData(data) {}
 

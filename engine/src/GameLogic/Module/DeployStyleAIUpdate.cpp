@@ -747,6 +747,7 @@ const FieldParse kToggleDeploy[] = {
 #undef TD_OFF
 } // namespace
 
+// RW 0x64F4CA (friend_newModuleInstance)
 void ToggleDeploySpecialAbilityUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialAbilityUpdateModuleData::buildFieldParse(p);

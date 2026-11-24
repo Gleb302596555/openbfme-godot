@@ -714,6 +714,7 @@ void ShroudManager::revealMapForPlayerPermanently(int player)
 	}
 }
 
+// RW 0xB4D960 (-> 0xB519B0); PartitionManager::setRegion thunk RW 0xB4D8F0 (-> 0xB520F0)
 void ShroudManager::undoRevealMapForPlayerPermanently(int player)
 {
 	if (player < 0 || player >= kMaxPlayers)

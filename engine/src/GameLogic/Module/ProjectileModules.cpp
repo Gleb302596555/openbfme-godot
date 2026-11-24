@@ -223,6 +223,7 @@ float ProjectileInvSqrt(float value)
 	return SimMath::pc24Mul(ybc, d);
 }
 
+// RW 0x85E647
 void BezierProjectileBehaviorModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	static const Bfme2FieldRowsRegistration bfme2Rows(kBezierParse, kBezierBfme2Rows); // lane BFME2MODE-0

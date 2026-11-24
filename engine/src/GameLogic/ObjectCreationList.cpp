@@ -926,6 +926,7 @@ std::vector<Object *> ObjectCreationList::createCore(GameLogic &logic, const OCL
 // RW 0x5F275D: a CreateObject nugget (vslot 0xC) for the primary object `source` at `where` (see the header)
 std::vector<Object *> ObjectCreationList::createObjectNugget(GameLogic &logic, const OCLNugget &n, const Object *source, const Coord3D &where, const Coord3D *secondary, unsigned lifetime) const
 {
+	// RW 0x5F0D68 (GenericObjectCreationNugget::create); dtor RW 0x5F2A15 / RW 0x5F29F9
 	if (n.skipIfSignificantlyAirborne && source && source->isSignificantlyAboveTerrain())
 	{
 		return {}; // RW 0x5F0D84 -> 0x70C55D

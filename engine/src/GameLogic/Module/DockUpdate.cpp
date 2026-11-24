@@ -563,6 +563,7 @@ void DockUpdate::xferDockUpdate(Xfer &x)
 }
 
 // ---- SupplyCenterDockUpdate -------------------------------------------------------------------------------------------------------
+// RW 0x64E6C1 (friend_newModuleInstance), RW 0x8A44D8 (~SupplyCenterDockUpdate)
 SupplyCenterDockUpdate::SupplyCenterDockUpdate(Thing *thing, const SupplyCenterDockUpdateModuleData *data)
 	: DockUpdate(thing, data)
 	, m_data(data)
@@ -670,6 +671,7 @@ bool SupplyCenterDockUpdate::action(Object &docker, Object *)
 	return false;
 }
 
+// RW 0x8AB6C6 (ctor)
 void SupplyWarehouseDockUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	DockUpdateModuleData::buildFieldParse(p); // the base table first, as SupplyCenterDockUpdate's
@@ -823,6 +825,7 @@ static const FieldParse kSupplyWarehouseCripplingFieldParse[] = {
 	{ nullptr, nullptr, nullptr, 0 }
 };
 
+// RW 0x886CF7 (ctor RW 0x886CDE)
 void SupplyWarehouseCripplingBehaviorModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	

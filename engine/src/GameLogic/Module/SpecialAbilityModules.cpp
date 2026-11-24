@@ -441,23 +441,27 @@ void setCondition(Object &o, int bit, bool on)
 // ---------------------------------------------------------------------------------------------------------------------------------
 // data
 // ---------------------------------------------------------------------------------------------------------------------------------
+// RW 0x851B5D
 void SpecialAbilityUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kSpecialAbility);
 }
 
+// RW 0x64D82F (friend_newModuleData), RW 0x64D7F4 (friend_newModuleInstance)
 void WeaponFireSpecialAbilityUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialAbilityUpdateModuleData::buildFieldParse(p);
 	p.add(kWeaponFire);
 }
 
+// RW 0x64F376 (friend_newModuleInstance)
 void ToggleMountedSpecialAbilityUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialAbilityUpdateModuleData::buildFieldParse(p);
 	p.add(kToggleMounted);
 }
 
+// RW 0x64D6A0 (friend_newModuleInstance)
 void HeroModeSpecialAbilityUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialAbilityUpdateModuleData::buildFieldParse(p);
@@ -470,18 +474,21 @@ void LevelGrantSpecialPowerModuleData::buildFieldParse(MultiIniFieldParse &p)
 	p.add(kLevelGrant);
 }
 
+// RW 0x64D349 (friend_newModuleInstance)
 void ModelConditionSpecialAbilityUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialAbilityUpdateModuleData::buildFieldParse(p);
 	p.add(kModelCondition);
 }
 
+// RW 0x64F574 (friend_newModuleInstance)
 void SummonReplacementSpecialAbilityUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialAbilityUpdateModuleData::buildFieldParse(p);
 	p.add(kSummonReplacement); // RW 0xC05AF8
 }
 
+// RW 0x64F733 (friend_newModuleInstance)
 void SpecialDisguiseUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialAbilityUpdateModuleData::buildFieldParse(p);

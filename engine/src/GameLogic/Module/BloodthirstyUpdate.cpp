@@ -80,6 +80,7 @@ void setModelConditionForHorde(Object &object, bool enabled)
 
 } // namespace
 
+// RW 0x850D63
 void BloodthirstyUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kBloodthirstyUpdate);

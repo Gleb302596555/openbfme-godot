@@ -353,6 +353,7 @@ void LargeGroupBonusUpdate::crc(StateHasher &h) const
 
 // ---- PassiveAreaEffectBehavior --------------------------------------------------------------------------------------------------------------------------------
 
+// RW 0x887B9A
 void PassiveAreaEffectBehaviorModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kPassiveAreaParse);

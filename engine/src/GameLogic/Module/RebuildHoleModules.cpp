@@ -128,6 +128,7 @@ void RebuildHoleExposeDieModuleData::buildFieldParse(MultiIniFieldParse &p)
 	p.add(kExposeDie);    // RW 0xC616B8
 }
 
+// RW 0x8864DD
 void RebuildHoleBehaviorModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kRebuildHole); // RW 0xC60230

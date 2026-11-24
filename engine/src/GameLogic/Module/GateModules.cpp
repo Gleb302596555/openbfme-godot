@@ -161,6 +161,7 @@ GateOpenAndCloseBehavior::GateOpenAndCloseBehavior(Thing *thing, const GateOpenA
 }
 
 // RW 0x8ED772 (the manager's gate list drops the module; RW 0x89BF87 in the destructor)
+// RW 0x89BF53 (~GateOpenAndCloseBehavior)
 GateOpenAndCloseBehavior::~GateOpenAndCloseBehavior()
 {
 	if (getObject())

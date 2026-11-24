@@ -498,6 +498,7 @@ void UpgradeSoundSelectorClientBehaviorModuleData::buildFieldParse(MultiIniField
 	p.add(kUpgradeTable);
 }
 
+// RW 0x8D0044
 void RandomSoundSelectorClientBehaviorModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kRandomTable);
