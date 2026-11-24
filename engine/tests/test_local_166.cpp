@@ -276,10 +276,29 @@ End
 
 // Expected behaviour from RotWK 2.01 LivingWorldLogic::OnRegionChangedOwnership (RW 0x6BB2EF):
 // when a region changes ownership to a hostile player, any garrison in that region belonging
-// to a player hostile to the new owner is removed (RW 0x6B540B -> RW 0x6B9679 / RW 0x6B87A9).
+// to a player hostile to the new owner is removed (RW 0x6B540B -> RW 0x6B9679 / RW 0x6B87A9),
+// while an allied garrison in the same region is preserved.
 TEST_CASE("LOCAL-166 LivingWorldLogic: OnRegionChangedOwnership (RW 0x6BB2EF) removes hostile garrisons when a region changes owner")
 {
 	const std::string ini = std::string(kCommonLocal166Ini) + R"(
+LivingWorldPlayerTemplate PlayerEvilAlly
+	Faction = FactionEvilAlly
+	StartingWorldCP = 100
+	MaxWorldCP = 300
+	ScenarioStartResources = 1000
+	ScenarioMaxResources = 5000
+End
+LivingWorldPlayerArmy
+	Name = GoodBigHeroArmy
+	ArmyEntry
+		ThingTemplate = GoodHero
+		Quantity = 1
+	End
+	ArmyEntry
+		ThingTemplate = GoodSoldiers
+		Quantity = 3
+	End
+End
 LivingWorldRegionCampaign OwnerChangeCampaign
 	Region A
 		MapName = "MAP A"
@@ -288,18 +307,22 @@ LivingWorldRegionCampaign OwnerChangeCampaign
 	Region B
 		MapName = "MAP B"
 		OwnedByPlayer = Evil
-		ConnectsTo = A C
+		ConnectsTo = A C D
 	End
 	Region C
 		MapName = "MAP C"
+		ConnectsTo = B
+	End
+	Region D
+		MapName = "MAP D"
 		ConnectsTo = B
 	End
 End
 LivingWorldCampaign OwnerChangeScenario
 	Scenario
 		RegionCampaign = OwnerChangeCampaign
-		MaxPlayers = 2
-		DefaultStartSpots = A C
+		MaxPlayers = 3
+		DefaultStartSpots = A C D
 		PlayerDefeatCondition
 			Teams = 1 2
 			NumControlledRegionsLessOrEqualTo = 0
@@ -307,16 +330,23 @@ LivingWorldCampaign OwnerChangeScenario
 	End
 	Act One
 		SpawnArmy
-			ScriptingName = GoodHeroInA
+			ScriptingName = GoodBigHeroInB
 			SpawnForTemplates = PlayerGood
 			HeroTemplateName = GoodHero
-			PlayerArmy = GoodHeroArmy
-			InitialRegion = A
+			PlayerArmy = GoodBigHeroArmy
+			InitialRegion = B
 			SpawnAtActStart = Yes
 		End
 		SpawnArmy
-			ScriptingName = EvilEmptyGarrisonInB
-			SpawnForTemplates = PlayerEvil
+			ScriptingName = GoodGarrisonInB
+			SpawnForTemplates = PlayerGood
+			PlayerArmy = GoodGarrisonArmy
+			InitialRegion = B
+			SpawnAtActStart = Yes
+		End
+		SpawnArmy
+			ScriptingName = EvilAllyGarrisonInB
+			SpawnForTemplates = PlayerEvilAlly
 			PlayerArmy = EmptyEvilGarrison
 			InitialRegion = B
 			SpawnAtActStart = Yes
@@ -327,42 +357,66 @@ End
 	LivingWorldStores stores;
 	parseLocal166Ini(stores, ini);
 	LivingWorldLogic logic(stores, local166Units);
+	GameSetup setup;
+	setup.campaign = "OwnerChangeScenario";
+	setup.seed = 7;
+	SetupSlot s0;
+	s0.name = "Good";
+	s0.faction = "FactionGood";
+	s0.human = true;
+	s0.team = 1;
+	SetupSlot s1;
+	s1.name = "Evil";
+	s1.faction = "FactionEvil";
+	s1.human = true;
+	s1.team = 2;
+	SetupSlot s2;
+	s2.name = "EvilAlly";
+	s2.faction = "FactionEvilAlly";
+	s2.human = true;
+	s2.team = 2;
+	setup.slots = { s0, s1, s2 };
+	setup.ranks = { { true, 5u, 0 } };
+
 	std::string err;
-	REQUIRE(logic.start(makeTwoPlayerSetup("OwnerChangeScenario"), &err));
+	REQUIRE(logic.start(setup, &err));
 	CHECK(err.empty());
 	REQUIRE(logic.regions()[1].owner == 1); // B starts owned by Evil (RW 0x7F4696)
 
-	// Verify Evil's empty garrison is initially present in region B, and locate Good's hero army in A.
-	int goodHeroId = -1;
-	int evilGarrisonCountBefore = 0;
+	int evilAllyGarrisonBefore = 0;
+	int goodGarrisonBefore = 0;
 	for (const Army &a : logic.armies())
 	{
-		if (a.owner == 0 && !a.garrison && a.region == 0)
+		if (a.region == 1 && a.garrison && a.owner == 2)
 		{
-			goodHeroId = a.id;
+			++evilAllyGarrisonBefore;
 		}
-		if (a.owner == 1 && a.garrison && a.region == 1)
+		if (a.region == 1 && a.garrison && a.owner == 0)
 		{
-			++evilGarrisonCountBefore;
+			++goodGarrisonBefore;
 		}
 	}
-	REQUIRE(goodHeroId == 1);
-	REQUIRE(evilGarrisonCountBefore == 1);
+	REQUIRE(evilAllyGarrisonBefore == 1);
+	REQUIRE(goodGarrisonBefore == 1);
 
-	// Good moves its hero army into B (undefended by any combat units) and both players end orders.
-	REQUIRE(logic.orderMove(0, goodHeroId, 1, &err));
-	REQUIRE(logic.endTurn(0, &err));
-	REQUIRE(logic.endTurn(1, &err));
+	// Evil surrenders: B transfers from Evil (team 2) to Good (team 1, largest army in B) via setRegionOwner.
+	// OnRegionChangedOwnership (RW 0x6BB2EF) must remove EvilAlly's hostile garrison in B while keeping Good's garrison.
+	logic.surrender(1);
 
-	// Region B now belongs to Good, and Evil's garrison in B was removed by OnRegionChangedOwnership (RW 0x6BB2EF).
 	CHECK(logic.regions()[1].owner == 0);
-	int evilGarrisonCountAfter = 0;
+	int evilAllyGarrisonAfter = 0;
+	int goodGarrisonAfter = 0;
 	for (const Army &a : logic.armies())
 	{
-		if (a.owner == 1 && a.garrison && a.region == 1)
+		if (a.region == 1 && a.garrison && a.owner == 2)
 		{
-			++evilGarrisonCountAfter;
+			++evilAllyGarrisonAfter;
+		}
+		if (a.region == 1 && a.garrison && a.owner == 0)
+		{
+			++goodGarrisonAfter;
 		}
 	}
-	CHECK(evilGarrisonCountAfter == 0);
+	CHECK(evilAllyGarrisonAfter == 0);
+	CHECK(goodGarrisonAfter == 1);
 }
