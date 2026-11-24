@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 // See Common/Audio/ScoredKillEvaAnnouncer.h.
 
+// Local 174: RW 0x9616C2 (ScoredKillTracker ??0ScoredKillTracker@@QAE@ABV0@@Z)
 #include "Common/Audio/ScoredKillEvaAnnouncer.h"
 
 #include "Common/Xfer.h"

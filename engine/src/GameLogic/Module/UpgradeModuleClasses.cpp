@@ -6,6 +6,11 @@
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 
+// Local 174: RW 0x8B75D1 (ArmorUpgrade::ArmorUpgrade); RW 0x8B8AEE (StatusBitsUpgrade::StatusBitsUpgrade); RW 0x8B98A5 (WeaponSetUpgrade::WeaponSetUpgrade); RW 0x8BA61B (ModelConditionUpgrade::ModelConditionUpgrade)
+// Local 174: RW 0x8BC0C2 (RemoveUpgradeUpgrade::RemoveUpgradeUpgrade); RW 0x8BC10F (RemoveUpgradeUpgradeModuleData ??0RemoveUpgradeUpgradeModuleData@@QAE@XZ); RW 0x8BC16E (RemoveUpgradeUpgradeModuleData ??1RemoveUpgradeUpgradeModuleData@@UAE@XZ); RW 0x8B8E60 (SubObjectsUpgrade ctor/dtor)
+// Local 174: RW 0x8B8EE4 (SubObjectsUpgrade ctor/dtor); RW 0x8BA5C2 (ModelConditionUpgradeModuleData ??0ModelConditionUpgradeModuleData@@QAE@XZ); RW 0x8B93A1 (SubObjectsUpgradeModuleData ??1SubObjectsUpgradeModuleData@@UAE@XZ); RW 0x8BD0A3 (GrantUpgradeCreate ctor/dtor)
+// Local 174: RW 0x8B8ACC (StatusBitsUpgradeModuleData::buildFieldParse); RW 0x8B8D8D (SubObjectsUpgradeModuleData::buildFieldParse); RW 0x8B9478 (SubObjectsUpgradeModuleData::buildFieldParse); RW 0x8BA7C7 (ModelConditionUpgradeModuleData::buildFieldParse)
+// Local 174: RW 0x8BC0A0 (RemoveUpgradeUpgradeModuleData::buildFieldParse)
 #include "GameLogic/Module/UpgradeModuleClasses.h"
 #include "GameLogic/SnapshotXfer.h"
 

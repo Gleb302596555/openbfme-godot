@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 // See GameLogic/Module/SMCHelper.h.
 
+// Local 174: RW 0x8E2B17 (ObjectSMCHelper ??1ObjectSMCHelper@@UAE@XZ); RW 0x8E2CB6 (ObjectSMCHelper 0xC12160[3])
 #include "GameLogic/Module/SMCHelper.h"
 
 #include "Common/StateHash.h"

@@ -6,6 +6,7 @@
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 
+// Local 174: RW 0x8BD66D (InheritUpgradeCreateModuleData ??0InheritUpgradeCreateModuleData@@QAE@XZ); RW 0x8BD6CE (InheritUpgradeCreateModuleData ??1InheritUpgradeCreateModuleData@@UAE@XZ)
 #include "GameLogic/Module/ExtraCreateModules.h"
 #include "GameLogic/SnapshotXfer.h"
 #include "GameLogic/Object/PartitionManager.h"

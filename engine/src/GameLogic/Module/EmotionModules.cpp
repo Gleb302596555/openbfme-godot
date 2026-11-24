@@ -2,6 +2,7 @@
 // See GameLogic/Module/EmotionModules.h for the target facts and the stops S-1021 / S-1022.
 
 // Local 169: RW 0x8B6462 (TauntAndPointDistance)
+// Local 174: RW 0x8B538A (EmotionTrackerUpdateModuleData ??1EmotionTrackerUpdateModuleData@@UAE@XZ)
 #include "GameLogic/Module/EmotionModules.h"
 #include "GameLogic/SnapshotXfer.h"
 #include "GameLogic/ScriptEngine/ScriptEngine.h"

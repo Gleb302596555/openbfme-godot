@@ -6,6 +6,7 @@
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 
+// Local 174: RW 0x8C065E (CrateCollide::getModuleName); RW 0x8C0645 (CrateCollide ??1Rva004BCB0D@@UAE@XZ); RW 0x8C12F2 (SalvageCrateCollide ??1Rva004BCB0D@@UAE@XZ)
 #include "GameLogic/Module/MoneyEventModules.h"
 #include "GameLogic/SnapshotXfer.h"
 

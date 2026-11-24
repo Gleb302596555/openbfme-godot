@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 // See GameLogic/Module/ObjectHelper.h.
 
+// Local 174: RW 0x8E3B04 (ObjectDefectionHelper ?xfer@ObjectDefectionHelper@@MAEXPAVXfer@@@Z)
 #include "GameLogic/Module/ObjectHelper.h"
 
 #include "Common/StateHash.h"

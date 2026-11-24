@@ -6,6 +6,7 @@
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 
+// Local 174: RW 0x8C6621 (InvisibilitySpecialPowerModuleData ??0InvisibilitySpecialPowerModuleData@@QAE@XZ)
 #include "Common/Upgrade.h"
 #include "GameLogic/Module/InvisibilityModules.h"
 #include "GameLogic/SnapshotXfer.h"

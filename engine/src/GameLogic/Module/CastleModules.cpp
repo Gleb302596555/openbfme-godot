@@ -6,6 +6,7 @@
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 
+// Local 174: RW 0x8BA99F (CastleUpgrade::CastleUpgrade); RW 0x8BC6AC (CastleUpgradeModuleData::buildFieldParse)
 #include "GameLogic/Module/CastleModules.h"
 #include "GameLogic/SnapshotXfer.h"
 #include "GameLogic/Module/CastleUpgrade.h"

@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 // See GameLogic/AI/AIGroupOrders.h.
 
+// Local 174: RW 0x94D88A (AttackObjectGroupOrder::clone)
 #include "GameLogic/AI/AIGroupOrders.h"
 
 #include "Common/StateHash.h"

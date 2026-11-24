@@ -4,6 +4,7 @@
 // Local 169: RW 0x64AD5B (DualWeaponBehaviorModuleData::friend_newModuleData), RW 0x65218B (FellBeastSwoopPowerModuleData::friend_newModuleData), RW 0x652D15 (CurseSpecialPowerModuleData::friend_newModuleData)
 // Local 169: RW 0x654A1D (ActivateModuleSpecialPowerModuleData slot 3), RW 0x656E26 (ActivateModuleSpecialPowerModuleData deleting dtor), RW 0x656E42 (~ActivateModuleSpecialPowerModuleData)
 // Local 169: RW 0x8C6E0E (~DominateEnemySpecialPowerModuleData), RW 0x8D0AFC (DefectDuration)
+// Local 174: RW 0x8B4575 (SpecialDisguiseUpdateModuleData ??1SpecialDisguiseUpdateModuleData@@UAE@XZ); RW 0x8D1746 (SpecialDisguiseUpdateModuleData ??1SpecialDisguiseUpdateModuleData@@UAE@XZ)
 #include "Common/ModEngineFeatures.h"
 #include "GameLogic/Module/HeroAbilityModules.h"
 #include "GameLogic/Module/BloodthirstyUpdate.h"

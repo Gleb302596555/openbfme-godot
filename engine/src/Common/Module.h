@@ -17,6 +17,7 @@
 
 #pragma once
 
+// Local 174: RW 0x8BCE6D (CreateModule::getModuleName)
 #include "Common/NameKeyGenerator.h"
 
 #include <cstdint>

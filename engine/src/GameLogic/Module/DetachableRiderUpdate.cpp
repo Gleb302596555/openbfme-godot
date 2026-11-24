@@ -5,6 +5,7 @@
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 
+// Local 174: RW 0x8B2BFD (DetachableRiderUpdateModuleData ??1DetachableRiderUpdateModuleData@@UAE@XZ); RW 0x8B252B (DetachableRiderUpdateModuleData base dtor)
 #include "GameLogic/Module/DetachableRiderUpdate.h"
 
 #include "Common/AsciiString.h"

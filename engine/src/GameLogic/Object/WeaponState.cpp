@@ -6,6 +6,8 @@
 // instruction sequence stores, conversions with the retail results (ftol2Low32 = _ftol2, fistp32, cvttss2si, including invalid input), and floor /
 // ceil / fabs / sqrt without libm. Frame arithmetic is unsigned 32 bit with defined wrapping.
 
+// Local 174: RW 0x8E2DAE (FiringTracker ??1FiringTracker@@UAE@XZ); RW 0x8E2F63 (FiringTracker ?xfer@FiringTracker@@MAEXPAVXfer@@@Z); RW 0x8E2E04 (FiringTracker::getModuleName); RW 0x8E2E6D (FiringTracker::getModuleNameKey)
+// Local 174: RW 0x8E2E52 (FiringTracker helper)
 #include "GameLogic/WeaponState.h"
 #include "Common/Audio/AudioRequests.h"
 #include "Common/StateHash.h"

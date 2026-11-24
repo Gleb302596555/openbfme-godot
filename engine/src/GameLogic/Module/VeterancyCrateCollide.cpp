@@ -1,4 +1,5 @@
 // OpenBFME. GPL-3.0. See GameLogic/Module/VeterancyCrateCollide.h and docs/CRATE_PICKUPS.md.
+// Local 174: RW 0x8C0F7B (VeterancyCrateCollide ctor/dtor); RW 0x8C0FA5 (VeterancyCrateCollide::getModuleName); RW 0x8C0FAB (VeterancyCrateCollide ??1Rva004BCB0D@@UAE@XZ); RW 0x8C0FC4 (VeterancyCrateCollide::getModuleNameKey)
 #include "GameLogic/Module/VeterancyCrateCollide.h"
 
 #include "Common/Player.h"

@@ -8,6 +8,7 @@
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 
+// Local 174: RW 0x8B13C3 (ToggleMountedSpecialAbilityUpdateModuleData ??1ToggleMountedSpecialAbilityUpdateModuleData@@UAE@XZ); RW 0x8B10DC (ToggleMountedSpecialAbilityUpdate ctor/dtor); RW 0x8B1364 (ToggleMountedSpecialAbilityUpdate ctor/dtor)
 #include "GameLogic/Module/SpecialAbilityModules.h"
 #include "Common/Audio/AudioRequests.h"
 #include "GameLogic/Combat/CombatLineOfSight.h"

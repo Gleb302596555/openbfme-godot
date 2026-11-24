@@ -23,6 +23,7 @@
 
 #pragma once
 
+// Local 174: RW 0x8E36F6 (ObjectGuardingHelper::getModuleName); RW 0x8E36FC (ObjectGuardingHelper::getModuleNameKey)
 #include "GameLogic/Module/UpdateModule.h"
 
 #include <string>

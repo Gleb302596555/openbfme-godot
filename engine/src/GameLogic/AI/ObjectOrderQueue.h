@@ -8,6 +8,7 @@
 // component is not yet connected to live commands or native saves (S-281).
 #pragma once
 
+// Local 174: RW 0x94EA54 (ObjectOrderQueue ?checkForPatrol@ObjectOrderQueue@@QAEPBVArmorTemplate@@PAXPBVRva00548800@@@Z); RW 0x94EACA (ObjectOrderQueue::setPatrolStart)
 #include <algorithm>
 #include <cstdint>
 #include <list>
