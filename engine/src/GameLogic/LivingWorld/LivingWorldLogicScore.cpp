@@ -231,6 +231,24 @@ void LivingWorldLogic::setRegionOwner(int region, int owner)
 	{
 		++m_players[(size_t)owner].score.territoriesConquered;
 	}
+	// LivingWorldLogic::OnRegionChangedOwnership RW 0x6BB2EF: when a region changes ownership to a
+	// player hostile to the previous owner, remove garrisons in that region belonging to players
+	// hostile to the new owner (RW 0x6B540B -> RW 0x6B9679 / processArmyDestroyList RW 0x6B87A9).
+	if (old >= 0 && owner >= 0 && hostile(old, owner))
+	{
+		std::vector<int> destroyIds;
+		for (const Army &a : m_armies)
+		{
+			if (a.region == region && a.garrison && a.owner >= 0 && hostile(a.owner, owner))
+			{
+				destroyIds.push_back(a.id);
+			}
+		}
+		for (int id : destroyIds)
+		{
+			removeArmy(id);
+		}
+	}
 }
 
 } // namespace LivingWorld
