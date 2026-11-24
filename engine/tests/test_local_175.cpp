@@ -168,7 +168,7 @@ TEST_CASE("LOCAL-175 disbandArmy (RW 0x6B48F2): MSG_LW_DISBAND_ARMY disbands non
 	REQUIRE(armyId == 1);
 	const int treasuryBefore = logic.treasury(0);
 
-	::GameMessage msg(MSG_LW_DISBAND_ARMY);
+	::GameMessage msg(MSG_LW_DISBAND_ARMY, 0);
 	msg.appendIntegerArgument(armyId);
 	std::string err;
 	REQUIRE(logic.dispatch(msg, 0, &err));
@@ -199,7 +199,7 @@ TEST_CASE("LOCAL-175 disbandArmy (RW 0x6B48F2): rejects foreign player")
 	}
 	REQUIRE(armyId == 1);
 
-	::GameMessage msg(MSG_LW_DISBAND_ARMY);
+	::GameMessage msg(MSG_LW_DISBAND_ARMY, 0);
 	msg.appendIntegerArgument(armyId);
 	std::string err;
 	CHECK_FALSE(logic.dispatch(msg, 1, &err));
@@ -230,11 +230,11 @@ TEST_CASE("LOCAL-175 swapArmiesInBattle (RW 0x6B4B39): MSG_LW_SWAP_ARMIES_IN_BAT
 	REQUIRE(logic.orderMove(0, goodArmies[1], 1, &err));
 	REQUIRE(logic.endTurn(0, &err));
 	REQUIRE(logic.endTurn(1, &err));
-	for (int i = 0; i < 10 && logic.turnPhase() != PHASE_BATTLES; ++i)
+	for (int i = 0; i < 10 && logic.phase() != PHASE_BATTLES; ++i)
 	{
 		logic.update();
 	}
-	REQUIRE(logic.turnPhase() == PHASE_BATTLES);
+	REQUIRE(logic.phase() == PHASE_BATTLES);
 	REQUIRE(logic.battles().size() == 1);
 
 	const Battle &bBefore = logic.battles()[0];
@@ -264,7 +264,7 @@ TEST_CASE("LOCAL-175 swapArmiesInBattle (RW 0x6B4B39): MSG_LW_SWAP_ARMIES_IN_BAT
 	}
 	REQUIRE(p0Before.size() == 2);
 
-	::GameMessage swapMsg(MSG_LW_SWAP_ARMIES_IN_BATTLE);
+	::GameMessage swapMsg(MSG_LW_SWAP_ARMIES_IN_BATTLE, 0);
 	swapMsg.appendIntegerArgument(0);
 	swapMsg.appendIntegerArgument(sideIdx);
 	swapMsg.appendIntegerArgument(playerIdx);
@@ -287,7 +287,7 @@ TEST_CASE("LOCAL-175 swapArmiesInBattle (RW 0x6B4B39): MSG_LW_SWAP_ARMIES_IN_BAT
 
 	CHECK_FALSE(logic.dispatch(swapMsg, 1, &err));
 
-	::GameMessage badSlot(MSG_LW_SWAP_ARMIES_IN_BATTLE);
+	::GameMessage badSlot(MSG_LW_SWAP_ARMIES_IN_BATTLE, 0);
 	badSlot.appendIntegerArgument(0);
 	badSlot.appendIntegerArgument(sideIdx);
 	badSlot.appendIntegerArgument(playerIdx);
@@ -295,7 +295,7 @@ TEST_CASE("LOCAL-175 swapArmiesInBattle (RW 0x6B4B39): MSG_LW_SWAP_ARMIES_IN_BAT
 	badSlot.appendIntegerArgument(5);
 	CHECK_FALSE(logic.dispatch(badSlot, 0, &err));
 
-	::GameMessage badBattle(MSG_LW_SWAP_ARMIES_IN_BATTLE);
+	::GameMessage badBattle(MSG_LW_SWAP_ARMIES_IN_BATTLE, 0);
 	badBattle.appendIntegerArgument(9);
 	badBattle.appendIntegerArgument(sideIdx);
 	badBattle.appendIntegerArgument(playerIdx);
