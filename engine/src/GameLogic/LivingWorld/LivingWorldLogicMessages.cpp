@@ -240,12 +240,6 @@ bool LivingWorldLogic::dispatchOrder(const ::GameMessage &m, int sender, std::st
 			return bad("the arguments are not (army, key)");
 		}
 		return disbandArmyMember(sender, a0, a1, error);
-	case MSG_LW_DISBAND_ARMY: // RW 0x6B48F2: (army)
-		if (!argInt(m, 0, a0))
-		{
-			return bad("the argument is not an army");
-		}
-		return disbandArmy(sender, a0, error);
 	case MSG_LW_SWAP_ARMIES_IN_BATTLE: // RW 0x6B4B39 (+ RW 0x6B379E, RW 0x6B3822): (battle, side, playerIdx, slotA, slotB)
 	{
 		int a3 = 0, a4 = 0;

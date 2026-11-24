@@ -214,7 +214,7 @@ bool startLocal175Game(LivingWorldStores &stores, LivingWorldLogic &logic)
 // iterates over all entries of the army summary, calls CanDisbandArmyMember (RW 0x6B4876),
 // cancels pending upgrades (RW 0x80EDB8), disbands every eligible entry and refunds its cost,
 // leaving non-disbandable hero entries untouched.
-TEST_CASE("LOCAL-175 disbandArmy (RW 0x6B48F2): MSG_LW_DISBAND_ARMY disbands non-hero entries, refunds cost, keeps hero")
+TEST_CASE("LOCAL-175 disbandArmy (RW 0x6B48F2): disbandArmy disbands non-hero entries, refunds cost, keeps hero")
 {
 	LivingWorldStores stores;
 	LivingWorldLogic logic(stores, local175Units);
@@ -232,10 +232,8 @@ TEST_CASE("LOCAL-175 disbandArmy (RW 0x6B48F2): MSG_LW_DISBAND_ARMY disbands non
 	REQUIRE(armyId == 1);
 	const int treasuryBefore = logic.treasury(0);
 
-	::GameMessage msg(MSG_LW_DISBAND_ARMY, 0);
-	msg.appendIntegerArgument(armyId);
 	std::string err;
-	REQUIRE(logic.dispatch(msg, 0, &err));
+	REQUIRE(logic.disbandArmy(0, armyId, &err));
 
 	const Army *after = logic.findArmy(armyId);
 	REQUIRE(after != nullptr);
@@ -263,10 +261,8 @@ TEST_CASE("LOCAL-175 disbandArmy (RW 0x6B48F2): rejects foreign player")
 	}
 	REQUIRE(armyId == 1);
 
-	::GameMessage msg(MSG_LW_DISBAND_ARMY, 1);
-	msg.appendIntegerArgument(armyId);
 	std::string err;
-	CHECK_FALSE(logic.dispatch(msg, 1, &err));
+	CHECK_FALSE(logic.disbandArmy(1, armyId, &err));
 	CHECK(logic.findArmy(armyId)->members.size() == 3);
 }
 
