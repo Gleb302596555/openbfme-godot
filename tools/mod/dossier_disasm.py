@@ -24,6 +24,9 @@ import citation_check as cc  # noqa: E402
 REPO = "Gleb302596555/openbfme-godot"
 CITE = re.compile(r"\bRW\s+0x([0-9A-Fa-f]{5,8})\b")
 TASK = re.compile(r"^\s*(Port|Local)[\s-]+\d+", re.I)
+# the binary-map Locals (161-182) list their functions as `7C69B5`, six upper-case hex digits in backticks; inv.owner keeps only those inside a
+# function, so a colour or an offset in backticks never adds one (2026-11-24: 7 of Locals 171-182 had no dossier, the others only 40 class functions)
+LISTED = re.compile(r"`([0-9A-F]{6})`")
 MAX_CLASS_FUNCS = 40
 MAX_INSTRUCTIONS = 1500  # per function: a giant one is cut, with a note
 
@@ -72,7 +75,7 @@ def main(argv=None) -> int:
         if not TASK.match(i["title"]):
             continue
         text = i["title"] + "\n" + (i["body"] or "")
-        named = {inv.owner(int(x, 16)) for x in CITE.findall(text)} - {None}
+        named = {inv.owner(int(x, 16)) for x in CITE.findall(text) + LISTED.findall(text)} - {None}
         classes = sorted({w for w in re.findall(r"\b[A-Z][A-Za-z0-9]{3,}\b", text) if w in known})
         open_funcs = [int(r["function"], 16) for r in fmap if r["module"] in classes and r["depth"] == "0" and r["status"] not in ("ported", "library")]
         funcs = sorted(named) + [f for f in open_funcs if f not in named][:MAX_CLASS_FUNCS]
