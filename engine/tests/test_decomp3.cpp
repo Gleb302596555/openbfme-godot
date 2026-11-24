@@ -243,12 +243,14 @@ TEST_CASE("decomp3 S-418: the record is hashed; an object registered twice (RW's
 	logic.skirmishAI().objectAdded(*a); // what the capture path does after the team change's own add (RW 0x85474D)
 	StateHasher h1;
 	mine.crc(h1);
-	CHECK(h0.value() != h1.value());
-	CHECK(occurrences(mine.army(), a->getID()) == 2);
-	CHECK(mine.countOf("GondorFighterHorde") == count + 1);
-	logic.skirmishAI().objectRemoved(*a);
+	// Port 172 (a5851ae18, issue #425): intentional crash fix over RW 0x5F1B20 plain push_back: AIStatCollector registers
+	// an id at most once per list so a capture's double-add does not leave a stale copy after removal.
+	CHECK(h0.value() == h1.value());
 	CHECK(occurrences(mine.army(), a->getID()) == 1);
 	CHECK(mine.countOf("GondorFighterHorde") == count);
+	logic.skirmishAI().objectRemoved(*a);
+	CHECK(occurrences(mine.army(), a->getID()) == 0);
+	CHECK(mine.countOf("GondorFighterHorde") == count - 1);
 }
 
 TEST_CASE("decomp3 binary facts: S-1301 Object::isAbleToAttack (RW 0x691269) and the contain / spawn slots it asks")

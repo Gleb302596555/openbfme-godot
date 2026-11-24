@@ -812,7 +812,9 @@ TEST_CASE("synthetic HUD: horde members select their horde, not the soldier")
 	Object *horde = r.place("TestHorde", 800, 600);
 	Object *a = r.place("TestMember", 100, 100);
 	Object *b = r.place("TestMember", 200, 100);
+	// RW 0x7109CE..0x710A09 (Port 287, 3bf7d2d0a): addDrawableToList replaces a soldier with its HORDE producer (Object + 0x78).
 	a->friend_setContainedBy(horde); b->friend_setContainedBy(horde);
+	a->setProducer(horde); b->setProducer(horde);
 	r.click(100, 100); r.selected({ horde->getID() });
 	r.modifier(KEY_LSHIFT, KEY_STATE_LSHIFT, true);
 	r.click(200, 100); r.selected({});
