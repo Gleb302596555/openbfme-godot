@@ -4,6 +4,7 @@
 #include "GameClient/TreeTopple.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DTreeDraw.h"
 #include "GameNetwork/NetPacket.h"
+#include "Common/System/SaveGame/SaveGameFile.h"
 #include "GameLogic/Object/PartitionManager.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/ObjectFilter.h"
@@ -114,11 +115,23 @@ TEST_CASE("PORT-266 client tree alpha snapshot round trip and old default")
 	CHECK(original.trees()[1].fadeCurrent == 255);
 	const auto snapshot = original.saveFadeSnapshot();
 	CHECK(snapshot == fixture.data());
+	// v3 carries actual TreeTopple alpha bytes without changing the independent simulation snapshot.
+	SaveGameFile file;
+	file.header.profile = ProfileIdentity::fromText("data test\n");
+	file.header.executionProfile = "enhanced";
+	file.header.buildVersion = "v";
+	file.header.engineId = "e";
+	file.snapshot = { 1, 2, 3 };
+	file.clientSnapshot = snapshot;
+	SaveGameFile decoded;
+	REQUIRE_MESSAGE(SaveGameFile::parse(file.encode(), decoded, &error), error);
+	CHECK(decoded.snapshot == file.snapshot);
+	CHECK(decoded.clientSnapshot == snapshot);
 	TreeTopple loaded;
 	loaded.add(11, Coord3D{}, &data);
 	loaded.add(12, Coord3D{}, &data, true);
 	loaded.add(13, Coord3D{}, &data);
-	REQUIRE_MESSAGE(loaded.loadFadeSnapshot(snapshot, &error), error);
+	REQUIRE_MESSAGE(loaded.loadFadeSnapshot(decoded.clientSnapshot, &error), error);
 	CHECK(loaded.trees()[0].fadeCurrent == 170);
 	CHECK(loaded.trees()[0].fadeTarget == 105);
 	CHECK(loaded.trees()[2].fadeCurrent == 201);
