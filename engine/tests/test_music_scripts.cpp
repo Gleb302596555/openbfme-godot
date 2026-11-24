@@ -365,8 +365,10 @@ namespace
 {
 const char kGroupAudio[] =
 	"AudioEvent GroupLoop\n  Sounds = tracka\n  Control = LOOP\n  Type = world everyone\n  MinRange = 10\n  MaxRange = 1000\n  Limit = 0\nEnd\n"
-	"LargeGroupAudioMap TestSoldiers\n  Sound TestLoop\n    Sound = GroupLoop\n    Key = Gondor_Soldier\n  End\n  Size = 4000\n  StartThreshold = 1\n  StopThreshold = 1\n"
-	"  HandOffModeDuration = 3000\n  MaximumAudioSpeed = 20\nEnd\n"
+	// RW 0x9D7DF6 (Port 290, 5e1caec4c / fd664be15): grid sound position comes from cell centres and the 8 neighbours,
+	// not raw member coordinates within one cell, so Size = 400 puts the 400-unit move into the neighbouring cell.
+	"LargeGroupAudioMap TestSoldiers\n  Sound TestLoop\n    Sound = GroupLoop\n    Key = Gondor_Soldier\n  End\n  Size = 400\n  StartThreshold = 1\n  StopThreshold = 1\n"
+	"  HandOffModeDuration = 0\n  MaximumAudioSpeed = 20\nEnd\n"
 	"LargeGroupAudioMap SeesStealth\n  Sound SeeLoop\n    Sound = GroupLoop\n    Key = Gondor_Soldier\n  End\n  Size = 4000\n  StartThreshold = 1\n  StopThreshold = 1\n"
 	"  MaximumAudioSpeed = 20\n  IgnoreStealthedUnits = No\nEnd\n";
 

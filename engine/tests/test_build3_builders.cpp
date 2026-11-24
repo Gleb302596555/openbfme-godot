@@ -409,7 +409,7 @@ TEST_CASE("BUILD-3 U17: the Goblins' GoblinCave at QA-1's spot on Tournament MP1
 	const bool atFirst = std::fabs(dock.x - (built->getPosition()->x - 40.188f)) < 0.01f && std::fabs(dock.y - (built->getPosition()->y + 41.694f)) < 0.01f;
 	const bool atSecond = std::fabs(dock.x - (built->getPosition()->x + 38.037f)) < 0.01f && std::fabs(dock.y - (built->getPosition()->y - 38.085f)) < 0.01f;
 	CHECK_MESSAGE((atFirst || atSecond), "dock (", dock.x, ", ", dock.y, ")");
-	// the lane's stops are in the live report (S-1282's face command is also noted at runtime: the dozer reached its sub task 1 -> 2 above)
+	// the lane's stops are in the live report (Port 217, 07589f4fe, ported S-1282's face command 0x26 at RW 0x88DD38..0x88DD3E)
 	const GameLogic::Report report = logic.report();
 	for (const char *tag : { "[S-304]", "[S-1280]", "[S-1281]", "[S-1282]" })
 	{
@@ -420,12 +420,6 @@ TEST_CASE("BUILD-3 U17: the Goblins' GoblinCave at QA-1's spot on Tournament MP1
 		}
 		CHECK_MESSAGE(found, tag);
 	}
-	bool faceNoted = false;
-	for (const std::string &line : report.stops)
-	{
-		faceNoted = faceNoted || line.find("face command 0x26") != std::string::npos;
-	}
-	CHECK(faceNoted);
 }
 
 TEST_CASE("BUILD-3: every faction's builder builds every structure it offers on Evendim (rises from 1 hit point, never an idle worker while it works)")
