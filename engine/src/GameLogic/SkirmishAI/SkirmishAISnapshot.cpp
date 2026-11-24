@@ -7,6 +7,7 @@
 // SiegeGates::xfer RW 0x9B3256, SimpleSiege::xfer RW 0x9B3385, PincerAttack::xfer RW 0x9B431F, AIFlankAttackTacticImp::DoXfer RW 0x9B4805,
 // FlankAttack::xfer RW 0x9B4953, FormationAttack::xfer RW 0x9B49EB, SimpleExpansion::xfer RW 0x9B50C2, AIStartWoTRBattleTactic::xfer RW 0x9B84A9,
 // AIReturnTheRingTactic::xfer RW 0x9B8675, AIFarmKillSquad::xfer RW 0x9BC050).
+//
 // docs/SAVES-RETAIL.md section 6). This port's skirmish AI is a partial port (S-412: the sub systems are structs of what is ported, laid out by the port), so
 // the block is OpenBFME's own, in this order:
 //   the started flag, the attacked-at id counter, the spell book assist timers, the data's identity (SkirmishAIStore::crc: a snapshot of another data set is
