@@ -94,7 +94,8 @@ BloodthirstyUpdate::BloodthirstyUpdate(Thing *thing, const BloodthirstyUpdateMod
 
 BloodthirstyUpdate *BloodthirstyUpdate::find(Object &object)
 {
-	return dynamic_cast<BloodthirstyUpdate *>(object.findModule("BloodthirstyUpdate"));
+	// RW 0x68C878: retail walks the object's behavior-module array for interface slot 37, it does not look the class name up
+	return object.getBloodthirstyUpdateInterface();
 }
 
 bool BloodthirstyUpdate::matchesFilter(const Object &candidate) const

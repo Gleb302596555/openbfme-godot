@@ -122,13 +122,15 @@ TEST_CASE("area scans retail: the Gondor statue gives GenericHeroLeadership to a
 	const float gained = body->getHealth() - before;
 	MESSAGE("well: max " << maxHealth << " healed " << gained << " in " << heal->heals() << " pulse(s)");
 	CHECK(gained == doctest::Approx(maxHealth * 0.02f / 5.0f * 15.0f * (float)heal->heals()).epsilon(0.001));
-	// the NonStackable rule is noted (S-1023)
+	// the NonStackable rule is ported (PORT-233, issue #556: RW 0x887C1A .. 0x887C34 reads the body's last heal frame, RW 0x8C30BA), so the port
+	// does not note it any more. The heal above ran because the soldier's body had no heal frame yet (the field starts at 0, RW 0x65114B) and the
+	// frame counter was already past the PingDelay window: the gate refuses the heal while `last heal frame + PingDelay` is above the current frame
 	bool noted = false;
 	for (const std::string &l : g.logic.report().stops)
 	{
 		noted = noted || l.find("[S-1023] PassiveAreaEffectBehavior: NonStackable") == 0;
 	}
-	CHECK(noted);
+	CHECK_FALSE(noted);
 }
 
 TEST_CASE("hit reaction retail: an Arnor captain that loses health while idle shows HIT_REACTION and the level of the loss for its LifeTimer, then clears")

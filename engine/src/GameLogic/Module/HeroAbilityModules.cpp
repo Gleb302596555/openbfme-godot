@@ -1699,6 +1699,9 @@ void ActivateModuleSpecialPowerModuleData::buildFieldParse(MultiIniFieldParse &p
 	p.add(kActivateModule);
 }
 
+// RW 0x008D21A9: the ctor writes the four vtables (the module's 0xC768B8, the shared behavior base 0xC56310, the special power's 0xC769EC and the
+// update interface's 0xC64658) and jumps into SpecialPowerModule's ctor 0x854D9A. It initialises no field of its own, so the port's is the base
+// ctor plus the typed data pointer.
 ActivateModuleSpecialPower::ActivateModuleSpecialPower(Thing *thing, const ActivateModuleSpecialPowerModuleData *data)
 	: SpecialAbilityUpdate(thing, data)
 	, m_am(data)

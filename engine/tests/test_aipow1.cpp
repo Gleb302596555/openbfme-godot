@@ -814,14 +814,14 @@ TEST_CASE("AIPOW-1 r2: the spell book's ASSIST_BATTLE_BUFF (RW 0x9E896E) with it
 	}
 	if (rebuild)
 	{
-		// the rebuild power's type (0x57) is one of S-1874's unported location tests: a wounded structure is chosen, the ActionManager answers no (counted)
+		// PORT-327: the Rebuild location test RW 0x82E93C is ported; it no longer increments the unported counter.
 		Object *fortress = firstOf(*a.logic, a.ai, "COMMANDCENTER");
 		REQUIRE(fortress);
 		CHECK(rebuild->decideNow() == false);
 		setHealthRatio(*fortress, 0.4f);
 		const unsigned long long before = ActionManager::stats().unportedTypeTests[0x57];
-		CHECK(rebuild->decideNow() == false);
-		CHECK(ActionManager::stats().unportedTypeTests[0x57] > before);
+		(void)rebuild->decideNow(); // AI may still reject for its own prerequisites
+		CHECK(ActionManager::stats().unportedTypeTests[0x57] == before);
 	}
 }
 

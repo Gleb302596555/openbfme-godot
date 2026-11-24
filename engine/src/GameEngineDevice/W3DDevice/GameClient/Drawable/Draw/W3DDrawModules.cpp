@@ -64,7 +64,14 @@ void W3DDrawModules::registerTypedDrawModuleData(ModuleFactory &modules)
 	modules.bindTypedData<W3DHordeModelDrawModuleData>("W3DHordeModelDraw", MODULETYPE_DRAW);
 	// TARGET W3DDefaultDraw: RW 0x004B1AF4 getModuleNameKey, RW 0x004B1B39 GetSnapshotName, RW 0x004B1B3F xfer.
 	modules.bindTypedData<W3DDefaultDrawModuleData>("W3DDefaultDraw", MODULETYPE_DRAW);
+	// W3DTreeDraw's module data owns the class literal and the factory lookup the port does here: RW 0x004CE35D returns the "W3DTreeDraw"
+	// name key (RW 0xBDDB34, the same string RW 0x004CE4EC's field-table registration is filed under) and RW 0x004CE363 finds the data
+	// in TheModuleFactory (RW 0xDD90E4 -> RW 0x5487EC, the name-keyed hash) and caches the answer in RW 0xDD15E8. The port's registry
+	// binds the typed data once at start-up instead of a lazy lookup, and looks a module up by its class name.
 	modules.bindTypedData<W3DTreeDrawModuleData>("W3DTreeDraw", MODULETYPE_DRAW);
+	// RW 0x004CE715 (the W3DPropDraw data destructor) / RW 0x004CEEB6 (W3DFloorDraw data: the WeatherTexture map at +0x10, the
+	// HideIfModelConditions vector at +0x24, then the prop base at RW 0x4CEDFE) / RW 0x004CE48F (W3DTreeDraw data: four AsciiStrings,
+	// then the ModuleData base table RW 0xBD15B0): C++ owns that lifetime in the port, so no code cites the three destructors.
 	modules.bindTypedData<W3DPropDrawModuleData>("W3DPropDraw", MODULETYPE_DRAW);
 	modules.bindTypedData<W3DFloorDrawModuleData>("W3DFloorDraw", MODULETYPE_DRAW);
 	modules.bindTypedData<W3DTruckDrawModuleData>("W3DTruckDraw", MODULETYPE_DRAW);

@@ -666,7 +666,9 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
-// RW 0x008B0546 (getModuleName), RW 0x008B054C (getModuleNameKey), RW 0x008B0671 (scalar deleting dtor -> 0x008B050A).
+// RW 0x008B0546 (getModuleName), RW 0x008B054C (getModuleNameKey), RW 0x008B0671 (scalar deleting dtor), RW 0x008B050A (the dtor it deletes through:
+// the four vtables back, the sub-object at + 0x88 released by a list clear 0x6652E4 and a pool destroy 0x667E94, then SpecialPowerModule's dtor
+// 0x854D9A; the port's is its members' own destructors, SpecialAbilityUpdate's first).
 class RousingSpeechUpdate : public SpecialAbilityUpdate
 {
 public:

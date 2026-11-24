@@ -12,6 +12,11 @@
 // - setShadowsEnabled RW 0x004B12FE, setFullyObscuredByShroud RW 0x004B130F, reactToTransformChange RW 0x004B1339,
 //   doDrawModule RW 0x004B135C, xfer RW 0x004B16E8, setModelName RW 0x004B1810, setAnimNames RW 0x004B19A4.
 // - No fields in the module data (table RW 0x0).
+// - RW 0x0054C8B6 is the animation-handle lookup both setters end in: Get_HAnim(name) (DONOR BFME2 W3DDebrisDraw.cpp), called once per
+//   name from RW 0x4B19F7 / RW 0x4B1A15 / RW 0x4B1A71 into +0x1C / +0x20 / +0x24, and not at all for an empty name (RW 0x4B19EF /
+//   RW 0x4B1A0D store 0). The port keeps the three names and Godot resolves a clip by name when it plays it, so the handles are the
+//   names below (W3DDebrisDrawStep::anim selects which one plays); the "STOP" test is RW 0x4B1A2F (the literal RW 0xBDF7F8) and its
+//   result is the byte +0x34, m_finalStop.
 // DONOR BFME2 1.06 (workspace/reference/open-bfme-2, W3DDebrisDraw*.cpp): ctor 0x000B1C41, setShadowsEnabled 0x000B19D9,
 //   setFullyObscuredByShroud 0x000B19EA, reactToTransformChange 0x000B1A14, doDrawModule 0x000B1A37, getModuleNameKey 0x000B1C97,
 //   GetSnapshotName 0x000B1CDC, xfer 0x000B1DC3, deleting dtor 0x000B1ECF, setModelName 0x000B1EEB, setAnimNames 0x000B207F.

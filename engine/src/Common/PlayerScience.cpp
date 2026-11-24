@@ -10,6 +10,7 @@
 #include "Common/ScoreKeeper.h"
 #include "Common/Science.h"
 #include "Common/StateHash.h"
+#include "GameLogic/ExperienceLevels.h"
 #include "GameLogic/RankInfo.h"
 #include "GameLogic/SimMath.h"
 #include "Common/Xfer.h"
@@ -52,6 +53,9 @@ void PlayerScience::bind(const PlayerTemplate *pt, const SpellGameMode &mode, Sc
 	m_mode = mode;
 	m_score = score;
 	m_skillPointsModifier = 1.0f; // RW 0x782A28 (constructor)
+	// RW 0x782A0C: the constructor looks the PlayerSkillPointsScalarTable up by name in the store (RW 0xDE4704); without the store the pointer
+	// stays null and the points are never scaled (RW 0x782ADC: `test ecx, ecx; je`)
+	m_skillPointScalars = TheExperienceLevelSystem ? TheExperienceLevelSystem->findScalarTable("PlayerSkillPointsScalarTable") : nullptr;
 	m_sciences.clear();
 	m_scriptNotices.clear(); // lane AUDIO-4: a new game's player starts a new notice history
 	++m_noticeGeneration;
@@ -251,7 +255,22 @@ bool PlayerScience::addSkillPoints(float points, bool applyScalar)
 	{
 		return false;
 	}
-	(void)applyScalar; // the PlayerSkillPointsScalarTable is skipped while GameLogic + 0x114 == 3, as in every skirmish (S-525)
+	// PORT-233 (issue #556, S-524): RW 0x782AC5 .. RW 0x782B0F - with the scalar asked for, a game whose kind is not 3 (a skirmish, RW 0x782AD0) and a
+	// scalar table, the points are scaled by the table's scalar of the rank (the index is the rank above the table's base rank, clamped to the last
+	// scalar; a negative index scales nothing)
+	if (applyScalar && m_mode.gameKind != 3 && m_skillPointScalars)
+	{
+		const int count = (int)m_skillPointScalars->m_scalars.size(); // RW 0x782AE5 .. RW 0x782AF0
+		int index = m_rankLevel - m_scalarBaseRank;
+		if (index >= count)
+		{
+			index = count - 1; // RW 0x782AF2 .. RW 0x782AFA: the last scalar
+		}
+		if (index >= 0)
+		{
+			points = SimMath::sseMul(m_skillPointScalars->m_scalars[index], points); // RW 0x782B01 .. RW 0x782B0A
+		}
+	}
 	if (points == 0.0f)
 	{
 		return false;

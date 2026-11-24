@@ -1673,7 +1673,7 @@ std::vector<std::string> ShroudManager::stopLines()
 		"[S-564] object look: the SHROUD_CLEARING modifier (RW 0x804F39 type 0x14) and the object's own range (Object + 0x1B4) are read since lane DECOMP-1; DynamicShroudClearingRangeUpdate writes that range through setShroudClearingRange (LOCAL-35, RW 0x88E9B0); the spied mask (player + 0x3C8), object + 0x30 / + 0x3F4 (radii "
 		"0.1) are not read; object + 0x480 (hide when fogged) is taken as set; the HordeContain VisionSide / VisionRearOverride are read since lane PORT-25 (RW 0x694B79 / 0x694B9B through the interface vslots 0x25C / 0x258, RW 0x872BAB / 0x872B9E)",
 		"[S-565] fogged targets: a human player's units cannot attack an object FOGGED or SHROUDED for that player unless the order comes from a script (RW "
-		"0x82C167, the action helper: human and not script, as ZH ActionManager isObjectShroudedForAction); its other callers and the other action types were not read",
+		"0x82C167, the action helper: human and not script); enter, heal and repair use the human-only gate (PORT-327); capture and other callers remain incomplete",
 		"[S-566] stealth and detection: RotWK's invisibility (InvisibilityUpdate, StealthDetectorUpdate, the InvisibilityManager, the INVISIBLE_STEALTH / CAMOUFLAGE "
 		"conditions and the INVISIBLE_DETECTED statuses) is lane STEALTH-1's (S-1040 .. S-1042); the shroud does not change for a stealthed object",
 		"[S-567] shroud drawing: one texel per cell with bilinear filtering (terrain.fxo's ShroudSampler: linear, clamp) multiplies the terrain, the water, rivers and roads by the "

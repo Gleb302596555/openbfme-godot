@@ -67,27 +67,18 @@ HordeContainInterface *hordeOf(const Object &obj)
 	return c ? c->getHordeContainInterface() : nullptr;
 }
 
-// RW 0x82C167: the container is SHROUDED (status >= 3, RW 0x68D8F7) for the object's player, unless the order came from a script, the container is one of the
-// four reserved ids (100000000 - 4 .. - 1) or the player is an observer (+ 0x5C)
+// RW 0x82C167: fake-tree IDs and script orders bypass the gate; for all
+// other orders use the shared human-owner and FOGGED/SHROUDED predicate.
 bool shroudedForPlayer(Object &obj, Object &container, CommandSourceType source)
 {
 	const ObjectID id = container.getID();
 	if (id >= 99999996u && id <= 99999999u)
 	{
-		return false;
+		return false; // RW 0x82C16B..0x82C17A
 	}
-	Player *p = obj.getControllingPlayer();
-	if (!p || source == CMD_FROM_SCRIPT)
-	{
-		return false;
-	}
-	ShroudManager *sm = obj.logic().shroud();
-	if (!sm)
-	{
-		return false; // no shroud in this game: everything is clear
-	}
-	return (int)sm->getObjectStatus(container, p->getPlayerIndex()) >= 3;
+	return source != CMD_FROM_SCRIPT && ShroudManager::isShroudedForAction(obj, container); // RW 0x82C196..0x82C1B7
 }
+
 } // namespace
 
 const char *GarrisonRules::stopLine()
@@ -308,7 +299,7 @@ bool GarrisonRules::canGetHealedAt(Object &obj, Object *healDepot, CommandSource
 	}
 	if (shroudedForPlayer(obj, *healDepot, source))
 	{
-		return false; // RW 0x0082C823: call 0x82C167
+		return false; // RW 0x0082C80E: call 0x82C167
 	}
 	const BodyModuleInterface *body = obj.getBodyModule();
 	return body && body->getMaxHealth() > body->getHealth(); // RW 0x0082C82F..0x0082C849
@@ -354,7 +345,7 @@ bool GarrisonRules::canGetRepairedAt(Object &obj, Object *repairDepot, CommandSo
 	{
 		return false; // RW 0x0082C589..0x0082C5A3
 	}
-	return !shroudedForPlayer(obj, *repairDepot, source); // RW 0x0082C5AE: call 0x82C167
+	return !shroudedForPlayer(obj, *repairDepot, source); // RW 0x0082C598: call 0x82C167
 }
 
 // RW 0x0082C254 ActionManager::canCombineObjects (DONOR BFME2 0x000C4080)

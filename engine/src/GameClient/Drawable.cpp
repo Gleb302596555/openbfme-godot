@@ -335,13 +335,14 @@ void Drawable::setModelConditionFlags(const ModelConditionFlags &flags)
 	m_flags = flags;
 	++m_changeCount;
 	// RENDER-2: a W3DFloorDraw is not drawn while one of its HideIfModelConditions sets is all in the flags (the rule MapObjectCreation::resolveDrawModel applies
-	// at creation; e.g. the barracks' floor during AWAITING_CONSTRUCTION / PARTIALLY_CONSTRUCTED)
+	// at creation; e.g. the barracks' floor during AWAITING_CONSTRUCTION / PARTIALLY_CONSTRUCTED). RW 0x4CE8CA tests (flags & mask) == mask
+	// word by word over 0x13 dwords, with no case for a mask that is empty: such a set matches every flag set and hides the floor.
 	for (DrawEntry &e : m_entries)
 	{
 		bool hide = false;
 		for (const ModelConditionFlags &h : e.hideIf)
 		{
-			hide = hide || (h.any() && flags.testForAll(h));
+			hide = hide || flags.testForAll(h);
 		}
 		e.conditionHidden = hide;
 	}

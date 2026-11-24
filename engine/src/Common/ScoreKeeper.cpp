@@ -65,6 +65,8 @@ void ScoreKeeper::reset(int playerIndex)
 	m_spentUnits = m_spentStructures = m_spentHeroes = m_spentTotal = 0;
 	m_unitsBuilt = m_unitsLost = m_structuresBuilt = m_structuresLost = 0;
 	m_purchasePointsEarned = 0;
+	m_heroesVetted = 0;          // RW + 0xD0 (PORT-233)
+	m_unitsVetted = 0;           // RW + 0xD4 (PORT-233)
 	m_currentScore = 0;
 	m_endFrame = 0;
 	m_firstHeroEntry = 0;
@@ -330,8 +332,8 @@ void ScoreKeeper::recordPerFrameStats(GameLogic &logic, const Player &player, un
 		s = SimMath::addf32(SimMath::mulf32(sseFromInt32(m_structuresDestroyed[i]), m.structuresDestroyed), s);
 	}
 	s = SimMath::addf32(SimMath::mulf32(sseFromInt32((std::int32_t)m_purchasePointsEarned), m.powerPoints), s);
-	s = SimMath::addf32(SimMath::mulf32(sseFromInt32(0), m.heroesVetted), s); // + 0xD0: no ported adder (S-1061)
-	s = SimMath::addf32(SimMath::mulf32(sseFromInt32(0), m.unitsVetted), s);  // + 0xD4
+	s = SimMath::addf32(SimMath::mulf32(sseFromInt32(m_heroesVetted), m.heroesVetted), s); // + 0xD0 (PORT-233: the ExperienceTracker's level-up count)
+	s = SimMath::addf32(SimMath::mulf32(sseFromInt32(m_unitsVetted), m.unitsVetted), s);   // + 0xD4
 	s = SimMath::addf32(m_eliminationBonus, s);
 	e.score = s;
 	++m_counters.framesRecorded;
@@ -363,8 +365,8 @@ int ScoreKeeper::computeScore(const GameLogicSettings &settings, unsigned frame,
 	int s = truncToInt32(SimMath::mulf32(sseFromInt32((std::int32_t)m_moneyEarned), m.suppliesCollected));
 	s = term(s, m_unitsBuilt, m.unitsBuilt);
 	s = term(s, m_structuresBuilt, m.structuresBuilt);
-	s = term(s, 0, m.heroesVetted); // + 0xD0 (S-1061)
-	s = term(s, 0, m.unitsVetted);  // + 0xD4
+	s = term(s, m_heroesVetted, m.heroesVetted); // + 0xD0 (PORT-233: the ExperienceTracker's level-up count)
+	s = term(s, m_unitsVetted, m.unitsVetted);   // + 0xD4
 	s = term(s, (std::int32_t)m_purchasePointsEarned, m.powerPoints);
 	s = term(s, completedObjectives, m.objectivesCompleted); // RW 0x79DE90 (lane CAMPUI-1): the completed shown bonus objectives
 	s += timeTakenScore(settings, m_endFrame != 0 ? m_endFrame : frame);
@@ -472,6 +474,13 @@ void ScoreKeeper::crc(StateHasher &h) const
 	h.addI32(m_currentScore);
 	h.addU32(m_endFrame);
 	h.addI32(m_firstHeroEntry);
+	// PORT-233: the level-up counts (RW + 0xD0 / + 0xD4, the writers RW 0x79DB50 / RW 0x79DB6B). Hashed only when a count is not zero, like the body's
+	// conditional fields: a game in which nothing levels up keeps its hash
+	if (m_heroesVetted != 0 || m_unitsVetted != 0)
+	{
+		h.addI32(m_heroesVetted);
+		h.addI32(m_unitsVetted);
+	}
 	h.addI32(m_playerIndex);
 	h.addI32(m_lastAttacker);
 	h.addI32(m_unitsAlive);
@@ -638,7 +647,7 @@ void xferCountMap(Xfer &x, std::map<std::string, int> &m)
 // fields crc leaves out; the diagnostic counters are not state.
 void ScoreKeeper::xfer(Xfer &x)
 {
-	XferVersion v{ 1, 1 };
+	XferVersion v{ 1, 2 }; // 2: PORT-233's level-up counts (RW + 0xD0 / + 0xD4)
 	x.xferVersion(v);
 	x.xferBool(&m_enabled);
 	x.xferUnsignedInt(&m_moneyEarned);
@@ -670,6 +679,17 @@ void ScoreKeeper::xfer(Xfer &x)
 	x.xferInt(&m_currentScore);
 	x.xferUnsignedInt(&m_endFrame);
 	x.xferInt(&m_firstHeroEntry);
+	if (v.current >= 2)
+	{
+		// PORT-233: the level-up counts (RW + 0xD0 / + 0xD4)
+		x.xferInt(&m_heroesVetted);
+		x.xferInt(&m_unitsVetted);
+	}
+	else
+	{
+		m_heroesVetted = 0;
+		m_unitsVetted = 0;
+	}
 	x.xferReal(&m_skillPointsEarned);
 	x.xferReal(&m_eliminationBonus);
 	x.xferInt(&m_playerIndex);

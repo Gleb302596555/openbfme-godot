@@ -18,6 +18,7 @@
 #include "GameLogic/Module/SpecialAbilityModules.h"
 #include "GameLogic/Object/EvaDamageNotice.h"
 #include "GameLogic/Object/ObjectGeometry.h"
+#include "GameLogic/Module/BloodthirstyUpdate.h"
 #include "GameLogic/Module/CollideModule.h"
 #include "GameLogic/Module/EmotionModules.h"
 #include "GameLogic/Module/PhysicsBehavior.h"
@@ -1825,6 +1826,23 @@ ProductionUpdateInterface *Object::getProductionUpdate() const
 		if (ProductionUpdateInterface *p = m ? m->getProductionUpdateInterface() : nullptr)
 		{
 			return p;
+		}
+	}
+	return nullptr;
+}
+
+// RW 0x68C878: the object's behavior-module array (RotWK Object + 0x24C, the NULL-terminated BehaviorModule **m_behaviors of BFME2's object.h:614,
+// which sits at + 0x244 there), each module asked through slot 37 (offset 0x94) of its + 0xC interface, the first non-null answer wins, else null.
+// Of the 166 candidate tables RotWK's `mov dword ptr [reg + 0xC], imm32` write pattern gives, slot 37 holds RW 0x008A18E0 (module + 0x20, the
+// interface vtable RW 0xC55654) in exactly one - BloodthirstyUpdate's RW 0xC55688 - and the null stub RW 0x00851E97 in 65, so the walk can only ever
+// answer with a sacrifice interface.
+BloodthirstyUpdate *Object::getBloodthirstyUpdateInterface() const
+{
+	for (const std::unique_ptr<BehaviorModule> &m : m_modules)
+	{
+		if (BloodthirstyUpdate *b = m ? m->getBloodthirstyUpdateInterface() : nullptr)
+		{
+			return b;
 		}
 	}
 	return nullptr;

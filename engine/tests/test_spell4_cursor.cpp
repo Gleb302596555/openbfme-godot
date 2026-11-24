@@ -21,6 +21,7 @@
 #include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/AI/AIPathfind.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
+#include "GameLogic/Module/ActiveBody.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/ExperienceTracker.h"
 #include "GameLogic/System/ShroudManager.h"
@@ -350,7 +351,7 @@ TEST_CASE("SPELL-4 retail: Men of the West: each targeted spell book power aims 
 	REQUIRE(logic.aiWorld());
 	REQUIRE(logic.aiWorld()->pathfinder().terrainView());
 	logic.aiWorld()->pathfinder().terrainView()->getMaximumPathfindExtent(loX, loY, hiX, hiY);
-	const Coord3D target{ 800.0f, 700.0f, logic.getGroundHeight(800.0f, 700.0f) };
+	const Coord3D ordinaryTarget{ 800.0f, 700.0f, logic.getGroundHeight(800.0f, 700.0f) };
 	struct Expect
 	{
 		const char *command, *cursor;
@@ -365,6 +366,15 @@ TEST_CASE("SPELL-4 retail: Men of the West: each targeted spell book power aims 
 	};
 	for (const Expect &e : cases)
 	{
+		const bool isRebuild = std::string(e.command) == "Command_SpellBookRebuild";
+		const Coord3D target = isRebuild ? home : ordinaryTarget;
+		if (isRebuild)
+		{
+			// PORT-327, RW 0x82E93C: Rebuild needs a damaged allied structure at the chosen point.
+			auto *body = dynamic_cast<ActiveBody *>(citadel->getBodyModule());
+			REQUIRE(body);
+			body->internalChangeHealth(body->getMaxHealth() * 0.5f - body->getHealth());
+		}
 		INFO(std::string(e.command));
 		const InGameSpellBookModel::Button *b = buttonOf(*r.hud, e.command);
 		REQUIRE(b);
@@ -451,7 +461,7 @@ TEST_CASE("SPELL-4 retail: Men of the West: each targeted spell book power aims 
 	}
 	CHECK(s4640 == 1);
 	// (lane SUMMONLOC-1: the summons' spot test runs now: Tom Bombadil and the Hobbit, Rohan and Dunedain allies are tested, not reported)
-	CHECK(unported == std::vector<std::string>{ "SpellBookRebuild", "SpellBookSpawnLoneTower" });
+	CHECK(unported == std::vector<std::string>{ "SpellBookSpawnLoneTower" });
 }
 
 // lane SUMMONLOC-1: the summons' spot test (RW 0x82E586, the first scan the partition's geometry overlap RW 0xA3C7D0 -> RW 0xAD2CE0): no live

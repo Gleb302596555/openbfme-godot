@@ -223,7 +223,7 @@ TEST_CASE("camp1 stops: the lane's stops are reported with their ids (S-1360 .. 
 	CHECK(lines[1].find("S-2340") != std::string::npos); // lane CAMP-2: the movies show their VP6 picture (S-1710 no longer lists it)
 	CHECK(lines[7].find("RW 0x69B7BE's + 0x28 string") != std::string::npos); // lane CAMPUI-1: the caption is typed; its incoming character's slide is not
 	CHECK(lines[8].find("HordeContain + 0x54") != std::string::npos);
-	CHECK(lines[9].find("SET_PLAYER_KILLS_OF_TYPE_TO_COUNTER") != std::string::npos); // lane OWNERFIX-1: PLAYER_SET_MAX_SPELLPOINTS is ported
+	CHECK(lines[9].find("SET_PLAYER_KILLS_OF_TYPE_TO_COUNTER") != std::string::npos); // PORT-323 (issue #840): the action is ported since lane SCRIPT-4; only the horde half of S-1363 remains
 	CHECK(lines[10].find("RW 0x7A208C") != std::string::npos);
 	CHECK(lines[11].find("RW 0x6AD2B5") != std::string::npos);
 	// lane CAMP-1H: the movies' stop (GameWorld.get_movie's report)
