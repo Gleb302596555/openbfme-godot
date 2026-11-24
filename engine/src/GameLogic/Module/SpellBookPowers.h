@@ -100,18 +100,21 @@ public:
 	int m_burnRateModifier = 0; // + 0x84
 	static void buildFieldParse(MultiIniFieldParse &p); // RW 0xC74348
 };
+// RW 0x008C8C53 (CloudBreakSpecialPowerModuleData::CloudBreakSpecialPowerModuleData): +0x7C m_radius = 10.0f (0xBD83D8), +0x88 m_objectSpacing = 100.0f (0xBD88D8)
 class CloudBreakSpecialPowerModuleData : public AreaSpecialPowerModuleData
 {
 public:
+	CloudBreakSpecialPowerModuleData() { m_radius = 10.0f; } // RW 0x008C8C53
 	std::string m_sunbeamObject; // + 0x84
-	float m_objectSpacing = 0.0f; // + 0x88
+	float m_objectSpacing = 100.0f; // + 0x88 (RW 0x008C8C53: 0xBD88D8 = 100.0f)
 	static void buildFieldParse(MultiIniFieldParse &p); // RW 0xC74000
 };
+// RW 0x008C8F71 (TaintSpecialPowerModuleData::TaintSpecialPowerModuleData): +0x80 m_taintRadius = 10.0f (0xBD83D8)
 class TaintSpecialPowerModuleData : public SpecialPowerModuleData
 {
 public:
 	std::string m_taintObject; // + 0x7C
-	float m_taintRadius = 0.0f; // + 0x80
+	float m_taintRadius = 10.0f; // + 0x80 (RW 0x008C8F71: 0xBD83D8 = 10.0f)
 	std::string m_taintFX;     // + 0x84
 	std::string m_taintOCL;    // + 0x88
 	static void buildFieldParse(MultiIniFieldParse &p); // RW 0xC741A0
