@@ -161,8 +161,8 @@ TEST_CASE("LOCAL-168 HordeContain: applyRankWeaponSetFlags grants and revokes ra
 	const auto members = membersVec(*hc);
 	REQUIRE(members.size() == 2);
 
-	const int flagUpgrade = CombatNames::weaponCondition("PLAYER_UPGRADE");
-	const int flagHero = CombatNames::weaponCondition("HERO");
+	const int flagUpgrade = CombatNames::weaponSetBit("PLAYER_UPGRADE");
+	const int flagHero = CombatNames::weaponSetBit("HERO");
 	REQUIRE(flagUpgrade >= 0); // tolerance: valid CombatNames weapon condition index
 	REQUIRE(flagHero >= 0); // tolerance: valid CombatNames weapon condition index
 
@@ -249,7 +249,7 @@ TEST_CASE("LOCAL-168 HordeContain: anyMemberAttacking, anyMemberAttackingTarget,
 	CHECK_FALSE(hc->anyMemberAttackingTarget(*enemy));
 
 	// Order one member to attack enemy
-	members[0]->getAIUpdateInterface()->aiAttackObject(enemy, 100, CMD_FROM_AI);
+	members[0]->getAIUpdateInterface()->aiAttackObject(enemy, CMD_FROM_AI, 100);
 	w.frames(1);
 	CHECK(hc->anyMemberAttacking());
 	CHECK(hc->anyMemberAttackingTarget(*enemy));
