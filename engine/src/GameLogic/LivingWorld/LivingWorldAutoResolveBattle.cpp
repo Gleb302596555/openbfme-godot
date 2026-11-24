@@ -368,6 +368,7 @@ void AutoResolveBattle::assignLeadership()
 
 void AutoResolveBattle::chooseTargets()
 {
+	// RW 0x8FE0DB (push & sort target candidate list)
 	// RW 0x8FE401
 	typedef Attacker<Unit> A;
 	struct Listed
@@ -549,6 +550,7 @@ bool AutoResolveBattle::attackRound()
 
 void AutoResolveBattle::removeUnit(std::vector<Unit *> &side, size_t index)
 {
+	// RW 0x8FB7D7 (unit death / hero removal helper)
 	// RW 0x8FE971
 	const Unit *u = side[index];
 	if (u->spec.buildingSlot >= 0)

@@ -277,6 +277,7 @@ void LivingWorldAI::defendHomeTerritory(PlayerAI &ai, int player)
 
 void LivingWorldAI::strategyPass(PlayerAI &ai, int player, int difficulty)
 {
+	// LivingWorldAIInformation lookup RW 0x904F99
 	// RW 0x9A53E6: the ConcurrentRegionBonus the player best completes (owned / allied share plus the AI template's bonus preferences, x87 single)
 	const RegionCampaign &rc = m_logic.regionCampaign();
 	const ConcurrentRegionBonus *bestBonus = nullptr;

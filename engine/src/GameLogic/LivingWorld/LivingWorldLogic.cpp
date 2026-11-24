@@ -139,6 +139,14 @@ const BuildingTemplate *LivingWorldLogic::buildingTemplate(const Building &b) co
 //     GetRevivalUnitData RW 0x6E2783, RemoveRevivalUnit RW 0x6E359D, AddUpgrade RW 0x6E28BF,
 //     RemoveUpgrade RW 0x6E28F3, CheckForRemovedMultiRegionBonuses RW 0x6E333A;
 //     Army ctors/dtor RW 0x71BB55 / RW 0x71BC70 / RW 0x71B5FF, KillSummaryEntry RW 0x71AE2D, initiateMove RW 0x71BE8F.
+//   Region Reset RW 0x7F55B0; BuildPlot DestroyBuilding RW 0x902CFB; Building GetBuildQueue RW 0x8E4A3A,
+//     GetOwnerID RW 0x8E4B10, GetOwnerPlayer RW 0x8E4B1A, GetBuildingTreasuryBonus RW 0x8E4F81,
+//     BuildQueue queue-active flag RW 0x8FF337; OwnershipSet::spawnBuildingsInRegionsForPlayer RW 0x9A7A65.
+//   Battle accessors: GetPlayerID RW 0x7F5D2B, GetNumPlayersOnSide RW 0x7F6403, GetNumArmiesForPlayer RW 0x7F641F,
+//     BattleSide::FindBattlePlayer RW 0x7F5B1E, BattlePlayer::FindGarrisonArmy RW 0x7F5A62, FindGarrisonArmy RW 0x7F6159.
+//   Scenario victory/defeat delegates: RW 0x902623, RW 0x902668, RW 0x9026AD, RW 0x90272D, RW 0x9027A3;
+//     PlayerDefeatCondition::isPlayerDefeated RW 0x9010F0, TeamDefeatCondition::isTeamDefeated RW 0x901171,
+//     TeamVictoryCondition::hasTeamAchievedVictory RW 0x901BA7.
 //   Battle: ctors/dtor RW 0x7F81C9 / RW 0x7F869C / RW 0x7F8220, loadPostProcess RW 0x7F6176,
 //     GetTeamNumberForSide RW 0x7F5C0F, GetTotalPlayerCount RW 0x7F5C1F, GetFirstNonEmptySide RW 0x7F5C64,
 //     FindSideForPlayer RW 0x7F5CB9, FindBattlePlayer RW 0x7F5D12, GetRetreatedPlayerCount RW 0x7F5D46,
@@ -4546,19 +4554,27 @@ void LivingWorldLogic::checkVictory()
 			bool beaten = false;
 			for (const Condition &c : victoryConditions(1))
 			{
+				// RW 0x901171 (TeamDefeatCondition::isTeamDefeated): sum GetNumRegionsOwned (RW 0x6E2333)
+				// across all players on the team; defeated iff totalRegions <= NumControlledRegionsLessOrEqualTo.
 				if (c.numControlledRegionsLessOrEqualTo < 0)
 				{
 					continue;
 				}
-				bool all = true;
+				int totalRegions = 0;
+				bool exceeds = false;
 				for (int p = 0; p < (int)m_players.size(); ++p)
 				{
-					if (m_players[(size_t)p].team == team && !m_players[(size_t)p].defeated && regionCount(p) > c.numControlledRegionsLessOrEqualTo)
+					if (m_players[(size_t)p].team == team)
 					{
-						all = false;
+						totalRegions += regionCount(p);
+						if (totalRegions > c.numControlledRegionsLessOrEqualTo)
+						{
+							exceeds = true;
+							break;
+						}
 					}
 				}
-				beaten = beaten || all;
+				beaten = beaten || !exceeds;
 			}
 			if (beaten)
 			{

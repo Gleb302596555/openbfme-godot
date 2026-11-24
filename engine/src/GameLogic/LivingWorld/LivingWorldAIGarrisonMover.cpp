@@ -71,6 +71,7 @@ void LivingWorldAI::distributeMembers(PlayerAI &ai, int player, const AIArmyInfo
 
 void LivingWorldAI::step3(int player, PlayerAI &ai)
 {
+	// LivingWorldAIInformation::GetRegionInfo RW 0x904CA6, GetGarrisonArmies RW 0x904FAC
 	// GarrisonMover RW 0x9A4205
 	const std::vector<AIArmyInfo> garrisons = m_info.players[(size_t)player].unnamed;
 	for (const AIArmyInfo &g : garrisons)

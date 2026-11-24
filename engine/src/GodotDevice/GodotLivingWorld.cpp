@@ -1401,6 +1401,7 @@ Dictionary LivingWorldGame::cancel_army_member_move(int64_t army, int64_t key)
 	return post(m, sender);
 }
 
+// CancelArmyMoveButton can-cancel check: RW 0x9FBFA0 (called from RW 0x9FBFCC)
 // CancelArmyMoveButton: RW 0x9FBFCC (enable), RW 0x9FBFE3 (OnLeftClicked -> MSG_LW_CANCEL_ARMY_MOVE_REQUEST 0x6A9)
 Dictionary LivingWorldGame::cancel_move(int64_t player, int64_t army)
 {
