@@ -1834,6 +1834,58 @@ bool LivingWorldLogic::disbandArmy(int player, int armyId, std::string *error)
 	return true;
 }
 
+// HandleSwapArmiesInBattleMessage RW 0x6B4B39 (helpers getBattleFromMessage RW 0x6B379E,
+// getBattleArmyIndexFromMessage RW 0x6B3822, LivingWorldBattle::swapArmies RW 0x7F69EE):
+// validates (battleIndex, sideIndex, playerIndex, slotA, slotB) and swaps the player's two
+// army slots in battle.armies.
+bool LivingWorldLogic::swapArmiesInBattle(int sender, int battleIndex, int sideIndex, int playerIndex, int slotA, int slotB, std::string *error)
+{
+	if (m_phase != PHASE_BATTLES || battleIndex < 0 || battleIndex >= (int)m_battles.size())
+	{
+		setError(error, "not a pending battle");
+		return false;
+	}
+	Battle &b = m_battles[(size_t)battleIndex];
+	if (b.resolution != Battle::PENDING)
+	{
+		setError(error, "the battle is not pending");
+		return false;
+	}
+	if (sideIndex < 0 || sideIndex >= (int)b.sides.size())
+	{
+		setError(error, "invalid battle side index");
+		return false;
+	}
+	const Battle::Side &side = b.sides[(size_t)sideIndex];
+	if (playerIndex < 0 || playerIndex >= (int)side.players.size())
+	{
+		setError(error, "invalid battle player index");
+		return false;
+	}
+	const int targetPlayer = side.players[(size_t)playerIndex].player;
+	if (targetPlayer != sender)
+	{
+		setError(error, "the battle side player is not the sender");
+		return false;
+	}
+	std::vector<size_t> positions;
+	for (size_t i = 0; i < b.armies.size(); ++i)
+	{
+		const Army *a = findArmy(b.armies[i]);
+		if (a && a->owner == targetPlayer)
+		{
+			positions.push_back(i);
+		}
+	}
+	if (slotA < 0 || slotA >= (int)positions.size() || slotB < 0 || slotB >= (int)positions.size())
+	{
+		setError(error, "invalid army slot index in battle");
+		return false;
+	}
+	std::swap(b.armies[positions[(size_t)slotA]], b.armies[positions[(size_t)slotB]]);
+	return true;
+}
+
 bool LivingWorldLogic::endTurn(int player, std::string *error)
 {
 	if (m_phase != PHASE_ORDERS || player < 0 || player >= (int)m_players.size())

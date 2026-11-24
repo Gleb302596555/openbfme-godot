@@ -246,6 +246,15 @@ bool LivingWorldLogic::dispatchOrder(const ::GameMessage &m, int sender, std::st
 			return bad("the argument is not an army");
 		}
 		return disbandArmy(sender, a0, error);
+	case MSG_LW_SWAP_ARMIES_IN_BATTLE: // RW 0x6B4B39 (+ RW 0x6B379E, RW 0x6B3822): (battle, side, playerIdx, slotA, slotB)
+	{
+		int a3 = 0, a4 = 0;
+		if (!argInt(m, 0, a0) || !argInt(m, 1, a1) || !argInt(m, 2, a2) || !argInt(m, 3, a3) || !argInt(m, 4, a4))
+		{
+			return bad("the arguments are not (battle, side, player, slotA, slotB)");
+		}
+		return swapArmiesInBattle(sender, a0, a1, a2, a3, a4, error);
+	}
 	case MSG_LW_MARK_UNIT_FOR_UPGRADE:   // RW 0x6B7BAA: (army, key)
 	case MSG_LW_UNMARK_UNIT_FOR_UPGRADE: // RW 0x6B605F: (army, key)
 		if (!argInt(m, 0, a0) || !argInt(m, 1, a1))
