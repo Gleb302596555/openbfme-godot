@@ -37,3 +37,74 @@ TEST_CASE("LOCAL-178 MoveToGroupOrder::clone resets cached positions and stuck c
 	CHECK(cloned->positions().empty());
 	CHECK(cloned->stuckCount() == 0);
 }
+
+TEST_CASE("LOCAL-178 AttackObjectGroupOrder::activate forwards attack to non-HORDE container passengers (RW 0x94D9E9 / RW 0x94D9C7)")
+{
+	// Synthetic INI: a mobile TransportContain carrier (non-HORDE) holding an infantry passenger, plus an enemy target.
+	// RW 0x94D9E9 checks !HORDE (template + 0x115 & 0x20 == 0) and calls contain->iterateContained(RW 0x94D9C7, victim, true).
+	const char *kExtra =
+		"Weapon TestBow\n"
+		"  AttackRange = 300\n"
+		"  PrimaryDamage = 10\n"
+		"  DelayBetweenShots = 500\n"
+		"  WeaponSpeed = 999999\n"
+		"End\n"
+		"Object Carrier\n"
+		"  KindOf = SELECTABLE CAN_ATTACK VEHICLE\n"
+		"  WeaponSet\n"
+		"    Conditions = None\n"
+		"    Weapon = PRIMARY TestBow\n"
+		"  End\n"
+		"  Body = ActiveBody ModuleTag_Body\n"
+		"    MaxHealth = 500\n"
+		"  End\n"
+		"  Behavior = AIUpdateInterface ModuleTag_AI\n"
+		"  End\n"
+		"  LocomotorSet\n"
+		"    Locomotor = WalkerLoco\n"
+		"    Condition = SET_NORMAL\n"
+		"    Speed = 40\n"
+		"  End\n"
+		"  Behavior = TransportContain ModuleTag_Contain\n"
+		"    Slots = 2\n"
+		"    AllowInsideKindOf = INFANTRY\n"
+		"    PassengersAllowedToFire = Yes\n"
+		"  End\n"
+		"End\n"
+		"Object Rider\n"
+		"  KindOf = SELECTABLE CAN_ATTACK INFANTRY\n"
+		"  WeaponSet\n"
+		"    Conditions = None\n"
+		"    Weapon = PRIMARY TestBow\n"
+		"  End\n"
+		"  Body = ActiveBody ModuleTag_Body\n"
+		"    MaxHealth = 100\n"
+		"  End\n"
+		"  Behavior = AIUpdateInterface ModuleTag_AI\n"
+		"  End\n"
+		"  LocomotorSet\n"
+		"    Locomotor = WalkerLoco\n"
+		"    Condition = SET_NORMAL\n"
+		"    Speed = 40\n"
+		"  End\n"
+		"End\n";
+	MoveWorld mw(100, 100, kExtra);
+	mw.buildMap();
+	Object *carrier = mw.spawn("Carrier", 305.0f, 305.0f, "Alice");
+	Object *rider = mw.spawn("Rider", 315.0f, 305.0f, "Alice");
+	Object *enemy = mw.spawn("Rider", 420.0f, 305.0f, "Bob");
+	REQUIRE(carrier != nullptr);
+	REQUIRE(rider != nullptr);
+	REQUIRE(enemy != nullptr);
+	REQUIRE(carrier->getContain() != nullptr);
+	carrier->getContain()->addToContain(rider);
+	REQUIRE(rider->getContainedBy() == carrier);
+	REQUIRE(rider->getAIUpdateInterface()->isIdle());
+
+	AttackObjectGroupOrder order(*mw.logic, { carrier->getID() }, enemy->getID());
+	order.activate(carrier->getID());
+
+	CHECK_FALSE(carrier->getAIUpdateInterface()->isIdle());
+	CHECK_FALSE(rider->getAIUpdateInterface()->isIdle());
+	CHECK(rider->getAIUpdateInterface()->getCurrentVictim() == enemy);
+}

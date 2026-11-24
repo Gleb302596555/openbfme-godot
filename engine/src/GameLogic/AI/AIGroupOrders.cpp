@@ -145,6 +145,8 @@ AttackObjectGroupOrder::AttackObjectGroupOrder(GameLogic &logic, std::vector<Obj
 {
 }
 
+// RW 0x94D9E9 (AttackObjectGroupOrder::activate, 0xC813D8[4]): orders the unit to attack, then for non-HORDE containers
+// (template + 0x115 & 0x20 == 0, RW 0x94DA2F) forwards aiAttackObject to contained passengers (RW 0x94D9C7).
 void AttackObjectGroupOrder::activate(ObjectID id)
 {
 	Object *victim = m_logic.findObjectByID(m_targetID);
@@ -176,6 +178,28 @@ void AttackObjectGroupOrder::activate(ObjectID id)
 	if (ai->aiAttackObject(target, CMD_FROM_PLAYER))
 	{
 		AICommands::recordAttackOrderAccepted();
+	}
+	// RW 0x94DA2C .. 0x94DA52 -> callback RW 0x94D9C7: non-HORDE containers forward aiAttackObject to every contained passenger
+	if (!obj->isKindOf((unsigned)CombatNames::kinds().horde))
+	{
+		if (ContainModuleInterface *contain = obj->getContain())
+		{
+			if (const ContainModuleInterface::ContainedItemsList *items = contain->getContainedItemsList())
+			{
+				const std::vector<Object *> passengers(items->begin(), items->end());
+				for (Object *passenger : passengers)
+				{
+					if (!passenger || passenger->isDestroyed())
+					{
+						continue;
+					}
+					if (AIUpdateInterface *pai = passenger->getAIUpdateInterface())
+					{
+						pai->aiAttackObject(victim, CMD_FROM_PLAYER);
+					}
+				}
+			}
+		}
 	}
 }
 
