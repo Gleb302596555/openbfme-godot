@@ -34,6 +34,8 @@
 
 #include <algorithm>
 
+// LivingWorldAI destructor RW 0x9003F6 (port uses value-owned member vectors).
+
 namespace LivingWorld
 {
 

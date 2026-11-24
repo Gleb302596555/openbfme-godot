@@ -24,6 +24,10 @@
 
 #include <algorithm>
 
+// Ported LivingWorldScoreKeeper lifecycle & queries: ctor RW 0x8F352E, dtor RW 0x8F3752,
+// PerTurnStats copy ctor RW 0x8F2B84, turns survived RW 0x8F2A1E, GetBuildingsOfTypeBuilt RW 0x8F2A32,
+// total units recruited sum RW 0x8F2D30.
+
 namespace LivingWorld
 {
 

@@ -28,6 +28,8 @@
 
 #include <algorithm>
 
+// LivingWorldAIArmyMover score/target helper RW 0x9A49D9.
+
 namespace LivingWorld
 {
 

@@ -262,6 +262,8 @@ const FieldParse kScienceBonusFields[] = {
 };
 #undef SB
 
+// RW 0x8246C7 (LivingWorldAutoResolveResourceBonus::parseBonusIniSubBlock) &
+// RW 0x823EC4 (LivingWorldAutoResolveSciencePurchasePointBonus::parseBonusIniSubBlock)
 void parseScheduleBonus(INI *ini, void *, void *store, const void *userData)
 {
 	std::map<int, AutoResolveBonusSchedule::Bonus> *bonuses = static_cast<std::map<int, AutoResolveBonusSchedule::Bonus> *>(store);
@@ -584,6 +586,7 @@ const AutoResolveWeapon *AutoResolveStores::findWeapon(const std::string &name) 
 	return it == weapons.end() ? nullptr : &it->second;
 }
 
+// RW 0x8369BA: LivingWorldAutoResolveArmorStore::find
 const AutoResolveArmor *AutoResolveStores::findArmor(const std::string &name) const
 {
 	auto it = armors.find(name);

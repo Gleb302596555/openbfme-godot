@@ -168,6 +168,7 @@ Building *LivingWorldLogic::findBuildingById(int id)
 	return nullptr;
 }
 
+// RW 0x6B49CB: LivingWorldLogic::MarkTroopForUpgrades -> ArmySummaryEntry::MarkForUpgrades (RW 0x80ED8C)
 void LivingWorldLogic::markUpgrade(ArmyMember &e, Building &b)
 {
 	if (e.upgradeBuilding != 0)
@@ -184,6 +185,7 @@ void LivingWorldLogic::markUpgrade(ArmyMember &e, Building &b)
 	}
 }
 
+// RW 0x6B4A1E: LivingWorldLogic::CancelTroopUpgrades -> ArmySummaryEntry::CancelUpgrades (RW 0x80EDB8)
 void LivingWorldLogic::cancelUpgrade(ArmyMember &e)
 {
 	if (e.upgradeBuilding == 0)

@@ -263,6 +263,7 @@ bool LivingWorldLogic::dispatchOrder(const ::GameMessage &m, int sender, std::st
 			return bad("the arguments are not (region, player)");
 		}
 		return resolveRegionAwardDispute(sender, a0, a1, error);
+	// RW 0x6B3868: LivingWorldLogic::sendRequestEndGame (appends MSG 0x6B9 + int arg)
 	case MSG_LW_REQUEST_ENDGAME: // 0x6B9: the leave-for-now vote after a LAN war's save: (yes, request)
 		return leaveVoteMessage(m, sender, error);
 	default:

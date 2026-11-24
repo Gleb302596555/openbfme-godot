@@ -27,6 +27,14 @@
 #include <cmath>
 #include <memory>
 
+// RotWK 2.01 xfer / loadPostProcess counterparts carried by this snapshot dialect:
+// LivingWorldLogic::xfer RW 0x6BD0D5, XferPlayers RW 0x6BB501, XferDelayedRegionVictories RW 0x6BA784;
+// LivingWorldRegionManager::xfer RW 0x60FFC4, XferRegions RW 0x60ECD6, loadPostProcess RW 0x61008C;
+// LivingWorldRegion::DoXfer RW 0x7F5279, loadPostProcess RW 0x7F1ADF; LivingWorldRegionConnection::DoXfer RW 0x7F46E0;
+// LivingWorldBattle::DoXfer RW 0x7F87B2; LivingWorldArmy::xfer RW 0x71BFD9, loadPostProcess RW 0x71B928;
+// LivingWorldBuilding::DoXfer RW 0x8E52F7; LivingWorldBuildPlot::DoXfer RW 0x902E0A;
+// LivingWorldScoreKeeper::loadPostProcess RW 0x8F30E5.
+
 namespace LivingWorld
 {
 
