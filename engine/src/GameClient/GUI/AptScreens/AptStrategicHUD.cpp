@@ -778,6 +778,12 @@ void AptStrategicHUD::showMapHelp(const MapHelp &h)
 			text += (text.empty() ? u"" : u"\n") + s;
 		}
 	}
+	else if (h.kind == MapHelp::BUILD_PLOT)
+	{
+		// RW 0x9A8025 (LivingWorldBuildPlotIcon) -> RW 0x973751 (StrategicInGameUI::CreateHelpFor): RW 0x9D8BA7 ("STRATEGICHUD:BuildPlotName") and "STRATEGICHUD:BuildPlotHelp"
+		title = fetch("STRATEGICHUD:BuildPlotName");
+		text = fetch("STRATEGICHUD:BuildPlotHelp");
+	}
 	else
 	{
 		title = fetch(h.titleLabel);

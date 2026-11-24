@@ -9624,7 +9624,8 @@ Dictionary AptMenuPlayer::strategic_hud(const Dictionary &request)
 			AptStrategicHUD::MapHelp h;
 			const std::string kind = toNative(String(mh.get("kind", "")));
 			h.kind = kind == "region" ? AptStrategicHUD::MapHelp::REGION : kind == "army" ? AptStrategicHUD::MapHelp::ARMY
-				: kind == "building" ? AptStrategicHUD::MapHelp::BUILDING : AptStrategicHUD::MapHelp::NONE;
+				: kind == "building" ? AptStrategicHUD::MapHelp::BUILDING
+				: kind == "plot" ? AptStrategicHUD::MapHelp::BUILD_PLOT : AptStrategicHUD::MapHelp::NONE;
 			h.regionCampaign = toNative(String(mh.get("region_campaign", "")));
 			h.region = (int)(int64_t)mh.get("region", -1);
 			h.titleLabel = toNative(String(mh.get("title", "")));

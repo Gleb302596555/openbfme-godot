@@ -1494,8 +1494,9 @@ func _hover_tick() -> void:
 				target = "building:%d:%d" % [int(b[0]), int(b[1])]
 			else:
 				var r := pick_region(mouse)
-				if r >= 0 and _free_plot_near(r, mouse, 20.0, true) >= 0:
-					target = hover_target # the plot icon keeps the current rollover (picker slot 13: a no-op)
+				var plot := _free_plot_near(r, mouse, 20.0, true) if r >= 0 else -1
+				if plot >= 0:
+					target = "plot:%d:%d" % [r, plot] # RW 0x9A8025 -> RW 0x973751 (BuildPlotName / BuildPlotHelp)
 				elif r >= 0:
 					target = "region:%d" % r
 	if target != hover_target:
@@ -1516,6 +1517,8 @@ func _hover_tick() -> void:
 
 func _hover_help(target: String) -> Dictionary:
 	var parts := target.split(":")
+	if parts[0] == "plot":
+		return {"kind": "plot"}
 	if parts[0] == "region":
 		return {"kind": "region", "region_campaign": region_campaign, "region": int(parts[1])}
 	if parts[0] == "army":
