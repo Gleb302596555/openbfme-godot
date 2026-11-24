@@ -3020,6 +3020,7 @@ void W3DInstancer::update_now()
 			StaleScratch.push_back(i);
 		}
 	}
+	// RW 0x479822 (W3DHordeModelDrawManager::ProcessGroup)
 	// lane PERF-HD: retail's horde pose sharing (W3DHordeModelDrawManager::ProcessGroup, PartOfSameGroup: the same model, clip and mode, frames within the
 	// draw's MaxAnimFrameDelta of the group's first). The candidates are sorted by (model, clip, frame), so a group is a run whose frames stay within the delta
 	// of its first; its first is posed and written, the others are drawn with that block and keep their own pose pending (the bone queries evaluate it).

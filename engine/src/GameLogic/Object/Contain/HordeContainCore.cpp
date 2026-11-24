@@ -29,6 +29,7 @@ HordeContainCore::HordeContainCore(const HordeContainModuleData &data, GameLogic
 	}
 }
 
+// RW 0x64B5D5 (HordeContain::friend_newModuleInstance), RW 0x8727F9 (HordeContain::ctor), RW 0x871844 (HordeContain::cleanup, 0xC5B5F8[8]), RW 0x86E13E (assignSpotToUnit loop, 0xC5B5F8[34])
 const RankInfo *HordeContainCore::findRank(int rank) const
 {
 	// RW 0x86C3E7: the first RankInfo with that number

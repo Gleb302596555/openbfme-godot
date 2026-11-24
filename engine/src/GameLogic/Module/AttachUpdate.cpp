@@ -120,6 +120,7 @@ Coord3D AttachUpdate::anchorOf(const Object &parent) const
 {
 	Coord3D p = *parent.getPosition();
 	// RW 0x895310: a HORDE parent (template + 0x115 bit 5) with a contain (+ 0x258) asks its horde interface (RW 0x68C866) slot 0x230 (HordeContain RW
+	// RW 0x8713F6 (HordeContain::getMembersMeanPosition, 0xC5B1F8[140])
 	// 0x8713F6, lane CAMP-1H): the members' mean position - the contained members' positions summed (x87, each sum stored as float), then each component
 	// times 1 / count; no member: false and the horde's own position stays. INFERENCE (S-1361): the slot also sums the members of the id list at
 	// HordeContain + 0x54, which the port's horde does not keep (as HordeBanner.cpp / AreaScanModules.cpp)

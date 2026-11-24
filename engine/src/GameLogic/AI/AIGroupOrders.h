@@ -136,6 +136,7 @@ private:
 };
 
 // RW 0x94E857 / 0xC81484 (BFME2 Rva 0x546EFE / 0x00C6A454): group move in formation
+// RW 0x94E8C1 (ctor), RW 0x94E91B (copy ctor), RW 0x94E459 (dtor), RW 0x94E569 (deleting dtor), RW 0x94E980 (clone)
 class MoveToFormationGroupOrder final : public AIOrdersManager::GroupOrder
 {
 public:

@@ -111,6 +111,8 @@ private:
 // runtime vtables 0xC72FC8 / 0xC72F08 / 0xC72E58). The three fields below are parsed and have no reachable reader in
 // RotWK 2.01 (stop S-7191, docs/ennorath/port56-porcupine-rw.md): both readers sit behind the gate RW 0x8C6244, which
 // returns false on every path (`xor al, al` at 0x8C6266). This class is therefore ActiveBody, as retail is.
+// RW 0x6515A8 (PorcupineFormationBodyModuleData::friend_newModuleData), RW 0x8C63F1 (PorcupineFormationBodyModuleData::ctor)
+// RW 0x651532 (PorcupineFormationBodyModule::friend_newModuleInstance), RW 0x8C5524 (PorcupineFormationBodyModule::xfer)
 class PorcupineFormationBodyModuleData : public ActiveBodyModuleData
 {
 public:
