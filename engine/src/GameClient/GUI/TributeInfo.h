@@ -10,6 +10,14 @@
 #include <string>
 #include <vector>
 
+class GameLogic;
+class Player;
+
+// RW 0x9155C2 (AptPlayerTribute::refreshRow): displayed cash for a tribute row is Player + 0x94 (Money) plus, when
+// TheSkirmishAIManager->hasAIPlayer(player) (RW 0x6A950B) holds, TheSkirmishAIManager->record(player)->reserve()
+// (RW 0x6A9999 -> + 0x0C -> + 0x14).
+std::uint32_t tributeDisplayCash(const GameLogic &logic, const Player &player);
+
 // one player of the tribute page (RW 0x914B54: the local player first, then the active allies, at most 7)
 struct TributePlayerRow
 {

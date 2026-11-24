@@ -41,7 +41,15 @@ struct LobbyStart
 	// WOTR2 milestone 9: the online battle keeps the war's relay seat while its tactical game uses compact player slots (RW 0x6B5E3E).
 	bool battleUsesWarSlots = false;
 	std::array<int, MAX_SLOTS> battleSlotOfWarSlot{};
-	int gameSlot(int networkSlot) const { return battleUsesWarSlots ? battleSlotOfWarSlot[(size_t)networkSlot] : networkSlot; }
+	int gameSlot(int networkSlot) const
+	{
+		if (networkSlot < 0 || networkSlot >= MAX_SLOTS)
+			return -1;
+		return battleUsesWarSlots ? battleSlotOfWarSlot[(size_t)networkSlot] : networkSlot;
+	}
+	// PYSAGE 1.9.8.5 .wotrobs 0x00F291BB / .wtrview 0x00F2A000 (hooks RW 0x627C41 / RW 0x62FE9C):
+	// non-participating War of the Ring human participates in battle lockstep as ReplayObserver (gameSlot == -1).
+	bool isWarBattleObserver() const { return battleUsesWarSlots && localSlot >= 0 && gameSlot(localSlot) < 0; }
 	ProfileIdentity profile;                       ///< the host's (equal to every player's: checked)
 	// lane ONLINE-2: an online game (GameNetwork/OnlineStart.h: the START the lobby service built): every peer is behind the relay (Transport relay mode),
 	// `addresses` are unused

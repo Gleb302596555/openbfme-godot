@@ -64,7 +64,7 @@ StateReturnType AIHordePositionWaitState::update()
 		{
 			continue;
 		}
-		// RW 0x86D562 / 0x86D438 query AI vslot 0x1BC (active, not
+		// RW 0x0086D562 / RW 0x0086D438 (S-7505: horde-target contain order open) query AI vslot 0x1BC (active, not
 		// merely the attack-state id). An empty eligible member list passes.
 		if (!memberAI->isStateActive())
 		{

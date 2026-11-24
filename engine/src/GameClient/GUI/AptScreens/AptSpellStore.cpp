@@ -267,7 +267,7 @@ void AptSpellStore::update()
 			{
 				m_text->fetch(b.button->m_descriptLabel.front(), desc);
 			}
-			if (b.state == SpellStoreModel::STATE_LOCKED && m_text && m_text->fetch("TOOLTIP:ScienceDisabled", disabled)) // RW 0x822FFE .. 0x82307D
+			if (b.showDisabledWarning && m_text && m_text->fetch("TOOLTIP:ScienceDisabled", disabled)) // RW 0x823057 .. 0x823118
 			{
 				desc += u"\n";
 				desc += disabled;
@@ -307,6 +307,9 @@ void AptSpellStore::update()
 			}
 			switch (b.state)
 			{
+				case SpellStoreModel::STATE_HIDDEN:
+					st = 2; // _disabled_level (RW 0x8231D4 -> 0x8227BB -> 0x6AC287)
+					break;
 				case SpellStoreModel::STATE_PURCHASED:
 				case SpellStoreModel::STATE_PENDING:
 					st = m_state[i] == 5 ? 4 : 3;

@@ -3,8 +3,9 @@
 // The draw mode of an Apt RenderImage clip (community PR #37, review r1). TARGET FACTS (BFME2, Open-BFME-2 Common/AptUtils.cpp, matched:
 // 0x412AF3, called by the image draw 0x412B94): the clip's `_mode` parameter, compared case-insensitively with SOLID 0, GRAYSCALE 1, ALPHA 2,
 // ADDITIVE 3, SOLID_GRAYSCALE 4, SOLID_TEXTURE 5; empty or anything else is ALPHA (2); the mode goes to W3DDisplay's image draw.
-// INFERENCE (stop S-5016): the draw's render states per mode were not read; the Godot shader (aptImageModeShader) ignores the texture alpha for
-// SOLID*, uses luma weights for *GRAYSCALE and Godot's blend_add for ADDITIVE.
+// TARGET FACTS (Port 331, S-5016 closed; RotWK 2.01 RW 0x44704F / RW 0x51A44D..0x51A5EA): W3DDisplay::drawImageCore maps mode
+// 0->0 (OPAQUE), 1->3 (GRAYSCALE, Dot3 half-luma), 2->1 (ALPHA), 3->2 (ADDITIVE), 4->4 (SOLID_GRAYSCALE), 5->5 (SOLID_TEXTURE);
+// the Godot shader (aptImageModeShader) implements the same per-mode alpha, luma, and additive blend states.
 #pragma once
 
 #include <string>

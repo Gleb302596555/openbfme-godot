@@ -7,7 +7,7 @@
 //   * slot 0x18 RW 0x86EE1B: the member's container is this horde, or its id is in the map at interface + 0x54 (the members on the way);
 //   * slot 0xA8 RW 0x86EBF4: the id joins the map, the member leaves the contain list (OpenContain's removal, slot 0xA4(member, false));
 //   * slot 0x20 RW 0x872A7F -> RW 0x8757FC: the id leaves the map (RW 0x8720C2), the member is added back (slot 0x9C), the horde object's upgrades reach it (slot 0x174);
-//   * slots 0xF4 RW 0x86D755 (the map is empty), 0x100 / 0x104 RW 0x872AA1 / 0x872AAE (interface + 0x1EC), 0x124 / 0x128 / 0x12C RW 0x872ADF / 0x872B76 / 0x872AE7
+//   * slots 0xF4 RW 0x86D755 (the map is empty), 0x100 / 0x104 RW 0x00872AA1 / RW 0x00872AAE (interface + 0x1EC), 0x124 / 0x128 / 0x12C RW 0x00872ADF / RW 0x00872B76 / RW 0x00872AE7
 //     (the garrisoned byte + 0x188; clearing it wakes the update next frame, RW 0x850C32(horde, 1));
 //   * slot 0x7C RW 0x875C93: every member released (slot 0xA8), the released members as an AIGroup sent to the container's position (RW 0x774897 with the container as
 //     the goal object);

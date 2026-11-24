@@ -813,3 +813,119 @@ void SupplyCenterDockUpdate::xfer(Xfer &x)
 	SnapshotXfer::version(x, 1, 1); // RW 0x8A44F8
 	xferDockUpdate(x);
 }
+
+// ---- SupplyWarehouseCripplingBehavior (Local 142, S-7533, RW 0x64C16D / 0x886C76 / 0x886D8D / 0x886DBA / 0x886E5C) ----
+#define SWCB_OFF(member) (int)offsetof(SupplyWarehouseCripplingBehaviorModuleData, member)
+static const FieldParse kSupplyWarehouseCripplingFieldParse[] = {
+	{ "SelfHealSupression", INI::parseDurationUnsignedInt, nullptr, SWCB_OFF(m_selfHealSupression) },
+	{ "SelfHealDelay", INI::parseDurationUnsignedInt, nullptr, SWCB_OFF(m_selfHealDelay) },
+	{ "SelfHealAmount", INI::parseReal, nullptr, SWCB_OFF(m_selfHealAmount) },
+	{ nullptr, nullptr, nullptr, 0 }
+};
+
+void SupplyWarehouseCripplingBehaviorModuleData::buildFieldParse(MultiIniFieldParse &p)
+{
+	
+	p.add(kSupplyWarehouseCripplingFieldParse);
+}
+
+// RW 0x886D08
+SupplyWarehouseCripplingBehavior::SupplyWarehouseCripplingBehavior(Thing *thing, const SupplyWarehouseCripplingBehaviorModuleData *data)
+	: UpdateModule(thing, data)
+	, m_data(data)
+{
+	setWakeFrame(getObject(), UPDATE_SLEEP_FOREVER); // RW 0x886D2D: push 0x3FFFFFFF
+}
+
+void SupplyWarehouseCripplingBehavior::registerClass(ModuleFactory &modules)
+{
+	modules.bindTypedData<SupplyWarehouseCripplingBehaviorModuleData>("SupplyWarehouseCripplingBehavior", MODULETYPE_BEHAVIOR);
+	modules.bindModuleProc("SupplyWarehouseCripplingBehavior", MODULETYPE_BEHAVIOR, [](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &) -> std::unique_ptr<Module> {
+		const auto *typed = dynamic_cast<const SupplyWarehouseCripplingBehaviorModuleData *>(data);
+		if (!typed)
+		{
+			throw std::logic_error("SupplyWarehouseCripplingBehavior: the module data is not typed");
+		}
+		return std::make_unique<SupplyWarehouseCripplingBehavior>(thing, typed);
+	});
+}
+
+// RW 0x886E20
+void SupplyWarehouseCripplingBehavior::resetSelfHealSupression()
+{
+	const UnsignedInt target = getObject()->logic().getFrame() + m_data->m_selfHealSupression;
+	m_healSuppressedUntilFrame = target;
+	m_nextHealFrame = target;
+}
+
+// RW 0x886E38
+void SupplyWarehouseCripplingBehavior::startCrippled()
+{
+	if (DockUpdateInterface *dock = getObject()->getDockUpdateInterface()) // RW 0x68C383
+	{
+		dock->setDockCrippled(true); // slot +0x44, RW 0x8AB6E3
+	}
+}
+
+// RW 0x886E4A
+void SupplyWarehouseCripplingBehavior::stopCrippled()
+{
+	if (DockUpdateInterface *dock = getObject()->getDockUpdateInterface()) // RW 0x68C383
+	{
+		dock->setDockCrippled(false); // slot +0x44, RW 0x8AB6E3
+	}
+}
+
+// RW 0x886D8D
+void SupplyWarehouseCripplingBehavior::onDamage(const DamageInfo &info)
+{
+	(void)info;
+	const UnsignedInt now = getObject()->logic().getFrame();
+	resetSelfHealSupression(); // vslot +0x34 RW 0x886E20
+	setWakeFrame(getObject(), static_cast<UpdateSleepTime>(m_healSuppressedUntilFrame - now)); // RW 0x886DA4..0x886DAF
+}
+
+// RW 0x886C76
+void SupplyWarehouseCripplingBehavior::onBodyDamageStateChange(const DamageInfo *info, BodyDamageType oldState, BodyDamageType newState)
+{
+	(void)info;
+	if (newState == BODY_REALLYDAMAGED) // 2
+	{
+		startCrippled(); // vslot +0x38 RW 0x886E38
+	}
+	else if (oldState == BODY_REALLYDAMAGED) // 2
+	{
+		stopCrippled(); // vslot +0x3C RW 0x886E4A
+	}
+}
+
+// RW 0x886DBA
+UpdateSleepTime SupplyWarehouseCripplingBehavior::update()
+{
+	Object *obj = getObject();
+	const UnsignedInt now = obj->logic().getFrame();
+	m_nextHealFrame = now + m_data->m_selfHealDelay;
+	obj->attemptHealing(m_data->m_selfHealAmount, nullptr); // RW 0x690532
+	const BodyModuleInterface *body = obj->getBodyModule();
+	if (!body || body->getHealth() == body->getMaxHealth()) // RW 0x886DF5..0x886E14
+	{
+		return UPDATE_SLEEP_FOREVER;
+	}
+	return static_cast<UpdateSleepTime>(m_nextHealFrame - now);
+}
+
+void SupplyWarehouseCripplingBehavior::crc(StateHasher &h) const
+{
+	UpdateModule::crc(h);
+	h.addU32(m_healSuppressedUntilFrame);
+	h.addU32(m_nextHealFrame);
+}
+
+// RW 0x886E5C
+void SupplyWarehouseCripplingBehavior::xfer(Xfer &x)
+{
+	xferUpdateModule(x);
+	SnapshotXfer::version(x, 1, 1);
+	x.xferUnsignedInt(&m_healSuppressedUntilFrame);
+	x.xferUnsignedInt(&m_nextHealFrame);
+}

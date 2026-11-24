@@ -95,6 +95,61 @@ FireLogicSystem::~FireLogicSystem()
 	}
 }
 
+// PORT-161. DONOR BFME2 0x00285B91 / 0x00285BEC (Rva00285BECDtor.cpp),
+// confirmed in RW 0x6862B6 / 0x686311: temporary lookup keys register too.
+// Port 290 consumes position/weight values, so their balanced add/remove pairs
+// must not be collapsed into an ObjectID or a scan of the final burning set.
+void FireLogicSystem::notifyBurningCell(bool add, const BurningPosition &position, std::int32_t storedFrame)
+{
+	static const std::vector<std::string> keys{ "BurningCell" }; // RW 0x686A1C..0x686A36, vtable 0xC11830 slot 7
+	LargeGroupAudioEvent e;
+	e.kind = add ? LargeGroupAudioEvent::ADD : LargeGroupAudioEvent::REMOVE;
+	e.frame = m_logic.getFrame();
+	e.keys = &keys;
+	e.x = e.storedX = static_cast<float>(position.first); // RW 0x6863F6, slots 0/1
+	e.y = e.storedY = static_cast<float>(position.second);
+	e.weight = 1; // RW 0x685E3B, slot 6; masks are empty, stealth false (RW 0x685E2F/35, 0x9188EB)
+	e.storedFrame = static_cast<UnsignedInt>(storedFrame);
+	m_logic.largeGroupAudio().notify(e); // shared disabled/frame gate: RW 0x60D5FF / 0x60D633
+}
+
+void FireLogicSystem::insertBurningCell(const BurningPosition &position)
+{
+	const auto frame = static_cast<std::int32_t>(m_logic.getFrame());
+	notifyBurningCell(true, position, -1); // temporary constructor, RW 0x6862F3 -> 0x685E43
+	if (m_cellsOnFire.insert(position).second)
+	{
+		notifyBurningCell(true, position, -1); // node copy constructor, RW 0x686397
+		m_burningAudioFrames.emplace(position, frame); // stamped even if the global gate refused add: RW 0x685E55..5D
+	}
+	notifyBurningCell(false, position, frame); // temporary destructor, RW 0x686336 -> 0x685E65
+}
+
+void FireLogicSystem::eraseBurningCell(const BurningPosition &position)
+{
+	const auto frame = static_cast<std::int32_t>(m_logic.getFrame());
+	notifyBurningCell(true, position, -1); // RW 0x6887BF / 0x6888B8 / 0x687172: lookup temporary
+	const auto i = m_burningAudioFrames.find(position);
+	if (i != m_burningAudioFrames.end())
+	{
+		if (i->second != -1) // RW 0x685E65..69: an unregistered member must not remove a contribution
+			notifyBurningCell(false, position, i->second);
+		m_burningAudioFrames.erase(i);
+		m_cellsOnFire.erase(position);
+	}
+	notifyBurningCell(false, position, frame);
+}
+
+void FireLogicSystem::clearBurningCells()
+{
+	// RW 0x686311 -> 0x685E62 for each resident (reset and snapshot replacement).
+	for (const auto &entry : m_burningAudioFrames)
+		if (entry.second != -1)
+			notifyBurningCell(false, entry.first, entry.second);
+	m_burningAudioFrames.clear();
+	m_cellsOnFire.clear();
+}
+
 void FireLogicSystem::clearGrid()
 {
 	if (m_storage)
@@ -134,7 +189,7 @@ void FireLogicSystem::clearGrid()
 	m_numRows = 0;
 	m_numCols = 0;
 	m_80 = 0;
-	m_cellsOnFire.clear();
+	clearBurningCells();
 }
 
 void FireLogicSystem::reset()
@@ -217,7 +272,7 @@ void FireLogicSystem::update()
 			{
 				if (!cell->m_newlyLit)
 				{
-					m_cellsOnFire.erase({ worldX, worldY });
+					eraseBurningCell({ worldX, worldY });
 				}
 				cell->m_newlyLit = 0;
 				cell->m_check = 0;
@@ -237,14 +292,14 @@ void FireLogicSystem::update()
 						cell->m_check = 0;
 						continue;
 					}
-					m_cellsOnFire.insert({ worldX, worldY });
+					insertBurningCell({ worldX, worldY });
 				}
 				cell->m_check -= (unsigned short)decay;
 				int consumed = 0;
 				if (cell->m_fuel <= cell->m_check)
 				{
 					consumed = cell->m_fuel;
-					m_cellsOnFire.erase({ worldX, worldY });
+					eraseBurningCell({ worldX, worldY });
 					cell->m_check = 0;
 					cell->m_burntOut = 1;
 					if (cell->m_fuel > 0)
@@ -377,7 +432,7 @@ void FireLogicSystem::update()
 							continue;
 						}
 						cell->m_newlyLit = 0;
-						m_cellsOnFire.insert({ cellToWorld(row), cellToWorld(col) });
+						insertBurningCell({ cellToWorld(row), cellToWorld(col) });
 					}
 					unsigned int val = cell->m_check + heat;
 					if (val > cell->m_maxBurnRate)
@@ -396,6 +451,24 @@ void FireLogicSystem::update()
 	}
 
 	m_80 = (m_80 + 1) % 10;
+	if (m_80 == 0) // RW 0x688CCF..0x688D02: once per complete slice cycle
+	{
+		for (auto &entry : m_burningAudioFrames)
+		{
+			if (entry.second != -1 || m_logic.largeGroupAudio().gateFrame() < -1)
+				continue; // RW 0x685E0A..1A, not an unconditional retry
+			static const std::vector<std::string> keys{ "BurningCell" };
+			LargeGroupAudioEvent e;
+			e.kind = LargeGroupAudioEvent::UPDATE;
+			e.frame = m_logic.getFrame();
+			e.keys = &keys;
+			e.x = e.storedX = static_cast<float>(entry.first.first);
+			e.y = e.storedY = static_cast<float>(entry.first.second);
+			e.storedFrame = static_cast<UnsignedInt>(entry.second);
+			m_logic.largeGroupAudio().notify(e); // RW 0x685E1D
+			entry.second = static_cast<std::int32_t>(m_logic.getFrame()); // RW 0x685E2A
+		}
+	}
 }
 
 // RW 0x687053 (FireLogicSystem::ChangeBurnRate)
@@ -442,7 +515,7 @@ void FireLogicSystem::changeBurnRate(int x0, int x1, int y, int delta, bool only
 			{
 				if (!cell->m_newlyLit)
 				{
-					m_cellsOnFire.erase({ cellToWorld(x0), cellToWorld(y) });
+					eraseBurningCell({ cellToWorld(x0), cellToWorld(y) });
 				}
 				cell->m_newlyLit = 0;
 				cell->m_check = 0;
@@ -507,7 +580,7 @@ void FireLogicSystem::changeBurnRate(const Coord3D &origin, const Coord3D &dir, 
 			{
 				if (!cell->m_newlyLit)
 				{
-					m_cellsOnFire.erase({ cellToWorld(x0), cellToWorld(y) });
+					eraseBurningCell({ cellToWorld(x0), cellToWorld(y) });
 				}
 				cell->m_newlyLit = 0;
 				cell->m_check = 0;
@@ -1030,7 +1103,7 @@ void FireLogicSystem::xfer(Xfer *xfer)
 
 void FireLogicSystem::xfer(Xfer &x)
 {
-	XferVersion v{ 1, 2 };
+	XferVersion v{ 1, 3 };
 	x.xferVersion(v);
 	const std::uint8_t ver = v.current;
 
@@ -1045,7 +1118,7 @@ void FireLogicSystem::xfer(Xfer &x)
 
 	if (ver < 2 && x.isLoading())
 	{
-		m_cellsOnFire.clear();
+		clearBurningCells();
 	}
 
 	std::int32_t acc80 = m_80;
@@ -1092,7 +1165,7 @@ void FireLogicSystem::xfer(Xfer &x)
 				cell->m_burntOut = burnt;
 				if (ver < 2 && cell->m_check > 0)
 				{
-					m_cellsOnFire.insert({ cellToWorld(r), cellToWorld(c) });
+					insertBurningCell({ cellToWorld(r), cellToWorld(c) });
 				}
 			}
 		}
@@ -1102,7 +1175,7 @@ void FireLogicSystem::xfer(Xfer &x)
 	{
 		if (x.isLoading())
 		{
-			m_cellsOnFire.clear();
+			clearBurningCells();
 			std::int32_t count = 0;
 			x.xferInt(&count);
 			for (int i = 0; i < count; ++i)
@@ -1115,7 +1188,7 @@ void FireLogicSystem::xfer(Xfer &x)
 				{
 					throw XferException("the snapshot's burning cell " + std::to_string(wx) + ", " + std::to_string(wy) + " is not on this game's fire grid");
 				}
-				m_cellsOnFire.insert({ (int)wx, (int)wy });
+				insertBurningCell({ (int)wx, (int)wy });
 			}
 		}
 		else
@@ -1131,6 +1204,29 @@ void FireLogicSystem::xfer(Xfer &x)
 			}
 		}
 	}
+	// OpenBFME v3 adds RW BurningCell +0x10 (RW 0x686441). The pre-v3
+	// format had no audio registration: migrate it explicitly to -1, then let
+	// RW's delayed update register it. No simulation values or hash pins change.
+	for (auto &entry : m_burningAudioFrames)
+	{
+		if (ver >= 3)
+		{
+			// RW 0x686441: restore the saved frame, not the load-time constructor stamp.
+			const auto constructedFrame = entry.second;
+			x.xferInt(&entry.second);
+			if (x.isLoading() && entry.second <= m_logic.largeGroupAudio().gateFrame())
+				notifyBurningCell(false, entry.first, constructedFrame);
+			if (entry.second < -1)
+				throw XferException("FireLogicSystem: invalid BurningCell registration frame");
+		}
+		else if (x.isLoading())
+		{
+			// Undo the load-time constructor's contribution before marking it unregistered.
+			notifyBurningCell(false, entry.first, entry.second);
+			entry.second = -1;
+		}
+	}
+
 }
 
 void FireLogicSystem::crc(StateHasher &h) const

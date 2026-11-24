@@ -210,7 +210,7 @@ Network::Network(const NetworkConfig &config, NetTransport &transport)
 {
 	for (int s = 0; s < MAX_SLOTS; ++s)
 	{
-		m_slots[(size_t)s].active = config.slotPlayerIndex[(size_t)s] >= 0;
+		m_slots[(size_t)s].active = config.slotPlayerIndex[(size_t)s] >= 0 || config.observerSlot[(size_t)s];
 		m_memberSlots += m_slots[(size_t)s].active ? 1 : 0;
 	}
 	if (config.localSlot < 0 || config.localSlot >= MAX_SLOTS || !m_slots[(size_t)config.localSlot].active)
@@ -493,7 +493,7 @@ void Network::updateCanonical(UnsignedInt logicFrame, CommandList &pending)
 		std::uint16_t mask = 0;
 		for (int s = 0; s < MAX_SLOTS; ++s)
 		{
-			if (m_config.slotPlayerIndex[(size_t)s] >= 0)
+			if (m_config.slotPlayerIndex[(size_t)s] >= 0 || m_config.observerSlot[(size_t)s])
 			{
 				mask |= (std::uint16_t)(1u << s);
 			}
@@ -672,6 +672,10 @@ void Network::file(const NetCommandMsg &c, int fromSlot)
 			const int victim = c.targetSlot < MAX_SLOTS ? m_config.slotPlayerIndex[(size_t)c.targetSlot] : -1;
 			if (victim < 0)
 			{
+				if (c.targetSlot < MAX_SLOTS && m_config.observerSlot[(size_t)c.targetSlot])
+				{
+					return; // observer seat has no tactical player to destroy
+				}
 				m_errors.push_back("DESTROYPLAYER of slot " + std::to_string(c.targetSlot) + ", which has no player");
 				fd.commands.push_back(std::make_shared<GameMessage>(MSG_SELF_DESTRUCT, m_config.slotPlayerIndex[(size_t)fromSlot])); // keeps the count
 				return;

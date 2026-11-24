@@ -225,12 +225,13 @@ void AIUpdateInterface::readCombatSettings(const ModuleData *data)
 	}
 }
 
-bool AIUpdateInterface::findNearestLabeledContactPointOnTarget(const Object &target, Coord3D &out, const Coord3D &callerPos, bool preferred) const
+bool AIUpdateInterface::findNearestLabeledContactPointOnTarget(const Object &target, Coord3D &out, const Coord3D &callerPos, bool skipCollideTest) const
 {
-	// RW 0x667C76: the labels of module data + 0x58 in order, the first success wins
+	// RW 0x667C76 (format string RW 0xC0FE30: skipCollideTest=%s; pushes [ebp+0x14] to RW 0x690BD2 at RW 0x667D87):
+	// the labels of module data + 0x58 in order, the first success wins
 	for (const std::string &label : m_combat.specialContactPoints)
 	{
-		if (ObjectGeometry::worldspaceBestContactPoint(target, callerPos, label, 0, 0, preferred, out))
+		if (ObjectGeometry::worldspaceBestContactPoint(target, callerPos, label, 0, 0, skipCollideTest, out))
 		{
 			return true;
 		}

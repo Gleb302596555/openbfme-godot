@@ -28,7 +28,9 @@ D = "docs/ennorath/"
 GENERATED = {D + n for n in (
     "MATRIX.tsv", "MATRIX_FACTIONS.tsv", "MATRIX_REVIEW.md", "MATRIX_GAPS.tsv", "MATRIX_GAPS.md", "FIELD_GAPS.tsv",
     "RW_FUNCTION_MAP.tsv", "RW_FUNCTION_MAP.md", "SCRIPT_GRANTS.tsv", "SCRIPT_MAP.md", "GRANTS_INI.tsv",
-    "MODIFIER_MAP.md", "MODIFIER_READERS.tsv", "MODIFIER_PORT_READS.tsv", "MODIFIER_UNRESOLVED.tsv", "MODIFIER_MATRIX.tsv")}
+    "MODIFIER_MAP.md", "MODIFIER_READERS.tsv", "MODIFIER_PORT_READS.tsv", "MODIFIER_UNRESOLVED.tsv", "MODIFIER_MATRIX.tsv",
+    "MATRIX_GREY.tsv", "MATRIX_GREY.md", "MAP_SWEEP.tsv", "MAP_SWEEP.md",
+    "RW_BINARY_MAP.tsv", "RW_BINARY_MAP.md", "RW_CLASSES.tsv", "RW_VCALLS.tsv")}
 PROGRESS = D + "PROGRESS.tsv"
 MERGED = {D + "README.md"}
 # tables whose row count says whether the run finished: no more than this share of main's rows may go

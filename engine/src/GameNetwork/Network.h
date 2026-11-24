@@ -190,6 +190,9 @@ struct NetworkConfig
 	// retail's MSG_SELF_DESTRUCT) once the rejoin window has passed, or takes the player back (REJOIN) when its restarted game asks (REJOINREQUEST)
 	bool holdForRejoin = false;
 	std::uint32_t rejoinWindowMs = 300000; ///< OpenBFME's choice (S-3900): five minutes
+	// PYSAGE 1.9.8.5 .wotrobs 0x00F291BB / .wtrview 0x00F2A000 (hooks RW 0x627C41 / RW 0x62FE9C):
+	// active lockstep observer seats with slotPlayerIndex == -1 (non-participating War of the Ring humans watching as ReplayObserver).
+	std::array<bool, MAX_SLOTS> observerSlot{};
 	// WOTR2 milestone 8 (step 2): the messages the game's commands carry (NetPacket::MessageFamily): Strategic for a War of the Ring's strategic map
 	NetPacket::MessageFamily messages = NetPacket::MessageFamily::Logic;
 };

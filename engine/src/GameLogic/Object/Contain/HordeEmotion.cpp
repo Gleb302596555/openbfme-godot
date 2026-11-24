@@ -145,7 +145,7 @@ void HordeContain::recordBackUp(Object *scarer)
 		}
 		const float distance = logic.random().getValueReal(d.m_backUpMinDistance, d.m_backUpMaxDistance, kHordeFile, 0x1FDD);
 		const int delay = logic.random().getValue((int)d.m_backUpMinDelayTime, (int)d.m_backUpMaxDelayTime, kHordeFile, 0x1FDE);
-		BackUpEntry &e = m_backUp[m->getID()];
+		BackUpEntry &e = m_backUp[m->getID()]; // RW 0x008771B9 (map<ObjectID, BackUpEntry>::operator[])
 		const Coord3D p = *m->getPosition();
 		float dx = SimMath::subf32(p.x, s.x), dy = SimMath::subf32(p.y, s.y), dz = SimMath::subf32(p.z, s.z);
 		normalize3(dx, dy, dz);

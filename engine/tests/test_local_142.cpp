@@ -13,6 +13,10 @@
 #include "Common/Player.h"
 #include "Common/PlayerList.h"
 #include "Common/SpecialPower.h"
+#include "Common/XferLoad.h"
+#include "Common/XferSave.h"
+#include "GameLogic/Damage.h"
+#include "GameLogic/AI/AIStateMachine.h"
 #include "GameLogic/Combat/CombatNames.h"
 #include "GameLogic/Module/StealthAbilityModules.h"
 #include "GameLogic/Object/Contain/TransportContainRuntime.h"
@@ -334,4 +338,103 @@ TEST_CASE("LOCAL-142 S-7427: ON_GROUND_ONLY restricts command while AI follows a
 	ai->mover().setGoalTypeRaw(AIGOAL_EXPLICIT);
 	CHECK_FALSE(ai->isMovingAlongPortal());
 	CHECK(stateOf(onGround) == ButtonState::Enabled);
+}
+
+// RW 0x7C95FE (TEAM_WANDER_IN_PLACE, action 237): switches each team member's AI to LOCOMOTORSET_WANDER (3)
+// and issues aiWanderInPlace(CMD_FROM_SCRIPT) (RW 0x7C82EF -> state 41 AI_WANDER_IN_PLACE).
+TEST_CASE("LOCAL-142 S-7581: TEAM_WANDER_IN_PLACE switches team members to LOCOMOTORSET_WANDER and AI_WANDER_IN_PLACE (RW 0x7C95FE)")
+{
+	const char *kWanderIni =
+		"Object L142_Wanderer\n"
+		"  KindOf = INFANTRY\n"
+		"  Body = ActiveBody B\n    MaxHealth = 50\n  End\n"
+		"  Behavior = AIUpdateInterface AI\n  End\n"
+		"  LocomotorSet\n    Locomotor = WalkerLoco\n    Condition = SET_NORMAL\n    Speed = 40\n  End\n"
+		"  LocomotorSet\n    Locomotor = WalkerLoco\n    Condition = SET_WANDER\n    Speed = 20\n  End\n"
+		"End\n";
+	movetest::MoveWorld w(20, 20, kWanderIni);
+	w.buildMap();
+
+	ScriptEngine::SideScripts side;
+	side.sideName = "";
+	static ScriptList emptyList;
+	side.lists.push_back(&emptyList);
+	w.logic->scriptEngine().newGame({ side }, nullptr, nullptr, false);
+
+	Team *team = w.teamOf("Alice");
+	Object *u = w.make("L142_Wanderer", team);
+	REQUIRE(u);
+	AIUpdateInterface *ai = u->getAIUpdateInterface();
+	REQUIRE(ai);
+	CHECK(ai->currentStateId() != static_cast<unsigned>(AI_WANDER_IN_PLACE));
+
+	ScriptActionRec a;
+	a.type = ScriptTemplates::findAction("TEAM_WANDER_IN_PLACE");
+	a.resolved = a.type;
+	a.enabled = true;
+	ScriptParameter p0;
+	p0.type = 3;
+	p0.stringValue = team->getControllingPlayer()->getPlayerName() + "/" + team->getName();
+	a.params = { p0 };
+
+	ScriptActions::execute(w.logic->scriptEngine(), a);
+	CHECK(w.logic->scriptEngine().stats().unportedActions.count("TEAM_WANDER_IN_PLACE") == 0);
+	CHECK(ai->curLocomotorSet() == LOCOMOTORSET_WANDER);
+	CHECK(ai->currentStateId() == static_cast<unsigned>(AI_WANDER_IN_PLACE));
+}
+
+// RW 0x64C16D / 0x886C76 / 0x886D8D / 0x886DBA / 0x886E20 / 0x886E38 / 0x886E4A / 0x886E5C:
+// SupplyWarehouseCripplingBehavior cripples the dock on entering BODY_REALLYDAMAGED (2), uncripples on leaving it,
+// suppresses self-heal for SelfHealSupression after damage, then heals SelfHealAmount every SelfHealDelay until full.
+TEST_CASE("LOCAL-142 S-7533: SupplyWarehouseCripplingBehavior cripples on REALLYDAMAGED, self-heals, uncripples and xfers (RW 0x886C76 / 0x886DBA)")
+{
+	const char *kCrippleIni =
+		"Object L142_CrippleWare\n"
+		"  KindOf = STRUCTURE\n"
+		"  Body = ActiveBody B\n    MaxHealth = 100\n  End\n"
+		"  Behavior = SupplyWarehouseDockUpdate D\n"
+		"    NumberApproachPositions = -1\n"
+		"    StartingBoxes = 5\n"
+		"  End\n"
+		"  Behavior = SupplyWarehouseCripplingBehavior C\n"
+		"    SelfHealSupression = 600\n"
+		"    SelfHealDelay = 400\n"
+		"    SelfHealAmount = 30\n"
+		"  End\n"
+		"End\n";
+	movetest::MoveWorld w(20, 20, kCrippleIni);
+	w.buildMap();
+
+	Object *ware = w.spawn("L142_CrippleWare", 50.0f, 50.0f, 0.0f, w.players.getNeutralPlayer()->getDefaultTeam());
+	REQUIRE(ware);
+	auto *dock = dynamic_cast<SupplyWarehouseDockUpdate *>(ware->findModule("SupplyWarehouseDockUpdate"));
+	auto *crip = dynamic_cast<SupplyWarehouseCripplingBehavior *>(ware->findModule("SupplyWarehouseCripplingBehavior"));
+	REQUIRE(dock);
+	REQUIRE(crip);
+	CHECK_FALSE(dock->dockCrippled());
+
+	// Deal 80 damage (100 -> 20 HP, enters BODY_REALLYDAMAGED = 2): dock becomes crippled (RW 0x886C76 -> 0x886E38)
+	DamageInfo dmg;
+	dmg.m_input.m_damageType = DAMAGE_UNRESISTABLE;
+	dmg.m_input.m_amount = 80.0f;
+	ware->attemptDamage(dmg);
+	REQUIRE(ware->getBodyModule()->getDamageState() == BODY_REALLYDAMAGED);
+	CHECK(dock->dockCrippled());
+	CHECK(crip->healSuppressedUntilFrame() == w.logic->getFrame() + 3u);
+
+	// Save/load xfer round-trip (RW 0x886E5C)
+	XferSave xs;
+	crip->xfer(xs);
+	const UnsignedInt savedSup = crip->healSuppressedUntilFrame();
+	const UnsignedInt savedNext = crip->nextHealFrame();
+	XferLoad xl(xs.data());
+	crip->xfer(xl);
+	CHECK(crip->healSuppressedUntilFrame() == savedSup);
+	CHECK(crip->nextHealFrame() == savedNext);
+
+	// Advance frames until self-heal brings HP above REALLYDAMAGED threshold and to full 100 HP
+	w.frames(20);
+	CHECK(ware->getBodyModule()->getHealth() == 100.0f);
+	CHECK(ware->getBodyModule()->getDamageState() == BODY_PRISTINE);
+	CHECK_FALSE(dock->dockCrippled()); // RW 0x886C87 -> 0x886E4A
 }

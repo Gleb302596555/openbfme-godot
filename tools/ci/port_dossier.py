@@ -99,8 +99,74 @@ def dossier(text: str) -> str:
         out += ["", f"### Кнопки, чьи модификаторы порт не читает (`MODIFIER_MATRIX.tsv`, {len(unread)})", ""]
         out += [f"- {r['faction']} `{r['object']}` `{r['button']}`: списки {r['modifier lists']} меняют "
                 f"{r['attributes the port does not read']} — чтение не перенесено" for r in unread[:LIMIT]]
+    out += binary_section(fmap, classes, addrs)
     out += ["", "_Досье обновляется при правке задачи; полные списки — в картах `docs/ennorath/`._"]
     return "\n".join(out)
+
+
+def bfme2_name(mangled: str) -> str:
+    """`?evaluateBridgeBroken@ScriptConditions@@QAE_NPAVParameter@@@Z` -> `ScriptConditions::evaluateBridgeBroken`; other forms as given."""
+    special = {"0": None, "1": "~", "_G": "deleting dtor", "_E": "deleting dtor", "4": "operator="}
+    m = re.match(r"\?\?(_G|_E|[0-4])(\w+)@@", mangled or "")
+    if m:
+        cls, kind = m.group(2), special[m.group(1)]
+        name = f"{cls}::" + (cls if kind is None else "~" + cls if kind == "~" else kind)
+    else:
+        m = re.match(r"\?([^@?]+)@(\w+)@@", mangled or "")
+        name = f"{m.group(2)}::{m.group(1)}" if m else (mangled or "")
+    # a BFME2 function without a name (match_rotwk.py's `rva...` placeholders) says nothing
+    return "" if re.match(r"(?i)rva[0-9a-f]+::|\w+::rva[0-9a-f]+$", name) else name
+
+
+def binary_section(fmap: list[dict], classes: list[str], addrs: set[int]) -> list[str]:
+    """The whole-image map (RW_BINARY_MAP.tsv, 2026-11-24): the function each named address is in, with its class, table slot, callers and
+    BFME2 pair; per named class, the class the binary map gives its functions and that class's virtual methods with no citation."""
+    bmap = rows("RW_BINARY_MAP.tsv")
+    if not bmap:
+        return []
+    import bisect
+    starts = sorted((int(r["function"], 16), r) for r in bmap)
+    keys = [s for s, _ in starts]
+
+    def containing(a: int):
+        i = bisect.bisect_right(keys, a) - 1
+        if i >= 0 and a < starts[i][0] + int(starts[i][1]["size"] or 0):
+            return starts[i][1]
+        return None
+
+    def line(r: dict) -> str:
+        name = bfme2_name(r.get("BFME2 name", ""))
+        return (f"`{rw(r['function'])}` {r['status']}" + (f", класс `{r['class']}` слот `{r['slot']}`" if r.get("slot") else "") +
+                f", вызывающих {r['direct callers']} прямых / {r['resolved virtual callers']} виртуальных" +
+                (f", BFME2 `{name}` ({r['match tier']})" if name else "") + (f", {r['subsystem']}" if r.get("subsystem") else ""))
+
+    out = ["", "### Карта бинарника (`docs/ennorath/RW_BINARY_MAP.tsv`, `RW_CLASSES.tsv`)", ""]
+    seen = set()
+    for a in sorted(addrs)[:LIMIT]:
+        r = containing(a)
+        if r is None:
+            out.append(f"- `RW 0x{a:06X}`: вне функций карты (данные или не код)")
+        elif r["function"] not in seen:
+            seen.add(r["function"])
+            inner = "" if int(r["function"], 16) == a else f" (адрес задачи `RW 0x{a:06X}` внутри)"
+            out.append(f"- {line(r)}{inner}")
+    by_class = defaultdict(list)
+    for r in bmap:
+        if r.get("class"):
+            by_class[r["class"]].append(r)
+    by_start = {int(r["function"], 16): r for r in bmap}
+    for c in classes:
+        owners = Counter(by_start[int(f["function"], 16)]["class"] for f in fmap
+                         if f["module"] == c and f.get("function", "").startswith("0x") and by_start.get(int(f["function"], 16), {}).get("class"))
+        if not owners:
+            continue
+        owner = owners.most_common(1)[0][0]
+        meth = by_class[owner]
+        todo = [r for r in meth if r["status"] not in ("ported", "library")]
+        out.append(f"- `{c}` в карте бинарника — класс `{owner}`: {len(meth)} методов (таблицы и конструкторы), без ссылки {len(todo)}" +
+                   (": " + ", ".join(f"`{rw(r['function'])}` `{r['slot']}`" + (f" {bfme2_name(r['BFME2 name'])}" if bfme2_name(r.get("BFME2 name", "")) else "")
+                                     for r in todo[:LIMIT]) + (" …" if len(todo) > LIMIT else "") if todo else ""))
+    return out if len(out) > 3 else []
 
 
 def api(path: str, token: str, method: str = "GET", body: dict | None = None):
