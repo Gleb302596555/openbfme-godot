@@ -237,6 +237,7 @@ void StealthDetectorUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 	p.add(kStealthDetectorUpdate);
 }
 // RW 0x776267
+// RW 0x777D30 (~StealthUpdateModuleData)
 void StealthUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kStealthUpdate);
@@ -631,7 +632,7 @@ void StealthUpdate::toggleRing()
 	const unsigned now = obj->logic().getFrame();
 	if (!m_ring)
 	{
-		if (m_ringReadyFrame > now)
+		if (m_ringReadyFrame > now) // RW 0x7761DD (TheGameLogic->getFrame() >= m_ringReadyFrame)
 		{
 			return;
 		}

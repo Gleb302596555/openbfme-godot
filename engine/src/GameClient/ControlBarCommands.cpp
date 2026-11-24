@@ -128,7 +128,7 @@ void parseObject(INI *ini, void *instance, void *, const void *)
 
 void parseUpgradeName(INI *ini, void *, void *store, const void *)
 {
-	*static_cast<std::string *>(store) = ini->getNextToken(); // RW 0x73AF89 / 0x73B22F resolve it (UpgradeCenter / SpecialPowerStore, S-200)
+	*static_cast<std::string *>(store) = ini->getNextToken(); // RW 0x73AF89 / RW 0x73B01D (bfmeFindUpgradeByName) / 0x73B22F resolve it (UpgradeCenter / SpecialPowerStore, S-200)
 }
 
 // RW 0x73B304: appends (never clears); unknown names are skipped in retail (S-200: not resolvable here, kept)

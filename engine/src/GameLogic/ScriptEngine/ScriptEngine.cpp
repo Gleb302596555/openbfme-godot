@@ -539,7 +539,7 @@ const NamedCamera *ScriptEngine::findNamedCamera(const std::string &name) const
 
 // ---- object type lists ---------------------------------------------------------------------------------------------------------------------------
 
-// RW 0x759D77 (list name, type name, add): RW 0x759158 finds the list (a new ObjectTypes of that name is appended when there is none); RW 0x778F6C adds
+// RW 0x759D77 (list name, type name, add): RW 0x759158 finds the list (a new ObjectTypes of that name is appended when there is none: name RW 0x778E57, ctor RW 0x778E5D, operator= RW 0x778EB8, dtor RW 0x778EFB, xfer RW 0x778F8C); RW 0x778F6C adds
 // the type (ZH ObjectTypes::addObjectType: once), RW 0x778F3A removes it; an empty list is removed (RW 0x604067)
 void ScriptEngine::objectListAdd(const std::string &list, const std::string &type, bool add)
 {
