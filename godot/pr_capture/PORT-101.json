@@ -1,0 +1,1 @@
+{"hud_args": ["--focus=1743,1048", "--faction=FactionMordor", "--scenario=pr_box", "--spawn=MordorFighterHorde:0,0", "--pr-obj=MordorWorker,70,10", "--pr-obj=MordorWorker,70,-40", "--pr-frames=10,40", "--pr-caption=PORT-101: box over a fighter horde and two orc workers made after it: with SelectionPriority the box keeps the fighters only"]}

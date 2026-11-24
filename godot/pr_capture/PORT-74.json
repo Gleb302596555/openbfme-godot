@@ -1,0 +1,85 @@
+{
+ "map": "map mp fall back 4p",
+ "objects": [
+  {
+   "name": "g",
+   "template": "GondorGandalf",
+   "player": 0,
+   "dx": -80,
+   "dy": 0,
+   "angle": 0
+  },
+  {
+   "name": "e",
+   "template": "MordorFighterHorde",
+   "player": 1,
+   "dx": 140,
+   "dy": 0,
+   "angle": 180
+  }
+ ],
+ "camera": {
+  "eye": [
+   30,
+   -210,
+   80
+  ],
+  "focus": [
+   30,
+   0,
+   30
+  ]
+ },
+ "steps": [
+  {
+   "caption": "PORT-74 / Local 34: Gandalf's Lightning Sword (W3DLaserDraw beams with LaserUpdate end points)",
+   "wait": 20,
+   "shot": "1-before-cast"
+  },
+  {
+   "call": "gain_hero_levels",
+   "args": [
+    "@g",
+    4
+   ]
+  },
+  {
+   "call": "debug_grant_upgrade",
+   "args": [
+    "#local",
+    "Upgrade_GandalfLightningSword"
+   ],
+   "log": true
+  },
+  {
+   "wait": 10
+  },
+  {
+   "call": "cast_object_power_at",
+   "args": [
+    "#local",
+    "@g",
+    "SpecialAbilityLightningSword",
+    "x:140",
+    "y:0"
+   ],
+   "log": true
+  },
+  {
+   "wait": 30,
+   "shot": "2-charge"
+  },
+  {
+   "wait": 25,
+   "shot": "3-beams-a"
+  },
+  {
+   "wait": 25,
+   "shot": "4-beams-b"
+  },
+  {
+   "wait": 40,
+   "shot": "5-after"
+  }
+ ]
+}

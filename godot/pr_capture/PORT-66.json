@@ -1,0 +1,13 @@
+{
+ "map": "map mp fall back 4p",
+ "objects": [{"name": "b1", "template": "GondorBarracks", "player": 0, "dx": -250, "dy": 0, "angle": 0, "complete": true},
+             {"name": "b2", "template": "GondorBarracks", "player": 0, "dx": 0, "dy": 0, "angle": 0, "complete": true},
+             {"name": "b3", "template": "GondorBarracks", "player": 0, "dx": 250, "dy": 0, "angle": 0, "complete": true}],
+ "camera": {"eye": [0, -650, 330], "focus": [0, 0, 40]},
+ "steps": [
+  {"caption": "PORT-66: three barracks: intact / damaged / badly damaged: fire and smoke particles by GameData AutoFire / AutoSmoke", "wait": 60, "shot": "1-intact"},
+  {"damage_frac": ["b2", 0.6], "wait": 90, "shot": "2-damaged"},
+  {"damage_frac": ["b3", 0.9], "wait": 90, "shot": "3-heavy"},
+  {"damage_frac": ["b2", 0.2], "wait": 120, "shot": "4-later"}
+ ]
+}

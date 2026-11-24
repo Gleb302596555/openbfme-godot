@@ -1,0 +1,16 @@
+{
+ "map": "map mp fall back 4p",
+ "audio": true,
+ "objects": [{"name": "st", "template": "MordorSiegeTower", "player": 1, "dx": 0, "dy": 0, "angle": 0},
+             {"name": "tr", "template": "MordorAttackTroll", "player": 1, "dx": 80, "dy": 0, "angle": 0}],
+ "camera": {"eye": [0, -260, 120], "focus": [30, 0, 30]},
+ "steps": [
+  {"caption": "PORT-21: a unit taken out of the world by a container (siege tower) becomes INAUDIBLE: no sounds from it (audio log)", "wait": 30, "call": "get_audio_report", "log": true, "shot": "1-outside"},
+  {"call": "order_garrison", "args": [["@tr"], "@st"], "log": true},
+  {"wait": 200, "shot": "2-inside"},
+  {"call": "get_garrison", "args": ["@st"], "log": true},
+  {"call": "get_audio_report", "log": true},
+  {"call": "order_evacuate", "args": ["@st"], "log": true},
+  {"wait": 120, "shot": "3-out-again"}
+ ]
+}

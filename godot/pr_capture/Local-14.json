@@ -1,0 +1,12 @@
+{
+ "map": "map mp fall back 4p",
+ "objects": [{"name": "b", "template": "GondorBarracks", "player": 0, "dx": -200, "dy": 0, "angle": 0, "complete": true},
+             {"name": "h1", "template": "GondorFighterHorde", "player": 0, "dx": 60, "dy": -60, "angle": 90},
+             {"name": "h2", "template": "GondorArcherHorde", "player": 0, "dx": 160, "dy": 60, "angle": 90},
+             {"name": "t", "template": "MordorCatapult", "player": 1, "dx": 60, "dy": 150, "angle": 0}],
+ "camera": {"eye": [0, -300, 420], "focus": [-20, 20, 0]},
+ "steps": [
+  {"caption": "Local 14 / 19: decal shadows of buildings and units (size from the model box, opacity)", "wait": 40, "shot": "1-top"},
+  {"cam": {"eye": [60, -180, 80], "focus": [60, 0, 0]}, "wait": 5, "shot": "2-close"}
+ ]
+}

@@ -1,0 +1,1 @@
+{"hud_args": ["--focus=1743,1048", "--scenario=pr_voice", "--audio", "--faction=FactionMordor", "--spawn=MordorCorsairsOfUmbar:0,0", "--enemy=GondorFighterHorde:200,0", "--pr-frames=10", "--pr-caption=PORT-88: move order voices (VoiceMoveOverWalls only when the path needs wall climbing)"]}

@@ -1,0 +1,12 @@
+{
+ "map": "map mp fall back 4p",
+ "objects": [{"name": "t1", "template": "ElrondWhirlwind", "player": 0, "dx": -80, "dy": 0, "angle": 0},
+             {"name": "t2", "template": "GaladrielTornado", "player": 0, "dx": 80, "dy": 0, "angle": 0},
+             {"name": "u", "template": "GondorFighterHorde", "player": 0, "dx": 0, "dy": -120, "angle": 0}],
+ "camera": {"eye": [0, -300, 130], "focus": [0, 0, 40]},
+ "steps": [
+  {"caption": "Local 73: tornado spirals (W3DTornadoDraw), swirl particles, decal shadows per draw module", "wait": 15, "shot": "1-a"},
+  {"wait": 30, "shot": "2-b"},
+  {"cam": {"eye": [-60, -130, 60], "focus": [-80, 0, 40]}, "wait": 20, "shot": "3-close"}
+ ]
+}

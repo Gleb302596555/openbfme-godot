@@ -1,0 +1,1 @@
+{"hud_args": ["--focus=1743,1048", "--scenario=pr_dolly", "--spawn=LothlorienTreeHouse2:0,0", "--pr-caption=PORT-49: tactical camera moves in over a tree house: the model fades when the camera is close (AlphaCameraFadeInnerRadius)"]}

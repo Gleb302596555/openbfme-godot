@@ -1,0 +1,65 @@
+{
+ "map": "map mp fall back 4p",
+ "audio": true,
+ "objects": [
+  {
+   "name": "h",
+   "template": "GondorFighterHorde",
+   "player": 0,
+   "dx": -60,
+   "dy": 0,
+   "angle": 0
+  },
+  {
+   "name": "farm",
+   "template": "ShireLongbottomFarm",
+   "player": 1,
+   "dx": 40,
+   "dy": 0,
+   "angle": 0,
+   "complete": true
+  }
+ ],
+ "camera": {
+  "eye": [
+   -10,
+   -220,
+   100
+  ],
+  "focus": [
+   -10,
+   0,
+   20
+  ]
+ },
+ "steps": [
+  {
+   "caption": "PORT-86: capture a building to completion: VoiceCaptureBuildingComplete (audio log); default/object.ini only: expected no vanilla unit has it",
+   "wait": 10
+  },
+  {
+   "call": "cast_object_power",
+   "args": [
+    "#local",
+    "@h",
+    "SpecialAbilityCaptureBuilding",
+    "@farm"
+   ],
+   "log": true
+  },
+  {
+   "wait": 200,
+   "shot": "1-capturing"
+  },
+  {
+   "wait": 300,
+   "shot": "2-later"
+  },
+  {
+   "wait": 200,
+   "call": "get_audio_report",
+   "log": true,
+   "shot": "3-done"
+  }
+ ]
+}

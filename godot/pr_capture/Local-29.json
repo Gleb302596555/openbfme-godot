@@ -1,0 +1,13 @@
+{
+ "map": "map mp fall back 4p",
+ "objects": [{"name": "s", "template": "MordorOrcScout_Unit", "player": 1, "dx": 0, "dy": 0, "angle": 0},
+             {"name": "f", "template": "RohanFrodo", "player": 0, "dx": 80, "dy": 0, "angle": 0}],
+ "camera": {"eye": [40, -170, 70], "focus": [40, 0, 25]},
+ "steps": [
+  {"caption": "Local 29: a draw module attached to a bone of another module of the same object, in the current animation pose", "wait": 20, "shot": "1-idle"},
+  {"call": "order_move", "args": [["@s"], "x:0", "y:200"]},
+  {"call": "order_move", "args": [["@f"], "x:80", "y:200"]},
+  {"wait": 30, "shot": "2-moving-a"},
+  {"wait": 30, "shot": "3-moving-b"}
+ ]
+}

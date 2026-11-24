@@ -1,0 +1,13 @@
+{
+ "map": "map mp fall back 4p",
+ "audio": true,
+ "objects": [{"name": "m", "template": "MordorMumakil", "player": 1, "dx": 0, "dy": 0, "angle": 0},
+             {"name": "e", "template": "GondorBarracks", "player": 0, "dx": 500, "dy": 0, "angle": 0, "complete": true}],
+ "camera": {"eye": [-40, -300, 140], "focus": [0, 0, 40]},
+ "steps": [
+  {"caption": "PORT-87: Mumakil charge: VoiceStartCharging (audio log)", "wait": 20, "shot": "1-start"},
+  {"call": "order_attack", "args": [["@m"], "@e"], "log": true},
+  {"wait": 120, "shot": "2-charging"},
+  {"wait": 120, "call": "get_audio_report", "log": true, "shot": "3-later"}
+ ]
+}

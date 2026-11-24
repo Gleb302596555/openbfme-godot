@@ -1,0 +1,12 @@
+{
+ "map": "map mp fall back 4p",
+ "objects": [{"name": "st", "template": "MordorSiegeTower", "player": 1, "dx": 0, "dy": 0, "angle": 0},
+             {"name": "tr", "template": "MordorAttackTroll", "player": 1, "dx": 60, "dy": 0, "angle": 0}],
+ "camera": {"eye": [0, -260, 120], "focus": [30, 0, 30]},
+ "steps": [
+  {"caption": "PORT-91: a unit inside a container keeps (or loses) its shadow by the container's answer", "wait": 20, "shot": "1-outside"},
+  {"call": "order_garrison", "args": [["@tr"], "@st"], "log": true},
+  {"wait": 60, "shot": "2-entering"},
+  {"wait": 60, "shot": "3-inside"}
+ ]
+}
