@@ -1,0 +1,146 @@
+function	name	verdict	evidence
+0x0045B436	Object::removeCustomIndicatorColor	not reached	0 callers in RW_BINARY_MAP.tsv (dc=0 vc=0); client indicator color
+0x004F0F7A	vtable_0xBE4FA0_slot2	not reached	0 callers in RW_BINARY_MAP.tsv (dc=0 vc=0); client/UI adapter misgrouped under ExperienceTracker
+0x00506DF3	vtable_0xBE593C_slot2	not reached	0 callers in RW_BINARY_MAP.tsv (dc=0 vc=0); client/UI adapter misgrouped under ExperienceTracker
+0x0050970F	vtable_0xBE59B8_slot2	not reached	0 callers in RW_BINARY_MAP.tsv (dc=0 vc=0); client/UI adapter misgrouped under ExperienceTracker
+0x0050B4DE	vtable_0xBE59CC_slot2	not reached	0 callers in RW_BINARY_MAP.tsv (dc=0 vc=0); client/UI adapter misgrouped under ExperienceTracker
+0x0064A928	BridgeBehaviorModuleData::friend_newModuleData	not reached	BridgeBehavior not ported as standalone module / unused in Ennorath
+0x0064C995	DelayedWeaponSetUpgradeUpdate::friend_newModuleInstance	not reached	DelayedWeaponSetUpgradeUpdate has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x00650AB5	BoneFXDamage::friend_newModuleInstance	not reached	BoneFXDamage has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x00650CC3	CallHelpOnDamage::friend_newModuleInstance	not reached	CallHelpOnDamage has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x00650CFB	CallHelpOnDamageModuleData::friend_newModuleData	not reached	CallHelpOnDamage has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x00650D4C	FireWeaponCollide::friend_newModuleInstance	not reached	FireWeaponCollide has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x00650ECE	HealCrateCollide::friend_newModuleInstance	not reached	HealCrateCollide not ported / unused in Ennorath (0 in RW_FUNCTION_MAP.tsv)
+0x00650F21	CrateCollide_650F21::friend_newModuleInstance	not reached	Unused crate collide module (0 in RW_FUNCTION_MAP.tsv)
+0x00650F59	ShroudCrateCollide::friend_newModuleInstance	not reached	ShroudCrateCollide not ported / unused in Ennorath (0 in RW_FUNCTION_MAP.tsv)
+0x00650FAC	UnitCrateCollide::friend_newModuleInstance	not reached	UnitCrateCollide not ported / unused in Ennorath (0 in RW_FUNCTION_MAP.tsv)
+0x006516F5	CashHackSpecialPowerModuleData::friend_newModuleData	not reached	CashHackSpecialPower has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x00652D69	GiveOrRestoreUpgradeSpecialPower::friend_newModuleInstance	not reached	GiveOrRestoreUpgradeSpecialPower has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x006539DB	BoneFXUpdateModuleData::friend_newModuleData	not reached	BoneFXUpdate not ported / unused in Ennorath (0 in RW_FUNCTION_MAP.tsv)
+0x0068AD69	Object::dlink_isInList_TeamMemberList	not reached	Intrusive linked-list helper replaced by std::vector in port Team
+0x0068ADA6	Object::dlink_removeFrom_TeamMemberList	not reached	Intrusive linked-list helper replaced by std::vector in port Team
+0x0068B46B	Object::GetPathfinderPos	unchecked	PathfinderPosGoalManager delegation; deferred (Port 323 #840 / Object stops)
+0x0068B5B9	Object::findWaypointFollowingCapableWeapon	not reached	Waypoint-following weapon search (Generals legacy; 0 active uses in Ennorath)
+0x0068B666	Object::0x68B666	unchecked	Body/AI subobject delegation (+0x248 -> 0x8E2E0A); deferred
+0x0068B6CB	Object::setCustomIndicatorColor	too big	Client drawable indicator color (+0x324); covered by existing stop in ScriptEngine.h / STOPS.md
+0x0068BA75	Object::0x68BA75	unchecked	Behavior module broadcast loop (+0x24C slot +4); deferred (Port 323 #840)
+0x0068BAA6	Object::0x68BAA6	unchecked	Behavior module broadcast loop (+0x24C); deferred (Port 323 #840)
+0x0068BC38	Object::0xC123D8[0]	unchecked	44B Object secondary interface slot 0; dc=0 vc=0
+0x0068BF2A	Object::0x68BF2A	unchecked	Contain module delegation (+0x25C slot +0x40); deferred
+0x0068C05A	Object::0x68C05A	too big	Transient +0x4AC ground override / +0x4B0 frame stamp; covered by S-4840 / S-4851 in STOPS.md
+0x0068C154	Object::0x68C154	unchecked	Behavior module broadcast loop (+0x24C, +0x47C); deferred (Port 323 #840)
+0x0068C2C2	Object::0x68C2C2	unchecked	Subobject delegation (+0x244 -> 0x8E36A7); deferred
+0x0068C31C	Object::0x68C31C	unchecked	WeaponSet + behavior module delegation (+0x34C -> 0x6C81BB); deferred
+0x0068C42C	Object::0x68C42C	unchecked	Behavior module broadcast loop (+0x24C); deferred (Port 323 #840)
+0x0068C562	Object::0x68C562	unchecked	Body subobject query (+0x248 -> 0x68AF0C); deferred (Port 243 #567 Do-not-touch)
+0x0068CAF7	Object::0x68CAF7	unchecked	142B EmotionTrackerUpdate/weapon query; deferred
+0x0068D2D1	Object::0x68D2D1	unchecked	Container (+0x27C) -> +0x258 delegation; deferred
+0x0068D40B	Object::0x68D40B	unchecked	PathfinderPosGoalManager SetGoal delegation (+0xA4); deferred
+0x0068D8D7	Object::0x68D8D7	too big	Covered by existing stop in STOPS.md (0x68D8D7)
+0x0068EC25	Object::enterGroup	not reached	Client selection group index (+0x1A8); UI selection handled on Godot side
+0x0068EEC3	Object::0xC12368[9]	unchecked	108B Object secondary interface slot 9; dc=0 vc=0
+0x0068F39F	Object::0x68F39F	unchecked	Container chain walk (+0x27C) -> +0x254; deferred
+0x0068F6CF	Object::0x68F6CF	too big	780B multi-shape geometry helper (BfmeObjE15); deferred (Port 323 #840)
+0x00690B11	Object::0x690B11	unchecked	123B selection/controlling-player model condition helper; deferred
+0x00690B8C	Object::0x690B8C	too big	Per-player selection tail; covered by existing stop in GameLogic.h / STOPS.md
+0x006915E4	Object::0xC123B0[0]	unchecked	30B secondary interface string getter; deferred
+0x00691A73	Object::GetCreateAHeroSpecialPower	not reached	Create-A-Hero only (not used in skirmish/Ennorath); dc=1 vc=0
+0x00692A45	Object::goDownOnCorpse	unchecked	48B special power 0x8B corpse trigger; deferred
+0x0069472D	Object::loadPostProcess	too big	487B save-game loadPostProcess; touches save4* pins and Port 323 #840
+0x00697B6E	Object::AddCreateAHeroSpecialPowerUpgrade	not reached	Create-A-Hero only (not used in skirmish/Ennorath); dc=1 vc=0
+0x0069A6F0	Object::0xC12390[3]	not reached	4B constant getter stub in Object secondary vtable; dc=0 vc=0
+0x0069A6F4	Object::0xC12368[2]	not reached	4B constant getter stub in Object secondary vtable; dc=0 vc=0
+0x0069A6F8	Object::0xC12368[6]	not reached	13B trivial getter stub in Object secondary vtable; dc=0 vc=0
+0x0069A73A	Object::0xC12390[1]	not reached	4B constant getter stub in Object secondary vtable; dc=0 vc=0
+0x0069A73E	Object::0xC12390[2]	not reached	4B constant getter stub in Object secondary vtable; dc=0 vc=0
+0x006AB7E0	TextPlusString::length_thunk	not reached	0 callers in RW_BINARY_MAP.tsv (dc=0 vc=0); UI string thunk misgrouped under Weapon
+0x006AC6A8	AsciiStringRef::write_thunk	not reached	0 callers in RW_BINARY_MAP.tsv (dc=0 vc=0); UI string thunk misgrouped under Weapon
+0x006ACD8E	TextPlusString::write_thunk	not reached	0 callers in RW_BINARY_MAP.tsv (dc=0 vc=0); UI string thunk misgrouped under Weapon
+0x006ACD96	Rva002AC2CFTarget_thunk	not reached	0 callers in RW_BINARY_MAP.tsv (dc=0 vc=0); misgrouped under Weapon
+0x006CBBC3	Weapon::computeApproachTarget	too big	1070B approach-target geometry/weapon computation; touches combat pins, deferred to follow-up
+0x006D7622	vtable_0xBE5738_slot3_thunk	not reached	0 callers in RW_BINARY_MAP.tsv (dc=0 vc=0); adjustor thunk
+0x006E801B	Object::0x6E801B	unchecked	24B frame/timestamp check (+0x22C vs 0xDE4710); deferred
+0x00715776	Object::friend_getRadarData	not reached	RadarData raw pointer (+0x1A8); radar is rebuilt via RadarStore in port
+0x00723B03	Object::friend_setPartitionData	not reached	PartitionData raw pointer (+0x1A4); partition grid is rebuilt in port
+0x0072B0B8	vtable_0xC23F1C_slot0_thunk	not reached	0 callers in RW_BINARY_MAP.tsv (dc=0 vc=0); adjustor thunk
+0x0072B0C0	vtable_0xC23F1C_slot1_thunk	not reached	0 callers in RW_BINARY_MAP.tsv (dc=0 vc=0); adjustor thunk
+0x0072C9C7	vtable_thunk_0x72C9C7	not reached	0 callers in RW_BINARY_MAP.tsv (dc=0 vc=0); adjustor thunk
+0x0076424D	BuffInstance::MakeGlowOutlineBuff	not reached	Deprecated stub printing 'GlowOutline buffs are no longer supported'; not used in RotWK/Ennorath
+0x0076455D	BuffInstance::DoXfer	too big	482B client TBUFF save/load; covered by S-4642 (ClientBuffs)
+0x0079D2D7	ExperienceTracker::0x79D2D7	not reached	0 callers in RW_BINARY_MAP.tsv (dc=0 vc=0); unreferenced helper
+0x0085FEB6	InstantDeathBehavior::~InstantDeathBehavior	not reached	InstantDeathBehavior has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x0085FECF	InstantDeathBehavior::getModuleName	not reached	InstantDeathBehavior has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x0085FF3E	InstantDeathBehavior::getModuleNameKey	not reached	InstantDeathBehavior has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008601A4	InstantDeathBehaviorModuleData::InstantDeathBehaviorModuleData	not reached	InstantDeathBehavior has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x0086029F	InstantDeathBehaviorModuleData::deleting_dtor	not reached	InstantDeathBehavior has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008602BB	InstantDeathBehaviorModuleData::~InstantDeathBehaviorModuleData	not reached	InstantDeathBehavior has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x00889CAD	SpecialPowerCompletionDie::~SpecialPowerCompletionDie	not reached	SpecialPowerCompletionDie has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x00889CC6	SpecialPowerCompletionDie::getModuleName	not reached	SpecialPowerCompletionDie has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x00889CE0	SpecialPowerCompletionDie::getModuleNameKey	not reached	SpecialPowerCompletionDie has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x00889D25	SpecialPowerCompletionDie::SpecialPowerCompletionDie	not reached	SpecialPowerCompletionDie has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x0088B648	DelayedWeaponSetUpgradeUpdate::~DelayedWeaponSetUpgradeUpdate	not reached	DelayedWeaponSetUpgradeUpdate has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x0088B668	DelayedWeaponSetUpgradeUpdate::getModuleName	not reached	DelayedWeaponSetUpgradeUpdate has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x0088B66E	DelayedWeaponSetUpgradeUpdate::getModuleNameKey	not reached	DelayedWeaponSetUpgradeUpdate has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x0088B6B3	DelayedWeaponSetUpgradeUpdateModuleData::buildFieldParse	not reached	DelayedWeaponSetUpgradeUpdate has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x0088B6C4	DelayedWeaponSetUpgradeUpdate::DelayedWeaponSetUpgradeUpdate	not reached	DelayedWeaponSetUpgradeUpdate has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x0088B6FC	DelayedWeaponSetUpgradeUpdate::deleting_dtor	not reached	DelayedWeaponSetUpgradeUpdate has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x00893336	HeightDieUpdateModuleData::buildFieldParse	not reached	0 active INI occurrences in RotWK 2.01 / BFME2 1.06 / Ennorath 1.9.8.7; dc=0 vc=0
+0x008988B6	AutoFindHealingUpdateModuleData::buildFieldParse	not reached	0 active INI occurrences in RotWK 2.01 / BFME2 1.06 / Ennorath 1.9.8.7; dc=0 vc=0
+0x00899237	DemoTrapUpdateModuleData::buildFieldParse	not reached	0 active INI occurrences in RotWK 2.01 / BFME2 1.06 / Ennorath 1.9.8.7; dc=0 vc=0
+0x0089BDD5	BattlePlanUpdateModuleData::buildFieldParse	not reached	0 active INI occurrences in RotWK 2.01 / BFME2 1.06 / Ennorath 1.9.8.7; dc=0 vc=0
+0x008A372F	ProneUpdateModuleData::buildFieldParse	not reached	0 active INI occurrences in RotWK 2.01 / BFME2 1.06 / Ennorath 1.9.8.7; dc=0 vc=0
+0x008AF912	RainOfFireUpdate::update	too big	817B weather/particle/DPS update loop; RainOfFireUpdate has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008B949A	StealthUpgrade::~StealthUpgrade	not reached	StealthUpgrade has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008B94BA	StealthUpgrade::getModuleName	not reached	StealthUpgrade has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008B94C0	StealthUpgrade::getModuleNameKey	not reached	StealthUpgrade has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008B9536	StealthUpgrade::deleting_dtor	not reached	StealthUpgrade has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008B9552	StealthUpgrade::upgradeImplementation	not reached	StealthUpgrade has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008B955F	StealthUpgrade::isSubObjectsUpgrade	not reached	StealthUpgrade has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008BD4B3	SpecialPowerCreate::getModuleName	not reached	SpecialPowerCreate has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008BD4B9	SpecialPowerCreate::~SpecialPowerCreate	not reached	SpecialPowerCreate has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008BD4D2	SpecialPowerCreate::getModuleNameKey	not reached	SpecialPowerCreate has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008BD84A	BoneFXDamage::~BoneFXDamage	not reached	BoneFXDamage has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008BD863	BoneFXDamage::getModuleName	not reached	BoneFXDamage has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008BD8BC	BoneFXDamage::getModuleNameKey	not reached	BoneFXDamage has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008BD901	BoneFXDamage::BoneFXDamage	not reached	BoneFXDamage has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008BD92B	BoneFXDamage::deleting_dtor	not reached	BoneFXDamage has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008BD947	BoneFXDamage::onObjectCreated	not reached	BoneFXDamage has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008BD9C3	BoneFXDamage::onDamage	not reached	BoneFXDamage has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008BF5FE	CallHelpOnDamage::deleting_dtor	not reached	CallHelpOnDamage has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008BF61A	CallHelpOnDamage::~CallHelpOnDamage	not reached	CallHelpOnDamage has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008BF61F	CallHelpOnDamage::xfer	not reached	CallHelpOnDamage has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008BF644	CallHelpOnDamageModuleData::deleting_dtor	not reached	CallHelpOnDamage has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008BF660	CallHelpOnDamageModuleData::~CallHelpOnDamageModuleData	not reached	CallHelpOnDamage has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008BF690	CallHelpOnDamage::onDamage	not reached	CallHelpOnDamage has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008BF7F0	FireWeaponCollide::~FireWeaponCollide	not reached	FireWeaponCollide has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008BF845	FireWeaponCollide::getModuleName	not reached	FireWeaponCollide has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008BF87C	FireWeaponCollide::getBaseModuleName	not reached	FireWeaponCollide has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008BF89E	FireWeaponCollide::getModuleNameKey	not reached	FireWeaponCollide has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008BF8E3	FireWeaponCollide::FireWeaponCollide	not reached	FireWeaponCollide has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008BF94F	FireWeaponCollide::deleting_dtor	not reached	FireWeaponCollide has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008BF96B	FireWeaponCollide::onCollide	not reached	FireWeaponCollide has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008BF9A5	FireWeaponCollide::xfer	not reached	FireWeaponCollide has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008BFA03	FireWeaponCollide::shouldFireWeapon	not reached	FireWeaponCollide has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008BFA61	FireWeaponCollideModuleData::buildFieldParse	not reached	FireWeaponCollide has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008C67FA	CashHackSpecialPower::CashHackSpecialPower	not reached	CashHackSpecialPower has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008C6824	CashHackSpecialPower::getModuleName	not reached	CashHackSpecialPower has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008C682A	CashHackSpecialPower::~CashHackSpecialPower	not reached	CashHackSpecialPower has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008C6875	CashHackSpecialPower::getModuleNameKey	not reached	CashHackSpecialPower has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008C68BA	CashHackSpecialPower::deleting_dtor	not reached	CashHackSpecialPower has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008C6AC7	CashHackSpecialPowerModuleData::deleting_dtor	not reached	CashHackSpecialPower has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008C6AE3	CashHackSpecialPowerModuleData::~CashHackSpecialPowerModuleData	not reached	CashHackSpecialPower has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008C6BBB	DefectorSpecialPower::getModuleName	not reached	DefectorSpecialPower has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008C6BC1	DefectorSpecialPower::~DefectorSpecialPower	not reached	DefectorSpecialPower has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008C6BDA	DefectorSpecialPower::getModuleNameKey	not reached	DefectorSpecialPower has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008C6C1F	DefectorSpecialPower::deleting_dtor	not reached	DefectorSpecialPower has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008C6C3B	DefectorSpecialPower::doSpecialPowerAtObject	not reached	DefectorSpecialPower has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008D15C4	GiveOrRestoreUpgradeSpecialPower::~GiveOrRestoreUpgradeSpecialPower	not reached	GiveOrRestoreUpgradeSpecialPower has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008D1617	GiveOrRestoreUpgradeSpecialPower::triggerAbilityEffect	not reached	GiveOrRestoreUpgradeSpecialPower has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008D1790	GiveOrRestoreUpgradeSpecialPower::deleting_dtor	not reached	GiveOrRestoreUpgradeSpecialPower has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008D2495	UnleashSpecialPower::getModuleName	not reached	UnleashSpecialPower has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008D249B	UnleashSpecialPower::~UnleashSpecialPower	not reached	UnleashSpecialPower has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008D24BB	UnleashSpecialPower::getModuleNameKey	not reached	UnleashSpecialPower has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008D251C	UnleashSpecialPower::isReady	not reached	UnleashSpecialPower has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008D25CD	UnleashSpecialPower::doSpecialPower	not reached	UnleashSpecialPower has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x008E3C3D	DelayedWeaponSetUpgradeUpdate::xfer	not reached	DelayedWeaponSetUpgradeUpdate has 0 active INI occurrences in RotWK/BFME2/Ennorath
+0x0090DB89	DamageNugget::v4	unchecked	435B DelayedLuaEventUpdate spawn helper; deferred to follow-up Local
