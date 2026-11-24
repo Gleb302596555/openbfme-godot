@@ -10,7 +10,7 @@
 #include "Common/Thing/ThingTemplate.h"
 #include "Common/XferLoad.h"
 #include "Common/XferSave.h"
-#include "GameLogic/AI/CombatNames.h"
+#include "GameLogic/Combat/CombatNames.h"
 #include "GameLogic/AI/TurretAI.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Module/AIUpdate.h"
