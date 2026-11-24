@@ -172,6 +172,7 @@ NameKeyGenerator &requireConfig(const LuaScriptEngine::Config &c)
 }
 } // namespace
 
+// RW 0x7392F6
 LuaScriptEngine::LuaScriptEngine(const Config &config)
 	: m_config(config)
 	, m_keys(&requireConfig(config))
@@ -182,6 +183,7 @@ LuaScriptEngine::LuaScriptEngine(const Config &config)
 	m_host->attach(&m_sink);
 }
 
+// RW 0x7393A1
 LuaScriptEngine::~LuaScriptEngine() = default;
 
 size_t LuaScriptEngine::compatibilityFaults() const

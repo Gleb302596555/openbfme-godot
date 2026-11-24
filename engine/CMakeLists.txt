@@ -611,6 +611,7 @@ include(cmake/Local181.cmake)   # LOCAL-181: hordes, locomotion and map / terrai
 include(cmake/Local178.cmake)   # LOCAL-178: AI and pathfinding binary-map audit part 2 (fork issue 959; OPENBFME_LOCAL178_TESTS)
 include(cmake/Local165.cmake)   # LOCAL-165: AITactic::NotifyTeamCancelled (RW 0x8F2727) & SkirmishAI::UnRegister(Team*) (RW 0x6C77B2) (fork issue 932; OPENBFME_LOCAL165_TESTS)
 include(cmake/Local167.cmake)   # LOCAL-167: War of the Ring strategic UI — build plot help and radial right-click (fork issue 934; OPENBFME_LOCAL167_TESTS)
+include(cmake/Local179.cmake)   # LOCAL-179: script engine part 1 binary-map audit and LivingWorldTurnPhase mask (fork issue 960; OPENBFME_LOCAL179_TESTS)
 include(cmake/Local168.cmake)   # LOCAL-168: hordes and formations (fork issue 935; OPENBFME_LOCAL168_TESTS)
 include(cmake/Local152.cmake)
 include(cmake/Local182.cmake)   # LOCAL-182: combat/weapons/castles/structures binary-map defaults (fork issue 963; OPENBFME_LOCAL182_TESTS)
@@ -1513,6 +1514,7 @@ add_executable(openbfme_tests
     ${OPENBFME_LOCAL178_TESTS}
     ${OPENBFME_LOCAL165_TESTS}
     ${OPENBFME_LOCAL167_TESTS}
+    ${OPENBFME_LOCAL179_TESTS}
     ${OPENBFME_LOCAL168_TESTS}
     ${OPENBFME_LOCAL169_TESTS}
     ${OPENBFME_LOCAL182_TESTS}

@@ -106,6 +106,7 @@ ScriptEngine::ScriptEngine(GameLogic &logic)
 	resetBreeze(); // lane VISUAL-2: the reset's values before the first reset
 }
 
+// RW 0x609E77
 ScriptEngine::~ScriptEngine()
 {
 	if (m_createActionsTeams)
@@ -125,6 +126,7 @@ void ScriptEngine::reset()
 	m_loaded = false;
 	m_firstUpdate = true;
 	m_gameDifficulty = 1;                  // lane CAMP-1H: RW 0x609851 (+ 0x1A5C4 = 1)
+	m_livingWorldTurnPhase = -1;
 	m_objectsReceiveDifficultyBonus = true; // lane CAMP-1H: RW 0x609857 (+ 0x1A5D5 = 1)
 	m_sides.clear();
 	m_counters.clear();
@@ -858,6 +860,14 @@ bool ScriptEngine::shouldEvaluate(RScript &s) const
 	if (!allowed)
 	{
 		return false;
+	}
+	if (m_livingWorldTurnPhase >= 0)
+	{
+		// RW 0x6038E4..0x603901: LivingWorld turn-phase bitmask check (Script + 0x24)
+		if (m_livingWorldTurnPhase >= 32 || (s.def->turnPhaseMask & (1u << m_livingWorldTurnPhase)) == 0)
+		{
+			return false;
+		}
 	}
 	return s.frameToEvaluateAt <= m_logic.getFrame();
 }

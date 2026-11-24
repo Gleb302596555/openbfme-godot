@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-// RW 0xDA0E68 (generated: GameLogic/BitFlagNames.cpp)
+// RW 0xDA0E68 (generated: GameLogic/BitFlagNames.cpp; single-bit lookup RW 0x7079ED KindOfMaskType::getNameFromSingleBit)
 extern const char *const TheKindOfNames[];
 
 namespace

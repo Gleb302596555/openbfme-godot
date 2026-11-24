@@ -468,7 +468,7 @@ void ScriptEngine::xfer(Xfer &x)
 			}
 		}
 	}
-	// lane BFME2CAMP1 (version 6): the edited attack priority table (AttackPriorityStore::saved: every entry but the default, in order; its targets by name)
+	// lane BFME2CAMP1 (version 6, RW 0x759E98 AttackPriorityInfo::xfer): the edited attack priority table (AttackPriorityStore::saved: every entry but the default, in order; its targets by name)
 	bool priorities = loading ? false : m_attackPriorities.edited();
 	auto loadedPriorities = std::make_shared<std::vector<AttackPriorityStore::SavedEntry>>();
 	if (v.current >= 6)

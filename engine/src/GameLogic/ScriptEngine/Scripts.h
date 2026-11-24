@@ -86,7 +86,9 @@ struct Script
 	std::int32_t loopCount = 0;
 	std::uint8_t sequentialTargetType = 0;
 	std::string sequentialTargetName;
-	std::string unknownV4; // v>=4, "ALL" throughout the corpus (meaning UNKNOWN)
+	// RW 0x7B636C / 0x7B616D / 0x7B5038: v>=4 LivingWorldTurnPhase bitmask (7 bits, RW 0xDB7ABC; "ALL" = 0x7F; default 0x7F for v<4)
+	std::string unknownV4; // v>=4 raw LivingWorldTurnPhase mask string (RW 0x7B636C)
+	std::uint32_t turnPhaseMask = 0x7Fu;
 	int version = 0;
 	std::vector<OrCondition> orConditions;
 	std::vector<ScriptActionRec> actions;      // ScriptAction
@@ -113,6 +115,10 @@ struct ScriptGroup
 // RW 0x007B7D64 (ScriptList::deleteScriptRef), RW 0x007B8177 (ScriptList::deleteGroupRef); copyable ScriptCondition covers
 // RW 0x007B655B (Condition::duplicate); ScriptParameter::coord covers RW 0x007B32DE (Parameter::getCoord3D) and
 // RW 0x007B3305 (Parameter::setCoord3D).
+// LOCAL-179 (fork issue 960): value-type Script covers RW 0x7B4CF8 (Script::Script); ScriptCondition covers RW 0x7B651B
+// (Condition::Condition(type)) and RW 0x7B4D8E (Condition::~Condition); ScriptActionRec covers RW 0x7B3327 (ScriptAction::ScriptAction()),
+// RW 0x7B5F66 (ScriptAction::ScriptAction(type)), RW 0x7B4EA1 (ScriptAction::setActionType), RW 0x7B4F2A (ScriptAction::~ScriptAction),
+// and RW 0x7B5F9C (ScriptAction::duplicate).
 struct ScriptList
 {
 	std::vector<ScriptItem> items;
@@ -121,6 +127,11 @@ struct ScriptList
 };
 
 // .scb extras (spec 1.7.8): ScriptsPlayers v2 and ScriptTeams v1.
+// RW 0x7B636C (ReadScriptPlayerMask_Rva003B5918) / RW 0x7B616D / RW 0x7B5038 (table RW 0xDB7ABC):
+// decodes a Script v>=4 LivingWorldTurnPhase bitmask string ("ALL", "NONE", space-separated phase names or +/- modifiers).
+constexpr std::uint32_t kScriptAllTurnPhasesMask = 0x7Fu;
+std::uint32_t parseScriptTurnPhaseMask(const std::string &text);
+
 struct ScriptsPlayersEntry
 {
 	std::string name;
