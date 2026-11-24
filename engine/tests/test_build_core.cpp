@@ -298,16 +298,17 @@ TEST_CASE("castle: the instant unpack applies the castle's transform to every la
 	REQUIRE(member != nullptr);
 	CHECK(member->castleId() == castle->getID());
 	CHECK(f.logic->report().errors.size() == 1); // the unknown template
-	// a faction without an entry of its own is an error, never a default layout
+	// RW 0x79B903 -> RW 0x72D72F (Local 126, ce51d47a3): a missing castle template in TheCastleTemplateStore
+	// returns false on iteration 0 (0 objects created, no error, unpack finishes cleanly).
 	Object *other = f.make("AlphaCastle", f.teamOf("Bob"));
 	other->friend_onBuildComplete();
 	f.logic->runLogicFrame();
 	CastleBehavior *cb2 = dynamic_cast<CastleBehavior *>(other->findModule("CastleBehavior"));
+	CHECK(cb2->state() == CastleBehavior::STATE_UNPACKED);
 	CHECK(cb2->ownedObjects().empty());
+	CHECK(cb2->lastError().empty());
 	const GameLogic::Report rep = f.logic->report();
-	REQUIRE(rep.errors.size() == 2); // + the layout 'Base_Beta' that no loader can read
-	CHECK(rep.errors[1].find("Base_Beta") != std::string::npos);
-	CHECK(cb2->lastError().find("Base_Beta") != std::string::npos);
+	REQUIRE(rep.errors.size() == 1); // only Alice's unknown template 'NoSuchTemplate'
 }
 
 TEST_CASE("placement: footprints collide as oriented rectangles and discs (ZH geomCollidesWithGeom, footprint only)")
