@@ -1146,13 +1146,18 @@ void ControlBar::update()
 			{
 				const std::string &coSetName = co->getCommandSetName();
 				const CommandSet *coSet = (store && !coSetName.empty()) ? store->findCommandSet(coSetName) : nullptr;
+				if (!coSet)
+				{
+					// RW 0x94457F..0x9445A8: an object without a CommandSet clears every window and m_commonCommands slot (33 of them, RW 0x944586)
+					// and returns, whether it comes first or later; the objects after it take the intersect branch (the first-object flag is
+					// cleared by the caller, RW 0x9448BF), where only ATTACK_MOVE's union (RW 0x9446DE) can fill a slot again
+					commonSlots.fill(nullptr);
+					firstObj = false;
+					continue;
+				}
 				if (firstObj)
 				{
-					firstObj = false; // RW 0x9448BF: cleared after the first non-IGNORED_IN_GUI, non-SOLD object even if coSet is null
-					if (!coSet)
-					{
-						continue;
-					}
+					firstObj = false; // RW 0x9448BF: cleared after the first non-IGNORED_IN_GUI, non-SOLD object
 					for (int s = 0; s < cap; ++s)
 					{
 						const CommandButton *b = visibleSlotOf(*coSet, s);
@@ -1162,18 +1167,26 @@ void ControlBar::update()
 						}
 					}
 				}
-				else if (coSet) // RW 0x94457F: null CommandSet leaves existing windows as-is
+				else
 				{
 					for (int s = 0; s < cap; ++s)
 					{
 						const CommandButton *b = visibleSlotOf(*coSet, s);
-						if (b && b->m_command == GUI_COMMAND_ATTACK_MOVE) // RW 0x9446DD: ATTACK_MOVE union
+						const CommandButton *&common = commonSlots[(size_t)s];
+						// RW 0x9446DE..0x944734, the ATTACK_MOVE union: when this object's button or the slot's common button is ATTACK_MOVE, an
+						// empty slot takes this object's button (RW 0x9446F8..0x944725) and a filled one is kept as it is (RW 0x944732); otherwise
+						// a different button clears the slot (RW 0x94472E..0x944745)
+						const bool attackMove = (b && b->m_command == GUI_COMMAND_ATTACK_MOVE) || (common && common->m_command == GUI_COMMAND_ATTACK_MOVE);
+						if (attackMove)
 						{
-							commonSlots[(size_t)s] = b;
+							if (!common)
+							{
+								common = b;
+							}
 						}
-						else if (b != commonSlots[(size_t)s]) // RW 0x94472E: clear non-matching slot
+						else if (b != common)
 						{
-							commonSlots[(size_t)s] = nullptr;
+							common = nullptr;
 						}
 					}
 				}

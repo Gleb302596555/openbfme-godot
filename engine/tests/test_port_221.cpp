@@ -466,6 +466,27 @@ const char kPort221Ini[] =
 	"  Behavior = PhysicsBehavior ModuleTag_Phys\n"
 	"  End\n"
 	"End\n"
+	// a selectable unit with no CommandSet at all (addCommonCommands RW 0x94457F: the null set clears the bar)
+	"Object P221NoSetMule\n"
+	"  KindOf = PRELOAD SELECTABLE INFANTRY\n"
+	"  VisionRange = 200\n"
+	"  Geometry = CYLINDER\n"
+	"  GeometryMajorRadius = 8\n"
+	"  GeometryHeight = 16\n"
+	"  LocomotorSet\n"
+	"    Locomotor = P221FootLoco\n"
+	"    Condition = SET_NORMAL\n"
+	"    Speed = 50\n"
+	"  End\n"
+	"  Body = ActiveBody ModuleTag_Body\n"
+	"    MaxHealth = 200\n"
+	"    InitialHealth = 200\n"
+	"  End\n"
+	"  Behavior = AIUpdateInterface ModuleTag_AI\n"
+	"  End\n"
+	"  Behavior = PhysicsBehavior ModuleTag_Phys\n"
+	"  End\n"
+	"End\n"
 	"Object P221ImladrisHero\n"
 	"  KindOf = PRELOAD SELECTABLE CAN_ATTACK HERO INFANTRY\n"
 	"  VisionRange = 350\n"
@@ -969,6 +990,23 @@ TEST_CASE("PORT-221: mixed selection with one object lacking the button matches 
 		CHECK(r.buttonNamed("Command_P221_ToggleStance") != nullptr);
 		CHECK(r.buttonNamed("Command_P221_AttackMove") != nullptr);
 		CHECK(r.buttonNamed("Command_P221_Stop") != nullptr);
+	}
+
+	SUBCASE("HUD addCommonCommands (RW 0x94457F..0x9445A8): a selected object with no CommandSet empties the bar, first or later")
+	{
+		Object *mule = r.spawn("P221NoSetMule", 220.0f, 100.0f);
+		// the shared Stop is there without the mule
+		r.selectGroup({ s1, s2 });
+		REQUIRE(r.buttonNamed("Command_P221_Stop") != nullptr);
+		// later in the selection: every window and common slot is cleared (RW 0x944586 loop over 0x21 windows), the rest intersect with nothing
+		r.selectGroup({ s1, s2, mule });
+		CHECK(r.buttonNamed("Command_P221_Stop") == nullptr);
+		CHECK(r.buttonNamed("Command_P221_AttackMove") == nullptr);
+		// first in the selection: cleared the same, and the objects after it take the intersect branch (the first-object flag is cleared after
+		// the mule, RW 0x9448BF): Stop never comes back, ATTACK_MOVE comes back through its union (RW 0x9446DE)
+		r.selectGroup({ mule, s1, s2 });
+		CHECK(r.buttonNamed("Command_P221_Stop") == nullptr);
+		CHECK(r.buttonNamed("Command_P221_AttackMove") != nullptr);
 	}
 
 	SUBCASE("HUD populateMultiSelect senior hero rule (RW 0x94478A..0x944839): highest-rank HERO wins regardless of selection order")

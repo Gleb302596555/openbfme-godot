@@ -352,6 +352,27 @@ def test_reports_accept_library_rows(tmp_path):
     assert '\tlibrary\t' in tsv.read_text(encoding='utf-8') and 'library 1' in md.read_text(encoding='utf-8')
 
 
+def test_scan_citations_counts_error_messages_not_stop_texts(tmp_path):
+    # 2026-11-24: the comment-only scanner dropped the citations of ported code's own messages (PlayerScience.cpp, FXList.cpp, ...)
+    (tmp_path / 'messages.cpp').write_text(
+        'void f() {\n'
+        '    throw std::runtime_error("PlayerScience: rank has no Rank block (RW 0x782961 reads it)");\n'
+        '}\n'
+        'const char *g = "the source (RW 0x501111: the first selected object), the click sounds "\n'
+        '    "of the clip (RW 0x501112); not ported: the toggle voice (RW 0x501113)";\n'
+        'const char *h = "stream version (RW 0x501120 accepts 1)";\n'
+        '\n'
+        'const char *u = "unported tail (RW 0x501130)";\n',
+        encoding='utf-8',
+    )
+    status = scan_citations(tmp_path)
+    assert status[0x782961] == 'ported'
+    assert status[0x501120] == 'ported'
+    # a run of literals that says "not ported" anywhere is a stop text: none of its citations count
+    assert 0x501111 not in status and 0x501112 not in status and 0x501113 not in status
+    assert 0x501130 not in status
+
+
 def test_scan_citations_ignores_string_literals_and_chains_slash_comma(tmp_path):
     (tmp_path / 'stop_and_chain.cpp').write_text(
         'const char *stop = "[S-657] walls: not ported: "\n'

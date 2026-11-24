@@ -102,14 +102,24 @@ _HEX_ADDR = re.compile(r"0x([0-9a-fA-F]{6,8})")
 PARTIAL = re.compile(r"\bS-\d+\b|\bNOT PORTED\b|\bUNPORTED\b|\bINFERENCE\b", re.I)
 
 
-def _extract_comment_lines(text: str) -> list[str]:
-    """Return per-line comment-only text (C/C++ // and /* */), stripping string/char literals.
+# A run of string literals on consecutive lines is a stop text (an [S-NNN] description, "not ported: ...") when any of it says so; its
+# citations never count. Other literals are messages of ported code (`throw ... "(RW 0x782961 reads ...)"`, `fail(...)`): they cite the
+# function they stand in, as a comment would (2026-11-24: comment-only scanning dropped about 139 such citations).
+STOP_TEXT = re.compile(r"\[S-\d+\]|\bnot (?:ported|reproduced|read)\b|\bunported\b|\bINFERENCE\b", re.I)
 
-    Citations inside string literals (typically multi-line [S-NNN] stop descriptions listing unported
-    RotWK functions) must never be counted as ported citations.
+
+def _extract_comment_lines(text: str) -> list[str]:
+    """Return per-line citation text: comments (C/C++ // and /* */) and the string literals that are not stop texts.
+
+    Citations inside stop descriptions (runs of string literals that name an [S-NNN] stop or say "not ported") must never be counted
+    as ported citations; a literal outside such a run (an error message of ported code) counts like a comment.
     """
     out: list[str] = []
     cur: list[str] = []
+    lits: list[tuple[int, str, int]] = []   # (line, text, run): a run is literals glued by C++ concatenation (only whitespace between)
+    lit: list[str] = []
+    run_id = 0
+    last_close = -1
     n = len(text)
     i = 0
     state = 'code'  # code, str, chr, line_cmt, blk_cmt
@@ -131,6 +141,9 @@ def _extract_comment_lines(text: str) -> list[str]:
                 i += 2
             elif c == '"':
                 state = 'str'
+                lit = []
+                if not (last_close >= 0 and text[last_close:i].strip() == ''):
+                    run_id += 1
                 i += 1
             elif c == "'":
                 state = 'chr'
@@ -140,18 +153,24 @@ def _extract_comment_lines(text: str) -> list[str]:
         elif state == 'str':
             if c == '\\' and i + 1 < n:
                 if nxt == '\n':
+                    lits.append((len(out), ''.join(lit), run_id))
+                    lit = []
                     out.append(''.join(cur))
                     cur = []
                 i += 2
             elif c == '"':
+                lits.append((len(out), ''.join(lit), run_id))
                 state = 'code'
                 i += 1
+                last_close = i
             elif c == '\n':
+                lits.append((len(out), ''.join(lit), run_id))
                 out.append(''.join(cur))
                 cur = []
                 state = 'code'
                 i += 1
             else:
+                lit.append(c)
                 i += 1
         elif state == 'chr':
             if c == '\\' and i + 1 < n:
@@ -188,6 +207,14 @@ def _extract_comment_lines(text: str) -> list[str]:
                 cur.append(c)
                 i += 1
     out.append(''.join(cur))
+    # a run (one concatenated literal) that is a stop text is dropped whole; the others count like comments
+    runs: dict[int, list[tuple[int, str]]] = {}
+    for line, s, r in lits:
+        runs.setdefault(r, []).append((line, s))
+    for run in runs.values():
+        if not STOP_TEXT.search(' '.join(s for _, s in run)):
+            for line, s in run:
+                out[line] += ' ' + s
     return out
 
 
@@ -1021,7 +1048,8 @@ def display_command(argv: list[str]) -> str:
         path = Path(item)
         if path.is_absolute():
             try:
-                shown.append(str(path.resolve().relative_to(Path.cwd().resolve())))
+                # POSIX separators: the report reads the same whichever machine wrote it (the test failed on Windows with workspace\RotWK\...)
+                shown.append(path.resolve().relative_to(Path.cwd().resolve()).as_posix())
                 continue
             except ValueError:
                 pass

@@ -22,5 +22,9 @@ cd "$(git rev-parse --show-toplevel)"
 git submodule update --init --depth 1 engine/thirdparty/godot-cpp
 cmake -S engine -B engine/build -G Ninja -DCMAKE_BUILD_TYPE=Release -DOPENBFME_BUILD_GODOT=ON \
   -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-cmake --build engine/build -j "${1:-$(nproc)}"
-echo "BUILD DONE: engine/build/openbfme_tests and godot/bin/openbfme.linux.*.so"
+# OPENBFME_BUILD_TARGETS (as build.bat's): only these targets, e.g. openbfme_tests for the maps run, which never loads the GDExtension
+# (2026-11-24: godot-cpp and the extension were about 1100 of the 3180 build steps of every maps run)
+targets=()
+for t in ${OPENBFME_BUILD_TARGETS:-}; do targets+=(--target "$t"); done
+cmake --build engine/build -j "${1:-$(nproc)}" "${targets[@]}"
+echo "BUILD DONE: ${OPENBFME_BUILD_TARGETS:-engine/build/openbfme_tests and godot/bin/openbfme.linux.*.so}"
