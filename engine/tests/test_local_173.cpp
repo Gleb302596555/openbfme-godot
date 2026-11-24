@@ -12,7 +12,7 @@
 //     - RW 0x89A7B9..0x89A7C2: m_meleeFreeBannerReSpawnTime (+0x14) = 10 * LOGICFRAMES_PER_SECOND = 50 frames.
 
 #include "doctest.h"
-#include "combat_harness.h"
+#include ""
 
 #include "Common/Thing/ThingTemplate.h"
 #include "GameLogic/Module/BannerCarrierUpdate.h"
