@@ -1,0 +1,12 @@
+{
+ "map": "map mp fall back 4p",
+ "spot_mode": "trees",
+ "objects": [],
+ "camera": {"eye": [0, -450, 120], "focus": [0, 0, 40]},
+ "steps": [
+  {"caption": "P-92: leaves of trees and shrubs lit from both sides (abs(N.L))", "wait": 20, "shot": "1-south"},
+  {"cam": {"eye": [0, 450, 120], "focus": [0, 0, 40]}, "wait": 3, "shot": "2-north"},
+  {"cam": {"eye": [450, 0, 120], "focus": [0, 0, 40]}, "wait": 3, "shot": "3-east"},
+  {"cam": {"eye": [-450, 0, 120], "focus": [0, 0, 40]}, "wait": 3, "shot": "4-west"}
+ ]
+}

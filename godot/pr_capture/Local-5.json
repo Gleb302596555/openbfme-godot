@@ -1,0 +1,66 @@
+{
+ "map": "map mp fall back 4p",
+ "objects": [
+  {
+   "name": "f",
+   "template": "GondorFighterHorde",
+   "player": 0,
+   "dx": -60,
+   "dy": 0,
+   "angle": 0
+  },
+  {
+   "name": "farm",
+   "template": "ShireLongbottomFarm",
+   "player": 1,
+   "dx": 30,
+   "dy": 0,
+   "angle": 0,
+   "complete": true
+  }
+ ],
+ "camera": {
+  "eye": [
+   -30,
+   -200,
+   90
+  ],
+  "focus": [
+   -20,
+   0,
+   20
+  ]
+ },
+ "steps": [
+  {
+   "caption": "Local 5: the capturing unit and the building flash in the captor's colour while the capture runs",
+   "wait": 10
+  },
+  {
+   "call": "cast_object_power",
+   "args": [
+    "#local",
+    "@f",
+    "SpecialAbilityCaptureBuilding",
+    "@farm"
+   ],
+   "log": true
+  },
+  {
+   "wait": 40,
+   "shot": "1-start"
+  },
+  {
+   "wait": 30,
+   "shot": "2-a"
+  },
+  {
+   "wait": 30,
+   "shot": "3-b"
+  },
+  {
+   "wait": 60,
+   "shot": "4-c"
+  }
+ ]
+}

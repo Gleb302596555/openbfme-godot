@@ -1,0 +1,14 @@
+{
+ "map": "map mp fall back 4p",
+ "spot_mode": "slope",
+ "objects": [{"name": "cat", "template": "MordorCatapult", "player": 1, "dx": 0, "dy": 0, "angle": 0},
+             {"name": "cat2", "template": "MordorCatapult", "player": 1, "dx": 0, "dy": 120, "angle": 90}],
+ "camera": {"eye": [0, -250, 100], "focus": [0, 60, 10]},
+ "steps": [
+  {"caption": "Local 25: catapults tilt to the slope (pitch / roll) and bounce on the suspension", "wait": 30, "shot": "1-still"},
+  {"call": "order_move", "args": [["@cat"], "x:200", "y:0"]},
+  {"call": "order_move", "args": [["@cat2"], "x:0", "y:300"]},
+  {"wait": 45, "shot": "2-moving"},
+  {"wait": 60, "shot": "3-later"}
+ ]
+}

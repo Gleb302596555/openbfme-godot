@@ -1,0 +1,10 @@
+{
+ "map": "map mp fall back 4p",
+ "spot_mode": "trees",
+ "objects": [],
+ "camera": {"eye": [0, -250, 60], "focus": [0, 0, 25]},
+ "steps": [
+  {"caption": "Local 17: map trees and shrubs keep their own texture (same model, different TextureName)", "wait": 20, "shot": "1-cluster"},
+  {"cam": {"eye": [120, -140, 35], "focus": [60, 0, 20]}, "wait": 3, "shot": "2-close"}
+ ]
+}

@@ -1,0 +1,14 @@
+{
+ "map": "map mp fall back 4p",
+ "audio": true,
+ "objects": [{"name": "h", "template": "GondorFighterHorde", "player": 0, "dx": -450, "dy": 0, "angle": 0},
+             {"name": "e", "template": "MordorFighterHorde", "player": 1, "dx": 350, "dy": 0, "angle": 180}],
+ "camera": {"eye": [-100, -420, 260], "focus": [-100, 0, 20]},
+ "steps": [
+  {"caption": "Local 13: our horde walks toward an enemy horde: Eva should say 'enemy sighted' when it enters sight (audio log)", "wait": 20, "shot": "1-start"},
+  {"call": "order_move", "args": [["@h"], "x:150", "y:0"]},
+  {"wait": 300, "shot": "2-approach"},
+  {"wait": 300, "shot": "3-near"},
+  {"call": "get_audio_report", "log": true}
+ ]
+}

@@ -1,0 +1,12 @@
+{
+ "map": "map mp fall back 4p",
+ "objects": [{"name": "h", "template": "GondorFighterHorde", "player": 0, "dx": -200, "dy": 0, "angle": 0}],
+ "camera": {"eye": [0, -330, 140], "focus": [0, 0, 20]},
+ "steps": [
+  {"caption": "PORT-79: the spell's OCL creates an object and attaches its particle system (EnshroudingMist02 / FarSeeingElement)", "wait": 10, "shot": "1-before-cast"},
+  {"call": "cast_special_power", "args": ["#local", "SpellBookEnshroudingMist", "x:0", "y:0"], "log": true},
+  {"call": "cast_special_power", "args": ["#local", "SpellBookFarSeeing", "x:150", "y:0"], "log": true},
+  {"wait": 20, "shot": "2-cast-a"},
+  {"wait": 40, "shot": "3-cast-b"}
+ ]
+}
