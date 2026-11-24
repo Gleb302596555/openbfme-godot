@@ -2021,3 +2021,42 @@ bool AttackCrushPolicy(Object &self, Object &victim)
 {
 	return HordeSquishState::crushPolicy(self, victim);
 }
+
+// RW 0x98F9D8 (HordeMeleeAmoeba::notifyOfMemberDeath): when a horde member dies during an Amoeba melee,
+// walks every live contained member with an AI; if its Amoeba record has idle set (+0x38), clears idle
+// and resets timer (+0x34) to data->m_delayUntilIdle (+0x64).
+void HordeAIUpdate::notifyAmoebaMemberDeath()
+{
+	Object *horde = getObject();
+	if (!horde)
+	{
+		return;
+	}
+	unsigned delayUntilIdle = 2u * (unsigned)LOGICFRAMES_PER_SECOND;
+	if (HordeContain *hc = hordeContainOf(*horde))
+	{
+		if (const MeleeBehaviorModuleData *mb = hc->meleeBehaviorData())
+		{
+			delayUntilIdle = mb->m_delayUntilIdle;
+		}
+	}
+	for (Object *m : membersOf())
+	{
+		if (!m || m->isEffectivelyDead() || !m->getAIUpdateInterface())
+		{
+			continue;
+		}
+		for (MemberRecord &rec : m_records)
+		{
+			if (rec.id == m->getID())
+			{
+				if (rec.idle)
+				{
+					rec.idle = false;
+					rec.timer = delayUntilIdle;
+				}
+				break;
+			}
+		}
+	}
+}
