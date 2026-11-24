@@ -89,9 +89,9 @@ binary_map() {
         --bfme2-inv "$XMAP/bfme2_functions.csv" --bfme2-ledger "$XMAP/bfme2_ledger.csv" --decomp "$DECOMP2" --work "$xf/work" \
         --out-csv "$xf/rw_map.csv" --out-json "$xf/rw_summary.json" >> "$log" 2>&1 || rm -f "$xf/rw_map.csv"
   fi
-  local xm=()
-  if [ -f "$xf/rw_map.csv" ]; then xm=("--xmap=$xf/rw_map.csv"); else echo "no BFME2 pairing: the subsystem column stays empty" >> "$log"; fi
-  python3 tools/rw_object_model/class_map.py report "${xm[@]}" >> "$log" 2>&1
+  # no pairing, no report (2026-11-24): a table without the subsystem column would zero the dashboard's binary counts; main's tables stay
+  [ -f "$xf/rw_map.csv" ] || { echo "no BFME2 pairing ($xf/rw_map.csv): the tables are left as main has them" >> "$log"; return 1; }
+  python3 tools/rw_object_model/class_map.py report "--xmap=$xf/rw_map.csv" >> "$log" 2>&1
 }
 
 # The arena's audit archive (owner 2026-11-17: "сам заменял на гугл диске ennorath-audit.zip новым"): this run's audit + the newest hand
@@ -255,7 +255,8 @@ run() {
   fi
   [ -d /content/py219/angr ] || python3 -m pip install -q --target /content/py219 angr==9.2.213 bitstring==4.4.0 pycparser==3.0 > /dev/null 2>&1
   export PYTHONPATH=/content/py219
-  cp -f "$INV" workspace/rebuild_inventory.json 2>/dev/null
+  mkdir -p workspace/rebuild   # a fresh tree (MAPS_TREE) has no workspace/: without it the copy failed silently and the pairing had no inventory
+  cp -f "$INV" workspace/rebuild_inventory.json || echo "no function inventory on the Drive ($INV)" >> "$LOG"
   # the decomp pairing feeds both function maps: rerun it with the function map, or when the whole-image map runs without its BFME2 files
   if [ "$s_funcmap" = 1 ] || { [ "$s_binary" = 1 ] && [ ! -f "$XMAP/bfme2_functions.csv" ]; }; then
     st "карты на main $rev: карта функций RotWK"
