@@ -6,6 +6,7 @@
 #include "GameClient/TreeTopple.h"
 
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DTreeDraw.h"
+#include "GameNetwork/NetPacket.h"
 
 #include <algorithm>
 #include <cmath>
@@ -37,6 +38,7 @@ size_t TreeTopple::add(std::uint32_t clientId, const Coord3D &position, const W3
 	t.clientId = clientId;
 	t.position = position;
 	t.data = data;
+	t.shrub = shrub;
 	// PORT-73, RW 0x4E8C66 / RW 0x4E8C6C (addShrub): a shrub joins the shrub buffer's area partition when MoveOutwardTime is above 0 or DoTopple is set;
 	// a TREE is in the tree buffer, which has no push aside (owner 2026-11-10: trees bent like bushes when units walked through them)
 	t.pushable = shrub && data && (data->m_framesToMoveOutward > 0 || data->m_doTopple);
@@ -368,4 +370,63 @@ size_t TreeTopple::animating() const
 		n += (t.state == FALLING || t.sinking) ? 1 : 0;
 	}
 	return n;
+}
+
+// PORT-266, RW 0x4ECE3E: xfer the tree buffer's current/target alpha, not the shrub buffer or simulation state.
+// The native client section uses version 1 and identifies each map-built record by index and client id.
+std::vector<std::uint8_t> TreeTopple::saveFadeSnapshot() const
+{
+	NetByteWriter out;
+	out.u32(1);
+	std::uint32_t count = 0;
+	for (const Tree &t : m_trees) if (!t.shrub) ++count;
+	out.u32(count);
+	for (size_t i = 0; i < m_trees.size(); ++i)
+	{
+		const Tree &t = m_trees[i];
+		if (t.shrub) continue;
+		out.u32((std::uint32_t)i);
+		out.u32(t.clientId);
+		out.u32(t.fadeCurrent);
+		out.u32(t.fadeTarget);
+	}
+	return out.take();
+}
+
+// PORT-266, RW 0x4ECE3E / 0x4EC93A: an absent old client section means newly initialized opaque records.
+// Parse and validate everything before mutating any tree; a malformed snapshot must not partly apply.
+bool TreeTopple::loadFadeSnapshot(const std::vector<std::uint8_t> &bytes, std::string *error)
+{
+	auto fail = [&](const char *why) { if (error) *error = why; return false; };
+	if (bytes.empty())
+	{
+		for (Tree &t : m_trees) if (!t.shrub) t.fadeCurrent = t.fadeTarget = 255;
+		return true;
+	}
+	NetByteReader in(bytes);
+	if (in.u32() != 1 || in.failed()) return fail("unsupported tree fade client snapshot version");
+	const std::uint32_t count = in.u32();
+	std::size_t expected = 0;
+	for (const Tree &t : m_trees) if (!t.shrub) ++expected;
+	if (in.failed() || count != expected || in.remaining() != expected * 16) return fail("tree fade client snapshot record count or length mismatch");
+	struct Alpha { size_t index; std::uint32_t current, target; };
+	std::vector<Alpha> values;
+	values.reserve(expected);
+	size_t next = 0;
+	for (std::uint32_t i = 0; i < count; ++i)
+	{
+		while (next < m_trees.size() && m_trees[next].shrub) ++next;
+		const std::uint32_t index = in.u32(), id = in.u32(), current = in.u32(), target = in.u32();
+		if (in.failed() || next >= m_trees.size() || index != next || id != m_trees[next].clientId)
+			return fail("tree fade client snapshot record identity mismatch");
+		values.push_back(Alpha{ next, current, target });
+		++next;
+	}
+	if (!in.atEnd()) return fail("tree fade client snapshot trailing data");
+	for (const Alpha &v : values)
+	{
+		m_trees[v.index].fadeCurrent = v.current;
+		m_trees[v.index].fadeTarget = v.target;
+	}
+	return true;
 }

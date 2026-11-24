@@ -1,6 +1,9 @@
 // OpenBFME. GPL-3.0. PORT-266: synthetic GameData tests, no game files.
 #include "doctest.h"
 #include "LogicTestUtil.h"
+#include "GameClient/TreeTopple.h"
+#include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DTreeDraw.h"
+#include "GameNetwork/NetPacket.h"
 #include "GameLogic/Object/PartitionManager.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/ObjectFilter.h"
@@ -90,4 +93,42 @@ TEST_CASE("PORT-266 retail query inputs use 2D bounding circle and null filter p
 	REQUIRE(settings.treeFadeObjectFilter.get() != nullptr);
 	CHECK_FALSE(ObjectFilterMatch::allows(*world.logic, *settings.treeFadeObjectFilter, *edge, nullptr));
 	CHECK(ObjectFilterMatch::allows(*world.logic, *settings.treeFadeObjectFilter, *edge, edge->getControllingPlayer()));
+}
+
+// Client-only alpha persistence prerequisite; runtime tree fade is not connected yet (S-7438).
+TEST_CASE("PORT-266 client tree alpha snapshot round trip and old default")
+{
+	W3DTreeDrawModuleData data;
+	TreeTopple original;
+	original.add(11, Coord3D{}, &data);
+	original.add(12, Coord3D{}, &data, true); // a shrub is not in W3DTreeBuffer
+	original.add(13, Coord3D{}, &data);
+	NetByteWriter fixture;
+	fixture.u32(1); fixture.u32(2);
+	fixture.u32(0); fixture.u32(11); fixture.u32(170); fixture.u32(105);
+	fixture.u32(2); fixture.u32(13); fixture.u32(201); fixture.u32(255);
+	std::string error;
+	REQUIRE_MESSAGE(original.loadFadeSnapshot(fixture.data(), &error), error);
+	CHECK(original.trees()[0].fadeCurrent == 170);
+	CHECK(original.trees()[0].fadeTarget == 105);
+	CHECK(original.trees()[1].fadeCurrent == 255);
+	const auto snapshot = original.saveFadeSnapshot();
+	CHECK(snapshot == fixture.data());
+	TreeTopple loaded;
+	loaded.add(11, Coord3D{}, &data);
+	loaded.add(12, Coord3D{}, &data, true);
+	loaded.add(13, Coord3D{}, &data);
+	REQUIRE_MESSAGE(loaded.loadFadeSnapshot(snapshot, &error), error);
+	CHECK(loaded.trees()[0].fadeCurrent == 170);
+	CHECK(loaded.trees()[0].fadeTarget == 105);
+	CHECK(loaded.trees()[2].fadeCurrent == 201);
+	CHECK(loaded.trees()[2].fadeTarget == 255);
+	std::vector<std::uint8_t> bad = snapshot;
+	bad.back() ^= 1; // an opaque word alone is valid; damage the record identity instead
+	bad[12] ^= 1;
+	CHECK_FALSE(loaded.loadFadeSnapshot(bad, &error));
+	CHECK(loaded.trees()[0].fadeCurrent == 170); // failed load is atomic
+	REQUIRE(loaded.loadFadeSnapshot({}, &error)); // v1/v2 no client section: RW 0x4EC93A initializes both to 255
+	CHECK(loaded.trees()[0].fadeCurrent == 255);
+	CHECK(loaded.trees()[0].fadeTarget == 255);
 }
