@@ -322,9 +322,6 @@ public:
 	bool isPortalFaded() const { return m_portalFaded; }                      ///< RW AI + 0x3CB
 	void updatePortalFade();                                                  ///< RW 0x66E726 -> RW 0x664F93
 	bool isStopRetaliationArmed() const { return m_stopRetaliationArmed; }    ///< Local 20: RW AI + 0x3CC
-	// Local 177: RW 0x665921 AIUpdateInterface::handleEngagedFlag (active mask RW 0x6650CC: USING_WEAPON_A/B/C -> ENGAGED)
-	unsigned handleEngagedFlag();
-	unsigned engagedExpireFrame() const { return m_engagedExpireFrame; }      ///< Local 177: RW AI + 0x234
 	void setStopRetaliationArmed(bool armed) { m_stopRetaliationArmed = armed; }
 	// lane SCRIPT-3: AI commands 6 / 7 / 0x32 / 0x33 (RW 0x770FA8 / 0x771072 / 0x77100D / 0x7710D7): the waypoint path states from `waypointId`
 	// (AIWaypointPath.cpp); false when nothing changed
@@ -806,7 +803,6 @@ private:
 	bool m_scriptLock = false;            // RW + 0x3C6 (TOP20 rampage)
 	bool m_portalFaded = false;           // RW + 0x3CB (Local 16: FadeOnPortals, RW 0x66F03B, xfer RW 0x6679C8)
 	bool m_stopRetaliationArmed = false;  // Local 20: RW AI + 0x3CC (RW 0x771F97 aiStop, RW 0x668848 getNextMoodTarget)
-	unsigned m_engagedExpireFrame = 0;    // Local 177: RW AI + 0x234 (RW 0x665921 handleEngagedFlag)
 	bool m_fastCower = false;             // RW + 0x3C4
 	unsigned m_minCowerTime = 0, m_maxCowerTime = 0;
 	bool m_animalInterface = false, m_animalAfraidOfCastles = true; ///< lane CASTLEAREA-1 (see hasAnimalInterface)

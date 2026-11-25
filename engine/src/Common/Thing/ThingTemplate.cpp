@@ -604,44 +604,6 @@ int ThingTemplate::selectionPriority() const
 	return INT_MAX;
 }
 
-float ThingTemplate::maxDistanceForEngaged() const
-{
-	// Local 177: RW 0x740246 / RW 0x740264..0x740275 (ThingTemplate + 0x518, MaxDistanceForEngaged, default 50.0f at RW 0xBD88C4)
-	if (const FieldValue *v = getFinalOverride()->findField("MaxDistanceForEngaged"))
-	{
-		if (const float *f = std::get_if<float>(v))
-		{
-			return *f;
-		}
-		if (const long long *n = std::get_if<long long>(v))
-		{
-			return static_cast<float>(*n);
-		}
-	}
-	return 50.0f;
-}
-
-unsigned ThingTemplate::engagedStateTimeoutFrames() const
-{
-	// Local 177: RW 0x740257 / RW 0x74027D..0x740287 (ThingTemplate + 0x56C, EngagedStateTimeout, default 2 * LOGICFRAMES_PER_SECOND = 10)
-	if (const FieldValue *v = getFinalOverride()->findField("EngagedStateTimeout"))
-	{
-		if (const long long *n = std::get_if<long long>(v))
-		{
-			return *n > 0 ? static_cast<unsigned>(*n) : 0u;
-		}
-		if (const std::string *s = std::get_if<std::string>(v))
-		{
-			char *end = nullptr;
-			const double ms = std::strtod(s->c_str(), &end);
-			if (end != s->c_str() && ms >= 0.0)
-			{
-				return static_cast<unsigned>(std::ceil(ms * (5.0 / 1000.0)));
-			}
-		}
-	}
-	return 10u;
-}
 
 std::string ThingTemplate::displayName() const
 {

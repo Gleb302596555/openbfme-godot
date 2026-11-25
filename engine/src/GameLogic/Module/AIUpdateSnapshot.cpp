@@ -79,8 +79,7 @@ void AIUpdateInterface::xferAIStateBody(Xfer &x)
 	// version 7 (Local 16): the portal faded flag (RW AI + 0x3CB, RW 0x6679C8), last, written only by an AI that has it set
 	// version 8 (Local 20): the stop retaliation flag (RW AI + 0x3CC, RW 0x771F97), last, written only by an AI that has it set
 	// version 9 (Local 84): m_guardObject (RW AI + 0x64, RW 0x00664B19) and m_guardTargetTypeNext (RW AI + 0x50, RW 0x0066ECEB), written only when non-default
-	// version 10 (Local 177): m_engagedExpireFrame (RW AI + 0x234, RW 0x665921), written only when non-zero
-	XferVersion v{ 1, (std::uint8_t)(x.isLoading() || m_engagedExpireFrame != 0u ? 10 : (m_guardObject != INVALID_ID || m_guardTargetTypeNext != 4 ? 9 : (m_stopRetaliationArmed ? 8 : (m_portalFaded ? 7 : (m_scriptLock ? 6 : (m_temporaryKeptMachine ? 5 : (m_guardTeam != 0 ? 4 : (m_areaToGuard != -1 || m_attackInfoOverride ? 3 : 2)))))))) };
+	XferVersion v{ 1, (std::uint8_t)(x.isLoading() || m_guardObject != INVALID_ID || m_guardTargetTypeNext != 4 ? 9 : (m_stopRetaliationArmed ? 8 : (m_portalFaded ? 7 : (m_scriptLock ? 6 : (m_temporaryKeptMachine ? 5 : (m_guardTeam != 0 ? 4 : (m_areaToGuard != -1 || m_attackInfoOverride ? 3 : 2))))))) };
 	x.xferVersion(v);
 	const bool loading = x.isLoading();
 	for (std::uint32_t &w : m_luaConditionSnapshot)
@@ -372,14 +371,6 @@ void AIUpdateInterface::xferAIStateBody(Xfer &x)
 	{
 		m_guardObject = INVALID_ID;
 		m_guardTargetTypeNext = 4;
-	}
-	if (v.current >= 10)
-	{
-		x.xferUnsignedInt(&m_engagedExpireFrame); // Local 177: RW AI + 0x234 (RW 0x665921)
-	}
-	else if (loading)
-	{
-		m_engagedExpireFrame = 0u;
 	}
 }
 
