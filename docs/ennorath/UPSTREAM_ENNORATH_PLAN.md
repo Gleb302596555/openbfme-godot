@@ -84,58 +84,58 @@
 - [x] `Common/LightPointSystem.cpp` (система light points Войны Кольца, скрипты 351–354 / 405 / условие 124, `LightPointsUpSound`, `Player::xfer` v3) — **upstream PR `#454`** (`up/port-113`)
 - [x] `GameClient/GUI/AptScreens/AptMapPreview.cpp` (превью карты и стартовые точки на экране загрузки, `ShowRandomStartPos`, `isSlotLocalAlly`/`apparentStartPos`) — **upstream PR `#455`** (`up/local-56`)
 - [ ] `Common/BootSplash.cpp` — *пропущено: в коде нет ни одного вызывающего (upstream отклоняет мёртвый код)*
-- [ ] `Common/FunctionCurve.cpp` — *перенесено в Этап 2: используется только `PartTheHeavensUpdate`, отправлять вместе с ним*
+- [x] `Common/FunctionCurve.cpp` — **upstream PR `#490`** (`up/part-the-heavens-update`, вместе с `PartTheHeavensUpdate` и `ProjectedShadowManager`)
 - *(Проверено: `Win32BIGFileSystem.cpp` не имеет отличий от `upstream/main`.)*
 
-### 2.2. Логические модули (`GameLogic/Module/*` + `AODHordeContain`, 44 класса)
+### 2.2. Логические модули (`GameLogic/Module/*` + `AODHordeContain`, 44 класса) — **ОТПРАВЛЕНО**
 
 Автономные ванильные классы — идеально уходят по 1 PR на модуль:
 
 - **Апгрейды (6):**
-  - [ ] `BaseUpgrade`
-  - [ ] `GiveUpgradeUpdate` *(проверен сценарием мода)*
-  - [ ] `LocomotorSetUpgrade`
-  - [ ] `TooltipUpgrade`
-  - [ ] `WallUpgradeUpdate`
-  - [ ] `WeaponBonusUpgrade`
+  - [x] `BaseUpgrade` — **upstream PR `#459`** (`up/base-upgrade`)
+  - [x] `GiveUpgradeUpdate` *(проверен сценарием мода)* — **upstream PR `#493`** (`up/give-upgrade-update`)
+  - [x] `LocomotorSetUpgrade` — **upstream PR `#458`** (`up/locomotor-set-upgrade`)
+  - [x] `TooltipUpgrade` — **upstream PR `#460`** (`up/tooltip-upgrade`)
+  - [x] `WallUpgradeUpdate` — **upstream PR `#462`** (`up/wall-upgrade-update`)
+  - [x] `WeaponBonusUpgrade` — **upstream PR `#457`** (`up/weapon-bonus-upgrade`)
 - **Спецспособности, контейнеры и орды (11):**
-  - [ ] `AODCrushCollide` + `GameLogic/Object/Contain/AODHordeContain` + `OathbreakersFadeAwayBehavior`
-  - [ ] `DeflectSpecialPower`
-  - [ ] `DetachableRiderUpdate`
-  - [ ] `FlingPassengerSpecialAbilityUpdate`
-  - [ ] `HordeTransportContainDamage`
-  - [ ] `HordeWorkerAIUpdate`
-  - [ ] `SplitHordeSpecialPower`
-  - [ ] `StoreObjectsSpecialPower`
-  - [ ] `TeleportToCasterSpecialPower`
+  - [x] `AODCrushCollide` + `GameLogic/Object/Contain/AODHordeContain` (**upstream PR `#494`**, `up/aod-horde-and-crush`) + `OathbreakersFadeAwayBehavior` (**upstream PR `#489`**, `up/oathbreakers-fade-away`)
+  - [x] `DeflectSpecialPower` — **upstream PR `#467`** (`up/deflect-special-power`)
+  - [x] `DetachableRiderUpdate` (+ `DetachableRiderBody`) — **upstream PR `#488`** (`up/detachable-rider`)
+  - [x] `FlingPassengerSpecialAbilityUpdate` — **upstream PR `#470`** (`up/fling-passenger`)
+  - [x] `HordeTransportContainDamage` — **upstream PR `#468`** (`up/horde-transport-contain-damage`)
+  - [x] `HordeWorkerAIUpdate` — **upstream PR `#486`** (`up/horde-worker-ai-update`)
+  - [x] `SplitHordeSpecialPower` — **upstream PR `#491`** (`up/split-horde-special-power`)
+  - [x] `StoreObjectsSpecialPower` — **upstream PR `#465`** (`up/store-and-teleport-powers`)
+  - [x] `TeleportToCasterSpecialPower` — **upstream PR `#465`** (`up/store-and-teleport-powers`)
 - **Урон, смерть и эффекты на поле (13):**
-  - [ ] `ClearanceTestingSlowDeathGeometry`
-  - [ ] `DamageFieldUpdate`
-  - [ ] `DestroyEnvironmentUpdate`
-  - [ ] `EvacuateDamage`
-  - [ ] `FreeLifeBody`
-  - [ ] `GiantBirdSlowDeathBehavior`
-  - [ ] `OilSpillUpdate`
-  - [ ] `PoisonedBehavior`
-  - [ ] `ProjectileStreamUpdate`
-  - [ ] `RainOfFireUpdate`
-  - [ ] `ReflectDamage`
-  - [ ] `ShipSlowDeathBehavior`
-  - [ ] `StrafeAreaUpdate`
+  - [x] `ClearanceTestingSlowDeathGeometry` — **upstream PR `#483`** (`up/clearance-death-geometry`)
+  - [x] `DamageFieldUpdate` — **upstream PR `#481`** (`up/damage-field-update`)
+  - [x] `DestroyEnvironmentUpdate` — **upstream PR `#492`** (`up/destroy-environment-and-rain-of-fire`)
+  - [x] `EvacuateDamage` — *уже открыт в upstream как PR `#456`*
+  - [x] `FreeLifeBody` — **upstream PR `#464`** (`up/free-life-body`)
+  - [x] `GiantBirdSlowDeathBehavior` — **upstream PR `#487`** (`up/giant-bird-slow-death`)
+  - [x] `OilSpillUpdate` — **upstream PR `#472`** (`up/oil-spill-update`)
+  - [x] `PoisonedBehavior` — **upstream PR `#466`** (`up/poisoned-behavior`)
+  - [x] `ProjectileStreamUpdate` — **upstream PR `#484`** (`up/projectile-stream-update`)
+  - [x] `RainOfFireUpdate` — **upstream PR `#492`** (`up/destroy-environment-and-rain-of-fire`)
+  - [x] `ReflectDamage` — **upstream PR `#463`** (`up/reflect-damage`)
+  - [x] `ShipSlowDeathBehavior` — **upstream PR `#475`** (`up/ship-slow-death`)
+  - [x] `StrafeAreaUpdate` — **upstream PR `#485`** (`up/strafe-area-update`)
 - **Поведения, спавн и прочее (14):**
-  - [ ] `AimWeaponBehavior`
-  - [ ] `AnimalAIUpdate`
-  - [ ] `AnnounceBirthAndDeathBehavior`
-  - [ ] `CivilianSpawnCollide` + `CivilianSpawnUpdate`
-  - [ ] `DelayedLuaEventUpdate`
-  - [ ] `DynamicShroudClearingRangeUpdate`
-  - [ ] `EntEnragedUpdate`
-  - [ ] `OCLUpdate`
-  - [ ] `OneRingPenaltyUpdate`
-  - [ ] `PartTheHeavensUpdate`
-  - [ ] `ReplaceObjectUpdate`
-  - [ ] `RunOffMapBehavior`
-  - [ ] `SpecialEnemySenseUpdate`
+  - [x] `AimWeaponBehavior` — *уже открыт в upstream как PR `#447`*
+  - [x] `AnimalAIUpdate` — *уже реализован в `upstream/main` через `AmbientAIUpdate` (`S-5910`)*
+  - [x] `AnnounceBirthAndDeathBehavior` — **upstream PR `#478`** (`up/announce-birth-and-death`)
+  - [x] `CivilianSpawnCollide` + `CivilianSpawnUpdate` — **upstream PR `#477`** (`up/civilian-spawn`)
+  - [x] `DelayedLuaEventUpdate` — **upstream PR `#474`** (`up/delayed-lua-event-update`)
+  - [x] `DynamicShroudClearingRangeUpdate` — **upstream PR `#476`** (`up/dynamic-shroud-clearing-range`)
+  - [x] `EntEnragedUpdate` — **upstream PR `#479`** (`up/ent-enraged-update`)
+  - [x] `OCLUpdate` — **upstream PR `#480`** (`up/ocl-update`)
+  - [x] `OneRingPenaltyUpdate` — **upstream PR `#482`** (`up/one-ring-penalty-update`)
+  - [x] `PartTheHeavensUpdate` — **upstream PR `#490`** (`up/part-the-heavens-update`)
+  - [x] `ReplaceObjectUpdate` — **upstream PR `#473`** (`up/replace-object-update`)
+  - [x] `RunOffMapBehavior` — **upstream PR `#469`** (`up/run-off-map-behavior`)
+  - [x] `SpecialEnemySenseUpdate` — **upstream PR `#471`** (`up/special-enemy-sense`)
 
 ### 2.3. Крупные системы логики и ИИ (10 файлов)
 
@@ -171,7 +171,7 @@
   - [ ] `Common/Audio/ScoredKillEvaAnnouncer`
   - [ ] `ModelConditionAudioLoopClientBehavior` *(проверен сценарием мода)*
   - [ ] `ParticleBoneFollow`
-  - [ ] `ProjectedShadowManager`
+  - [x] `ProjectedShadowManager` — **upstream PR `#490`** (`up/part-the-heavens-update`, вместе с `PartTheHeavensUpdate` и `FunctionCurve`)
   - [ ] `RadarMarkerClientUpdate`
   - [ ] `SegLineGeometry`
   - [ ] `SwayClientUpdate`
@@ -190,7 +190,10 @@
    - `#448` (`up/dds-decode`) — CI полностью зелёный (доходит только ASan).
    - `#449` (`up/port-330`), `#450` (`up/port-430`), `#451` (`up/w3d-truncated-and-absent`), `#452` (`up/fx-macros-before-fx`) — Commit gate зелёный, кросс-платформенные сборки/санитайзеры завершаются.
    - `#453` (`up/local-38`), `#454` (`up/port-113`), `#455` (`up/local-56`) — открыты, локальный commit gate пройден, поставлены в очередь CI.
-3. **Профиль Ennorath (`ModEngineFeatures`, Часть 1А и 1Б) — ЕЩЁ НЕ ОТПРАВЛЕН.**
+3. **Этап 2 — ЗАВЕРШЁН (открыты 37 новых PR `#457`–`#494`, см. раздел 2.2 + `FunctionCurve`/`ProjectedShadowManager`):**
+   - Все 44 класса раздела 2.2 покрыты (`#457`–`#494`, плюс `AimWeaponBehavior` `#447`, `EvacuateDamage` `#456`, `AnimalAIUpdate` уже в `upstream/main`).
+   - Починены CI-проверки: лексикографическая сортировка `docs/STOPS.md`, BFME1-поле `RunToLocation` (`#469`), `tools/save/closed_sets.json` (`#474`, `#476`, `#480`).
+4. **Профиль Ennorath (`ModEngineFeatures`, Часть 1А и 1Б) — ЕЩЁ НЕ ОТПРАВЛЕН.**
    - Ждёт Этапа 3 (и мёрджа upstream PR `#409` от `LuisTNH` с регистрацией `fc32e4c4…`, чтобы не конфликтовать и переиспользовать общие имена фич).
 
 ### Следующие шаги (для следующего агента)
