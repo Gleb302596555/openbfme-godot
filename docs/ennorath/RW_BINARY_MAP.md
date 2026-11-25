@@ -4,7 +4,7 @@ game.dat SHA256 `5481de75b63e2248…`. Addresses, counts and statuses only: no g
 
 ## Functions
 
-72135 functions (evidence: call 32053, code-imm 2817, data 26094, extra-block 56, vtable-slot 11115). Status by `RW 0x…` citations in engine/src: ported 11577, partial 319, library 2877, eh-glue 19547, compiler-glue 1673, non-code 385, not-reached 0, none 35757.
+72135 functions (evidence: call 32053, code-imm 2817, data 26094, extra-block 56, vtable-slot 11115). Status by `RW 0x…` citations in engine/src: ported 13388, partial 310, library 2876, eh-glue 19547, compiler-glue 1603, non-code 385, not-reached 2376, none 31650.
 `library`: the proven list (tools/mod/rw_library_functions.tsv) and the functions match_rotwk.py labels `library` (see below).
 `eh-glue`: proven MSVC C++ EH compiler glue (__ehhandler$ stubs and FuncInfo::pUnwindMap funclets with 0 callers and no vtable slot).
 `compiler-glue`: proven MSVC scalar deleting destructor wrappers whose wrapped ~Class() destructor is tracked separately.
@@ -37,23 +37,23 @@ The label of tools/re/match_rotwk.py (RotWK paired with BFME2 1.06 and its decom
 
 | subsystem | functions | ported | partial | library | glue/non-code | not-reached | none |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| engine core / system | 14353 | 1784 | 44 | 114 | 4747 | 0 | 7664 |
-| GameClient / draw | 10365 | 1044 | 26 | 67 | 3102 | 0 | 6126 |
+| engine core / system | 14353 | 1797 | 44 | 114 | 4747 | 0 | 7651 |
+| GameClient / draw | 10365 | 1060 | 30 | 67 | 3102 | 0 | 6106 |
 | APT / UI / shell | 9443 | 758 | 29 | 82 | 3958 | 0 | 4616 |
-| objects / modules | 6343 | 2137 | 62 | 58 | 1976 | 0 | 2110 |
-| unclassified | 4643 | 954 | 30 | 19 | 220 | 0 | 3420 |
+| objects / modules | 6343 | 2681 | 51 | 58 | 1968 | 1269 | 316 |
+| unclassified | 4643 | 963 | 29 | 19 | 220 | 0 | 3412 |
 | network / online | 4445 | 134 | 6 | 4 | 1499 | 0 | 2802 |
-| AI / pathfinding | 4111 | 1588 | 48 | 16 | 1217 | 0 | 1242 |
-| War of the Ring / LivingWorld | 3115 | 345 | 8 | 10 | 1231 | 0 | 1521 |
+| AI / pathfinding | 4111 | 1875 | 47 | 16 | 1184 | 143 | 846 |
+| War of the Ring / LivingWorld | 3115 | 629 | 4 | 10 | 1229 | 282 | 961 |
 | library | 2758 | 73 | 3 | 2326 | 20 | 0 | 336 |
-| math / support libs | 2277 | 119 | 5 | 69 | 463 | 0 | 1621 |
-| script engine | 2133 | 503 | 13 | 14 | 733 | 0 | 870 |
-| combat / weapons | 1986 | 857 | 11 | 18 | 545 | 0 | 555 |
-| audio | 1677 | 203 | 2 | 11 | 514 | 0 | 947 |
-| horde / locomotion | 1425 | 518 | 12 | 26 | 310 | 0 | 559 |
-| INI / templates | 1064 | 260 | 14 | 23 | 283 | 0 | 484 |
-| castles / structures | 823 | 233 | 5 | 5 | 333 | 0 | 247 |
-| map / terrain logic | 451 | 45 | 1 | 9 | 192 | 0 | 204 |
+| math / support libs | 2277 | 123 | 6 | 68 | 463 | 0 | 1617 |
+| script engine | 2133 | 734 | 19 | 14 | 733 | 245 | 388 |
+| combat / weapons | 1986 | 1074 | 9 | 18 | 530 | 205 | 150 |
+| audio | 1677 | 204 | 3 | 11 | 514 | 0 | 945 |
+| horde / locomotion | 1425 | 673 | 10 | 26 | 300 | 46 | 370 |
+| INI / templates | 1064 | 262 | 14 | 23 | 283 | 0 | 482 |
+| castles / structures | 823 | 249 | 5 | 5 | 332 | 121 | 111 |
+| map / terrain logic | 451 | 77 | 1 | 9 | 191 | 65 | 108 |
 | other | 394 | 8 | 0 | 1 | 24 | 0 | 361 |
 | EH/compiler glue | 325 | 13 | 0 | 5 | 238 | 0 | 69 |
 | Create-a-Hero | 4 | 1 | 0 | 0 | 0 | 0 | 3 |
