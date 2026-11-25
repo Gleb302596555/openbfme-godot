@@ -72,18 +72,20 @@
 Из них **4 уже находятся в ветках `up/*`**: `ControlBarScheme` (`up/local-12`, PR #428), `ObjectShadow` (`up/local-14`, PR #435), `FadeAndDieOrnamentUpdate` (`up/local-105`, PR #362), `AITeamTempo` (`up/port38`).
 Ниже — оставшиеся **88 файлов** (не считая `EnnorathOptions.cpp`, который относится к Части 1Б).
 
-### 2.1. Загрузчики, парсинг и рендер-база (7 файлов — приоритет №1)
+### 2.1. Загрузчики, парсинг и рендер-база (7 файлов — приоритет №1) — **ОТПРАВЛЕНО**
 
 Нужны, чтобы upstream корректно загружал текстуры, карты и эффекты мода:
-- [ ] `GameClient/DdsDecode.cpp` + `GodotDevice/GodotDds.cpp` (нестандартные DDS и короткие mip-цепочки)
-- [ ] `Common/BootSplash.cpp`
-- [ ] `GameClient/GUI/AptScreens/AptMapPreview.cpp`
-- [ ] `GameClient/FXListParseServices.cpp`
-- [ ] `Common/LightPointSystem.cpp`
-- [ ] `Libraries/WWVegas/WW3D2/lightenvironment.cpp`
-- [ ] `Common/FunctionCurve.cpp`
-
-*(Дополнительно проверить правки в уже существующих файлах загрузчиков: порядок `lang\*.big` / `russianpatch201.big`, усечённые W3D, RLE TGA, `RandomTexture` / `EnableHouseColor`.)*
+- [x] `GameClient/DdsDecode.cpp` + `GodotDevice/GodotDds.cpp` (нестандартные DDS и короткие mip-цепочки) — **upstream PR `#448`** (`up/dds-decode`)
+- [x] `GameClient/FXListParseServices.cpp` (валидация звуков/EVA в `FXList`, закрывает `S-190`) — **upstream PR `#449`** (`up/port-330`)
+- [x] W3D `textureloader`: пропуск расширений без точки (`RW 0x530D59`), подавление ложных `texture not found` — **upstream PR `#450`** (`up/port-430`)
+- [x] Усечённые W3D-файлы (`ChunkLoadClass::allowTruncatedEnd`) и отсутствующие сабобъекты (`AbsentFromData`) — **upstream PR `#451`** (`up/w3d-truncated-and-absent`)
+- [x] `SubsystemLoadReport::macrosBeforeFX` → `FXPlayback::loadRetailData` (макросы `#define` из `Water.ini`/ранних файлов до `FXList.ini`) — **upstream PR `#452`** (`up/fx-macros-before-fx`)
+- [x] `Libraries/WWVegas/WW3D2/lightenvironment.cpp` (`LightEnvironmentClass`, per-render-object освещение, `S-687`) — **upstream PR `#453`** (`up/local-38`)
+- [x] `Common/LightPointSystem.cpp` (система light points Войны Кольца, скрипты 351–354 / 405 / условие 124, `LightPointsUpSound`, `Player::xfer` v3) — **upstream PR `#454`** (`up/port-113`)
+- [x] `GameClient/GUI/AptScreens/AptMapPreview.cpp` (превью карты и стартовые точки на экране загрузки, `ShowRandomStartPos`, `isSlotLocalAlly`/`apparentStartPos`) — **upstream PR `#455`** (`up/local-56`)
+- [ ] `Common/BootSplash.cpp` — *пропущено: в коде нет ни одного вызывающего (upstream отклоняет мёртвый код)*
+- [ ] `Common/FunctionCurve.cpp` — *перенесено в Этап 2: используется только `PartTheHeavensUpdate`, отправлять вместе с ним*
+- *(Проверено: `Win32BIGFileSystem.cpp` не имеет отличий от `upstream/main`.)*
 
 ### 2.2. Логические модули (`GameLogic/Module/*` + `AODHordeContain`, 44 класса)
 
@@ -176,20 +178,29 @@
 
 ---
 
-## Часть 3. Порядок выполнения (дорожная карта)
+## Часть 3. Порядок выполнения и текущий статус (handoff 2026-11-25)
 
-1. **Этап 0 — добить оставшийся красный CI в уже открытых PR:**
-   - [ ] PR `#390` (`up/local-75` — падения `test_hero_facing_execution.cpp`)
-   - [ ] PR `#437` (`up/local-132` — диагностировать и починить сборку на `upstream/main`)
-2. **Этап 1 — загрузка ассетов мода (раздел 2.1):**
-   - `DdsDecode` + `GodotDds` и базовые фиксы загрузчиков, чтобы upstream загружал текстуры/карты Ennorath без ошибок.
-3. **Этап 2 — быстрые автономные ванильные модули (раздел 2.2):**
-   - По 1 классу на PR, начиная с самых компактных и проверенных (`GiveUpgradeUpdate`, `BaseUpgrade`, `LocomotorSetUpgrade`, `WeaponBonusUpgrade`, `TooltipUpgrade`, `FreeLifeBody`, `EvacuateDamage`, `SplitHordeSpecialPower`, `PoisonedBehavior`, `ReflectDamage`, `StoreObjectsSpecialPower` + `TeleportToCasterSpecialPower`).
-4. **Этап 3 — профиль Ennorath в `ModEngineFeatures` (раздел 1):**
-   - Дождаться мёрджа upstream PR `#409` (чтобы не конфликтовать с регистрацией `fc32e4c4…` и переиспользовать общие ключи).
-   - Отправить пачку маленьких pySAGE-фич из раздела **1А** (начиная с профиля `1.9.8.7` и 1-файловых фич `evacuate-containers`, `middle-click-camera`, `spell-store-delay`, `toggle-mounted-zero-speed`, `garrison-hero-survive`, `cant-earn-powerpoints`, `portrait-upgrade`, `filtered-horde-respawn`).
+### Что уже сделано
+1. **Этап 0 — ЗАВЕРШЁН (починены 4 красных открытых PR в upstream):**
+   - [x] PR `#437` (`up/local-132`, `1949b316f`) — убрана лишняя `)` в `engine/CMakeLists.txt`; Windows/Linux/TSan/Cross/Commit gate зелёные.
+   - [x] PR `#390` (`up/local-75`, `33acd1d82`) — влит `upstream/main`, обновлён `Enum` в `test_hero_facing_execution.cpp`; Windows/Linux/macOS/TSan/Cross зелёные.
+   - [x] PR `#361` (`up/local-104`, `4f990e328`) — тест `test_stealth_disguise_load.cpp` переведён на полный `GameState::saveSnapshot`/`loadSnapshot`; все проверки зелёные.
+   - [x] PR `#387` (`up/local-30`, `88841d91e` + `95ff604c9`) — влит `upstream/main`, `ActiveBody::xfer` поднят до v4 (поверх upstream v3 `BLDGDEBRIS-1`), обновлены `test_fx4_transition.cpp` и `test_bldgdebris1.cpp` (25 байт = 24 байта v3 + 1 байт v4); CI перезапущен после `95ff604c9`.
+2. **Этап 1 — ЗАВЕРШЁН (открыты 8 новых PR `#448`–`#455`, см. раздел 2.1):**
+   - `#448` (`up/dds-decode`) — CI полностью зелёный (доходит только ASan).
+   - `#449` (`up/port-330`), `#450` (`up/port-430`), `#451` (`up/w3d-truncated-and-absent`), `#452` (`up/fx-macros-before-fx`) — Commit gate зелёный, кросс-платформенные сборки/санитайзеры завершаются.
+   - `#453` (`up/local-38`), `#454` (`up/port-113`), `#455` (`up/local-56`) — открыты, локальный commit gate пройден, поставлены в очередь CI.
+3. **Профиль Ennorath (`ModEngineFeatures`, Часть 1А и 1Б) — ЕЩЁ НЕ ОТПРАВЛЕН.**
+   - Ждёт Этапа 3 (и мёрджа upstream PR `#409` от `LuisTNH` с регистрацией `fc32e4c4…`, чтобы не конфликтовать и переиспользовать общие имена фич).
+
+### Следующие шаги (для следующего агента)
+1. **Проверить финальный CI** по `#387` и `#449`–`#455` (если где-то будет реальное падение — починить в `workspace/wt/upstream-pr`; известные флаки раннеров: `test_mp3_impairment` на macOS, `test_platformicon1` порт-флак на Windows и `Greptile Review` rate-limit).
+2. **Этап 2 — быстрые автономные ванильные модули (раздел 2.2):**
+   - По 1 классу на PR, начиная с 6 апгрейдов (`BaseUpgrade`, `GiveUpgradeUpdate`, `LocomotorSetUpgrade`, `TooltipUpgrade`, `WallUpgradeUpdate`, `WeaponBonusUpgrade`), затем `FreeLifeBody`, `EvacuateDamage`, `SplitHordeSpecialPower`, `PoisonedBehavior`, `ReflectDamage`, `StoreObjectsSpecialPower`, `TeleportToCasterSpecialPower`, а также `PartTheHeavensUpdate` + `FunctionCurve`.
+3. **Этап 3 — профиль Ennorath в `ModEngineFeatures` (Часть 1):**
+   - Проверить статус upstream PR `#409` / `#423` / `#425`. Как только `#409` влит (или если владелец решит отправить профиль раньше поверх `upstream/main`), отправить пачку маленьких pySAGE-фич из раздела **1А** (начиная с профиля `Ennorath 1.9.8.7` `f222b925…` и 1-файловых фич `evacuate-containers`, `middle-click-camera`, `spell-store-delay`, `toggle-mounted-zero-speed`, `garrison-hero-survive`, `cant-earn-powerpoints`, `portrait-upgrade`, `filtered-horde-respawn`).
    - Затем по одному перенести крупные UI/реплей/WotR фичи из **1Б**.
-5. **Этап 4 — крупные системы и рендер (разделы 2.3 и 2.4):**
+4. **Этап 4 — крупные системы и рендер (разделы 2.3 и 2.4):**
    - `FireLogicSystem` + `AIBurningDeathState`, `AIRampageState`, `CrateSystem`, `VictorySystem`, W3D Draw-модули и декали.
 
 ---
