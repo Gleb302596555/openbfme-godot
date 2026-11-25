@@ -2,7 +2,7 @@
 
 Command: `tools/mod/matrix_gaps.py --base <ROTWK_INSTALL> --overlay <mod install> --matrix docs/ennorath/MATRIX.tsv --map docs/ennorath/RW_FUNCTION_MAP.tsv --out docs/ennorath/MATRIX_GAPS --inventory <rw_function_blocks.json> --game <game.dat>`
 
-Failing matrix rows: 145; joined rows: 250; module classes reached: 11.
+Failing matrix rows: 138; joined rows: 233; module classes reached: 11.
 
 A link is a name match: the module's fields name the button's SpecialPower or Upgrade. The map's status is exact RW citation in engine/src (a port without a citation reads `none`). The join says where to look first, not which function fails: each row's cause is still traced.
 
@@ -16,9 +16,9 @@ The main class of a button is the class it links to that the fewest failing butt
 
 | class | buttons | results | specific none | first specific none functions | example buttons |
 |---|---:|---|---:|---|---|
-| AutoAbilityBehavior | 6 | NO-EFFECT 3, MOD-DATA 1, NO-FIRE 1, ORDER 1 | 3 | 0x006289E7@5 0x00629BCA@6 0x006A95E6@6 | AngmarDarkRangerHorde Command_AngmarRangersIceArrowAbility, DwarvenAxtschwingerHorde Command_AxtschwingerAxeThrow, HaradrimArcherHordeNewOnMumakil Command_HaradrimArcherBarbedArrowAbility |
 | OCLSpecialPower | 5 | ORDER 3, NO-EFFECT 2 | 0 | - | DwarvenDain_mod Command_SpecialAbilityDrarSpeerfeuer, DwarvenNarin Command_ramridercaptain, GondorRangerHorde Command_MenLongShotAbility |
 | WeaponFireSpecialAbilityUpdate | 5 | NO-FIRE 3, NO-EFFECT 1, ORDER 1 | 0 | - | AngmarNecroAcolyteBook Command_NecromancerDeathBargain, AngmarNecroAcolyteBook Command_SpecialAbilityGulzarMOrgulSeucheAcolyte, AngmarNecronomicon Command_SpecialAbilityGulzarMOrgulSeucheAcolyte |
+| AutoAbilityBehavior | 4 | NO-EFFECT 3, ORDER 1 | 3 | 0x006289E7@5 0x00629BCA@6 0x006A95E6@6 | AngmarDarkRangerHorde Command_AngmarRangersIceArrowAbility, DwarvenAxtschwingerHorde Command_AxtschwingerAxeThrow, HaradrimArcherHordeNewOnMumakil Command_HaradrimArcherBarbedArrowAbility |
 | ModelConditionSpecialAbilityUpdate | 4 | NO-EFFECT 4 | 0 | - | GondorAragorn_SummonedHunters Command_SpecialAbilityElendilSummoned, GondorBoromir_OneRing Command_SpecialAbilityBoromirHornRing, GondorBoromir_mod_ElrondsRat Command_SpecialAbilityBoromirHorn |
 | SpecialAbilityUpdate | 3 | MEMBER 1, NO-EFFECT 1, ORDER 1 | 1 | 0x00852CA2@1 | CarthaenSpy Command_SpecialAbilityLoneRangerSummonFinal, DorwinionNaturmagier Command_SpecialAbilityNaturmagierErntesegen, WildMarauderSwordBanner Command_AngmarTrollChargeAttack |
 | LevelGrantSpecialPower | 2 | ORDER 2 | 0 | - | RohanTheoden_mod Command_SpecialAbilityKingsFavorEdainTheo, RohanTheoden_mod Command_SpecialAbilityKingsFavorEdainTheoRing |
@@ -30,27 +30,27 @@ The main class of a button is the class it links to that the fewest failing butt
 
 | class | buttons | map none | specific none | map partial | first specific none functions |
 |---|---:|---:|---:|---:|---|
-| UnpauseSpecialPowerUpgrade | 23 | 6 | 2 | 0 | 0x00697B6E@1 0x008D280A@3 |
-| SpecialPowerModule | 21 | 58 | 3 | 2 | 0x00654F8E@0 0x00896A32@0 0x008981BE@0 |
-| WeaponFireSpecialAbilityUpdate | 12 | 13 | 0 | 8 | - |
-| AutoAbilityBehavior | 11 | 55 | 3 | 11 | 0x006289E7@5 0x00629BCA@6 0x006A95E6@6 |
-| OCLSpecialPower | 6 | 51 | 0 | 0 | - |
-| ModelConditionSpecialAbilityUpdate | 5 | 12 | 0 | 8 | - |
-| SpecialAbilityUpdate | 3 | 66 | 1 | 12 | 0x00852CA2@1 |
-| ToggleMountedSpecialAbilityUpdate | 3 | 64 | 0 | 12 | - |
+| UnpauseSpecialPowerUpgrade | 22 | 6 | 2 | 0 | 0x00697B6E@1 0x008D280A@3 |
+| SpecialPowerModule | 20 | 58 | 3 | 2 | 0x00654F8E@0 0x00896A32@0 0x008981BE@0 |
+| WeaponFireSpecialAbilityUpdate | 11 | 14 | 0 | 6 | - |
+| AutoAbilityBehavior | 9 | 49 | 3 | 9 | 0x006289E7@5 0x00629BCA@6 0x006A95E6@6 |
+| OCLSpecialPower | 6 | 51 | 0 | 1 | - |
+| ModelConditionSpecialAbilityUpdate | 5 | 13 | 0 | 6 | - |
+| SpecialAbilityUpdate | 3 | 60 | 1 | 10 | 0x00852CA2@1 |
+| ToggleMountedSpecialAbilityUpdate | 3 | 58 | 0 | 10 | - |
 | LevelGrantSpecialPower | 2 | 1 | 0 | 1 | - |
-| HeroModeSpecialAbilityUpdate | 1 | 9 | 0 | 4 | - |
-| WeaponModeSpecialPowerUpdate | 1 | 9 | 0 | 3 | - |
+| HeroModeSpecialAbilityUpdate | 1 | 11 | 0 | 2 | - |
+| WeaponModeSpecialPowerUpdate | 1 | 11 | 0 | 1 | - |
 
 ## Failing rows without a module link, by result
 
 | result | rows |
 |---|---:|
-| MEMBER | 70 |
-| MOD-DATA | 51 |
+| MEMBER | 64 |
+| MOD-DATA | 50 |
 | TEMPORARY | 18 |
 | NO-SEND | 5 |
+| FAIL | 2 |
 | NO-EFFECT | 2 |
-| FAIL | 1 |
 | LEFT-WORLD | 1 |
 | NO-RULE | 1 |

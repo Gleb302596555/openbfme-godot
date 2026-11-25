@@ -8,25 +8,25 @@ TSV outside Git; this report holds counts and retail addresses only.
 
 | measure | value |
 |---|---|
-| matrix rows with result DISABLED | 812 |
-| unique buttons behind them | 121 |
-| condition rows in the TSV | 2422 |
+| matrix rows with result DISABLED | 894 |
+| unique buttons behind them | 173 |
+| condition rows in the TSV | 2602 |
 | buttons with no recognized gating field (`none`) | 2 |
 
 | condition | rows |
 |---|---|
-| model | 35 |
+| model | 37 |
 | none | 336 |
 | object | 303 |
-| option | 426 |
-| other | 870 |
-| upgrade | 452 |
+| option | 474 |
+| other | 901 |
+| upgrade | 551 |
 
 | Options bit seen (retail names, RW 0xDA4C88) | rows |
 |---|---|
 | HIDE_WHILE_DISABLED | 13 |
-| MOUNTED_ONLY | 1 |
-| NEED_UPGRADE | 402 |
+| MOUNTED_ONLY | 8 |
+| NEED_UPGRADE | 443 |
 | NOT_QUEUEABLE | 7 |
 | ON_GROUND_ONLY | 3 |
 
@@ -40,18 +40,20 @@ TSV outside Git; this report holds counts and retail addresses only.
 | DISABLED: needs a production queue on the object (RW 0x943050 case 7, RW 0x68C327: disabled in retail too; its horde or master buys it) | 103 |
 | DISABLED: needs its condition (HIDE_WHILE_DISABLED: hidden while disabled, as in retail) | 13 |
 | DISABLED: needs its upgrade, which switches CommandSet to GondorTowerShieldGuardCommandSetMod | 3 |
+| DISABLED: needs its upgrade, which switches CommandSet to RohanTheodenCommandSetEnd_Summoned | 1 |
+| DISABLED: needs model MOUNTED | 3 |
 | DISABLED: needs model USER_1 (the sweep could not set it: no known setter) | 11 |
 | DISABLED: needs model USER_2 (the sweep could not set it: no known setter) | 3 |
 | DISABLED: needs model USER_3 | 1 |
 | DISABLED: needs model USER_3 (the sweep could not set it: no known setter) | 4 |
 | DISABLED: needs model USER_9 | 1 |
 | DISABLED: needs model USER_9 (the sweep could not set it: no known setter) | 2 |
-| DISABLED: needs model WEAPONLOCK_SECONDARY (the sweep could not set it: no known setter) | 1 |
 | DISABLED: needs none (every listed gate restricts only while a state is present, RW 0x942733) | 2 |
 | DISABLED: needs object NONE +IsengardSiegeWorksStorage | 1 |
 | DISABLED: needs upgrade Upgrade_TechnologyAngmarBasicTraining | 3 |
 | DISABLED: needs upgrade Upgrade_TechnologyAngmarDarkIronArmor | 2 |
 | DISABLED: needs upgrade Upgrade_TechnologyAngmarDarkIronBlades | 2 |
+| DISABLED: needs upgrade Upgrade_TechnologyAngmarSpikedCollar Upgrade_TestBuilding [script: Upgrade_TechnologyAngmarSpikedCollar <- multiplayer_human/WolfDen GIVE_PLAYER_UPGRADE] | 1 |
 | DISABLED: needs upgrade Upgrade_TechnologyArnorBasicTraining Upgrade_TechnologyArthedainBasicTraining | 5 |
 | DISABLED: needs upgrade Upgrade_TechnologyBruchtalBasicTraining | 3 |
 | DISABLED: needs upgrade Upgrade_TechnologyBruchtalFireArrows | 3 |
@@ -84,11 +86,17 @@ TSV outside Git; this report holds counts and retail addresses only.
 | DISABLED: object not affected by Upgrade_BattleWagonMenOfDale (RW 0x9430F2 -> RW 0x694914: no UpgradeMux module triggered or RequiredObjectFilter unmet, disabled in retail too) | 1 |
 | DISABLED: object not affected by Upgrade_BndnisWaldelben (RW 0x9430F2 -> RW 0x694914: no UpgradeMux module triggered or RequiredObjectFilter unmet, disabled in retail too) | 1 |
 | DISABLED: object not affected by Upgrade_DwarvenBasicTraining (RW 0x9430F2 -> RW 0x694914: no UpgradeMux module triggered or RequiredObjectFilter unmet, disabled in retail too) [script: Upgrade_DwarvenBasicTraining <- ai_men of the west/Upgrades0. TEAM_UPGRADE] | 1 |
+| DISABLED: object not affected by Upgrade_DwarvenFortressMightyCatapult (RW 0x9430F2 -> RW 0x694914: no UpgradeMux module triggered or RequiredObjectFilter unmet, disabled in retail too) | 1 |
 | DISABLED: object not affected by Upgrade_PurchaseRohanHorses (RW 0x9430F2 -> RW 0x694914: no UpgradeMux module triggered or RequiredObjectFilter unmet, disabled in retail too) | 1 |
 | DISABLED: object not affected by Upgrade_SentryTowerFireArrows (RW 0x9430F2 -> RW 0x694914: no UpgradeMux module triggered or RequiredObjectFilter unmet, disabled in retail too) | 1 |
-| state 2 at level 1 (not enabled) | 2 |
-| state 2 at level 10 (not enabled) | 1 |
-| state 2 at level 5 (not enabled) | 11 |
+| state 2 at level 0 (not enabled) | 17 |
+| state 2 at level 1 (not enabled) | 21 |
+| state 2 at level 10 (not enabled) | 20 |
+| state 2 at level 10 after the weapon toggle / mount (not enabled) | 1 |
+| state 2 at level 2 (not enabled) | 7 |
+| state 2 at level 5 (not enabled) | 22 |
+| state 4 at level 1 (not enabled) | 1 |
+| state 4 at level 10 (not enabled) | 2 |
 
 `none` is not "unexplained gray": it says the button carries no INI field this tool
 recognizes as a gate. Retail's common gates below still apply to it (its object may be
