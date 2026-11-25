@@ -102,6 +102,14 @@
 | `b2spell1 MAP GOOD Rivendell...`, `b2spell1 campaign powers played` (2 теста) | `test_b2spell1.cpp:45`, `test_ownerfix1_input.cpp:1172` | P-194 |
 | `hero activation targeting: ...` (2 теста) | `test_hero_activation_targeting.cpp:167`, `:211` | P-192 |
 
+## Приёмка 2026-11-24/25 (`accept-local-1124b`: Locals 171-176, 178-182, PR #964-#974, Windows MSVC, перенос в `main`)
+
+Запуски на сборке слияния, с установками игр; полного прогона не было. Local 177 (PR #975) возвращён: с ним падают `modgap2 audio loop retail`, `ENNORATH scenario ModelConditionAudioLoopClientBehavior`, `skirmish ai vs ai: Evendim...`, `save4b retail T4` (`test_save4b_retail.cpp:454`), `script2 angmar: ... undefended Uber citadel loss` (`test_script2_angmar.cpp:150`); без вызова `handleEngagedFlag` все проходят.
+
+- Пин `perf1` (skirmish, с кадра 845) сдвинул Local 181 (#962, PR #970: `SlaughterHordeContain::update` / `onDie`, RW 0x8840D4 / 0x883A83); сборка с этими кусками, возвращёнными назад, совпала со старыми векторами; переснят один раз. Остальные пины (`perf1` battle и blob, `uber1`, `skirmish ai vs ai*`, `save4b*`) не двигались.
+- Красные и после слияния, не от этой партии: `BACKLOG2 S-950` (`test_backlog2_retail.cpp:363`, строка выше), `AIPOW-1: ... Athelas` (`test_aipow1.cpp:687`), `RAI-POW-2: DEBUFFECONOMYBUILDING` (`test_aipow1.cpp:1624`), `attack1 heroes retail` (`test_play4_heroes_retail.cpp:672`), `ring delivery retail` (`test_hud_garrison_retail.cpp:783`): все в списках выше (номера строк сдвинулись).
+- Новая запись, не от этой партии (код погоды в правках не менялся; сборка без причины не проверялась): `MapWeatherScan / WaterSetScan retail` падает: `test_map_render.cpp:889`, `data\ini\weather.ini: WeatherSetting defined twice`.
+
 ## Нестабильные
 
 | Тест | Как ведёт себя |

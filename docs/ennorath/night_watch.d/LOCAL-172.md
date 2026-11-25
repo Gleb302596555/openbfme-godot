@@ -1,1 +1,0 @@
-| 2026-11-24 | local-172 | `ExperienceTracker::canGainLevel` (`RW 0x79D11D -> RW 0x6893E2`) + 34 `ported-uncited` citations + 414 verdicts | движок (`ExperienceTracker`, `SpecialPowerModules`) | 0 | `LOCAL-172*`, `hero*`, `perf1*`, `uber1*` | `GiveLevels` float threshold (`comiss`) | нет | — | — | 449 функций binary map #953 |
