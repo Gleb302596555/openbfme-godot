@@ -25,6 +25,8 @@
 | `SWEEP.md` | результат проверки кнопок, появится на этапе E2 | инструмент |
 | [PROBLEMS.md](PROBLEMS.md) | жалобы владельца, таблица «Что запущено» | владелец и агенты |
 | [MODULE_GAPS.md](MODULE_GAPS.md) | неперенесённые классы модулей | `ennorath_queue.py`, `ennorath_unique.py`, руками |
+| [PR_CANDIDATES.md](PR_CANDIDATES.md) | журнал кандидатов в PR в upstream (Open-BFME) | агенты, руками |
+| [UPSTREAM_ENNORATH_PLAN.md](UPSTREAM_ENNORATH_PLAN.md) | план переноса профиля Ennorath (pySAGE) и готовых систем RotWK 2.01 в upstream | руками |
 | [CHECKLIST.md](CHECKLIST.md) | партия для проверки владельцем | `ennorath_queue.py` |
 | [TEST_BASELINE.md](TEST_BASELINE.md) | падения, допустимые перед `land` | по полному прогону |
 | [../STOPS.md](../STOPS.md) | что не перенесено или выведено | агенты; частично устарел, см. SUBSYSTEMS, п. 0 |
