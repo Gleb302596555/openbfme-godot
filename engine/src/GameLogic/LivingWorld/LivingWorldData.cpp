@@ -58,6 +58,11 @@ void parseBuildingTypeList(INI *ini, void *, void *store, const void *)
 	}
 }
 
+// RotWK 2.01 data lookup & INI helpers (Local 175):
+//   RegionCampaign::findRegionByName RW 0x60F21A, findRegionIDByName RW 0x610152,
+//   parseLivingWorldBuildingDefinition entry ctor RW 0x6E12F8, PlayerTemplate::findByName RW 0x6E2C7C,
+//   Region::resolveConnectedRegionIDs RW 0x7F1282, Region::checkSkirmishMapExists RW 0x7F21C7.
+
 // ---- LivingWorldPlayerTemplate (RW 0xC1AC78) ----
 #define PT(m) (int)offsetof(PlayerTemplate, m)
 const FieldParse kPlayerTemplateFields[] = {
@@ -356,6 +361,7 @@ const FieldParse kRestrictBuildingsFields[] = {
 	{ nullptr, nullptr, nullptr, 0 }
 };
 #undef BR
+// RW 0x7F3BF3 (LivingWorldRegion::ModuleData::BuildingRestriction::ParseINI) -> RW 0x7F3BD9 (push_back into restrictBuildings)
 void parseRestrictBuildings(INI *ini, void *instance, void *, const void *)
 {
 	BuildingRestriction r;
@@ -419,6 +425,8 @@ const FieldParse kRegionFields[] = {
 };
 #undef RG
 
+// RW 0x7F558C (LivingWorldRegion::ParseINI: initFromINI + RW 0x7F45B0 connection/spot setup + RW 0x7F51C9);
+// Scenario::addTeamVictoryCondition RW 0x90210B.
 // Region <Name> inside a LivingWorldRegionCampaign (RW 0x6103E2): the index is the count of regions so far
 void parseRegion(INI *ini, void *instance, void *, const void *)
 {

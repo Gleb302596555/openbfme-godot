@@ -2,6 +2,7 @@
 // See GameLogic/Object/Object.h for the creation order and its sources.
 
 // Local 169: RW 0x68DFF5 (Object::friend_adjustPowerForPlayer), RW 0x69A760 (~Object), RW 0x69AB8B (Object deleting dtor)
+// Local 171: RW 0x68B7E8 (isAngleDifferent)
 #include "Common/Upgrade.h"
 #include "Common/SpecialPower.h"
 #include "Common/ModEngineFeatures.h"
@@ -104,6 +105,7 @@ struct Object::OwnGeometryCache
 	PathfindGeometry pathfind;
 };
 
+// RW 0x70F034 (Object sub-ctor)
 Object::Object(GameLogic &logic, const ThingTemplate *tt, const ObjectStatusMaskType &status, Team *team, ObjectID id)
 	: Thing(tt ? tt->getFinalOverride() : nullptr)
 	, m_logic(logic)
@@ -1052,7 +1054,7 @@ void Object::setTeam(Team *team)
 	{
 		if (HordeContainInterface *horde = m_contain->getHordeContainInterface())
 		{
-			horde->setMembersTeam(team);
+			horde->setMembersTeam(team); // RW 0x699671 (recursive contain setTeam)
 		}
 	}
 	if (m_constructed)

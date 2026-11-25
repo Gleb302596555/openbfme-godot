@@ -882,6 +882,7 @@ struct HordeMeleeApproachState : AIState
 //   * onExit: unless the horde is being destroyed (Object + 0x94 bit 0), the melee ends (slot 0x138) and the melee target id is cleared (slot 0x168(0)).
 struct HordeMeleeWaitState : AIState
 {
+	// RW 0x740D3B (AIAttackMeleeHordeWaitState::getStateName 0xC275A0[2])
 	explicit HordeMeleeWaitState(AIStateMachine &m) : AIState(m, "AIAttackMeleeHordeWaitState") {}
 	unsigned m_waitUntil = 0;
 
@@ -970,6 +971,7 @@ struct HordeMeleeWaitState : AIState
 // B1 AIAttackMeleeHordeWaitPathState
 struct HordeMeleeWaitPathState : AIState
 {
+	// RW 0x740D41 (AIAttackMeleeHordeWaitPathState ctor 0xC27600), RW 0x740D66 (getStateName 0xC27600[2])
 	explicit HordeMeleeWaitPathState(AIStateMachine &m) : AIState(m, "AIAttackMeleeHordeWaitPathState") {}
 	unsigned m_nextCheck = 0;
 	int m_failures = 0;

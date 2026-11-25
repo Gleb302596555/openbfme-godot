@@ -176,7 +176,7 @@ public:
 	static const FieldParse *getFieldParse();
 };
 
-// ---- MetaImpactNugget (RW ctor 0x9107E1, size 0x184, table RW 0xC7B6A8) ----------------------------------------------
+// ---- MetaImpactNugget (RW 0x009107E1 ctor, size 0x184, table RW 0xC7B6A8) ----------------------------------------------
 class MetaImpactNugget : public WeaponNugget
 {
 public:
@@ -241,7 +241,7 @@ public:
 	static const FieldParse *getFieldParse();
 };
 
-// ---- AttributeModifierNugget (RW ctor 0x90EDA8, size 0x164, table RW 0xC7B148) ---------------------------------------
+// ---- AttributeModifierNugget (RW 0x0090EDA8 ctor, size 0x164, table RW 0xC7B148) ---------------------------------------
 class AttributeModifierNugget : public WeaponNugget
 {
 public:

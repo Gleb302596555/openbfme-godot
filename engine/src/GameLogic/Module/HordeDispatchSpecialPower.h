@@ -22,6 +22,7 @@
 // The port's SpecialPowerModule keeps the same target id (m_targetId, + 0x2C; lane PORT-232), its slot 0x50 answers with it, and the farthest kept target
 // pick is ported. A member's kept target only differs from the order's target when the member's initiate swapped it (e.g. a gated member whose cast kept
 // an earlier, farther target); the adjustVictim swap (RW 0x898115 .. 0x89813A, BFME2 decomp SpecialPowerModuleDo.cpp:157) is still not ported (S-920).
+// Local 171: RW 0x65261A (HordeDispatchSpecialPower newData)
 
 #pragma once
 
@@ -29,6 +30,7 @@
 
 class ModuleFactory;
 
+// RW 0x008CCE3D (~HordeDispatchSpecialPower)
 class HordeDispatchSpecialPower : public SpecialPowerModule
 {
 public:

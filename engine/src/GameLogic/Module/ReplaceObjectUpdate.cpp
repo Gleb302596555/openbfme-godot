@@ -1,4 +1,7 @@
 // OpenBFME. GPL-3.0. See ReplaceObjectUpdate.h.
+// Local 174: RW 0x8B6C74 (ReplaceObjectUpdate helper ?Rva004B2B64_ParseReplaceObject@INI@@SAXPAV1@PAX1PBX@Z); RW 0x8B6DAA (ReplaceObjectUpdateModuleData ??1ReplaceObjectUpdateModuleData@@UAE@XZ); RW 0x8B6BA2 (ReplaceObjectUpdate helper no class); RW 0x8B6C24 (ReplaceObjectUpdate helper ??0Rva004B2B2F@@QAE@XZ)
+// Local 174: RW 0x8B6C3F (ReplaceObjectUpdate helper ??1Rva004B2B2F@@QAE@XZ)
+// Local 174: RW 0x8B6B65 (ReplaceObjectUpdate::killReplacedObject)
 #include "GameLogic/Module/ReplaceObjectUpdate.h"
 #include "Common/PlayerList.h"
 #include "Common/Thing/ModuleFactory.h"

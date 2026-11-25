@@ -87,6 +87,7 @@ const FieldParse *MeleeBehaviorModuleData::getWaitForLeaderFieldParse()
 	return table;
 }
 
+// RW 0x98F780 (MeleeBehaviorModuleData ctor 0xC872C8), RW 0x98F2FE (buildFieldParse 0xC872C8[2], table 0xC87228)
 const FieldParse *MeleeBehaviorModuleData::getAmoebaFieldParse()
 {
 	static const FieldParse table[] = {

@@ -6,6 +6,7 @@
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 
+// Local 174: RW 0x8BA99F (CastleUpgrade::CastleUpgrade); RW 0x8BC6AC (CastleUpgradeModuleData::buildFieldParse)
 #include "GameLogic/Module/CastleModules.h"
 #include "GameLogic/SnapshotXfer.h"
 #include "GameLogic/Module/CastleUpgrade.h"
@@ -1475,7 +1476,7 @@ void CastleBehavior::pack()
 		}
 	}
 	m_foundations.clear();
-	for (ObjectID id : m_members)
+	for (ObjectID id : m_members) // RW 0x799C6A (member ID destroy sweep)
 	{
 		if (Object *o = logic.findObjectByID(id))
 		{
@@ -1911,7 +1912,7 @@ void CastleMemberBehavior::onBodyDamageStateChange(const DamageInfo *, BodyDamag
 	Object *obj = getObject();
 	if (newState == BODY_RUBBLE)
 	{
-		if (m_data->m_countsForEvaCastleBreached && obj->getControllingPlayer())
+		if (m_data->m_countsForEvaCastleBreached && obj->getControllingPlayer()) // RW 0x79810C
 		{
 			// RW 0x79A10D..0x79A177 plays the EVA only for the LOCAL player's member: that filter is the client's (a peer-dependent test must not decide hashed state), the breach is recorded
 			// for every owner

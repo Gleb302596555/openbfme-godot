@@ -10,6 +10,7 @@
 //   * ExperienceScalarUpgrade (field table RW 0xC6F194): AddXPScalar parseReal (+0x138, constructor 0.0, RW 0x8BA332). upgradeImplementation (RW 0x8BA3AD):
 //     tracker scalar += AddXPScalar (SSE); the removal (RW 0x8BA3D0): tracker scalar -= AddXPScalar.
 //     INFERENCE: which of the two functions is the implementation and which the removal is read from their order in the vtable region, not from the slots.
+// Local 171: RW 0x6501C8 (ExperienceScalarUpgrade newData), RW 0x650190 (ExperienceScalarUpgrade newInstance), RW 0x64FC95 (LevelUpUpgrade newInstance)
 
 #pragma once
 

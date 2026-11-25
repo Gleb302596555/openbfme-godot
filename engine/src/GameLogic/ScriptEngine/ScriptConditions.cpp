@@ -130,6 +130,7 @@ enum ConditionType
 	UNIT_HAS_GAINED_LEVEL = 117, // lane BFME2CAMP1
 	UNIT_IS_AT_LEVEL = 118,
 	UNIT_THREAT_LEVEL = 115, // lane THREATLEVEL-1
+	UNIT_HAS_PASSENGER = 162, // Local 180: RW 0x7E5F5A
 	TEAM_THREAT_LEVEL = 116,
 	PLAYER_HAS_COMPARISON_UNIT_TYPE_IN_TRIGGER_AREA_COMPLETELY_BUILT = 188,
 	PLAYER_HAS_CREDITS = 26,
@@ -798,7 +799,7 @@ void triggerBounds(const TriggerArea &t, float &loX, float &loY, float &hiX, flo
 }
 } // namespace
 
-// RW 0x006E4C20 (PolygonTrigger::getCenterPoint wrapper around RW 0x70CE93)
+// RW 0x006E4C20 (PolygonTrigger::getCenterPoint wrapper around RW 0x70CE93), RW 0x6E4D08 (PolygonTrigger::getBounds)
 Coord3D ScriptConditions::triggerCenter(GameLogic &logic, const TriggerArea &t)
 {
 	float loX, loY, hiX, hiY;
@@ -2186,6 +2187,7 @@ bool ScriptConditions::evaluate(ScriptEngine &engine, const ScriptCondition &c)
 	case PLAYER_HAS_NUMBER_UNITS_DISTANCE_FROM_OBJECT:
 	{
 		// LOCAL-160 (both editions): RW 0x007E6C7C (DONOR BFME2 ScriptConditions::evaluatePlayerHasNumberUnitsDistanceFromObject),
+		// helper struct ctor RW 0x7E6140,
 		// callback RW 0x007E6C0F, unit kind filter RW 0x006618E6 ({INFANTRY, CAVALRY, MONSTER, MACHINE, AIRCRAFT} and none of
 		// {STRUCTURE, INERT, HORDE}). Distance is clamped to >= 0 and squared; if the named object does not exist (RW 0x007E6CE5),
 		// origin is (0,0,0) and distSq = -1.0f (RW 0x00BD19DC) so every matching unit counts. 3D squared distance must be strictly
@@ -2363,6 +2365,13 @@ bool ScriptConditions::evaluate(ScriptEngine &engine, const ScriptCondition &c)
 			threat = ScriptThreat::getThreatInRange(logic, *tm, radius);
 		}
 		return compareReal(param(c, 1).intValue, threat, param(c, 2).realValue);
+	}
+	case UNIT_HAS_PASSENGER:
+	{
+		// Local 180: RW 0x7EB7CD case 162 -> RW 0x7E5F5A: getUnitNamed(p0) (RW 0x75A3D8) -> obj->getContain() (+0x258) -> getContainCount() (vslot 0x114) > 0
+		Object *unit = engine.getUnitNamed(param(c, 0).stringValue);
+		ContainModuleInterface *contain = unit ? unit->getContain() : nullptr;
+		return contain && contain->getContainCount() > 0;
 	}
 	default:
 		engine.noteUnportedCondition(t->name);

@@ -8,9 +8,11 @@
 // countIntersection(that)        = |this & that|
 // countInverseIntersection(that) = |~this & that|  (ZH BitFlags.h:208-221): the bits of `that` this set lacks.
 // Unused high bits of the last word are always zero, so memcmp-style equality and the counts are exact.
+// Local 171: RW 0x68FE6E (BitFlags<154>::count), RW 0x691C46 (BitFlags<104>::xfer)
 
 #pragma once
 
+// Local 174: RW 0x9DB06D (BitFlags<11> ctor)
 #include <cstdint>
 #include <cstring>
 #include <initializer_list>
@@ -25,7 +27,7 @@ public:
 		NUM_WORDS = (NUMBITS + 31) / 32
 	};
 
-	// Both editions: RW 0x0064C39A (DONOR BFME2 0x0024B8FA) zero-initializes all words.
+	// Both editions: RW 0x0064C39A (DONOR BFME2 0x0024B8FA), RW 0x7FC3B8 (BitFlags<11>) zero-initializes all words.
 	BitFlags() { std::memset(m_words, 0, sizeof(m_words)); }
 	// Both editions: RW 0x00444D65 (DONOR BFME2 0x0004493A) copies all words.
 	BitFlags(const BitFlags &other) { std::memcpy(m_words, other.m_words, sizeof(m_words)); }

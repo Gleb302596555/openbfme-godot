@@ -134,6 +134,7 @@ void StancesBehavior::traceStance(int oldStance, int newStance, const char *site
 }
 
 // RW 0x0086200F (getModuleName -> "StancesBehavior"), RW 0x00862015 (getModuleNameKey lazy cache), RW 0x008620C1 (scalar deleting destructor)
+// Local 173: RW 0x86205A (~StancesBehavior), RW 0x861DA9 (XferStancesEnum)
 void StancesBehavior::registerClass(ModuleFactory &modules)
 {
 	modules.bindTypedData<StancesBehaviorModuleData>("StancesBehavior", MODULETYPE_BEHAVIOR);

@@ -31,6 +31,9 @@
 // LivingWorldLogic::xfer RW 0x6BD0D5, XferPlayers RW 0x6BB501, XferDelayedRegionVictories RW 0x6BA784;
 // LivingWorldRegionManager::xfer RW 0x60FFC4, XferRegions RW 0x60ECD6, loadPostProcess RW 0x61008C;
 // LivingWorldRegion::DoXfer RW 0x7F5279, loadPostProcess RW 0x7F1ADF; LivingWorldRegionConnection::DoXfer RW 0x7F46E0;
+// LivingWorldBattle::BattleSide::DoXfer RW 0x7F7DE8, BattlePlayer::DoXfer RW 0x7F7300, BattlePlayer armies xfer RW 0x7F5697,
+// BattleSide::loadPostProcess RW 0x7F5944, BattlePlayer::loadPostProcess RW 0x7F58EC;
+// XferLivingWorldBuildingID RW 0x8E4B74; LivingWorldScoreKeeper XferVector<int> RW 0x8F3439;
 // LivingWorldBattle::DoXfer RW 0x7F87B2; LivingWorldArmy::xfer RW 0x71BFD9, loadPostProcess RW 0x71B928;
 // LivingWorldBuilding::DoXfer RW 0x8E52F7; LivingWorldBuildPlot::DoXfer RW 0x902E0A;
 // LivingWorldScoreKeeper::loadPostProcess RW 0x8F30E5.
@@ -63,7 +66,7 @@ void xferSize(Xfer &x, std::vector<T> &v, size_t minEntryBytes)
 	x.xferVectorSize(v, minEntryBytes);
 }
 
-// WOTR2 milestone 5: a score keeper (LivingWorldScoreKeeper's xfer RW 0x8F3A89, its order where the model has the field; the wall clock and the
+// WOTR2 milestone 5: a score keeper (LivingWorldScoreKeeper's xfer RW 0x8F3A89, bool-vector helper RW 0xA1FF33, its order where the model has the field; the wall clock and the
 // real-time battles' statistics are the host's)
 void xferIntVector(Xfer &x, std::vector<int> &v)
 {
@@ -176,6 +179,11 @@ constexpr size_t kEventMin = 4 * 2 + 1;
 
 } // namespace
 
+// RotWK 2.01 War of the Ring xfer helpers (Local 175):
+//   XferLivingWorldArmyID vector RW 0x6B98E0, RegionAwardDispute player-ID vector RW 0x6B99D6,
+//   RegionAwardDispute map RW 0x6BA8C9, XferLivingWorldArmyID RW 0x71A658,
+//   XferArmyIconSize RW 0x71A670, LivingWorldArmy::xfer vector RW 0x71BA5E,
+//   XferLivingWorldRegionID RW 0x7F10F4.
 void LivingWorldLogic::xfer(Xfer &x)
 {
 	XferVersion v{ 5, 8 }; // 2 (WOTR2 milestone 4): building ids, the entry keys and homes, the retreat list; 3: the command point counters; 8: award disputes (RW 0x900E58);

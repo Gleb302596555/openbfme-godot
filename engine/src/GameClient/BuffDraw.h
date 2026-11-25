@@ -9,7 +9,7 @@
 //   (RW 0x671EC6 -> BuffManager::TurnOffBuff, not immediate); a complex buff is the glow-outline kind (asserted unsupported, MakeGlowOutlineBuff);
 //   else a HORDE gets none, the template by KindOf (CAVALRY, ORC, INFANTRY, TROLL, MUMAKIL, SHIP, MONSTER, else BuffThingTemplate) through
 //   TheThingFactory (none: nothing) and Drawable::TurnOnBuff (RW 0x671E56: the drawable's BuffManager + 0x450, made on first use);
-// - BuffManager::TurnOnBuff (RW 0x764483, BFME2 decomp GlowMaterial.cpp:620): buff types 1 .. 8 only, nine 0x44-byte instances by type; every type is
+// - BuffManager (ctor RW 0x764A1D, dtor RW 0x764A7C, DoXfer RW 0x76438C, name RW 0x764A76), BuffManager::TurnOnBuff (RW 0x764483, BFME2 decomp GlowMaterial.cpp:620): buff types 1 .. 8 only, nine 0x44-byte instances by type; every type is
 //   sub type 1 (table RW 0xDC0138 equivalent): BuffInstance::MakeNormalBuff (RW 0x7641A2, decomp GlowMaterial.cpp): no template or drawable: false;
 //   an instance without a TBuff makes one (BuffLogic::addBuff RW 0x707FFF -> W3DBuffBuffer::addBuff RW 0x4D3376); another template replaces it (the
 //   old TBuff released); the same template while it fades out (state 2) is put back to state 1 at opacity 1; then active, the expiry frame = logic

@@ -35,6 +35,7 @@ void parseWeaponSetWords(INI *ini, void *, void *store, const void *)
 	ParseBitFlags(ini, static_cast<std::array<std::uint32_t, 4> *>(store)->data(), 4, TheWeaponConditionNames);
 }
 const FieldParse kMonitorConditionUpdate[] = {
+	// Local 173: RW 0x894D9D (~MonitorConditionUpdateModuleData)
 	{ "ModelConditionFlags", parseModelConditionWords, nullptr, (int)offsetof(MonitorConditionUpdateModuleData, m_modelConditionFlags) },
 	{ "ModelConditionCommandSet", INI::parseAsciiString, nullptr, (int)offsetof(MonitorConditionUpdateModuleData, m_modelConditionCommandSet) },
 	{ "WeaponSetFlags", parseWeaponSetWords, nullptr, (int)offsetof(MonitorConditionUpdateModuleData, m_weaponSetFlags) },

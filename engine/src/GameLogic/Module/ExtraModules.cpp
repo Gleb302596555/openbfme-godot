@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 // See GameLogic/Module/ExtraModules.h.
 
+// Local 174: RW 0x8BB011 (GeometryUpgradeModuleData ??0GeometryUpgradeModuleData@@QAE@XZ)
 #include "GameLogic/Module/ExtraModules.h"
 
 #include "Common/Thing/ModuleFactory.h"

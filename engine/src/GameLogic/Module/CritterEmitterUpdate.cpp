@@ -6,6 +6,7 @@
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 
+// Local 174: RW 0x8CD35D (CritterEmitterUpdateModuleData ??1CritterEmitterUpdateModuleData@@UAE@XZ)
 #include "GameLogic/Module/CritterEmitterUpdate.h"
 
 #include "Common/AsciiString.h"

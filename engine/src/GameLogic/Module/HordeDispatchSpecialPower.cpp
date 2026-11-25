@@ -14,6 +14,7 @@
 #include <stdexcept>
 #include <string>
 
+// RW 0x8CCDF2 (HordeDispatchSpecialPower::buildFieldParse table 0xC84858)
 bool HordeDispatchSpecialPower::isHordeWithContain() const
 {
 	static const int kHorde = ObjectTemplateInfoBuilder::kindOfIndex("HORDE"); // template + 0x115 bit 5

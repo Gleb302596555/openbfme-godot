@@ -33,6 +33,7 @@ public:
 };
 
 // RW 0x008BEC98 (getModuleName), RW 0x008BEC9E (getModuleNameKey), RW 0x008BED27 (scalar deleting dtor -> RW 0x008BEC7F)
+// RW 0x00650B28 (friend_newModuleInstance), RW 0x00650B60 (ReflectDamageModuleData::friend_newModuleData)
 class ReflectDamage : public BehaviorModule, public DamageModuleInterface
 {
 public:

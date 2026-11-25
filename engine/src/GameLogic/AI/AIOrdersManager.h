@@ -26,6 +26,7 @@ public:
 	using ObjectId = ObjectOrderQueue::ObjectId;
 	using OrderId = ObjectOrderQueue::OrderId;
 
+	// RW 0x94F23F (GroupOrder ctor), RW 0x94F162 (~GroupOrder dtor)
 	class GroupOrder
 	{
 	public:

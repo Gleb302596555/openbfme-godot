@@ -54,6 +54,7 @@
 //   * the OCL's secondary position (the damage source's position) is handed to ObjectCreationList::create; a call without a damage source, which
 //     retail would make with an invalid pointer, is counted and not made;
 //   * the rubble neighbours (RW 0x8BDF08: the neighbours' sub objects, their OCLs) need the wall Bookend machinery (S-342): parsed, counted when they would run.
+// Local 171: RW 0x654748 (TransitionDamageFX newData)
 
 #pragma once
 
@@ -64,6 +65,7 @@
 #include <string>
 #include <vector>
 
+// RW 0x00650AED (TransitionDamageFX::friend_newModuleInstance), RW 0x008BE85E (~TransitionDamageFXModuleData)
 class TransitionDamageFXModuleData : public ModuleData
 {
 public:

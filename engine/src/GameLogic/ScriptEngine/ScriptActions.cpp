@@ -153,6 +153,9 @@ const std::set<int> &clientActions()
 			"LOCK_CAMERA_ZOOM", // RW 0x7BDACA (case 574: TheTacticalView vslot 0x24C)
 			"LOCK_CAMERA_ROTATION", // RW 0x7BDAD8 (case 575: TheTacticalView vslot 0x250)
 			"LOCK_CAMERA_SCROLL", // RW 0x7BDAE6 (case 576: TheTacticalView vslot 0x254)
+			// Local 180 (fork issue 961): RW 0x7BB316 (ScriptActions::reset letterbox clear), RW 0x7BB32E (CAMERA_LETTERBOX_BEGIN),
+			// RW 0x7BC8B7 (CAMERA_LETTERBOX_END), RW 0x7BD047 (AUDIO_RESTORE_VOLUME_ALL_TYPE).
+			"TERRAIN_RENDER_DISABLE", // RW 0x7BCE53 (case 372: TheTerrainVisual +0x1914 client render toggle)
 			"LOCK_CAMERA_RESET", // RW 0x7BDAF4 (case 577: TheTacticalView vslot 0x258)
 			"LOCK_CAMERA_ANGLE_AND_HEIGHT", // RW 0x7BDB02 (case 528: TheInGameUI angle/height lock)
 			"ENABLE_SPELL_STORE", // RW 0x7BDF0F (case 580: AptSpellStore 0x822D75)

@@ -5,6 +5,7 @@
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 
+// Local 174: RW 0x8BA854 (AttributeModifierUpgradeModuleData::buildFieldParse)
 #include "GameLogic/Module/ExtraUpgradeModules.h"
 #include "GameLogic/SnapshotXfer.h"
 

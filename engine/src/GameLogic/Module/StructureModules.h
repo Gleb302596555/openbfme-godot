@@ -67,6 +67,7 @@
 
 // Local 169: RW 0x656A0A (SymbioticStructuresBodyModuleData ctor), RW 0x656DD5 (SymbioticStructuresBodyModuleData deleting dtor), RW 0x656DF1 (~SymbioticStructuresBodyModuleData)
 // Local 169: RW 0x8C5713 (~SymbioticStructuresBodyModuleData_8C5713)
+// Local 171: RW 0x656A4D (SymbioticStructuresBody newData), RW 0x656957 (~RubbleRiseUpdateModuleData), RW 0x656891 (~StructureCollapseUpdateModuleData)
 #pragma once
 
 #include "Common/INI.h"
@@ -285,6 +286,7 @@ private:
 };
 
 // ---- RespawnBody / DelayedDeathBody -------------------------------------------------------------------------------------------------------------
+// RW 0x008C5689 (RespawnBodyModuleData::RespawnBodyModuleData)
 class RespawnBodyModuleData : public ActiveBodyModuleData
 {
 public:
@@ -312,6 +314,7 @@ private:
 	const RespawnBodyModuleData *m_respawn;
 };
 
+// RW 0x00651385 (DelayedDeathBody::friend_newModuleInstance), RW 0x006513C0 (friend_newModuleData), RW 0x008C59B4 (ctor)
 class DelayedDeathBodyModuleData : public RespawnBodyModuleData
 {
 public:

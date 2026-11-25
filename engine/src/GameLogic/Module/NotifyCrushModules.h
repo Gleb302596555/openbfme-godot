@@ -18,7 +18,7 @@
 //     overlap with the other's (RW 0xC112C8 -> RW 0xAD2CE0) and "alive" (RW 0xC10E20: Object + 0x458 bit 0 clear). Any hit: the object requests
 //     CHEER_FOR_ABOUT_TO_CRUSH (11, no source, delay 1: RW 0x68F37F); every hit requests BRACE_FOR_BEING_CRUSHED (10) from the object (RW 0x69035C).
 //   * NotifyTargetsOfImminentProbableCrushingUpdate::update RW 0x8D3225: the mux on the object, the sleep it drew.
-//   * HordeNotifyTargetsOfImminentProbableCrushingUpdate::update RW 0x8D3167: without a horde contain interface sleep 0x3FFFFFFF; else the members (contain slot 0x10C,
+//   * HordeNotifyTargetsOfImminentProbableCrushingUpdate::getModuleName RW 0x653B94, getModuleNameKey RW 0x653B4F, update RW 0x8D3167: without a horde contain interface sleep 0x3FFFFFFF; else the members (contain slot 0x10C,
 //     RW 0x8704DA: m_containList followed by live H+0x170 members in ascending ObjectID order) sorted nearest to the horde first (std::list::sort, stable, RW 0x8D2F92
 //     with SSE comparator RW 0x8D2EC6), the mux on each until one builds its box; the sleep is the last draw (TimeBetweenUpdates when there is no member).
 //   * RW 0xAD2CE0 (the shape overlap): every active shape pair (the shape's world position RW 0xAD22F0: position + the offset turned by the angle, z + offset z) whose
@@ -41,6 +41,7 @@
 class ModuleFactory;
 class StateHasher;
 
+// RW 0x008D2ADB (NotifyCrushModuleData::ctor)
 class NotifyCrushModuleData : public ModuleData
 {
 public:

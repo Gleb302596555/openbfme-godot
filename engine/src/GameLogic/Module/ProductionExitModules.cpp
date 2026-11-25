@@ -30,6 +30,7 @@
 
 namespace
 {
+// Local 173: RW 0x88B1E6 (~DefaultProductionExitUpdate), RW 0x88B206 (getModuleName), RW 0x88B217 (getModuleNameKey), RW 0x8A71AE (~SpawnPointProductionExitUpdate)
 #define DP_OFF(member) (int)offsetof(DefaultProductionExitUpdateModuleData, member)
 // RW 0xC086A8
 const FieldParse kDefaultExitFieldParse[] = {

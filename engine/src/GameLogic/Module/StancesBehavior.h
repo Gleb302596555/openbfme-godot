@@ -33,6 +33,7 @@
 // identified without the Ghidra server, so a HoldGround unit keeps its stance while it moves; the group manager branch of MSG_CHANGE_STANCE (S-223: the port takes
 // AIGroup::setStance); the scripted stance (RW 0x94D4EB) and the map object's stance (RW 0x695B93).
 // The horde's melee behaviour runtime (RW deletes and rebuilds the behaviour object, RW 0x86C40D) is rebuilt in HordeAIUpdate::resetMeleeRuntime (Sol review).
+// Local 171: RW 0x64B065 (StancesBehavior newInstance), RW 0x64B09D (StancesBehavior newData)
 
 #pragma once
 

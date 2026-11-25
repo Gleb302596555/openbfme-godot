@@ -6,6 +6,7 @@
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 
+// Local 174: RW 0x8C065E (CrateCollide::getModuleName); RW 0x8C0645 (CrateCollide ??1Rva004BCB0D@@UAE@XZ); RW 0x8C12F2 (SalvageCrateCollide ??1Rva004BCB0D@@UAE@XZ)
 #include "GameLogic/Module/MoneyEventModules.h"
 #include "GameLogic/SnapshotXfer.h"
 
@@ -206,6 +207,7 @@ bool DieMuxData::isDieApplicable(const Object &obj, const DieModuleInterface::Ev
 }
 
 // ---- RefundDie -----------------------------------------------------------------------------------------------------------------------
+// Local 173: RW 0x8884D3 (~RefundDie)
 RefundDie::RefundDie(Thing *thing, const RefundDieModuleData *data)
 	: BehaviorModule(thing, data)
 	, m_data(data)
@@ -257,6 +259,7 @@ void RefundDie::onDie(const DieModuleInterface::Event &event)
 }
 
 // ---- PillageModule -------------------------------------------------------------------------------------------------------------------
+// Local 173: RW 0x888199 (~PillageModule)
 PillageModule::PillageModule(Thing *thing, const PillageModuleData *data)
 	: BehaviorModule(thing, data)
 	, m_data(data)

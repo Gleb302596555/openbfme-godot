@@ -13,7 +13,7 @@
 //     shift count is the x86's, modulo 32); false unless the object's status has every RequiredStatus bit and none of ExemptStatus; with DamageAmountRequired >= 0 false when
 //     it is larger than the damage amount; when MaxKillerAngle > MinKillerAngle the killer
 //     (the source) must exist and its bearing must fall inside the window (RW 0x8D2A0F .. 0x8D2AAC; lane SIEGEFALL-1, see the definition).
-//   * RefundDie (module size 0x1C, data 0x44): table RW 0xC06998: UpgradeRequired (+0x38, none), RefundPercent (+0x3C, parsePercentToReal, 0.0), BuildingRequired (+0x40,
+//   * RefundDie (module size 0x1C, data 0x44, friend_newModuleData RW 0x6536A3): table RW 0xC06998: UpgradeRequired (+0x38, none), RefundPercent (+0x3C, parsePercentToReal, 0.0), BuildingRequired (+0x40,
 //     ObjectFilter, unset). onDie (RW 0x888519): the die mux test; the object is neither under construction (status 2) nor sold (status 19); its owner exists, has completed
 //     UpgradeRequired (when set) and owns an object satisfying BuildingRequired (when valid, completedOnly = false); refund = ceil(object + 0x33C * RefundPercent) (x87 at
 //     24 bits, the MSVCR71 ceil, stored as float, fistp); a non-zero refund is deposited to the owner (keeper, sound) and shown as floating text.
@@ -21,6 +21,7 @@
 //     The damage-dealt handler (RW 0x88826E, argument the victim): when the victim satisfies PillageFilter (asked with no second player) the counter (module + 0x18) grows; when it
 //     reaches NumDamageEventsPerPillage it is cleared and min(PillageAmount, the victim owner's cash) is withdrawn from the victim's owner (keeper) and deposited to this
 //     object's owner (keeper); a withdrawal of 0 stops there.
+// Local 171: RW 0x64C492 (PillageModule newInstance), RW 0x654DB6 (~RefundDieModuleData)
 
 #pragma once
 
@@ -73,6 +74,7 @@ private:
 	const RefundDieModuleData *m_data;
 };
 
+// RW 0x006535ED (PillageModuleData::friend_newModuleData), RW 0x00653593 (PillageModuleData::ctor)
 class PillageModuleData : public ModuleData
 {
 public:

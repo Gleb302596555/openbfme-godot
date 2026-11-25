@@ -33,6 +33,7 @@
 #include <string>
 #include <vector>
 
+// RW 0x005D87B4 (~ArmorTemplate)
 class ArmorTemplate
 {
 public:

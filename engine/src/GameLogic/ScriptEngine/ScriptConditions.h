@@ -35,6 +35,8 @@ struct Coord3D;
 struct ScriptCondition;
 struct TriggerArea;
 
+// RW 0x7E60F0 (ScriptConditions ctor), RW 0x7E6102 (~ScriptConditions), RW 0x7E47BB (~ScriptConditionsInterface),
+// RW 0x7E4816 (table 0xC4BE74 helper dtor)
 class ScriptConditions
 {
 public:

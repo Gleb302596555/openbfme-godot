@@ -150,6 +150,7 @@ void Construction::onStructureCreated(Player &player, Object *builder, Object &s
 	for (const std::unique_ptr<BehaviorModule> &m : builder->modules())
 	{
 		// RW 0x68C3C3: the first module answering slot 0x98 (a plot's FoundationAIUpdate; a castle's CastleBehavior is one, vtable RW 0xC30DE8)
+		// Local 173: RW 0x8580CE (~FoundationAIUpdate)
 		foundationInterface = foundationInterface || m->getFoundationAIUpdate() != nullptr;
 	}
 	if (foundation && foundationInterface)

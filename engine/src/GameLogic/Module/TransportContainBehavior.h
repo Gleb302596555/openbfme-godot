@@ -59,6 +59,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x87B002 (HordeTransportContainModuleData ctor 0xC5C5E0)
 class HordeTransportContainBehaviorData : public TransportContainBehaviorData
 {
 };
@@ -72,6 +73,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x880C98 (HordeSiegeEngineContainModuleData ctor 0xC5DC18), RW 0x87FC8D (~HordeSiegeEngineContainModuleData), RW 0x880242 (~HordeSiegeEngineContain)
 class HordeSiegeEngineContainBehaviorData : public ModuleData
 {
 public:

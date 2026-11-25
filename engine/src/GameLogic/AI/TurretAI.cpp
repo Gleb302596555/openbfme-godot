@@ -157,6 +157,7 @@ public:
 		ai().resetNextMoodCheckTime();
 		const unsigned n = now();
 		const TurretAIData &d = turret().data();
+		// RW 0x8DC6B0 (TurretAIIdleState next idle scan time)
 		m_nextIdleScan = n + (unsigned)owner().logic().random().getValue((int)d.m_minIdleScanInterval, (int)d.m_maxIdleScanInterval, kTurretAICpp, 0x524);
 		return frameToSleepTime(n, turret().nextIdleMoodTargetFrame(), m_nextIdleScan);
 	}
@@ -185,6 +186,7 @@ private:
 };
 
 // RW 0x8DC75E / 0x8DD079
+// RW 0x8DBED5 (TurretAIIdleScanState ctor)
 class TurretIdleScanState : public TurretStateBase
 {
 public:
@@ -228,6 +230,7 @@ private:
 };
 
 // RW 0x8DD1A6
+// RW 0x8DBF00 (TurretAIAimTurretState ctor)
 class TurretAimState : public TurretStateBase
 {
 public:
@@ -237,6 +240,7 @@ public:
 };
 
 // RW 0x8DD01F
+// RW 0x8DBF23 (TurretAIRecenterTurretState ctor)
 class TurretRecenterState : public TurretStateBase
 {
 public:
@@ -252,6 +256,7 @@ public:
 };
 
 // RW 0x8DC7E8 / 0x8DCC2F
+// RW 0x8DBF46 (TurretAIHoldTurretState ctor)
 class TurretHoldState : public TurretStateBase
 {
 public:
@@ -512,6 +517,7 @@ Object &TurretAI::owner() const
 	return *m_ai->getObject();
 }
 
+// RW 0x8DC872 (TurretStateMachine::setState: updates m_sleepUntil when state ID changes)
 void TurretAI::setState(unsigned id)
 {
 	const unsigned old = m_machine->currentStateId();

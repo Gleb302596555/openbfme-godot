@@ -23,6 +23,7 @@
 //
 // DONOR BFME2 1.06 (workspace/reference/open-bfme-2, GameLogic/Object/Update/DynamicShroudClearingRangeUpdate*.cpp):
 // the same class, ctor 0x0048B067, update 0x0048B33F, xfer 0x0048B505, ModuleData ctor 0x0048B5C6. The behaviour matches RW.
+// Local 171: RW 0x64CAE2 (DynamicShroudClearingRangeUpdate newInstance), RW 0x64CB1D (DynamicShroudClearingRangeUpdate newData)
 
 #pragma once
 
@@ -34,6 +35,7 @@
 class ModuleFactory;
 class MultiIniFieldParse;
 
+// Local 173: RW 0x88EC37 (DynamicShroudClearingRangeUpdateModuleData ctor)
 class DynamicShroudClearingRangeUpdateModuleData : public ModuleData
 {
 public:

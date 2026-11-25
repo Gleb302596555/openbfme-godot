@@ -2,6 +2,7 @@
 // See GameClient/BeaconClientUpdate.h (lane CHAT-1).
 
 // Local 169: RW 0x8CDA9D (RadarPulseFrequency)
+// Local 174: RW 0x8CDAAE (BeaconClientUpdate::createParticleSystem (BeaconSmoke))
 #include "GameClient/BeaconClientUpdate.h"
 
 #include "Common/INI.h"

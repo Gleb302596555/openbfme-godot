@@ -35,6 +35,8 @@
 //     HideSubObjectsOnRemove the shown names hide again (and the texture swap), with UnHideSubObjectsOnRemove the hidden names show; the custom anim clears.
 //     PORT-47: RW 0x4B873C..0x4B874F uses only the first exclusion name; RW 0x4B872C recolours with the controlling player day colour.
 //     NOT PORTED (stop S-484, reported per object): the fade (the times of RW 0x8B8F40).
+// Local 171: RW 0x655446 (CommandSetUpgrade newData), RW 0x655400 (CommandSetUpgradeModuleData ctor), RW 0x655FE9 (~CommandSetUpgradeModuleData), RW 0x6505C4 (RemoveUpgradeUpgrade newData)
+// Local 171: RW 0x655707 (~CommandPointsUpgradeModuleData), RW 0x656038 (~DoCommandUpgradeModuleData), RW 0x6508DB (GrantUpgradeCreate newData), RW 0x6502E0 (ModelConditionUpgrade newData)
 
 #pragma once
 
@@ -72,6 +74,7 @@ private:
 	const StatusBitsUpgradeModuleData *m_data;
 };
 
+// RW 0x7750F1 (ModelConditionUpgradeModuleData::ModelConditionUpgradeModuleData, vtable 0xC6EAC8)
 class ModelConditionUpgradeModuleData : public UpgradeModuleData
 {
 public:
@@ -219,7 +222,7 @@ public:
 	std::vector<std::string> m_hideSubObjects;
 	std::vector<std::string> m_excludeSubobjects;
 	std::vector<TextureSwap> m_upgradeTexture;
-	float m_fadeTimeInSeconds = 0.0f;
+	float m_fadeTimeInSeconds = 0.5f; // RW 0x65747E (0x6574CC movss xmm0, [0xbd869c] = 0.5f)
 	float m_waitBeforeFadeInSeconds = 0.0f;
 	bool m_recolorHouse = false;
 	bool m_skipFadeOnCreate = false;

@@ -312,6 +312,11 @@ public:
 	// gates RW 0x7A491C (RW 0x7A49F1 .. 0x7A4A22) and RW 0x7A40B5 read them
 	bool teamIsAIRecruitable() const { return m_dict.getBool("teamIsAIRecruitable"); }
 	int teamProductionPriority() const { return m_dict.getInt("teamProductionPriority"); }
+	// RW 0x79FCD4 / 0x79FCE1 / 0x79FCEE / 0x79FCFB (TEAM_INCREASE/DECREASE_PRIORITY[_BY_VALUE] RW 0x7C0587 / 0x7C06BA / 0x7C061F / 0x7C0752)
+	void increasePriority() { m_dict.setInt("teamProductionPriority", teamProductionPriority() + m_dict.getInt("teamProductionPrioritySuccessIncrease")); }
+	void decreasePriority() { m_dict.setInt("teamProductionPriority", teamProductionPriority() - m_dict.getInt("teamProductionPriorityFailureDecrease")); }
+	void increasePriorityByValue(int delta) { m_dict.setInt("teamProductionPriority", teamProductionPriority() + delta); }
+	void decreasePriorityByValue(int delta) { m_dict.setInt("teamProductionPriority", teamProductionPriority() - delta); }
 
 private:
 	friend class TeamFactory;

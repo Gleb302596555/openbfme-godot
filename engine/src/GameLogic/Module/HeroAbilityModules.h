@@ -93,6 +93,9 @@
 //     refreshTimer (RW 0x6519C2 -> 0x896F99), the other classes' are no-ops. Elrond's Restoration.
 // INFERENCE (stop S-1222, stopLines): the module tags are kept as strings and resolved with NameKeyGenerator::findKey when used (retail makes the keys while
 // parsing: an unknown tag finds no module either way); RW 0x7A7483's team-name lookup of the defection end runs (lane BACKLOG4, Object::restoreOriginalTeam).
+// Local 171: RW 0x64ACD2 (AutoAbilityBehavior newData), RW 0x64D2DA (ArrowStormUpdate newData), RW 0x64D8D9 (TeleportSpecialAbilityUpdate newData), RW 0x64BCCE (ShareExperienceBehavior newData)
+// Local 171: RW 0x656AC2 (ActivateModuleSpecialPower newData), RW 0x64D965 (SpecialPowerTimerRefreshSpecialPower newData), RW 0x652150 (FellBeastSwoopPower newInstance), RW 0x652FA5 (ActivateModuleSpecialPower newInstance)
+// Local 171: RW 0x64F278 (RousingSpeechUpdate newData), RW 0x652C13 (TemporarilyDefectUpdate newInstance), RW 0x64D9FA (WeaponModeSpecialPowerUpdate newData)
 
 #pragma once
 
@@ -185,6 +188,7 @@ private:
 //     primary, the dead object's position); the dead object is then destroyed (RW 0x62BBAB) whether or not anything was made; another death within
 //     PostFilterTriggeredDuration of the last duration-type hit: the recorded player (ThePlayerList RW 0x6A844E), not defeated (RW 0x6AAC4B), with a spell book
 //     object (RW 0x6AD0F8) creates the list with that object as primary and the object is destroyed; after the duration the player is forgotten (-1).
+// RW 0x0064C6BC (DamageFilteredCreateObjectDieModuleData::friend_newModuleData)
 class DamageFilteredCreateObjectDieModuleData : public ModuleData
 {
 public:
@@ -248,6 +252,7 @@ private:
 //     (status 74), the AI's + 0x34 zero (RW 0x85D69B: m_temporaryKeptMachine == nullptr);
 //   * the command (RW 0x696FD2 / 0x697890 / 0x6979D9 for the SPECIAL_POWER (24) and SPELL_BOOK (38) buttons): Object::doSpecialPower* of the button's power with
 //     the button's options | 0x40000 (| AUTO_ABILITY_TRIGGERED 0x20000000 from this module); FIRE_WEAPON (RW 0x75CC3E) and all other command types dispatch through Object::doCommandButton*.
+// Local 173: RW 0x85D585 (~AutoAbilityBehaviorModuleData)
 class AutoAbilityBehaviorModuleData : public ModuleData
 {
 public:
@@ -354,6 +359,7 @@ private:
 //   RW 0x008E38D8       a thunk chain RW 0x8B88B0 -> RW 0x4D0EAF -> the empty stub RW 0x63F3BF (slot + 0x04 of RW 0xC65188: nothing);
 //   RW 0x009E7051       the getter of + 0x38 ("active"): mov al, [ecx+0x18] on the + 0x20 subobject -- the port's isActive() / active();
 //   RW 0x00898357       the xfer override: version (1, 1) RW 0x404F15, the base RW 0x9912DB, then Xfer slot 0x90 on + 0x38 -- the port's xfer().
+// RW 0x898519 (~WeaponModeSpecialPowerUpdateModuleData)
 class WeaponModeSpecialPowerUpdateModuleData : public ModuleData
 {
 public:
@@ -371,6 +377,7 @@ public:
 // lane FACT-C: the special power update interface at + 0x20 (vtable RW 0xC65158; the behaviour interface's slot 0x64, RW 0x8A18E0, hands it out) is what
 // SpecialPowerModule's initiate (RW 0x897F25 .. 0x897F77) finds when another module of the object holds the same template: slot 0x1C (RW 0x89827C) answers
 // "the data's template is t", slot 0 (RW 0x89841E) is the initiate. A goblin warrior's SpecialPowerModule (listed before it) thus turns its Poisoned Blades on
+// RW 0x009914DA (getPowerName 0xC650F0[5]), RW 0x009912A1 (0xC650F0[13])
 class WeaponModeSpecialPowerUpdate : public UpdateModule, public SpecialPowerModuleInterface, public SpecialPowerUpdateInterface
 {
 public:
@@ -506,6 +513,7 @@ public:
 // RW 0x008D0DE6 (ctor), RW 0x008E38D8 (loadPostProcess -> no-op RW 0x0063F3BF)
 // Local 87: RW 0x008D0F50 (scalar deleting destructor).
 // RW 0x008D0E1D (dtor -> RW 0x00854D9A)
+// RW 0x00652FE0 (DominateEnemySpecialPower::friend_newModuleInstance)
 class DominateEnemySpecialPower : public SpecialAbilityUpdate
 {
 public:
@@ -694,6 +702,7 @@ private:
 	unsigned m_inspired = 0;
 };
 
+// Local 173: RW 0x8966A8 (~TeleportSpecialAbilityUpdateModuleData)
 class TeleportSpecialAbilityUpdateModuleData : public SpecialAbilityUpdateModuleData
 {
 public:

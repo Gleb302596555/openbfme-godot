@@ -1,13 +1,14 @@
 // OpenBFME. GPL-3.0.
 // Per-object part of AiOrdersManager's order queue. Both editions.
-// RotWK: RW 0x94EBD1 (clear), 0x94ED4C (insert), 0x94EE0F (commit),
-// 0x94EF1A (process); addresses from the inspected RotWK image, caveat S-001.
+// RotWK: RW 0x94EBA8 (ctor), RW 0x94EBD1 (clear), RW 0x94ECF2 (xfer), RW 0x94ED4C (insert),
+// RW 0x94EE0F (commit), RW 0x94EF1A (process); addresses from the inspected RotWK image, caveat S-001.
 // BFME2 1.06: ObjectOrderQueue rows Rva 0x5482E9, 0x548464, 0x548527,
 // 0x548632 in the byte-matched Open-BFME-2 Rva0054840AXfer.cpp.
 // The group-order owner supplies activation, completion and lifetime. This
 // component is not yet connected to live commands or native saves (S-281).
 #pragma once
 
+// Local 174: RW 0x94EA54 (ObjectOrderQueue ?checkForPatrol@ObjectOrderQueue@@QAEPBVArmorTemplate@@PAXPBVRva00548800@@@Z); RW 0x94EACA (ObjectOrderQueue::setPatrolStart)
 #include <algorithm>
 #include <cstdint>
 #include <list>

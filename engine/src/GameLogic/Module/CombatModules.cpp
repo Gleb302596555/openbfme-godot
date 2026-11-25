@@ -5,6 +5,7 @@
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 
+// Local 174: RW 0x8D296A (DieMuxData::getFieldParse); RW 0x8D46D0 (DieMuxData::getFieldParse); RW 0x8E9497 (DieMuxData::getFieldParse); RW 0x8ED4A4 (DieMuxData::getFieldParse)
 #include "GameLogic/Combat/ObjectWeapons.h"
 #include "GameLogic/SnapshotXfer.h"
 #include "GameLogic/Module/CombatModules.h"
@@ -281,7 +282,7 @@ void CombatModules::registerAll(ModuleFactory &modules)
 	modules.bindTypedData<ActiveBodyModuleData>("HighlanderBody", MODULETYPE_BEHAVIOR);
 	bindRuntime<HighlanderBody, ActiveBodyModuleData>(modules, "HighlanderBody");
 	// PorcupineFormationBodyModule: getModuleName RW 0x008C61C4, getModuleNameKey RW 0x008C61E3 (DONOR BFME2 0x004C2010 / 0x004C2034)
-	// RW 0x8C617F (PorcupineFormationBodyModule::buildFieldParse)
+	// RW 0x8C617F (PorcupineFormationBodyModule::buildFieldParse), RW 0x8C619A (PorcupineFormationBodyModule ctor 0xC72FC8)
 	modules.bindTypedData<PorcupineFormationBodyModuleData>("PorcupineFormationBodyModule", MODULETYPE_BEHAVIOR);
 	bindRuntime<PorcupineFormationBody, PorcupineFormationBodyModuleData>(modules, "PorcupineFormationBodyModule");
 	modules.bindTypedData<DestroyDieModuleData>("DestroyDie", MODULETYPE_BEHAVIOR);
@@ -320,6 +321,7 @@ void DestroyDie::onDie(const DieModuleInterface::Event &event)
 //   6. RW 0x88A00A .. 0x88A011: the radar record (Object + 0x268) already set ends here (the object is on the radar already);
 //   7. RW 0x88A013 .. 0x88A01A: TheRadar (RW 0xDE4AB8) addObject (RW 0x6D9042): the remains stay a blip.
 //     The graphics of RW 0x88A006 .. 0x88A0EB beyond the add are W3DView / drawable work (the client's).
+// Local 173: RW 0x88A024 (KeepObjectDie::KeepObjectDie), RW 0x889DE9 (KeepObjectDie scalar deleting dtor), RW 0x8897BF (~DestroyDie), RW 0x88988E (~FXListDie)
 void KeepObjectDie::onDie(const DieModuleInterface::Event &event)
 {
 	Object *obj = getObject();

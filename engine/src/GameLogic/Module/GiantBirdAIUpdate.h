@@ -52,6 +52,7 @@
 // AIOrdersManager RW 0x756DC6 or idles on game-mode/player flags).
 //
 // Determinism: SimMath / NumericState for every float, no unordered containers, the logic RNG only.
+// Local 171: RW 0x64D003 (GiantBirdAIUpdate newData)
 
 #pragma once
 

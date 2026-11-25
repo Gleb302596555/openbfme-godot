@@ -62,6 +62,8 @@
 #include "GameLogic/AI/AIWorld.h"
 #include "Common/Thing/ThingFactory.h"
 #include "Common/Thing/ThingTemplate.h"
+#include "GameLogic/Object/Contain/HordeContainRuntime.h"
+#include <variant>
 #include "GameLogic/AI/AICommandSink.h"
 #include "GameLogic/AI/AIGroupFormations.h"
 #include "GameLogic/AI/AIGuard.h"
@@ -2047,6 +2049,169 @@ bool ScriptActions::executeUnitAction(ScriptEngine &engine, const ScriptActionRe
 				? (std::int32_t)std::ceil(SimMath::mulf32(param(a, 1).realValue, (float)LOGICFRAMES_PER_SECOND))
 				: param(a, 1).intValue;
 			engine.setSequentialTimer(INVALID_ID, t->getID(), frames);
+		}
+		return true;
+	}
+	if (name == "TEAM_INCREASE_PRIORITY")
+	{
+		// Local 180: RW 0x7CAFA5 case 238 -> RW 0x7C0587: findTeamByName(p0, false) (RW 0x759FDA) -> TeamPrototype::increasePriority() (RW 0x79FCD4)
+		if (Team *t = ScriptConditions::team(engine, param(a, 0).stringValue))
+		{
+			if (TeamPrototype *proto = t->getPrototype())
+			{
+				proto->increasePriority();
+			}
+		}
+		return true;
+	}
+	if (name == "TEAM_INCREASE_PRIORITY_BY_VALUE")
+	{
+		// Local 180: RW 0x7CAFA5 case 562 -> RW 0x7C061F: findTeamByName(p0, false) -> TeamPrototype::increasePriorityByValue(p1) (RW 0x79FCEE)
+		if (Team *t = ScriptConditions::team(engine, param(a, 0).stringValue))
+		{
+			if (TeamPrototype *proto = t->getPrototype())
+			{
+				proto->increasePriorityByValue(param(a, 1).intValue);
+			}
+		}
+		return true;
+	}
+	if (name == "TEAM_DECREASE_PRIORITY")
+	{
+		// Local 180: RW 0x7CAFA5 case 239 -> RW 0x7C06BA: findTeamByName(p0, false) -> TeamPrototype::decreasePriority() (RW 0x79FCE1)
+		if (Team *t = ScriptConditions::team(engine, param(a, 0).stringValue))
+		{
+			if (TeamPrototype *proto = t->getPrototype())
+			{
+				proto->decreasePriority();
+			}
+		}
+		return true;
+	}
+	if (name == "TEAM_DECREASE_PRIORITY_BY_VALUE")
+	{
+		// Local 180: RW 0x7CAFA5 case 563 -> RW 0x7C0752: findTeamByName(p0, false) -> TeamPrototype::decreasePriorityByValue(p1) (RW 0x79FCFB)
+		if (Team *t = ScriptConditions::team(engine, param(a, 0).stringValue))
+		{
+			if (TeamPrototype *proto = t->getPrototype())
+			{
+				proto->decreasePriorityByValue(param(a, 1).intValue);
+			}
+		}
+		return true;
+	}
+	if (name == "SET_COMMAND_POINTS_TO_BUILD_TEAM_TO_COUNTER")
+	{
+		// Local 180: RW 0x7CAFA5 case 410 -> RW 0x7C387F: findTeamByName(p0, false) (RW 0x759FDA); sum template->CommandPoints (+0x628) over members -> counter p1 (RW 0x60817A)
+		if (Team *t = ScriptConditions::team(engine, param(a, 0).stringValue))
+		{
+			std::int32_t totalCp = 0;
+			for (Object *o : ScriptConditions::members(*t))
+			{
+				if (o && o->getTemplate())
+				{
+					totalCp += BuildAssistant::commandPoints(*o->getTemplate());
+				}
+			}
+			engine.counter(param(a, 1).stringValue).value = totalCp;
+		}
+		return true;
+	}
+	if (name == "PLAYER_SET_SPECIAL_POWER_COUNTDOWN")
+	{
+		// Local 180: RW 0x7CAFA5 case 578 -> RW 0x7C49BC: player by name (RW 0x6A8466) -> spellBook object (RW 0x6AD0F8, Player +0x710) ->
+		// SpecialPowerTemplate (RW 0x69C146) -> findSpecialPowerModule (RW 0x68C26D) -> setReadyFrame(now + seconds * LOGICFRAMES_PER_SECOND) (vslot 0x20)
+		Player *p = logic.players().findPlayerWithName(param(a, 0).stringValue);
+		const SpecialPowerTemplate *sp = TheSpecialPowerStore ? TheSpecialPowerStore->findSpecialPowerTemplate(param(a, 1).stringValue) : nullptr;
+		if (p && sp)
+		{
+			Object *spellBook = p->science().spellBookId() ? logic.findObjectByID((ObjectID)p->science().spellBookId()) : nullptr;
+			if (!spellBook)
+			{
+				for (Object *o = logic.getFirstObject(); o; o = o->getNextObject())
+				{
+					if (o && o->getControllingPlayer() == p && isKindOfName(*o, "SPELL_BOOK"))
+					{
+						spellBook = o;
+						break;
+					}
+				}
+			}
+			if (spellBook)
+			{
+				if (SpecialPowerModuleInterface *mod = SpecialPowerModules::findModule(*spellBook, sp))
+				{
+					const unsigned readyFrame = logic.getFrame() + (unsigned)(param(a, 2).intValue * LOGICFRAMES_PER_SECOND);
+					mod->setReadyFrame(readyFrame);
+				}
+			}
+		}
+		return true;
+	}
+	if (name == "ALLOW_DISALLOW_ALL_BUILDINGS")
+	{
+		// Local 180: RW 0x7CAFA5 case 388 -> RW 0x7C6B06: single player of mask (RW 0x758F7C + 0x6A85B6); always clears disabled templates (RW 0x6AC4CD);
+		// when allow == 0, disables every ThingTemplate with KINDOF_STRUCTURE (byte +0x108 bit 7) whose Side matches player->getSide() (RW 0x6ADA1B)
+		Player *p = ScriptConditions::playerOfMask(engine, param(a, 0).stringValue);
+		if (p)
+		{
+			p->clearDisabledTemplates();
+			if (param(a, 1).intValue == 0)
+			{
+				const ThingFactory *tf = &logic.things();
+				const int kStructure = ObjectTemplateInfoBuilder::kindOfIndex("STRUCTURE");
+				if (tf && kStructure >= 0)
+				{
+					for (const ThingTemplate *tt : tf->templates())
+					{
+						if (!tt)
+						{
+							continue;
+						}
+						const ThingTemplate *ov = tt->getFinalOverride();
+						if (!MaskTest(logic.templateInfo(ov).kindOf, (unsigned)kStructure))
+						{
+							continue;
+						}
+						const FieldValue *sv = ov->findField("Side");
+						const std::string *side = sv ? std::get_if<std::string>(sv) : nullptr;
+						if (side && *side == p->getSide())
+						{
+							p->setTemplateBuildable(tt->getTemplateID(), false);
+						}
+					}
+				}
+			}
+		}
+		return true;
+	}
+	if (name == "KILL_HORDE_MEMBERS")
+	{
+		// Local 180: RW 0x7CAFA5 case 436 -> RW 0x7C6FA1: getUnitNamed(p0) (RW 0x75A3D8) -> HordeContain (contain vslot 0x7C) ->
+		// count = (int)(percent * 0.01f * total) (RW 0xBE5600); if 0 < count <= total, kill first count members with body (+0x25C) via kill(DAMAGE_UNRESISTABLE, DEATH_NORMAL) (RW 0x698EC3)
+		Object *o = engine.getUnitNamed(param(a, 0).stringValue);
+		ContainModuleInterface *contain = o ? o->getContain() : nullptr;
+		if (contain && contain->getHordeContainInterface() && contain->getContainedItemsList())
+		{
+			std::vector<Object *> members(contain->getContainedItemsList()->begin(), contain->getContainedItemsList()->end());
+			const std::size_t total = members.size();
+			const int toKill = SimMath::truncToInt32(param(a, 1).realValue * 0.01f * (float)total);
+			if (toKill > 0 && (std::size_t)toKill <= total)
+			{
+				int remaining = toKill;
+				for (Object *m : members)
+				{
+					if (remaining <= 0)
+					{
+						break;
+					}
+					if (m && m->getBodyModule())
+					{
+						m->kill(DAMAGE_UNRESISTABLE, DEATH_NORMAL);
+						--remaining;
+					}
+				}
+			}
 		}
 		return true;
 	}

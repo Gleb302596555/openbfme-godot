@@ -27,7 +27,7 @@ struct ScriptTemplate
 	std::string name;        ///< the internal name ("" for a slot the binary never fills)
 	int modeMask = 1;        ///< Template + 0x00
 	bool retailCase = false; ///< the evaluator / executor switch has a case for this ordinal
-	std::vector<int> parameterTypes;
+	std::vector<int> parameterTypes; ///< RW 0x7B32C6 (Template::getParameterType)
 };
 
 namespace ScriptTemplates

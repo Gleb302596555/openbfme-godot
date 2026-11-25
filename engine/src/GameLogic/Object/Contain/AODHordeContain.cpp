@@ -177,6 +177,7 @@ int deadCollideSizeOf(const Object &obj)
 }
 } // namespace
 
+// RW 0x87E647 (AODHordeContain ctor 0xC5D3F0), RW 0x87E7CF (~AODHordeContain)
 AODHordeContain::AODHordeContain(Thing *thing, const HordeContainBehaviorData *data)
 	: HordeContain(thing, data)
 	, m_aodData(dynamic_cast<const AODHordeContainBehaviorData *>(data))

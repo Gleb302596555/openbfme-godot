@@ -181,6 +181,7 @@ public:
 
 	static void registerClass(ModuleFactory &modules); // RW 0x8A18DA name, RW 0x8A192A name key; data dtors RW 0x8A1A9D / RW 0x8A3084
 
+	// Local 173: RW 0x8A0640 (ProductionUpdate::getProductionUpdateInterfaceFromObject), RW 0x8A0F26 (ProductionModifierEntry ctor), RW 0x8A089E (~ProductionModifierEntry)
 	ProductionUpdateInterface *getProductionUpdateInterface() override { return this; }
 	UpdateSleepTime update() override;                                                           // RW 0x8A1B9F
 	DisabledMaskType getDisabledTypesToProcess() const override { return m_data->m_disabledTypesToProcess; } // RW 0x8A196F

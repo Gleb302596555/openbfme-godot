@@ -600,12 +600,22 @@ include(cmake/Local160.cmake)   # LOCAL-160: script engine core (RW 0x007E6C7C, 
 include(cmake/Local152.cmake)   # LOCAL-152: Ennorath 1.9.8.4 War of the Ring online — >2 players, host-free land transfer, observer seat (fork issue 885; OPENBFME_LOCAL152_TESTS)
 include(cmake/Local159.cmake)   # LOCAL-159: ShroudManager in logic-only test rigs (fork issue 926; OPENBFME_LOCAL159_TESTS)
 include(cmake/Local166.cmake)   # LOCAL-166: War of the Ring logic binary-map audit and ports (fork issue 933; OPENBFME_LOCAL166_TESTS)
+include(cmake/Local175.cmake)   # LOCAL-175: War of the Ring logic binary-map audit part 1 and ports (fork issue 956; OPENBFME_LOCAL175_TESTS)
+include(cmake/Local176.cmake)   # LOCAL-176: War of the Ring logic binary-map audit and ports (fork issue 957; OPENBFME_LOCAL176_TESTS)
 include(cmake/Local170.cmake)   # LOCAL-170: binary map audit of 300 uncited RotWK object-module functions (fork issue 937; OPENBFME_LOCAL170_TESTS)
+include(cmake/Local171.cmake)   # LOCAL-171: binary map audit of 449 uncited RotWK objects/modules functions (fork issue 952; OPENBFME_LOCAL171_TESTS)
+include(cmake/Local172.cmake)   # LOCAL-172: binary map audit of 449 uncited RotWK object-module functions (fork issue 953; OPENBFME_LOCAL172_TESTS)
+include(cmake/Local173.cmake)   # LOCAL-173: objects/modules part 3 of 4 (fork issue 954; OPENBFME_LOCAL173_TESTS)
+include(cmake/Local174.cmake)   # LOCAL-174: binary map audit of 447 uncited RotWK object-module functions (fork issue 955; OPENBFME_LOCAL174_TESTS)
+include(cmake/Local181.cmake)   # LOCAL-181: hordes, locomotion and map / terrain logic binary-map audit (fork issue 962; OPENBFME_LOCAL181_TESTS)
+include(cmake/Local178.cmake)   # LOCAL-178: AI and pathfinding binary-map audit part 2 (fork issue 959; OPENBFME_LOCAL178_TESTS)
 include(cmake/Local177.cmake)   # LOCAL-177: AI and pathfinding binary map audit + handleEngagedFlag / getTurretRotAndPitch (fork issue 958; OPENBFME_LOCAL177_TESTS)
 include(cmake/Local165.cmake)   # LOCAL-165: AITactic::NotifyTeamCancelled (RW 0x8F2727) & SkirmishAI::UnRegister(Team*) (RW 0x6C77B2) (fork issue 932; OPENBFME_LOCAL165_TESTS)
 include(cmake/Local167.cmake)   # LOCAL-167: War of the Ring strategic UI — build plot help and radial right-click (fork issue 934; OPENBFME_LOCAL167_TESTS)
+include(cmake/Local179.cmake)   # LOCAL-179: script engine part 1 binary-map audit and LivingWorldTurnPhase mask (fork issue 960; OPENBFME_LOCAL179_TESTS)
 include(cmake/Local168.cmake)   # LOCAL-168: hordes and formations (fork issue 935; OPENBFME_LOCAL168_TESTS)
 include(cmake/Local152.cmake)
+include(cmake/Local182.cmake)   # LOCAL-182: combat/weapons/castles/structures binary-map defaults (fork issue 963; OPENBFME_LOCAL182_TESTS)
 include(cmake/Local169.cmake)   # LOCAL-169: object and combat core (fork issue 936; OPENBFME_LOCAL169_TESTS)   # LOCAL-152: Ennorath 1.9.8.4 War of the Ring online — >2 players, host-free land transfer, observer seat (fork issue 885; OPENBFME_LOCAL152_TESTS)
 include(cmake/Local130.cmake)   # LOCAL-130: 50 most shared helpers + RW 0x6760CA / 0x677898 construction ambient (fork issue 829; OPENBFME_LOCAL130_TESTS)
 include(cmake/Local133.cmake)   # LOCAL-133: W3DLaserDraw width/fanWidth and tile factor clamps (fork issue 849; OPENBFME_LOCAL133_TESTS)
@@ -1494,12 +1504,22 @@ add_executable(openbfme_tests
     ${OPENBFME_LOCAL160_TESTS}
     ${OPENBFME_LOCAL159_TESTS}
     ${OPENBFME_LOCAL166_TESTS}
+    ${OPENBFME_LOCAL175_TESTS}
+    ${OPENBFME_LOCAL176_TESTS}
     ${OPENBFME_LOCAL170_TESTS}
+    ${OPENBFME_LOCAL171_TESTS}
+    ${OPENBFME_LOCAL172_TESTS}
+    ${OPENBFME_LOCAL173_TESTS}
+    ${OPENBFME_LOCAL174_TESTS}
+    ${OPENBFME_LOCAL181_TESTS}
+    ${OPENBFME_LOCAL178_TESTS}
     ${OPENBFME_LOCAL177_TESTS}
     ${OPENBFME_LOCAL165_TESTS}
     ${OPENBFME_LOCAL167_TESTS}
+    ${OPENBFME_LOCAL179_TESTS}
     ${OPENBFME_LOCAL168_TESTS}
     ${OPENBFME_LOCAL169_TESTS}
+    ${OPENBFME_LOCAL182_TESTS}
         ${OPENBFME_LOCAL130_TESTS}
         ${OPENBFME_LOCAL133_TESTS}
         ${OPENBFME_LOCAL136_TESTS}
@@ -1775,6 +1795,7 @@ add_executable(openbfme_tests
     tests/test_local_108.cpp
     tests/test_local_125.cpp
     tests/test_local_162.cpp
+    tests/test_local_180.cpp
     tests/test_local_164.cpp
     tests/test_local_163.cpp
     # shared numeric facade (WEAPON-1 e75dd8c, imported unchanged: wide PC24 results, SSE binary32 ops, retail integer conversions)

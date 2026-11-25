@@ -3,6 +3,8 @@
 // FormationTemplate (425842), FormationSelectionCriteria (424185),
 // Rva004233F5Lookup, FormationBuild (424E77), FormationBuildRow (42481E),
 // FormationAssistant (422377).
+// RW 0x831BC8 (layout/get), RW 0x832B98 (lookup), RW 0x832E98 (build helper), RW 0x83320B (getValidObjectList),
+// RW 0x8338E0 (parseFormationSelectionCriteria), RW 0x834941 (FormationAssistantParseFormation), RW 0x834FBF (FormationTemplate parse).
 #include "GameClient/FormationAssistant.h"
 #include "Common/ArchiveFileSystem.h"
 #include "Common/AsciiString.h"

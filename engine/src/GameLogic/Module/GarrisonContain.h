@@ -28,6 +28,7 @@
 #include <cstddef>
 #include <string>
 
+// RW 0x006571FF (~GarrisonContainModuleData)
 struct GarrisonContainModuleData
 {
 	GarrisonContainModuleData(); // RW 0x87CCCB
@@ -76,6 +77,7 @@ public:
 	const OpenContainModuleData &open() const { return garrison.m_open; }
 };
 
+// RW 0x64DAA1 (HordeGarrisonContainModuleData::friend_newModuleData), RW 0x87D55F (HordeGarrisonContainModuleData ctor 0xC5CC70)
 class HordeGarrisonContainBehaviorData : public ModuleData
 {
 public:
@@ -98,6 +100,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// RW 0x64BDE9 (CitadelSlaughterHordeContainModuleData::friend_newModuleData), RW 0x884391 (ctor 0xC5F5F0), RW 0x884448 (~CitadelSlaughterHordeContainModuleData), RW 0x88354F (buildFieldParse table 0xC5F080)
 class CitadelSlaughterHordeContainBehaviorData : public SlaughterHordeContainBehaviorData
 {
 public:

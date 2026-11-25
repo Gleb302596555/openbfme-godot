@@ -68,7 +68,7 @@ void PathfindZoneManager::allocateBlocks(const PathfindRegion &globalBounds)
 	m_blocks.assign((size_t)m_zoneBlockExtent.x * (size_t)m_zoneBlockExtent.y, Block());
 }
 
-// RW 0x93930C (PathfindZoneManager::rva005329C8 block zone flood-fill)
+// RW 0x93930C (PathfindZoneManager::rva005329C8 block zone flood-fill); adjacency lookup (RW 0x938A6E) represented by m_adjacent / m_tables
 void PathfindZoneManager::calculateZones(const PathfindGridView &map, const PathfindRegion &globalBounds)
 {
 	m_zones.clear();

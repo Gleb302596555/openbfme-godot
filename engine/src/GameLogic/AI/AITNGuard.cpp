@@ -282,6 +282,7 @@ private:
 };
 
 // 5000 AITNGuardInnerState (RW 0x94CBFC onEnter, 0x94CC98 update, 0x94C481 onExit, 0x94C45F xfer)
+// RW 0x94C61F (AITNGuardInnerState ctor)
 class TNGuardInnerState : public AIState, private TNGuardAttackHolder
 {
 public:
@@ -435,6 +436,7 @@ public:
 };
 
 // 5005 AITNGuardAttackAggressorState (RW 0x94D02C onEnter, 0x94D11D update, 0x94C5C6 onExit)
+// RW 0x94C74F (AITNGuardAttackAggressorState ctor)
 class TNGuardAttackAggressorState : public AIState, private TNGuardAttackHolder
 {
 public:

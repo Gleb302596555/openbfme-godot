@@ -1,6 +1,11 @@
 // OpenBFME. GPL-3.0.
 // ShroudManager (lane VIS-1): the port of RotWK's shroud implementation object (RW 0xB4D8B0 .. 0xB53000). See ShroudManager.h for the target facts.
 
+// Local 174: RW 0xB4E580 (ShroudManager ?initializeArray@BfmeThingCDE@@QAEXH@Z); RW 0xB4F3E0 (ShroudManager ?bfmeGoCDE@BfmeThingCDE@@QAEXXZ); RW 0xB4D8C0 (ShroudManager ?rva00739720@Rva00739720@@QAEXH@Z); RW 0xB4DA80 (ShroudManager ctor/dtor)
+// Local 174: RW 0xB4DB10 (ShroudManager 0xD09DA0[0]); RW 0xB4D9F0 (ShroudManager ?bfmeCellX@Gen_008F7CD0@@QBEHM@Z); RW 0xB4E420 (ShroudManager ?bfmeAt@Gen_008F7CD0@@QBEPAVBfmeCellFD@@HH@Z); RW 0xB4E810 (ShroudManager ?bfmeUpdateVRC@BfmeShroudVRC@@QAEDHHH@Z)
+// Local 174: RW 0xB4E250 (ShroudManager ?bfmeUnlink@Gen_008F7AC0@@QAEXXZ); RW 0xB4DB20 (ShroudManager ??0Open2Store8F75D0@@QAE@XZ); RW 0xB4D9D0 (ShroudManager ?rva00739820@ShroudManager@@QAEXPBUCoord3D@@HHHPAU2@@Z); RW 0xB4D910 (ShroudManager ?rva00739760@Rva00739760@@QAEXPAVCDEProvider@@0@Z)
+// Local 174: RW 0xB4D930 (ShroudManager ?rva00739780@Rva00739780@@QAEXH@Z); RW 0xB4D970 (ShroudManager ?rva007397C0@Rva007397C0@@QAEXH@Z); RW 0xB4D980 (ShroudManager ?rva007397D0@Rva007397D0@@QAEXXZ); RW 0xB4DA20 (ShroudManager no class)
+// Local 174: RW 0xB4D8D0 (ShroudManager::rva00739720); RW 0xB4D920 (ShroudManager::unregisterObject thunk); RW 0xB4EAC0 (BfmeThingCDE::bfmeDtorCDE)
 #include "GameLogic/System/ShroudManager.h"
 
 #include "Common/Player.h"

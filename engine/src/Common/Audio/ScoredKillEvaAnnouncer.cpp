@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 // See Common/Audio/ScoredKillEvaAnnouncer.h.
 
+// Local 174: RW 0x9616C2 (ScoredKillTracker ??0ScoredKillTracker@@QAE@ABV0@@Z)
 #include "Common/Audio/ScoredKillEvaAnnouncer.h"
 
 #include "Common/Xfer.h"
@@ -11,6 +12,7 @@
 #include "Common/PlayerList.h"
 #include "GameLogic/SnapshotXfer.h"
 
+// Local 173: RW 0x8251FA (ScoredKillEvaAnnouncer::ScoredKillEvaAnnouncer), RW 0x82526C (~ScoredKillEvaAnnouncer)
 thread_local ScoredKillEvaAnnouncerController *TheScoredKillEvaAnnouncerController = nullptr;
 
 // RW 0x961353 (ScoredKillTracker::accepts; DONOR BFME2 ScoredKillTracker.cpp:143)

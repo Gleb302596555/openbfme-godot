@@ -106,6 +106,7 @@ ScriptEngine::ScriptEngine(GameLogic &logic)
 	resetBreeze(); // lane VISUAL-2: the reset's values before the first reset
 }
 
+// RW 0x609E77
 ScriptEngine::~ScriptEngine()
 {
 	if (m_createActionsTeams)
@@ -125,6 +126,7 @@ void ScriptEngine::reset()
 	m_loaded = false;
 	m_firstUpdate = true;
 	m_gameDifficulty = 1;                  // lane CAMP-1H: RW 0x609851 (+ 0x1A5C4 = 1)
+	m_livingWorldTurnPhase = -1;
 	m_objectsReceiveDifficultyBonus = true; // lane CAMP-1H: RW 0x609857 (+ 0x1A5D5 = 1)
 	m_sides.clear();
 	m_counters.clear();
@@ -539,7 +541,7 @@ const NamedCamera *ScriptEngine::findNamedCamera(const std::string &name) const
 
 // ---- object type lists ---------------------------------------------------------------------------------------------------------------------------
 
-// RW 0x759D77 (list name, type name, add): RW 0x759158 finds the list (a new ObjectTypes of that name is appended when there is none); RW 0x778F6C adds
+// RW 0x759D77 (list name, type name, add): RW 0x759158 finds the list (a new ObjectTypes of that name is appended when there is none: name RW 0x778E57, ctor RW 0x778E5D, operator= RW 0x778EB8, dtor RW 0x778EFB, xfer RW 0x778F8C); RW 0x778F6C adds
 // the type (ZH ObjectTypes::addObjectType: once), RW 0x778F3A removes it; an empty list is removed (RW 0x604067)
 void ScriptEngine::objectListAdd(const std::string &list, const std::string &type, bool add)
 {
@@ -858,6 +860,14 @@ bool ScriptEngine::shouldEvaluate(RScript &s) const
 	if (!allowed)
 	{
 		return false;
+	}
+	if (m_livingWorldTurnPhase >= 0)
+	{
+		// RW 0x6038E4..0x603901: LivingWorld turn-phase bitmask check (Script + 0x24)
+		if (m_livingWorldTurnPhase >= 32 || (s.def->turnPhaseMask & (1u << m_livingWorldTurnPhase)) == 0)
+		{
+			return false;
+		}
 	}
 	return s.frameToEvaluateAt <= m_logic.getFrame();
 }

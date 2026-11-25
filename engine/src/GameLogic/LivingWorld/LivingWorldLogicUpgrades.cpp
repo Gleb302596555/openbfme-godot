@@ -23,6 +23,7 @@
 // INFERENCE [S-1326]: the plot's byte + 0x34 UpgradeBuildings also tests (RW 0x7F3F58) is not read; the entry's rank is written only by the
 // application (no other writer was found, spec K U3).
 
+// Local 174: RW 0xBC9F9D (UpgradeTroops static initializer)
 #include "GameLogic/LivingWorld/LivingWorldLogic.h"
 
 #include "GameLogic/LivingWorld/StlportAlgorithm.h"
@@ -243,6 +244,7 @@ void LivingWorldLogic::applyUpgrade(ArmyMember &e) const
 	e.upgradeBuilding = 0;
 }
 
+// RotWK 2.01 LivingWorldPlayer::getArmiesInRegion RW 0x6E387C (called by MarkUnitsForUpgrades).
 void LivingWorldLogic::autoMarkUnitsForUpgrades()
 {
 	for (int r = 0; r < (int)m_regions.size(); ++r)

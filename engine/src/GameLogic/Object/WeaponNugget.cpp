@@ -2,6 +2,17 @@
 //
 // Weapon nuggets: data, field tables and the registry. See GameLogic/WeaponNugget.h for the target facts. Lane WEAPON-1.
 
+// Local 174: RW 0x90EFDB (WeaponNugget ??0Made002CC6AE@@QAE@XZ); RW 0x90F051 (WeaponNugget ??1Made002CC6AE@@UAE@XZ); RW 0x91193A (WeaponNugget ??0Made002CCB67@@QAE@XZ); RW 0x911973 (WeaponNugget ??1Made002CCB67@@UAE@XZ)
+// Local 174: RW 0x911B39 (WeaponNugget ??0Made002CCBCA@@QAE@XZ); RW 0x911B78 (WeaponNugget ??1Made002CCBCA@@UAE@XZ); RW 0x90F130 (WeaponNugget ??0Made002CC711@@QAE@XZ); RW 0x90F74F (WeaponNugget ??0Made002CC774@@QAE@XZ)
+// Local 174: RW 0x90FEF7 (WeaponNugget ??0Made002CC841@@QAE@XZ); RW 0x910D2F (WeaponNugget ??0Made002CC907@@QAE@XZ); RW 0x911143 (WeaponNugget ??0Made002CC9D4@@QAE@XZ); RW 0x911829 (WeaponNugget ??0Made002CCB04@@QAE@XZ)
+// Local 174: RW 0x911DC5 (WeaponNugget ??0Made002CCC2D@@QAE@XZ); RW 0x911FFC (WeaponNugget ??0Made002CCC90@@QAE@XZ); RW 0x912292 (WeaponNugget ??1Made002CCCF3@@UAE@XZ); RW 0x90F0D6 (WeaponNugget 0xC7B328[9])
+// Local 174: RW 0x90F7C9 (WeaponNugget 0xC7B410[9]); RW 0x912087 (WeaponNugget 0xC7BF68[5]); RW 0x90EA77 (WeaponNugget ?q4Notify002CC9D4@@YAXPAXPAVMade002CC9D4@@HH@Z); RW 0x90EAAC (WeaponNugget ?q4Notify002CC64B@@YAXPAXPAVMade002CC64B@@HH@Z)
+// Local 174: RW 0x90EEF9 (WeaponNugget ?q4Notify002CC6AE@@YAXPAXPAVMade002CC6AE@@HH@Z); RW 0x90F089 (WeaponNugget ?q4Notify002CC6AE@@YAXPAXPAVMade002CC6AE@@HH@Z); RW 0x90F5A6 (WeaponNugget ?q4Notify002CC774@@YAXPAXPAVMade002CC774@@HH@Z); RW 0x90F791 (WeaponNugget no class)
+// Local 174: RW 0x90F7DB (WeaponNugget ?q4Notify002CC7DE@@YAXPAXPAVMade002CC7DE@@HH@Z); RW 0x90FF79 (WeaponNugget ??1Rva00509D4C@@UAE@XZ); RW 0x910A45 (WeaponNugget ??1Rva0050A7AD@@UAE@XZ); RW 0x910A7D (WeaponNugget ?q4Notify002CC907@@YAXPAXPAVMade002CC907@@HH@Z)
+// Local 174: RW 0x910D82 (WeaponNugget ?q4Notify002CC971@@YAXPAXPAVMade002CC971@@HH@Z); RW 0x911051 (WeaponNugget ?q4Notify002CC9D4@@YAXPAXPAVMade002CC9D4@@HH@Z); RW 0x9113D2 (WeaponNugget ?q4Notify002CC9D4@@YAXPAXPAVMade002CC9D4@@HH@Z); RW 0x9114C9 (WeaponNugget ?q4Notify002CCAA1@@YAXPAXPAVMade002CCAA1@@HH@Z)
+// Local 174: RW 0x9116BA (WeaponNugget ?q4Notify002CCB04@@YAXPAXPAVMade002CCB04@@HH@Z); RW 0x91185A (WeaponNugget ?buildFieldParse@Rva0050B5CFBuildFieldParse@@SAXAAVMultiIniFieldParse@@@Z); RW 0x91187C (WeaponNugget ?q4Notify002CCB67@@YAXPAXPAVMade002CCB67@@HH@Z); RW 0x91197E (WeaponNugget ?q4Notify002CCB04@@YAXPAXPAVMade002CCB04@@HH@Z)
+// Local 174: RW 0x911B7D (WeaponNugget ?q4Notify002CCB04@@YAXPAXPAVMade002CCB04@@HH@Z); RW 0x911E39 (WeaponNugget no class); RW 0x911EA2 (WeaponNugget ?q4Notify002CCC90@@YAXPAXPAVMade002CCC90@@HH@Z); RW 0x91204F (WeaponNugget no class)
+// Local 174: RW 0x91209F (WeaponNugget ?q4Notify002CCCF3@@YAXPAXPAVMade002CCCF3@@HH@Z)
 #include "GameLogic/WeaponNugget.h"
 
 #include "Common/AsciiString.h"
@@ -388,24 +399,24 @@ const std::vector<WeaponNuggetInfo> &registry()
 			v.push_back(info);
 		};
 		add(NUGGET_DAMAGE, "DamageNugget", make<DamageNugget>, { base, damage }, 0x114, 0x6cd301);
-		add(NUGGET_DAMAGE_FIELD, "DamageFieldNugget", make<DamageFieldNugget>, { base, DamageFieldNugget::getFieldParse() }, 0x114, 0x6cd494);
-		add(NUGGET_WEAPON_OCL, "WeaponOCLNugget", make<WeaponOCLNugget>, { base, WeaponOCLNugget::getFieldParse() }, 0, 0x6cd4fe);
-		add(NUGGET_PROJECTILE, "ProjectileNugget", make<ProjectileNugget>, { base, ProjectileNugget::getFieldParse() }, 0, 0x6cd561);
-		add(NUGGET_META_IMPACT, "MetaImpactNugget", make<MetaImpactNugget>, { base, MetaImpactNugget::getFieldParse() }, 0, 0x6cd5c4);
-		add(NUGGET_HORDE_ATTACK, "HordeAttackNugget", make<HordeAttackNugget>, { base, HordeAttackNugget::getFieldParse() }, 0, 0x6cd8ea);
-		add(NUGGET_SPAWN_AND_FADE, "SpawnAndFadeNugget", make<SpawnAndFadeNugget>, { base, SpawnAndFadeNugget::getFieldParse() }, 0, 0x6cd94d);
-		add(NUGGET_GRAB, "GrabNugget", make<GrabNugget>, { base, GrabNugget::getFieldParse() }, 0x157, 0x6cd627);
-		add(NUGGET_ATTRIBUTE_MODIFIER, "AttributeModifierNugget", make<AttributeModifierNugget>, { base, AttributeModifierNugget::getFieldParse() }, 0, 0x6cd36b);
-		add(NUGGET_SPECIAL_MODEL_CONDITION, "SpecialModelConditionNugget", make<SpecialModelConditionNugget>, { base, SpecialModelConditionNugget::getFieldParse() }, 0, 0x6cd3ce);
-		add(NUGGET_PARALYZE, "ParalyzeNugget", make<ParalyzeNugget>, { base, ParalyzeNugget::getFieldParse() }, 0, 0x6cd431);
-		add(NUGGET_LUA_EVENT, "LuaEventNugget", make<LuaEventNugget>, { LuaEventNugget::getFieldParse() }, 0, 0x6cd9b0);
-		add(NUGGET_FIRE_LOGIC, "FireLogicNugget", make<FireLogicNugget>, { base, damage, FireLogicNugget::getFieldParse() }, 0, 0x6cda13);
-		add(NUGGET_SLAVE_ATTACK, "SlaveAttackNugget", make<SlaveAttackNugget>, { base, emptyTable() }, 0, 0x6cd691);
-		add(NUGGET_DAMAGE_CONTAINED, "DamageContainedNugget", make<DamageContainedNugget>, { base, DamageContainedNugget::getFieldParse() }, 0, 0x6cd6f4);
-		add(NUGGET_DOT, "DOTNugget", make<DOTNugget>, { base, damage, DOTNugget::getFieldParse() }, 0x114, 0x6cd757);
-		add(NUGGET_OPEN_GATE, "OpenGateNugget", make<OpenGateNugget>, { base, OpenGateNugget::getFieldParse() }, 0, 0x6cd7c1);
-		add(NUGGET_EMOTION_WEAPON, "EmotionWeaponNugget", make<EmotionWeaponNugget>, { base, EmotionWeaponNugget::getFieldParse() }, 0, 0x6cd824);
-		add(NUGGET_STEAL_MONEY, "StealMoneyNugget", make<StealMoneyNugget>, { base, StealMoneyNugget::getFieldParse() }, 0, 0x6cd887);
+		add(NUGGET_DAMAGE_FIELD, "DamageFieldNugget", make<DamageFieldNugget>, { base, DamageFieldNugget::getFieldParse() }, 0x114, 0x6cd494); // RW 0x006CD494
+		add(NUGGET_WEAPON_OCL, "WeaponOCLNugget", make<WeaponOCLNugget>, { base, WeaponOCLNugget::getFieldParse() }, 0, 0x6cd4fe); // RW 0x006CD4FE
+		add(NUGGET_PROJECTILE, "ProjectileNugget", make<ProjectileNugget>, { base, ProjectileNugget::getFieldParse() }, 0, 0x6cd561); // RW 0x006CD561
+		add(NUGGET_META_IMPACT, "MetaImpactNugget", make<MetaImpactNugget>, { base, MetaImpactNugget::getFieldParse() }, 0, 0x6cd5c4); // RW 0x006CD5C4
+		add(NUGGET_HORDE_ATTACK, "HordeAttackNugget", make<HordeAttackNugget>, { base, HordeAttackNugget::getFieldParse() }, 0, 0x6cd8ea); // RW 0x006CD8EA
+		add(NUGGET_SPAWN_AND_FADE, "SpawnAndFadeNugget", make<SpawnAndFadeNugget>, { base, SpawnAndFadeNugget::getFieldParse() }, 0, 0x6cd94d); // RW 0x006CD94D
+		add(NUGGET_GRAB, "GrabNugget", make<GrabNugget>, { base, GrabNugget::getFieldParse() }, 0x157, 0x6cd627); // RW 0x006CD627
+		add(NUGGET_ATTRIBUTE_MODIFIER, "AttributeModifierNugget", make<AttributeModifierNugget>, { base, AttributeModifierNugget::getFieldParse() }, 0, 0x6cd36b); // RW 0x006CD36B
+		add(NUGGET_SPECIAL_MODEL_CONDITION, "SpecialModelConditionNugget", make<SpecialModelConditionNugget>, { base, SpecialModelConditionNugget::getFieldParse() }, 0, 0x6cd3ce); // RW 0x006CD3CE
+		add(NUGGET_PARALYZE, "ParalyzeNugget", make<ParalyzeNugget>, { base, ParalyzeNugget::getFieldParse() }, 0, 0x6cd431); // RW 0x006CD431
+		add(NUGGET_LUA_EVENT, "LuaEventNugget", make<LuaEventNugget>, { LuaEventNugget::getFieldParse() }, 0, 0x6cd9b0); // RW 0x006CD9B0
+		add(NUGGET_FIRE_LOGIC, "FireLogicNugget", make<FireLogicNugget>, { base, damage, FireLogicNugget::getFieldParse() }, 0, 0x6cda13); // RW 0x006CDA13
+		add(NUGGET_SLAVE_ATTACK, "SlaveAttackNugget", make<SlaveAttackNugget>, { base, emptyTable() }, 0, 0x6cd691); // RW 0x006CD691
+		add(NUGGET_DAMAGE_CONTAINED, "DamageContainedNugget", make<DamageContainedNugget>, { base, DamageContainedNugget::getFieldParse() }, 0, 0x6cd6f4); // RW 0x006CD6F4
+		add(NUGGET_DOT, "DOTNugget", make<DOTNugget>, { base, damage, DOTNugget::getFieldParse() }, 0x114, 0x6cd757); // RW 0x006CD757
+		add(NUGGET_OPEN_GATE, "OpenGateNugget", make<OpenGateNugget>, { base, OpenGateNugget::getFieldParse() }, 0, 0x6cd7c1); // RW 0x006CD7C1
+		add(NUGGET_EMOTION_WEAPON, "EmotionWeaponNugget", make<EmotionWeaponNugget>, { base, EmotionWeaponNugget::getFieldParse() }, 0, 0x6cd824); // RW 0x006CD824
+		add(NUGGET_STEAL_MONEY, "StealMoneyNugget", make<StealMoneyNugget>, { base, StealMoneyNugget::getFieldParse() }, 0, 0x6cd887); // RW 0x006CD887
 		return v;
 	}();
 	return infos;

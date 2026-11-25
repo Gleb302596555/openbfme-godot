@@ -14,6 +14,7 @@
 //     0x8C5C5C): the use and the frame are kept, the condition set for its frames (RW 0x68B581), the health restored by slot 0x58 (fraction * 100, 0) and the source of the
 //     hit scores the kill with type 3 (RW 0x8C5CC6 -> 0x6955BC). Else RespawnBody's (RW 0x8C553F).
 // The snapshot is OpenBFME native (S-4190).
+// Local 171: RW 0x65144F (FreeLifeBody newData)
 
 #pragma once
 
@@ -23,6 +24,7 @@
 
 class ModuleFactory;
 
+// RW 0x008C5CE5 (FreeLifeBodyModuleData::FreeLifeBodyModuleData)
 class FreeLifeBodyModuleData : public RespawnBodyModuleData
 {
 public:

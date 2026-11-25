@@ -1,0 +1,15 @@
+{
+ "map": "map mp fall back 4p",
+ "objects": [{"name": "b", "template": "GondorBarracks", "player": 0, "dx": 0, "dy": 0, "angle": 0, "complete": true},
+             {"name": "c", "template": "MordorCatapult", "player": 1, "dx": 160, "dy": -40, "angle": 90}],
+ "camera": {"eye": [0, -330, 150], "focus": [30, 0, 30]},
+ "steps": [
+  {"caption": "#69 / PORT-8: debris flies along its trajectory (OrientToFlightPath), tumbling only damps the turn", "wait": 20, "shot": "1-intact"},
+  {"damage_frac": ["b", 5.0]},
+  {"damage_frac": ["c", 5.0]},
+  {"wait": 8, "shot": "2-burst-a"},
+  {"wait": 8, "shot": "3-burst-b"},
+  {"wait": 10, "shot": "4-burst-c"},
+  {"wait": 25, "shot": "5-landing"}
+ ]
+}

@@ -26,6 +26,8 @@
 // Local 169: RW 0x64B011 (SlowDeathBehaviorModuleData::friend_newModuleData), RW 0x64C22E (ClearanceTestingSlowDeathBehaviorModuleData::friend_newModuleData), RW 0x8613DA (SlowDeathBehaviorModuleData ctor)
 // Local 169: RW 0x8614FF (~SlowDeathBehaviorModuleData), RW 0x8618E7 (SlowDeathBehaviorModuleData deleting dtor), RW 0x88713D (ClearanceTestingSlowDeathBehaviorModuleData deleting dtor)
 // Local 169: RW 0x887159 (~ClearanceTestingSlowDeathBehaviorModuleData)
+// Local 171: RW 0x653817 (FXListDie newData), RW 0x65391A (KeepObjectDie newData), RW 0x64C781 (FXListDie newInstance), RW 0x64C749 (DestroyDie newInstance)
+// Local 171: RW 0x64AF85 (SlowDeathBehavior newData), RW 0x64C8B2 (KeepObjectDie newInstance)
 #pragma once
 
 #include "Common/INI.h"
@@ -66,6 +68,7 @@ private:
 	const DestroyDieModuleData *m_data;
 };
 
+// Local 173: RW 0x85FF1C (DieModule::isDieApplicable)
 class KeepObjectDieModuleData : public ModuleData
 {
 public:
@@ -116,6 +119,7 @@ private:
 // returns false on every path (`xor al, al` at 0x8C6266). This class is therefore ActiveBody, as retail is.
 // RW 0x6515A8 (PorcupineFormationBodyModuleData::friend_newModuleData), RW 0x8C63F1 (PorcupineFormationBodyModuleData::ctor)
 // RW 0x651532 (PorcupineFormationBodyModule::friend_newModuleInstance), RW 0x8C5524 (PorcupineFormationBodyModule::xfer)
+// RW 0x0065156D (PorcupineFormationBodyModule::friend_newModuleInstance)
 class PorcupineFormationBodyModuleData : public ActiveBodyModuleData
 {
 public:
@@ -245,6 +249,7 @@ private:
 // table's parsers BFME2 0x42F02F ("invalid Real value %1.7f -- expected >= 0") and 0x42F082 ("... expected <= 0"), the same 0x53 bytes apart as RW 0x42ED6F /
 // 0x42EDC2 (INFERENCE: the same parsers); the data ctor BFME2 0x883E25 (GeometryInfo(type 0, small no, 1.0, 1.0, 1.0), offset 0, MaxHeight 20, MinHeight -20,
 // both fractions 1.1). Verified against RotWK RW 0x88709D / 0x887191 (PORT-237 closed S-7163).
+// RW 0x0088709D (ClearanceTestingSlowDeathBehaviorModuleData::ctor)
 class ClearanceTestingSlowDeathBehaviorModuleData : public SlowDeathBehaviorModuleData
 {
 public:

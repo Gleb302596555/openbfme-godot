@@ -45,6 +45,7 @@
 //     transferred by the Player, RW 0x6B27C0), not the module's.
 //   * the state hash: Player + 0x718 is hashed already (PlayerScience::crc), Player + 0x71C is added there with this lane; the module's own state is the mux's
 //     executed flag, hashed by UpgradeModule::crc.
+// Local 171: RW 0x6500B0 (CostModifierUpgrade newData), RW 0x650688 (CommandPointsUpgrade newInstance)
 
 #pragma once
 
@@ -91,6 +92,7 @@ private:
 	bool m_flag20 = false; ///< +0x20
 };
 
+// RW 0x00654638 (CommandPointsUpgradeModuleData::friend_newModuleData)
 class CommandPointsUpgradeModuleData : public UpgradeModuleData
 {
 public:

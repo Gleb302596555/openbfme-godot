@@ -977,7 +977,7 @@ void SpecialPowerModule::applyToVictim(Object &victim, unsigned until, unsigned 
 		// lane HERO-1: RW 0x89765C .. 0x897684: GiveLevels levels while the tracker can still gain one
 		for (int n = d->m_giveLevels; n > 0; --n)
 		{
-			if (t->experienceForNextLevel(nullptr) <= 0) // RW 0x79D11D: the tracker can still gain a level (INFERENCE: the next level exists)
+			if (!t->canGainLevel()) // RW 0x79D11D -> RW 0x6893E2: float(next->requiredExperience) > m_experience
 			{
 				break;
 			}

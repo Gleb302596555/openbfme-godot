@@ -7,6 +7,7 @@
 // Levels RW 0x8C1025 / BFME2 RVA 0x4BCEDC returns zero for AddsOwnerVeterancy, otherwise one.
 // Target field table RW 0xC05EB8: EffectRange (unsigned), AddsOwnerVeterancy / IsPilot (bool), AffectsUpToLevel (int).
 // Local 169: RW 0x650FFF (VeterancyCrateCollide::friend_newModuleInstance)
+// Local 171: RW 0x6558DB (VeterancyCrateCollide newData), RW 0x6558B7 (VeterancyCrateCollideModuleData ctor)
 #pragma once
 
 #include "GameLogic/Module/MoneyEventModules.h"

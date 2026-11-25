@@ -27,6 +27,7 @@
 //     0x8B9BF2, does nothing on this path: retail behaviour, ported as is.)
 // Object::updateUpgradeModules (RW 0x6936FE): the mask is the controlling player's completed upgrades (Player + 0x14C) | the object's (+0x28C) | its castle's
 // (the castle member's castle object, RW 0x797BEF); every module with a mux that is not executed is asked attemptUpgrade(mask), then every mux postUpgradeCheck.
+// Local 171: RW 0x6557F0 (~UpgradeModuleData)
 
 #pragma once
 
@@ -42,6 +43,7 @@ class StateHasher;
 class Xfer;
 
 // the part every upgrade module's data starts with (RW 0xC76AD8)
+// Local 173: RW 0x863B3B (slot 13 requiresAllTriggers), RW 0x863B45 (slot 14 requiresAllConflictingTriggers), RW 0x863BED (UpgradeModule::getModuleName)
 class UpgradeModuleData : public ModuleData
 {
 public:
@@ -62,6 +64,7 @@ public:
 };
 
 // RW mux vtable (see above)
+// RW 0x7A8797 (UpgradeMux::UpgradeMux)
 class UpgradeMux
 {
 public:

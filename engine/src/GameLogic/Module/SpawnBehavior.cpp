@@ -1012,6 +1012,7 @@ std::vector<std::string> SpawnBehavior::stopLines()
 }
 
 // ---- lane SAVE-4b: the snapshot (OpenBFME native, S-4190: the crc's fields; retail's SpawnBehavior::xfer RW 0x863636 (1, 3) carries the same lists) ----
+// Local 173: RW 0x863636 (SpawnBehavior::xfer)
 void SpawnBehavior::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

@@ -6,6 +6,7 @@
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 
+// Local 174: RW 0x8C1984 (BodyModule::getModuleName)
 #include "GameLogic/Module/ActiveBody.h"
 #include "Common/Audio/AudioLog.h"
 #include "Common/Audio/AudioRequests.h"

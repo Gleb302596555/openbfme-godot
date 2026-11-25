@@ -20,6 +20,7 @@
 // DONOR BFME2 1.06 (workspace/reference/open-bfme-2, W3DDebrisDraw*.cpp): ctor 0x000B1C41, setShadowsEnabled 0x000B19D9,
 //   setFullyObscuredByShroud 0x000B19EA, reactToTransformChange 0x000B1A14, doDrawModule 0x000B1A37, getModuleNameKey 0x000B1C97,
 //   GetSnapshotName 0x000B1CDC, xfer 0x000B1DC3, deleting dtor 0x000B1ECF, setModelName 0x000B1EEB, setAnimNames 0x000B207F.
+// Local 171: RW 0x464022 (W3DDebrisDraw newInstance)
 
 #pragma once
 

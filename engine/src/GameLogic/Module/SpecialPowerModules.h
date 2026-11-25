@@ -32,6 +32,7 @@
 //       max health (vslot +0x1C, x87 fmul at the game's 24-bit precision) when HealAsPercent; amount > 0: Object::attemptHealing(amount, no source)
 //       (RW 0x690532); then HealFX at the victim (client, counted).
 // DONOR: BFME1 GameLogic/Object/SpecialPower/PlayerHealSpecialPower*.cpp (the same structure).
+// Local 171: RW 0x6518F0 (OCLSpecialPower newInstance), RW 0x65258E (CombineHordeSpecialPower newData)
 
 #pragma once
 
@@ -252,6 +253,7 @@ private:
 
 // Local 87: RW 0x008CC2C7 (getModuleName), RW 0x008CC31A (getModuleNameKey), RW 0x008CC35F (dtor), RW 0x008C6583 (base dtor thunk).
 // RW 0x008CC2CD (dtor -> RW 0x00897583)
+// RW 0x00652364 (PlayerHealSpecialPowerModuleData::friend_newModuleData)
 class PlayerHealSpecialPower : public SpecialPowerModule
 {
 public:
@@ -330,7 +332,7 @@ private:
 	bool nuggetAllowsCreate(Object &obj, const OCLNugget &nugget);
 };
 
-// LOCAL-18 (issue #143): CombineHordeSpecialPower (constructor RW 0x8CCBF0, vtable RW 0xC75420 / 0xC753B8) and its data (RW 0x8CCC95)
+// LOCAL-18 (issue #143): CombineHordeSpecialPower (constructor RW 0x8CCBEB, vtable RW 0xC75420 / 0xC753B8) and its data (RW 0x8CCC95)
 // Local 177: RW 0x652052 (CombineHordeSpecialPowerModuleData::friend_newModuleData)
 class CombineHordeSpecialPowerModuleData : public SpecialPowerModuleData
 {

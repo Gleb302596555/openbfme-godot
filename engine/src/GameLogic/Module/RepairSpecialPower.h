@@ -13,6 +13,7 @@
 //     given to the AI's aiRepair (RW 0x7714C1, AICommandInterface at AI + 0x20) with source 0 (CMD_FROM_PLAYER): AI command 0x13, which DozerAIUpdate's
 //     aiDoCommand runs as its repair (RW 0x88BD8D). SpecialPowerModule's base do* (the recharge, the initiate, the trigger) is NOT called.
 // INFERENCE: the command passes the AI's command gate (RW 0x667174) first, as every aiDoCommand does here (AIUpdateInterface::acceptCommand).
+// Local 171: RW 0x652505 (RepairSpecialPower newData)
 
 #pragma once
 

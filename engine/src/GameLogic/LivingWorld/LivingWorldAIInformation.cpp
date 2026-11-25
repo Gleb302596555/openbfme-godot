@@ -234,6 +234,7 @@ int LWAIWorldInformation::dist(int from, int to) const
 	return distances[(size_t)from].byRegion[(size_t)to];
 }
 
+// LivingWorldPathFinder::expandNeighbors RW 0x7F09CD (A* neighbor relaxation called by FindShortestPath/Pathfind).
 // ---- LivingWorldPathFinder::FindShortestPath ----
 
 float findShortestPath(const LivingWorldLogic &logic, bool aiCost, int player, int from, int to, std::vector<int> *path)

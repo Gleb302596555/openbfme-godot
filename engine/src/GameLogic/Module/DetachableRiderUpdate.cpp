@@ -5,6 +5,7 @@
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 
+// Local 174: RW 0x8B2BFD (DetachableRiderUpdateModuleData ??1DetachableRiderUpdateModuleData@@UAE@XZ); RW 0x8B252B (DetachableRiderUpdateModuleData base dtor)
 #include "GameLogic/Module/DetachableRiderUpdate.h"
 
 #include "Common/AsciiString.h"
@@ -160,6 +161,7 @@ void DetachableRiderUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 }
 
 // RW 0x8B2941 / DONOR BFME2 0x4AE883 (DetachableRiderUpdateCtor.cpp)
+// Local 173: RW 0x887569 (DetachableRiderUpdate onDie FX + module lookup helper)
 DetachableRiderUpdate::DetachableRiderUpdate(Thing *thing, const DetachableRiderUpdateModuleData *data)
 	: UpdateModule(thing, data)
 	, m_data(data)
@@ -339,7 +341,7 @@ void DetachableRiderUpdate::registerClass(ModuleFactory &modules)
 		});
 }
 
-// RW 0x8C5D2B / DONOR BFME2 0x4C1B80 (DetachableRiderBodyFieldParse.cpp)
+// RW 0x008C5D2A / DONOR BFME2 0x4C1B80 (DetachableRiderBodyFieldParse.cpp)
 void DetachableRiderBodyModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	ActiveBodyModuleData::buildFieldParse(p); // RW 0x8C5D3F -> RW 0x8C2379

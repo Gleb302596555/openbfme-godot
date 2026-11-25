@@ -22,6 +22,7 @@
 //     - Adds to pathfinder map via AddObjectToPathfindMap (RW 0x6E85E9);
 //     - Notifies player via Player::onStructureCreated (RW 0x6AAF3B).
 //   * xfer (RW 0x8B7880 / UpgradeModule's): version (1, 1), UpgradeModule::xfer(x).
+// Local 171: RW 0x64FB99 (BaseUpgrade newInstance), RW 0x64FBD1 (BaseUpgrade newData)
 
 #pragma once
 

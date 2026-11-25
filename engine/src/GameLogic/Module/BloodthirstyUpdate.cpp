@@ -86,6 +86,7 @@ void BloodthirstyUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 	p.add(kBloodthirstyUpdate);
 }
 
+// Local 173: RW 0x850D74 (~BloodthirstyUpdate)
 BloodthirstyUpdate::BloodthirstyUpdate(Thing *thing, const BloodthirstyUpdateModuleData *data)
 	: UpdateModule(thing, data)
 	, m_data(data)

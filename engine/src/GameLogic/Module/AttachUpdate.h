@@ -26,6 +26,7 @@
 // lane CAMP-1H: a HORDE parent's anchor is its horde interface slot 0x230 (HordeContain RW 0x8713F6: the members' mean position).
 // NOT PORTED (stop S-1361): the Eva event names are not checked at parse time (as S-190); slot 0x230's second id list (HordeContain + 0x54, not kept
 // by the port's horde); the horde-member test's status 0x26 branch of RW 0x6939DF (a contained object's container is taken).
+// Local 171: RW 0x64D5AB (AttachUpdate newData), RW 0x64D573 (AttachUpdate newInstance)
 #pragma once
 
 #include "Common/INI.h"
@@ -39,6 +40,7 @@
 class ModuleFactory;
 class StateHasher;
 
+// Local 173: RW 0x89512C (~AttachUpdateModuleData)
 class AttachUpdateModuleData : public ModuleData
 {
 public:

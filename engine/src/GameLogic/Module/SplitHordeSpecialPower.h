@@ -3,12 +3,14 @@
 // only SpecialPowerModule's table (RW 0xC64DB0).
 //   * doSpecialPower RW 0x8CCA45: a disabled object (RW 0x9325B4) does nothing; its contain's slot 0x1F4 (RW 0x86CA3D, HordeContain::canSplit) allows, then slot 0x1F8 (RW 0x8791C5, splitHorde).
 // The location and object forms are SpecialPowerModule's: a targetless power (stop S-6004 lists what the split leaves out).
+// Local 171: RW 0x65247C (SplitHordeSpecialPower newData)
 #pragma once
 
 #include "GameLogic/Module/SpecialPowerModules.h"
 
 class ModuleFactory;
 
+// RW 0x008CC9CB (~SplitHordeSpecialPower)
 class SplitHordeSpecialPower : public SpecialPowerModule
 {
 public:

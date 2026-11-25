@@ -1,4 +1,5 @@
 // OpenBFME. GPL-3.0. See LocomotorSetUpgrade.h.
+// Local 174: RW 0x8B8086 (LocomotorSetUpgrade::LocomotorSetUpgrade)
 #include "GameLogic/Module/LocomotorSetUpgrade.h"
 #include "Common/Thing/ModuleFactory.h"
 #include "GameLogic/Module/AIUpdate.h"

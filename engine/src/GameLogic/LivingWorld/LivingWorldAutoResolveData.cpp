@@ -262,6 +262,8 @@ const FieldParse kScienceBonusFields[] = {
 };
 #undef SB
 
+// RW 0x824904 (LivingWorldAutoResolveResourceBonus::parseBonus) &
+// RW 0x8241C2 (LivingWorldAutoResolveSciencePurchasePointBonus::parseBonus)
 // RW 0x8246C7 (LivingWorldAutoResolveResourceBonus::parseBonusIniSubBlock) &
 // RW 0x823EC4 (LivingWorldAutoResolveSciencePurchasePointBonus::parseBonusIniSubBlock)
 void parseScheduleBonus(INI *ini, void *, void *store, const void *userData)
@@ -586,6 +588,8 @@ const AutoResolveWeapon *AutoResolveStores::findWeapon(const std::string &name) 
 	return it == weapons.end() ? nullptr : &it->second;
 }
 
+// RW 0x836A37: LivingWorldAutoResolveArmorStore::parseArmor (lookup via RW 0x8369BA, throws Unknown LivingWorldAutoResolveArmor);
+// RW 0x829B6E: AutoResolveCombatChain entry ctor (called from RW 0x829CE8).
 // RW 0x8369BA: LivingWorldAutoResolveArmorStore::find
 const AutoResolveArmor *AutoResolveStores::findArmor(const std::string &name) const
 {

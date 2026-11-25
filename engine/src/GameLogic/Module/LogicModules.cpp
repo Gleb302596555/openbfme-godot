@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 // See GameLogic/Module/LogicModules.h.
 
+// Local 174: RW 0x8B0013 (PartTheHeavensUpdate ctor/dtor); RW 0x8BC924 (SpawnUnitBehavior ctor/dtor); RW 0x8BCFB9 (SupplyWarehouseCreate ctor/dtor)
 #include "GameLogic/Module/AttachUpdate.h"
 #include "GameLogic/Module/AnnounceBirthAndDeathBehavior.h"
 #include "GameLogic/Module/TooltipUpgrade.h"

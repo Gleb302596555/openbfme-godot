@@ -1,0 +1,82 @@
+{
+ "map": "map mp fall back 4p",
+ "spot_mode": "trees",
+ "objects": [
+  {
+   "name": "w",
+   "template": "GondorFighterHorde",
+   "player": 0,
+   "dx": -60,
+   "dy": -90,
+   "angle": 0
+  }
+ ],
+ "camera": {
+  "eye": [
+   -60,
+   -260,
+   70
+  ],
+  "focus": [
+   0,
+   0,
+   15
+  ]
+ },
+ "steps": [
+  {
+   "caption": "PORT-73: shrubs lean aside when the horde walks through them",
+   "wait": 10,
+   "shot": "1-before-walk"
+  },
+  {
+   "call": "order_move",
+   "args": [
+    [
+     "@w"
+    ],
+    "tx:0",
+    "ty:0"
+   ]
+  },
+  {
+   "follow": "w",
+   "eye": [
+    -20,
+    -100,
+    40
+   ],
+   "focus": [
+    0,
+    0,
+    10
+   ]
+  },
+  {
+   "wait": 60,
+   "shot": "2-walk-1"
+  },
+  {
+   "wait": 30,
+   "shot": "3-walk-2"
+  },
+  {
+   "call": "order_move",
+   "args": [
+    [
+     "@w"
+    ],
+    "tx:3",
+    "ty:3"
+   ]
+  },
+  {
+   "wait": 50,
+   "shot": "4-walk-3"
+  },
+  {
+   "wait": 40,
+   "shot": "5-walk-4"
+  }
+ ]
+}

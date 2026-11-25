@@ -43,6 +43,7 @@
 #include <unordered_map>
 #include <vector>
 
+// RW 0x006CCF2E (WeaponStore::WeaponStore)
 class WeaponStore;
 
 // ---- name lists (generated: WeaponNames.cpp) ------------------------------------------------------------------------------
@@ -161,6 +162,7 @@ private:
 
 // RW 0x6CA7AC (Weapon::computeBonus): `objectBonusMask` is the object's weapon bonus condition mask (RW Object+0x39C), `globalSet` the
 // GameData WeaponBonus set (RW GlobalData+0xAD0, may be null), `extraMask` the caller's extra conditions.
+// RW 0x006CA900 (getAttackRange height-diff wrapper), RW 0x006CB58E (fireWeaponTemplate wrapper), RW 0x006CB662 (postProcessLoad)
 class WeaponTemplate;
 void ComputeWeaponBonus(std::uint32_t objectBonusMask, std::uint32_t extraMask, const WeaponBonusSet *globalSet, const WeaponTemplate &weapon, WeaponBonus &out);
 

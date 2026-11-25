@@ -6,6 +6,8 @@
 // instruction sequence stores, conversions with the retail results (ftol2Low32 = _ftol2, fistp32, cvttss2si, including invalid input), and floor /
 // ceil / fabs / sqrt without libm. Frame arithmetic is unsigned 32 bit with defined wrapping.
 
+// Local 174: RW 0x8E2DAE (FiringTracker ??1FiringTracker@@UAE@XZ); RW 0x8E2F63 (FiringTracker ?xfer@FiringTracker@@MAEXPAVXfer@@@Z); RW 0x8E2E04 (FiringTracker::getModuleName); RW 0x8E2E6D (FiringTracker::getModuleNameKey)
+// Local 174: RW 0x8E2E52 (FiringTracker helper)
 #include "GameLogic/WeaponState.h"
 #include "Common/Audio/AudioRequests.h"
 #include "Common/StateHash.h"
@@ -305,6 +307,7 @@ int Weapon::preFireWeapon(WeaponHost &host, const WeaponShotTarget &target)
 {
 	const WeaponTemplate &t = *m_template;
 	// 1. the jitter is drawn on EVERY call, before any other test
+	// RW 0x006CA2DB: rebuildPreAttackRandomDelay (PreAttackRandomAmount at WeaponTemplate+0x13C -> Weapon+0x58)
 	if (t.m_preAttackRandomAmount != 0)
 	{
 		m_preAttackJitter = host.logicRandom().getValue(0, asInt32(t.m_preAttackRandomAmount), kWeaponCpp, 3644);

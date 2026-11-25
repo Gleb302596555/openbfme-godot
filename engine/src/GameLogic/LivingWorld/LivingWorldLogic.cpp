@@ -139,6 +139,14 @@ const BuildingTemplate *LivingWorldLogic::buildingTemplate(const Building &b) co
 //     GetRevivalUnitData RW 0x6E2783, RemoveRevivalUnit RW 0x6E359D, AddUpgrade RW 0x6E28BF,
 //     RemoveUpgrade RW 0x6E28F3, CheckForRemovedMultiRegionBonuses RW 0x6E333A;
 //     Army ctors/dtor RW 0x71BB55 / RW 0x71BC70 / RW 0x71B5FF, KillSummaryEntry RW 0x71AE2D, initiateMove RW 0x71BE8F.
+//   Region Reset RW 0x7F55B0; BuildPlot DestroyBuilding RW 0x902CFB; Building GetBuildQueue RW 0x8E4A3A,
+//     GetOwnerID RW 0x8E4B10, GetOwnerPlayer RW 0x8E4B1A, GetBuildingTreasuryBonus RW 0x8E4F81,
+//     BuildQueue queue-active flag RW 0x8FF337; OwnershipSet::spawnBuildingsInRegionsForPlayer RW 0x9A7A65.
+//   Battle accessors: GetPlayerID RW 0x7F5D2B, GetNumPlayersOnSide RW 0x7F6403, GetNumArmiesForPlayer RW 0x7F641F,
+//     BattleSide::FindBattlePlayer RW 0x7F5B1E, BattlePlayer::FindGarrisonArmy RW 0x7F5A62, FindGarrisonArmy RW 0x7F6159.
+//   Scenario victory/defeat delegates: RW 0x902623, RW 0x902668, RW 0x9026AD, RW 0x90272D, RW 0x9027A3;
+//     PlayerDefeatCondition::isPlayerDefeated RW 0x9010F0, TeamDefeatCondition::isTeamDefeated RW 0x901171,
+//     TeamVictoryCondition::hasTeamAchievedVictory RW 0x901BA7.
 //   Battle: ctors/dtor RW 0x7F81C9 / RW 0x7F869C / RW 0x7F8220, loadPostProcess RW 0x7F6176,
 //     GetTeamNumberForSide RW 0x7F5C0F, GetTotalPlayerCount RW 0x7F5C1F, GetFirstNonEmptySide RW 0x7F5C64,
 //     FindSideForPlayer RW 0x7F5CB9, FindBattlePlayer RW 0x7F5D12, GetRetreatedPlayerCount RW 0x7F5D46,
@@ -146,6 +154,32 @@ const BuildingTemplate *LivingWorldLogic::buildingTemplate(const Building &b) co
 //     GetHumanPlayerCountOnSide RW 0x7F5E84, GetTotalHumanPlayerCount RW 0x7F5ECF,
 //     HasPlayerID RW 0x7F5F0A, HasPlayer RW 0x7F5F8D, GetArmy RW 0x7F5F9C,
 //     ForEachArmy RW 0x7F6028, GetGarrisonArmyForPlayer RW 0x7F65F9.
+//   Local 175 uncited War of the Ring logic helpers:
+//     RegionManager & bonuses: findBattleByID RW 0x60E2AB, getActiveBattle RW 0x60E461,
+//       AddRegionUpgradesToPlayer RW 0x60EA87, RemoveRegionUpgradesFromPlayer RW 0x60EAC4,
+//       applyRegionBonusRules RW 0x60F126, recalculateRegionBonuses RW 0x60F25B,
+//       clearBattles RW 0x60F447, reset RW 0x60F557, getRegionsOwnedByPlayer RW 0x60FB41.
+//     Logic: spawnBuildingsInRegionsForPlayer owner check RW 0x6B3066, orderArmyMove RW 0x6B31A6,
+//       findRegionByID wrapper RW 0x6B351E, hasActiveBlockingDialog RW 0x6B4019,
+//       CheckTurnPhaseTransitions army phase/turn-end passes RW 0x6B455E / RW 0x6B4706,
+//       MoveArmyMembers RW 0x6B4848, findArmyByID RW 0x6B5351, GetPlayerAtIndex RW 0x6B5E90,
+//       ConsumeGarrisonUnitsFromRTS copy remaining RW 0x6B6C7D,
+//       CheckHeadToHeadBattles collect moving armies RW 0x6B9B01, removeBuildingByID RW 0x6B9EE9,
+//       addRegionAwardDispute RW 0x6BA65D.
+//     Player & Building: isAllowedForPlayerTemplate RW 0x6E0BE6, getHeroTemplate RW 0x6E1911,
+//       RegionBonus::operator= RW 0x6E19A1, Player::findArmyByID RW 0x6E1D8C,
+//       updateBattleRegionBonus RW 0x6E1EEF, findArmyByName RW 0x6E2CC0,
+//       findBuildableHeroByName RW 0x6E2D16, CreateRevivalEntry RW 0x6E2E18,
+//       addMultiRegionBonus RW 0x6E35FD, addRevivalUnit RW 0x6E4853.
+//     Army: getGarrisonPlacementSpot RW 0x71A4DF, getCurrentRegion RW 0x71A56C,
+//       getCurrentRegionID RW 0x71A5B3, getDestinationRegion RW 0x71A5C7,
+//       getSummaryCount RW 0x71A8F9, countGarrisonUnitsByCategoryAndCP RW 0x71A901,
+//       findLastGarrisonUnitByCategoryAndCP RW 0x71A963, isEmpty RW 0x71AA69,
+//       getHeroThingTemplate RW 0x71AA94, hasHeroName RW 0x71AF63,
+//       countSummaryEntriesByName RW 0x71B222, findLastSummaryEntryByName RW 0x71B26B.
+//     Region: applyTurnIncome RW 0x7F16EC, getPerTurnIncome RW 0x7F173F,
+//       findBuildPlotByBuildingID RW 0x7F1A2B, removeArmyFromGroups RW 0x7F2121,
+//       canDestroyBuilding RW 0x7F227A.
 bool LivingWorldLogic::start(const GameSetup &setup, std::string *error)
 {
 	if (m_started)
@@ -1775,6 +1809,89 @@ bool LivingWorldLogic::disbandArmyMember(int player, int armyId, int memberKey, 
 		return true;
 	}
 	return false;
+}
+
+// DisbandAllArmyMembers RW 0x6B48F2 (MSG_LW_DISBAND_ARMY 0x6B2): iterates over the army's summary
+// entries, calling CanDisbandArmyMember (RW 0x6B4876), canceling upgrades (RW 0x80EDB8), and
+// disbanding every eligible member while leaving non-disbandable members (heroes) intact.
+bool LivingWorldLogic::disbandArmy(int player, int armyId, std::string *error)
+{
+	if (m_phase != PHASE_ORDERS)
+	{
+		setError(error, "not the orders phase");
+		return false;
+	}
+	const Army *found = findArmy(armyId);
+	if (!found || found->owner != player)
+	{
+		setError(error, "the army is not the player's");
+		return false;
+	}
+	std::vector<int> keys;
+	for (const ArmyMember &m : found->members)
+	{
+		if (canDisbandArmyMember(armyId, m.key))
+		{
+			keys.push_back(m.key);
+		}
+	}
+	for (int key : keys)
+	{
+		disbandArmyMember(player, armyId, key, nullptr);
+	}
+	return true;
+}
+
+// HandleSwapArmiesInBattleMessage RW 0x6B4B39 (helpers getBattleFromMessage RW 0x6B379E,
+// getBattleArmyIndexFromMessage RW 0x6B3822, LivingWorldBattle::swapArmies RW 0x7F69EE):
+// validates (battleIndex, sideIndex, playerIndex, slotA, slotB) and swaps the player's two
+// army slots in battle.armies.
+bool LivingWorldLogic::swapArmiesInBattle(int sender, int battleIndex, int sideIndex, int playerIndex, int slotA, int slotB, std::string *error)
+{
+	if (m_phase != PHASE_BATTLES || battleIndex < 0 || battleIndex >= (int)m_battles.size())
+	{
+		setError(error, "not a pending battle");
+		return false;
+	}
+	Battle &b = m_battles[(size_t)battleIndex];
+	if (b.resolution != Battle::PENDING)
+	{
+		setError(error, "the battle is not pending");
+		return false;
+	}
+	if (sideIndex < 0 || sideIndex >= (int)b.sides.size())
+	{
+		setError(error, "invalid battle side index");
+		return false;
+	}
+	const Battle::Side &side = b.sides[(size_t)sideIndex];
+	if (playerIndex < 0 || playerIndex >= (int)side.players.size())
+	{
+		setError(error, "invalid battle player index");
+		return false;
+	}
+	const int targetPlayer = side.players[(size_t)playerIndex].player;
+	if (targetPlayer != sender)
+	{
+		setError(error, "the battle side player is not the sender");
+		return false;
+	}
+	std::vector<size_t> positions;
+	for (size_t i = 0; i < b.armies.size(); ++i)
+	{
+		const Army *a = findArmy(b.armies[i]);
+		if (a && a->owner == targetPlayer)
+		{
+			positions.push_back(i);
+		}
+	}
+	if (slotA < 0 || slotA >= (int)positions.size() || slotB < 0 || slotB >= (int)positions.size())
+	{
+		setError(error, "invalid army slot index in battle");
+		return false;
+	}
+	std::swap(b.armies[positions[(size_t)slotA]], b.armies[positions[(size_t)slotB]]);
+	return true;
 }
 
 bool LivingWorldLogic::endTurn(int player, std::string *error)
@@ -4437,19 +4554,27 @@ void LivingWorldLogic::checkVictory()
 			bool beaten = false;
 			for (const Condition &c : victoryConditions(1))
 			{
+				// RW 0x901171 (TeamDefeatCondition::isTeamDefeated): sum GetNumRegionsOwned (RW 0x6E2333)
+				// across all players on the team; defeated iff totalRegions <= NumControlledRegionsLessOrEqualTo.
 				if (c.numControlledRegionsLessOrEqualTo < 0)
 				{
 					continue;
 				}
-				bool all = true;
+				int totalRegions = 0;
+				bool exceeds = false;
 				for (int p = 0; p < (int)m_players.size(); ++p)
 				{
-					if (m_players[(size_t)p].team == team && !m_players[(size_t)p].defeated && regionCount(p) > c.numControlledRegionsLessOrEqualTo)
+					if (m_players[(size_t)p].team == team)
 					{
-						all = false;
+						totalRegions += regionCount(p);
+						if (totalRegions > c.numControlledRegionsLessOrEqualTo)
+						{
+							exceeds = true;
+							break;
+						}
 					}
 				}
-				beaten = beaten || all;
+				beaten = beaten || !exceeds;
 			}
 			if (beaten)
 			{
