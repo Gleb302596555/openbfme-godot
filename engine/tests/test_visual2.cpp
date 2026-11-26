@@ -111,7 +111,7 @@ TEST_CASE("visual2 shroud look: an object seen clear stays unobscured for 2 s (1
 	CHECK_FALSE(dead.fullyObscured);
 	dead.update((int)OBJECTSHROUD_FOGGED, true, 325);
 	CHECK(dead.fullyObscured);
-	CHECK_FALSE(dead.hidden); // fogged: the device layer stands the drawable in for the ghost (S-561)
+	CHECK_FALSE(dead.hidden); // fogged: PORT-314 closed S-561 — the frozen record (LogicSnapshot::ghosts) is the ghost's stand-in, still drawn
 	// OBJECTSHROUD_INVALID (no shroud displayed): never obscured, the clear frame untouched (no record / ALWAYS_VISIBLE answer CLEAR, RW 0x68D8F7)
 	DrawableShroudLook none;
 	none.update(0, false, 50);

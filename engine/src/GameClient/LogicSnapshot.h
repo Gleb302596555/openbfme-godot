@@ -185,6 +185,17 @@ struct LogicSnapshot
 	bool hashed = false;
 	std::uint32_t stateHash = 0;    ///< the state hash of the frame (when hashed)
 	std::vector<ObjectSnapshot> objects; ///< ascending id
+	// PORT-314 / S-561: the ghost records — the frozen last state of an object the shroud manager kept a record of past its destruction (RW 0xB4E190), for the
+	// players that still see it in the fog. W3DGhostObject keeps a cloned RenderObjClass per snapshot (DONOR BFME2 W3DGhostObjectScene.cpp: snapShot); the port
+	// freezes the ObjectSnapshot the client last presented, taken in the frame before the object left the world (LogicSnapshot::build's previous snapshot).
+	// The client draws one while the object's shroud record is FOGGED or worse for the local player (the row's test: PORT-314*).
+	struct GhostRecord
+	{
+		ObjectID id = INVALID_ID;
+		ObjectSnapshot record; ///< the frozen record (its shroud fields are the last live ones; the ghost's statuses come from the record's covered cells)
+	};
+	std::vector<GhostRecord> ghosts;
+	const GhostRecord *findGhost(ObjectID id) const;
 	// id -> index in objects, -1 when that id is absent. Built once the id sort finishes and dropped with the snapshot.
 	// find checks the stored id, so a stale slot cannot return another object's pose.
 	std::vector<int> idToIndex;

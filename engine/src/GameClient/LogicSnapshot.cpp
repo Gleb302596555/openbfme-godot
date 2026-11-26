@@ -25,6 +25,7 @@
 #include "GameLogic/Object/Contain/OpenContainRuntime.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/System/InvisibilityManager.h"
+#include "GameLogic/System/ShroudManager.h"
 #include "GameLogic/System/TaintManager.h"
 #include "GameLogic/Map/FireLogicSystem.h"
 
@@ -77,6 +78,13 @@ const ObjectSnapshot *LogicSnapshot::find(ObjectID id) const
 	}
 	auto it = std::lower_bound(objects.begin(), objects.end(), id, [](const ObjectSnapshot &o, ObjectID v) { return o.id < v; });
 	return (it != objects.end() && it->id == id) ? &*it : nullptr;
+}
+
+const LogicSnapshot::GhostRecord *LogicSnapshot::findGhost(ObjectID id) const
+{
+	// ascending id like `objects`
+	auto it = std::lower_bound(ghosts.begin(), ghosts.end(), id, [](const GhostRecord &g, ObjectID v) { return g.id < v; });
+	return (it != ghosts.end() && it->id == id) ? &*it : nullptr;
 }
 
 namespace
@@ -539,6 +547,37 @@ std::shared_ptr<const LogicSnapshot> LogicSnapshot::build(GameLogic &logic, cons
 			{
 				snap->idToIndex[snap->objects[i].id] = (int)i;
 			}
+		}
+	}
+	// PORT-314 / S-561: the ghost records the shroud manager kept past their objects (RW 0xB4E190). The record is the last state the client presented for the
+	// object — the previous snapshot's, taken before the object left the world — so a destroyed building stays drawn where and as it was. W3DGhostObject keeps
+	// a clone of the render objects (DONOR BFME2 W3DGhostObjectScene.cpp, snapShot); the port keeps the record. A ghost whose object is back in the world is
+	// not drawn from here (`find` answers first); the sorted vector keeps findGhost's binary search.
+	if (const ShroudManager *sm = logic.shroud())
+	{
+		if (previous && sm->ghostRecordCount() > 0)
+		{
+			for (size_t i = 0; i < sm->recordSlotCount(); ++i)
+			{
+				const ShroudManager::GhostRecordView g = sm->ghostRecordView(i);
+				if (!g.valid || snap->find(g.id))
+				{
+					continue;
+				}
+				const ObjectSnapshot *before = previous->find(g.id);
+				if (!before)
+				{
+					continue; // the object never made it into a presented frame: nothing to freeze
+				}
+				GhostRecord ghost;
+				ghost.id = g.id;
+				ghost.record = *before;
+				ghost.record.shroudedForLocal = true;  // the ghost shows in the fog (RW 0xB4E890's FOGGED / SHROUDED); the shroud's own pass decides the look
+				ghost.record.objectShroud = (int)OBJECTSHROUD_FOGGED;
+				ghost.record.effectivelyDead = true;    // it is gone: the shroud grace of the drawn look counts the extra 3 s (DrawableShroud.h, RW 0x64849E)
+				snap->ghosts.push_back(std::move(ghost));
+			}
+			std::sort(snap->ghosts.begin(), snap->ghosts.end(), [](const GhostRecord &a, const GhostRecord &b) { return a.id < b.id; });
 		}
 	}
 	// RW 0x69355D: the frame of the last transform change (a new object counts as changed now)

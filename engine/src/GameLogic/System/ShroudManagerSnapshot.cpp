@@ -55,7 +55,8 @@ void xferU64(Xfer &x, unsigned long long &v)
 void ShroudManager::xferState(Xfer &x)
 {
 	// lane VISIONDEF-1: version 2 drops the records' vision ground reference (now the object's)
-	XferVersion v{ 1, 2 };
+	// PORT-314 / S-561: version 3 adds the records' ghost (+ 8) and retained (RW 0xB4E190) bytes
+	XferVersion v{ 1, 3 };
 	x.xferVersion(v);
 	const bool loading = x.isLoading();
 	x.xferUnsignedInt(&m_counter);
@@ -203,6 +204,11 @@ void ShroudManager::xferState(Xfer &x)
 			x.xferInt(&groundY);
 			x.xferReal(&groundRef);
 		}
+		if (v.current >= 3)
+		{
+			x.xferBool(&r.ghost);    // PORT-314: RW record + 8
+			x.xferBool(&r.retained); // PORT-314: RW 0xB4E190 kept the record past its object
+		}
 	}
 	// the slot lists
 	auto xferSlots = [&](std::vector<std::uint32_t> &list, const char *what) {
@@ -304,7 +310,8 @@ void ShroudManager::loadPostProcess()
 	std::unique_ptr<ShroudManager> p = std::move(m_pendingLoad);
 	for (const Record &r : p->m_records)
 	{
-		if (r.inUse && !m_logic.findObjectByID(r.id))
+		// PORT-314 / S-561: a retained record (RW 0xB4E190) has no object by design; its ghost stands in for it
+		if (r.inUse && !r.retained && !m_logic.findObjectByID(r.id))
 		{
 			throw XferException("shroud: the record of object " + std::to_string(r.id) + " has no object in the loaded game");
 		}

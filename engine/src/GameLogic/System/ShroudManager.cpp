@@ -921,7 +921,9 @@ ObjectShroudStatus ShroudManager::computeStatus(const Record &r, int player, con
 		return (shrouded != 0 || fogged != 0) ? OBJECTSHROUD_PARTIAL_CLEAR : OBJECTSHROUD_CLEAR;
 	}
 	seen = -1;
-	// the ghost branch needs a ghost object (RW record + 8, not kept: S-561); the object's own test (vtable slot 0x14 = RW 0x68EDD0)
+	// PORT-314 / S-561: this branch is RW 0xB4E92F's FOGGED; RW then asks the ghost's ShroudObject slot 0x14 (RW 0xB4E954 `call [edx + 0x14]`, FOGGED -> 4 when it
+	// answers true). The port's stand-in is the object's own hidesWhenFogged (vtable slot 0x14 = RW 0x68EDD0) while the object lives; a retained record has no
+	// object, so its status stays FOGGED (the ghost is drawn in the fog: the record's own frozen look)
 	if (obj && m_source.hidesWhenFogged && m_source.hidesWhenFogged(*obj, player))
 	{
 		return OBJECTSHROUD_SHROUDED;
@@ -1007,20 +1009,50 @@ void ShroudManager::registerObject(Object &obj)
 	}
 	m_slotById[r.id] = slot + 1;
 	m_registration.push_back(slot);
+	// PORT-314 / S-561: the record's constructor (RW 0xB4E010) asks the object's shroud-client subobject (Object + 0x64, slot 8) for the object's ghost and
+	// stores it at record + 8 (RW 0xB4E0D6; the ghost's own provider slot 0xC at RW 0xB4E0E8). That is RW 0x691602's addGhostObject path: GlobalData + 0xC69 on,
+	// the template IMMOBILE and no W3DDefaultDraw draw module; otherwise record + 8 stays null (RW 0xB4E0D9's null branch) and RW 0xB4E190 will not keep the record.
+	r.ghost = ghostEligible(obj);
 	// RW 0x68E3A3: entering the world marks the record dirty, forced
 	markDirty(obj, true);
 }
 
 void ShroudManager::unregisterObject(Object &obj)
 {
-	// RW 0xB4F510 -> 0xB4EAC0 (the ghost retention of RW 0xB4E190 is not ported, S-561): the look is queued off, the channels and the coverage go
+	// RW 0xB4F510 -> RW 0xB4E190 (PORT-314 / S-561): the look is queued off and the channels are taken off either way (RW 0xB4E100). The record is then kept when
+	// the object has ghost data and a player has it FOGGED while never having seen it (the unrolled loop RW 0xB4E1A3: `seen` + 0xC4 nonzero AND `status` + 0x24
+	// == 3); the object and the ghost are detached from the retained record (RW 0xB4E239: record + 4 = 0, provider slot 0xC with 0, then slot 4). A record that
+	// is not kept goes the old way, RW 0xB4EAC0 (RW 0xB4F549's false branch, and RW 0xB4EC80's deleting form).
 	Record *r = recordOf(obj);
 	if (!r)
 	{
 		return;
 	}
-	const std::uint32_t slot = m_slotById[r->id] - 1;
 	removeLookOf(*r);
+	bool keep = false;
+	if (r->ghost)
+	{
+		for (int p = 0; p < kMaxPlayers; ++p)
+		{
+			if (r->seen[(size_t)p] != 0 && r->status[(size_t)p] == OBJECTSHROUD_FOGGED)
+			{
+				keep = true;
+				break;
+			}
+		}
+	}
+	if (keep)
+	{
+		// RW 0xB4E239: the record outlives the object; its lookers were queued off above, so a player looking at the cells makes its statuses change again and
+		// the retention test is asked anew (update()). The record keeps its covered cells and its statuses (the ghost stands in for the object's geometry).
+		const std::uint32_t slot = m_slotById[r->id] - 1;
+		m_dirty.erase(std::remove(m_dirty.begin(), m_dirty.end(), slot), m_dirty.end());
+		r->dirty = false;
+		r->force = false;
+		r->retained = true;
+		return;
+	}
+	const std::uint32_t slot = m_slotById[r->id] - 1;
 	clearCoverage(*r);
 	m_dirty.erase(std::remove(m_dirty.begin(), m_dirty.end(), slot), m_dirty.end());
 	m_registration.erase(std::remove(m_registration.begin(), m_registration.end(), slot), m_registration.end());
@@ -1028,6 +1060,56 @@ void ShroudManager::unregisterObject(Object &obj)
 	*r = Record();
 	m_freeSlots.push_back(slot);
 }
+
+// the object side of RW 0x691602: `ghostManagerEnabled` is GlobalData + 0xC69, the template's KindOf mask has IMMOBILE (bit 2) and its draw-module list has no
+// W3DDefaultDraw entry
+bool ShroudManager::ghostEligible(const Object &obj) const
+{
+	if (!m_ghostsEnabled)
+	{
+		return false;
+	}
+	if (!obj.isKindOf(kImmobileKindOf))
+	{
+		return false;
+	}
+	const ThingTemplate *tt = obj.getTemplate();
+	if (!tt)
+	{
+		return false;
+	}
+	for (const ThingTemplate::Nugget &n : tt->getFinalOverride()->drawModules().nuggets())
+	{
+		if (n.name == "W3DDefaultDraw")
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+bool ShroudManager::hasGhostObject(const Object &obj) const
+{
+	const Record *r = recordOf(obj);
+	return r && r->ghost;
+}
+
+bool ShroudManager::isGhostRecord(const Object &obj) const
+{
+	const Record *r = recordOf(obj);
+	return r && r->retained;
+}
+
+size_t ShroudManager::ghostRecordCount() const
+{
+	size_t n = 0;
+	for (const Record &r : m_records)
+	{
+		n += (r.inUse && r.retained) ? 1u : 0u;
+	}
+	return n;
+}
+
 
 ShroudManager::TemplateVision ShroudManager::templateVision(const ThingTemplate &tt)
 {
@@ -1553,11 +1635,52 @@ void ShroudManager::update()
 		processRecord(r);
 	}
 	processPending(true);
-	// INFERENCE (S-562): the cached statuses are evaluated here for every live player instead of on demand, so the "seen" bytes do not depend on who asked
 	const int players = playerCountLimit();
+	// PORT-314 / S-561 (RW 0xB4E190): a record retained past its object goes when no player the retention test kept it for still has its cells fogged — RW's own
+	// release is the next ask of the ghost's status (W3DGhostObject::getShroudStatus, the local orphan pass RW 0x707141) with the cells as the ghost left them: a
+	// cell that is looked at again makes the ghost's status CLEAR / PARTIAL_CLEAR, and the ghost is no longer needed for that player. The statuses of the record
+	// are not written back (they are the ghost's frozen partition data); the cells are read through computeStatus, RW 0xB4E890's cell branch without an object.
+	for (size_t i = 0; i < m_registration.size();)
+	{
+		Record &r = m_records[m_registration[i]];
+		if (!r.retained)
+		{
+			++i;
+			continue;
+		}
+		// the record's statuses stay the retention's own (a ghost's partition data is written once, RW 0xB4E239): they are what the client draws and what the
+		// owner's own look leaves at CLEAR (the owner never re-freezes its own building). Only the cells are read again, for the players the retention test kept
+		// the record for (a nonzero seen byte with the retained FOGGED status, RW 0xB4E1B0): while their cells still compute FOGGED the ghost stands
+		bool keep = false;
+		for (int p = 0; p < players; ++p)
+		{
+			if (r.seen[(size_t)p] == 0 || r.status[(size_t)p] != OBJECTSHROUD_FOGGED)
+			{
+				continue;
+			}
+			int seen = -1;
+			keep = keep || computeStatus(r, p, nullptr, seen) == OBJECTSHROUD_FOGGED;
+		}
+		if (keep)
+		{
+			++i;
+			continue;
+		}
+		const std::uint32_t slot = m_registration[i];
+		clearCoverage(r);
+		m_slotById[r.id] = 0;
+		r = Record();
+		m_registration.erase(m_registration.begin() + (long)i);
+		m_freeSlots.push_back(slot);
+	}
+	// INFERENCE (S-562): the cached statuses are evaluated here for every live player instead of on demand, so the "seen" bytes do not depend on who asked
 	for (std::uint32_t slot : m_registration)
 	{
 		Record &r = m_records[slot];
+		if (r.retained)
+		{
+			continue; // the ghost's statuses come from its cells (above); there is no object to ask
+		}
 		const Object *obj = m_logic.findObjectByID(r.id);
 		for (int p = 0; p < players; ++p)
 		{
@@ -1579,7 +1702,7 @@ void ShroudManager::hash(StateHasher &h) const
 	// every piece of logic state, collections with their lengths first: the grid (origin, extent, size, inverse, counts), the settings, the cells, the unlook
 	// queue in order, the records in registration order (with their look, facing, flags, channels, coverage, cached statuses and ground reference) and the
 	// dirty list in processing order by object id
-	h.addU32(0x56495331u); // 'VIS1'
+	h.addU32(0x56495332u); // 'VIS2' (PORT-314: the records carry the ghost and retained flags)
 	h.addU32(m_counter);
 	h.addU32(m_unlookPersist);
 	h.addFloat(m_loX);
@@ -1645,7 +1768,11 @@ void ShroudManager::hash(StateHasher &h) const
 			h.addU32(r.previous[(size_t)p]);
 			h.addU32(r.seen[(size_t)p]);
 		}
-	}
+		// PORT-314 / S-561: the ghost flag (RW + 8 != null) and the retail detachment (record + 4 = 0 at RW 0xB4E239): a record kept past its object keeps
+		// covering cells, so a game whose building died in the fog and one whose players saw it clear hash differently — as retail's saved ghosts do
+		h.addBool(r.ghost);
+		h.addBool(r.retained);
+					}
 	h.addU32((std::uint32_t)m_dirty.size());
 	for (size_t i = m_dirty.size(); i-- > 0;)
 	{
@@ -1670,8 +1797,10 @@ std::vector<std::string> ShroudManager::stopLines()
 		"[S-560] shroud channels: the three per-cell channels (RW 0xB51030, the object's RW 0x68EC3B: BuildCost / ThreatValue or health / CampnessValue) are "
 		"added; their readers: the emotion tracker's threat and the unit voice's camp test (RW 0x8DD6F3) are ported; the channel search RW 0xB52740 is read "
 		"only by script action 261 SKIRMISH_ATTACK_NEAREST_GROUP_WITH_VALUE (RW 0x7C19D7, the editor's UNUSED, no retail map uses it), not ported; a body-less object's health threat is 0 (retail reads the body unchecked; no retail template gets there without one)",
-		"[S-561] ghost objects: a destroyed immobile object's record is not kept for the players that saw it fogged (RW 0xB4E190, the ghost object of RW "
-		"0x691602 / TheGhostObjectManager); its remembered building disappears when it dies",
+		"[S-561] ghost objects: the record is kept (PORT-314, RW 0xB4E190: a destroyed object with ghost data whose status is FOGGED for a player that has seen "
+		"it), its statuses are frozen at the retention (the ghost's own partition data, RW 0xB4E239), and the client draws the frozen last snapshot record; narrowed: the port keeps no W3DGhostObject clone of "
+		"the render objects (the live drawable and the frozen ObjectSnapshot stand in for it, RW 0x462B9B family not ported) and retail's own release point (the "
+		"local orphan pass RW 0x707141 asking W3DGhostObject::getShroudStatus) is the port's update() pass",
 		"[S-562] shroud inference: the object statuses are evaluated eagerly in update() (retail on demand); the covered cells use the template's last geometry "
 		"shape; TheTerrainLogic::getExtent is boundary 0 (BFME2 donor, present-unmatched)",
 		"[S-563] shroud numerics: the look polygon's x87 extended-precision vertices are computed in binary64 with SimMath's sin / cos (RW fsin / fcos); "

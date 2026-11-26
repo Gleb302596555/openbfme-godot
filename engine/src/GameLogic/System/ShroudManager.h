@@ -51,11 +51,27 @@
 //     CampnessValueRadius), and adds each amount over the integer circle of ceil(range / cell) (RW 0xB51030 -> 0xB509E0, cells clamped 0 .. 0xFFFF).
 //     An object out of the world leaves its amount and mask: the record's last amount comes back at radius 0 (retail's order kept).
 //
+//   * GHOST OBJECTS (PORT-314 / S-561; RW 0xB4E190, the retention test of RW 0xB4F510): a record that leaves the world is not always freed. RW 0xB4F510 asks RW 0xB4E190
+//     first; it queues the look off (RW 0xB4E100), then, when the record has ghost data (record + 8) and some player HAS THE OBJECT FOGGED WHILE NEVER HAVING SEEN
+//     IT (the unrolled loop RW 0xB4E1A3 .. 0xB4E21B: for each player, `seen` at + 0xC4 is 0 AND the status at + 0x24 is FOGGED 3), it keeps the record, detaches
+//     the object (record + 4 = 0, provider slot 0xC with 0), detaches the ghost (provider slot 4) and returns 1 — RW 0xB4F510 then frees neither. Otherwise the
+//     record goes as before (RW 0xB4EAC0). The ghost data is RW 0x691602's: an object that is KINDOF IMMOBILE (template + 0x108 bit 2) with no W3DDefaultDraw
+//     draw module asks TheGhostObjectManager (RW 0xDE4BD0, GlobalData + 0xC69 on — the constructor RW 0x643402 stores 1) for addGhostObject; the port keeps that
+//     as the record's `ghost` flag, set by the object's side (ShroudManager::setGhostObject; see ShroudManager.cpp for the ported form of RW 0x691602).
+//     The retained record keeps covering its cells and its last statuses, so a building destroyed inside the fog stays on the fogged map for the player who last
+//     saw it clear/fogged (everSeenByPlayer 1, status 3) and vanishes for one who never saw it (the shroud draws it; RW 0xB4E890's ghost branch re-evaluates it
+//     from the cells the ghost still covers, its ShroudObject::checkVisible slot 0x14 and its snapshots for the local player only). When a later look makes the
+//     keeping condition false (no player has it unseen-and-fogged any more) the record is freed the way RW 0xB4EAC0 does, from update() after the pending
+//     unlooks — RW's own release is the next ask of the ghost's status (W3DGhostObject::getShroudStatus, RW 0x6350F) at the local orphan pass (RW 0x707141).
+//     The record's client stand-in is the last snapshot record of the object: W3DGhostObject::snapShot (DONOR BFME2 W3DGhostObjectScene.cpp) clones the live
+//     render objects when the status enters FOGGED; the port freezes the ObjectSnapshot the client last presented (GameClient/LogicSnapshot: ghost records).
+//
 // NOT PORTED / INFERENCE (stops S-560 .. S-566, ShroudManager::stopLines): the channel search RW 0xB52740 (S-560: read only by the editor's UNUSED script
-// action 261, RW 0x7C19D7; the emotion tracker and the unit voice's camp test RW 0x8DD6F3 read the channels; RW 0x6FEC76 reads them with no caller); ghost objects (RW 0xB4E190 keeps a destroyed immobile object's record for a player that saw it
-// fogged) are not kept; the status cache is evaluated eagerly in update() for every invalidated record (retail evaluates it when asked, which only moves when
+// action 261, RW 0x7C19D7; the emotion tracker and the unit voice's camp test RW 0x8DD6F3 read the channels; RW 0x6FEC76 reads them with no caller);
+// the status cache is evaluated eagerly in update() for every invalidated record (retail evaluates it when asked, which only moves when
 // the "seen" byte changes); the vision attribute modifiers, the spied mask and the contained-object rule read no state yet; the x87 extended precision of the
-// polygon vertices is computed in binary64.
+// polygon vertices is computed in binary64. The ghost object's client snapshot (W3DGhostObject, RW 0x462B9B family) is not ported: the ghost record here
+// carries the logic's fields (position, look, last statuses) and the live drawable stands in for the frozen render objects (S-4970).
 
 #pragma once
 
@@ -165,6 +181,39 @@ public:
 	// ---- objects ----
 	void registerObject(Object &obj);   ///< RW 0xB515E0
 	void unregisterObject(Object &obj); ///< RW 0xB4F510
+	// ---- PORT-314 / S-561: the ghost objects (RW 0x691602 -> RW 0xB4E190) ----
+	// GlobalData + 0xC69 (the constructor RW 0x643402 stores 1; no INI row writes it — only the game's load path RW 0x6261FD clears it): on in the port, and
+	// a test can turn it off to prove the gate that RW 0x69160C reads
+	void setGhostsEnabled(bool on) { m_ghostsEnabled = on; }
+	bool ghostsEnabled() const { return m_ghostsEnabled; }
+	static const int kImmobileKindOf = 2; ///< KindOf IMMOBILE: template + 0x108 bit 2 (RW 0x691626 `test byte ptr [esi + 0x108], 4`)
+	// RW 0x691602: the object's side of the ghost record. The port's Object asks it once at construction (after its draw modules are built): eligible when the
+	// GlobalData gate is on, the template is IMMOBILE and has no W3DDefaultDraw draw module; the record's `ghost` flag is the retail record + 8.
+	void setGhostObject(const Object &obj, bool ghost);
+	bool ghostEligible(const Object &obj) const;
+	bool hasGhostObject(const Object &obj) const;      ///< record + 8 != null
+	bool isGhostRecord(const Object &obj) const;       ///< RW 0xB4E190 kept the record past its object
+	size_t ghostRecordCount() const;
+	// the ghost records, as the client reads them for its frozen stand-ins (GameClient/LogicSnapshot): one per retained record, in slot order
+	struct GhostRecordView
+	{
+		bool valid = false;
+		ObjectID id = INVALID_ID;
+		std::array<std::uint8_t, kMaxPlayers> status{}; ///< the last statuses (RW + 0x24), computed from the covered cells
+	};
+	size_t recordSlotCount() const { return m_records.size(); }
+	GhostRecordView ghostRecordView(size_t slot) const
+	{
+		GhostRecordView v;
+		if (slot < m_records.size() && m_records[slot].inUse && m_records[slot].retained)
+		{
+			v.valid = true;
+			v.id = m_records[slot].id;
+			v.status = m_records[slot].status;
+		}
+		return v;
+	}
+
 	void markDirty(const Object &obj, bool force); ///< RW 0xB4E2A0 (force) / 0xB4E290
 	void updateNow(const Object &obj);            ///< RW 0xB4F410: the record leaves the dirty list, then RW 0xB4EF50 (lane DECOMP-1)
 	bool isRegistered(const Object &obj) const;
@@ -277,6 +326,8 @@ private:
 		std::array<std::uint8_t, kMaxPlayers> status{};         ///< RW + 0x24 (0 = invalid)
 		std::array<std::uint8_t, kMaxPlayers> previous{};       ///< RW + 0x74
 		std::array<std::uint8_t, kMaxPlayers> seen{};           ///< RW + 0xC4
+		bool ghost = false;                                     ///< RW + 8 (PORT-314 / S-561): the object's ghost object; a record retained past the object keeps it
+		bool retained = false;                                  ///< RW 0xB4E190: the object is gone and the record is kept for the players that never saw it
 		// lane UBER-3W (Uber only, derived, not hashed): templateVision of the template it was read for (prepareRecord read it for every processing: a
 		// geometry list built per record and frame, 1.2% of a one-thread 30,000-troop clash frame)
 		const ThingTemplate *tvTemplate = nullptr;
@@ -365,4 +416,5 @@ private:
 	std::unique_ptr<ShroudManager> m_pendingLoad;   ///< lane SAVE-4c: that manager, until the post-process
 	unsigned m_levels[3] = { 0, 0, 0 };
 	bool m_displayed = false;
+	bool m_ghostsEnabled = true; ///< GlobalData + 0xC69 (RW 0x643402's 1; VisionSettings::ghostObjects)
 };

@@ -1051,11 +1051,21 @@ Drawable::PresentedLook Drawable::presentedLook(const LogicSnapshot *presented, 
 	{
 		rec = presented->find(m_objectId);
 	}
+	if (!rec)
+	{
+		// PORT-314 / S-561: the object is gone and the shroud manager kept its record as a ghost (RW 0xB4E190): the drawable stands in for the ghost object the
+		// port does not clone render objects for — the frozen record is drawn where the building stood, in the fog look while the local player's status is FOGGED,
+		// and not drawn once the shroud (RW 0xB4E890 SHROUDED) or a look that cleared the cells ended the ghost. A drawable the client destroyed has no ghost.
+		if (const LogicSnapshot::GhostRecord *g = presented->findGhost(m_objectId))
+		{
+			rec = &g->record;
+		}
+	}
 	if (shroudDrawn)
 	{
 		// VIS-1: an object the local player cannot see is not drawn (RW 0xB4E890 SHROUDED); with RW 0x64849E's grace when the record is this frame's sync
 		look.hidden = synced ? m_shroudLook.hidden : (rec && rec->shroudedForLocal);
-		look.fogLook = synced && m_shroudLook.fullyObscured;
+		look.fogLook = (synced && m_shroudLook.fullyObscured) || (!synced && rec && rec->objectShroud >= (int)OBJECTSHROUD_FOGGED);
 	}
 	// lane STEALTHLOOK-1 (RW 0x81AA03 -> RW 0x6760F9, GameClient/StealthLook): the drawable's own hidden-by-stealth flag (+0x43E; a member's is the
 	// imitated parent's, RW 0x673114) decides what an enemy sees - a look-5 drawable whose modules are not all affected stays drawn
