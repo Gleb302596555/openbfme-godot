@@ -120,13 +120,15 @@ TEST_CASE("save2: the container writes its header, log and empty snapshot and re
 {
 	const SaveGameFile f = sample();
 	const std::vector<std::uint8_t> bytes = f.encode();
-	REQUIRE(bytes.size() > 12); // tolerance: a guard before the parts' tags are read (the exact layout is checked below, partOffset(bytes, 4) == size)
+	REQUIRE(bytes.size() > 12); // tolerance: a guard before the parts' tags are read (the exact layout is checked below, partOffset(bytes, 5) == size)
 	CHECK(std::string((const char *)bytes.data(), 8) == "OBFMESAV");
 	CHECK(std::string((const char *)bytes.data() + partOffset(bytes, 0), 4) == "HEAD");
 	CHECK(std::string((const char *)bytes.data() + partOffset(bytes, 1), 4) == "LOG ");
 	CHECK(std::string((const char *)bytes.data() + partOffset(bytes, 2), 4) == "SNAP");
 	CHECK(std::string((const char *)bytes.data() + partOffset(bytes, 3), 4) == "LWLD"); // lane WOTR2 milestone 3: container version 2
-	CHECK(partOffset(bytes, 4) == bytes.size()); // the empty War of the Ring part is the last part
+	// PORT-266: v3 adds an empty client part after LWLD even when no client state is present.
+	CHECK(std::string((const char *)bytes.data() + partOffset(bytes, 4), 4) == "CLNT");
+	CHECK(partOffset(bytes, 5) == bytes.size());
 	SaveGameFile back;
 	std::string error;
 	REQUIRE_MESSAGE(SaveGameFile::parse(bytes, back, &error), error);
@@ -220,8 +222,9 @@ TEST_CASE("save2 T5: a damaged, truncated or foreign file is refused with its na
 	SUBCASE("another container version")
 	{
 		std::vector<std::uint8_t> b = good;
-		b[8] = 3;
-		CHECK(parseError(b) == "save container version 3 (this build reads versions 1 and 2)");
+		// PORT-266: version 3 is now the client-snapshot container; 4 is still unsupported.
+		b[8] = 4;
+		CHECK(parseError(b) == "save container version 4 (this build reads versions 1 to 3)");
 	}
 	SUBCASE("a part out of order, bytes after the end")
 	{
@@ -966,7 +969,8 @@ TEST_CASE("save2 wotr: a War of the Ring map save round-trips; its rules are ref
 
 	// a version 1 container: three parts (no LWLD); it loads as before
 	std::vector<std::uint8_t> v1 = sample().encode();
-	REQUIRE(partOffset(v1, 4) == v1.size());
+	// PORT-266: v3 has five parts; truncate to the original three for v1.
+	REQUIRE(partOffset(v1, 5) == v1.size());
 	v1.resize(partOffset(v1, 3));
 	v1[8] = 1;
 	REQUIRE_MESSAGE(SaveGameFile::parse(v1, back, &error), error);
@@ -977,4 +981,39 @@ TEST_CASE("save2 wotr: a War of the Ring map save round-trips; its rules are ref
 	v1w.resize(partOffset(v1w, 3));
 	v1w[8] = 1;
 	CHECK(parseError(v1w) == "the War of the Ring save carries no strategic game");
+}
+
+// PORT-266 / RW 0x6DF73E and 0x4ECE3E: OpenBFME's v3 envelope carries client bytes separately from the unchanged logic SNAP.
+TEST_CASE("PORT-266 save2 client snapshot v3 and legacy v2 envelope")
+{
+	SaveGameFile f = sample();
+	f.snapshot = { 1, 2, 3, 4 }; // the logic bytes must not change
+	// An illustrative versioned client payload with two tree alpha words. The tree codec / live save integration is a separate unfinished step.
+	f.clientSnapshot = { 1, 170, 0, 0, 0, 105, 0, 0, 0 };
+	const std::vector<std::uint8_t> v3 = f.encode();
+	CHECK(v3[8] == 3);
+	REQUIRE(partOffset(v3, 4) + 40 + f.clientSnapshot.size() == v3.size());
+	CHECK(std::string((const char *)v3.data() + partOffset(v3, 4), 4) == "CLNT");
+	SaveGameFile restored;
+	std::string error;
+	REQUIRE_MESSAGE(SaveGameFile::parse(v3, restored, &error), error);
+	CHECK(restored.clientSnapshot == f.clientSnapshot);
+	CHECK(restored.snapshot == f.snapshot);
+	std::vector<std::uint8_t> broken = v3;
+	broken.back() ^= 1;
+	CHECK_FALSE(SaveGameFile::parse(broken, restored, &error));
+	CHECK(error == "the save is damaged (the client snapshot part's SHA-256 does not match its content)");
+	// A removed whole CLNT part must not silently become an old save or reset tree alpha.
+	broken = v3;
+	broken.resize(partOffset(broken, 4));
+	CHECK_FALSE(SaveGameFile::parse(broken, restored, &error));
+	CHECK(error == "the save is truncated (the client snapshot part is missing)");
+	// Strip v3 CLNT and replace the version word: this is the pre-change v2 four-part layout.
+	f.clientSnapshot.clear();
+	std::vector<std::uint8_t> v2 = f.encode();
+	v2.resize(partOffset(v2, 4));
+	v2[8] = 2;
+	REQUIRE_MESSAGE(SaveGameFile::parse(v2, restored, &error), error);
+	CHECK(restored.clientSnapshot.empty());
+	CHECK(restored.snapshot == f.snapshot);
 }

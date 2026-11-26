@@ -48,6 +48,7 @@
 
 #include <cstdint>
 #include <string>
+#include <string>
 #include <vector>
 
 class W3DTreeDrawModuleData;
@@ -79,6 +80,9 @@ public:
 		bool sinking = false;
 		bool removed = false;         ///< the logic took its lumber
 		// PORT-73 (RW 0x4E8B8F addShrub / RW 0x4E6C74 / RW 0x4E8519): the push aside of a shrub
+		bool shrub = false;           ///< distinct shrub buffer; tree fading never applies here
+		std::uint32_t fadeCurrent = 255; ///< tree buffer +0xE0 (RW 0x4EC93A)
+		std::uint32_t fadeTarget = 255;  ///< tree buffer +0xE4 (RW 0x4EC93A)
 		bool pushable = false;        ///< RW 0x4E8C66 / 0x4E8C6C: MoveOutwardTime above 0 or DoTopple (the record joins the area partition)
 		float pushAside = 0.0f;       ///< + 0x5C: 0 upright, 1 bent as far as the walker pushes it
 		float pushAsideDelta = 0.0f;  ///< + 0x60: the step per drawn frame (positive outward, negative back)
@@ -130,6 +134,9 @@ public:
 	std::vector<FX> takeFX();
 	const std::vector<Tree> &trees() const { return m_trees; }
 	size_t animating() const;
+	// PORT-266, RW 0x4ECE3E: client-only tree alpha snapshot (OpenBFME encoding, not retail bytes).
+	std::vector<std::uint8_t> saveFadeSnapshot() const;
+	bool loadFadeSnapshot(const std::vector<std::uint8_t> &bytes, std::string *error);
 	// S-921: a morph ended and the tree is of another type now (its topple and sink read that type's W3DTreeDraw, RW 0x4EAB0A)
 	void setData(size_t index, const W3DTreeDrawModuleData *data)
 	{
