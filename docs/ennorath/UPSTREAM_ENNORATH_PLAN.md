@@ -137,17 +137,17 @@
   - [x] `RunOffMapBehavior` — **upstream PR `#469`** (`up/run-off-map-behavior`)
   - [x] `SpecialEnemySenseUpdate` — **upstream PR `#471`** (`up/special-enemy-sense`)
 
-### 2.3. Крупные системы логики и ИИ (10 файлов)
+### 2.3. Крупные системы логики и ИИ (10 файлов) — **ВЫПОЛНЕНО**
 
-- [ ] `GameLogic/Map/FireLogicSystem.cpp` + `GameLogic/AI/AIBurningDeathState.cpp` (огонь на земле и горящая смерть)
-- [ ] `GameLogic/AI/AIRampageState.cpp` (буйство)
-- [ ] `GameLogic/AI/AIAttackCharge.cpp`
-- [ ] `GameLogic/AI/AIAttackHordePosition.cpp`
-- [ ] `GameLogic/AI/AIGroupOrders.cpp` + `GameClient/OrderLines.cpp` (очередь приказов и линии по Alt)
-- [ ] `GameLogic/AI/AITNGuard.cpp`
-- [ ] `GameLogic/Map/TerrainTaintClear.cpp` + `W3DDevice/GameClient/W3DTaintMask.cpp`
-- [ ] `GameLogic/System/CrateSystem.cpp`
-- [ ] `GameLogic/System/VictorySystem.cpp`
+- [x] `GameLogic/Map/FireLogicSystem.cpp` (**upstream PR `#510`**, `up/fire-logic-system`) + `GameLogic/AI/AIBurningDeathState.cpp` (**upstream PR `#509`**, `up/ai-burning-death-state`)
+- [x] `GameLogic/AI/AIRampageState.cpp` — **upstream PR `#501`** (`up/ai-rampage-state`)
+- [x] `GameLogic/AI/AIAttackCharge.cpp` — **upstream PR `#496`** (`up/ai-attack-charge`)
+- [x] `GameLogic/AI/AIAttackHordePosition.cpp` — **upstream PR `#498`** (`up/ai-attack-horde-position`)
+- [x] `GameLogic/AI/AIGroupOrders.cpp` — **upstream PR `#508`** (`up/ai-group-orders`); *(клиентский `GameClient/OrderLines.cpp` зависит от мёрджа `#508` и `#504` `SegLineGeometry`)*
+- [x] `GameLogic/AI/AITNGuard.cpp` — **upstream PR `#500`** (`up/ai-tn-guard`)
+- [x] `GameLogic/Map/TerrainTaintClear.cpp` *(уже в `upstream/main` через `TAINTAREA-1` `GameLogic::clearTaintArea`/`clearTaintObjects`)* + `W3DDevice/GameClient/W3DTaintMask.cpp` (**upstream PR `#503`**, `up/w3d-taint-mask`)
+- [x] `GameLogic/System/CrateSystem.cpp` — **upstream PR `#495`** (`up/crate-and-victory-systems`)
+- [x] `GameLogic/System/VictorySystem.cpp` — **upstream PR `#495`** (`up/crate-and-victory-systems`)
 
 ### 2.4. Клиентские Draw-модули, декали, эффекты и звук (21 файл)
 
@@ -190,10 +190,12 @@
    - `#448` (`up/dds-decode`) — CI полностью зелёный (доходит только ASan).
    - `#449` (`up/port-330`), `#450` (`up/port-430`), `#451` (`up/w3d-truncated-and-absent`), `#452` (`up/fx-macros-before-fx`) — Commit gate зелёный, кросс-платформенные сборки/санитайзеры завершаются.
    - `#453` (`up/local-38`), `#454` (`up/port-113`), `#455` (`up/local-56`) — открыты, локальный commit gate пройден, поставлены в очередь CI.
-3. **Этап 2 — ЗАВЕРШЁН (открыты 37 новых PR `#457`–`#494`, см. раздел 2.2 + `FunctionCurve`/`ProjectedShadowManager`):**
+3. **Этап 2.2 — ЗАВЕРШЁН (открыты 37 новых PR `#457`–`#494`, см. раздел 2.2 + `FunctionCurve`/`ProjectedShadowManager`):**
    - Все 44 класса раздела 2.2 покрыты (`#457`–`#494`, плюс `AimWeaponBehavior` `#447`, `EvacuateDamage` `#456`, `AnimalAIUpdate` уже в `upstream/main`).
    - Починены CI-проверки: лексикографическая сортировка `docs/STOPS.md`, BFME1-поле `RunToLocation` (`#469`), `tools/save/closed_sets.json` (`#474`, `#476`, `#480`).
-4. **Профиль Ennorath (`ModEngineFeatures`, Часть 1А и 1Б) — ЕЩЁ НЕ ОТПРАВЛЕН.**
+4. **Этап 2.3 — ЗАВЕРШЁН (открыты 9 новых PR `#495`, `#496`, `#498`, `#500`, `#501`, `#503`, `#508`, `#509`, `#510`, см. раздел 2.3):**
+   - Покрыты все 9 пунктов раздела 2.3 (`CrateSystem` + `VictorySystem`, `AIAttackCharge`, `AIAttackHordePosition`, `AITNGuard`, `AIRampageState`, `W3DTaintMask` при готовом `TerrainTaintClear` в `upstream/main`, `AIGroupOrders`, `AIBurningDeathState`, `FireLogicSystem`).
+5. **Профиль Ennorath (`ModEngineFeatures`, Часть 1А и 1Б) — ЕЩЁ НЕ ОТПРАВЛЕН.**
    - Ждёт Этапа 3 (и мёрджа upstream PR `#409` от `LuisTNH` с регистрацией `fc32e4c4…`, чтобы не конфликтовать и переиспользовать общие имена фич).
 
 ### Следующие шаги (для следующего агента)
