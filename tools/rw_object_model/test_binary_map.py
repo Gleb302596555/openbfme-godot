@@ -178,3 +178,76 @@ def test_binary_report_proven_glue_non_code_and_verdicts(tmp_path):
     assert nr == {0x4010D0}
     assert 0x4010E0 not in nr  # too big MUST remain open
     assert 0x4010F0 not in nr  # verdict without evidence MUST remain open
+
+
+def test_msvc_scope_is_the_symbol_scope_not_an_argument_type():
+    from msvc_names import scope
+    assert scope("?insert@?$map@HURec@@U?$less@H@_STL@@V?$allocator@U?$pair@$$CBHURec@@@_STL@@@3@@_STL@@QAEXXZ") == ["map<>", "_STL"]
+    assert scope("??1?$_Rb_tree_base@HV?$allocator@H@_STL@@@_STL@@QAE@XZ") == ["_Rb_tree_base<>", "_STL"]
+    assert scope("??$sort@PAUR@@P6A_NABU1@0@Z@_STL@@YAXPAUR@@0P6A_NABU1@1@Z@Z") == ["_STL"]  # template args with a function pointer
+    # a game function taking STL containers is not STL
+    assert scope("?doQuickExit@AIUpdateInterface@@UAEXPBV?$vector@UCoord3D@@V?$allocator@UCoord3D@@@_STL@@@_STL@@@Z") == ["AIUpdateInterface"]
+    assert scope("?collectUnitCounts@@YAXPAUBattle@@AAV?$vector@HV?$allocator@H@_STL@@@_STL@@@Z") == []
+    assert scope("not mangled") is None and scope("?f@?P@@QAEXXZ") is None  # unknown shapes prove nothing
+
+
+def test_stl_scope_needs_a_strong_pair():
+    import binary_report as br
+    n = "?clear@?$list@H@_STL@@QAEXXZ"
+    assert br.stl_scope(n, "A") and br.stl_scope(n, "B")
+    assert not br.stl_scope(n, "C") and not br.stl_scope(n, "D")
+
+
+def test_glue_shapes_eh_tables_and_fragments():
+    import binary_report as br
+    from collections import Counter
+
+    def at(src, n, dst):
+        return struct.pack("<i", dst - (src + n))
+
+    code = {
+        0x401000: b"\xC3",                                                   # real function (target of the thunks)
+        0x401010: b"\xE9" + at(0x401010, 5, 0x401000),                       # forwarder: jmp
+        0x401020: bytes.fromhex("83E904") + b"\xE9" + at(0x401023, 5, 0x401000),       # adjustor: sub ecx, 4; jmp (slot)
+        0x401030: bytes.fromhex("83E904") + b"\xE9" + at(0x401033, 5, 0x401000),       # same bytes, no slot: stays open
+        0x401040: bytes.fromhex("2B49FC") + b"\xE9" + at(0x401043, 5, 0x401000),       # vtordisp: sub ecx, [ecx - 4]; jmp (slot)
+        0x401050: bytes.fromhex("C701") + dd(0x402100) + b"\xE9" + at(0x401056, 5, 0x401000),  # empty dtor
+        0x401060: bytes.fromhex("C701") + dd(0x402180) + b"\xE9" + at(0x401066, 5, 0x401000),  # not a table: stays open
+        0x401070: b"\xB8" + dd(0x402200) + b"\xC3",                          # type-name getter, slot 2
+        0x401078: b"\xB8" + dd(0x402200) + b"\xC3",                          # same, slot 3: stays open
+        0x401080: b"\x68" + dd(0x401090) + b"\xE8" + at(0x401085, 5, 0x4010A0) + b"\xC3",  # push fn; call _atexit; ret
+        0x401090: bytes.fromhex("B9") + dd(0x402300) + b"\xE9" + at(0x401095, 5, 0x401000),  # the registered exit destructor
+        0x4010A0: b"\xC3",                                                   # _atexit
+        0x4010B0: bytes.fromhex("8B45EC") + b"\xC3",                         # mov eax, [ebp - 0x14]; ret: runs on a caller's frame
+        0x4010C0: bytes.fromhex("55 8BEC 8B45F0 5D C3"),                     # push ebp; mov ebp, esp: a real frame, stays open
+        0x4010D0: b"\xC3",                                                   # catch handler
+        0x4010E0: b"\xC3",                                                   # unwind funclet of a FuncInfo no stub names
+        0x4010F0: b"\xF4",                                                   # hlt
+    }
+    # FuncInfo: magic, maxState 1, unwind map, 1 try block, try map; try block: low, high, catchHigh, nCatches 1, handlers
+    data = {
+        0x402000: dd(0x19930520, 1, 0x402040, 1, 0x402050, 0, 0),
+        0x402040: struct.pack("<iI", -1, 0x4010E0),
+        0x402050: dd(0, 0, 0, 1, 0x402070),
+        0x402070: dd(0, 0, 0, 0x4010D0),
+        0x402100: dd(0x401000, 0x401000),
+        0x402200: b"AIWaitState\0",
+        0x402300: dd(0),
+    }
+    b = fake(code, data)
+    sizes = {0x401000: 1, 0x401010: 5, 0x401020: 8, 0x401030: 8, 0x401040: 8, 0x401050: 11, 0x401060: 11, 0x401070: 6,
+             0x401078: 6, 0x401080: 11, 0x401090: 10, 0x4010A0: 1, 0x4010B0: 4, 0x4010C0: 8, 0x4010D0: 1, 0x4010E0: 1, 0x4010F0: 1}
+    rec = {"functions": [{"address": a, "size": n, "spans": [[a, n]], "calls": [], "tails": []} for a, n in sorted(sizes.items())]}
+    slot_of = {0x401020: {(0x402100, 1)}, 0x401040: {(0x402100, 0)}, 0x401070: {(0x402400, 2)}, 0x401078: {(0x402400, 3)}}
+    callers = Counter({0x401000: 5, 0x4010A0: 1})
+    assert br.atexit_registered(b, rec, {0x4010A0: "_atexit"}) == {0x401090}
+    shapes = br.proven_glue_shapes(b, rec, set(sizes), callers, slot_of, {0x402100}, {0x401090})
+    assert {a: p.split(":")[0] for a, p in shapes.items()} == {
+        0x401010: "forwarder", 0x401020: "adjustor", 0x401040: "vtordisp", 0x401050: "empty-dtor", 0x401070: "type-name",
+        0x401090: "atexit"}
+    unwinds, catches = br.eh_tables(b)
+    assert unwinds == {0x4010E0: 0x402000} and catches == {0x4010D0: 0x402000}
+    tier = {a: "data" for a in sizes}
+    frags = br.proven_fragments(b, rec, tier, callers, Counter(), slot_of, catches, unwinds)
+    assert {a: p.split(":")[0] for a, p in frags.items()} == {0x4010B0: "frame", 0x4010D0: "catch"}
+    assert 0x4010F0 in br.proven_non_code(b, rec, tier, callers, Counter(), slot_of)

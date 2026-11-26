@@ -11,8 +11,10 @@ from pathlib import Path
 # User-mode 32-bit MSVC C++ code in game.dat never executes ring-0 / 16-bit / BCD instructions (verified 0 occurrences
 # across all 43,168 call/vtable-slot functions). Their presence inside an uncalled `evidence == "data"` entry proves the
 # pointer is non-code data (e.g. a printable string or integer in .rdata whose bytes happen to fall inside .text).
+# `hlt` (ring 0) added 2026-11-26: 2 occurrences among call/vtable-slot entries, both phantom call targets at 0x65006D / 0x67006E
+# (UTF-16 text decoded as code), none in a function with a citation.
 IMPOSSIBLE_X86_MNEMONICS = frozenset({
-    "aaa", "aad", "aam", "aas", "arpl", "bound", "cli", "clts", "daa", "das", "enter", "icebp",
+    "aaa", "aad", "aam", "aas", "arpl", "bound", "cli", "clts", "daa", "das", "enter", "hlt", "icebp",
     "insb", "insd", "insw", "int", "invd", "invlpg", "iret", "iretd", "lcall", "lds", "les",
     "lgdt", "lidt", "ljmp", "lldt", "ltr", "out", "outsb", "outsd", "outsw", "rdmsr", "retf",
     "rsm", "salc", "sgdt", "sidt", "sti", "sysenter", "sysexit", "ud2", "wait", "wbinvd", "wrmsr",
@@ -187,6 +189,184 @@ def proven_non_code(b, rec, tier: dict[int, str], callers: Counter, resolved_in:
     return out
 
 
+def eh_tables(b) -> tuple[dict[int, int], dict[int, int]]:
+    """Every MSVC C++ EH FuncInfo in .rdata / .data (magic 0x19930520..22 with a valid unwind map), not only those an
+    __ehhandler$ stub found by proven_seh_glue names: ({unwind funclet: FuncInfo}, {catch handler: FuncInfo}).
+
+    Added 2026-11-26: the agents' verdict files held about 190 unwind funclets (`lea ecx, [ebp - X]; jmp ~T`) the stub walk
+    missed. A catch handler comes from the try-block map (HandlerType::addressOfHandler); it runs on its function's frame."""
+    unwinds: dict[int, int] = {}
+    catches: dict[int, int] = {}
+    for lo, hi in b.data_ranges:
+        for va in range(lo, hi - 20, 4):
+            if b.u32(va) not in _MSVC_EH_MAGICS:
+                continue
+            uws = _parse_funcinfo_unwinds(b, va)
+            if uws is None:
+                continue
+            for u in uws:
+                unwinds.setdefault(u, va)
+            ntry, ptry = b.u32(va + 12), b.u32(va + 16)
+            if not (0 < ntry < 200 and _va_in_image(b, ptry, 20 * ntry) and b.in_data(ptry)):
+                continue
+            for t in range(ntry):
+                ncatch, handlers = b.u32(ptry + 20 * t + 12), b.u32(ptry + 20 * t + 16)
+                if not (0 < ncatch < 50 and _va_in_image(b, handlers, 16 * ncatch) and b.in_data(handlers)):
+                    continue
+                for h in range(ncatch):
+                    x = b.u32(handlers + 16 * h + 12)
+                    if _va_in_text(b, x):
+                        catches.setdefault(x, va)
+    return unwinds, catches
+
+
+def _c_string(b, va: int) -> str | None:
+    """The printable NUL-terminated string at va in .rdata / .data, or None."""
+    if not b.in_data(va):
+        return None
+    o = va - b.base
+    end = b.image.find(b"\0", o, o + 256)
+    if end <= o or not all(32 <= c < 127 for c in b.image[o:end]):
+        return None
+    return b.image[o:end].decode("ascii")
+
+
+def atexit_registered(b, rec, crt: dict[int, str]) -> set[int]:
+    """Functions a function of the inventory hands to the C runtime's exit list: `push fn` right before `call _atexit` /
+    `call _onexit` (crt: address -> name of those two, from tools/mod/rw_library_functions.tsv). The compiler emits one such
+    callback per global object with a destructor (`$E` / dynamic atexit destructor): it runs only when the process exits."""
+    targets = {a for a, n in crt.items() if n in ("_atexit", "_onexit")}
+    if not targets:
+        return set()
+    out = set()
+    for fn in rec["functions"]:
+        for a0, n in fn.get("spans", [[fn["address"], fn["size"]]]):
+            if n < 10:
+                continue
+            blob = b.image[a0 - b.base:a0 - b.base + n]
+            i = blob.find(b"\x68")
+            while 0 <= i <= n - 10:
+                if blob[i + 5] == 0xE8:
+                    tgt = (a0 + i + 10 + struct.unpack_from("<i", blob, i + 6)[0]) & 0xFFFFFFFF
+                    if tgt in targets:
+                        ins = list(b.md.disasm(blob[i:i + 10], a0 + i))
+                        # both decode as the instructions they look like (the bytes are not inside another instruction)
+                        if len(ins) == 2 and ins[0].mnemonic == "push" and ins[1].mnemonic == "call" and _starts_insn(b, fn, a0 + i):
+                            out.add(struct.unpack_from("<I", blob, i + 1)[0])
+                i = blob.find(b"\x68", i + 1)
+    return out
+
+
+def _starts_insn(b, fn, va: int) -> bool:
+    """va is an instruction boundary of fn's decode (its spans decoded from their starts)."""
+    for a0, n in fn.get("spans", [[fn["address"], fn["size"]]]):
+        if a0 <= va < a0 + n:
+            a = a0
+            while a < va:
+                i = b.insn(a)
+                if i is None:
+                    return False
+                a += i.size
+            return a == va
+    return False
+
+
+def proven_glue_shapes(b, rec, entries: set[int], callers: Counter, slot_of: dict, tables: set[int],
+                       atexit_fns: set[int]) -> dict[int, str]:
+    """Code whose whole body is a compiler (or MEMORY_POOL_GLUE macro) shape with no logic of its own: {function: proof}.
+
+    Each rule names the exact instruction sequence; the function the shape forwards to stays in the map with its own status.
+      forwarder   the body is one `jmp rel32` to a function of the inventory
+      adjustor    `sub ecx, k; jmp rel32` in a table slot (the this-adjusting thunk of a secondary base's slot)
+      vtordisp    `sub ecx, [ecx - k]` (then optionally `sub ecx, k`) and `jmp rel32`, in a table slot
+      empty-dtor  `mov dword ptr [ecx], table; jmp rel32` where table is an installed vtable: a destructor with an empty body
+                  (it restores its class's table and runs the base destructor)
+      type-name   `mov eax, "Name"; ret` (6 bytes) in slot 2 of a table with no direct caller: the class-name getter of the
+                  memory pool / snapshot glue (711 of the 718 such getters are slot 2; the other 7 stay open)
+      atexit      a function registered with `push fn; call _atexit`: the compiler's exit-time destructor of a global object
+    Added 2026-11-26 from the patterns the Local agents kept classifying by hand (docs/ennorath/rw_verdicts.d)."""
+    out: dict[int, str] = {}
+    for fn in rec["functions"]:
+        a, sz = fn["address"], fn["size"]
+        if a in atexit_fns and not slot_of.get(a):
+            out[a] = "atexit: exit-time destructor of a global (push fn; call _atexit)"
+            continue
+        if sz > 16 or not _va_in_image(b, a, sz):
+            continue
+        raw = b.image[a - b.base:a - b.base + sz]
+        if sz == 6 and raw[0] == 0xB8 and raw[5] == 0xC3 and callers[a] == 0:
+            s = _c_string(b, struct.unpack_from("<I", raw, 1)[0])
+            if s is not None and any(n == 2 for _v, n in slot_of.get(a, ())):
+                out[a] = f'type-name: mov eax, "{s[:40]}"; ret (slot 2)'
+            continue
+        ins = list(b.md.disasm(raw, a))
+        if not ins or sum(i.size for i in ins) != sz:
+            continue
+        last = ins[-1]
+        if last.mnemonic != "jmp" or not last.operands or last.operands[0].type != 2:
+            continue
+        tgt = last.operands[0].imm & 0xFFFFFFFF
+        if tgt not in entries or tgt == a:
+            continue
+        head = ins[:-1]
+        slot = bool(slot_of.get(a))
+        if not head:
+            out[a] = f"forwarder: jmp 0x{tgt:X}"
+        elif len(head) == 1 and head[0].mnemonic == "sub" and head[0].op_str.startswith("ecx, ") \
+                and head[0].operands[1].type == 2 and slot:
+            out[a] = f"adjustor: {head[0].op_str}; jmp 0x{tgt:X}"
+        elif 1 <= len(head) <= 2 and head[0].mnemonic == "sub" and head[0].op_str.startswith("ecx, dword ptr [ecx - ") and slot \
+                and all(h.mnemonic == "sub" and h.op_str.startswith("ecx, ") for h in head):
+            out[a] = f"vtordisp: {'; '.join(h.op_str for h in head)}; jmp 0x{tgt:X}"
+        elif len(head) == 1 and head[0].mnemonic == "mov" and head[0].op_str.startswith("dword ptr [ecx], ") \
+                and head[0].operands[1].type == 2 and (head[0].operands[1].imm & 0xFFFFFFFF) in tables:
+            out[a] = f"empty-dtor: mov [ecx], 0x{head[0].operands[1].imm & 0xFFFFFFFF:X}; jmp 0x{tgt:X}"
+    return out
+
+
+def _reads_ebp_first(b, a: int, size: int) -> bool:
+    """The straight-line start of a reads ebp before it pushes, sets or loads it: the code runs on another function's frame."""
+    for i in b.md.disasm(b.image[a - b.base:a - b.base + min(size, 64)], a):
+        if i.mnemonic == "push" and i.op_str == "ebp":
+            return False
+        regs_read, regs_written = i.regs_access()
+        if any(i.reg_name(r) in ("ebp", "bp") for r in regs_read):
+            return True
+        if any(i.reg_name(r) in ("ebp", "bp") for r in regs_written):
+            return False
+        if i.mnemonic in ("ret", "jmp", "call", "int3") or i.mnemonic.startswith("j") or i.mnemonic.startswith("loop"):
+            return False
+    return False
+
+
+def proven_fragments(b, rec, tier: dict[int, str], callers: Counter, resolved_in: Counter, slot_of: dict,
+                     catches: dict[int, int], unwinds: dict[int, int]) -> dict[int, str]:
+    """Entries that are not functions but blocks of one, with 0 direct / resolved virtual callers and no table slot: {va: proof}.
+      catch   the handler of a try block (the try-block map of a FuncInfo): part of the function that holds the try
+      frame   an `evidence = data / code-imm` entry whose first instructions read ebp before pushing or setting it: it runs on
+              its caller's frame (an __except filter, a catch continuation, the middle of a function, or data read as code)
+    Unwind funclets are eh-glue, never fragments."""
+    out: dict[int, str] = {}
+    for fn in rec["functions"]:
+        a = fn["address"]
+        if callers[a] or resolved_in[a] or slot_of.get(a) or a in unwinds:
+            continue
+        if a in catches:
+            out[a] = f"catch: handler of a try block (FuncInfo 0x{catches[a]:X})"
+        elif tier.get(a) in ("data", "code-imm") and _reads_ebp_first(b, a, fn["size"]):
+            out[a] = "frame: reads ebp before setting it (runs on another function's frame)"
+    return out
+
+
+def stl_scope(name: str, match_tier: str) -> bool:
+    """The BFME2 pairing (tier A or B) names a function of namespace _STL (STLport): its outermost scope, not an argument type."""
+    from msvc_names import scope
+    if match_tier not in ("A", "B") or "_STL@" not in name:
+        return False
+    s = scope(name)
+    return bool(s) and s[-1] == "_STL"
+
+
 def load_not_reached_verdicts(verdicts_dir: Path | None) -> set[int]:
     """Load proven `not reached` verdicts from docs/ennorath/rw_verdicts.d/*.tsv.
 
@@ -243,37 +423,61 @@ def write_reports(b, rec, m, ty, vc, out_dir: Path, src: Path = Path("engine/src
             seh_after[a] = a + i.size + j.size
 
     eh_glue = proven_seh_glue(b, rec)
+    unwinds, catches = eh_tables(b)
     deleting_dtors = proven_deleting_dtors(b, rec, xmap)
     non_code = proven_non_code(b, rec, tier, callers, resolved_in, m.slot_of)
+    crt = {}
+    with open(Path(__file__).resolve().parents[1] / "mod" / "rw_library_functions.tsv", encoding="utf-8") as fh:
+        for line in fh:
+            p = line.rstrip("\n").split("\t")
+            if len(p) == 3 and p[0].startswith("0x"):
+                crt[int(p[0], 16)] = p[1]
+    entries = {fn["address"] for fn in rec["functions"]}
+    shapes = proven_glue_shapes(b, rec, entries, callers, m.slot_of, set(m.vtables), atexit_registered(b, rec, crt))
+    fragments = proven_fragments(b, rec, tier, callers, resolved_in, m.slot_of, catches, unwinds)
     if verdicts_dir is None:
         default_vdir = out_dir / "rw_verdicts.d"
         verdicts_dir = default_vdir if default_vdir.is_dir() else None
     not_reached = load_not_reached_verdicts(verdicts_dir)
 
     def status(a):
+        """(status, proof): the proof names the rule that took an uncited function off the open count."""
         if a in cites:
-            return cites[a]
+            return cites[a], ""
         if a in seh_after and seh_after[a] in cites:
-            return cites[seh_after[a]]
+            return cites[seh_after[a]], ""
         if a in library or xmap.get(a, ("", "", ""))[1] == "library":
-            return "library"
-        if a in eh_glue and callers[a] == 0 and resolved_in[a] == 0 and not m.slot_of.get(a):
-            return "eh-glue"
+            return "library", ""
+        name, _sub, mt = xmap.get(a, ("", "", ""))
+        if stl_scope(name, mt):
+            return "library", "stl: namespace _STL (STLport)"
+        if callers[a] == 0 and resolved_in[a] == 0 and not m.slot_of.get(a):
+            if a in eh_glue:
+                return "eh-glue", ""
+            if a in unwinds:
+                return "eh-glue", f"unwind: funclet of FuncInfo 0x{unwinds[a]:X}"
         if a in deleting_dtors:
-            return "compiler-glue"
+            return "compiler-glue", "deleting-dtor: scalar deleting destructor"
+        if a in shapes:
+            return "compiler-glue", shapes[a]
         if a in non_code:
-            return "non-code"
+            return "non-code", ""
+        if a in fragments:
+            return "fragment", fragments[a]
         if a in not_reached:
-            return "not-reached"
-        return "none"
+            return "not-reached", ""
+        return "none", ""
 
     out_dir.mkdir(parents=True, exist_ok=True)
     counts = Counter()
     by_sub = defaultdict(Counter)
-    rows = ["function\tsize\tevidence\tstatus\tclass\tslot\tdirect callers\tresolved virtual callers\tsubsystem\tBFME2 name\tmatch tier"]
+    rows = ["function\tsize\tevidence\tstatus\tclass\tslot\tdirect callers\tresolved virtual callers\tsubsystem\tBFME2 name\tmatch tier\tproof"]
+    proofs = Counter()
     for fn in rec["functions"]:
         a = fn["address"]
-        st = status(a)
+        st, proof = status(a)
+        if proof:
+            proofs[(st, proof.split(":")[0])] += 1
         counts[st] += 1
         cls = slot = ""
         slots = sorted(m.slot_of.get(a, ()))
@@ -285,7 +489,7 @@ def write_reports(b, rec, m, ty, vc, out_dir: Path, src: Path = Path("engine/src
             cls, slot = f"0x{m.class_of_fn[a]:X}", "ctor/dtor"
         name, sub, mt = xmap.get(a, ("", "", ""))
         by_sub[(sub or "unclassified").rstrip("?")][st] += 1
-        rows.append(f"0x{a:08X}\t{fn['size']}\t{tier.get(a, '')}\t{st}\t{cls}\t{slot}\t{callers.get(a, 0)}\t{resolved_in.get(a, 0)}\t{sub}\t{name}\t{mt}")
+        rows.append(f"0x{a:08X}\t{fn['size']}\t{tier.get(a, '')}\t{st}\t{cls}\t{slot}\t{callers.get(a, 0)}\t{resolved_in.get(a, 0)}\t{sub}\t{name}\t{mt}\t{proof}")
     (out_dir / "RW_BINARY_MAP.tsv").write_text("\n".join(rows) + "\n", encoding="utf-8")
 
     rows = ["class\ttables\tctors / dtors\tbases\tdescendants\tvirtual methods\tcited\tuncited"]
@@ -294,7 +498,7 @@ def write_reports(b, rec, m, ty, vc, out_dir: Path, src: Path = Path("engine/src
         meth = set()
         for v in lay.values():
             meth.update(m.vtables.get(v, ()))
-        st = [status(x) for x in meth]
+        st = [status(x)[0] for x in meth]
         rows.append("\t".join([
             f"0x{c:X}",
             " ".join(f"{k:#x}:0x{v:X}" for k, v in sorted(lay.items())),
@@ -325,12 +529,22 @@ def write_reports(b, rec, m, ty, vc, out_dir: Path, src: Path = Path("engine/src
         f"{total} functions (evidence: {', '.join(f'{k} {v}' for k, v in sorted(ev.items()))}). Status by `RW 0x…` citations in engine/src: "
         f"ported {counts['ported']}, partial {counts['partial']}, library {counts['library']}, "
         f"eh-glue {counts['eh-glue']}, compiler-glue {counts['compiler-glue']}, non-code {counts['non-code']}, "
-        f"not-reached {counts['not-reached']}, none {counts['none']}.",
-        "`library`: the proven list (tools/mod/rw_library_functions.tsv) and the functions match_rotwk.py labels `library` (see below).",
-        "`eh-glue`: proven MSVC C++ EH compiler glue (__ehhandler$ stubs and FuncInfo::pUnwindMap funclets with 0 callers and no vtable slot).",
-        "`compiler-glue`: proven MSVC scalar deleting destructor wrappers whose wrapped ~Class() destructor is tracked separately.",
-        "`non-code`: proven phantom `evidence=data` entries with 0 callers, no vtable slot, and impossible user-mode x86 opcodes or initial `int3` padding.",
+        f"fragment {counts['fragment']}, not-reached {counts['not-reached']}, none {counts['none']}.",
+        "`library`: the proven list (tools/mod/rw_library_functions.tsv), the functions match_rotwk.py labels `library` (see below), and",
+        "  the functions whose BFME2 pair (tier A / B) is in namespace `_STL` (STLport; by the decorated name's scope, not an argument type).",
+        "`eh-glue`: proven MSVC C++ EH compiler glue (__ehhandler$ stubs and the unwind funclets of every FuncInfo in the image, with 0 callers",
+        "  and no vtable slot).",
+        "`compiler-glue`: proven shapes with no logic of their own (the function they forward to keeps its own row): scalar deleting",
+        "  destructors; `forwarder` (the body is one `jmp`); `adjustor` / `vtordisp` (this-adjusting thunks in a table slot); `empty-dtor`",
+        "  (`mov [ecx], table; jmp ~Base`); `type-name` (`mov eax, \"Name\"; ret` in table slot 2, the memory pool / snapshot name getter);",
+        "  `atexit` (registered by `push fn; call _atexit`: the exit-time destructor of a global).",
+        "`non-code`: proven phantom `evidence=data` entries with 0 callers, no vtable slot, and impossible user-mode x86 opcodes (ring 0 such",
+        "  as `hlt`, 16-bit, BCD) or initial `int3` padding.",
+        "`fragment`: not a function but a block of one, with 0 callers and no vtable slot: a catch handler of a FuncInfo try block, or a",
+        "  `data` / `code-imm` entry that reads ebp before setting it (it runs on another function's frame).",
         "`not-reached`: proven unreachable in `docs/ennorath/rw_verdicts.d/*.tsv` (with evidence; `too big` and `unchecked` remain `none`).",
+        "The `proof` column of RW_BINARY_MAP.tsv names the rule for every function the rules above took off the open count"
+        + (": " + ", ".join(f"{k[1]} {v}" for k, v in sorted(proofs.items(), key=lambda kv: -kv[1])) + "." if proofs else "."),
         "`none` means no `RW 0x...` citation: the client side (draw, audio, UI, network) is rebuilt on Godot rather than ported line by line, so there `none` is not a to-do count.",
         "",
         "Exact by construction: an entry has code evidence (the PE entry, a direct call, a slot of a table code installs) or is a data /",
@@ -357,11 +571,11 @@ def write_reports(b, rec, m, ty, vc, out_dir: Path, src: Path = Path("engine/src
         "The label of tools/re/match_rotwk.py (RotWK paired with BFME2 1.06 and its decomp) over this inventory, `?` labels folded in;",
         "`library` there is code the port replaces wholesale." if xmap else "No match file given (--xmap): every function is `unclassified`.",
         "",
-        "| subsystem | functions | ported | partial | library | glue/non-code | not-reached | none |",
+        "| subsystem | functions | ported | partial | library | glue/non-code/fragment | not-reached | none |",
         "|---|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for sub, cs in sorted(by_sub.items(), key=lambda kv: -sum(kv[1].values())):
-        glue = cs["eh-glue"] + cs["compiler-glue"] + cs["non-code"]
+        glue = cs["eh-glue"] + cs["compiler-glue"] + cs["non-code"] + cs["fragment"]
         md.append(f"| {sub} | {sum(cs.values())} | {cs['ported']} | {cs['partial']} | {cs['library']} | {glue} | {cs['not-reached']} | {cs['none']} |")
     md += [
         "",
