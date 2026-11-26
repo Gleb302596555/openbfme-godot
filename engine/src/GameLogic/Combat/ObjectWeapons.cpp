@@ -1375,15 +1375,23 @@ bool ObjectWeapons::canAttackObjectGates(const Object &sourceObj, const Object &
 	{
 		return false;
 	}
+	// PORT-218: RW 0x6C91A4 (push 0x33, ecx = the VICTIM): a victim that is NOT_IN_WORLD cannot be attacked; the SOURCE is not tested, so a
+	// garrison's passenger (which carries the status) is still asked (RW 0x6C8995 walks them through the same path)
+	static const int kNotInWorld = CombatNames::status("NOT_IN_WORLD");
+	if (victim.testStatus((unsigned)kNotInWorld))
+	{
+		return false;
+	}
+	// PORT-218: RW 0x6C91EB (test byte [victim + 0x459], ~(source CONTESTING_BUILDING ? 1 : 0)): the port's one bit of that byte is m_masked
+	// (+ 0x459 bit 1, which the source's tolerance of bit 0 does not cover); no 2.01 / Ennorath INI writes another bit (S-7429)
+	if (victim.isMasked())
+	{
+		return false;
+	}
 	// RW 0x6C91F7 .. 0x6C9229: KindOf UNATTACKABLE (template + 0x10E & 0x40), the status UNATTACKABLE (0x3C, RW 0x6C9207: whoever attacks, forced or not;
 	// TOP20 #21 r3: a soldier in its burning death (AIBurningDeathState sets it) stops being shot at), NO_ATTACK_FROM_AI (0x1A) for source 2
 	if (victim.isKindOf((unsigned)CombatNames::kinds().unattackable) || victim.testStatus((unsigned)st.unattackable) ||
 	    (victim.testStatus((unsigned)st.noAttackFromAI) && source == CMD_FROM_AI))
-	{
-		return false;
-	}
-	// RW 0x6C9147: the non-forced relationship veto applies only to player commands (source 0).
-	if (!forced && source == CMD_FROM_PLAYER && sourceObj.getRelationship(victim) != ENEMIES)
 	{
 		return false;
 	}
@@ -1412,6 +1420,41 @@ bool ObjectWeapons::canAttackObjectGates(const Object &sourceObj, const Object &
 			const Player *attacker = sourceObj.getControllingPlayer();
 			const Player *as = victim.logic().players().getNthPlayer(disguise->disguisePlayerIndex());
 			if (attacker && as && attacker->getRelationship(as->getDefaultTeam()) != ENEMIES)
+			{
+				return false;
+			}
+		}
+	}
+	// PORT-218: RW 0x6C92EB .. 0x6C93CA, the relationship rules (the reject test of RW 0x6C930B / 0x6C9329, which turns a MINE victim's relationship
+	// into ENEMIES, and the TREE victim under TheAI + 0xBC (RW 0x6C938C) are not ported: S-7429)
+	const Relationship rel = sourceObj.getRelationship(victim);
+	// RW 0x6C935A (source KindOf word 1 bit 0x800000 = MINE 55): a mine does not attack an ally, nor anything but a STRUCTURE (RW 0x6C9375)
+	if (sourceObj.isKindOf((unsigned)CombatNames::kinds().mine) && (rel == ALLIES || !victim.isKindOf((unsigned)CombatNames::kinds().structure)))
+	{
+		return false;
+	}
+	// RW 0x6C937E (victim `test byte [0x10E], 4` = word 1 bit 50 LINKED_TO_FLAG) with NEUTRAL relationship skips the veto; otherwise RW 0x6C93A9 ..
+	// 0x6C93C6: not ENEMIES, not forced, a player's command (source 0) and no script flag + 0x457 bit 0x10 on the victim -> NOT_POSSIBLE
+	static const int kLinkedToFlag = CombatNames::kindOf("LINKED_TO_FLAG");
+	if (!(victim.isKindOf((unsigned)kLinkedToFlag) && rel == NEUTRAL) && rel != ENEMIES && !forced && source == CMD_FROM_PLAYER &&
+	    (victim.scriptStatus() & 0x10u) == 0)
+	{
+		return false;
+	}
+	// RW 0x6C9422 .. 0x6C9475: unless the source is PASS_EXPERIENCE_TO_CONTAINER (kind 206) or the attack is forced, the victim's own contain
+	// (+ 0x258, slot 0x4C getApparentControllingPlayer for the source's player) names the player it seems to belong to; a team that does not
+	// hold it as ENEMIES refuses a player's command (RW 0x7A3DAD, 0x6C946B .. 0x6C947C). (The branch of RW 0x6C93E0 on the victim's status 0x3C
+	// is dead code: RW 0x6C9207 has already refused that status.)
+	static const int kPassExperience = CombatNames::kindOf("PASS_EXPERIENCE_TO_CONTAINER");
+	if (!sourceObj.isKindOf((unsigned)kPassExperience) && !forced)
+	{
+		if (const ContainModuleInterface *vc = victim.getContain())
+		{
+			const Player *apparent = vc->getApparentControllingPlayer(sourceObj.getControllingPlayer());
+			const Team *apparentTeam = apparent ? apparent->getDefaultTeam() : nullptr;
+			const Team *sourceTeam = sourceObj.getTeam();
+			if (apparentTeam && sourceTeam && sourceTeam->getRelationship(apparentTeam) != ENEMIES && source == CMD_FROM_PLAYER &&
+			    (victim.scriptStatus() & 0x10u) == 0)
 			{
 				return false;
 			}
