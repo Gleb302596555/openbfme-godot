@@ -575,6 +575,36 @@ bool ScriptActions::executeUnitAction(ScriptEngine &engine, const ScriptActionRe
 		}
 		return true;
 	}
+	if (name == "TEAM_TOGGLE_CLOSE_RANGE_WEAPON")
+	{
+		// Local 189: RW 0x7CAFA5 case 469 -> RW 0x7C3B6E (both editions; BFME2 Rva003C30D9Do): getTeamNamed(p0, false) (RW 0x759FDA);
+		// for each member findModule("DualWeaponBehavior") (RW 0x68BDA5, string RW 0xC0BD84) -> module + 0x20 (m_closeRequest) = (p1 != 0).
+		if (Team *t = ScriptConditions::team(engine, param(a, 0).stringValue))
+		{
+			const bool close = param(a, 1).intValue != 0;
+			for (Object *o : ScriptConditions::members(*t))
+			{
+				if (DualWeaponBehavior *dw = DualWeaponBehavior::first(*o))
+				{
+					dw->setCloseRequest(close);
+				}
+			}
+		}
+		return true;
+	}
+	if (name == "NAMED_TOGGLE_CLOSE_RANGE_WEAPON")
+	{
+		// Local 189: RW 0x7CAFA5 case 470 -> RW 0x7C3C0A (both editions; BFME2 Rva003C3175Do): getUnitNamed(p0) (RW 0x75A243);
+		// findModule("DualWeaponBehavior") (RW 0x68BDA5, string RW 0xC0BD84) -> module + 0x20 (m_closeRequest) = (p1 != 0).
+		if (Object *o = engine.getUnitNamed(param(a, 0).stringValue))
+		{
+			if (DualWeaponBehavior *dw = DualWeaponBehavior::first(*o))
+			{
+				dw->setCloseRequest(param(a, 1).intValue != 0);
+			}
+		}
+		return true;
+	}
 	if (name == "SET_STOPPING_DISTANCE")
 	{
 		// Local 189: RW 0x7CAFA5 case 144 -> RW 0x7C10C0 (both editions; BFME2 doSetStoppingDistance): getTeamNamed(p0, false) (RW 0x759FDA);
