@@ -192,6 +192,7 @@ include(cmake/Port332.cmake)    # PORT-332: the small containers' uncited own fu
 include(cmake/MapSweep.cmake)  # the Ennorath map sweep, one map per run (tools/maps/map_sweep.py; OPENBFME_MAPSWEEP_TESTS)
 include(cmake/Port99.cmake)     # PORT-99: PlayerTemplate/LightPointsUpSound, its only reader is the light-point (WOTR) action (issue #259; OPENBFME_PORT99_TESTS)
 include(cmake/Port214.cmake) # PORT-214: a hero's voice volume is his own Volume / MinVolume pair (fork issue 504; OPENBFME_PORT214_TESTS)
+include(cmake/Port223.cmake) # PORT-223: AIAttackPursueTargetState (0x64), Approach 4-frame prediction, MeleeEngage run-down fire (fork issue 533; OPENBFME_PORT223_TESTS)
 include(cmake/Port229.cmake) # PORT-229: hordes and contains - garrison, transport, tunnels, horde membership and slaughter, as RotWK (issue #552; OPENBFME_PORT229_TESTS)
 include(cmake/Port247.cmake) # PORT-247: TeleportSpecialAbilityUpdate MaxDistance (RW 0x896608) and two fields RotWK never reads (issue #571; OPENBFME_PORT247_TESTS)
 include(cmake/Port530.cmake)   # PORT-530: the sweep meets each grey button's conditions and presses again (fork issue 530; OPENBFME_PORT530_TESTS)
@@ -1160,6 +1161,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT102_TESTS}
     ${OPENBFME_PORT113_TESTS}
     ${OPENBFME_PORT214_TESTS}
+    ${OPENBFME_PORT223_TESTS}
     ${OPENBFME_PORT229_TESTS}
     ${OPENBFME_PORT247_TESTS}
     ${OPENBFME_PORT530_TESTS}
