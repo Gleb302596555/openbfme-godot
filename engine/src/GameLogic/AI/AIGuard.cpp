@@ -222,7 +222,7 @@ public:
 		m_nextEnemyScanTime = logic.getFrame() + (unsigned)logic.random().getValue(0, (int)settingsOf(obj).guardEnemyScanRate, kGuardFile, 0x3F5);
 		return STATE_CONTINUE;
 	}
-	// RW 0x94A70A (the guarded object's / team's move test has nothing to test for a LOCATION guard; the crate: none in the port)
+	// RW 0x94A70A (the crate and guarded-object move test remain unported)
 	StateReturnType update() override
 	{
 		Object &obj = owner();
@@ -232,24 +232,64 @@ public:
 			return STATE_SLEEP(m_nextEnemyScanTime - now);
 		}
 		m_nextEnemyScanTime = now + settingsOf(obj).guardEnemyScanRate;
-		if (guardOf(*this).lookForInnerTarget())
+		AIGuardMachine &g = guardOf(*this);
+		if (g.lookForInnerTarget())
 		{
 			return STATE_SUCCESS; // -> the inner state
+		}
+		// RW 0x94A70A: after a scan, move back when the guarded team's centre
+		// changes by more than 20 on either axis (the squared limit is 400).
+		if (g.teamToGuard() != 0)
+		{
+			if (const Team *team = obj.logic().players().teams().findTeamByID(g.teamToGuard()))
+			{
+				Coord3D pos;
+				if (ScriptConditions::teamCentreAllMembers(*team, pos))
+				{
+					const float dx = SimMath::subf32(m_guardeePos.x, pos.x);
+					const float dy = SimMath::subf32(m_guardeePos.y, pos.y);
+					if (SimMath::mulf32(dx, dx) > 400.0f || SimMath::mulf32(dy, dy) > 400.0f)
+					{
+						m_guardeePos = pos;
+						return STATE_FAILURE; // -> return to guard
+					}
+				}
+			}
 		}
 		return STATE_SLEEP(m_nextEnemyScanTime - now);
 	}
 	bool isIdle() const override { return true; } // RW 0x8BD372
 	unsigned conditionTransition() override { return hasAttackedMeAndICanReturnFire(owner()) ? (unsigned)AI_GUARD_ATTACK_AGGRESSOR : INVALID_STATE_ID; }
-	void crc(StateHasher &h) const override { h.addU32(m_nextEnemyScanTime); }
-	void xfer(Xfer &x) override // lane SAVE-4c
+	void crcPersistent(StateHasher &h) const override
 	{
-		XferVersion v{ 1, 1 };
+		if (m_guardeePos.x != 0.0f || m_guardeePos.y != 0.0f || m_guardeePos.z != 0.0f)
+		{
+			h.addFloat(m_guardeePos.x);
+			h.addFloat(m_guardeePos.y);
+			h.addFloat(m_guardeePos.z);
+		}
+	}
+	bool hasPersistentCrc() const override { return true; }
+	void crc(StateHasher &h) const override { h.addU32(m_nextEnemyScanTime); crcPersistent(h); }
+	void xfer(Xfer &x) override // RW 0x9495F7 / 0x94A70A; OpenBFME layout v2 adds the persistent guardee position
+	{
+		const bool hasPosition = m_guardeePos.x != 0.0f || m_guardeePos.y != 0.0f || m_guardeePos.z != 0.0f;
+		XferVersion v{ 1, (std::uint8_t)(x.isLoading() || hasPosition ? 2 : 1) };
 		x.xferVersion(v);
 		x.xferUnsignedInt(&m_nextEnemyScanTime);
+		if (v.current >= 2)
+		{
+			AIXfer::coord(x, m_guardeePos);
+		}
+		else if (x.isLoading())
+		{
+			m_guardeePos = Coord3D{ 0.0f, 0.0f, 0.0f };
+		}
 	}
 
 private:
 	unsigned m_nextEnemyScanTime = 0; // + 0x20
+	Coord3D m_guardeePos{ 0.0f, 0.0f, 0.0f }; // + 0x24
 };
 
 // the attack the inner, outer and aggressor states run (ZH: new AIAttackState(machine, follow, true, false, &exitConditions))
@@ -456,6 +496,20 @@ public:
 		{
 			return STATE_SUCCESS;
 		}
+		// RW 0x94A407: keep the pursuit centre at the guarded team's current centre.
+		AIGuardMachine &g = guardOf(*this);
+		Object &guard = owner();
+		if (g.teamToGuard() != 0)
+		{
+			if (const Team *team = guard.logic().players().teams().findTeamByID(g.teamToGuard()))
+			{
+				Coord3D center;
+				if (ScriptConditions::teamCentreAllMembers(*team, center))
+				{
+					m_exit.center = center;
+				}
+			}
+		}
 		const StateReturnType r = m_attack->update();
 		// lane WALLMELEE-1, RW 0x94A407 after the inner update: off the ground layer the attack ends once the victim (the machine's goal, RW 0x8DBACE) is out of
 		// reach from where the owner stands (RW 0x6FF7FA)
@@ -464,6 +518,29 @@ public:
 		if (victim && AIWorld::objectLayer(obj) != LAYER_GROUND && !AI::canAttackFromHere(obj, *victim))
 		{
 			return STATE_SUCCESS; // -1
+		}
+		// RW 0x94A407: a missing/dead goal triggers another inner search and,
+		// if successful, exits and re-enters this state with the new nemesis.
+		if (!victim || victim->isEffectivelyDead())
+		{
+			if (g.lookForInnerTarget())
+			{
+				onExit(EXIT_NORMAL);
+				return onEnter();
+			}
+		}
+		else
+		{
+			const Coord3D &p = *victim->getPosition();
+			const float dx = SimMath::subf32(m_exit.center.x, p.x);
+			const float dy = SimMath::subf32(m_exit.center.y, p.y);
+			const float dz = SimMath::subf32(m_exit.center.z, p.z);
+			const float distance = SimMath::addf32(SimMath::addf32(SimMath::mulf32(dz, dz), SimMath::mulf32(dy, dy)), SimMath::mulf32(dx, dx));
+			const float range = AIGuardMachine::getStdGuardRange(obj);
+			if (distance <= SimMath::mulf32(range, range))
+			{
+				m_exit.attackGiveUpFrame = obj.logic().getFrame() + settingsOf(obj).guardChaseUnitsFrames;
+			}
 		}
 		return r;
 	}
@@ -607,7 +684,7 @@ public:
 const char *guardStopLine()
 {
 	return "[S-3802] AI guard (RW 0x662A21 -> state 16, the guard machine RW 0x949A10): ported for the LOCATION guard of the stances and (lane BFME2CAMP1) the AREA "
-		   "and TEAM guards of the scripts; not ported: the object guard, the turret's target in lookForInnerTarget, the AI + 0x3CD layer flag, AI crates (lane WALLMELEE-1: the outer state's layer test, "
+		   "and TEAM guards of the scripts; not ported: the object guard, the AI + 0x3CD layer flag, AI crates (lane WALLMELEE-1: the outer state's layer test, "
 		   "RW 0x68BBE0 / 0x6FF7FA, is ported), the inner state's restart flag (lane TARGET-1: TheAI's closest enemy is RotWK's search, AIClosestEnemy.h)";
 }
 
@@ -749,7 +826,17 @@ bool AIGuardMachine::lookForInnerTarget()
 	}
 	if (!logic.combat().autoAcquireEnabled())
 	{
-		return false; // the port's switch for scenes that are not battles (COMBAT-1's sweeps; default on, no retail counterpart): the guard looks for nothing either
+		return false; // the port's switch for scenes that are not battles
+	}
+	// RW 0x949CA7: the owner's AI machine (+0x30) goal, if hostile, takes priority
+	// over the common team target and spatial search (RW 0x8DBACE resolves its ID).
+	if (Object *goal = owner().stateMachine().goalObject())
+	{
+		if (goal->getRelationship(obj) == ENEMIES)
+		{
+			m_nemesis = goal->getID();
+			return true;
+		}
 	}
 	Team *team = obj.getTeam();
 	if (attackCommonTarget(team))
