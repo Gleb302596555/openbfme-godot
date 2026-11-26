@@ -282,6 +282,7 @@ include(cmake/Port196.cmake) # PORT-196: the AI spell book's ARMY_BREAKER decisi
 include(cmake/Port256.cmake) # PORT-256: the weapon-switching powers (fork issue 604; OPENBFME_PORT256_TESTS)
 include(cmake/Port233.cmake) # PORT-233: the vetted counts, the skill point scalars, the tracker's visibility and the passive effect's NonStackable gate (issue #556; OPENBFME_PORT233_TESTS)
 include(cmake/Port210.cmake) # OPENBFME_PORT210_TESTS
+include(cmake/Port218.cmake) # OPENBFME_PORT218_TESTS (lane PORT-218)
 include(cmake/Port427.cmake) # PORT-427: the porcupine formation's members face outward, each its radial bearing (issue #427; OPENBFME_PORT427_TESTS)
 include(cmake/Port437.cmake) # PORT-437: the generic attack machine's object conditions (issue #437; OPENBFME_PORT437_TESTS)
 include(cmake/Port436.cmake) # PORT-436: the weapon aim at the victim's contact point (issue #436; OPENBFME_PORT436_TESTS)
@@ -1122,6 +1123,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT256_TESTS}
     ${OPENBFME_PORT233_TESTS}
     ${OPENBFME_PORT210_TESTS}
+    ${OPENBFME_PORT218_TESTS}
     ${OPENBFME_PORT427_TESTS}
     ${OPENBFME_PORT437_TESTS}
     ${OPENBFME_PORT436_TESTS}
