@@ -24,6 +24,8 @@ struct Status
 	int isMeleeAttacking = status("IS_MELEE_ATTACKING");
 	int underConstruction = status("UNDER_CONSTRUCTION");
 	int unattackable = status("UNATTACKABLE");
+	int notInWorld = status("NOT_IN_WORLD");     // PORT-218: bit 0x33 (RW 0x6C91A4)
+	int destroyed = status("DESTROYED");         // PORT-218: bit 0 (RW 0x6C9182 / 0x6C918F)
 	int hordeMember = status("HORDE_MEMBER");
 	int stealthed = status("STEALTHED");
 	int uncontrollablyScared = status("UNCONTROLLABLY_SCARED");

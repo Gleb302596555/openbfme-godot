@@ -113,44 +113,25 @@ const char kPort218[] =
 	"  End\n"
 	"End\n"
 	// RW 0x6C935A: a MINE source (KindOf 55) attacks STRUCTURE victims only
-	"Object PORT218Mine
-"
-	"  KindOf = INFANTRY SELECTABLE CAN_ATTACK SCORE MINE
-"
-	"  VisionRange = 300
-"
-	"  Geometry = CYLINDER
-"
-	"  GeometryMajorRadius = 8
-"
-	"  GeometryMinorRadius = 8
-"
-	"  GeometryHeight = 20
-"
-	"  ArmorSet
-"
-	"    Conditions = None
-"
-	"    Armor = PlainArmor
-"
-	"  End
-"
-	"  WeaponSet
-"
-	"    Conditions = None
-"
-	"    Weapon = PRIMARY PORT218Sword
-"
-	"  End
-"
-	"  Body = ActiveBody ModuleTag_Body
-"
-	"    MaxHealth = 500
-"
-	"  End
-"
-	"End
-"
+	"Object PORT218Mine\n"
+	"  KindOf = INFANTRY SELECTABLE CAN_ATTACK SCORE MINE\n"
+	"  VisionRange = 300\n"
+	"  Geometry = CYLINDER\n"
+	"  GeometryMajorRadius = 8\n"
+	"  GeometryMinorRadius = 8\n"
+	"  GeometryHeight = 20\n"
+	"  ArmorSet\n"
+	"    Conditions = None\n"
+	"    Armor = PlainArmor\n"
+	"  End\n"
+	"  WeaponSet\n"
+	"    Conditions = None\n"
+	"    Weapon = PRIMARY PORT218Sword\n"
+	"  End\n"
+	"  Body = ActiveBody ModuleTag_Body\n"
+	"    MaxHealth = 500\n"
+	"  End\n"
+	"End\n"
 	// an immobile tower: IMMOBILE, no locomotor, a long reach (RW 0x6C888C: a source that cannot walk out of a weapon-less reach answers INVALID_SHOT)
 	"Object PORT218Tower\n"
 	"  KindOf = IMMOBILE STRUCTURE SELECTABLE CAN_ATTACK\n"
@@ -346,7 +327,7 @@ TEST_CASE("PORT-218 the type and the result: forced is bit 0, the answer is 0 + 
 	CHECK((int)ATTACK_CONTINUED_TARGET_FORCED == 3);
 	CHECK(((int)ATTACK_CONTINUED_TARGET_FORCED & 1) == 1);
 	CHECK((int)ATTACK_TUNNEL_NETWORK_GUARD == 4);
-	CHECK((int)ATTACK_TYPE_FLAG_0x10 == 0x10);
+	CHECK((int)ATTACK_CONTINUED_TARGET_NO_CONTAIN == 0x10);
 	CHECK((int)ATTACKRESULT_NOT_POSSIBLE == 0);
 	CHECK((int)ATTACKRESULT_INVALID_SHOT == 1);
 	CHECK((int)ATTACKRESULT_POSSIBLE_AFTER_MOVING == 2);
