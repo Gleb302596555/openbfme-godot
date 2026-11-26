@@ -1020,8 +1020,8 @@ void ShroudManager::registerObject(Object &obj)
 void ShroudManager::unregisterObject(Object &obj)
 {
 	// RW 0xB4F510 -> RW 0xB4E190 (PORT-314 / S-561): the look is queued off and the channels are taken off either way (RW 0xB4E100). The record is then kept when
-	// the object has ghost data and a player has it FOGGED while never having seen it (the unrolled loop RW 0xB4E1A3: `seen` + 0xC4 nonzero AND `status` + 0x24
-	// == 3); the object and the ghost are detached from the retained record (RW 0xB4E239: record + 4 = 0, provider slot 0xC with 0, then slot 4). A record that
+	// the object has ghost data and a player has seen it and has it FOGGED (the unrolled loop RW 0xB4E1A3 .. 0xB4E21B: `seen` + 0xC4 nonzero AND `status` + 0x24
+	// == 3, RW 0xB4E1B0); the object and the ghost are detached from the retained record (RW 0xB4E239: record + 4 = 0, provider slot 0xC with 0, then slot 4). A record that
 	// is not kept goes the old way, RW 0xB4EAC0 (RW 0xB4F549's false branch, and RW 0xB4EC80's deleting form).
 	Record *r = recordOf(obj);
 	if (!r)
@@ -1098,6 +1098,21 @@ bool ShroudManager::isGhostRecord(const Object &obj) const
 {
 	const Record *r = recordOf(obj);
 	return r && r->retained;
+}
+
+ObjectShroudStatus ShroudManager::ghostStatusFor(size_t slot, int player) const
+{
+	if (slot >= m_records.size() || !m_records[slot].inUse || !m_records[slot].retained || player < 0 || player >= kMaxPlayers)
+	{
+		return OBJECTSHROUD_SHROUDED;
+	}
+	const Record &r = m_records[slot];
+	if (r.seen[(size_t)player] == 0)
+	{
+		return OBJECTSHROUD_SHROUDED;
+	}
+	int seen = -1;
+	return computeStatus(r, player, nullptr, seen);
 }
 
 size_t ShroudManager::ghostRecordCount() const
@@ -1702,7 +1717,7 @@ void ShroudManager::hash(StateHasher &h) const
 	// every piece of logic state, collections with their lengths first: the grid (origin, extent, size, inverse, counts), the settings, the cells, the unlook
 	// queue in order, the records in registration order (with their look, facing, flags, channels, coverage, cached statuses and ground reference) and the
 	// dirty list in processing order by object id
-	h.addU32(0x56495332u); // 'VIS2' (PORT-314: the records carry the ghost and retained flags)
+	h.addU32(0x56495331u); // 'VIS1'
 	h.addU32(m_counter);
 	h.addU32(m_unlookPersist);
 	h.addFloat(m_loX);
@@ -1768,11 +1783,14 @@ void ShroudManager::hash(StateHasher &h) const
 			h.addU32(r.previous[(size_t)p]);
 			h.addU32(r.seen[(size_t)p]);
 		}
-		// PORT-314 / S-561: the ghost flag (RW + 8 != null) and the retail detachment (record + 4 = 0 at RW 0xB4E239): a record kept past its object keeps
-		// covering cells, so a game whose building died in the fog and one whose players saw it clear hash differently — as retail's saved ghosts do
-		h.addBool(r.ghost);
-		h.addBool(r.retained);
-					}
+		// PORT-314 / S-561: the ghost flag (RW + 8 != null) and the retail detachment (record + 4 = 0 at RW 0xB4E239) are hashed only for a retained record, so the
+		// hash of a game that retains no ghost is the VIS1 hash it was (a ghost-eligible record that is never kept moves nothing)
+		if (r.retained)
+		{
+			h.addBool(r.ghost);
+			h.addBool(r.retained);
+		}
+	}
 	h.addU32((std::uint32_t)m_dirty.size());
 	for (size_t i = m_dirty.size(); i-- > 0;)
 	{
@@ -1798,9 +1816,10 @@ std::vector<std::string> ShroudManager::stopLines()
 		"added; their readers: the emotion tracker's threat and the unit voice's camp test (RW 0x8DD6F3) are ported; the channel search RW 0xB52740 is read "
 		"only by script action 261 SKIRMISH_ATTACK_NEAREST_GROUP_WITH_VALUE (RW 0x7C19D7, the editor's UNUSED, no retail map uses it), not ported; a body-less object's health threat is 0 (retail reads the body unchecked; no retail template gets there without one)",
 		"[S-561] ghost objects: the record is kept (PORT-314, RW 0xB4E190: a destroyed object with ghost data whose status is FOGGED for a player that has seen "
-		"it), its statuses are frozen at the retention (the ghost's own partition data, RW 0xB4E239), and the client draws the frozen last snapshot record; narrowed: the port keeps no W3DGhostObject clone of "
-		"the render objects (the live drawable and the frozen ObjectSnapshot stand in for it, RW 0x462B9B family not ported) and retail's own release point (the "
-		"local orphan pass RW 0x707141 asking W3DGhostObject::getShroudStatus) is the port's update() pass",
+		"it, RW 0xB4E1B0), its statuses are frozen at the retention (the ghost's own partition data, RW 0xB4E239), and the client draws the frozen last presented "
+		"record through the destroyed object's own drawable (DrawableManager keeps it while LogicSnapshot::ghosts holds the ghost); narrowed: the port keeps no "
+		"W3DGhostObject clone of the render objects (RW 0x462B9B family not ported; the drawable shows the model state of the object's last frame, a ghost is not "
+		"rebuilt after a load) and retail's own release point (the local orphan pass RW 0x707141 asking W3DGhostObject::getShroudStatus) is the port's update() pass",
 		"[S-562] shroud inference: the object statuses are evaluated eagerly in update() (retail on demand); the covered cells use the template's last geometry "
 		"shape; TheTerrainLogic::getExtent is boundary 0 (BFME2 donor, present-unmatched)",
 		"[S-563] shroud numerics: the look polygon's x87 extended-precision vertices are computed in binary64 with SimMath's sin / cos (RW fsin / fcos); "

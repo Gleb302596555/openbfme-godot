@@ -29,7 +29,12 @@
 #include "Common/Player.h"
 #include "Common/PlayerList.h"
 #include "Common/Thing/ThingTemplate.h"
+#include "Common/StateHash.h"
+#include "Common/GameState.h"
+#include "Libraries/WWVegas/WW3D2/assetmgr.h"
+#include "GameClient/ClientEvents.h"
 #include "GameClient/Drawable.h"
+#include "GameClient/DrawableManager.h"
 #include "GameClient/LogicSnapshot.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/System/ShroudManager.h"
@@ -246,6 +251,7 @@ TEST_CASE("PORT-314 ghost gate: with ghosts disabled (GlobalData + 0xC69) no rec
 TEST_CASE("PORT-314 client ghost record: the snapshot freezes the destroyed object's last record for the local player's fog (RW 0xB4E190's kept record)")
 {
 	Fx f;
+	f.shroud.setDisplayed(true); // the client presents the shroud (LogicSnapshot::build's shroudLocal)
 	const int alice = f.idx("Alice");
 	Object *keep = f.place("Keep314", "Bob", 220.0f, 220.0f);
 	f.reveal(alice, 5, 5, 1);
@@ -266,5 +272,136 @@ TEST_CASE("PORT-314 client ghost record: the snapshot freezes the destroyed obje
 	CHECK(ghost->record.position.x == doctest::Approx(220.0f)); // frozen where the building stood
 	CHECK(ghost->record.position.y == doctest::Approx(220.0f));
 	CHECK(ghost->record.tmpl != nullptr); // and as it was (its template; the model state is the last presented record)
+	CHECK(ghost->record.objectShroud == (int)OBJECTSHROUD_FOGGED); // RW 0xB4E890's FOGGED: the ghost is drawn in the fog
+	CHECK_FALSE(ghost->record.shroudedForLocal);                   // and not hidden (SHROUDED hides, RW 0xB4E890)
 	CHECK(second->findGhost(9999) == nullptr);
+	// the ghost outlives the frame after the destruction: the next snapshot freezes the previous ghost
+	const std::shared_ptr<const LogicSnapshot> third = LogicSnapshot::build(*f.logic, second.get(), false, 0, alice);
+	REQUIRE(third->findGhost(id) != nullptr);
+	CHECK(third->findGhost(id)->record.position.x == 220.0f);
+	// a look at the cells ends it for the viewer (RW 0xB4E890's clear branch): no ghost is presented, the empty ground shows
+	f.reveal(alice, 5, 5, 1);
+	f.shroud.update();
+	const std::shared_ptr<const LogicSnapshot> fourth = LogicSnapshot::build(*f.logic, third.get(), false, 0, alice);
+	CHECK(fourth->findGhost(id) == nullptr);
+}
+
+// the drawable of the destroyed object is what the device draws; it stays as the ghost's stand-in while the snapshot holds the ghost and is presented in the fog
+// look (Drawable::presentedLook through the synced ghost record), then goes with the ghost. The destroyed event carries the shroud manager's answer (RW 0xB4E190).
+TEST_CASE("PORT-314 ghost drawable: a destroyed building's drawable is still presented in the fog while the ghost stands, and goes when the cells are seen again")
+{
+	Fx f;
+	f.shroud.setDisplayed(true);
+	Player *alicePlayer = f.players.findPlayerWithName("Alice");
+	f.logic->players().setLocalPlayer(alicePlayer);
+	const int alice = alicePlayer->getPlayerIndex();
+	ClientEventRecorder recorder(*f.logic);
+	f.logic->setClientHooks(&recorder);
+	struct Unhook
+	{
+		GameLogic &l;
+		~Unhook() { l.setClientHooks(nullptr); }
+	} unhook{ *f.logic };
+	struct EmptySource : W3DFileSource
+	{
+		bool Exists(const std::string &) const override { return false; }
+		bool Read(const std::string &, std::vector<std::uint8_t> &, std::string *) override { return false; }
+	} source;
+	WW3DAssetManager assets(source);
+	DrawableManager drawables(assets, *f.logic);
+
+	Object *keep = f.place("Keep314", "Bob", 220.0f, 220.0f);
+	const ObjectID id = keep->getID();
+	drawables.applyEvents(recorder.take());
+	REQUIRE(drawables.findByObject(id) != nullptr);
+	const DrawableID drawableId = drawables.findByObject(id)->getID();
+	f.reveal(alice, 5, 5, 1);
+	f.shroud.update();
+	f.unreveal(alice, 5, 5, 1);
+	f.shroud.update();
+	REQUIRE(f.shroud.getObjectStatus(*keep, alice) == OBJECTSHROUD_FOGGED);
+	const std::shared_ptr<const LogicSnapshot> first = LogicSnapshot::build(*f.logic, nullptr, false, 0, alice);
+	drawables.syncTransforms(*first, 0.0, false);
+	CHECK(drawables.ghostDrawableCount() == 0);
+
+	f.destroy(keep);
+	const std::vector<ClientEvent> events = recorder.take();
+	const auto destroyedEv = std::find_if(events.begin(), events.end(), [&](const ClientEvent &e) { return e.kind == ClientEvent::DESTROYED && e.object == id; });
+	REQUIRE(destroyedEv != events.end());
+	CHECK(destroyedEv->ghost); // the retained record (RW 0xB4E190 returned 1)
+	drawables.applyEvents(events);
+	CHECK(drawables.findByObject(id) == nullptr);           // the object is gone: nothing finds the drawable through it
+	REQUIRE(drawables.find(drawableId) != nullptr);          // the drawable is the ghost's stand-in
+	CHECK(drawables.ghostDrawableCount() == 1);
+
+	const std::shared_ptr<const LogicSnapshot> second = LogicSnapshot::build(*f.logic, first.get(), false, 0, alice);
+	CHECK(second->find(id) == nullptr);
+	REQUIRE(second->findGhost(id) != nullptr);
+	drawables.syncTransforms(*second, 0.0, false);
+	const Drawable *d = drawables.find(drawableId);
+	REQUIRE(d != nullptr);                                   // still there after the sync: the snapshot holds the ghost
+	const Drawable::PresentedLook look = d->presentedLook(second.get(), true);
+	CHECK_FALSE(look.hidden);                                // drawn (RW 0xB4E890 FOGGED, not SHROUDED)
+	CHECK(look.fogLook);                                     // in the fog look
+	// the ghost keeps standing over later frames
+	const std::shared_ptr<const LogicSnapshot> third = LogicSnapshot::build(*f.logic, second.get(), false, 0, alice);
+	drawables.syncTransforms(*third, 0.0, false);
+	REQUIRE(drawables.find(drawableId) != nullptr);
+	CHECK_FALSE(drawables.find(drawableId)->presentedLook(third.get(), true).hidden);
+
+	// Alice looks at the cells: the ghost is released (the shroud's update), the snapshot holds none, the drawable goes
+	f.reveal(alice, 5, 5, 1);
+	f.shroud.update();
+	CHECK(f.shroud.ghostRecordCount() == 0);
+	const std::shared_ptr<const LogicSnapshot> fourth = LogicSnapshot::build(*f.logic, third.get(), false, 0, alice);
+	CHECK(fourth->findGhost(id) == nullptr);
+	drawables.syncTransforms(*fourth, 0.0, false);
+	CHECK(drawables.find(drawableId) == nullptr);
+	CHECK(drawables.ghostDrawableCount() == 0);
+}
+
+// a ghost-eligible record that is never kept hashes as it did before PORT-314 (VIS1 without the ghost bytes); a retained record is hashed with them and the
+// saved block (version 1.3) carries the retained record through a load that has no object for it (loadPostProcess)
+TEST_CASE("PORT-314 ghost hash and save: only a retained record moves the shroud hash, and the retained record survives an xfer round trip without its object")
+{
+	auto hashOf = [](const ShroudManager &m) {
+		StateHasher h;
+		m.hash(h);
+		return h.value();
+	};
+	// no ghost kept: the eligible and the not-eligible game hash alike
+	{
+		Fx a, b;
+		b.shroud.setGhostsEnabled(false);
+		a.place("Keep314", "Bob", 220.0f, 220.0f);
+		b.place("Keep314", "Bob", 220.0f, 220.0f);
+		a.shroud.update();
+		b.shroud.update();
+		CHECK(hashOf(a.shroud) == hashOf(b.shroud));
+	}
+	auto retainedGame = [](Fx &f) {
+		const int alice = f.idx("Alice");
+		Object *keep = f.place("Keep314", "Bob", 220.0f, 220.0f);
+		f.reveal(alice, 5, 5, 1);
+		f.shroud.update();
+		f.unreveal(alice, 5, 5, 1);
+		f.shroud.update();
+		f.destroy(keep);
+		f.shroud.update();
+	};
+	Fx a, b, loaded;
+	b.shroud.setGhostsEnabled(false);
+	retainedGame(a);
+	retainedGame(b);
+	REQUIRE(a.shroud.ghostRecordCount() == 1);
+	REQUIRE(b.shroud.ghostRecordCount() == 0);
+	CHECK(hashOf(a.shroud) != hashOf(b.shroud)); // the kept record (and its ghost / retained bytes) is in the hash
+	const std::vector<std::string> tokens = { "obfme:Shroud" };
+	std::vector<std::uint8_t> saved, again;
+	a.logic->gameState().saveBlocks(tokens, saved);
+	loaded.logic->gameState().loadBlocks(tokens, saved); // the record has no object in `loaded`: loadPostProcess keeps it (RW 0xB4E239 detached it)
+	loaded.logic->gameState().saveBlocks(tokens, again);
+	CHECK(saved == again);
+	CHECK(loaded.shroud.ghostRecordCount() == 1);
+	CHECK(hashOf(loaded.shroud) == hashOf(a.shroud));
 }

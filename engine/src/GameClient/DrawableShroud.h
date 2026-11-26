@@ -9,8 +9,8 @@
 //   as the shroud clear frame (+0x138); within the same grace a fogged / shrouded object is drawn as PARTIAL_CLEAR.
 // - ParticleSystem::update, RW 0x5FA2CE: a system attached to a drawable does not emit while +0x440 is set (ParticleSys.cpp, isShrouded).
 // INFERENCE (stop S-4970): renderOneObject runs only for render objects in the view; the clear frame is stored here for every presented CLEAR status,
-// in or out of the view. PORT-314 (S-561 closed): a destroyed object's drawable is gone with it and the frozen record of the last presented frame (LogicSnapshot::ghosts,
-// drawn through Drawable::presentedLook) stands in for retail's ghost object; `hidden` is the
+// in or out of the view. PORT-314 (S-561 closed): a destroyed object whose shroud record is kept as a ghost keeps its drawable (DrawableManager::destroyed with a ghost event) and the frozen record
+// of the last presented frame (LogicSnapshot::ghosts, read by Drawable::setSyncedRecord / presentedLook) stands in for retail's ghost object; `hidden` is the
 // grace-adjusted SHROUDED status (VIS-1's rule) and `fullyObscured` the grace-adjusted >= FOGGED one (the particle gate).
 #pragma once
 

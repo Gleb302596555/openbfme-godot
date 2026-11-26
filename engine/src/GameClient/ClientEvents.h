@@ -91,6 +91,7 @@ struct ClientEvent
 	UnsignedInt frame = 0;   ///< the logic frame that made it (0 during the load)
 	std::uint32_t seq = 0;   ///< call order over the whole game
 	ObjectID object = INVALID_ID;
+	bool ghost = false;      ///< DESTROYED (PORT-314 / S-561): the shroud manager kept the object's record as a ghost (RW 0xB4E190): its drawable stays as the ghost's stand-in
 	const ThingTemplate *tmpl = nullptr;
 	ModelConditionFlags flags;
 	bool hasHouseColor = false;

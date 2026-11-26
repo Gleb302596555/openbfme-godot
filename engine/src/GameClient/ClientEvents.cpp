@@ -17,6 +17,7 @@
 #include "GameLogic/Module/OathbreakersFadeAwayBehavior.h"
 #include "GameLogic/Module/DockUpdate.h"
 #include "GameLogic/Object/Object.h"
+#include "GameLogic/System/ShroudManager.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 
 void ClientEventRecorder::observerEvent(Object &obj, ObserverEvent::Kind kind, const Coord3D *at, const std::string &name, float weight)
@@ -148,7 +149,10 @@ void ClientEventRecorder::objectDestroyed(Object &obj)
 		return; // never bound (the object died before it was announced)
 	}
 	undirty(obj.getID()); // lane ANIM-1: a drawable that goes needs no flush
-	push(ClientEvent::DESTROYED, obj);
+	ClientEvent &e = push(ClientEvent::DESTROYED, obj);
+	// PORT-314 / S-561: ~Object leaves the world (the shroud's RW 0xB4F510 -> 0xB4E190) before it tells the client, so the answer is in
+	const ShroudManager *sm = m_logic.shroud();
+	e.ghost = sm && sm->isGhostRecord(obj);
 }
 
 // lane STEALTH-2 (RW 0x776F03): the drawable of `tmpl` replaces the object's, with the object's model conditions (RW 0x444D7D / 0x68D64A), position and angle

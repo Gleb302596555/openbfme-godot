@@ -445,6 +445,14 @@ public:
 	// again without a search. syncedRecord answers only for the snapshot (and frame) of the last sync; otherwise `found` is false
 	void setSyncedRecord(const LogicSnapshot *snapshot, const ObjectSnapshot *rec)
 	{
+		if (!rec && m_ghostDrawable && snapshot)
+		{
+			// PORT-314 / S-561: the object is gone; the ghost record of its id (the last presented state, FOGGED) stands in for it
+			if (const LogicSnapshot::GhostRecord *g = snapshot->findGhost(m_objectId))
+			{
+				rec = &g->record;
+			}
+		}
 		m_syncSnapshot = snapshot;
 		m_syncFrame = snapshot ? snapshot->frame : 0;
 		m_syncRec = rec;
@@ -459,6 +467,10 @@ public:
 			m_shroudRevealed = true;
 		}
 	}
+	// PORT-314 / S-561: this drawable outlives its destroyed object as the stand-in of the shroud manager's ghost (DrawableManager::destroyed with a ghost
+	// event); it is drawn from LogicSnapshot::ghosts and released with the ghost
+	bool isGhostDrawable() const { return m_ghostDrawable; }
+	void setGhostDrawable(bool on) { m_ghostDrawable = on; }
 	// lane VISUAL-2: the shroud look of the last sync: fullyObscured is RW Drawable +0x440 (attached particle systems do not emit), hidden: not drawn
 	const DrawableShroudLook &shroudLook() const { return m_shroudLook; }
 	UnsignedInt syncFrame() const { return m_syncFrame; }
@@ -717,6 +729,7 @@ private:
 	UnsignedInt m_syncFrame = 0;
 	const ModelConditionInfo *m_testModelState = nullptr;
 	const ObjectSnapshot *m_syncRec = nullptr;
+	bool m_ghostDrawable = false; ///< PORT-314: see isGhostDrawable
 	DrawableShroudLook m_shroudLook; ///< lane VISUAL-2
 	UnsignedInt m_evaDamageFarFrame = 0; ///< lane EVADAMAGE-1: RW + 0x388
 	bool m_zBasisCached = false;

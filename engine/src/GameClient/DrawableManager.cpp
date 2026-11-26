@@ -309,6 +309,22 @@ void DrawableManager::destroyed(const ClientEvent &ev)
 		return;
 	}
 	bindObject(ev.object, 0);
+	if (ev.ghost)
+	{
+		// PORT-314 / S-561: the shroud manager kept the record as a ghost (RW 0xB4E190): the drawable stays as the stand-in of W3DGhostObject's clone of the render
+		// objects, drawn from LogicSnapshot::ghosts (Drawable::setSyncedRecord) until releaseGhosts finds the ghost gone (re-seen, released, shrouded)
+		if (Drawable *d = find(id))
+		{
+			d->setGhostDrawable(true);
+			m_ghosts.push_back({ id, ev.object, ev.frame });
+			return;
+		}
+	}
+	releaseDrawable(id);
+}
+
+void DrawableManager::releaseDrawable(DrawableID id)
+{
 	if (Drawable *d = find(id))
 	{
 		unbindTracks(*d);
@@ -318,6 +334,23 @@ void DrawableManager::destroyed(const ClientEvent &ev)
 	--m_live;
 	++m_destroyed;
 	m_events.push_back({ false, id });
+}
+
+void DrawableManager::releaseGhosts(const LogicSnapshot &snapshot)
+{
+	for (size_t i = 0; i < m_ghosts.size();)
+	{
+		const GhostDrawable g = m_ghosts[i];
+		// a snapshot older than the destruction cannot hold the ghost yet; from the destruction's frame on, no ghost record means no ghost (the viewer sees its cells
+		// clear, never saw it, or the shroud manager released the record)
+		if (snapshot.frame >= g.frame && !snapshot.findGhost(g.object))
+		{
+			m_ghosts.erase(m_ghosts.begin() + (long)i);
+			releaseDrawable(g.id);
+			continue;
+		}
+		++i;
+	}
 }
 
 void DrawableManager::applyEvents(const std::vector<ClientEvent> &events)
@@ -715,6 +748,7 @@ void DrawableManager::updateEvaAnnounces(const LogicSnapshot &snapshot)
 void DrawableManager::syncTransforms(const LogicSnapshot &snapshot, double alpha, bool interpolate)
 {
 	m_scriptFrame = snapshot.frame;
+	releaseGhosts(snapshot); // PORT-314 / S-561: the drawables of ghosts the snapshot no longer holds go before the walk
 
 	// lane COMBAT-4: RW 0x4BF2D8 (W3DModelDraw::replaceModelConditionState): a model draw with DependencySharedModelFlags hands the flags of that set to its dependent
 	// drawables (+ 0xA8, by drawable id; RW 0x67651E clearAndSet on each): Grond's MOVING / TURN_* / BACKING_UP reach its troll crew, whose pushing AnimationStates

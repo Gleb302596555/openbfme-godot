@@ -550,35 +550,50 @@ std::shared_ptr<const LogicSnapshot> LogicSnapshot::build(GameLogic &logic, cons
 		}
 	}
 	// PORT-314 / S-561: the ghost records the shroud manager kept past their objects (RW 0xB4E190). The record is the last state the client presented for the
-	// object — the previous snapshot's, taken before the object left the world — so a destroyed building stays drawn where and as it was. W3DGhostObject keeps
-	// a clone of the render objects (DONOR BFME2 W3DGhostObjectScene.cpp, snapShot); the port keeps the record. A ghost whose object is back in the world is
-	// not drawn from here (`find` answers first); the sorted vector keeps findGhost's binary search.
-	if (const ShroudManager *sm = logic.shroud())
+	// object (the previous snapshot's own record, or its ghost's once the object is gone), so a destroyed building stays drawn where and as it was. W3DGhostObject
+	// keeps a clone of the render objects per player that saw it (DONOR BFME2 W3DGhostObjectScene.cpp, snapShot); the port keeps the record, and the object's own
+	// drawable (DrawableManager keeps it while a ghost stands). A ghost is presented only to a viewer that has seen the object and has its cells FOGGED (RW 0xB4E890's
+	// FOGGED with a seen byte, RW 0xB4E1B0); a viewer whose cells are clear sees the empty ground, one that never saw it nothing. `find` answers first, so a ghost whose
+	// object is back in the world is not drawn from here; the sorted vector keeps findGhost's binary search.
+	if (sm && shroudLocal >= 0 && previous && sm->ghostRecordCount() > 0)
 	{
-		if (previous && sm->ghostRecordCount() > 0)
+		for (size_t i = 0; i < sm->recordSlotCount(); ++i)
 		{
-			for (size_t i = 0; i < sm->recordSlotCount(); ++i)
+			const ShroudManager::GhostRecordView g = sm->ghostRecordView(i);
+			if (!g.valid || snap->find(g.id))
 			{
-				const ShroudManager::GhostRecordView g = sm->ghostRecordView(i);
-				if (!g.valid || snap->find(g.id))
-				{
-					continue;
-				}
-				const ObjectSnapshot *before = previous->find(g.id);
-				if (!before)
-				{
-					continue; // the object never made it into a presented frame: nothing to freeze
-				}
-				GhostRecord ghost;
-				ghost.id = g.id;
-				ghost.record = *before;
-				ghost.record.shroudedForLocal = true;  // the ghost shows in the fog (RW 0xB4E890's FOGGED / SHROUDED); the shroud's own pass decides the look
-				ghost.record.objectShroud = (int)OBJECTSHROUD_FOGGED;
-				ghost.record.effectivelyDead = true;    // it is gone: the shroud grace of the drawn look counts the extra 3 s (DrawableShroud.h, RW 0x64849E)
-				snap->ghosts.push_back(std::move(ghost));
+				continue;
 			}
-			std::sort(snap->ghosts.begin(), snap->ghosts.end(), [](const GhostRecord &a, const GhostRecord &b) { return a.id < b.id; });
+			ObjectShroudStatus os = sm->ghostStatusFor(i, shroudLocal);
+			for (int p : visionPlayers)
+			{
+				os = std::min(os, sm->ghostStatusFor(i, p));
+			}
+			if (os != OBJECTSHROUD_FOGGED)
+			{
+				continue;
+			}
+			const ObjectSnapshot *before = previous->find(g.id);
+			if (!before)
+			{
+				if (const GhostRecord *pg = previous->findGhost(g.id))
+				{
+					before = &pg->record;
+				}
+			}
+			if (!before)
+			{
+				continue; // the object never made it into a presented frame: nothing to freeze
+			}
+			GhostRecord ghost;
+			ghost.id = g.id;
+			ghost.record = *before;
+			ghost.record.shroudedForLocal = false;
+			ghost.record.objectShroud = (int)OBJECTSHROUD_FOGGED;
+			ghost.record.effectivelyDead = true; // it is gone: the shroud grace of the drawn look counts the extra 3 s (DrawableShroud.h, RW 0x64849E)
+			snap->ghosts.push_back(std::move(ghost));
 		}
+		std::sort(snap->ghosts.begin(), snap->ghosts.end(), [](const GhostRecord &a, const GhostRecord &b) { return a.id < b.id; });
 	}
 	// RW 0x69355D: the frame of the last transform change (a new object counts as changed now)
 	JobSystem::logic().parallelFor(snap->objects.size(), kRecordGrain, [&snap, previous](size_t, size_t begin, size_t end) {

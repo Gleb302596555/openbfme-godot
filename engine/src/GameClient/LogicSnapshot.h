@@ -188,7 +188,8 @@ struct LogicSnapshot
 	// PORT-314 / S-561: the ghost records — the frozen last state of an object the shroud manager kept a record of past its destruction (RW 0xB4E190), for the
 	// players that still see it in the fog. W3DGhostObject keeps a cloned RenderObjClass per snapshot (DONOR BFME2 W3DGhostObjectScene.cpp: snapShot); the port
 	// freezes the ObjectSnapshot the client last presented, taken in the frame before the object left the world (LogicSnapshot::build's previous snapshot).
-	// The client draws one while the object's shroud record is FOGGED or worse for the local player (the row's test: PORT-314*).
+	// A ghost is presented only while the viewer (the local player and the vision players, best status) has seen the object and has its cells FOGGED
+	// (LogicSnapshot::build; ShroudManager::ghostStatusFor); the object's own drawable is what the device draws (DrawableManager keeps it, PORT-314*).
 	struct GhostRecord
 	{
 		ObjectID id = INVALID_ID;

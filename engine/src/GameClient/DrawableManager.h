@@ -98,6 +98,10 @@ public:
 	unsigned clientFrame() const { return m_clientFrame; }
 	void flashAsSelected(ObjectID id, const RGBColor *color = nullptr);
 	void syncTransforms(const LogicSnapshot &snapshot, double alpha, bool interpolate);
+	// PORT-314 / S-561: the drawables kept past their destroyed objects as ghost stand-ins (DESTROYED with `ghost`), and the release of those the snapshot holds no
+	// ghost record for (syncTransforms does it first)
+	void releaseGhosts(const LogicSnapshot &snapshot);
+	size_t ghostDrawableCount() const { return m_ghosts.size(); }
 	void updateEvaAnnounces(const LogicSnapshot &snapshot);
 
 	struct Report
@@ -183,6 +187,14 @@ private:
 	size_t m_live = 0;
 	size_t m_created = 0, m_destroyed = 0;
 	std::vector<Event> m_events;
+	struct GhostDrawable
+	{
+		DrawableID id = 0;
+		ObjectID object = INVALID_ID;
+		UnsignedInt frame = 0; ///< the logic frame of the destruction
+	};
+	std::vector<GhostDrawable> m_ghosts;
+	void releaseDrawable(DrawableID id);
 	Sink m_sink; ///< the drawables that are gone, and the problems of the constructors
 	std::map<std::string, bool> m_modelExists; ///< lower-case model name -> registered in the archives
 };

@@ -1053,9 +1053,9 @@ Drawable::PresentedLook Drawable::presentedLook(const LogicSnapshot *presented, 
 	}
 	if (!rec)
 	{
-		// PORT-314 / S-561: the object is gone and the shroud manager kept its record as a ghost (RW 0xB4E190): the drawable stands in for the ghost object the
-		// port does not clone render objects for — the frozen record is drawn where the building stood, in the fog look while the local player's status is FOGGED,
-		// and not drawn once the shroud (RW 0xB4E890 SHROUDED) or a look that cleared the cells ended the ghost. A drawable the client destroyed has no ghost.
+		// PORT-314 / S-561: the object is gone and the shroud manager kept its record as a ghost (RW 0xB4E190): the frozen record is drawn where the building stood,
+		// in the fog look (the snapshot builds a ghost for a viewer whose status is FOGGED only; a look that cleared the cells ended it). A snapshot that is not the
+		// last sync answers here, the synced one through setSyncedRecord.
 		if (const LogicSnapshot::GhostRecord *g = presented->findGhost(m_objectId))
 		{
 			rec = &g->record;
