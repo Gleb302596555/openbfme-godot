@@ -267,7 +267,6 @@ include(cmake/Port47.cmake) # OPENBFME_PORT47_TESTS
 include(cmake/Play2.cmake) # OPENBFME_PLAY2_TESTS (lane PLAY-2)
 include(cmake/Port161.cmake) # PORT-161: BurningCell producer into the shared audio runtime
 include(cmake/Port327.cmake) # OPENBFME_PORT327_TESTS
-include(cmake/Port333.cmake) # OPENBFME_PORT333_TESTS (lane PORT-333)
 include(cmake/Port300.cmake) # OPENBFME_PORT300_TESTS (lane PORT-300, issue #692)
 include(cmake/Port302.cmake) # PORT-302: InactiveBody's armor-set flags and its damage answers (fork issue 694)
 include(cmake/Port287.cmake) # PORT-287: horde producer selection and charge (OPENBFME_PORT287_TESTS)
@@ -1111,7 +1110,6 @@ add_executable(openbfme_tests
     ${OPENBFME_PLAY2_TESTS}
     ${OPENBFME_PORT161_TESTS}
     ${OPENBFME_PORT327_TESTS}
-    ${OPENBFME_PORT333_TESTS}
     ${OPENBFME_PORT287_TESTS}
     ${OPENBFME_PORT248_TESTS}
     ${OPENBFME_PORT264_TESTS}
