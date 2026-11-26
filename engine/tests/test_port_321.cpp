@@ -85,15 +85,19 @@ struct PortLineBuild
 	const Object *hub = nullptr;
 	CommandStore commands;
 	CommandStore *savedStore = TheCommandStore;
+	AIWorld *savedAi = nullptr;
 
 	explicit PortLineBuild(bool withTerrain = true)
 	{
 		TheCommandStore = &commands;
 		w.logic->settings().buildRulesLoaded = true;
 		w.logic->settings().maxLineBuildObjects = 50;
-		if (withTerrain)
+		// the combat world builds the Pf cells the release's terrain test reads (MoveWork::buildMap RW 0x5E2E9C); a world without the pathfinder's terrain is the
+		// logic without its AI world (BuildPlacement reads the terrain through GameLogic::aiWorld)
+		if (!withTerrain)
 		{
-			w.ai->newMap(w.terrain); // the Pf cells the release's terrain test reads (MoveWork::buildMap RW 0x5E2E9C)
+			savedAi = w.logic->aiWorld();
+			w.logic->setAIWorld(nullptr);
 		}
 		Object *h = w.make("TestWallHub321");
 		REQUIRE(h != nullptr);
@@ -102,13 +106,17 @@ struct PortLineBuild
 		hub = h;
 		REQUIRE(hub->isKindOfName("WALL_HUB"));
 		REQUIRE(w.ai != nullptr);
-		REQUIRE((w.ai->pathfinder().terrainView() != nullptr) == withTerrain);
-		REQUIRE(w.logic->aiWorld() != nullptr);
+		REQUIRE((w.logic->aiWorld() != nullptr) == withTerrain);
+		REQUIRE(w.ai->pathfinder().terrainView() != nullptr);
 		stream.attachTranslator(&place, 30); // the placement translator (HudInput's, priority 30)
 	}
 
 	~PortLineBuild()
 	{
+		if (savedAi)
+		{
+			w.logic->setAIWorld(savedAi);
+		}
 		TheCommandStore = savedStore;
 	}
 
@@ -136,9 +144,11 @@ struct PortLineBuild
 		return stream.propagate();
 	}
 
+	// RW 0x6A2D26 ends the update of the frame that starts the line build (RW 0x6A2D33): the ghost is planned by the next frame, so a frame is two calls
 	void frameWithPointer(const ICoord2D &p)
 	{
 		place.setLivePointer(p);
+		place.frame();
 		place.frame();
 	}
 
