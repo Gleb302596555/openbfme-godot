@@ -13,18 +13,20 @@
 #pragma once
 
 #include "GameLogic/Module/AIUpdate.h"
+#include "GameLogic/Module/DockUpdate.h"
 
 #include <vector>
 
 struct MeleeBehaviorModuleData;
 class GameLogic;
 
-// COMBAT-1 (horde spec 2.7 / 2.8): the horde object's attack. The horde object fights through the horde attack machine (B1 Rva001812B0AIHordeMachineCtor.cpp, ids 0xC8..0xCC): a
-// MELEE_HORDE with a MeleeWeapon approaches until the Amoeba readiness rule holds, then its members fight (the per-member Amoeba behaviour below); any other horde approaches to the
-// range of its rangefinder weapon, whose HordeAttackNugget releases the ranks of RanksToReleaseWhenAttacking to shoot (RW 0x875221, HordeContain::attackTargetNow).
+// COMBAT-1 (horde spec 2.7 / 2.8) + PORT-283 (issue #650): the horde object's AI (create RW 0x64E20D, ctor RW 0x89DFAE, dtor RW 0x89DDF0 / scalar RW 0x89E01F,
+// getModuleKey RW 0x89DE21, getClassName RW 0x89DE66, loadPostProcess thunk RW 0x892C33 -> RW 0x667BEF, xfer RW 0x89DF93, vtables RW 0xC66D48 / 0xC66CE8,
+// 0x4AC bytes; static slot stubs RW 0x7FEAC1 / 0x8BD372 / 0x8F8014 / 0x9188EB / 0x9B501B / 0x9F3A3C / 0x9F9E80). Also implements DockUpdateInterface
+// (RW 0x89DE6C, + 0x4A8, vtable RW 0xC66CE8) so returning or newly assigned members dock onto their reserved formation slots and rejoin the contain list.
 //
 // WHAT IS INFERENCE (stop S-327): see CombatState::stops().
-class HordeAIUpdate : public AIUpdateInterface
+class HordeAIUpdate : public AIUpdateInterface, public DockUpdateInterface
 {
 public:
 	HordeAIUpdate(Thing *thing, const ModuleData *data)
@@ -32,7 +34,37 @@ public:
 	{
 	}
 
+	// BehaviorModule: RW 0x89DE6C (`lea eax, [ecx+0x4a8]; ret` when `this` is non-null)
+	DockUpdateInterface *getDockUpdateInterface() override { return this; }
+
+	// ---- DockUpdateInterface (RW vtable 0xC66CE8, 20 slots, + 0x4A8) ----
+	bool isClearToApproach(const Object &docker) const override;                       // + 0x00, RW 0x89E03B
+	bool reserveApproachPosition(Object &docker, Coord3D *pos, int *index) override;   // + 0x04, RW 0x89E05C
+	bool advanceApproachPosition(Object &, Coord3D *, int *) override { return true; } // + 0x08, RW 0x89DE7C
+	bool isClearToEnter(const Object &) const override { return true; }                // + 0x0C, RW 0x9B501B
+	bool isClearToAdvance(const Object &, int) const override { return false; }        // + 0x10, RW 0x8F8014
+	void getEnterPosition(Object &docker, Coord3D *pos) override;                      // + 0x14, RW 0x89E0B5
+	void getDockPosition(Object &docker, Coord3D *pos) override;                       // + 0x18, RW 0x9F9E80 (tail-calls slot + 0x14)
+	void getExitPosition(Object &docker, Coord3D *pos) override;                       // + 0x1C, RW 0x9F9E80 (tail-calls slot + 0x14)
+	void onApproachReached(Object &) override {}                                       // + 0x20, RW 0x9F3A3C
+	void onEnterReached(Object &) override {}                                          // + 0x24, RW 0x9F3A3C
+	void onDockReached(Object &) override {}                                           // + 0x28, RW 0x9F3A3C
+	void onExitReached(Object &) override {}                                           // + 0x2C, RW 0x9F3A3C
+	bool action(Object &docker, Object *drone) override;                               // + 0x30, RW 0x89E133
+	void cancelDock(Object &) override {}                                              // + 0x34, RW 0x9F3A3C
+	bool isDockOpen() const override { return true; }                                  // + 0x38, RW 0x8BD372
+	void setDockOpen(bool) override {}                                                 // + 0x3C, RW 0x9F3A3C
+	bool unknownSlot40() const override { return false; }                              // + 0x40, RW 0x7FEAC1
+	void setDockCrippled(bool) override {}                                             // + 0x44, RW 0x9F3A3C
+	bool isAllowPassthroughType() const override { return true; }                      // + 0x48, RW 0x8BD372
+	bool isRallyPointAfterDockType() const override { return false; }                  // + 0x4C, RW 0x9188EB
+
 	AttackMachineKind attackMachineKind() const override { return ATTACK_MACHINE_HORDE; }
+	// PORT-283: HordeAIUpdate::aiDoCommand RW 0x89E1C0 .. 0x89E205: while in a porcupine formation (slot 0xF0), auto-toggles out on RW 0x89DE81 when slot 0x5C
+	// permits, else drops commands matching RW 0x89DF11 before StancesBehavior and the base switch run
+	bool filterAcceptedCommand(CommandSourceType source, int command) override;
+	static bool commandTogglesPorcupine(int command, CommandSourceType source); // RW 0x89DE81 (table RW 0x89DEBD, jump RW 0x89DEAD)
+	static bool commandBlockedInPorcupine(int command);                         // RW 0x89DF11 (table RW 0x89DF3F, jump RW 0x89DF33)
 	// lane MOVE-2 r2: HordeAIUpdate::aiDoCommand RW 0x89E169: after the gate, a horde command of the hand-off list first ends its members' orders (HordeContain
 	// slot 0x14, RW 0x87594C) unless the horde stands in a container; then the base command runs
 	void commandAccepted(CommandSourceType source, int command, Object *target) override;
@@ -42,7 +74,14 @@ public:
 	std::unique_ptr<AIStateMachine> makeHordeAttackMachine(AIAttackState *att, int melee = -1, bool *madeMelee = nullptr) override;
 	void crc(StateHasher &hasher) const override;
 	void xferAIStateBody(class Xfer &x) override; // lane SAVE-4c (AIUpdateSnapshot.cpp)
-	OBFME_MODULE_XFER(HordeAIUpdate) // lane SAVE-4e: its version and AIUpdateInterface's (its state: xferAIStateBody)
+	OBFME_MODULE_XFER(HordeAIUpdate) // lane SAVE-4e: RW 0x89DF93, version 1 and AIUpdateInterface's (its state: xferAIStateBody)
+
+protected:
+	void updateBeforeBase() override;                                                             // RW 0x89E2D0 .. 0x89E413
+	void privateMoveToPosition(const Coord3D &pos, CommandSourceType source, bool postMoveVoice) override; // RW 0x89E0F6 (AI vslot 0x34)
+	bool privateEnter(Object *container, CommandSourceType source) override;                      // RW 0x89E41F (AI vslot 0x5C)
+
+public:
 
 	// ---- melee ----
 	// RW 0x9E6763 / 0x98FA8E (Amoeba isTargetReady, cached for 3 seconds): the fighting can start / goes on
@@ -134,6 +173,5 @@ private:
 	unsigned long long m_contactRefreshes = 0; ///< HORDE-2: readiness refreshes by member contact
 
 protected:
-	void updateBeforeBase() override;
 	const char *machineName() const override { return "HordeAIUpdateMachine"; }
 };

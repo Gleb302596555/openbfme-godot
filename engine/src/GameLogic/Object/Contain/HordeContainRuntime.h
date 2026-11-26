@@ -201,6 +201,16 @@ public:
 	// dz of 0 -- the smallest range drawn when the first candidate is scored (a zero range is a candidate: 0.0 < the -1.0 start); null when no member
 	// has a weapon. `closestMemberOnly` is not an input: the pick is always the longest-reaching one.
 	virtual Object *memberWithLongestAttackRange() const = 0;
+	// ---- lane PORT-283 (issue #650): HordeContainInterface slots called by HordeAIUpdate's DockUpdateInterface, update and porcupine command filter ----
+	virtual void reserveSlotForEnteringMember(Object *member) = 0; ///< slot 0x2C (RW 0x873F30): assign a free slot and record in interface + 0x54 without containing
+	virtual bool hasLiveEnteringMembers() const = 0;               ///< slot 0xA4 (RW 0x86F9CA): a live object stands in interface + 0x54
+	virtual bool anyMemberLeavingFactory() const = 0;              ///< slot 0xA0 (RW 0x86FA01): empty horde, or any contained / entering member holds status 0x5A
+	virtual bool allEnteringMembersIdle() const = 0;               ///< slot 0x9C (RW 0x86F93F): non-empty entering set, every live one IDLE or (MOVE_TO and not MOVING)
+	virtual void setPendingRallyPoint(const Coord3D &pos) = 0;     ///< slot 0x244 (RW 0x86BD7D): interface + 0x1DC / + 0x1E8
+	virtual bool consumePendingRallyPoint(Coord3D &out) = 0;       ///< slot 0x248 (RW 0x86BD98): clear + 0x1E8 and copy + 0x1DC when set
+	virtual bool isPorcupineFormation() const = 0;                 ///< slot 0xF0 (RW 0x872BB8): module data + 0x238
+	virtual bool canToggleFormationHorde() const = 0;              ///< slot 0x5C (RW 0x8700AC): canToggleFormation through the interface
+	virtual HordeContainInterface *toggleFormationHorde() = 0;     ///< slot 0x60 (RW 0x86C7F6): toggleFormation through the interface
 	// ---- lane PORT-199 (issue #466): the two slots GiveUpgradeUpdate's delivery asks a horde (declared LAST so no earlier declared order moves) ----
 	// slot 0xAC (RW 0x86ECAB): a contained member, or a member still on its way into a garrison (the id map at interface + 0x54), answers
 	// Object::affectedByUpgrade (RW 0x694914) for the upgrade; the first true member answers for the horde
@@ -312,6 +322,16 @@ public:
 	// lane GARRISON-3 (HordeGarrisonLink.cpp)
 	void recentreOnMembers(Object *about) override;
 	void returnToFormation(bool regroup) override;
+	// lane PORT-283 (HordeGarrisonLink.cpp / HordeContainRuntime.cpp)
+	void reserveSlotForEnteringMember(Object *member) override;
+	bool hasLiveEnteringMembers() const override;
+	bool anyMemberLeavingFactory() const override;
+	bool allEnteringMembersIdle() const override;
+	void setPendingRallyPoint(const Coord3D &pos) override;
+	bool consumePendingRallyPoint(Coord3D &out) override;
+	bool isPorcupineFormation() const override;
+	bool canToggleFormationHorde() const override { return canToggleFormation(); }
+	HordeContainInterface *toggleFormationHorde() override;
 	// lane GARRISON-3 counters (reported by the garrison tests)
 	struct ExitStats
 	{
@@ -567,6 +587,21 @@ public:
 
 	friend struct Horde2HashAccess; // the HORDE-2 hash mutation tests (test_horde2_hash.cpp)
 
+protected:
+	// the member pass hooks shared with HorseHordeContain (PORT-283: primary vtable slot 36 RW 0x877A7A -> RW 0x879FDB, move hub RW 0x87468B)
+	virtual void memberOrder(Object &member, const Coord3D &slotPos, float orientation, bool force);
+	virtual void onReformFlagSet() {}
+	virtual void onPassSettled() {}
+	void moveHub(Object &member, const Coord3D &dest, float orientation);
+	bool slotCellClear(Object &member) const;
+	bool isMemberAheadOfSlot(const Object &member, const Coord3D &slotPos) const;
+	const ContainedItemsList &containedMembers() const { return m_members; }
+	bool meleeEngagedFlag() const { return m_meleeEngaged; }
+	ObjectID bannerCarrierID() const { return m_bannerCarrier; }
+	bool backUpEmpty() const { return m_backUp.empty(); }
+	void setWorkDone() { m_workDone = true; }
+	PassStats &mutablePassStats() { return m_stats; }
+
 private:
 	void createPayload();
 	void placeMember(Object *member);
@@ -574,12 +609,7 @@ private:
 	void removeMember(Object *obj, bool keepSlot, bool templateIsSpecial = false);
 	// lane GARRISON-3: a member on the way that is gone or dead gives its kept slot back (S-1620 inference)
 	void forgetMemberOnTheWay(ObjectID id);
-	// the member pass pieces (HordeMemberPass.cpp)
-	void memberOrder(Object &member, const Coord3D &slotPos, float orientation, bool force);
-	void moveHub(Object &member, const Coord3D &dest, float orientation);
 	void reassignMembersToNearestSlots();
-	bool slotCellClear(Object &member) const;
-	bool isMemberAheadOfSlot(const Object &member, const Coord3D &slotPos) const;
 	// lane MODULES-3: the emotion branches of the member pass (RW 0x873FE8 .. 0x874671): 0 order the member at `pos` / `angle`, 1 skip it, 2 the quarrel ended (the
 	// pass stops)
 	int emotionMemberOrder(Object &member, Object *scarer, Coord3D &pos, float &angle);
@@ -641,6 +671,38 @@ private:
 	ConditionFlags m_quarrelFighterFlags{};            ///< + 0x1B4
 	ConditionFlags m_quarrelSpectatorFlags{};          ///< + 0x200
 	std::map<ObjectID, int> m_quarrelDistance;         ///< + 0x24C (size + 0x250: the quarrel runs while it is not empty)
+	// lane PORT-283: RW interface + 0x1DC / + 0x1E8 (slots 0x244 / 0x248, RW 0x86BD7D / 0x86BD98): pending factory rally consumed by HordeAIUpdate::update RW 0x89E3C1
+	Coord3D m_pendingRally{ 0.0f, 0.0f, 0.0f };
+	bool m_hasPendingRally = false;
+};
+
+// HorseHordeContain (create RW 0x64B664, createData RW 0x65330B, ctor RW 0x879849, vtables RW 0xC5C288 / 0xC5C110 / 0xC5BE98, Port 283): cavalry horde contain
+// (HorseHordeContain.cpp). Inherits HordeContain's layout (0x30C bytes) and data (0x284 bytes) unchanged; overrides isPassengerAllowedToFire (RW 0x9188EB),
+// beginReform (RW 0x8799AD), isFormationReady (RW 0x8799CF) and memberOrder (RW 0x879FDB -> horseUpdatePosition RW 0x879A83).
+class HorseHordeContain : public HordeContain
+{
+public:
+	OBFME_MODULE_XFER(HorseHordeContain) // RW 0x87992C: version 1, then HordeContain::xfer
+	HorseHordeContain(Thing *thing, const HordeContainBehaviorData *data);
+	~HorseHordeContain() override;
+
+	bool isPassengerAllowedToFire() const override; // RW 0x9188EB (+0x20 slot 0xB4: always false)
+	void beginReform() override;                    // RW 0x8799AD (+0x11C slot 0x3C: zeroes positive horde locomotor speed)
+	void endReform() override;                      // RW 0x877E12: base endReform + sets [this + 0x121]
+	bool isFormationReady(float angle) const override; // RW 0x8799CF (+0x11C slot 0x1C0: every member within maxTurnRate of `angle`)
+	void crc(StateHasher &hasher) const override;
+
+	bool isHorseReforming() const { return m_horseReforming; }
+
+protected:
+	friend struct HorseHordeContainTestAccess;
+	void memberOrder(Object &member, const Coord3D &slotPos, float orientation, bool force) override; // RW 0x879FDB (+0x00 slot 0x90)
+	void onReformFlagSet() override { m_horseReforming = true; }                                      // RW 0x87310C / 0x86D2C3: [this + 0x121] = 1
+	void onPassSettled() override { m_horseReforming = false; }                                       // RW 0x87312D: [this + 0x121] = 0 when [this + 0x120] == 0
+
+private:
+	void horseUpdatePosition(Object &member, const Coord3D &dest, float orientation); // RW 0x879A83
+	bool m_horseReforming = false; // RW [this + 0x121]: suppresses ahead-of-slot wait during reform and factory exit (state 7)
 };
 
 class AODHordeContainBehaviorData;

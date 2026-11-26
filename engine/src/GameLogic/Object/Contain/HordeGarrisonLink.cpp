@@ -33,6 +33,8 @@
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/Object/Contain/HordeContainCore.h"
 
+#include "Common/Thing/ThingFactory.h"
+#include "GameLogic/AI/AIStateMachine.h"
 #include "GameLogic/AI/AIGarrisonStates.h"
 #include "GameLogic/AI/AIGroup.h"
 #include "GameLogic/AI/AIPathfind.h"
@@ -441,4 +443,97 @@ void HordeContain::returnToFormation(bool regroup)
 		}
 	}
 	m_dirty = any; // RW 0x875C86: interface + 4 / + 5
+	if (any)
+	{
+		onReformFlagSet();
+	}
+}
+
+// RW 0x873F30 (HordeContainInterface slot 0x2C, called by HordeAIUpdate::reserveApproachPosition RW 0x89E05C when isMemberOrEntering is false):
+// ensures the slot table is built (slot 0x84(1)), takes the first compatible free-list slot into memberIndex (+ 0x60) and adds the member's id to
+// the entering set (+ 0x54) without adding the object to the contain list yet; does nothing when no compatible free slot remains.
+void HordeContain::reserveSlotForEnteringMember(Object *member)
+{
+	if (!member || !member->getTemplate())
+	{
+		return;
+	}
+	if (!m_core->built())
+	{
+		m_core->buildSlots(true);
+	}
+	const ObjectID id = member->getID();
+	const int slot = m_core->addMember(id, member->getTemplate()->getName());
+	m_core->releaseMember(id); // keeps memberIndex[id] = slot without putting the uncontained docker into core.m_members
+	if (slot >= 0)
+	{
+		m_garrisonEntering.insert(id);
+	}
+}
+
+// RW 0x86F9CA (HordeContainInterface slot 0xA4): true when interface + 0x54 holds an id that still resolves to a live object in TheGameLogic
+bool HordeContain::hasLiveEnteringMembers() const
+{
+	const GameLogic &logic = getObject()->logic();
+	for (ObjectID id : m_garrisonEntering)
+	{
+		if (logic.findObjectByID(id) != nullptr)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+// RW 0x86FA01 (HordeContainInterface slot 0xA0): walks the contain list (RW 0x86FA25 .. 0x86FA3D), returns true on the first member with status 0x5A
+// (IS_LEAVING_FACTORY); the second loop at RW 0x86FA3F .. 0x86FA75 compares `esi` against `begin()` (`mov edi, [eax+8]; mov esi, edi; jmp 0x86fa73;
+// cmp esi, edi; jne 0x86fa49`), so it runs zero iterations in RotWK 2.01; returns `!sawAnyMember` at RW 0x86FA77 (`test bl, bl; sete al`).
+bool HordeContain::anyMemberLeavingFactory() const
+{
+	static const int leavingFactory = CombatNames::status("IS_LEAVING_FACTORY");
+	bool sawMember = false;
+	for (const Object *m : m_members)
+	{
+		if (!m)
+		{
+			continue;
+		}
+		sawMember = true;
+		if (leavingFactory >= 0 && m->testStatus((unsigned)leavingFactory))
+		{
+			return true;
+		}
+	}
+	return !sawMember;
+}
+
+// RW 0x86F93F (HordeContainInterface slot 0x9C): walks interface + 0x54; returns false when no id resolves to an object; otherwise true iff every
+// resolved member's AI state (RW 0x660AC1) is 0 (AI_IDLE) or 1 (AI_MOVE_TO_POSITION) with model condition MOVING (bit 29, [obj+0x110]>>0x1d) clear.
+bool HordeContain::allEnteringMembersIdle() const
+{
+	static const int movingBit = AIUpdateInterface::modelConditionBit("MOVING");
+	const GameLogic &logic = getObject()->logic();
+	bool sawAny = false;
+	bool anyActive = false;
+	for (ObjectID id : m_garrisonEntering)
+	{
+		const Object *m = logic.findObjectByID(id);
+		if (!m)
+		{
+			continue;
+		}
+		sawAny = true;
+		const AIUpdateInterface *mai = m->getAIUpdateInterface();
+		const int state = mai ? mai->currentStateId() : 0;
+		if (state == AI_IDLE)
+		{
+			continue;
+		}
+		if (state == AI_MOVE_TO && (movingBit < 0 || !m->testModelCondition(movingBit)))
+		{
+			continue;
+		}
+		anyActive = true;
+	}
+	return sawAny && !anyActive;
 }
