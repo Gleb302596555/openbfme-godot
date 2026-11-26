@@ -3,6 +3,7 @@
 // See GameLogic/AI/AIFollowPathAsTeam.h.
 
 #include "GameLogic/AI/AIFollowPathAsTeam.h"
+// Local 188: RW 0x74280F (locomotor max speed helper), RW 0x745B3F (AIInternalMoveToState::getAdjustsDestination)
 
 #include "Common/Player.h"
 #include "Common/PlayerList.h"

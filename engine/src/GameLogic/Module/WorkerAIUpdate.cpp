@@ -395,7 +395,7 @@ public:
 	void xfer(Xfer &x) override { xferNoFields(x); }
 };
 
-// ---- the worker machine (RW 0x8AD46E) -----------------------------------------------------------------------------------------------
+// ---- the worker machine (RW 0x8AD46E; Local 188: RW 0x8AD057 WorkerState ctor) --------------------------------------------------------
 // RW 0x8AD085
 bool supplyTruckSubMachineWantsToEnter(const AIState &s, std::uintptr_t)
 {
@@ -601,6 +601,7 @@ Object *WorkerAIUpdate::constructForRebuild(const ThingTemplate &what, const Coo
 // RW 0x008AE4A9 (WorkerAIUpdate::newTask, dozer_if slot 0x30): delegates task/dock setup to DozerAIUpdate::newTask,
 // sets OBJECT_STATUS_WORKER_REPAIRING (0x61, RW 0x008AE6BE..0x008AE6CF) for BUILD/REPAIR, and if m_workerMachine is
 // in AS_SUPPLY_TRUCK (1, RW 0x008AE6FF..0x008AE741) switches out to AS_DOZER (0) via aiIdle + setState(AS_DOZER).
+// Local 188: RW 0x8AE2AC (WorkerAIUpdate::findGoodBuildOrRepairPositionAndTarget, delegates via DozerAIUpdate::newTask)
 void WorkerAIUpdate::newTask(int task, Object &target)
 {
 	DozerAIUpdate::newTask(task, target);

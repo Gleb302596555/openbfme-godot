@@ -3908,6 +3908,7 @@ bool recruitable(GameLogic &logic, const AIBrainState &b, const AITacticTeam &te
 
 // RW 0x9A24A6 (AITeamBuilder::getCurNumUnits): the team's members with any of CAN_ATTACK, HERO, SUPPORT (template + 0x108 bit 3, + 0x110 bit 26, + 0x120 bit 26).
 // INFERENCE: RW's team list keeps a member until it is destroyed, so a dying member still counts
+// Local 188: RW 0x9A2443 (AITeamBuilder::getTeamForAIPrototype), RW 0x9A2D8B (AITeamBuilder ctor), RW 0x9B2D88 (AIEnemyManager ctor)
 std::uint32_t teamUnitCount(GameLogic &logic, const AITacticTeam &team)
 {
 	const Kinds &k = kinds();

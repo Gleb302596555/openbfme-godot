@@ -823,6 +823,7 @@ void crc(const AIOrdersManager &manager, StateHasher &h)
 	}
 }
 
+// Local 188: RW 0x94DB14 (MoveToGroupOrder pair<ObjectID, Coord3D> xfer)
 void xfer(Xfer &x, Image &image, GameLogic &logic)
 {
 	XferVersion v{ 1, 2 };

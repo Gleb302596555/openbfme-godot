@@ -321,6 +321,7 @@ const FieldParse kArmyDefinitionFields[] = {
 };
 
 // RW 0xC52450
+// Local 188: AIBaseStore (0xC524B0) RW 0x82F374 (findBaseName), RW 0x82F3A7 (reset), RW 0x82FA45 (~AIBaseStore), RW 0x82FC7D (load .bse bases)
 const FieldParse kAIBaseFields[] = {
 	{ "Side", INI::parseAsciiString, nullptr, AB_OFF(side) },
 	{ "Map", INI::parseAsciiString, nullptr, AB_OFF(map) },

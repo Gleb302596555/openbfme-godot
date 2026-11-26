@@ -471,6 +471,7 @@ void xferBrain(Xfer &x, AIBrainState &b, RequestTable &table, int version)
 }
 } // namespace
 
+// Local 188: RW 0x8E3DA1 (AIStatCollector::xfer), RW 0x8EDC02 (AIGameTeam::xfer), RW 0x9A1119 (~AIUnitBuilder), RW 0x9A11BE (AIUnitBuilder::xfer)
 void AIStatCollector::xfer(Xfer &x)
 {
 	// version 2 (lane AI5): the money reserve and its target. Version 3 (lane RAI-DEF): the position sampler (+ 0x10) and its pending
@@ -1203,7 +1204,7 @@ void SkirmishAIManager::checkLoaded() const
 	}
 }
 
-// Local 177: RW 0x6A9702 (SkirmishAIManager::xfer), RW 0x6C70D8 (TacticalAI::DoXfer)
+// Local 177: RW 0x6A9702 (SkirmishAIManager::xfer), RW 0x6C70D8 (TacticalAI::DoXfer); Local 188: RW 0x90BD34, RW 0x90BD67, RW 0x90BD9A, RW 0x90BDCD (AITacticsGenerator tactic lookup/clone)
 void SkirmishAIManager::xfer(Xfer &x)
 {
 	if (!x.isLoading())

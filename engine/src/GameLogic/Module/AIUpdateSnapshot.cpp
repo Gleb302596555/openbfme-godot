@@ -410,6 +410,7 @@ void HordeAIUpdate::xferAIStateBody(Xfer &x)
 	AIXfer::u64(x, m_swarmTicks);
 }
 
+// Local 188: Dozer state xfers RW 0x88BAD5, RW 0x88C57A, RW 0x88C5A6, RW 0x88C763, RW 0x88C78F, RW 0x88C7B0 (DozerActionState::xfer)
 void DozerAIUpdate::xferAIStateBody(Xfer &x)
 {
 	AIUpdateInterface::xferAIStateBody(x);

@@ -618,6 +618,7 @@ private:
 // ---------------------------------------------------------------------------------------------------------------------------------
 // construction
 // ---------------------------------------------------------------------------------------------------------------------------------
+// Local 188: RW 0x64BAA0 (AIUpdateInterface::friend_newModuleInstance, 0x4A8 -> 0x66ECFE), RW 0x64BADB (AIUpdateInterfaceModuleData::friend_newModuleData), RW 0x64EE7A (TransportAIUpdate::friend_newModuleInstance, 0x4A8 -> 0x8AC718)
 AIUpdateInterface::AIUpdateInterface(Thing *thing, const ModuleData *data)
 	: UpdateModule(thing, data)
 {

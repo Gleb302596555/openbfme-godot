@@ -139,6 +139,7 @@ bool sameOwnerUnfinished(const Object &dozer, const Object &structure)
 
 } // namespace
 
+// Local 188: RW 0x88C7DB (DozerAIUpdate::DozerAIUpdate)
 DozerAIUpdate::DozerAIUpdate(Thing *thing, const ModuleData *data)
 	: AIUpdateInterface(thing, data)
 {
@@ -330,7 +331,7 @@ void DozerAIUpdate::setWorking(bool on)
 
 bool DozerAIUpdate::findGoodBuildOrRepairPosition(const Object &dozer, const Object &target, Coord3D &out)
 {
-	// RW 0x88C2FE
+	// RW 0x88C2FE, Local 188: RW 0x8ADBF3 (WorkerAIUpdate::findGoodBuildOrRepairPosition)
 	const Coord3D &tp = *target.getPosition();
 	const Coord3D &dp = *dozer.getPosition();
 	float vx = SimMath::sseSub(dp.x, tp.x), vy = SimMath::sseSub(dp.y, tp.y), vz = SimMath::sseSub(dp.z, tp.z);

@@ -16,7 +16,7 @@
 //   * CountAsJumpToLocation: when the event's sound starts, its jump position (or else its position) joins the list the space bar jumps through. RotWK
 //     does it at play time, not at the report: RW 0x5DD7FF .. 0x5DD826 (the audio handle >= 5, the record's + 0x2D = CountAsJumpToLocation, field
 //     table RW 0xBF2270; the position RW 0x5DC455: the jump position + 0x14 when set (+ 0x21), else the position + 0x8 (+ 0x20)) calls
-//     RW 0x5DD1F3. The list lives in the radar here (Radar::noteEvaPosition); the HUD hands it what takePlayedJumpPositions() returns.
+//     RW 0x5DD1F3 (Local 188: RW 0x82FE34 zero-init helper). The list lives in the radar here (Radar::noteEvaPosition); the HUD hands it what takePlayedJumpPositions() returns.
 //   * Eva never overlaps itself: one Eva sound at a time, played through the audio manager as an ordinary event of the local player.
 // Time is the caller's client clock in milliseconds (never the logic clock: Eva is presentation and must not affect simulation state).
 

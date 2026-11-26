@@ -314,6 +314,7 @@ bool InGameHud::hoveredAptButton(InGameHelpBox::Provider &p, ControlBarButton &b
 	return false;
 }
 
+// lane HOVER-1: Local 188: RW 0x9310AD (this+8 thunk -> 0x930DC4), RW 0x92C420 (hero bar slot handler)
 // lane HOVER-1 (S-4612): the spell book's slot handler (RW 0x930DC4: the slot's command button through RW 0x807A00(0, button)), the hero bar's slot handler
 // (RW 0x92BF34: the builder slot "NonCommand_SelectNearestBuilder", a hero's UnitHelpSource) and its select-all handler (RW 0x92C265:
 // "NonCommand_SelectAllHeroes"). INFERENCE: the hovered button is the Apt player's current button below the slot's clip (retail keys its over-button

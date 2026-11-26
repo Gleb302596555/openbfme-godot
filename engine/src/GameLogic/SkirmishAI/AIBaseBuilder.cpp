@@ -2375,6 +2375,7 @@ void AIBaseBuilder::crc(const AIBuildState &s, StateHasher &h)
 	AIUpgrade::crc(s.unitUpgrader, s.scienceBuilder, h); // lane AI5
 }
 
+// Local 188: RW 0x8EE84C (findFarmSite), RW 0x8EEA9E (countFarmTemplates), RW 0x8EEB44 (~AIEconomyBuilder)
 std::vector<std::shared_ptr<AIBuildRequest>> AIBaseBuilder::makeFarmSites(GameLogic &logic)
 {
 	std::vector<std::shared_ptr<AIBuildRequest>> out;

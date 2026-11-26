@@ -199,6 +199,7 @@ private:
 		auto it = m_orders.find(id);
 		return it != m_orders.end() && it->second->complete(object);
 	}
+	// Local 188: RW 0x94F19E (GroupOrder::removeMember)
 	void removed(OrderId id, ObjectId object, bool cancelled) override
 	{
 		auto it = m_orders.find(id);
