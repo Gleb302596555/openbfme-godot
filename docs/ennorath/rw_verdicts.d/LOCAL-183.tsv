@@ -1,0 +1,4 @@
+function	name	verdict	evidence
+0x006289E7	??$make_pair@HVAsciiString@@@_STL@@YA?AU?$pair@HVAsciiString@@@0@ABHABVAsciiString@@@Z	not reached	STLport helper std::make_pair<int, AsciiString> (27B, calls 0x6A95E6; dc=5 vc=0); already classified library in RW_BINARY_MAP.tsv, reached from AutoAbilityBehavior only via GameLogic::rva00246F8E (0x62FF03) CommandButton cache
+0x00629BCA	??M@YA_NABUTreeKey00242F5E@@0@Z	not reached	STLport helper operator<(pair<int, AsciiString>, pair<int, AsciiString>) (47B, calls 0x455176 AsciiString::operator<; dc=6 vc=0); _Rb_tree comparator for GameLogic::rva00246F8E (0x62FF03), replaced by standard C++ std::map in port
+0x006A95E6	??0Rva0029FB63@@QAE@PBHABURva0029E067@@@Z	not reached	STLport helper pair<int, AsciiString>::pair(const int&, const AsciiString&) (29B, copies int and calls 0x435F30 AsciiString::ctor; dc=5 vc=0); called from 0x6289E7 make_pair for GameLogic::rva00246F8E (0x62FF03), replaced by standard C++ std::pair in port
