@@ -404,7 +404,7 @@ private:
 			return nullptr;
 		}
 		static const int drone = ObjectTemplateInfoBuilder::kindOfIndex("DRONE");
-		for (Object *o = logic.getFirstObject(); o; o = o->getNextObject()) // the player's objects (RW 0x6ABABD): the logic list in order (S-482)
+		for (Object *o = logic.getFirstObject(); o; o = o->getNextObject()) // the player's objects: the logic list in order (the AI's object scan; unrelated to the player-upgrade walk, stop S-482)
 		{
 			if (o->getControllingPlayer() == p && drone >= 0 && o->isKindOf((unsigned)drone) && o->getProducerID() == owner().getID())
 			{
