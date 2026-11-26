@@ -9,6 +9,7 @@
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/ObjectFilter.h"
 #include "GameLogic/ObjectFilterMatch.h"
+#include "GameLogic/Combat/CombatNames.h"
 
 namespace
 {
