@@ -270,6 +270,7 @@ include(cmake/Port327.cmake) # OPENBFME_PORT327_TESTS
 include(cmake/Port300.cmake) # OPENBFME_PORT300_TESTS (lane PORT-300, issue #692)
 include(cmake/Port302.cmake) # PORT-302: InactiveBody's armor-set flags and its damage answers (fork issue 694)
 include(cmake/Port287.cmake) # PORT-287: horde producer selection and charge (OPENBFME_PORT287_TESTS)
+include(cmake/Port295.cmake) # OPENBFME_PORT295_TESTS (Port 295)
 include(cmake/Port248.cmake) # OPENBFME_PORT248_TESTS
 include(cmake/Port264.cmake) # OPENBFME_PORT264_TESTS (lane PORT-264)
 include(cmake/Port286.cmake) # OPENBFME_PORT286_TESTS (lane PORT-286)
@@ -1111,6 +1112,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT161_TESTS}
     ${OPENBFME_PORT327_TESTS}
     ${OPENBFME_PORT287_TESTS}
+    ${OPENBFME_PORT295_TESTS}
     ${OPENBFME_PORT248_TESTS}
     ${OPENBFME_PORT264_TESTS}
     ${OPENBFME_PORT286_TESTS}
