@@ -19,6 +19,7 @@
 #include "Common/INIDataTypes.h"
 #include "Common/Snapshot.h"
 #include "Common/StateHash.h"
+#include "GameLogic/Map/FireLogicConfig.h"
 
 #include <cstdint>
 #include <map>
@@ -36,15 +37,7 @@ class INI;
 class FireLogicSystem : public Snapshot
 {
 public:
-	struct Material
-	{
-		unsigned short fuel = 0;
-		unsigned short maxBurnRate = 0;
-		unsigned short decay = 0;
-		unsigned short resistance = 0;
-		std::string name;
-		unsigned int color = 0;
-	};
+	using Material = FireTerrainMaterial;
 
 	struct WatcherNode
 	{
@@ -146,9 +139,10 @@ public:
 	void parseINI(INI *ini);
 	void setDecayModifier(int mod) { m_decayModifier = mod; }
 	int decayModifier() const { return m_decayModifier; }
-	void setMaxCellsBurning(int m) { m_maxCellsBurning = m; }
-	int maxCellsBurning() const { return m_maxCellsBurning; }
-	void setFuelRegenRate(int r) { m_fuelRegenRate = r; }
+	void setMaxCellsBurning(int m) { m_config.maxCellsBurning = m; }
+	int maxCellsBurning() const { return m_config.maxCellsBurning; }
+	void setFuelRegenRate(int r) { m_config.fuelRegenRate = r; }
+	void setConfig(const FireLogicConfig &config) { m_config = config; }
 
 private:
 	// PORT-161: RW 0x6862B6 / 0x686311, coordinate-key lifecycle helpers.
@@ -162,7 +156,7 @@ private:
 	void updateWatchers(Object *obj, bool add);
 
 	GameLogic &m_logic;
-	Material m_materials[4];
+	FireLogicConfig m_config;
 	Cell *m_storage = nullptr;
 	Cell **m_cells = nullptr;
 	int m_numRows = 0;
@@ -172,8 +166,6 @@ private:
 	// PORT-161: RW BurningCell +0x10. Presentation bookkeeping only: no simulation reader,
 	// hence excluded from crc; saved with the cells (RW 0x686441). Never invent ObjectIDs.
 	std::map<BurningPosition, std::int32_t> m_burningAudioFrames;
-	int m_maxCellsBurning = 0x7FFFFFFF;
-	int m_fuelRegenRate = 1;
 	int m_decayModifier = 0;
 	std::uint64_t m_typeVersion = 0;
 };

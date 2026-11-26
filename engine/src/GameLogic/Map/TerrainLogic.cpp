@@ -14,6 +14,18 @@ namespace
 const float MAP_XY_FACTOR_INV = 1.0f / MAP_XY_FACTOR;
 }
 
+// RW 0x462520, RW 0x466AC3 and RW 0x4ADC78: truncate x * -0.1, subtract from border, clamp to the last cell (width - 2 / height - 2).
+std::uint8_t TerrainLogic::fireTerrainType(float x, float y) const
+{
+    if (!m_map || m_map->m_width < 2 || m_map->m_height < 2) return 0;
+    int ix = m_map->m_borderSize - static_cast<int>(x * -0.1f);
+    int iy = m_map->m_borderSize - static_cast<int>(y * -0.1f);
+    ix = std::clamp(ix, 0, m_map->m_width - 2);
+    iy = std::clamp(iy, 0, m_map->m_height - 2);
+    const size_t index = static_cast<size_t>(iy) * m_map->m_width + ix;
+    return index < m_map->m_flammability.size() ? m_map->m_flammability[index] : 0;
+}
+
 std::uint16_t TerrainLogic::getClipHeight(int x, int y) const
 {
 	int xextent = m_map->m_width;
