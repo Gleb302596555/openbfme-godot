@@ -616,6 +616,7 @@ include(cmake/Local179.cmake)   # LOCAL-179: script engine part 1 binary-map aud
 include(cmake/Local168.cmake)   # LOCAL-168: hordes and formations (fork issue 935; OPENBFME_LOCAL168_TESTS)
 include(cmake/Local152.cmake)
 include(cmake/Local182.cmake)   # LOCAL-182: combat/weapons/castles/structures binary-map defaults (fork issue 963; OPENBFME_LOCAL182_TESTS)
+include(cmake/Local191.cmake)   # LOCAL-191: objects/modules/hordes/locomotion binary-map defaults (fork issue 984; OPENBFME_LOCAL191_TESTS)
 include(cmake/Local169.cmake)   # LOCAL-169: object and combat core (fork issue 936; OPENBFME_LOCAL169_TESTS)   # LOCAL-152: Ennorath 1.9.8.4 War of the Ring online — >2 players, host-free land transfer, observer seat (fork issue 885; OPENBFME_LOCAL152_TESTS)
 include(cmake/Local130.cmake)   # LOCAL-130: 50 most shared helpers + RW 0x6760CA / 0x677898 construction ambient (fork issue 829; OPENBFME_LOCAL130_TESTS)
 include(cmake/Local133.cmake)   # LOCAL-133: W3DLaserDraw width/fanWidth and tile factor clamps (fork issue 849; OPENBFME_LOCAL133_TESTS)
@@ -1520,6 +1521,7 @@ add_executable(openbfme_tests
     ${OPENBFME_LOCAL168_TESTS}
     ${OPENBFME_LOCAL169_TESTS}
     ${OPENBFME_LOCAL182_TESTS}
+    ${OPENBFME_LOCAL191_TESTS}
         ${OPENBFME_LOCAL130_TESTS}
         ${OPENBFME_LOCAL133_TESTS}
         ${OPENBFME_LOCAL136_TESTS}
