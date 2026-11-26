@@ -2043,10 +2043,10 @@ void ManTheWallsSpecialPower::xfer(Xfer &x)
 // ---- lane SAVE-4b: the snapshots (OpenBFME native, S-4190) ------------------------------------------------------------------------------------------------
 // PORT-251: RW 0x89679D (retail versions 1..3: BehaviorModule::xfer, +0x14 rechargeLength [v>=2], +0x18 readyFrame, +0x1C pauseCount,
 // +0x20 pauseFrame, +0x24 pausedPercent, +0x28 updateDisabled, +0x2C targetObjectID [xferObjectID RW 0x896813], +0x30 pausedByRequirements [v>=3, RW 0x896820]),
-// plus OpenBFME's native counters. Version bumped 1 -> 2 for +0x2C and +0x30.
+// plus OpenBFME's native counters. Version 2 added +0x2C (main); version 3 adds +0x30 (PORT-251).
 void SpecialPowerModule::xfer(Xfer &x)
 {
-	SnapshotXfer::version(x, 2, 2); // 2: + m_targetId (the target initiate kept, RW + 0x2C) and + m_pausedByRequirements (RW 0x896A32); version 1 saves are refused
+	SnapshotXfer::version(x, 3, 3); // 2: + m_targetId (the target initiate kept, RW + 0x2C); 3: + m_pausedByRequirements (RW 0x896A32, +0x30); version 1 and 2 saves are refused
 	xferBehaviorModule(x);
 	x.xferUnsignedInt(&m_rechargeLength);
 	x.xferUnsignedInt(&m_readyFrame);

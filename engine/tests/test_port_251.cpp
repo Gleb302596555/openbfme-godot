@@ -13,7 +13,7 @@
 //      SpecialPowerModule, WeaponModeSpecialPowerUpdate, and SpecialPowerUpdateBase, and used by
 //      ControlBar SPECIAL_POWER evaluation (RW 0x943520) instead of dynamic_cast<const SpecialPowerModule *>.
 //   4. SpecialPowerModule::crc() and xfer() v2 (RW 0x89679D, S-529 item 2) hash and serialize
-//      m_targetId (+0x2C) and m_pausedByRequirements (+0x30) and reject version 1 / 3 blocks.
+//      m_targetId (+0x2C) and m_pausedByRequirements (+0x30) and reject version 2 / 4 blocks.
 //   5. UnpauseSpecialPowerUpgrade (RW 0x8B9676 / 0x8B9701) pause count stacks cleanly with
 //      RequirementsFilterMPSkirmish and drives ControlBar availability on WeaponModeSpecialPowerUpdate.
 // Synthetic INI, no retail files. Expectations come from RotWK game.dat instructions cited at each case.
@@ -569,7 +569,7 @@ TEST_CASE("PORT-251: ControlBar SPECIAL_POWER checks interface isPaused() (RW 0x
 	CHECK(wmBtn->state == ButtonState::NotReady);
 }
 
-TEST_CASE("PORT-251: SpecialPowerModule::crc and xfer v2 round-trip m_targetId (+0x2C) and m_pausedByRequirements (+0x30) and reject v1/v3 (RW 0x89679D)")
+TEST_CASE("PORT-251: SpecialPowerModule::crc and xfer v3 round-trip m_targetId (+0x2C) and m_pausedByRequirements (+0x30) and reject v2/v4 (RW 0x89679D)")
 {
 	Port251World f(kPort251Ini);
 	Player *alice = f.players.findPlayerWithName("Alice");
@@ -598,12 +598,12 @@ TEST_CASE("PORT-251: SpecialPowerModule::crc and xfer v2 round-trip m_targetId (
 	const std::uint32_t hashBoth = hashModule(*src);
 	CHECK(hashBoth != hashReqPaused);
 
-	// Save v2 snapshot of src.
+	// Save v3 snapshot of src.
 	XferSave save;
 	src->xfer(save);
 	const std::vector<std::uint8_t> bytes = save.data();
 	REQUIRE(!bytes.empty());
-	CHECK(bytes.front() == 2u);
+	CHECK(bytes.front() == 3u);
 
 	// Load into fresh dst (whose +0x2C is INVALID_ID and whose +0x30 is false because book1 is Alice's cached spellbook).
 	CHECK(dst->getTargetId() == INVALID_ID);
@@ -619,16 +619,16 @@ TEST_CASE("PORT-251: SpecialPowerModule::crc and xfer v2 round-trip m_targetId (
 	CHECK(dst->pauseCount() == 1);
 	CHECK(hashModule(*dst) == hashBoth);
 
-	// Version 1 (pre-PORT-251) and version 3 (future) blocks are refused with XferException.
-	std::vector<std::uint8_t> v1 = bytes;
-	v1.front() = 1u;
-	XferLoad loadV1(v1);
-	CHECK_THROWS_AS(dst->xfer(loadV1), XferException);
+	// Version 2 (pre-PORT-251, no +0x30) and version 4 (future) blocks are refused with XferException.
+	std::vector<std::uint8_t> v2 = bytes;
+	v2.front() = 2u;
+	XferLoad loadV2(v2);
+	CHECK_THROWS_AS(dst->xfer(loadV2), XferException);
 
-	std::vector<std::uint8_t> v3 = bytes;
-	v3.front() = 3u;
-	XferLoad loadV3(v3);
-	CHECK_THROWS_AS(dst->xfer(loadV3), XferException);
+	std::vector<std::uint8_t> v4 = bytes;
+	v4.front() = 4u;
+	XferLoad loadV4(v4);
+	CHECK_THROWS_AS(dst->xfer(loadV4), XferException);
 }
 
 TEST_CASE("PORT-251 neighbor: UnpauseSpecialPowerUpgrade stacks cleanly with RequirementsFilterMPSkirmish pause count (RW 0x8B9676 / 0x8B9701 + 0x896A32)")
