@@ -112,6 +112,15 @@ struct Plan
 	int worstCode = 0;          // + 0x10
 	ObjectID endHub = INVALID_ID; // + 0x14
 };
+// S-1770: one segment of the line ghost (RW 0x478CBE / 0x6B00F3): the wall segment RW draws along the line
+// for a planned tile - the tile's footprint along the line (from the tile centre toward the drag end by the
+// tile's half extent). The ghost list holds one per planned tile; the port defines the list as the plan's
+// tiles (the span the line would build).
+struct GhostSegment
+{
+	Coord3D a{};
+	Coord3D b{};
+};
 
 // the geometry's half extent in y over its active shapes (RW 0xAD2860 / 0xAD2040: template + 0xC8): the bounding box starts at 0 and takes every active shape's
 // offset +- its extent (a box: the minor radius in y; a sphere / cylinder: the major radius)
@@ -119,6 +128,12 @@ float halfExtentY(const ThingTemplate &tt);
 
 // RW 0x79586E. false when nothing can be planned (no hub module / hub cap, one tile or fewer)
 bool plan(GameLogic &logic, Object &hub, const Coord3D &start, const Coord3D &end, unsigned options, Plan &out);
+// S-1770: the line ghost (RW 0x6A2D38 ff, W3DInGameUI's line ghost while the line build is dragged): the
+// ghost segments along the line from the hub to `end` - the plan of the span the line would build, as
+// GhostSegment footprints. `end` is the drag end (the pointer's point). false when the line cannot be
+// planned (the ghost draws nothing; the plan's answer is the port's neighbour: the release of the line
+// build sends the span only while the line build is started)
+bool ghostSegments(GameLogic &logic, Object &hub, const Coord3D &end, unsigned options, std::vector<GhostSegment> &out);
 // RW 0x795221: plans, then (every tile legal, the owner can pay) makes every tile through BuildAssistant slot 0x38 with the hub as builder and starts it as a foundation
 // at 1.0 health, staggered by StaggeredBuildFactor * index frames (lane BUILD-4: in retail's order - the stagger first, then percent 0, the status bits, the
 // construction conditions and the drawable's fade-in over 138 client frames, S-1520), links the tiles, and charges the whole cost. The made objects go to `made`

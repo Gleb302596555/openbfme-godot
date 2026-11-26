@@ -17,6 +17,7 @@
 #include "GameClient/PlacementIcons.h"
 #include "GameClient/InGameUI.h"
 #include "GameClient/SelectionDecals.h"
+#include "GameLogic/WallSpan.h"
 
 #include <godot_cpp/classes/mesh_instance3d.hpp>
 #include <godot_cpp/classes/node3d.hpp>
@@ -118,6 +119,10 @@ private:
 	void updateArrow(const InGameUI &ui);
 	void updateFormation(LiveGame &game,const InGameUI &ui,bool idle);
 	std::vector<InGameUI::FormationSlot> m_formationSlots;
+	std::vector<WallSpan::GhostSegment> m_lineGhostSegs; // S-1770: the line ghost, the plan's segments (sync: ui.placeGhostSegments())
+	std::vector<WallSpan::GhostSegment> m_lineSegs;      // S-1770: the drawn segments (the mesh's state; the list is rebuilt on change)
+	MeshInstance3D *m_lineSeg = nullptr;
+	float m_arrowAngle = 0.0f;                          // S-1770: the line build arrow's direction (sync: the segments' plan direction)
 	std::vector<std::string> m_formationTextures;
 	MeshInstance3D *m_formation=nullptr;
 	uint64_t m_formationId=0;

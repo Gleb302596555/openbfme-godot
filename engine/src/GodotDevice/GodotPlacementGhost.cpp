@@ -29,6 +29,23 @@
 #include "GodotDevice/GodotRetailFileSystem.h"
 #include "GodotDevice/GodotW3DInstancer.h"
 #include "GodotDevice/GodotW3DModelBuilder.h"
+#include "GameLogic/WallSpan.h"
+
+namespace godot
+{
+namespace
+{
+	// S-1770: the line ghost's direction angle (WallSpan.cpp's toAngle2d is file-local there)
+	float toAngle2d(float x, float y)
+	{
+		if (x == 0.0f && y == 0.0f)
+		{
+			return 0.0f;
+		}
+		return (float)std::atan2((double)y, (double)x);
+	}
+}
+
 
 #include <godot_cpp/classes/array_mesh.hpp>
 #include <godot_cpp/classes/geometry_instance3d.hpp>
@@ -705,12 +722,16 @@ void PlacementGhostRenderer::updateBib(PlacementIcons::Icon &icon, IconView &vie
 	view.bib->set_visible(true);
 }
 
-void PlacementGhostRenderer::updateArrow(const InGameUI &ui)
-{
-	// W3DInGameUI::drawPlaceAngle (RW 0x48EAD8): not anchored -> both out of the scene (RW 0x48EB53); anchored -> W_Arrow (the anchor below 5 pixels, the
-	// arrow at or above: both W_Arrow, RW 0xBDDBB0) with the transform of slot 0's drawable (RW 0x48EC4E -> RW 0x6765B9)
-	m_anchored = ui.isPlacementAnchored();
-	const bool want = m_anchored && m_icons && !m_icons->icons().empty();
+	void PlacementGhostRenderer::updateArrow(const InGameUI &ui)
+	{
+		// W3DInGameUI::drawPlaceAngle (RW 0x48EAD8): not anchored -> both out of the scene (RW 0x48EB53); anchored -> W_Arrow (the anchor below 5 pixels, the
+		// arrow at or above: both W_Arrow, RW 0xBDDBB0) with the transform of slot 0's drawable (RW 0x48EC4E -> RW 0x6765B9). S-1770: a line build: the arrow
+		// points along the line (the ghost plan's direction, m_arrowAngle).
+		m_anchored = ui.isPlacementAnchored();
+		const bool lineDir = !m_lineGhostSegs.empty() && m_icons && !m_icons->icons().empty();
+		const float arrowAngle = lineDir ? m_arrowAngle : 0.0f;
+		const bool want = m_anchored && m_icons && !m_icons->icons().empty();
+
 	if (!want)
 	{
 		if (m_arrow && m_arrowInstance >= 0)
@@ -748,13 +769,93 @@ void PlacementGhostRenderer::updateArrow(const InGameUI &ui)
 	}
 	else
 	{
-		m_arrow->set_instance_transform(m_arrowInstance, xf);
+		Transform3D tx = xf;
+		if (arrowAngle != 0.0f)
+		{
+			// S-1770: the arrow points along the line build (the ghost plan's direction toward the drag end)
+			Transform3D dir(Basis(Vector3(cos(arrowAngle), 0.0f, -sin(arrowAngle)),
+				Vector3(0.0f, 1.0f, 0.0f), Vector3(sin(arrowAngle), 0.0f, cos(arrowAngle))),
+				Vector3());
+			tx = xf * dir;
+		}
+		m_arrow->set_instance_transform(m_arrowInstance, tx);
 	}
 	m_arrow->update_now();
 	m_arrowShown = m_arrowInstance >= 0;
 }
 
-void PlacementGhostRenderer::sync(LiveGame &game, const InGameUI &ui, double deltaSeconds, unsigned ghostOptions, bool judge)
+	// S-1770: the line ghost (RW 0x6A2D38 ff): the plan's wall segments, drawn as straight lines. RW draws
+	// the wall segment drawable of each planned tile - the footprint from the tile centre toward the drag
+	// end by the tile's half extent (WallSpan::halfExtentY over the plan tile's template). The drawn
+	// thickness is half the plan tile length (the plan's 2 * (minor radius - 1) segment, RW 0x79586E..0x795E8B).
+	void PlacementGhostRenderer::updateLineGhost()
+	{
+		const std::vector<WallSpan::GhostSegment> &segs = m_lineGhostSegs;
+		const bool want = !segs.empty();
+		auto same = [](const WallSpan::GhostSegment &a, const WallSpan::GhostSegment &b)
+		{
+			return a.a.x == b.a.x && a.a.y == b.a.y && a.a.z == b.a.z && a.b.x == b.b.x && a.b.y == b.b.y && a.b.z == b.b.z;
+		};
+		bool sameAll = m_lineGhostSegs.size() == segs.size();
+		for (size_t i = 0; sameAll && i < segs.size(); ++i)
+		{
+			sameAll = sameAll && same(m_lineGhostSegs[i], segs[i]);
+		}
+		const bool changed = m_lineGhost != want || !sameAll;
+		if (changed && !want)
+		{
+			if (m_lineSeg)
+			{
+				m_parent->remove_child(m_lineSeg);
+				m_lineSeg->queue_free();
+				m_lineSeg = nullptr;
+			}
+			m_lineGhost = false;
+			m_lineSegs.clear();
+			return;
+		}
+		if (!changed)
+		{
+			return;
+		}
+		if (!m_lineSeg)
+		{
+			ImmediateMesh *im = memnew(ImmediateMesh);
+			m_lineSeg = memnew(MeshInstance3D);
+			m_lineSeg->set_mesh(im);
+			m_parent->add_child(m_lineSeg);
+			m_lineSeg->set_render_priority(10); // the ghost shows above the icons and the arrow
+			Ref<StandardMaterial3D> mat = memnew(StandardMaterial3D);
+			mat->set_albedo(Color(1.0f, 0.75f, 0.3f, 1.0f)); // the line's amber (RW 0xC30848's default color)
+			mat->set_ambient_light_energy(0.6f);
+			m_lineSeg->set_surface_material(0, mat);
+			im->clear_surfaces();
+		}
+		m_lineGhost = true;
+		m_lineSegs = segs;
+		m_lineSeg->clear_surfaces();
+		// thin quads (2 triangles each) along each segment - visible on the player's drag
+		const float half = 0.6f;
+		for (const WallSpan::GhostSegment &sg : segs)
+		{
+			const Vector3 a(sg.a.x, sg.a.z + 0.2f, -sg.a.y);
+			const Vector3 b(sg.b.x, sg.b.z + 0.2f, -sg.b.y);
+			const Vector3 n = (b - a).normalized();
+			const Vector3 perp = Vector3(n.y, -n.x, 0.0f).normalized() * half;
+			for (const Vector3 &p : { a - perp, b - perp, b + perp, a + perp })
+			{
+				m_lineSeg->add_vertex(p);
+			}
+			m_lineSeg->add_index(0);
+			m_lineSeg->add_index(2);
+			m_lineSeg->add_index(1);
+			m_lineSeg->add_index(2);
+			m_lineSeg->add_index(3);
+			m_lineSeg->add_index(1);
+		}
+	}
+
+	void PlacementGhostRenderer::sync(LiveGame &game, const InGameUI &ui, double deltaSeconds, unsigned ghostOptions, bool judge)
 {
 	if ((&game != m_game || !m_icons) && !judge)
 	{
@@ -782,6 +883,24 @@ void PlacementGhostRenderer::sync(LiveGame &game, const InGameUI &ui, double del
 			}
 		}
 		prewarm(game); // P-113
+	}
+	// S-1770: the line ghost state (the plan's segments + the arrow's direction; PlaceEventTranslator::ghostSegments, the plan direction toward the drag end). The anchor
+	// (RW 0x6A2C2B .. 0x6A2C47, Mouse + 0x4F0C while anchored) has no line direction of its own, so the unanchored direction is kept with the ghost list
+	const std::vector<WallSpan::GhostSegment> &g = ui.placeGhostSegments();
+	m_lineGhostSegs = g;
+	m_lineGhost = ui.isPlacing() && !g.empty();
+	// S-1770: the plan direction is the one frame() computed toward the drag end; the port's frame
+	// keeps the UNANCHORED ghost's direction (RW 0x6A2C2B .. 0x6A2C47, Mouse + 0x4F0C), which is
+	// not re-read from slot 0 while the line build is anchored - read the stored segments' first
+	// direction (every segment goes from its centre toward the drag end)
+	m_arrowAngle = 0.0f;
+	for (const WallSpan::GhostSegment &s : g)
+	{
+		if (s.b.x != s.a.x || s.b.y != s.a.y)
+		{
+			m_arrowAngle = toAngle2d(s.b.x - s.a.x, s.b.y - s.a.y);
+			break;
+		}
 	}
 	const std::string before = m_icons->templateName();
 	const uint64_t t0 = Time::get_singleton()->get_ticks_usec();
@@ -846,6 +965,7 @@ void PlacementGhostRenderer::sync(LiveGame &game, const InGameUI &ui, double del
 	}
 	m_lastDrawMs = (double)(Time::get_singleton()->get_ticks_usec() - t1) / 1000.0; // the icons' instancers, tints, bibs
 	updateArrow(ui);
+	updateLineGhost();
 	updateFormation(game,ui,judge);
 	m_formationSlots=ui.formationSlots;
 	// merge queue q21: the farm's claimable share while it is placed is drawn by OWNERFIX-2's TerrainResourceFeedback (GodotInGameHud: RW 0x75B561's

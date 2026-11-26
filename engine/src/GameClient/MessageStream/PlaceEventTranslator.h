@@ -61,6 +61,7 @@
 #pragma once
 
 #include "GameLogic/BuildPlacement.h"
+#include "GameLogic/WallSpan.h"
 #include "GameClient/HudContext.h"
 #include "GameClient/MessageStream/MessageStream.h"
 
@@ -104,8 +105,11 @@ public:
 	// the right button as the translator tracks it (tests)
 	bool rightDown() const { return m_rightDown; }
 	bool rightDragged() const { return m_rightDragged; }
+	// S-1770: the line ghost (RW 0x6A2D38 ff): the wall segments RW would draw along the line while the line
+	// build is dragged - the port's list is the plan's tiles as GhostSegment footprints, computed by frame()
+	const std::vector<WallSpan::GhostSegment> &ghostSegments() const { return m_ghost; }
 
-private:
+	private:
 	MessageDisposition releaseLineBuild(const ThingTemplate &tt, Object &builder);
 	MessageDisposition leftClick(const ClientMessage &msg);
 	void endPlacement();
@@ -119,5 +123,7 @@ private:
 	ICoord2D m_rightAnchor{};
 	unsigned m_rightDownMs = 0, m_rightUpMs = 0;
 	bool m_rightDown = false, m_rightDragged = false;
+	// S-1770: the line ghost (frame(): the placement update, RW 0x6A2D08 .. 0x6A2D33 ff)
+	std::vector<WallSpan::GhostSegment> m_ghost;
 	Stats m_stats;
 };
