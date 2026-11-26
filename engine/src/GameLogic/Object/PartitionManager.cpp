@@ -451,7 +451,7 @@ void PartitionManager::clearTrees()
 	}
 }
 
-// RW 0xA39040 (-> 0xA3BBB0 init), RW 0xA39050 (-> 0xA3B580 register), RW 0xA39060 (-> 0xA3B610 unregister), RW 0xA39070 (-> 0xA3BDB0 closest)
+// RW 0xA39040 (RW 0xA3BBB0 init), RW 0xA39050 (-> 0xA3B580 register), RW 0xA39060 (-> 0xA3B610 unregister), RW 0xA39070 (-> 0xA3BDB0 closest)
 void PartitionManager::setRegion(float loX, float loY, float hiX, float hiY)
 {
 	// RW 0xA3B450

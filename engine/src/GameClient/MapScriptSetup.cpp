@@ -131,7 +131,7 @@ bool MapScriptSetup::loadLibrary(ArchiveFileSystem &fs, const std::string &path,
 		}
 		else
 		{
-			// RW 0x7314C2 ff: a team with an owner, not its owner's default team ("team" + owner, RW 0x72D943), copied owned by the side
+			// RW 0x7314C2 ff: a team with an owner, not its owner's default team ("team" + owner, RW 0x72D943 / RW 0x72C946), copied owned by the side
 			int added = 0;
 			for (const Dict &team : lib->sides.teams)
 			{
