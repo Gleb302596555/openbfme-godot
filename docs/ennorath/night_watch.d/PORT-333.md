@@ -1,0 +1,1 @@
+| 2026-11-23 | PORT-333 | — | #888 | `ShipSlowDeathBehavior`, `ClearanceTestingSlowDeathBehavior`, `FireWeaponWhenDeadBehavior`, `StructureCollapseUpdate`, `BezierProjectileBehavior`, `SlowDeathBehavior` | — | Классифицированы 6 функций RW (4 `xfer`, 2 геттера) | местная | — | — | нет |
