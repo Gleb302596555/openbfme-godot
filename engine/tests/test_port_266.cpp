@@ -145,3 +145,131 @@ TEST_CASE("PORT-266 client tree alpha snapshot round trip and old default")
 	CHECK(loaded.trees()[0].fadeCurrent == 255);
 	CHECK(loaded.trees()[0].fadeTarget == 255);
 }
+
+namespace
+{
+// a world with two objects' templates, Alice (the local player) and Bob; a TREE record at (100, 100) of a type with FadeTarget 105, FadeDistance 10 and FadeRate 40
+struct FadeRig
+{
+	logictest::LogicWorld world;
+	W3DTreeDrawModuleData data;
+	TreeTopple trees;
+	FadeRig(const std::string &filterRow)
+	{
+		REQUIRE_MESSAGE(world.loadError.empty(), world.loadError);
+		const std::string error = world.w.load(
+			"Object InfantryProbe\n KindOf = INFANTRY\n Geometry = CYLINDER\n GeometryMajorRadius = 3\n GeometryHeight = 10\nEnd\n"
+			"Object HeroProbe\n KindOf = INFANTRY HERO\n Geometry = CYLINDER\n GeometryMajorRadius = 3\n GeometryHeight = 10\nEnd\n");
+		REQUIRE_MESSAGE(error.empty(), error);
+		world.logic->partition().setRegion(0.0f, 0.0f, 1000.0f, 1000.0f);
+		world.players.setLocalPlayer(world.players.findPlayerWithName("Alice"));
+		data.m_fadeTarget = 105;   // RW 0x5C
+		data.m_fadeDistance = 10.0f; // RW 0x60
+		data.m_fadeRate = 40;      // RW 0x58
+		trees.add(1, Coord3D{ 100.0f, 100.0f, 0.0f }, &data);
+		trees.add(2, Coord3D{ 100.0f, 100.0f, 0.0f }, &data, true); // a shrub is not in the tree buffer: never fades
+		std::string parseError;
+		REQUIRE_MESSAGE(GameLogicSettingsLoader::scanGameData(gameData(" AllowTreeFading = Yes\n" + filterRow), world.logic->settings(), &parseError), parseError);
+	}
+	Object *place(const char *name, const char *player, float x)
+	{
+		Object *o = world.make(name, world.teamOf(player));
+		const Coord3D p{ x, 100.0f, 0.0f };
+		o->setPosition(&p);
+		world.logic->runLogicFrame(); // the partition takes the moved entries
+		return o;
+	}
+	void run(int ticks) { for (int i = 0; i < ticks; ++i) trees.advance(TreeTopple::kUpdateSeconds * 1.01); }
+};
+}
+
+// RW 0x4ED6F1 .. 0x4ED7F2 (target) and RW 0x4EBA54 .. 0x4EBA94 (the step: FadeRate per update, clamped at the target)
+TEST_CASE("PORT-266 an object inside FadeDistance sets the target to FadeTarget and the opacity steps towards it at FadeRate")
+{
+	FadeRig rig(" TreeFadeObjectFilter = ANY +INFANTRY -HERO\n");
+	Object *probe = rig.place("InfantryProbe", "Alice", 112.0f); // the bounding circle's edge is 9 away: within 10
+	CHECK(rig.trees.updateFadeTargets(*rig.world.logic) == 1);
+	CHECK(rig.trees.trees()[0].fadeTarget == 105);
+	CHECK(rig.trees.trees()[1].fadeTarget == 255); // the shrub record is not part of the tree buffer
+	CHECK(rig.trees.trees()[0].fadeCurrent == 255);
+	rig.run(1);
+	CHECK(rig.trees.trees()[0].fadeCurrent == 215); // 255 - 40
+	rig.run(1);
+	CHECK(rig.trees.trees()[0].fadeCurrent == 175);
+	rig.run(2);
+	CHECK(rig.trees.trees()[0].fadeCurrent == 105); // 135 - 40 = 95 is clamped at the target
+	CHECK(rig.trees.takeFadeChanged().size() == 4);
+	rig.run(1);
+	CHECK(rig.trees.trees()[0].fadeCurrent == 105);
+	CHECK(rig.trees.takeFadeChanged().empty());
+	CHECK(rig.trees.trees()[1].fadeCurrent == 255);
+	// the object leaves: the target is 255 again and the opacity climbs back (RW 0x4ED780), clamped at 255
+	const Coord3D away{ 300.0f, 100.0f, 0.0f };
+	probe->setPosition(&away);
+	rig.world.logic->runLogicFrame();
+	CHECK(rig.trees.updateFadeTargets(*rig.world.logic) == 1);
+	CHECK(rig.trees.trees()[0].fadeTarget == 255);
+	rig.run(3);
+	CHECK(rig.trees.trees()[0].fadeCurrent == 225); // 105 + 3 * 40 = 225
+	rig.run(1);
+	CHECK(rig.trees.trees()[0].fadeCurrent == 255); // 265 is clamped
+}
+
+TEST_CASE("PORT-266 outside the radius, a filtered-out object and the switch off leave the tree opaque")
+{
+	{
+		FadeRig rig(" TreeFadeObjectFilter = ANY +INFANTRY -HERO\n");
+		rig.place("InfantryProbe", "Alice", 114.0f); // the edge is 11 away
+		CHECK(rig.trees.updateFadeTargets(*rig.world.logic) == 0);
+		CHECK(rig.trees.trees()[0].fadeTarget == 255);
+		rig.place("HeroProbe", "Alice", 100.0f); // inside, but the filter's -HERO refuses it
+		CHECK(rig.trees.updateFadeTargets(*rig.world.logic) == 0);
+		CHECK(rig.trees.trees()[0].fadeTarget == 255);
+		rig.run(2);
+		CHECK(rig.trees.trees()[0].fadeCurrent == 255);
+	}
+	{
+		// RW 0x4ED68E / RW 0x4ED79B / RW 0x4EBA5E: with the switch off nothing is queried and the stored opacities stay as they are (they are not reset to 255)
+		FadeRig rig(" TreeFadeObjectFilter = ANY +INFANTRY -HERO\n");
+		rig.place("InfantryProbe", "Alice", 105.0f);
+		REQUIRE(rig.trees.updateFadeTargets(*rig.world.logic) == 1);
+		rig.run(1);
+		REQUIRE(rig.trees.trees()[0].fadeCurrent == 215);
+		std::string parseError;
+		REQUIRE_MESSAGE(GameLogicSettingsLoader::scanGameData(gameData(" AllowTreeFading = No\n"), rig.world.logic->settings(), &parseError), parseError);
+		CHECK(rig.trees.updateFadeTargets(*rig.world.logic) == 0);
+		CHECK_FALSE(rig.trees.fadeSwitch());
+		rig.run(5);
+		CHECK(rig.trees.trees()[0].fadeCurrent == 215);
+		CHECK(rig.trees.trees()[0].fadeTarget == 105);
+	}
+}
+
+// RW 0x4ED70A .. 0x4ED76F: the candidate tests
+TEST_CASE("PORT-266 a stealthed object fades a tree only when detected or allied to the local player")
+{
+	FadeRig rig(" TreeFadeObjectFilter = ANY +INFANTRY\n");
+	GameLogic &logic = *rig.world.logic;
+	Object *mine = rig.place("InfantryProbe", "Alice", 100.0f);
+	Object *enemy = rig.place("InfantryProbe", "Bob", 100.0f);
+	const unsigned stealthed = (unsigned)CombatNames::status("STEALTHED");
+	const unsigned detected = (unsigned)CombatNames::status("DETECTED");
+	CHECK(TreeTopple::fadeCandidateAccepted(logic, *enemy)); // not stealthed: counts, enemy or not (RW 0x4ED737 -> RW 0x4ED7DD)
+	enemy->setStatus(stealthed, true);
+	CHECK_FALSE(TreeTopple::fadeCandidateAccepted(logic, *enemy)); // stealthed, undetected, an enemy of the local player: RW 0x4ED76C
+	enemy->setStatus(detected, true);
+	CHECK(TreeTopple::fadeCandidateAccepted(logic, *enemy)); // detected (RW 0x4ED749)
+	enemy->setStatus(detected, false);
+	mine->setStatus(stealthed, true);
+	CHECK(TreeTopple::fadeCandidateAccepted(logic, *mine)); // stealthed but allied to the local player (RW 0x4ED76C: relationship 2)
+	// the invisibility model conditions (RW 0x68FC06) send every candidate to the alliance test, stealth status or not
+	enemy->setStatus(stealthed, false);
+	enemy->setModelConditionState(CombatNames::modelCondition("INVISIBLE_STEALTH"), true);
+	CHECK_FALSE(TreeTopple::fadeCandidateAccepted(logic, *enemy));
+	enemy->setModelConditionState(CombatNames::modelCondition("INVISIBLE_STEALTH"), false);
+	enemy->setModelConditionState(CombatNames::modelCondition("INVISIBLE_CAMOUFLAGE"), true);
+	CHECK_FALSE(TreeTopple::fadeCandidateAccepted(logic, *enemy));
+	mine->setStatus(stealthed, false);
+	mine->setModelConditionState(CombatNames::modelCondition("INVISIBLE_CAMOUFLAGE"), true);
+	CHECK(TreeTopple::fadeCandidateAccepted(logic, *mine));
+}
