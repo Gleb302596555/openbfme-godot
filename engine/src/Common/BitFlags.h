@@ -48,7 +48,7 @@ public:
 			set(bit, true);
 		}
 	}
-	// Both editions: RW 0x00851770 (DONOR BFME2 0x0044DEC9) multi-bit constructor (-1 entries are ignored).
+	// Both editions: RW 0x00851770 (DONOR BFME2 0x0044DEC9), RW 0x006650CC (9-bit ModelConditionFlags ctor) multi-bit constructor (-1 entries are ignored).
 	BitFlags(std::initializer_list<int> bits)
 	{
 		std::memset(m_words, 0, sizeof(m_words));

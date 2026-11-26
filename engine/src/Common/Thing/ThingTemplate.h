@@ -274,6 +274,10 @@ public:
 	// Port 101 (issue #261), RW 0x710A41: ThingTemplate + 0x64C (SelectionPriority, row RW 0xDA49D8, INI::parseInt RW 0x42EC5E,
 	// initialized to 0x7fffffff at RW 0x740069..0x740074, copied by ThingTemplate::copyFrom RW 0x6D271E)
 	int selectionPriority() const;
+	// Local 187 (both editions): RW 0x740246 / RW 0x740264..0x740275 (ThingTemplate + 0x518, MaxDistanceForEngaged, default GlobalData +0xC38 or 50.0f at RW 0xBD88C4)
+	float maxDistanceForEngaged(float defaultValue = 50.0f) const;
+	// Local 187 (both editions): RW 0x740257 / RW 0x74027D..0x740287 (ThingTemplate + 0x56C, EngagedStateTimeout in logic frames, default GlobalData +0xC3C or 2 * LOGICFRAMES_PER_SECOND = 10)
+	unsigned engagedStateTimeoutFrames(unsigned defaultValue = 10u) const;
 	// Local 15 (issue #136): ThingTemplate label rows (RW 0xDA3DF8, parser RW 0x73D3E0)
 	// DisplayName (+0x2C label, +0x30 text) and Description (+0x34 label, +0x38 text)
 	std::string displayName() const;
