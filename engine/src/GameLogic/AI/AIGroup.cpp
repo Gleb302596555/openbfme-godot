@@ -875,6 +875,7 @@ float sqOrZero(float v) // RW `comiss 0, v; jbe -> v*v`, else 0
 //     within 600 of it (squared 360000) marks the group "near" (once marked, the test stops).
 //   * pass 2, every member with a current locomotor: near or effectively dead -> no cap; else the minimum, except (leader, not the leader, min set) beyond the
 //     "behind" limit -> no cap, closer than the "ahead" limit -> min * 0.7.
+// Local 187: RW 0x76FFCC (AIGroup::getSpeed), RW 0x76FFDF (AIGroup::getCount via m_members.size())
 void AIGroup::cohereMoveSpeed(bool withLeader)
 {
 	float minSpeed = kNoCap, minAhead = kNoCap;

@@ -811,6 +811,7 @@ StateReturnType AIAttackApproachState::startMove(const Coord3D &goal, Object *vi
 	return m_move->onEnter();
 }
 
+// Local 187: RW 0x74A29F (AIAttackApproachTargetState::update)
 StateReturnType AIAttackApproachState::update()
 {
 	AIUpdateInterface &a = ai();
@@ -1092,6 +1093,7 @@ StateReturnType AIAttackAimState::aim(bool firstCall)
 	return STATE_CONTINUE;
 }
 
+// Local 187: RW 0x74BEE7 (AIAttackAimAtTargetState::onExit)
 void AIAttackAimState::onExit(StateExitType)
 {
 	if (ai().isDestroying())

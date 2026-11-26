@@ -142,6 +142,7 @@ void PathfindConfigLoader::applyAIData(const GameLogicSettings &s, PathfindConfi
 	c.attackUsesLineOfSight = s.attackUsesLineOfSight; // lane ATTACKPATH-1: AIData +0x67 (row RW 0xC1CCA0)
 }
 
+// Local 187: RW 0x6E91A8 (parsePathfinderDefinition)
 bool PathfindConfigLoader::load(ArchiveFileSystem &fs, PathfindConfig &out, std::string *error)
 {
 	std::string text, err;
