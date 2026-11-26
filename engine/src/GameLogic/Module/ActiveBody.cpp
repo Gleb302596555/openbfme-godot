@@ -86,7 +86,7 @@ void parseDamageCreation(INI *ini, void *, void *store, const void *)
 	static_cast<std::vector<ActiveBodyModuleData::DamageCreation> *>(store)->push_back(std::move(entry));
 }
 
-// lane OWNERFIX-1: HealingBuffFx (RW 0x73A302, + 0x48) replaces the GameData default the constructor took (RW 0x8C373F); "None" stores none
+// HealingBuffFx (RW 0x73A302, + 0x48) explicitly overrides the ActiveBody / StructureBody GameData default; "None" stores no FX
 void parseHealingBuffFx(INI *ini, void *data, void *store, const void *)
 {
 	parseFXName(ini, data, store, nullptr);
@@ -1380,8 +1380,9 @@ void ActiveBody::attemptHealing(DamageInfo &info)
 		m_lastHealingFrame = obj->logic().getFrame();
 		// lane OWNERFIX-1 (the owner: no particles show the heroes healing): RW 0x8C30B1 .. 0x8C3118 (BFME2 decomp ActiveBody.cpp attemptHealing, tier B
 		// same-shape): when the health went up (after the damage modules' onHealing, which this port does not call here), the module data's healing FX (+ 0x48: HealingBuffFx, else GameData's
-		// DefaultUnitHealingBuffFxList, RW 0x8C373F) plays on the object (RW 0x4B1B5A, no secondary) unless its template is a STRUCTURE (template + 0x108
-		// bit 7) or its status has AIRBORNE_TARGET (Object + 0x94 bit 6). A client effect: the logic's FX log, nothing hashed changes
+		// DefaultUnitHealingBuffFxList, RW 0x8C373F / GlobalData + 0x9DC; for a StructureBody the data ctor RW 0x656D03 takes DefaultStructureRepairBuffFxList, GlobalData + 0x9E0 -- PORT-235)
+		// plays on the object (RW 0x4B1B5A, no secondary) unless its template is a STRUCTURE (template + 0x108 bit 7, RW 0x8C30EE) or its status has AIRBORNE_TARGET
+		// (Object + 0x94 bit 6, RW 0x8C3101). A client effect: the logic's FX log, nothing hashed changes
 		if (m_currentHealth > m_previousHealth)
 		{
 			Object &obj = *getObject();
@@ -1394,7 +1395,8 @@ void ActiveBody::attemptHealing(DamageInfo &info)
 				}
 			}
 			GameLogic &logic = obj.logic();
-			const std::string &fx = m_data->m_healingBuffFxSet ? m_data->m_healingBuffFx : logic.settings().defaultUnitHealingBuffFxList;
+			const std::string &defaultFx = getModuleClassName() == "StructureBody" ? logic.settings().defaultStructureRepairBuffFxList : logic.settings().defaultUnitHealingBuffFxList;
+			const std::string &fx = m_data->m_healingBuffFxSet ? m_data->m_healingBuffFx : defaultFx;
 			static const int kStructure = CombatNames::kindOf("STRUCTURE");
 			static const int kAirborneTarget = CombatNames::status("AIRBORNE_TARGET");
 			if (FXEventLog::isFXName(fx) && !obj.isKindOf((unsigned)kStructure) && !obj.testStatus((unsigned)kAirborneTarget))
