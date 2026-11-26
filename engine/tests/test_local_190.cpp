@@ -50,9 +50,8 @@ TEST_CASE("LOCAL-190 FireLogicSystem::changeFuelInArea RW 0x6864EA decay, zero r
 	//    Lowering neighbor (11, 10) resistance to 0 lets a fire of burn rate 6 at (10, 10) spread to (11, 10)
 	//    because 6 > 0 (whereas 6 > 10 would not spread).
 	const Coord3D neighborPos{ 110.0f, 100.0f, 0.0f };
-	const Coord3D sourcePos{ 100.0f, 100.0f, 0.0f };
 	fire.changeFuelInArea(neighborPos, 4.0f, 10, 20, 4, 0, false);
-	fire.changeBurnRateInArea(sourcePos, 4.0f, 6, false);
+	fire.changeBurnRate(10, 10, 10, 6, false);
 	REQUIRE(fire.isCellBurning(10, 10));
 	REQUIRE(!fire.isCellBurning(11, 10));
 	for (int i = 0; i < 10; ++i)
