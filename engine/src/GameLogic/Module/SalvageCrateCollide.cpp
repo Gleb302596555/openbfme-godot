@@ -1,6 +1,11 @@
 // OpenBFME. GPL-3.0.
 // Derived from Command & Conquer Generals Zero Hour, (c) 2001-2003 Electronic Arts Inc., GPL-3.0.
 // See GameLogic/Module/SalvageCrateCollide.h for the target facts, the donors and what is inference.
+// PORT-303: the three functions the module map listed as uncited have no code of their own in the port, and the lane records where
+// each is answered: RW 0x8C12EC (the class-name getter) and RW 0x8C130B (the lazy name-key accessor) are Module::getModuleClassName
+// and Module::getModuleNameKey, filled once by ModuleFactory::friend_setModuleClass (Common/Thing/ModuleFactory.cpp:220);
+// RW 0x8C1350 (the scalar deleting destructor) is the C++ destructor. None of the three is behaviour.
+// The xfer's version window is CrateCollide's RW 0x8C0760 (1, 2), not (2, 2): a retail version-1 snapshot has no ever-executed byte.
 
 #include "GameLogic/Module/SalvageCrateCollide.h"
 
@@ -169,13 +174,23 @@ void CrateCollide::crc(StateHasher &hasher) const
 	hasher.addBool(m_everExecuted);
 }
 
-// RW 0x8C0760
+// RW 0x8C0760: version window (1, 2) — a retail version-1 snapshot is legal and has no ever-executed byte; the byte + 0x14 and the
+// port's counter are read from version 2 on (docs/SAVES-RETAIL.md's inventory row "0x8C0760 ... (1, 2) ver(1, 2) ... bool")
 void CrateCollide::xferCrateCollide(Xfer &x)
 {
-	SnapshotXfer::version(x, 2, 2); // RW's current version 2 (+ 0x14 is read from version 2 on)
-	xferBehaviorModule(x);          // RW 0x9933FE
-	x.xferBool(&m_everExecuted);
-	SnapshotXfer::u64(x, m_executions);
+	XferVersion v{ 1, 2 }; // RW 0x8C0760: earliest 1, current 2
+	x.xferVersion(v);
+	xferBehaviorModule(x); // RW 0x9933FE
+	if (v.current >= 2)
+	{
+		x.xferBool(&m_everExecuted); // + 0x14
+		SnapshotXfer::u64(x, m_executions);
+	}
+	else if (x.isLoading())
+	{
+		m_everExecuted = false; // a version-1 snapshot predates the byte
+		m_executions = 0;
+	}
 }
 
 // ---- SalvageCrateCollide -----------------------------------------------------------------------------------------------------------------------------------
