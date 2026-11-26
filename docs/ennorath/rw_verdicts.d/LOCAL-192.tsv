@@ -1,0 +1,13 @@
+function	name	verdict	evidence
+0x7766C4	StealthUpdate::getSoundStealthOn	ported	ported in InvisibilityModules.cpp (playStealthSound SoundStealthOn, RW 0x00777726 / 0x00777921 -> RW 0x007766C4 key 0x2A, LOCAL-192)
+0x7766DD	StealthUpdate::getSoundStealthOff	ported	ported in InvisibilityModules.cpp (playStealthSound SoundStealthOff, RW 0x007777D0 / 0x00777891 -> RW 0x007766DD key 0x2B, LOCAL-192)
+0x865C98	OpenContain::getSoundEnter	ported	ported in OpenContainRuntime.cpp (OpenContain::onContaining RW 0x00865F9A -> RW 0x00865C98 key 0x2F, LOCAL-192)
+0x865CB1	OpenContain::getSoundExit	ported	ported in OpenContainRuntime.cpp (OpenContain::onRemoving RW 0x008680F4 -> RW 0x00865CB1 key 0x30, LOCAL-192)
+0x8C22F2	ActiveBody::getSoundPromotedVeteran	stop	stop S-7521: called only from ActiveBody::onVeterancyLevelChanged RW 0x008C261D (RW 0x008C26D5), blocked on Object::onVeterancyLevelChanged RW 0x006957B9 and GameData HealthBonus_* (#558)
+0x8C230B	ActiveBody::getSoundPromotedElite	stop	stop S-7521: called only from ActiveBody::onVeterancyLevelChanged RW 0x008C261D (RW 0x008C26B2), blocked on S-7521
+0x8C2324	ActiveBody::getSoundPromotedHero	stop	stop S-7521: called only from ActiveBody::onVeterancyLevelChanged RW 0x008C261D (RW 0x008C268F), blocked on S-7521
+0x9120E6	FireLogicNugget::doEffectPosition	ported	ported in WeaponDelivery.cpp (fireLogicAt); confirmed in RW 0x009120E6 (vtable 0xC7BF68 slot 6) that DamageScalar is never read (S-8028)
+0x8E35A9	Energy::objectEnteringInfluence	stop	stop S-8029: reads ThingTemplate +0x558 EnergyProduction (caller RW 0x0068E030); Energy subsystem not ported
+0x8E35D3	Energy::objectLeavingInfluence	stop	stop S-8029: reads ThingTemplate +0x558 EnergyProduction (caller RW 0x0068E037); Energy subsystem not ported
+0x806D18	VictorySystem::onObjectDestroyed	stop	stop S-8027: TheVictorySystem (0xDE897C) CellGrid subsystem not ported (VictorySystemData CellSize/CellBonusRadius/ScalePerLogicFrame/SubtractPerLogicFrame)
+0x806539	VictorySystem::cellQuery	stop	stop S-8027: TheVictorySystem (0xDE897C) CellGrid subsystem not ported
