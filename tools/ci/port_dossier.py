@@ -136,7 +136,7 @@ def binary_section(fmap: list[dict], classes: list[str], addrs: set[int]) -> lis
 
     def line(r: dict) -> str:
         name = bfme2_name(r.get("BFME2 name", ""))
-        return (f"`{rw(r['function'])}` {r['status']}" + (f", класс `{r['class']}` слот `{r['slot']}`" if r.get("slot") else "") +
+        return (f"`{rw(r['function'])}` {r['status']}" + (f" ({r['proof']})" if r.get("proof") else "") + (f", класс `{r['class']}` слот `{r['slot']}`" if r.get("slot") else "") +
                 f", вызывающих {r['direct callers']} прямых / {r['resolved virtual callers']} виртуальных" +
                 (f", BFME2 `{name}` ({r['match tier']})" if name else "") + (f", {r['subsystem']}" if r.get("subsystem") else ""))
 
