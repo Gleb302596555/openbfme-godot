@@ -114,7 +114,7 @@
   - [x] `DestroyEnvironmentUpdate` — **upstream PR `#492`** (`up/destroy-environment-and-rain-of-fire`)
   - [x] `EvacuateDamage` — *уже открыт в upstream как PR `#456`*
   - [x] `FreeLifeBody` — **upstream PR `#464`** (`up/free-life-body`)
-  - [x] `GiantBirdSlowDeathBehavior` — **upstream PR `#487`** (`up/giant-bird-slow-death`)
+  - [x] `GiantBirdSlowDeathBehavior` — **upstream PR `#487`** (`up/giant-bird-slow-death`); 2026-11-26: superseded by LuisTNH's **#518** (MOVING cleared after the die modules RW 0x699044, paralysed physics RW 0x792C6A, xfer v2); S-5606 moves into #518 with credit, then #487 is closed. On the next upstream merge take #518's version.
   - [x] `OilSpillUpdate` — **upstream PR `#472`** (`up/oil-spill-update`)
   - [x] `PoisonedBehavior` — **upstream PR `#466`** (`up/poisoned-behavior`)
   - [x] `ProjectileStreamUpdate` — **upstream PR `#484`** (`up/projectile-stream-update`)
@@ -203,6 +203,8 @@
    - Ждёт Этапа 3 (и мёрджа upstream PR `#409` от `LuisTNH` с регистрацией `fc32e4c4…`, чтобы не конфликтовать и переиспользовать общие имена фич).
 
 ### Следующие шаги (для следующего агента)
+0. **Пауза upstream (2026-11-26, мейнтейнер Ancalgonn в upstream #465):** новых PR не открывать, пока очередь (~10 обзоров в день) не сократится; бот `upstream_loop.sh` на песочнице 4 остановлен. Порядок обзора, который мы назвали: #496, #498, #466, #481, #467, #465, #491, #493, #480, #488, остальное по номерам. #471 закрыт в пользу #461 (LuisTNH), #487 уступает #518 (LuisTNH).
+   - **Обещано мейнтейнеру:** до их обзора пройти топ-10 по чек-листу сохранений (Часть 4, последний пункт) и запушить исправления в их ветки `up/*`.
 1. **Проверить финальный CI** по `#387` и `#449`–`#455` (если где-то будет реальное падение — починить в `workspace/wt/upstream-pr`; известные флаки раннеров: `test_mp3_impairment` на macOS, `test_platformicon1` порт-флак на Windows и `Greptile Review` rate-limit).
 2. **Этап 2 — быстрые автономные ванильные модули (раздел 2.2):**
    - По 1 классу на PR, начиная с 6 апгрейдов (`BaseUpgrade`, `GiveUpgradeUpdate`, `LocomotorSetUpgrade`, `TooltipUpgrade`, `WallUpgradeUpdate`, `WeaponBonusUpgrade`), затем `FreeLifeBody`, `EvacuateDamage`, `SplitHordeSpecialPower`, `PoisonedBehavior`, `ReflectDamage`, `StoreObjectsSpecialPower`, `TeleportToCasterSpecialPower`, а также `PartTheHeavensUpdate` + `FunctionCurve`.
@@ -222,3 +224,7 @@
 - Не тянуть файлы форка (`docs/ennorath/*`, `workspace/*`, чужие строки `STOPS.md` / `CMakeLists`), не писать `#N` (только `fork issue N`).
 - Всегда добавлять синтетический тест, который падает без правки; для новых клиентских `.cpp` обновлять `tools/sim/sim_policy.json`, при изменении `STOPS.md` — сортировать строки и прогонять `tools/stops_count.py --write`.
 - Отмечать отправленные пункты в этом файле и в [PR_CANDIDATES.md](PR_CANDIDATES.md).
+- **PR, меняющий сохранение (xfer)** (мейнтейнеры upstream 2026-11-26: повторяющиеся блокеры, без них PR получает NEEDS AUTHOR):
+  1. версия снапшота поднята, и сохранения до правки грузятся — с тестом, который грузит настоящий старый payload (для замены `UnportedUpdateModule` — старое состояние v1 базы + счётчик вызовов);
+  2. у каждого нового сохраняемого поля есть запись в закрытом наборе `tools/save`;
+  3. в `engine/tests/test_module_coverage.cpp` обновлены счётчики ported / missing.
