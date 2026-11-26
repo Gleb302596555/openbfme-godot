@@ -113,12 +113,14 @@ bool emotionAttackedWithin(Object &obj, unsigned seconds, ObjectID &attacker)
 // ---------------------------------------------------------------------------------------------------------------------------------
 // 20 / 21
 // ---------------------------------------------------------------------------------------------------------------------------------
+// Local 177: RW 0x744720 (AIPanicState ctor)
 AIPanicState::AIPanicState(AIStateMachine &m, bool cower)
 	: AIState(m, cower ? "AIPanicCowerState" : "AIPanicState")
 	, m_cower(cower)
 {
 }
 
+// Local 177: RW 0x750E99 (AIPanicState::onEnter)
 StateReturnType AIPanicState::onEnter()
 {
 	// RW 0x74E3E7 (20) / 0x75681A (21)
@@ -169,6 +171,7 @@ StateReturnType AIPanicState::onEnter()
 	return m_move->onEnter();
 }
 
+// Local 177: RW 0x74BD6D (AIPanicState::update)
 StateReturnType AIPanicState::update()
 {
 	AIUpdateInterface &a = ai();
@@ -219,6 +222,7 @@ StateReturnType AIPanicState::update()
 	return STATE_CONTINUE;
 }
 
+// Local 177: RW 0x74BEBA (AIPanicState::onExit)
 void AIPanicState::onExit(StateExitType)
 {
 	// RW 0x7495F9 / 0x7497FA
@@ -270,6 +274,7 @@ void AIPanicState::crcPersistent(StateHasher &h) const
 // ---------------------------------------------------------------------------------------------------------------------------------
 // 48
 // ---------------------------------------------------------------------------------------------------------------------------------
+// Local 177: RW 0x744A22 (AIBackAwayState ctor), RW 0x74E594 (AIBackAwayState::onEnter)
 StateReturnType AIBackAwayState::onEnter()
 {
 	// RW 0x745FBB
@@ -298,6 +303,7 @@ StateReturnType AIBackAwayState::onEnter()
 	return STATE_CONTINUE;
 }
 
+// Local 177: RW 0x7547D5 (AIBackAwayState::update)
 StateReturnType AIBackAwayState::update()
 {
 	// RW 0x7546DD
@@ -324,6 +330,7 @@ StateReturnType AIBackAwayState::update()
 	return STATE_CONTINUE;
 }
 
+// Local 177: RW 0x7499EE (AIBackAwayState::onExit)
 void AIBackAwayState::onExit(StateExitType)
 {
 	// RW 0x741CA9
@@ -413,6 +420,7 @@ void AIFaceState::crc(StateHasher &h) const
 	h.addBool(m_canTurn);
 }
 
+// Local 177: RW 0x743D72 (AIFaceState::xfer)
 void AIFaceState::xfer(Xfer &x)
 {
 	XferVersion version{ 1, 1 };

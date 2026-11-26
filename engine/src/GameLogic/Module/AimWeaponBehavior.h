@@ -23,6 +23,7 @@
 class ModuleFactory;
 class StateHasher;
 
+// Local 177: RW 0x64ADE4 (AimWeaponBehaviorModuleData::friend_newModuleData)
 class AimWeaponBehaviorModuleData : public ModuleData
 {
 public:

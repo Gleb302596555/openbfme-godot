@@ -333,6 +333,7 @@ private:
 };
 
 // LOCAL-18 (issue #143): CombineHordeSpecialPower (constructor RW 0x8CCBEB, vtable RW 0xC75420 / 0xC753B8) and its data (RW 0x8CCC95)
+// Local 177: RW 0x652052 (CombineHordeSpecialPowerModuleData::friend_newModuleData)
 class CombineHordeSpecialPowerModuleData : public SpecialPowerModuleData
 {
 public:

@@ -520,6 +520,7 @@ private:
 // ---------------------------------------------------------------------------------------------------------------------------------
 // 15 AIEnterState
 // ---------------------------------------------------------------------------------------------------------------------------------
+// Local 177: RW 0x7448B3 (AIEnterState ctor), RW 0x74334C (AIEnterState::xfer)
 class AIEnterState : public AIState
 {
 public:
@@ -771,6 +772,7 @@ private:
 // ---------------------------------------------------------------------------------------------------------------------------------
 // 38 AIExitState / 53 AIHordeExitState
 // ---------------------------------------------------------------------------------------------------------------------------------
+// Local 177: RW 0x752C33 (AIExitState::onExit)
 class AIExitState : public AIState
 {
 public:
@@ -874,6 +876,7 @@ private:
 // 49 AIEnterAndAttackState (Local 114: ctor RW 0x00744901, onEnter RW 0x00751777, update RW 0x0075620A, onExit RW 0x00752B73, xfer RW 0x00742848;
 // DONOR BFME2 0x0034FF6C / 0x003546EA / 0x003512B2)
 // ---------------------------------------------------------------------------------------------------------------------------------
+// Local 177: RW 0x7433B0 (AIEnterAndAttackState::xfer)
 class AIEnterAndAttackState : public AIMoveToMachineState
 {
 public:

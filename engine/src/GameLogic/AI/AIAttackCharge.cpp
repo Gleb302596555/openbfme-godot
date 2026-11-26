@@ -166,6 +166,7 @@ StateReturnType AIChargeTargetState::onEnter()
 	return m_move->onEnter();                                             // RW 0x74DADA
 }
 
+// Local 177: RW 0x751A28 (AIChargeTargetState::update)
 StateReturnType AIChargeTargetState::update()
 {
 	AIUpdateInterface &a = ai();

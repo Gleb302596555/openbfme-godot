@@ -1,3 +1,4 @@
+#include <cmath>
 // OpenBFME. GPL-3.0.
 // ThingTemplate, ModuleInfo and the module-editing parsers. See ThingTemplate.h for the addresses.
 // Local 171: RW 0x5F0B91 (ModuleInfo::getNthName)
@@ -602,6 +603,7 @@ int ThingTemplate::selectionPriority() const
 	}
 	return INT_MAX;
 }
+
 
 std::string ThingTemplate::displayName() const
 {

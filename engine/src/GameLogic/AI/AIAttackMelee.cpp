@@ -313,6 +313,7 @@ StateReturnType AIAttackMeleeApproachState::onEnter()
 	return STATE_SUCCESS;
 }
 
+// Local 177: RW 0x74B1B2 (AIAttackMeleeApproachState::update)
 StateReturnType AIAttackMeleeApproachState::update()
 {
 	AIUpdateInterface &a = ai();
@@ -520,6 +521,7 @@ StateReturnType AIAttackMeleeEngageState::onEnter()
 	return r;
 }
 
+// Local 177: RW 0x74B6F2 (AIAttackMeleeEngageState::update)
 StateReturnType AIAttackMeleeEngageState::update()
 {
 	AIUpdateInterface &a = ai();

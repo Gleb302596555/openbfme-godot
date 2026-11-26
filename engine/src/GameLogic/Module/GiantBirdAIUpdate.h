@@ -79,6 +79,7 @@ struct GiantBirdAIUpdateData
 	std::string tossFX;                   // + 0x80
 };
 
+// Local 177: RW 0x64CFC8 (GiantBirdAIUpdate::friend_newModuleInstance)
 class GiantBirdAIUpdate : public AIUpdateInterface, public CollideModuleInterface
 {
 public:

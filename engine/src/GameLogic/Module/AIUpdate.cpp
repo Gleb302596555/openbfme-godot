@@ -2566,6 +2566,26 @@ float AIUpdateInterface::turretTurnRate() const
 	return m_turret ? m_turret->data().m_turnRate : 0.0f;
 }
 
+// Local 177: RW 0x6623DB AIUpdateInterface::getTurretRotAndPitch (DONOR BFME2 0x0026270B, AIUpdateInterface_getTurretRotAndPitch.cpp):
+// RotWK keeps one turret slot (AI + 0x20C, which == 0); fills non-null out params from TurretAI + 0x18 (angle) and + 0x1C (pitch)
+bool AIUpdateInterface::getTurretRotAndPitch(int which, float *angle, float *pitch) const
+{
+	if (which != 0 || !m_turret)
+	{
+		return false;
+	}
+	if (angle)
+	{
+		*angle = m_turret->getTurretAngle();
+	}
+	if (pitch)
+	{
+		*pitch = m_turret->getTurretPitch();
+	}
+	return true;
+}
+
+
 // RW 0x66246B getWhichTurretForWeaponSlot: walks the AI's one turret (AI + 0x20C, step 4, bound 1 at RW 0x66248F); a slot the
 // turret controls (RW 0x8DC4ED at RW 0x662482) answers the turret's index (RW 0x6624C5) with its angle (+ 0x18, RW 0x6624A5)
 // and pitch (+ 0x1C, RW 0x6624B9); no turret, or a slot on none: -1 (RW 0x662494)

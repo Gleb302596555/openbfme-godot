@@ -569,6 +569,7 @@ bool SkirmishAIManager::updateResourceGatherers(AISkirmishPlayer &ai)
 	return true;
 }
 
+// Local 177: RW 0x6A9C52 (~SkirmishAIManager)
 SkirmishAIManager::~SkirmishAIManager()
 {
 	// GameLogic's destructor resets (and so removes the hooks) while its hook list is alive; nothing is left to remove here
@@ -761,6 +762,7 @@ void SkirmishAIManager::unitCreated(const Player &player, Object *factory, const
 	}
 }
 
+// Local 177: RW 0x6A9AA9 (SkirmishAIManager::reset)
 void SkirmishAIManager::reset()
 {
 	if (m_worldHooks != 0)

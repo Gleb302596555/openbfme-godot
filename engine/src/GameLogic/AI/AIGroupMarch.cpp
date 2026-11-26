@@ -210,6 +210,7 @@ void AIGroup::releaseGroundPath()
 	}
 }
 
+// Local 177: RW 0x76F518 (AIGroup::removeInvalidObjectsFromGroup)
 bool AIGroup::removeInvalidMembers()
 {
 	// RW 0x76FFF0

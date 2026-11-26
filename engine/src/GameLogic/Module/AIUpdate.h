@@ -384,6 +384,9 @@ public:
 	TurretAI *turretForCurWeapon() const;
 	// RW 0x662411 getTurretTurnRate
 	float turretTurnRate() const;
+	// Local 177: RW 0x6623DB AIUpdateInterface::getTurretRotAndPitch(which, &angle, &pitch):
+	// reads TurretAI + 0x18 (angle) and + 0x1C (pitch) from AI + 0x20C + which*4; returns false when no turret at `which`
+	bool getTurretRotAndPitch(int which, float *angle, float *pitch) const;
 	// RW 0x66246B getWhichTurretForWeaponSlot(slot, &angle, &pitch): the index of the turret (AI + 0x20C, one slot) whose
 	// ControlledWeaponSlots (TurretAIData + 0x4C, RW 0x8DC4ED) hold `slot`, with the turret's current angle and pitch (TurretAI +
 	// 0x18 / + 0x1C); TURRET_INVALID (-1) for a slot that is on no turret (RW 0x662494)

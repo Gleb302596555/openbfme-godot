@@ -330,6 +330,7 @@ bool TurretAIData::parseFromModuleLines(const std::vector<std::string> &lines, T
 		const std::string key = lower(name);
 		if (!inBlock)
 		{
+			// Local 177: RW 0x6620A2 (AIUpdateModuleData::parseTurret)
 			if (key == "turret" && v.empty())
 			{
 				if (found)

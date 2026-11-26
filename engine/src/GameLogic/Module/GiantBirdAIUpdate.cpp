@@ -504,6 +504,7 @@ protected:
 
 // AIGiantBirdSwoopState (ctor RW 0x7691FD (machine, + 0x20 target mode, + 0x30 level), vtable RW 0xC2D9E8; enter RW 0x76DB0E, update RW 0x76DF1D, the target
 // refresh RW 0x76E154, exit RW 0x76AFA6). BFME2 decomp AIGiantBirdSwoopStateOnEnter.cpp (tier B same-shape for all three bodies)
+// Local 177: RW 0x76AF56 (AIGiantBirdSwoopState::xfer)
 class AIGiantBirdSwoopState : public AIState
 {
 public:
@@ -1226,6 +1227,7 @@ public:
 
 // GiantBirdAttackMoveToState (ctor RW 0x769451, vtable RW 0xC2DBD0; enter RW 0x76B2A6 -> 0x76AD1D, exit RW 0x76B2E5, update RW 0x76B301): a NormalFlight(0, 1)
 // with an AIAttackSwoopThenIdleStateMachine (RW 0x769335: 10 Swoop(1, 0) -> 0x3F4 Attack(1) -> 0x3F5 FollowThru(0) -> 0 the idle state that does not scan)
+// Local 177: RW 0x7694D2 (~GiantBirdAttackMoveToState), RW 0x769569 (GiantBirdAttackMoveToState slot[9])
 class GiantBirdAttackMoveToState : public GiantBirdNormalFlightState
 {
 public:

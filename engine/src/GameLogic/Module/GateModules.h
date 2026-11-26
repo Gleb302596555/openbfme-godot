@@ -234,6 +234,7 @@ private:
 	mutable GateOpenAndCloseBehavior *m_targetGate = nullptr;
 };
 
+// Local 177: RW 0x64F7FE (AIGateUpdateModuleData::friend_newModuleData)
 class AIGateUpdateModuleData : public ModuleData
 {
 public:
@@ -242,6 +243,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// Local 177: RW 0x64F7C6 (AIGateUpdate::friend_newModuleInstance)
 class AIGateUpdate : public UpdateModule
 {
 public:

@@ -146,6 +146,7 @@ class AIStateMachine
 {
 public:
 	AIStateMachine(AIUpdateInterface &owner, const char *name);
+	// Local 177: RW 0x753200 (AIStateMachine::~AIStateMachine)
 	~AIStateMachine();
 	AIStateMachine(const AIStateMachine &) = delete;
 	AIStateMachine &operator=(const AIStateMachine &) = delete;
@@ -360,6 +361,7 @@ private:
 };
 
 // Local 84: AIMoveToPositionAndDieState (state 55 = 0x37, AICMD 0x41 RW 0x0066B817; DONOR BFME2 0x003513C9 AIStatesBfmeOnExit.cpp).
+// Local 177: RW 0x752E33 (AIMoveToPositionAndDieState::update)
 class AIMoveToPositionAndDieState : public AIMoveToMachineState
 {
 public:
@@ -386,6 +388,7 @@ private:
 
 // AIFollowPathState (ZH AIStates.cpp:3253-3420): walks the machine's goal path node by node; the exit-production variant (id 7) does not
 // adjust the destination and lets the unit path through units (ZH AI_FOLLOW_EXITPRODUCTION_PATH).
+// Local 177: RW 0x74F88C (AIFollowPathState::onEnter), RW 0x742661 (AIFollowPathState::xfer), RW 0x7475AC (AIFollowPathState slot[17])
 class AIFollowPathState : public AIState
 {
 public:
@@ -416,6 +419,7 @@ public:
 };
 
 // AIBusyState (id 0x2A, which AIMover::blockedBy tests): the unit is busy and takes no moves aside
+// Local 177: RW 0x747A3A (AIBusyState::onEnter)
 class AIBusyState : public AIState
 {
 public:

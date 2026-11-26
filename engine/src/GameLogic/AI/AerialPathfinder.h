@@ -112,6 +112,7 @@ private:
 	Coord3D m_endPoint{ 0.0f, 0.0f, 0.0f }; // + 0x54
 };
 
+// Local 177: RW 0x6393EF (AerialPathfinder::AerialPathfinder)
 namespace AerialPathfinder
 {
 // the path masks of GiantBirdAIUpdate's constructor (RW 0x76D40F ORs them into the globals RW 0xDE7908 .. 0xDE7918)

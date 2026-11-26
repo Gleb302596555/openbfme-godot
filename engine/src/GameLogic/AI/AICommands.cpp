@@ -177,6 +177,7 @@ bool AICommands::move(GameLogic &logic, const GameMessage &m)
 	return true;
 }
 
+// Local 177: RW 0x77253D (AIGroup::groupDock)
 bool AICommands::dock(GameLogic &logic, const GameMessage &m)
 {
 	const GameMessageArgument *which = arg(m, 0, ARGUMENTDATATYPE_OBJECTID);

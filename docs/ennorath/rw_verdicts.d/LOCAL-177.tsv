@@ -1,0 +1,354 @@
+function	name	verdict	evidence
+0x76F466	?groupSetPositionInFormation@AIGroup@@QAEXPBUCoord3D@@0H@Z	too big	Already covered by S-4460/S-813 in docs/STOPS.md (AIGroup, 178B)
+0x76F577	?rva0036D805@AIGroup@@QAEXH@Z	unchecked	Deferred to follow-up Local (AIGroup, 50B, dc=1, vc=0)
+0x76F5A9	?rva0036D837@AIGroup@@QAEXH@Z	unchecked	Deferred to follow-up Local (AIGroup, 50B, dc=1, vc=0)
+0x76F92C	?rva0036DBBA@AIGroup@@QAEXHHI@Z	unchecked	Deferred to follow-up Local (AIGroup, 99B, dc=1, vc=0)
+0x76F9E1	?rva0036DC6F@AIGroup@@QAEXHH@Z	unchecked	Deferred to follow-up Local (AIGroup, 30B, dc=1, vc=0)
+0x76FB89	?setWeaponSetFlag@AIGroup@@QAEXW4WeaponSetType@@@Z	unchecked	Deferred to follow-up Local (AIGroup, 114B, dc=0, vc=0)
+0x76FDCF	?getSpecialPowerSourceObject@AIGroup@@QAEPAVObject@@I@Z	unchecked	Deferred to follow-up Local (AIGroup, 71B, dc=7, vc=0)
+0x76FE16	?getCommandButtonSourceObject@AIGroup@@QAEPAVObject@@W4GUICommandType@@@Z	unchecked	Deferred to follow-up Local (AIGroup, 107B, dc=7, vc=0)
+0x76FE81	?groupSetEmoticon@AIGroup@@QAEXABV?$StringBase@D@@H@Z	unchecked	Deferred to follow-up Local (AIGroup, 52B, dc=1, vc=0)
+0x76FFA0	?rva0036E2E2@AIGroup@@QAEX_N@Z	unchecked	Deferred to follow-up Local (AIGroup, 44B, dc=1, vc=0)
+0x76FFCC	?getSpeed@AIGroup@@QAEMXZ	unchecked	Deferred to follow-up Local (AIGroup, 19B, dc=3, vc=0)
+0x771A7D	?groupScatter@AIGroup@@QAEXW4CommandSourceType@@@Z	unchecked	Deferred to follow-up Local (AIGroup, 448B, dc=1, vc=0)
+0x771D7C	?rva0036FA56@AIGroup@@QAEXPBVWaypoint@@W4CommandSourceType@@@Z	unchecked	Deferred to follow-up Local (AIGroup, 54B, dc=1, vc=0)
+0x771DB9	?groupMoveToAndEvacuate@AIGroup@@QAEXPBUCoord3D@@W4CommandSourceType@@@Z	unchecked	Deferred to follow-up Local (AIGroup, 47B, dc=0, vc=0)
+0x771EEB	?groupMoveToAndEvacuateAndExit@AIGroup@@QAEXPBUCoord3D@@W4CommandSourceType@@@Z	unchecked	Deferred to follow-up Local (AIGroup, 61B, dc=1, vc=0)
+0x772452	?groupGetHealed@AIGroup@@QAEXPAVObject@@W4CommandSourceType@@@Z	unchecked	Deferred to follow-up Local (AIGroup, 54B, dc=1, vc=0)
+0x772488	?groupGetRepaired@AIGroup@@QAEXPAVObject@@W4CommandSourceType@@@Z	unchecked	Deferred to follow-up Local (AIGroup, 54B, dc=1, vc=0)
+0x772573	?groupHarvest@AIGroup@@QAEXPBUCoord3D@@W4CommandSourceType@@@Z	unchecked	Deferred to follow-up Local (AIGroup, 54B, dc=2, vc=0)
+0x772736	?groupGuardObject@AIGroup@@QAEXPAVObject@@HW4CommandSourceType@@@Z	other issue #753	Owned by Port 317 (issue #753: AI guard commands/retaliate, 65B)
+0x7727F9	?rva003704D3@AIGroup@@QAEXPBVPolygonTrigger@@HW4CommandSourceType@@PBUCoord3D@@@Z	other issue #753	Owned by Port 317 (issue #753: AI guard commands/retaliate, 68B)
+0x77287A	?rva00370554@AIGroup@@QAEXPAVObject@@W4CommandSourceType@@@Z	unchecked	Deferred to follow-up Local (AIGroup, 110B, dc=1, vc=0)
+0x7729EE	?groupRotateFiringarc@AIGroup@@QAEXPBUCoord3D@@W4CommandSourceType@@@Z	too big	S-7983: Naval boarding (AIPrepareForBoarding/AIMoveForBoarding, S-4160) and AIRotateFiringarc not ported (AIGroup, 205B)
+0x66261F	?rva0026293E@AIUpdateInterface@@QAEXXZ	unchecked	Deferred to follow-up Local (AIUpdateInterface, 32B, dc=1, vc=0)
+0x66263F	?rva0026295E@AIUpdateInterface@@QAEXXZ	unchecked	Deferred to follow-up Local (AIUpdateInterface, 15B, dc=6, vc=0)
+0x662EA9	?rva002630F5@AIUpdateInterface@@QAEPAVRadarObject@@XZ	unchecked	Deferred to follow-up Local (AIUpdateInterface, 8B, dc=3, vc=0)
+0x664F63	?rva00265143@AIUpdateInterface@@QAEHXZ	unchecked	Deferred to follow-up Local (AIUpdateInterface, 48B, dc=1, vc=0)
+0x6654C7	?setPathFromWaypoint@AIUpdateInterface@@QAEXPBVWaypoint@@PBVCoord2D@@@Z	unchecked	Deferred to follow-up Local (AIUpdateInterface, 303B, dc=1, vc=0)
+0x667323	?privateGuardRetaliate@AIUpdateInterface@@MAEXPAVObject@@PBUCoord3D@@HW4CommandSourceType@@@Z	other issue #753	Owned by Port 317 (issue #753: AI guard commands/retaliate, 92B)
+0x66B564	?privateMoveToPositionAmphibious@AIUpdateInterface@@MAEXPBUCoord3D@@HW4CommandSourceType@@@Z	too big	Already covered by S-4160 in docs/STOPS.md (AIUpdateInterface, 210B)
+0x66C6E3	?rva0026C486@AICommandInterface@@QAEXPAVObject@@W4CommandSourceType@@@Z	too big	Already covered by S-1101 in docs/STOPS.md (AICommandInterface, 101B)
+0x770F43	?rva0036EC1D@AICommandInterface@@QAEXPAVObject@@W4CommandSourceType@@@Z	unchecked	Deferred to follow-up Local (AICommandInterface, 101B, dc=2, vc=0)
+0x7711AF	?rva0036EE89@AICommandInterface@@QAEXPBVRva0035149F@@PAVObject@@MW4CommandSourceType@@@Z	unchecked	Deferred to follow-up Local (AICommandInterface, 128B, dc=1, vc=0)
+0x7719CD	?rva0036F6A7@AICommandInterface@@QAEXMW4CommandSourceType@@@Z	unchecked	Deferred to follow-up Local (AICommandInterface, 105B, dc=1, vc=0)
+0x7C8079	?aiAttackMoveToPositionAmphibious@AICommandInterface@@QAEXPBUCoord3D@@W4CommandSourceType@@@Z	unchecked	Deferred to follow-up Local (AICommandInterface, 118B, dc=1, vc=0)
+0x7C80EF	?rva003C7653@AICommandInterface@@QAEXPAVObject@@W4CommandSourceType@@@Z	unchecked	Deferred to follow-up Local (AICommandInterface, 101B, dc=6, vc=0)
+0x756CA2	?rva0035519E@AiOrdersManager@@QAEXH@Z	unchecked	Deferred to follow-up Local (AiOrdersManager, 23B, dc=1, vc=0)
+0x756D05	?rva00355201@AiOrdersManager@@QAEXHPAXPAVGroupOrder@@@Z	unchecked	Deferred to follow-up Local (AiOrdersManager, 86B, dc=1, vc=0)
+0x756F76	?rva00355472@AiOrdersManager@@QAEPAXABUCoord3D@@HPAVGroupOrder@@@Z	unchecked	Deferred to follow-up Local (AiOrdersManager, 184B, dc=1, vc=0)
+0x7571A7	?rva00355664@AiOrdersManager@@QAEXABUCoord3D@@HPAVGroupOrder@@@Z	too big	Already covered by S-1831 in docs/STOPS.md (AiOrdersManager, 43B)
+0x741C88	??1BackAwayAndCowerStateMachine@@UAE@XZ	not reached	"6B mov eax, 0xC28688 (""BackAwayAndCowerStateMachine""); ret — MemoryPoolObject::getPoolName() slot 0xC28648[2] (dc=0, vc=0)"
+0x741C8E	?xfer@BackAwayAndCowerStateMachine@@MAEXPAVXfer@@@Z	too big	S-7982: BackAwayAndCowerStateMachine / AIUncontrollableCower sub-machine not ported (BackAwayAndCowerStateMachine, 27B)
+0x741DBE	?xfer@BackAwayAndCowerStateMachine@@MAEXPAVXfer@@@Z	too big	S-7982: BackAwayAndCowerStateMachine / AIUncontrollableCower sub-machine not ported (BackAwayAndCowerStateMachine, 27B)
+0x743F2F	?xfer@BackAwayAndCowerStateMachine@@MAEXPAVXfer@@@Z	too big	S-7982: BackAwayAndCowerStateMachine / AIUncontrollableCower sub-machine not ported (BackAwayAndCowerStateMachine, 27B)
+0x745EF1	??0BackAwayAndCowerStateMachine@@QAE@PAVObject@@0I@Z	too big	S-7982: BackAwayAndCowerStateMachine / AIUncontrollableCower sub-machine not ported (BackAwayAndCowerStateMachine, 174B)
+0x741B91	AIBackAwayAndCowerState ctor/dtor	too big	S-7982: BackAwayAndCowerStateMachine / AIUncontrollableCower sub-machine not ported (AIBackAwayAndCowerState, 75B)
+0x741BDC	AIBackAwayAndCowerState 0xC27540[6]	too big	S-7982: BackAwayAndCowerStateMachine / AIUncontrollableCower sub-machine not ported (AIBackAwayAndCowerState, 47B)
+0x741C0B	AIBackAwayAndCowerState 0xC27540[5]	too big	S-7982: BackAwayAndCowerStateMachine / AIUncontrollableCower sub-machine not ported (AIBackAwayAndCowerState, 31B)
+0x741C2A	AIBackAwayAndCowerState 0xC27540[3]	too big	S-7982: BackAwayAndCowerStateMachine / AIUncontrollableCower sub-machine not ported (AIBackAwayAndCowerState, 30B)
+0x749628	AIBackAwayAndCowerState 0xC27540[4]	too big	S-7982: BackAwayAndCowerStateMachine / AIUncontrollableCower sub-machine not ported (AIBackAwayAndCowerState, 107B)
+0x741D5A	AIUncontrollableCower 0xC286A8[2]	not reached	"6B mov eax, 0xC286F0 (""AIUncontrollableCower""); ret — MemoryPoolObject::getPoolName() slot 0xC286A8[2] (dc=0, vc=0)"
+0x741D60	AIUncontrollableCower 0xC286A8[3]	too big	S-7982: BackAwayAndCowerStateMachine / AIUncontrollableCower sub-machine not ported (AIUncontrollableCower, 41B)
+0x749898	AIUncontrollableCower 0xC286A8[4]	too big	S-7982: BackAwayAndCowerStateMachine / AIUncontrollableCower sub-machine not ported (AIUncontrollableCower, 82B)
+0x7498EA	AIUncontrollableCower 0xC286A8[5]	too big	S-7982: BackAwayAndCowerStateMachine / AIUncontrollableCower sub-machine not ported (AIUncontrollableCower, 78B)
+0x741B5C	AIMoveAndTightenState 0xC28B98[17]	unchecked	Deferred to follow-up Local (AIMoveAndTightenState, 53B, dc=0, vc=2)
+0x744295	??0Rva00342892@@QAE@PAVStateMachine@@@Z	unchecked	Deferred to follow-up Local (AIMoveAndTightenState, 29B, dc=1, vc=0)
+0x749593	AIMoveAndTightenState 0xC28B98[6]	unchecked	Deferred to follow-up Local (AIMoveAndTightenState, 102B, dc=0, vc=1)
+0x74E48A	AIMoveAndTightenState 0xC28B98[4]	unchecked	Deferred to follow-up Local (AIMoveAndTightenState, 181B, dc=0, vc=0)
+0x74464E	??_GRva00340BDC@@UAEPAXI@Z	unchecked	Deferred to follow-up Local (AIFollowWaypointPathStateAndEvacuate, 28B, dc=1, vc=0)
+0x74466A	??0Rva00342C47@@QAE@PAVStateMachine@@_N@Z	not reached	"6B mov eax, 0xC29040 (""AIFollowWaypointPathStateAndEvacuate""); ret — MemoryPoolObject::getPoolName() slot 0xC28FF8[2] (dc=0, vc=0)"
+0x74BAE4	??_GRva00345F21@@UAEPAXI@Z	unchecked	Deferred to follow-up Local (AIFollowWaypointPathStateAndEvacuate, 28B, dc=0, vc=0)
+0x755D01	AIFollowWaypointPathStateAndEvacuate 0xC28FF8[6]	unchecked	Deferred to follow-up Local (AIFollowWaypointPathStateAndEvacuate, 119B, dc=0, vc=1)
+0x7569FA	?Rva00354EB9@@YA_NPBUCoord3D@@0@Z	not reached	"6B mov eax, 0xC2B444 (""AiOrdersManager""); ret — MemoryPoolObject::getPoolName() slot 0xC2B464[2] (dc=0, vc=0)"
+0x769B25	GiantBirdGuardOuterState ctor/dtor	too big	S-7981: GiantBirdGuardMachine aerial guard state machine not ported (GiantBirdGuardOuterState, 73B)
+0x769B6E	GiantBirdGuardOuterState 0xC2DD30[2]	not reached	"6B mov eax, 0xC2DD74 (""GiantBirdGuardOuterState""); ret — MemoryPoolObject::getPoolName() slot 0xC2DD30[2] (dc=0, vc=0)"
+0x769BAC	?shouldExit@Rva00367F19ExitConditions@@UBE_NPBVStateMachine@@@Z	too big	S-7981: GiantBirdGuardMachine aerial guard state machine not ported (GiantBirdGuardOuterState, 116B)
+0x76C3FA	GiantBirdGuardOuterState 0xC2DD30[6]	too big	S-7981: GiantBirdGuardMachine aerial guard state machine not ported (GiantBirdGuardOuterState, 127B)
+0x769B74	GiantBirdGuardReturnState ctor/dtor	too big	S-7981: GiantBirdGuardMachine aerial guard state machine not ported (GiantBirdGuardReturnState, 50B)
+0x769BA6	GiantBirdGuardReturnState 0xC2DD90[2]	not reached	"6B mov eax, 0xC2DDD4 (""GiantBirdGuardReturnState""); ret — MemoryPoolObject::getPoolName() slot 0xC2DD90[2] (dc=0, vc=0)"
+0x76C479	GiantBirdGuardReturnState 0xC2DD90[4]	too big	S-7981: GiantBirdGuardMachine aerial guard state machine not ported (GiantBirdGuardReturnState, 175B)
+0x76C528	?update@Rva0036A88AOwner@@QAEHXZ	too big	S-7981: GiantBirdGuardMachine aerial guard state machine not ported (GiantBirdGuardReturnState, 239B)
+0x742144	?xfer@AIAttackPursueTargetState@@MAEXPAVXfer@@@Z	other issue #533	Owned by Port 223 (issue #533: AIAttackPursueTargetState / canPursue, 131B)
+0x74AD8E	?updateInternal@AIAttackPursueTargetState@@AAE?AW4StateReturnType@@XZ	other issue #533	Owned by Port 223 (issue #533: AIAttackPursueTargetState / canPursue, 515B)
+0x74AF91	?update@AIAttackPursueTargetState@@UAE?AW4StateReturnType@@XZ	other issue #533	Owned by Port 223 (issue #533: AIAttackPursueTargetState / canPursue, 92B)
+0x743890	??1AIGuardRetaliateState@@UAE@XZ	other issue #753	Owned by Port 317 (issue #753: AI guard commands/retaliate, 91B)
+0x7438EB	?xfer@AIGuardRetaliateState@@MAEXPAVXfer@@@Z	other issue #753	Owned by Port 317 (issue #753: AI guard commands/retaliate, 146B)
+0x74397D	?update@AIGuardRetaliateState@@UAEHXZ	other issue #753	Owned by Port 317 (issue #753: AI guard commands/retaliate, 60B)
+0x6C6CD7	?checkEnemyForAttackMove@TacticalAI@@QAE_NPAVObject@@0@Z	unchecked	Deferred to follow-up Local (TacticalAI, 159B, dc=1, vc=0)
+0x741A7B	AIMoveToStateSA ctor/dtor	unchecked	Deferred to follow-up Local (AIMoveToStateSA, 37B, dc=1, vc=0)
+0x741AA0	??0Rva003400CE@@QAE@PAVStateMachine@@@Z	not reached	"6B mov eax, 0xC285A8 (""AIMoveToStateSA""); ret — MemoryPoolObject::getPoolName() slot 0xC28560[2] (dc=0, vc=0)"
+0x74E259	AIMoveToStateSA 0xC28560[4]	unchecked	Deferred to follow-up Local (AIMoveToStateSA, 207B, dc=0, vc=0)
+0x74401C	??0Rva00342619@@QAE@PAVStateMachine@@@Z	too big	S-7983: Naval boarding (AIPrepareForBoarding/AIMoveForBoarding, S-4160) and AIRotateFiringarc not ported (AIPrepareForBoarding, 29B)
+0x744039	AIPrepareForBoarding 0xC28A38[2]	not reached	"6B mov eax, 0xC28A7C (""AIPrepareForBoarding""); ret — MemoryPoolObject::getPoolName() slot 0xC28A38[2] (dc=0, vc=0)"
+0x756778	AIPrepareForBoarding 0xC28A38[6]	too big	S-7983: Naval boarding (AIPrepareForBoarding/AIMoveForBoarding, S-4160) and AIRotateFiringarc not ported (AIPrepareForBoarding, 66B)
+0x7440AE	??0Rva003426AB@@QAE@PAVStateMachine@@@Z	too big	S-7983: Naval boarding (AIPrepareForBoarding/AIMoveForBoarding, S-4160) and AIRotateFiringarc not ported (AIRotateFiringarc, 29B)
+0x7440CB	AIRotateFiringarc 0xC28A98[2]	not reached	"6B mov eax, 0xC28ADC (""AIRotateFiringarc""); ret — MemoryPoolObject::getPoolName() slot 0xC28A98[2] (dc=0, vc=0)"
+0x7440D1	?rva003426CE@Rva003426AB@@UAEHXZ	too big	S-7983: Naval boarding (AIPrepareForBoarding/AIMoveForBoarding, S-4160) and AIRotateFiringarc not ported (AIRotateFiringarc, 62B)
+0x7448D8	??0Rva00342EAC@@QAE@PAVStateMachine@@@Z	not reached	"6B mov eax, 0xC29538 (""AIEnterState""); ret — MemoryPoolObject::getPoolName() slot 0xC294F0[2] (dc=0, vc=0)"
+0x744A43	AIBackAwayState 0xC296B0[2]	not reached	"6B mov eax, 0xC296F8 (""AIBackAwayState""); ret — MemoryPoolObject::getPoolName() slot 0xC296B0[2] (dc=0, vc=0)"
+0x7428D6	AIAttackMoveToState 0xC29BA8[9]	unchecked	Deferred to follow-up Local (AIAttackMoveToState, 29B, dc=0, vc=1)
+0x75057C	AIAttackMoveToState ctor/dtor	unchecked	Deferred to follow-up Local (AIAttackMoveToState, 147B, dc=1, vc=0)
+0x75060F	AIAttackMoveToState 0xC29BA8[4]	unchecked	Deferred to follow-up Local (AIAttackMoveToState, 96B, dc=0, vc=0)
+0x747993	??1Rva00345F21@@UAE@XZ	not reached	"6B mov eax, 0xC29CE0 (""AIAttackFollowWaypointPathState""); ret — MemoryPoolObject::getPoolName() slot 0xC29C98[2] (dc=0, vc=0)"
+0x74B9FC	?onExit@AIAttackMoveToState@@UAEXW4StateExitType@@@Z	unchecked	Deferred to follow-up Local (AIAttackMoveToState, 28B, dc=0, vc=0)
+0x75066F	?onEnter@AIAttackMoveToState@@UAE?AW4StateReturnType@@XZ	unchecked	Deferred to follow-up Local (AIAttackMoveToState, 160B, dc=0, vc=0)
+0x747A86	?loadPostProcess@AIAttackState@@MAEXXZ	unchecked	Deferred to follow-up Local (AIAttackState, 92B, dc=0, vc=1)
+0x7510EC	?update@AIAttackState@@UAE?AW4StateReturnType@@XZ	too big	Already covered by S-583/S-7164/S-7182/S-7185 in docs/STOPS.md (AIAttackState, 1269B)
+0x7410BC	??0AIGuardState@@QAE@PAVStateMachine@@@Z	not reached	"6B mov eax, 0xC27DE4 (""AIGuardState""); ret — MemoryPoolObject::getPoolName() slot 0xC27DA0[2] (dc=0, vc=0)"
+0x751BCE	?onEnter@AIMoveForBoarding@@UAE?AW4StateReturnType@@XZ	too big	S-7983: Naval boarding (AIPrepareForBoarding/AIMoveForBoarding, S-4160) and AIRotateFiringarc not ported (AIMoveForBoarding, 23B)
+0x7567BA	?update@AIMoveForBoarding@@UAE?AW4StateReturnType@@XZ	too big	S-7983: Naval boarding (AIPrepareForBoarding/AIMoveForBoarding, S-4160) and AIRotateFiringarc not ported (AIMoveForBoarding, 96B)
+0x7546AA	?setGoalSquad@AIStateMachine@@QAEXPBVSquad@@@Z	unchecked	Deferred to follow-up Local (AIStateMachine, 51B, dc=2, vc=0)
+0x741D89	?xfer@AIUncontrollableCower@@MAEXPAVXfer@@@Z	too big	S-7982: BackAwayAndCowerStateMachine / AIUncontrollableCower sub-machine not ported (AIUncontrollableCower, 53B)
+0x749966	?onEnter@AIUncontrollableCower@@UAE?AW4StateReturnType@@XZ	too big	S-7982: BackAwayAndCowerStateMachine / AIUncontrollableCower sub-machine not ported (AIUncontrollableCower, 136B)
+0x74155E	??1AttackPositionStateMachine@@UAE@XZ	not reached	"6B mov eax, 0xC28330 (""AttackPositionStateMachine""); ret — MemoryPoolObject::getPoolName() slot 0xC282F0[2] (dc=0, vc=0)"
+0x7452CE	??0AttackPositionStateMachine@@QAE@PAVObject@@PAVRva003438C7Host@@I@Z	unchecked	Deferred to follow-up Local (AttackPositionStateMachine, 419B, dc=1, vc=0)
+0x76A6C6	??_GGiantBirdAttackMoveToState@@UAEPAXI@Z	not reached	"6B mov eax, 0xC2E104 (""GiantBirdGuardInnerState""); ret — MemoryPoolObject::getPoolName() slot 0xC2E0C0[2] (dc=0, vc=0)"
+0x769DA1	?xfer@GiantBirdGuardOuterState@@MAEXPAVXfer@@@Z	too big	S-7981: GiantBirdGuardMachine aerial guard state machine not ported (GiantBirdGuardOuterState, 64B)
+0x76C259	?onEnter@GiantBirdGuardOuterState@@UAE?AW4StateReturnType@@XZ	too big	S-7981: GiantBirdGuardMachine aerial guard state machine not ported (GiantBirdGuardOuterState, 417B)
+0x6FF49C	?xfer@TAiData@@MAEXPAVXfer@@@Z	unchecked	Deferred to follow-up Local (TAiData, 349B, dc=0, vc=0)
+0x6FF9E9	??1TAiData@@UAE@XZ	unchecked	Deferred to follow-up Local (TAiData, 201B, dc=1, vc=0)
+0x66A518	table 0xBD15B0 ctor/dtor	unchecked	Deferred to follow-up Local (table 0xBD15B0, 75B, dc=1, vc=0)
+0x66EB12	??1Rva0026E7EA@@UAE@XZ	unchecked	Deferred to follow-up Local (table 0xBD15B0, 48B, dc=4, vc=0)
+0x6C6E7C	?rva002C61AF@Rva002C60E4@@QAEXXZ	unchecked	Deferred to follow-up Local (table 0xC16778, 133B, dc=1, vc=0)
+0x6C708B	??1Rva002C6354@@UAE@XZ	unchecked	Deferred to follow-up Local (table 0xC16778, 77B, dc=1, vc=0)
+0x74AFED	AIAttackPursueTargetState 0xC28D90[5]	other issue #533	Owned by Port 223 (issue #533: AIAttackPursueTargetState / canPursue, 20B)
+0x74ECD9	AIAttackPursueTargetState 0xC28D90[4]	other issue #533	Owned by Port 223 (issue #533: AIAttackPursueTargetState / canPursue, 349B)
+0x744742	??0Rva00342D19@@QAE@PAVStateMachine@@@Z	not reached	"6B mov eax, 0xC29218 (""AIPanicState""); ret — MemoryPoolObject::getPoolName() slot 0xC291D0[2] (dc=0, vc=0)"
+0x744A1C	AIMoveAwayAndCowerState 0xC29650[2]	not reached	"6B mov eax, 0xC29698 (""AIMoveAwayAndCowerState""); ret — MemoryPoolObject::getPoolName() slot 0xC29650[2] (dc=0, vc=0)"
+0x749938	AIMoveAwayAndCowerState 0xC29650[5]	too big	S-7982: BackAwayAndCowerStateMachine / AIUncontrollableCower sub-machine not ported (AIMoveAwayAndCowerState, 46B)
+0x744A7E	AIMoveForBoarding ctor/dtor	too big	S-7983: Naval boarding (AIPrepareForBoarding/AIMoveForBoarding, S-4160) and AIRotateFiringarc not ported (AIMoveForBoarding, 24B)
+0x744A96	AIMoveForBoarding 0xC29768[2]	not reached	"6B mov eax, 0xC297B0 (""AIMoveForBoarding""); ret — MemoryPoolObject::getPoolName() slot 0xC29768[2] (dc=0, vc=0)"
+0x769B1F	??1Rva00367E26@@UAE@XZ	not reached	"6B mov eax, 0xC2DD14 (""GiantBirdGuardIdleState""); ret — MemoryPoolObject::getPoolName() slot 0xC2DCD0[2] (dc=0, vc=0)"
+0x76C617	?update@Rva0036A979GuardIdleState@@UAE?AW4StateReturnType@@XZ	too big	S-7981: GiantBirdGuardMachine aerial guard state machine not ported (GiantBirdGuardIdleState, 251B)
+0x74BEE7	?onExit@AIAttackAimAtTargetState@@UAEXW4StateExitType@@@Z	unchecked	Deferred to follow-up Local (AIAttackAimAtTargetState, 104B, dc=0, vc=0)
+0x74A29F	?update@AIAttackApproachTargetState@@UAE?AW4StateReturnType@@XZ	unchecked	Deferred to follow-up Local (AIAttackApproachTargetState, 157B, dc=0, vc=1)
+0x741FD0	?xfer@AIAttackApproachTargetState00C12678@@MAEXPAVXfer@@@Z	unchecked	Deferred to follow-up Local (AIAttackApproachTargetState00C12678, 130B, dc=0, vc=1)
+0x741A04	??1AIAttackMoveStateMachine@@UAE@XZ	not reached	"6B mov eax, 0xC284F8 (""AIAttackMOveStateMachine""); ret — MemoryPoolObject::getPoolName() slot 0xC284B8[2] (dc=0, vc=0)"
+0x740D14	??0AIBackAwayAndCowerState@@QAE@PAVStateMachine@@@Z	not reached	"6B mov eax, 0xC27584 (""AIBackAwayAndCowerState""); ret — MemoryPoolObject::getPoolName() slot 0xC27540[2] (dc=0, vc=0)"
+0x5E7681	??1AICommandParms@@QAE@XZ	unchecked	Deferred to follow-up Local (AICommandParms, 15B, dc=32, vc=0)
+0x743FC2	?update@AIFaceDirectionState@@UAE?AW4StateReturnType@@XZ	unchecked	Deferred to follow-up Local (AIFaceDirectionState, 90B, dc=0, vc=0)
+0x751BB7	?onEnter@AIFollowPathAndEvacuateState@@UAE?AW4StateReturnType@@XZ	unchecked	Deferred to follow-up Local (AIFollowPathAndEvacuateState, 23B, dc=0, vc=0)
+0x7475F2	?computePath@AIFollowPathAsTeamState@@MAE_NXZ	unchecked	Deferred to follow-up Local (AIFollowPathAsTeamState, 220B, dc=0, vc=3)
+0x750998	?onEnter@AIFollowWaypointPathStateAndEvacuate@@UAE?AW4StateReturnType@@XZ	unchecked	Deferred to follow-up Local (AIFollowWaypointPathStateAndEvacuate, 23B, dc=0, vc=0)
+0x7494D8	?update@AIMoveAndTightenState@@UAE?AW4StateReturnType@@XZ	unchecked	Deferred to follow-up Local (AIMoveAndTightenState, 85B, dc=0, vc=1)
+0x74E53F	?onEnter@AIMoveAwayAndCowerState@@UAE?AW4StateReturnType@@XZ	too big	S-7982: BackAwayAndCowerStateMachine / AIUncontrollableCower sub-machine not ported (AIMoveAwayAndCowerState, 85B)
+0x741A2B	?xfer@AIMoveToStateSA@@MAEXPAVXfer@@@Z	unchecked	Deferred to follow-up Local (AIMoveToStateSA, 80B, dc=0, vc=1)
+0x74F872	?update@AIPickUpCrateState@@UAE?AW4StateReturnType@@XZ	unchecked	Deferred to follow-up Local (AIPickUpCrateState, 26B, dc=1, vc=1)
+0x74403F	?onEnter@AIPrepareForBoarding@@UAE?AW4StateReturnType@@XZ	too big	S-7983: Naval boarding (AIPrepareForBoarding/AIMoveForBoarding, S-4160) and AIRotateFiringarc not ported (AIPrepareForBoarding, 111B)
+0x6FEBED	?addInfo@AISideBuildList@@QAEXPAVBuildListInfo@@@Z	unchecked	Deferred to follow-up Local (AISideBuildList, 43B, dc=1, vc=0)
+0x64CF77	?friend_newModuleData@AssaultTransportAIUpdateModuleData@@SAPAVModuleData@@PAVINI@@@Z	not reached	AssaultTransportAIUpdateModuleData::friend_newModuleData (81B, dc=0, vc=0): ZH leftover, 0 uses in RotWK/Ennorath INI
+0x74153C	??1AttackContesterStateMachine@@UAE@XZ	not reached	"6B mov eax, 0xC28270 (""AttackContesterStateMachine""); ret — MemoryPoolObject::getPoolName() slot 0xC28230[2] (dc=0, vc=0)"
+0x74154D	??1AttackFireWhileChargingMachine@@UAE@XZ	not reached	"6B mov eax, 0xC282D0 (""AttackFireWhileChargingMachine""); ret — MemoryPoolObject::getPoolName() slot 0xC28290[2] (dc=0, vc=0)"
+0x7414C7	??1AttackMeleeStateMachine@@UAE@XZ	not reached	"6B mov eax, 0xC28160 (""AttackMeleeStateMachine""); ret — MemoryPoolObject::getPoolName() slot 0xC28120[2] (dc=0, vc=0)"
+0x7414B6	??1AttackStateMachine@@UAE@XZ	not reached	"6B mov eax, 0xC28108 (""AttackStateMachine""); ret — MemoryPoolObject::getPoolName() slot 0xC280C8[2] (dc=0, vc=0)"
+0x6FFAD4	??0Gen0014AE40@@QAE@VAsciiString@@@Z	unchecked	Deferred to follow-up Local (Gen0014AE40, 72B, dc=2, vc=0)
+0x76C712	?onEnter@GiantBirdGuardAttackAggressorState@@UAE?AW4StateReturnType@@XZ	too big	S-7981: GiantBirdGuardMachine aerial guard state machine not ported (GiantBirdGuardAttackAggressorState, 315B)
+0x76C087	?onEnter@GiantBirdGuardInnerState@@UAE?AW4StateReturnType@@XZ	too big	S-7981: GiantBirdGuardMachine aerial guard state machine not ported (GiantBirdGuardInnerState, 315B)
+0x769C70	?xfer@GiantBirdGuardMachine@@MAEXPAVXfer@@@Z	too big	S-7981: GiantBirdGuardMachine aerial guard state machine not ported (GiantBirdGuardMachine, 39B)
+0x5B0D40	?Set_Burst_Size@ParticleEmitterDefClass@@UAEXI@Z	not reached	W3D renderer/particle class ParticleEmitterDefClass misclassified as AI (13B, dc=0, vc=0); replaced by Godot
+0x6612CE	?allow@PartitionFilterSkirmishAI@@UAE_NPAVObject@@@Z	unchecked	Deferred to follow-up Local (PartitionFilterSkirmishAI, 55B, dc=0, vc=0)
+0x64EBF9	?friend_newModuleData@SupplyTruckAIUpdateModuleData@@SAPAVModuleData@@PAVINI@@@Z	not reached	SupplyTruckAIUpdateModuleData::friend_newModuleData (84B, dc=0, vc=0): 0 uses in RotWK/Ennorath INI (SupplyTruckAIUpdate.h:6)
+0x743849	WaterRenderObjClass 0xBDD22C[3]	not reached	W3D renderer/particle class WaterRenderObjClass misclassified as AI (27B, dc=1, vc=0); replaced by Godot
+0x6FEC5E	table 0xBE5648 0xBE5648[20]	unchecked	Deferred to follow-up Local (table 0xBE5648, 5B, dc=0, vc=0)
+0x768198	table 0xBF3DC8 ctor/dtor	unchecked	Deferred to follow-up Local (table 0xBF3DC8, 23B, dc=3, vc=0)
+0x5EAE5B	?rva002C5F65@Rva002C5F65@@QAEXXZ	not reached	LinearCampaignManager slot 0xBF53A8[9] (113B, dc=0, vc=0), not AI/pathfinding
+0x615DBF	??1Rva0026E7EA@@UAE@XZ	unchecked	Deferred to follow-up Local (table 0xBFBB50, 48B, dc=3, vc=0)
+0x662B07	table 0xC0F364 ctor/dtor	unchecked	Deferred to follow-up Local (table 0xC0F364, 33B, dc=1, vc=0)
+0x662A5C	??0Rva00263653@@QAE@ABV0@@Z	unchecked	Deferred to follow-up Local (table 0xC0F3A8, 171B, dc=1, vc=0)
+0x664321	table 0xC0F3B8 ctor/dtor	unchecked	Deferred to follow-up Local (table 0xC0F3B8, 45B, dc=3, vc=0)
+0x668268	Squad 0xC0FF18[2]	not reached	"6B mov eax, 0xC0FF28 (""Squad""); ret — MemoryPoolObject::getPoolName() slot 0xC0FF18[2] (dc=0, vc=0)"
+0x66EB0C	??0Rva0026E7EA@@QAE@XZ	not reached	"6B mov eax, 0xC1056C (""LuaSpyData""); ret — MemoryPoolObject::getPoolName() slot 0xC1055C[2] (dc=0, vc=0)"
+0x6E9406	table 0xC1B5B4 0xC1B5B4[0]	not reached	Scalar deleting destructor (37B, dc=0, vc=0): test byte ptr [esp + 4], 1; push esi; mov esi, ecx; mov eax, dword ptr [esi + 8]
+0x6FFAB2	TAiData 0xC1D6D8[2]	not reached	"6B mov eax, 0xC1D6E8 (""TAiData""); ret — MemoryPoolObject::getPoolName() slot 0xC1D6D8[2] (dc=0, vc=0)"
+0x6FFB1C	table 0xC1D6F0 ctor/dtor	unchecked	Deferred to follow-up Local (table 0xC1D6F0, 76B, dc=1, vc=0)
+0x700023	??1Rva002FE620@@UAE@XZ	unchecked	Deferred to follow-up Local (table 0xC1D734, 63B, dc=1, vc=0)
+0x701382	??1Rva002FED8D@@UAE@XZ	unchecked	Deferred to follow-up Local (table 0xC1D8E8, 64B, dc=1, vc=0)
+0x712960	??1Rva002F1C5A@@QAE@XZ	not reached	5B jmp forwarding thunk (table 0xC1FDA0, dc=0, vc=2): jmp 0x711008
+0x7418D8	??1Rva0033FF2B@@UAE@XZ	unchecked	Deferred to follow-up Local (AIInternalMoveToState, 75B, dc=8, vc=0)
+0x7420F1	AIAttackMeleeHordeWaitState 0xC275A0[16]	unchecked	Deferred to follow-up Local (AIAttackMeleeHordeWaitState, 8B, dc=0, vc=0)
+0x742F56	AIAttackSquadState 0xC27920[8]	unchecked	Deferred to follow-up Local (AIAttackSquadState, 29B, dc=0, vc=1)
+0x747DFD	AIGuardRetaliateState 0xC27E50[4]	other issue #753	Owned by Port 317 (issue #753: AI guard commands/retaliate, 173B)
+0x7414AB	AttackStateMachine ctor/dtor	not reached	11B trivial derived dtor forwarding (AttackStateMachine): mov dword ptr [ecx], 0xc280c8; jmp 0x8db944
+0x7414BC	AttackMeleeStateMachine ctor/dtor	not reached	11B trivial derived dtor forwarding (AttackMeleeStateMachine): mov dword ptr [ecx], 0xc28120; jmp 0x8db944
+0x74152B	??1Rva0033FB73@@UAE@XZ	not reached	"6B mov eax, 0xC28210 (""AttackFireWhileMovingMachine""); ret — MemoryPoolObject::getPoolName() slot 0xC281D0[2] (dc=0, vc=0)"
+0x741531	AttackContesterStateMachine ctor/dtor	not reached	11B trivial derived dtor forwarding (AttackContesterStateMachine): mov dword ptr [ecx], 0xc28230; jmp 0x8db944
+0x741553	AttackPositionStateMachine ctor/dtor	not reached	11B trivial derived dtor forwarding (AttackPositionStateMachine): mov dword ptr [ecx], 0xc282f0; jmp 0x8db944
+0x74184A	AIIdleState 0xC28468[2]	not reached	"6B mov eax, 0xC284AC (""AIIdleState""); ret — MemoryPoolObject::getPoolName() slot 0xC28468[2] (dc=0, vc=0)"
+0x7419F9	AIAttackMOveStateMachine ctor/dtor	not reached	11B trivial derived dtor forwarding (AIAttackMOveStateMachine): mov dword ptr [ecx], 0xc284b8; jmp 0x8db944
+0x74E151	AIInternalMoveToState 0xC28518[4]	unchecked	Deferred to follow-up Local (AIInternalMoveToState, 264B, dc=4, vc=0)
+0x741AA6	AIInternalMoveToState 0xC28AF0[17]	unchecked	Deferred to follow-up Local (AIInternalMoveToState, 42B, dc=0, vc=2)
+0x744375	AIAttackApproachTargetState 0xC28C70[8]	too big	Already covered by S-892 in docs/STOPS.md (AIAttackApproachTargetState, 4B)
+0x74F594	?Rva003552BDJump@@YAXXZ	unchecked	Deferred to follow-up Local (AIAttackMeleeSquishState, 634B, dc=0, vc=1)
+0x747582	AIPickUpCrateState 0xC28F30[17]	unchecked	Deferred to follow-up Local (AIPickUpCrateState, 42B, dc=0, vc=2)
+0x7446C0	AIWanderState 0xC290D0[2]	not reached	"6B mov eax, 0xC29118 (""AIWanderState""); ret — MemoryPoolObject::getPoolName() slot 0xC290D0[2] (dc=0, vc=0)"
+0x744A78	AIChargeTargetState 0xC29708[2]	not reached	"6B mov eax, 0xC29750 (""AIChargeTargetState""); ret — MemoryPoolObject::getPoolName() slot 0xC29708[2] (dc=0, vc=0)"
+0x7486F7	??0Rva00346CDD@@QAE@PAVStateMachine@@@Z	not reached	"6B mov eax, 0xC29D48 (""AIMoveToPositionAndEnterState""); ret — MemoryPoolObject::getPoolName() slot 0xC29D00[2] (dc=0, vc=0)"
+0x753260	AIStateMachine 0xC2B330[2]	not reached	"6B mov eax, 0xC2B370 (""AIStateMachine""); ret — MemoryPoolObject::getPoolName() slot 0xC2B330[2] (dc=0, vc=0)"
+0x7695BC	GiantBirdDieState 0xC2DC30[2]	not reached	"6B mov eax, 0xC2DC74 (""GiantBirdDieState""); ret — MemoryPoolObject::getPoolName() slot 0xC2DC30[2] (dc=0, vc=0)"
+0x770884	AIGroup 0xC2E450[2]	not reached	"6B mov eax, 0xC2E460 (""AIGroup""); ret — MemoryPoolObject::getPoolName() slot 0xC2E450[2] (dc=0, vc=0)"
+0x4650DD	?rva000658DB@Rva00065964ObjectPool@@QAEPAXXZ	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (137B): ?rva000658DB@Rva00065964ObjectPool@@QAEPAXXZ
+0x47D889	??H@YA?AVMathCoord2D@@V0@ABV0@@Z	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (39B): ??H@YA?AVMathCoord2D@@V0@ABV0@@Z
+0x4BC95D	?erase@?$list@VAsciiString@@V?$allocator@VAsciiString@@@_STL@@@_STL@@QAE?AU?$_List_iterator@VAsciiString@@U?$_Nonconst_traits@VAsciiString@@@_STL@@@2@U32@0@Z	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (52B): ?erase@?$list@VAsciiString@@V?$allocator@VAsciiString@@@_STL@@@_STL@@QAE?AU?$_List_iterator@VAsciiString@@U?$_Nonconst_traits@VAsciiString@@@_STL@@@2@U32@0@Z
+0x503983	??G@YA?AVMathCoord2D@@V0@ABV0@@Z	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (39B): ??G@YA?AVMathCoord2D@@V0@ABV0@@Z
+0x5FEBD0	?rva002E8548@Rva002E8548@@AAE_NHH@Z	unchecked	Deferred to follow-up Local (no class, 101B, dc=4, vc=0)
+0x5FEDE5	?rva002EB416@Rva002EB416@@QAEXPAU_Rva002EB416Node@@@Z	not reached	STLPort heap/set/list/RB-tree compiler template helper (50B): ?rva002EB416@Rva002EB416@@QAEXPAU_Rva002EB416Node@@@Z
+0x5FEF41	??1?$_Rb_tree_base@U?$pair@$$CBHURva002F0B8AElement@@@_STL@@V?$allocator@U?$pair@$$CBHURva002F0B8AElement@@@_STL@@@2@@_STL@@QAE@XZ	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (20B): ??1?$_Rb_tree_base@U?$pair@$$CBHURva002F0B8AElement@@@_STL@@V?$allocator@U?$pair@$$CBHURva002F0B8AElement@@@_STL@@@2@@_STL@@QAE@XZ
+0x603776	?Rva00355100Xfer@@YAPAVXfer@@PAV1@PAURva00355100Pair@@@Z	unchecked	Deferred to follow-up Local (no class, 27B, dc=1, vc=0)
+0x62F14F	??1?$_List_base@U?$pair@VAsciiString@@UCoord3D@@@_STL@@V?$allocator@U?$pair@VAsciiString@@UCoord3D@@@_STL@@@2@@_STL@@QAE@XZ	not reached	STLPort heap/set/list/RB-tree compiler template helper (23B): ??1?$_List_base@U?$pair@VAsciiString@@UCoord3D@@@_STL@@V?$allocator@U?$pair@VAsciiString@@UCoord3D@@@_STL@@@2@@_STL@@QAE@XZ
+0x6626CB	?Rva002629EACheck@@YA_NPBVThing@@0@Z	unchecked	Deferred to follow-up Local (no class, 122B, dc=1, vc=0)
+0x66330C	?Rva00263569Xfer@@YAPAVXfer@@PAV1@PAH@Z	unchecked	Deferred to follow-up Local (no class, 89B, dc=1, vc=0)
+0x663365	?rva002635C2@Rva00065964ObjectPool@@QAEPAXXZ	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (137B): ?rva002635C2@Rva00065964ObjectPool@@QAEPAXXZ
+0x663541	?Rva00263778Distance@@YAMPBUCoord3D@@MM0MM@Z	unchecked	Deferred to follow-up Local (no class, 106B, dc=1, vc=0)
+0x664000	?Rva00264237Check@@YAHPBUCoord3D@@0@Z	unchecked	Deferred to follow-up Local (no class, 61B, dc=1, vc=0)
+0x666C25	no class	not reached	Compiler/disasm fragment (189B, dc=0, vc=0): je 0x666c30; mov ecx, eax; call 0x765a1a; jmp 0x666c32
+0x668167	?ModifyVictimForHorde@@YAPAVObject@@PAV1@0PA_N@Z	other issue #515	Owned by Port 218 (issue #515: ModifyVictimForHorde / getAbleToAttackSpecificObject, S-7703)
+0x66A56C	no class	unchecked	Deferred to follow-up Local (no class, 99B, dc=3, vc=0)
+0x66A5CF	??1Rva0026AFDAMember@@QAE@XZ	unchecked	Deferred to follow-up Local (no class, 75B, dc=8, vc=0)
+0x66E20A	?clear@?$_Rb_tree@W4LocomotorSetType@@U?$pair@$$CBW4LocomotorSetType@@V?$vector@PBVLocomotorTemplate@@V?$allocator@PBVLocomotorTemplate@@@_STL@@@_STL@@@_STL@@U?$_Select1st@U?$pair@$$CBW4LocomotorSetType@@V?$vector@PBVLocomotorTemplate@@V?$allocator@PBVLocomotorTemplate@@@_STL@@@_STL@@@_STL@@@3@U?$less@W4LocomotorSetType@@@3@V?$allocator@U?$pair@$$CBW4LocomotorSetType@@V?$vector@PBVLocomotorTemplate@@V?$allocator@PBVLocomotorTemplate@@@_STL@@@_STL@@@_STL@@@3@@_STL@@QAEXXZ	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (41B): ?clear@?$_Rb_tree@W4LocomotorSetType@@U?$pair@$$CBW4LocomotorSetType@@V?$vector@PBVLocomotorTemplate@@V?$allocator@PBVLocomotorTemplate@@@_STL@@@_STL@@@_STL@@U?$_Select1st@U?$pair@$$CBW4LocomotorSetType@@V?$vector@PBVLocomotorTemplate@@V?$allocator@PBVLocomotorTemplate@@@_STL@@@_STL@@@_STL@@@3@U?$less@W4LocomotorSetType@@@3@V?$allocator@U?$pair@$$CBW4LocomotorSetType@@V?$vector@PBVLocomotorTemplate@@V?$allocator@PBVLocomotorTemplate@@@_STL@@@_STL@@@_STL@@@3@@_STL@@QAEXXZ
+0x66E8E1	??1Rva0026E5B9@@QAE@XZ	unchecked	Deferred to follow-up Local (no class, 30B, dc=3, vc=0)
+0x68293F	??1Rva0026E5B9@@QAE@XZ	unchecked	Deferred to follow-up Local (no class, 30B, dc=1, vc=0)
+0x685F98	?rva00285860@Rva002E6EFFGrid@@QAEIPBURva002E6EFFPosition@@@Z	unchecked	Deferred to follow-up Local (no class, 133B, dc=1, vc=0)
+0x68601D	no class	unchecked	Deferred to follow-up Local (no class, 195B, dc=1, vc=0)
+0x6860E0	no class	unchecked	Deferred to follow-up Local (no class, 25B, dc=0, vc=0)
+0x6861E9	?rva00285AC4@Rva00065964ObjectPool@@QAEPAXXZ	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (137B): ?rva00285AC4@Rva00065964ObjectPool@@QAEPAXXZ
+0x6A60C1	??A?$map@VAsciiString@@UTreeHintPayload001F8ACB@@U?$less@VAsciiString@@@_STL@@V?$allocator@U?$pair@$$CBVAsciiString@@UTreeHintPayload001F8ACB@@@_STL@@@4@@_STL@@QAEAAUTreeHintPayload001F8ACB@@ABVAsciiString@@@Z	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (124B): ??A?$map@VAsciiString@@UTreeHintPayload001F8ACB@@U?$less@VAsciiString@@@_STL@@V?$allocator@U?$pair@$$CBVAsciiString@@UTreeHintPayload001F8ACB@@@_STL@@@4@@_STL@@QAEAAUTreeHintPayload001F8ACB@@ABVAsciiString@@@Z
+0x6A9D1B	no class 0xC13DEC[2]	not reached	"6B mov eax, 0xC13E34 (""SkirmishAIManager""); ret — MemoryPoolObject::getPoolName() slot 0xC13DEC[2] (dc=0, vc=0)"
+0x6B6CEE	?rva002F1C5F@Rva002F1C5F@@QAEPAV1@HH@Z	unchecked	Deferred to follow-up Local (no class, 42B, dc=1, vc=0)
+0x6C63D8	??1Rva002C589B@@QAE@XZ	unchecked	Deferred to follow-up Local (no class, 24B, dc=2, vc=0)
+0x6C6576	no class	not reached	Compiler/disasm fragment (1B, dc=0, vc=0): hlt
+0x6C67C4	?DoXfer@Rva002C589B@@QAEXPAVXfer@@@Z	unchecked	Deferred to follow-up Local (no class, 217B, dc=1, vc=0)
+0x6C6B6E	no class	unchecked	Deferred to follow-up Local (no class, 182B, dc=1, vc=0)
+0x6C6C24	?rva002C5F65@Rva002C5F65@@QAEXXZ	unchecked	Deferred to follow-up Local (no class, 79B, dc=1, vc=0)
+0x6C6C65	no class	not reached	Compiler/disasm fragment (4B, dc=0, vc=0): pop esi; ret 4
+0x6C6C79	?rva002C5FBA@Rva002C5FBA@@QAEPAXH@Z	unchecked	Deferred to follow-up Local (no class, 56B, dc=2, vc=0)
+0x6C6C8A	?get@Rva002C5FCBNullAdjustField@@QBEHXZ	unchecked	Deferred to follow-up Local (no class, 14B, dc=2, vc=0)
+0x6C7B95	??1Rva002C6E4E@@QAE@XZ	unchecked	Deferred to follow-up Local (no class, 86B, dc=1, vc=0)
+0x6C7BEB	no class	unchecked	Deferred to follow-up Local (no class, 31B, dc=1, vc=0)
+0x6D762A	?insert@?$map@HURva002F3093Record@@U?$less@H@_STL@@V?$allocator@U?$pair@$$CBHURva002F3093Record@@@_STL@@@3@@_STL@@QAE?AU?$_Rb_tree_iterator@U?$pair@$$CBHURva002F3093Record@@@_STL@@U?$_Nonconst_traits@U?$pair@$$CBHURva002F3093Record@@@_STL@@@2@@2@U32@ABU?$pair@$$CBHURva002F3093Record@@@2@@Z	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (29B): ?insert@?$map@HURva002F3093Record@@U?$less@H@_STL@@V?$allocator@U?$pair@$$CBHURva002F3093Record@@@_STL@@@3@@_STL@@QAE?AU?$_Rb_tree_iterator@U?$pair@$$CBHURva002F3093Record@@@_STL@@U?$_Nonconst_traits@U?$pair@$$CBHURva002F3093Record@@@_STL@@@2@@2@U32@ABU?$pair@$$CBHURva002F3093Record@@@2@@Z
+0x6E1597	?insert_unique_noresize@?$hashtable@URva005472F8Record@@U1@U?$hash@URva005472F8Record@@@_STL@@U?$_Identity@URva005472F8Record@@@3@U?$equal_to@URva005472F8Record@@@3@V?$allocator@URva005472F8Record@@@3@@_STL@@QAE?AU?$pair@U?$_Ht_iterator@URva005472F8Record@@U?$_Nonconst_traits@URva005472F8Record@@@_STL@@U1@U?$hash@URva005472F8Record@@@3@U?$_Identity@URva005472F8Record@@@3@U?$equal_to@URva005472F8Record@@@3@V?$allocator@URva005472F8Record@@@3@@_STL@@_N@2@ABURva005472F8Record@@@Z	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (112B): ?insert_unique_noresize@?$hashtable@URva005472F8Record@@U1@U?$hash@URva005472F8Record@@@_STL@@U?$_Identity@URva005472F8Record@@@3@U?$equal_to@URva005472F8Record@@@3@V?$allocator@URva005472F8Record@@@3@@_STL@@QAE?AU?$pair@U?$_Ht_iterator@URva005472F8Record@@U?$_Nonconst_traits@URva005472F8Record@@@_STL@@U1@U?$hash@URva005472F8Record@@@3@U?$_Identity@URva005472F8Record@@@3@U?$equal_to@URva005472F8Record@@@3@V?$allocator@URva005472F8Record@@@3@@_STL@@_N@2@ABURva005472F8Record@@@Z
+0x6E5918	?equal_range@?$_Rb_tree@HU?$pair@$$CBHH@_STL@@U?$_Select1st@U?$pair@$$CBHH@_STL@@@2@U?$less@H@2@V?$allocator@U?$pair@$$CBHH@_STL@@@2@@_STL@@QAE?AU?$pair@U?$_Rb_tree_iterator@U?$pair@$$CBHH@_STL@@U?$_Nonconst_traits@U?$pair@$$CBHH@_STL@@@2@@_STL@@U12@@2@ABH@Z	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (42B): ?equal_range@?$_Rb_tree@HU?$pair@$$CBHH@_STL@@U?$_Select1st@U?$pair@$$CBHH@_STL@@@2@U?$less@H@2@V?$allocator@U?$pair@$$CBHH@_STL@@@2@@_STL@@QAE?AU?$pair@U?$_Rb_tree_iterator@U?$pair@$$CBHH@_STL@@U?$_Nonconst_traits@U?$pair@$$CBHH@_STL@@@2@@_STL@@U12@@2@ABH@Z
+0x6E8033	?rva002E6BA1@Rva002E6BA1@@QAEXHPAUIn002E6BA1@@@Z	unchecked	Deferred to follow-up Local (no class, 65B, dc=1, vc=0)
+0x6E8676	no class	unchecked	Deferred to follow-up Local (no class, 62B, dc=4, vc=0)
+0x6E86D2	?cellCallback@Rva002E7261Info@@QAEHPAVPathfindCell@@0HH@Z	unchecked	Deferred to follow-up Local (no class, 53B, dc=1, vc=0)
+0x6E88B1	?rva002E7440@Rva002E7440@@QAE_NHH@Z	unchecked	Deferred to follow-up Local (no class, 66B, dc=1, vc=0)
+0x6E8ED3	?ComputeNormalRadialOffset@@YAXABUCoord3D@@AAU1@0PAVObject@@M@Z	unchecked	Deferred to follow-up Local (no class, 160B, dc=2, vc=0)
+0x6E8F82	??0Rva002E7B02@@QAE@HHABU_Rva002E7B02Cell@@@Z	unchecked	Deferred to follow-up Local (no class, 39B, dc=1, vc=0)
+0x6E8FA9	?cellCallback@Rva002E7B29Info@@QAEHPAVPathfindCell@@0HH@Z	unchecked	Deferred to follow-up Local (no class, 143B, dc=1, vc=0)
+0x6E91A8	?parsePathfinderDefinition@@YAXPAVBfmeSub939E@@@Z	unchecked	Deferred to follow-up Local (no class, 23B, dc=0, vc=0)
+0x6E945A	?Rva002E7FEDGet@@YAPAVRva002E7FED@@PAV1@PAH@Z	unchecked	Deferred to follow-up Local (no class, 88B, dc=1, vc=0)
+0x6EA767	?init@Rva002ED01EInfo@@QAEPAU1@PAX00@Z	unchecked	Deferred to follow-up Local (no class, 136B, dc=1, vc=0)
+0x6EA7EF	?cellCallback@Rva002E93A7Info@@QAEHPAVPathfindCell@@0HH@Z	unchecked	Deferred to follow-up Local (no class, 104B, dc=1, vc=0)
+0x6EC18E	?rva002EAD39@Rva002EAD39@@QAEXPAVRva0053476A@@@Z	unchecked	Deferred to follow-up Local (no class, 41B, dc=1, vc=0)
+0x6EC866	?rva002EB416@Rva002EB416@@QAEXPAU_Rva002EB416Node@@@Z	not reached	STLPort heap/set/list/RB-tree compiler template helper (50B): ?rva002EB416@Rva002EB416@@QAEXPAU_Rva002EB416Node@@@Z
+0x6EC898	?rva002EB46E@Rva002EB46E@@QAEXPAU_Rva002EB46ENode@@@Z	not reached	STLPort heap/set/list/RB-tree compiler template helper (50B): ?rva002EB46E@Rva002EB46E@@QAEXPAU_Rva002EB46ENode@@@Z
+0x6ED163	?Rva002EBD99@@YAXPAVObject@@PBURGBColor00271779@@@Z	too big	Already covered by S-164 in docs/STOPS.md (no class, 187B)
+0x6EE3E8	?cellCallback@Rva002ED01EInfo@@QAEHPAVPathfindCell@@0HH@Z	unchecked	Deferred to follow-up Local (no class, 174B, dc=1, vc=0)
+0x6EFD81	?rva002EE9B7@Rva002EE9B7@@QAEXXZ	unchecked	Deferred to follow-up Local (no class, 41B, dc=4, vc=0)
+0x6EFDAA	?clear@?$_Rb_tree@HU?$pair@$$CBHURva002F0B8AElement@@@_STL@@U?$_Select1st@U?$pair@$$CBHURva002F0B8AElement@@@_STL@@@2@U?$less@H@2@V?$allocator@U?$pair@$$CBHURva002F0B8AElement@@@_STL@@@2@@_STL@@QAEXXZ	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (41B): ?clear@?$_Rb_tree@HU?$pair@$$CBHURva002F0B8AElement@@@_STL@@U?$_Select1st@U?$pair@$$CBHURva002F0B8AElement@@@_STL@@@2@U?$less@H@2@V?$allocator@U?$pair@$$CBHURva002F0B8AElement@@@_STL@@@2@@_STL@@QAEXXZ
+0x6EFDD3	??1?$_Rb_tree_base@U?$pair@$$CBHURva002F0B8AElement@@@_STL@@V?$allocator@U?$pair@$$CBHURva002F0B8AElement@@@_STL@@@2@@_STL@@QAE@XZ	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (20B): ??1?$_Rb_tree_base@U?$pair@$$CBHURva002F0B8AElement@@@_STL@@V?$allocator@U?$pair@$$CBHURva002F0B8AElement@@@_STL@@@2@@_STL@@QAE@XZ
+0x6EFDE7	?clear@?$_Rb_tree@HU?$pair@$$CBHURva002F0BB5Element@@@_STL@@U?$_Select1st@U?$pair@$$CBHURva002F0BB5Element@@@_STL@@@2@U?$less@H@2@V?$allocator@U?$pair@$$CBHURva002F0BB5Element@@@_STL@@@2@@_STL@@QAEXXZ	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (41B): ?clear@?$_Rb_tree@HU?$pair@$$CBHURva002F0BB5Element@@@_STL@@U?$_Select1st@U?$pair@$$CBHURva002F0BB5Element@@@_STL@@@2@U?$less@H@2@V?$allocator@U?$pair@$$CBHURva002F0BB5Element@@@_STL@@@2@@_STL@@QAEXXZ
+0x6EFE10	??1?$_Rb_tree_base@U?$pair@$$CBHURva002F0B8AElement@@@_STL@@V?$allocator@U?$pair@$$CBHURva002F0B8AElement@@@_STL@@@2@@_STL@@QAE@XZ	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (20B): ??1?$_Rb_tree_base@U?$pair@$$CBHURva002F0B8AElement@@@_STL@@V?$allocator@U?$pair@$$CBHURva002F0B8AElement@@@_STL@@@2@@_STL@@QAE@XZ
+0x6F06B1	??$__push_heap_aux@PAPAU_Rva002EBB53Wrap@@URva002EBB53Compare@@HPAU1@@_STL@@YAXPAPAU_Rva002EBB53Wrap@@0URva002EBB53Compare@@PAH0@Z	not reached	STLPort heap/set/list/RB-tree compiler template helper (35B): ??$__push_heap_aux@PAPAU_Rva002EBB53Wrap@@URva002EBB53Compare@@HPAU1@@_STL@@YAXPAPAU_Rva002EBB53Wrap@@0URva002EBB53Compare@@PAH0@Z
+0x6F06D4	?rva002EF25B@Rva002F0DD6Tree@@QAEPAXABVRva002F0DD6Value@@@Z	unchecked	Deferred to follow-up Local (no class, 34B, dc=1, vc=0)
+0x6F06F6	?_M_create_node@?$_Rb_tree@HU?$pair@$$CBHURva002F1DA1Mapped@@@_STL@@U?$_Select1st@U?$pair@$$CBHURva002F1DA1Mapped@@@_STL@@@2@U?$less@H@2@V?$allocator@U?$pair@$$CBHURva002F1DA1Mapped@@@_STL@@@2@@_STL@@IAEPAU?$_Rb_tree_node@U?$pair@$$CBHURva002F1DA1Mapped@@@_STL@@@2@ABU?$pair@$$CBHURva002F1DA1Mapped@@@2@@Z	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (34B): ?_M_create_node@?$_Rb_tree@HU?$pair@$$CBHURva002F1DA1Mapped@@@_STL@@U?$_Select1st@U?$pair@$$CBHURva002F1DA1Mapped@@@_STL@@@2@U?$less@H@2@V?$allocator@U?$pair@$$CBHURva002F1DA1Mapped@@@_STL@@@2@@_STL@@IAEPAU?$_Rb_tree_node@U?$pair@$$CBHURva002F1DA1Mapped@@@_STL@@@2@ABU?$pair@$$CBHURva002F1DA1Mapped@@@2@@Z
+0x6F0718	??$__pop_heap@PAPAU_Rva002EBB53Wrap@@PAU1@URva002EBB53Compare@@H@_STL@@YAXPAPAU_Rva002EBB53Wrap@@00PAU1@URva002EBB53Compare@@PAH@Z	not reached	STLPort heap/set/list/RB-tree compiler template helper (41B): ??$__pop_heap@PAPAU_Rva002EBB53Wrap@@PAU1@URva002EBB53Compare@@H@_STL@@YAXPAPAU_Rva002EBB53Wrap@@00PAU1@URva002EBB53Compare@@PAH@Z
+0x6F0874	?rva002EF3D9@Rva002EF3D9Host@@QAEHPADH@Z	unchecked	Deferred to follow-up Local (no class, 21B, dc=1, vc=0)
+0x6F2025	??1?$_Rb_tree@HU?$pair@$$CBHURva002F0B8AElement@@@_STL@@U?$_Select1st@U?$pair@$$CBHURva002F0B8AElement@@@_STL@@@2@U?$less@H@2@V?$allocator@U?$pair@$$CBHURva002F0B8AElement@@@_STL@@@2@@_STL@@QAE@XZ	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (43B): ??1?$_Rb_tree@HU?$pair@$$CBHURva002F0B8AElement@@@_STL@@U?$_Select1st@U?$pair@$$CBHURva002F0B8AElement@@@_STL@@@2@U?$less@H@2@V?$allocator@U?$pair@$$CBHURva002F0B8AElement@@@_STL@@@2@@_STL@@QAE@XZ
+0x6F2050	??1?$_Rb_tree@HU?$pair@$$CBHURva002F0BB5Element@@@_STL@@U?$_Select1st@U?$pair@$$CBHURva002F0BB5Element@@@_STL@@@2@U?$less@H@2@V?$allocator@U?$pair@$$CBHURva002F0BB5Element@@@_STL@@@2@@_STL@@QAE@XZ	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (43B): ??1?$_Rb_tree@HU?$pair@$$CBHURva002F0BB5Element@@@_STL@@U?$_Select1st@U?$pair@$$CBHURva002F0BB5Element@@@_STL@@@2@U?$less@H@2@V?$allocator@U?$pair@$$CBHURva002F0BB5Element@@@_STL@@@2@@_STL@@QAE@XZ
+0x6F207B	??0?$deque@UBfmeWordValue4@@V?$allocator@UBfmeWordValue4@@@_STL@@@_STL@@QAE@ABV?$allocator@UBfmeWordValue4@@@1@@Z	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (20B): ??0?$deque@UBfmeWordValue4@@V?$allocator@UBfmeWordValue4@@@_STL@@@_STL@@QAE@ABV?$allocator@UBfmeWordValue4@@@1@@Z
+0x6F208F	?helper@Rva002F1CB3@@AAEPAV1@H@Z	unchecked	Deferred to follow-up Local (no class, 35B, dc=1, vc=0)
+0x6F20B2	??0?$_Rb_tree_base@HV?$Rva002F0C32Allocator@H@@@_STL@@QAE@ABV?$Rva002F0C32Allocator@H@@@Z	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (35B): ??0?$_Rb_tree_base@HV?$Rva002F0C32Allocator@H@@@_STL@@QAE@ABV?$Rva002F0C32Allocator@H@@@Z
+0x6F2192	??$push_heap@PAPAU_Rva002EBB53Wrap@@URva002EBB53Compare@@@_STL@@YAXPAPAU_Rva002EBB53Wrap@@0URva002EBB53Compare@@@Z	not reached	STLPort heap/set/list/RB-tree compiler template helper (25B): ??$push_heap@PAPAU_Rva002EBB53Wrap@@URva002EBB53Compare@@@_STL@@YAXPAPAU_Rva002EBB53Wrap@@0URva002EBB53Compare@@@Z
+0x6F21AB	?_M_insert@?$_Rb_tree@HU?$pair@$$CBHURva002F1DA1Mapped@@@_STL@@U?$_Select1st@U?$pair@$$CBHURva002F1DA1Mapped@@@_STL@@@2@U?$less@H@2@V?$allocator@U?$pair@$$CBHURva002F1DA1Mapped@@@_STL@@@2@@_STL@@AAE?AU?$_Rb_tree_iterator@U?$pair@$$CBHURva002F1DA1Mapped@@@_STL@@U?$_Nonconst_traits@U?$pair@$$CBHURva002F1DA1Mapped@@@_STL@@@2@@2@PAU_Rb_tree_node_base@2@0ABU?$pair@$$CBHURva002F1DA1Mapped@@@2@0@Z	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (136B): ?_M_insert@?$_Rb_tree@HU?$pair@$$CBHURva002F1DA1Mapped@@@_STL@@U?$_Select1st@U?$pair@$$CBHURva002F1DA1Mapped@@@_STL@@@2@U?$less@H@2@V?$allocator@U?$pair@$$CBHURva002F1DA1Mapped@@@_STL@@@2@@_STL@@AAE?AU?$_Rb_tree_iterator@U?$pair@$$CBHURva002F1DA1Mapped@@@_STL@@U?$_Nonconst_traits@U?$pair@$$CBHURva002F1DA1Mapped@@@_STL@@@2@@2@PAU_Rb_tree_node_base@2@0ABU?$pair@$$CBHURva002F1DA1Mapped@@@2@0@Z
+0x6F2233	?rva002F0DD6@Rva002F1DDCTree@@QAE?AURva002F1DDCIter@@PAURva002F1DDCNode@@0ABVRva002F1DDCValue@@0@Z	not reached	STLPort heap/set/list/RB-tree compiler template helper (136B): ?rva002F0DD6@Rva002F1DDCTree@@QAE?AURva002F1DDCIter@@PAURva002F1DDCNode@@0ABVRva002F1DDCValue@@0@Z
+0x6F22BB	?rva002F0E5E@Rva002F1DDCTree@@QAE?AURva002F1DDCOut@@ABVRva002F1DDCValue@@@Z	not reached	STLPort heap/set/list/RB-tree compiler template helper (134B): ?rva002F0E5E@Rva002F1DDCTree@@QAE?AURva002F1DDCOut@@ABVRva002F1DDCValue@@@Z
+0x6F2341	??$__pop_heap_aux@PAPAU_Rva002EBB53Wrap@@PAU1@URva002EBB53Compare@@@_STL@@YAXPAPAU_Rva002EBB53Wrap@@00URva002EBB53Compare@@@Z	not reached	STLPort heap/set/list/RB-tree compiler template helper (30B): ??$__pop_heap_aux@PAPAU_Rva002EBB53Wrap@@PAU1@URva002EBB53Compare@@@_STL@@YAXPAPAU_Rva002EBB53Wrap@@00URva002EBB53Compare@@@Z
+0x6F3032	?cellCallback@Rva002F1BD5Info@@QAEHPAVPathfindCell@@0HH@Z	unchecked	Deferred to follow-up Local (no class, 80B, dc=1, vc=0)
+0x6F30BC	?rva002F1C5F@Rva002F1C5F@@QAEPAV1@HH@Z	unchecked	Deferred to follow-up Local (no class, 42B, dc=1, vc=0)
+0x6F30E6	?rva002F1CB3@Rva002F1CB3@@QAEPAV1@HH@Z	unchecked	Deferred to follow-up Local (no class, 42B, dc=1, vc=0)
+0x6F3110	?Rva002F1CDDXfer@@YAPAVXfer@@PAV1@PAV?$set@HU?$less@H@_STL@@V?$allocator@H@2@@_STL@@@Z	not reached	STLPort heap/set/list/RB-tree compiler template helper (196B): ?Rva002F1CDDXfer@@YAPAVXfer@@PAV1@PAV?$set@HU?$less@H@_STL@@V?$allocator@H@2@@_STL@@@Z
+0x6F320F	?rva002F1DDC@Rva002F1DDCTree@@QAE?AURva002F1DDCIter@@U2@ABVRva002F1DDCValue@@@Z	not reached	STLPort heap/set/list/RB-tree compiler template helper (294B): ?rva002F1DDC@Rva002F1DDCTree@@QAE?AURva002F1DDCIter@@U2@ABVRva002F1DDCValue@@@Z
+0x6F3335	??$pop_heap@PAPAU_Rva002EBB53Wrap@@URva002EBB53Compare@@@_STL@@YAXPAPAU_Rva002EBB53Wrap@@0URva002EBB53Compare@@@Z	not reached	STLPort heap/set/list/RB-tree compiler template helper (23B): ??$pop_heap@PAPAU_Rva002EBB53Wrap@@URva002EBB53Compare@@@_STL@@YAXPAPAU_Rva002EBB53Wrap@@0URva002EBB53Compare@@@Z
+0x6F35F8	no class 0xC1B8C8[2]	not reached	"6B mov eax, 0xC1B8F4 (""Pathfinder""); ret — MemoryPoolObject::getPoolName() slot 0xC1B8C8[2] (dc=0, vc=0)"
+0x6F35FE	no class 0xC1B8C8[0]	not reached	Compiler this-adjustor thunk (36B, dc=0, vc=0): sub ecx, 4; jmp 0x6f453b
+0x6F442C	?pop@?$priority_queue@PAU_Rva002EBB53Wrap@@V?$vector@PAU_Rva002EBB53Wrap@@V?$allocator@PAU_Rva002EBB53Wrap@@@_STL@@@_STL@@URva002EBB53Compare@@@_STL@@QAEXXZ	not reached	STLPort heap/set/list/RB-tree compiler template helper (26B): ?pop@?$priority_queue@PAU_Rva002EBB53Wrap@@V?$vector@PAU_Rva002EBB53Wrap@@V?$allocator@PAU_Rva002EBB53Wrap@@@_STL@@@_STL@@URva002EBB53Compare@@@_STL@@QAEXXZ
+0x6F4446	??0?$set@URva002F307AElement@@U?$less@URva002F307AElement@@@_STL@@V?$allocator@URva002F307AElement@@@3@@_STL@@QAE@XZ	not reached	STLPort heap/set/list/RB-tree compiler template helper (25B): ??0?$set@URva002F307AElement@@U?$less@URva002F307AElement@@@_STL@@V?$allocator@URva002F307AElement@@@3@@_STL@@QAE@XZ
+0x6F4487	??0?$set@URva002F307AElement@@U?$less@URva002F307AElement@@@_STL@@V?$allocator@URva002F307AElement@@@3@@_STL@@QAE@XZ	not reached	STLPort heap/set/list/RB-tree compiler template helper (25B): ??0?$set@URva002F307AElement@@U?$less@URva002F307AElement@@@_STL@@V?$allocator@URva002F307AElement@@@3@@_STL@@QAE@XZ
+0x6F44A0	?insert@?$map@HURva002F3093Record@@U?$less@H@_STL@@V?$allocator@U?$pair@$$CBHURva002F3093Record@@@_STL@@@3@@_STL@@QAE?AU?$_Rb_tree_iterator@U?$pair@$$CBHURva002F3093Record@@@_STL@@U?$_Nonconst_traits@U?$pair@$$CBHURva002F3093Record@@@_STL@@@2@@2@U32@ABU?$pair@$$CBHURva002F3093Record@@@2@@Z	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (29B): ?insert@?$map@HURva002F3093Record@@U?$less@H@_STL@@V?$allocator@U?$pair@$$CBHURva002F3093Record@@@_STL@@@3@@_STL@@QAE?AU?$_Rb_tree_iterator@U?$pair@$$CBHURva002F3093Record@@@_STL@@U?$_Nonconst_traits@U?$pair@$$CBHURva002F3093Record@@@_STL@@@2@@2@U32@ABU?$pair@$$CBHURva002F3093Record@@@2@@Z
+0x6F4777	?rva002F336A@Rva002F336AOwner@@QAE_NHH@Z	unchecked	Deferred to follow-up Local (no class, 40B, dc=1, vc=0)
+0x6F4B45	?rva002F3738@Rva002F3738@@QAEXPAPAX@Z	unchecked	Deferred to follow-up Local (no class, 33B, dc=1, vc=0)
+0x6F4C70	no class	not reached	Compiler/disasm fragment (3B, dc=0, vc=0): adc byte ptr [ebx], al; ret
+0x6F6369	no class	not reached	Padding/data bytes mistaken for code (7B, dc=0, vc=0): add byte ptr [ebx - 0x7e7203b3], cl; int3
+0x6F7467	?cellCallback@Rva002F600CInfo@@QAEHPAVPathfindCell@@0HH@Z	unchecked	Deferred to follow-up Local (no class, 105B, dc=1, vc=0)
+0x6F83EB	?rva002F6F90@Rva002F6F90Context@@QAE_NIH@Z	too big	Already covered by S-1832 in docs/STOPS.md (no class, 341B)
+0x6FEC18	no class	unchecked	Deferred to follow-up Local (no class, 70B, dc=0, vc=0)
+0x6FEEF7	no class	unchecked	Deferred to follow-up Local (no class, 703B, dc=1, vc=0)
+0x6FF1B6	no class	unchecked	Deferred to follow-up Local (no class, 150B, dc=1, vc=0)
+0x6FF24C	no class	unchecked	Deferred to follow-up Local (no class, 25B, dc=1, vc=0)
+0x6FF6A7	no class	unchecked	Deferred to follow-up Local (no class, 23B, dc=0, vc=0)
+0x70007E	?Rva002FE87DConstruct@@YAXPAXPBX@Z	unchecked	Deferred to follow-up Local (no class, 45B, dc=1, vc=0)
+0x7000AB	no class	too big	Already covered by S-7343 in docs/STOPS.md (no class, 116B)
+0x7001DB	?parseDefinition@Rva0014C090@@SAXPAVINI@@PAX1PBX@Z	too big	Already covered by S-7343 in docs/STOPS.md (no class, 137B)
+0x700476	?Rva002FE8AACreate@@YGPAXPBU?$pair@$$CBVAsciiString@@UNoCaseTreeValue4@@@_STL@@@Z	unchecked	Deferred to follow-up Local (no class, 34B, dc=1, vc=0)
+0x7004B4	?Rva002FEC97Insert@@YGPAXPAXPAUListNode@@PBU?$pair@$$CBVAsciiString@@UNoCaseTreeValue4@@@_STL@@@Z	unchecked	Deferred to follow-up Local (no class, 37B, dc=2, vc=0)
+0x7004D9	??$_M_insert_dispatch@U?$_List_iterator@URva002FFC74Record@@U?$_Const_traits@URva002FFC74Record@@@_STL@@@_STL@@@?$list@URva002FFC74Record@@V?$allocator@URva002FFC74Record@@@_STL@@@_STL@@QAEXU?$_List_iterator@URva002FFC74Record@@U?$_Nonconst_traits@URva002FFC74Record@@@_STL@@@1@U?$_List_iterator@URva002FFC74Record@@U?$_Const_traits@URva002FFC74Record@@@_STL@@@1@1ABU__false_type@1@@Z	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (48B): ??$_M_insert_dispatch@U?$_List_iterator@URva002FFC74Record@@U?$_Const_traits@URva002FFC74Record@@@_STL@@@_STL@@@?$list@URva002FFC74Record@@V?$allocator@URva002FFC74Record@@@_STL@@@_STL@@QAEXU?$_List_iterator@URva002FFC74Record@@U?$_Nonconst_traits@URva002FFC74Record@@@_STL@@@1@U?$_List_iterator@URva002FFC74Record@@U?$_Const_traits@URva002FFC74Record@@@_STL@@@1@1ABU__false_type@1@@Z
+0x7012E9	?push_front@?$list@PAURva002FED53PointerTarget@@V?$allocator@PAURva002FED53PointerTarget@@@_STL@@@_STL@@QAEXABQAURva002FED53PointerTarget@@@Z	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (28B): ?push_front@?$list@PAURva002FED53PointerTarget@@V?$allocator@PAURva002FED53PointerTarget@@@_STL@@@_STL@@QAEXABQAURva002FED53PointerTarget@@@Z
+0x701305	??$insert@U?$_List_iterator@PAURva002FED6FPointerTarget@@U?$_Const_traits@PAURva002FED6FPointerTarget@@@_STL@@@_STL@@@?$list@PAURva002FED6FPointerTarget@@V?$allocator@PAURva002FED6FPointerTarget@@@_STL@@@_STL@@QAEXU?$_List_iterator@PAURva002FED6FPointerTarget@@U?$_Nonconst_traits@PAURva002FED6FPointerTarget@@@_STL@@@1@U?$_List_iterator@PAURva002FED6FPointerTarget@@U?$_Const_traits@PAURva002FED6FPointerTarget@@@_STL@@@1@1@Z	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (30B): ??$insert@U?$_List_iterator@PAURva002FED6FPointerTarget@@U?$_Const_traits@PAURva002FED6FPointerTarget@@@_STL@@@_STL@@@?$list@PAURva002FED6FPointerTarget@@V?$allocator@PAURva002FED6FPointerTarget@@@_STL@@@_STL@@QAEXU?$_List_iterator@PAURva002FED6FPointerTarget@@U?$_Nonconst_traits@PAURva002FED6FPointerTarget@@@_STL@@@1@U?$_List_iterator@PAURva002FED6FPointerTarget@@U?$_Const_traits@PAURva002FED6FPointerTarget@@@_STL@@@1@1@Z
+0x7014AC	??4?$list@URva002FFC74Record@@V?$allocator@URva002FFC74Record@@@_STL@@@_STL@@QAEAAV01@ABV01@@Z	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (115B): ??4?$list@URva002FFC74Record@@V?$allocator@URva002FFC74Record@@@_STL@@@_STL@@QAEAAV01@ABV01@@Z
+0x7036AE	?insert@?$map@HURva002F3093Record@@U?$less@H@_STL@@V?$allocator@U?$pair@$$CBHURva002F3093Record@@@_STL@@@3@@_STL@@QAE?AU?$_Rb_tree_iterator@U?$pair@$$CBHURva002F3093Record@@@_STL@@U?$_Nonconst_traits@U?$pair@$$CBHURva002F3093Record@@@_STL@@@2@@2@U32@ABU?$pair@$$CBHURva002F3093Record@@@2@@Z	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (29B): ?insert@?$map@HURva002F3093Record@@U?$less@H@_STL@@V?$allocator@U?$pair@$$CBHURva002F3093Record@@@_STL@@@3@@_STL@@QAE?AU?$_Rb_tree_iterator@U?$pair@$$CBHURva002F3093Record@@@_STL@@U?$_Nonconst_traits@U?$pair@$$CBHURva002F3093Record@@@_STL@@@2@@2@U32@ABU?$pair@$$CBHURva002F3093Record@@@2@@Z
+0x703E1F	?insert@?$map@HURva002F3093Record@@U?$less@H@_STL@@V?$allocator@U?$pair@$$CBHURva002F3093Record@@@_STL@@@3@@_STL@@QAE?AU?$_Rb_tree_iterator@U?$pair@$$CBHURva002F3093Record@@@_STL@@U?$_Nonconst_traits@U?$pair@$$CBHURva002F3093Record@@@_STL@@@2@@2@U32@ABU?$pair@$$CBHURva002F3093Record@@@2@@Z	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (29B): ?insert@?$map@HURva002F3093Record@@U?$less@H@_STL@@V?$allocator@U?$pair@$$CBHURva002F3093Record@@@_STL@@@3@@_STL@@QAE?AU?$_Rb_tree_iterator@U?$pair@$$CBHURva002F3093Record@@@_STL@@U?$_Nonconst_traits@U?$pair@$$CBHURva002F3093Record@@@_STL@@@2@@2@U32@ABU?$pair@$$CBHURva002F3093Record@@@2@@Z
+0x70657F	?insert@?$map@HURva002F3093Record@@U?$less@H@_STL@@V?$allocator@U?$pair@$$CBHURva002F3093Record@@@_STL@@@3@@_STL@@QAE?AU?$_Rb_tree_iterator@U?$pair@$$CBHURva002F3093Record@@@_STL@@U?$_Nonconst_traits@U?$pair@$$CBHURva002F3093Record@@@_STL@@@2@@2@U32@ABU?$pair@$$CBHURva002F3093Record@@@2@@Z	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (29B): ?insert@?$map@HURva002F3093Record@@U?$less@H@_STL@@V?$allocator@U?$pair@$$CBHURva002F3093Record@@@_STL@@@3@@_STL@@QAE?AU?$_Rb_tree_iterator@U?$pair@$$CBHURva002F3093Record@@@_STL@@U?$_Nonconst_traits@U?$pair@$$CBHURva002F3093Record@@@_STL@@@2@@2@U32@ABU?$pair@$$CBHURva002F3093Record@@@2@@Z
+0x707B7E	?Rva003063A9XferThingTemplate@@YAXPAVXfer@@PAPBVThingTemplate@@@Z	unchecked	Deferred to follow-up Local (no class, 112B, dc=2, vc=0)
+0x74364C	no class	unchecked	Deferred to follow-up Local (no class, 36B, dc=0, vc=0)
+0x743670	?allow@Rva00341C54Filter@@UAE_NPAVObject@@@Z	too big	Already covered by S-784 in docs/STOPS.md (no class, 200B)
+0x745991	?rva00343F8A@@YAXPAVRva00343F8A@@PAX@Z	unchecked	Deferred to follow-up Local (no class, 38B, dc=0, vc=0)
+0x746058	?canPursue@@YA_NPAVObject@@PAVWeapon@@0@Z	other issue #533	Owned by Port 223 (issue #533: AIAttackPursueTargetState / canPursue, 276B)
+0x74616C	?rva00344749@@YA_NPAUCoord3D@@PAVObject@@@Z	unchecked	Deferred to follow-up Local (no class, 636B, dc=1, vc=0)
+0x746965	no class	not reached	Compiler/disasm fragment (1B, dc=0, vc=0): hlt
+0x747065	no class	not reached	Compiler/disasm fragment (6B, dc=0, vc=0): jmp dword ptr [ebx + 0xde7840]
+0x747562	no class	not reached	Compiler/disasm fragment (32B, dc=0, vc=0): je 0x74757a; mov eax, dword ptr [0xde4a30]; test eax, eax; je 0x74757a
+0x74CE5D	no class	not reached	Compiler/disasm fragment (40B, dc=0, vc=0): push dword ptr [ebp - 0x20]; mov esi, dword ptr [ebp - 0x1c]; mov ecx, dword ptr [ebp + 8]; push dword ptr [esi + 0x24]
+0x75003C	no class	not reached	Compiler/disasm fragment (62B, dc=0, vc=0): or al, byte ptr [ecx + esi*8 - 0x7a077401]; push dword ptr [ebp + ebp - 0x75]; into; call 0x6627cb
+0x752FAC	?rva0035149F@Rva0035149F@@QAEAAV1@ABV1@@Z	unchecked	Deferred to follow-up Local (no class, 209B, dc=9, vc=0)
+0x754DCC	?rva003532BF@@YAXPAVObject@@PAVStateMachine@@_N@Z	unchecked	Deferred to follow-up Local (no class, 256B, dc=2, vc=0)
+0x754ECC	?doXfer@Rva0026AFDAMember@@QAEXPAVXfer@@@Z	unchecked	Deferred to follow-up Local (no class, 680B, dc=3, vc=0)
+0x756CB9	?rva003551B5@Rva0035516C@@QBE_NW4NameKeyType@@@Z	unchecked	Deferred to follow-up Local (no class, 30B, dc=1, vc=0)
+0x756CEE	?rva003551EA@Rva0035516C@@QBEXW4NameKeyType@@@Z	unchecked	Deferred to follow-up Local (no class, 23B, dc=1, vc=0)
+0x756D5B	?dup_00355257@@YAXXZ	unchecked	Deferred to follow-up Local (no class, 57B, dc=2, vc=0)
+0x765945	?Rva00363CF3Distance@@YANPBUCoord3D@@0@Z	unchecked	Deferred to follow-up Local (no class, 45B, dc=1, vc=0)
+0x765EC0	?rva0036426E@Rva0036426E@@QAEXPAUFreeNode@@@Z	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (45B): ?rva0036426E@Rva0036426E@@QAEXPAUFreeNode@@@Z
+0x765EED	?rva0036426E@Rva0036426E@@QAEXPAUFreeNode@@@Z	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (45B): ?rva0036426E@Rva0036426E@@QAEXPAUFreeNode@@@Z
+0x766689	?rva00364A37@Rva00364A37@@QAEXXZ	unchecked	Deferred to follow-up Local (no class, 41B, dc=1, vc=0)
+0x7666B2	?rva00364A60@Rva00364A60@@QAEXXZ	unchecked	Deferred to follow-up Local (no class, 41B, dc=1, vc=0)
+0x7681BB	?rva00366500@Rva00366500@@QAE_NH@Z	too big	Already covered by S-161 in docs/STOPS.md (no class, 45B)
+0x769024	?rva00365304@Rva00365304@@QAEXXZ	not reached	5B jmp forwarding thunk (no class, dc=0, vc=0): jmp 0x768aa7
+0x76BC7D	?lookForInnerTarget@Rva00369FDFGuardMachine@@QAE_NXZ	too big	S-7981: GiantBirdGuardMachine aerial guard state machine not ported (no class, 1034B)
+0x76ED57	no class	unchecked	Deferred to follow-up Local (no class, 80B, dc=1, vc=0)
+0x76F9B8	?rva0036DC46@Rva0036ListOwner@@QAEXH@Z	unchecked	Deferred to follow-up Local (no class, 41B, dc=0, vc=0)
+0x76FD42	no class	not reached	Compiler/disasm fragment (55B, dc=0, vc=0): je 0x76fd63; mov ecx, dword ptr [edi + 0x260]; test ecx, ecx; je 0x76fd63
+0x76FEB5	?groupOverrideSpecialPowerDestination@Rva0036E1F7@@QAEXHHH@Z	unchecked	Deferred to follow-up Local (no class, 56B, dc=1, vc=0)
+0x76FF65	?rva0036E2A7@Rva0036E2A7@@QAEXPAVSequentialScript@@H@Z	unchecked	Deferred to follow-up Local (no class, 59B, dc=1, vc=0)
+0x76FFDF	?rva0036E346@Rva0036E346@@QAEHXZ	unchecked	Deferred to follow-up Local (no class, 17B, dc=2, vc=0)
+0x770F98	no class	not reached	Compiler/disasm fragment (5B, dc=0, vc=0): call ptr [ecx - 0x75]; dec ebp; hlt
+0x771130	no class	not reached	Compiler/disasm fragment (1B, dc=0, vc=0): hlt
+0x771681	no class	not reached	Compiler/disasm fragment (13B, dc=0, vc=0): cld; add byte ptr [ebp - 0xc343], cl; jmp dword ptr [ebp + 0x348d8da5]
+0x771973	no class	not reached	Compiler/disasm fragment (39B, dc=0, vc=0): dec dword ptr [ebx + 0x758b0845]; adc al, 0x83; cld; add byte ptr [ecx - 0x9b7b], cl
+0x771DFE	no class	not reached	Compiler/disasm fragment (41B, dc=0, vc=0): test eax, eax; je 0x771e12; push dword ptr [esp + 0x10]; lea ecx, [eax + 0x20]
+0x771F3E	no class	not reached	Compiler/disasm fragment (33B, dc=0, vc=0): push dword ptr [ecx]; lea ecx, [eax + 0x20]; call 0x5e821a; ret
+0x77224A	no class	not reached	Compiler/disasm fragment (2B, dc=0, vc=0): dec ebp; hlt
+0x7725DA	no class	not reached	Compiler/disasm fragment (5B, dc=0, vc=0): pop edi; pop esi; ret 8
+0x77262D	no class	not reached	Compiler/disasm fragment (1B, dc=0, vc=0): hlt
+0x7726CA	no class	not reached	Compiler/disasm fragment (43B, dc=0, vc=0): je 0x7726f0; mov eax, dword ptr [esi + 8]; mov eax, dword ptr [eax + 0x260]; test eax, eax
+0x772B85	no class	not reached	Compiler/disasm fragment (4B, dc=0, vc=0): pop esp; ret 0x280f
+0x773725	no class	not reached	Compiler/disasm fragment (3B, dc=0, vc=0): ret 0xff3
+0x774EF9	no class	not reached	Compiler/disasm fragment (2B, dc=0, vc=0): dec ebp; hlt
+0x774FD0	?remove@Rva00372CA8@@QAEXH@Z	unchecked	Deferred to follow-up Local (no class, 68B, dc=2, vc=0)
+0x78BD54	?_M_reserve_map_at_back@?$deque@PAXV?$allocator@PAX@_STL@@@_STL@@IAEXI@Z	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (38B): ?_M_reserve_map_at_back@?$deque@PAXV?$allocator@PAX@_STL@@@_STL@@IAEXI@Z
+0x78BD7A	?_M_reserve_map_at_back@?$deque@PAXV?$allocator@PAX@_STL@@@_STL@@IAEXI@Z	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (38B): ?_M_reserve_map_at_back@?$deque@PAXV?$allocator@PAX@_STL@@@_STL@@IAEXI@Z
+0x7A1365	?rva002EB448@Rva002EB448@@QAEPAXXZ	not reached	STLPort heap/set/list/RB-tree compiler template helper (38B): ?rva002EB448@Rva002EB448@@QAEPAXXZ
+0x7A138B	?rva002EB448@Rva002EB448@@QAEPAXXZ	not reached	STLPort heap/set/list/RB-tree compiler template helper (38B): ?rva002EB448@Rva002EB448@@QAEPAXXZ
+0x7A5084	?insert@?$list@UBfmeSpecialPowerTimer8@@V?$allocator@UBfmeSpecialPowerTimer8@@@_STL@@@_STL@@QAE?AU?$_List_iterator@UBfmeSpecialPowerTimer8@@U?$_Nonconst_traits@UBfmeSpecialPowerTimer8@@@_STL@@@2@U32@ABUBfmeSpecialPowerTimer8@@@Z	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (37B): ?insert@?$list@UBfmeSpecialPowerTimer8@@V?$allocator@UBfmeSpecialPowerTimer8@@@_STL@@@_STL@@QAE?AU?$_List_iterator@UBfmeSpecialPowerTimer8@@U?$_Nonconst_traits@UBfmeSpecialPowerTimer8@@@_STL@@@2@U32@ABUBfmeSpecialPowerTimer8@@@Z
+0x7A50A9	?insert@?$list@UBfmeSpecialPowerTimer8@@V?$allocator@UBfmeSpecialPowerTimer8@@@_STL@@@_STL@@QAE?AU?$_List_iterator@UBfmeSpecialPowerTimer8@@U?$_Nonconst_traits@UBfmeSpecialPowerTimer8@@@_STL@@@2@U32@ABUBfmeSpecialPowerTimer8@@@Z	not reached	STLPort / ObjectPool / MathCoord2D compiler template helper (37B): ?insert@?$list@UBfmeSpecialPowerTimer8@@V?$allocator@UBfmeSpecialPowerTimer8@@@_STL@@@_STL@@QAE?AU?$_List_iterator@UBfmeSpecialPowerTimer8@@U?$_Nonconst_traits@UBfmeSpecialPowerTimer8@@@_STL@@@2@U32@ABUBfmeSpecialPowerTimer8@@@Z
+0x665921	?handleEngagedFlag@AIUpdateInterface@@QAEHXZ	unchecked	Deferred to dedicated PR: shifts perf1/uber1/skirmish ai vs ai/save4b T4/script2 angmar pins, requires GameData DefaultMaxDistanceForEngaged/DefaultEngagedStateTimeout (S-152) and updating modgap2/ENNORATH ENGAGED tests + MSVC pin re-measurement
+0x6650CC	??0Rva00265254@@QAE@IIIIIIIII@Z	unchecked	Deferred with AIUpdateInterface::handleEngagedFlag (0x665921): 19-word model-condition bitmask constructor (186B, dc=2, vc=0)
