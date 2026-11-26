@@ -2,11 +2,7 @@
 
 Fork issue 695 (task 283). Image: RotWK 2.01 `game.dat`, md5 `daed3668006cd90f01c34e5a7da1901f` (caveat S-001), the file
 `docs/ennorath/PLACEMENT_SEAL.md` names, read through `tools/mod/rw.py dis|xref|str` and capstone walks of one contiguous
-`.text` range (no address arithmetic). **This sandbox had no copy of the image** (the gitignored `workspace/` tree is not part of
-the branch): the instructions quoted below were read earlier, in the sessions that produced `docs/ennorath/port94-salvage-crate-rw.md`
-(Port 94, issue 242) and the port's own target-facts comment in `engine/src/GameLogic/Module/SalvageCrateCollide.h`; everything
-that is new here comes from those recorded reads and from `docs/SAVES-RETAIL.md`, whose inventory was generated from the same
-image by `tools/save/xfer_inventory.py`. No new instruction is claimed.
+`.text` range (no address arithmetic). **Disassembly check on the image (orchestrator finishing pass, capstone over `game.dat`):** RW `0x8C0760` stores the bytes 1 and 2 into the version pair (earliest 1, current 2), calls the Xfer version slot (+ 0x28), then BehaviorModule RW `0x9933FE`, and only for `cmp byte [ebp-3], 2; jb` (version >= 2) calls Xfer slot + 0x90 on this + 0x14, so the window (1, 2) and the version-2 gate are read, not inferred. RW `0x8C12EC` is `mov eax, 0xC0AA68; ret` (the bytes there are `SalvageCrateCollide`), RW `0x8C130B` is the RW `0xA3CEF0` guard, the hash RW `0x5487EC` of the same string into `[0xDE9ACC]`, RW `0x8C1350` calls the base vtable setter RW `0x8C12F2` and the delete RW `0x42F6A0`; the vtable RW `0xC715C0` holds RW `0x8C1350` (slot 0), RW `0x8C12EC` (slot 2), RW `0x8C1442` (slot 3), RW `0x8C130B` (slot 4). The remaining rows below were read in the earlier sessions.
 
 The earlier reading established that the four fields are parsed and unread (stop S-7234). This lane answers the other half of the
 issue — the three functions the module map still lists as `none` — and records the one defect the reading found.
