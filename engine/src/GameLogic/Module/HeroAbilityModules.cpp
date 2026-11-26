@@ -1385,9 +1385,9 @@ void DualWeaponBehaviorModuleData::buildFieldParse(MultiIniFieldParse &p)
 
 DualWeaponBehavior *DualWeaponBehavior::first(Object &obj)
 {
-	for (Module *m : obj.getUpdateModules())
+	for (const std::unique_ptr<BehaviorModule> &m : obj.modules())
 	{
-		if (auto *dw = dynamic_cast<DualWeaponBehavior *>(m))
+		if (auto *dw = dynamic_cast<DualWeaponBehavior *>(m.get()))
 		{
 			return dw;
 		}
