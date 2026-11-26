@@ -1442,6 +1442,66 @@ bool ScriptActions::executeOrderAction(ScriptEngine &engine, const ScriptActionR
 		}
 		return true;
 	}
+	if (name == "FIRE_SPECIAL_POWER_ON_TEAM")
+	{
+		// Local 189: RW 0x7CAFA5 case 447 -> RW 0x7C4BDB (both editions; BFME2 rva003C4145): getTeamNamed(p2, false) (RW 0x759FDA),
+		// hasAnyObjects(false) (RW 0x7A0956), teamCentreAllMembers (RW 0x7A0ECD), findSpecialPowerTemplate(p1) (RW 0x69C146),
+		// fireSpecialPowerAtPosition(p0, sp, pos) (RW 0x7C112E).
+		Team *t = ScriptConditions::team(engine, param(a, 2).stringValue);
+		Coord3D pos;
+		if (t && ScriptConditions::teamCentreAllMembers(*t, pos))
+		{
+			if (const SpecialPowerTemplate *sp = TheSpecialPowerStore ? TheSpecialPowerStore->findSpecialPowerTemplate(param(a, 1).stringValue) : nullptr)
+			{
+				fireSpecialPowerAtPosition(engine, param(a, 0).stringValue, *sp, pos);
+			}
+		}
+		return true;
+	}
+	if (name == "FIRE_SPECIAL_POWER_ON_NEAREST_OBJECTTYPE" || name == "FIRE_SPECIAL_POWER_ON_NEAREST_OBJECTTYPE_BY_PLAYER")
+	{
+		// Local 189: RW 0x7CAFA5 case 445 -> RW 0x7C6170 (all players) / case 446 -> RW 0x7C6040 (by player mask p4; first player with a hit wins),
+		// both calling RW 0x7C4CA0 (findSpecialPowerTemplate(p1) -> fireSpecialPowerAtPosition(p0, sp, target->pos), RW 0x7C112E).
+		const bool byPlayer = (name == "FIRE_SPECIAL_POWER_ON_NEAREST_OBJECTTYPE_BY_PLAYER");
+		Team *t = ScriptConditions::team(engine, param(a, 3).stringValue);
+		Coord3D c;
+		if (!t || !ScriptConditions::teamCentreAllMembers(*t, c))
+		{
+			return true;
+		}
+		const std::vector<std::string> *list = engine.findObjectList(param(a, 2).stringValue);
+		const ThingTemplate *tt = list ? nullptr : logic.things().findTemplate(param(a, 2).stringValue);
+		if (!list && !tt)
+		{
+			return true;
+		}
+		auto closestFor = [&](const Player *p) { return list ? closestOfList(logic, c, *list, p) : closestOfTemplate(logic, c, tt, p); };
+		Object *target = nullptr;
+		if (!byPlayer)
+		{
+			target = closestFor(nullptr);
+		}
+		else
+		{
+			for (Player *p : ScriptConditions::players(engine, param(a, 4).stringValue))
+			{
+				if (Object *o = closestFor(p))
+				{
+					target = o;
+					break; // RW 0x7C6143: first player in mask order with a match fires immediately
+				}
+			}
+		}
+		if (target && target->getPosition())
+		{
+			// RW 0x7C4CA0 (fireSpecialPowerAtObject): findSpecialPowerTemplate(p1) -> RW 0x7C112E(p0, sp, target->pos)
+			if (const SpecialPowerTemplate *sp = TheSpecialPowerStore ? TheSpecialPowerStore->findSpecialPowerTemplate(param(a, 1).stringValue) : nullptr)
+			{
+				fireSpecialPowerAtPosition(engine, param(a, 0).stringValue, *sp, *target->getPosition());
+			}
+		}
+		return true;
+	}
 	if (name == "PLAYER_FIRE_SPECIAL_POWER_AT_WAYPOINT")
 	{
 		const Waypoint *w = terrain ? terrain->findWaypointByName(param(a, 2).stringValue) : nullptr; // RW 0x7C4C50
