@@ -128,6 +128,8 @@ void W3DLightDraw::setLightPool(LightPulsePool *pool)
 	}
 }
 
+// PORT-308: RW 0x004CF208 reads data +0x2C (Radius) into the light's far attenuation end (+0x104, RW 0x004CF216);
+// RW 0x004CF20E / RW 0x004CF21C write start 1.0f (+0x100), RW 0x004CF227 enables far attenuation.
 float W3DLightDraw::lightRadius() const
 {
 	return m_data ? m_data->m_radius : 0.0f;

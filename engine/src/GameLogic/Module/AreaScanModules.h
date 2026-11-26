@@ -52,12 +52,15 @@ class StateHasher;
 class LargeGroupBonusUpdateModuleData : public ModuleData
 {
 public:
-	unsigned m_updateRate = 0;            ///< + 8 (frames)
+	unsigned m_updateRate = 0;            ///< + 8 (frames; RW 0x893895 reads the runtime global RW 0xDE93D4, whose value is not in the static image)
 	ObjectFilter m_hordeMemberFilter;     ///< + 0xC
 	int m_count = 0;                      ///< + 0x10
-	float m_radius = 0.0f;                ///< + 0x14
-	bool m_alliesOnly = false;            ///< + 0x18
-	float m_rubOffRadius = 0.0f;          ///< + 0x1C
+	float m_radius = 0.0f;                ///< + 0x14, cleared at RW 0x8938A7
+	// RW 0x893871 (the ModuleData ctor): RW 0x8938B8 writes byte 1 into +0x18 and RW 0x8938BC writes the 20.0f literal from RW 0xBDBC6C
+	// into +0x1C. PORT-308: the defaults were false / 0.0f. RotWK never reads AlliesOnly (S-7291), but the rub-off scan reads RubOffRadius
+	// (RW 0x893A4A), so an INI without the field must get the retail radius; all 20 Ennorath blocks set both fields explicitly.
+	bool m_alliesOnly = true;             ///< + 0x18, default Yes (RW 0x8938B8)
+	float m_rubOffRadius = 20.0f;         ///< + 0x1C, default 20.0f (RW 0x8938BC)
 	std::vector<std::string> m_flagSubObjectNames; ///< + 0x20
 	std::string m_attributeModifier;      ///< + 0x2C
 	// lane MODS-3, edain-unchained.large-group-bonus (Edain Unchained's .lgbupd: the module data grows 0x30 -> 0x158; all zero = retail)
