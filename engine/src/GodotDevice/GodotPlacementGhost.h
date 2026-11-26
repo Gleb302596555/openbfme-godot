@@ -50,7 +50,8 @@ public:
 	~PlacementGhostRenderer();
 	// one rendered frame: PlacementIcons::update, then the instancers, tints, bibs and the arrow
 	// `judge` false on a frame the logic worker runs (InGameUI's pose only: PlacementIcons::update)
-	void sync(LiveGame &game, const InGameUI &ui, double deltaSeconds, unsigned ghostOptions, bool judge = true);
+	// `lineGhost`: PlaceEventTranslator::ghostSegments() (PORT-321, INFERENCE: the port's own line ghost, the wall line build's planned tiles; empty when no line build is dragged)
+	void sync(LiveGame &game, const InGameUI &ui, const std::vector<WallSpan::GhostSegment> &lineGhost, double deltaSeconds, unsigned ghostOptions, bool judge = true);
 	void clear();
 	// the farm placement feedback's sources (community PR #37): the HUD's mapped images (InGameUI PlaceTerrainResourceClaimantDecal names one) and game text
 	void setFeedbackSources(const MappedImageCollection *images, const GameTextSource *text)
@@ -118,11 +119,10 @@ private:
 	void updateShadowDecal(PlacementIcons::Icon &icon, IconView &view); // lane OWNERFIX-2
 	void updateArrow(const InGameUI &ui);
 	void updateFormation(LiveGame &game,const InGameUI &ui,bool idle);
+	void updateLineGhost(LiveGame &game, const std::vector<WallSpan::GhostSegment> &segments); // PORT-321, INFERENCE
+	MeshInstance3D *m_lineGhost = nullptr;
+	uint64_t m_lineGhostId = 0;
 	std::vector<InGameUI::FormationSlot> m_formationSlots;
-	std::vector<WallSpan::GhostSegment> m_lineGhostSegs; // S-1770: the line ghost, the plan's segments (sync: ui.placeGhostSegments())
-	std::vector<WallSpan::GhostSegment> m_lineSegs;      // S-1770: the drawn segments (the mesh's state; the list is rebuilt on change)
-	MeshInstance3D *m_lineSeg = nullptr;
-	float m_arrowAngle = 0.0f;                          // S-1770: the line build arrow's direction (sync: the segments' plan direction)
 	std::vector<std::string> m_formationTextures;
 	MeshInstance3D *m_formation=nullptr;
 	uint64_t m_formationId=0;

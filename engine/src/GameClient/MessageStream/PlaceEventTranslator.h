@@ -53,8 +53,10 @@
 //     location the source object's position (+0x38), location the click, int the pending command button's Options (+0x1C; 0xFFFFFE without one, RW 0x83E992),
 //     object id the source object (+0x74) }, clears the flag (vslot 0x100(0)) and the anchor (vslot 0x104) and ends the mode (RW 0x83E6A4: vslots 0xBC(0), 0xDC(0, 0)):
 //     no shift to keep placing.
-// Not ported (stop S-1770): the restricted-area test of the release (RW 0x707141: the local player's areas against the template's geometry, code 8, then the message
-// of RW 0x83EA43) and the wall's line ghost (the hub and segment drawables RW 0x6A2D38 ff draw along the pointer). Lane BUILD-5 ports the release's canMakeUnit
+// INFERENCE (stop S-7661, PORT-321): the release's restricted-area test (RW 0x707141: the local player's areas against the template's geometry, code 8, then the
+// message of RW 0x83EA43) is substituted for the line build by the terrain restrictions of isLocationLegalToBuild (LLF_TERRAIN_RESTRICTIONS); for ordinary builds it
+// is not ported (S-1770). The wall's line ghost (frame(): the plan of the span as GhostSegments, drawn by GodotPlacementGhost) is the port's own presentation: RW's
+// placement update at RW 0x6A2D38 ff draws the base layout, not a wall line. Lane BUILD-5 ports the release's canMakeUnit
 // check for every build (RW 0x83E771) and, r2, the PORT snap (template + 0x11F & 0x10, BuildAssistant::getPortTransform RW 0x794C63) of the ghost (RW 0x6A37AD)
 // and of the click after its legality test (RW 0x83E8D4).
 
@@ -105,11 +107,11 @@ public:
 	// the right button as the translator tracks it (tests)
 	bool rightDown() const { return m_rightDown; }
 	bool rightDragged() const { return m_rightDragged; }
-	// S-1770: the line ghost (RW 0x6A2D38 ff): the wall segments RW would draw along the line while the line
-	// build is dragged - the port's list is the plan's tiles as GhostSegment footprints, computed by frame()
+	// INFERENCE (S-7661): the line ghost: the plan's tiles of the span from the hub to the pointer as GhostSegment footprints, computed by frame() while the line build is
+	// started (empty otherwise)
 	const std::vector<WallSpan::GhostSegment> &ghostSegments() const { return m_ghost; }
 
-	private:
+private:
 	MessageDisposition releaseLineBuild(const ThingTemplate &tt, Object &builder);
 	MessageDisposition leftClick(const ClientMessage &msg);
 	void endPlacement();
@@ -123,7 +125,7 @@ public:
 	ICoord2D m_rightAnchor{};
 	unsigned m_rightDownMs = 0, m_rightUpMs = 0;
 	bool m_rightDown = false, m_rightDragged = false;
-	// S-1770: the line ghost (frame(): the placement update, RW 0x6A2D08 .. 0x6A2D33 ff)
+	// the line ghost (frame())
 	std::vector<WallSpan::GhostSegment> m_ghost;
 	Stats m_stats;
 };

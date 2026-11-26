@@ -93,19 +93,6 @@ float toAngle(float x, float y)
 	return 0.0f <= y ? a : -a;
 }
 
-// S-1770: 2D angle (from +x, clockwise, as RW 0x405406 Coord2D::toAngle) - the arrow's direction of a line ghost
-float toAngle2d(float x, float y)
-{
-	const float len = SimMath::length2d(x, y);
-	if (len == 0.0f)
-	{
-		return 0.0f;
-	}
-	const float c = x / len;
-	const float a = (float)SimMath::acosDet((double)c);
-	return y < 0.0f ? -a : a;
-}
-
 // RW 0x403175 Coord3D::normalize: len = (float)RW 0x403111; unless 0, each component times (1 / len) (SSE)
 void normalize(Coord3D &v)
 {
@@ -450,8 +437,8 @@ bool WallSpan::ghostSegments(GameLogic &logic, Object &hub, const Coord3D &end, 
 	{
 		return false;
 	}
-	// RW 0x478CBE / 0x6B00F3: the line ghost draws the segments along the line - the port's list is the plan's
-	// tiles, each a segment from the tile centre toward the drag end by the tile half extent
+	// INFERENCE (S-7661): the port's own line ghost (no RW drawing of it was found): the plan's tiles, each a segment from the tile centre toward the drag end by the
+	// tile half extent
 	Coord3D dir{};
 	dir.x = SimMath::subf32(end.x, hub.getPosition()->x);
 	dir.y = SimMath::subf32(end.y, hub.getPosition()->y);

@@ -3556,7 +3556,7 @@ void InGameHudNode::_process(double delta)
 		const uint64_t tp = Time::get_singleton()->get_ticks_usec();
 		d->hud->input().placementUpdate(idle);
 		const uint64_t tg = Time::get_singleton()->get_ticks_usec();
-		d->ghost->sync(*d->world->hud_game(), d->hud->input().ui(), delta, PlaceEventTranslator::ghostOptions(), idle);
+		d->ghost->sync(*d->world->hud_game(), d->hud->input().ui(), d->hud->input().placeTranslator().ghostSegments(), delta, PlaceEventTranslator::ghostOptions(), idle);
 		d->placeMs = (double)(tg - tp) / 1000.0; // lane FOGFX-1 (FB-0055): the placement's legality and the ghost, apart
 		d->ghostMs = (double)(Time::get_singleton()->get_ticks_usec() - tg) / 1000.0;
 	}

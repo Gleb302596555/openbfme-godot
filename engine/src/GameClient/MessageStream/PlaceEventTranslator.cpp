@@ -12,7 +12,6 @@
 #include "GameClient/ControlBarCommands.h"
 #include "GameClient/MessageStream/MetaEvent.h"
 #include "GameLogic/BuildPlacement.h"
-#include "GameLogic/AI/AIWorld.h" // AIWorld: the release's terrain (the guard, S-1770)
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameLogic/SimMath.h"
@@ -92,37 +91,40 @@ std::vector<std::string> PlaceEventTranslator::stopLines()
 {
 	return {
 		"[S-1770] wall line build (QA2-FIX): RotWK's PlaceEventTranslator line build branch is ported (RW 0x83E911 .. 0x83E9B8: MSG_WALL_HUB_CONSTRUCT_SPAN from the hub to the "
-		"click with the build button's Options; the flag of RW 0x6A2D26); the release's restricted-area test (RW 0x707141, code 8: releaseLineBuild refuses with "
-		"LBC_OBJECTS_IN_THE_WAY = 8 through the RW 0x83EA3A refusal) and the wall's line ghost (RW 0x6A2D38 ff: WallSpan::ghostSegments, the plan tiles as GhostSegment "
-		"footprints) are ported; the build button is kept with the placement instead of being the GUI command (RW 0x94089B)" };
+		"click with the build button's Options; the flag of RW 0x6A2D26); the build button is kept with the placement instead of being the GUI command (RW 0x94089B). "
+		"INFERENCE (S-7661, PORT-321): the release's restricted-area test (RW 0x707141, code 8: the local player's area list against the template's geometry, RW 0xAD2CE0) is "
+		"substituted by the terrain restrictions of BuildPlacement::isLocationLegalToBuild; the line ghost (the planned wall tiles) is the port's own, RW's drawing of it was not found" };
 }
 
 void PlaceEventTranslator::frame()
 {
-	// RW 0x6A2AE5: the source object (vslot 0xE4) and the pending template (+0x53C) must exist; RW 0x6A2B6D: the line build test; RW 0x6A2D12: not yet started and
-	// not anchored (RW 0x6A2B95 takes the anchored branch first) -> vslot 0x100(1)
-	if (!m_ctx.ui.isPlacing() || m_ctx.ui.isPlacementAnchored())
+	m_ghost.clear();
+	if (!m_ctx.ui.isPlacing())
 	{
-		m_ghost.clear();
 		return;
 	}
+	// RW 0x6A2AE5: the source object (vslot 0xE4) and the pending template (+0x53C) must exist; RW 0x6A2B6D: the line build test (BuildAssistant slot 0x60, RW 0x793E33:
+	// the template and the source object both KindOf WALL_HUB = isLineBuildTemplate); RW 0x6A2D12 .. 0x6A2D26: not yet started (vslot 0xFC) and not anchored
+	// (RW 0x6A2B95 takes the anchored branch first) -> vslot 0x100(1); the update ends there for this frame (RW 0x6A2D33)
 	const ThingTemplate *tt = m_ctx.logic.things().findTemplate(m_ctx.ui.placeBuildTemplate());
-	const Object *builder = m_ctx.logic.findObjectByID(m_ctx.ui.placeBuildSource());
-	if (!m_ctx.ui.isLineBuildStarted() && tt && builder && (builder->isKindOfName("WALL_HUB") || builder->isKindOfName("DOZER")))
+	Object *builder = m_ctx.logic.findObjectByID(m_ctx.ui.placeBuildSource());
+	if (!m_ctx.ui.isLineBuildStarted())
 	{
-		m_ctx.ui.setLineBuildStarted(true); // RW 0x6A2D26: vslot 0x100(1) (builder = the segment builder; a hub)
+		if (!m_ctx.ui.isPlacementAnchored() && tt && BuildAssistant::isLineBuildTemplate(m_ctx.logic, tt, builder))
+		{
+			m_ctx.ui.setLineBuildStarted(true);
+		}
+		return;
 	}
-	// S-1770: RW 0x6A2D38: the line ghost - the wall segments drawn along the line while the line build is
-	// dragged. The drag end is the live pointer (the port: the last mouse position); the list is the plan's
-	// tiles as GhostSegment footprints (the port's list; RW's ghost draws the wall segment drawables).
-	m_ghost.clear();
-	if (m_ctx.ui.isLineBuildStarted() && tt && builder)
+	// INFERENCE (S-7661): the line ghost is the port's own presentation. RW's placement update after RW 0x6A2D38 draws the base layout's drawables (RW 0x6A2D54 ..
+	// 0x6A2E06: a player's layout points through RW 0x8E9BD5), not a wall line, and no RW function that draws the planned wall tiles was found. The ghost here is the plan
+	// of the span from the hub to the pointer's terrain point (WallSpan::ghostSegments); the drag end is the live pointer (RotWK reads Mouse + 0x4F0C)
+	if (tt && builder)
 	{
-		Object *hub = m_ctx.logic.findObjectByID(m_ctx.ui.placeBuildSource());
 		Coord3D end;
 		if (m_ctx.view.screenToTerrain(m_pointer, m_ctx.logic, end))
 		{
-			WallSpan::ghostSegments(m_ctx.logic, *hub, end, 0u, m_ghost);
+			WallSpan::ghostSegments(m_ctx.logic, *builder, end, 0u, m_ghost);
 		}
 	}
 }
@@ -221,17 +223,15 @@ MessageDisposition PlaceEventTranslator::releaseLineBuild(const ThingTemplate &t
 	{
 		click = m_ctx.ui.placeLocation(); // INFERENCE: RotWK does not test the answer (RW 0x83E745); a pixel off the terrain keeps the ghost's point
 	}
-	// S-1770: RW 0x83E874: the release's restricted-area test on the click point (RW 0x707141: the local
-	// player's restricted areas - the port's restricted cells, the LBC_RESTRICTED_TERRAIN of
-	// BuildPlacement::isLocationLegalToBuild with LLF_TERRAIN_RESTRICTIONS). A blocked point: code 8
-	// (RW 0x83E880, [ebp-0x14]) -> the refusal of RW 0x83EA3A: displayCantBuildMessage, the unit voice for
-	// 0x7EB with the builder alone and the click as the pick info (RW 0x83EAA0), the beep (RW 0x83EAC5),
-	// setPlacementStart(null) (RW 0x83EB02), the mode stays (RW 0x83EB17).
-	// the guard: only when the terrain's cells are there (a world without the Pf answers as RW, legal)
-	const bool hasTerrain = m_ctx.logic.aiWorld() && m_ctx.logic.aiWorld()->pathfinder().terrainView();
-	if (hasTerrain && BuildPlacement::isLocationLegalToBuild(m_ctx.logic, click, *tt.getFinalOverride(), m_ctx.ui.placeAngle(),
-		LLF_TERRAIN_RESTRICTIONS, &builder, nullptr) == LBC_RESTRICTED_TERRAIN)
+	// RW 0x83E82D .. 0x83E880: with a builder owned by the local player the restricted-area test RW 0x707141 (the local player's area list, each entry's geometry
+	// against the template's by RW 0xAD2CE0, at the click with the ghost's angle) answering true makes the legality code 8; the refusal of RW 0x83EA3A follows.
+	// INFERENCE (S-7661): the area list was not identified (RW [0xDE4BD0] vslot 0x20); the substitute is the terrain restriction test of isLocationLegalToBuild
+	// (LLF_TERRAIN_RESTRICTIONS), whose refusal (LBC_RESTRICTED_TERRAIN) is reported as code 8. A world without the pathfinder's terrain is an error (reported by
+	// isLocationLegalToBuild, answer LBC_RESTRICTED_TERRAIN: the click is refused), never a silent skip. This translator serves the local player only
+	if (BuildPlacement::isLocationLegalToBuild(m_ctx.logic, click, *tt.getFinalOverride(), m_ctx.ui.placeAngle(), LLF_TERRAIN_RESTRICTIONS, &builder, nullptr) == LBC_RESTRICTED_TERRAIN)
 	{
+		// RW 0x83EA4E: displayCantBuildMessage with code 8, RW 0x83EAA0: the unit voice for message 0x7EB with the builder alone and the click as the pick info,
+		// RW 0x83EAC5: the beep, RW 0x83EB02: setPlacementStart(null); the mode stays (RW 0x83EB17)
 		++m_stats.refused;
 		m_ctx.ui.setPlaceLegalCode((int)LBC_OBJECTS_IN_THE_WAY);
 		m_ctx.ui.message(cantBuildLabel((int)LBC_OBJECTS_IN_THE_WAY));
@@ -278,9 +278,7 @@ MessageDisposition PlaceEventTranslator::leftClick(const ClientMessage &msg)
 	const float angle = m_ctx.ui.placeAngle();
 	Coord3D location = m_ctx.ui.placeLocation();
 	m_ctx.view.screenToTerrain(m_ctx.ui.placementStart(), m_ctx.logic, location);
-	// RW 0x83E764 (slot 0x60): the pending template and source object are both KindOf WALL_HUB (the
-	// segment builder; a DOZER-kindOf wall hub of the port's design). The port (not this translator's
-	// `builder` variable - the hub) releases the span; see releaseLineBuild.
+	// RW 0x83E764 (slot 0x60): the pending template and the source object are both KindOf WALL_HUB
 	const bool lineBuild = BuildAssistant::isLineBuildTemplate(m_ctx.logic, tt, builder);
 	// RW 0x83E771: the builder's canMakeUnit (slot 0x64) with build index -1, for every build
 	switch (BuildAssistant::canMakeUnit(*builder, tt, -1))
@@ -308,7 +306,7 @@ MessageDisposition PlaceEventTranslator::leftClick(const ClientMessage &msg)
 	{
 		return releaseLineBuild(*tt, *builder); // lane QA2-FIX: RW 0x83E911 (a line build skips the legality test, RW 0x83E7FE)
 	}
-	// RW 0x83E80D: isLocationLegalToBuild (slot 0x44) with 0x49F (the restricted-area code 8 of RW 0x707141 is not ported: S-1770)
+	// RW 0x83E80D: isLocationLegalToBuild (slot 0x44) with 0x49F (the restricted-area code 8 of RW 0x707141 is not ported for ordinary builds: S-1770; the line build's release substitutes it, S-7661)
 	const LegalBuildCode code = BuildPlacement::isLocationLegalToBuild(m_ctx.logic, location, *tt->getFinalOverride(), angle, placeOptions(), builder, nullptr);
 	if (code != LBC_OK)
 	{

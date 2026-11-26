@@ -86,12 +86,15 @@ struct PortLineBuild
 	CommandStore commands;
 	CommandStore *savedStore = TheCommandStore;
 
-	PortLineBuild()
+	explicit PortLineBuild(bool withTerrain = true)
 	{
 		TheCommandStore = &commands;
 		w.logic->settings().buildRulesLoaded = true;
 		w.logic->settings().maxLineBuildObjects = 50;
-		w.ai->newMap(w.terrain); // the Pf cells the release's terrain test reads (MoveWork::buildMap RW 0x5E2E9C)
+		if (withTerrain)
+		{
+			w.ai->newMap(w.terrain); // the Pf cells the release's terrain test reads (MoveWork::buildMap RW 0x5E2E9C)
+		}
 		Object *h = w.make("TestWallHub321");
 		REQUIRE(h != nullptr);
 		const Coord3D hubPos{100.0f, 100.0f, 0.0f};
@@ -99,7 +102,7 @@ struct PortLineBuild
 		hub = h;
 		REQUIRE(hub->isKindOfName("WALL_HUB"));
 		REQUIRE(w.ai != nullptr);
-		REQUIRE(w.ai->pathfinder().terrainView() != nullptr);
+		REQUIRE((w.ai->pathfinder().terrainView() != nullptr) == withTerrain);
 		REQUIRE(w.logic->aiWorld() != nullptr);
 		stream.attachTranslator(&place, 30); // the placement translator (HudInput's, priority 30)
 	}
@@ -164,23 +167,100 @@ void markRestricted(combattest::CombatWorld &w, float x, float y)
 }
 } // namespace
 
-TEST_CASE("PORT-321: the release of the line build over a restricted area is refused with RW's code 8")
+// The refusal after RW 0x83E874 is RW's own refusal path (RW 0x83EA3A ff), read in the disassembly: the label of code 8 (RW 0x69CCEC: GUI:CantBuildObjectsInTheWay), ONE
+// voice post (RW 0x83EAA0: message 0x7EB, the builder alone, the click as the position), ONE BadBuildingPlacementSound (RW 0x83EAC5), the anchor dropped (RW 0x83EB02),
+// the mode kept (RW 0x83EB17), no MSG_WALL_HUB_CONSTRUCT_SPAN. The restricted cells are the INFERENCE substitute of RW 0x707141 (S-7661)
+TEST_CASE("PORT-321: the release of the line build on a restricted point is refused: one label, one voice, one sound, the anchor dropped, no span")
 {
 	PortLineBuild w;
-	const ICoord2D start{100, 100};
-	markRestricted(w.w, 150.0f, 100.0f); // the line crosses the restricted cells around (150, 100)
+	struct Post { int msgType; ObjectID object; Coord3D position; };
+	std::vector<Post> posts;
+	w.ctx.playObjectVoice = [&posts](int msgType, ObjectID object, const Coord3D &position) { posts.push_back({ msgType, object, position }); };
+	markRestricted(w.w, 150.0f, 100.0f);
 	w.ui.placeBuildAvailable("TestWallHub321", w.hub->getID());
-	w.anchorAt(start);
-	w.releaseAt(start); // the release drops the anchor; the line build starts on the next frame
+	w.anchorAt({100, 100});
+	w.releaseAt({100, 100}); // the release drops the anchor; the line build starts on the next frame
 	w.frameWithPointer({200, 100});
 	REQUIRE(w.ui.isLineBuildStarted());
 	REQUIRE(!w.place.ghostSegments().empty());
+	const size_t messagesBefore = w.ui.messages().size();
+	const size_t soundsBefore = w.ui.miscSounds().size();
 	w.anchorAt({150, 100});
-	w.releaseAt({150, 100}); // restricted: the release of RW 0x83E874 refuses
+	w.releaseAt({150, 100});
 	CHECK(w.place.stats().refused == 1);
-	CHECK(w.place.stats().wallSpans == 0); // the span is not built
-	CHECK(w.ui.isPlacing());               // RW 0x83EB17: the mode stays for the failure
+	CHECK(w.place.stats().wallSpans == 0);
+	CHECK(w.place.stats().voicesUnheard == 0);
+	CHECK(w.ui.isPlacing());
+	CHECK(!w.ui.isPlacementAnchored());
+	CHECK(w.ui.placeLegalCode() == (int)LBC_OBJECTS_IN_THE_WAY);
+	REQUIRE(w.ui.messages().size() == messagesBefore + 1);
+	CHECK(w.ui.messages().back() == "GUI:CantBuildObjectsInTheWay");
+	REQUIRE(w.ui.miscSounds().size() == soundsBefore + 1);
+	CHECK(w.ui.miscSounds().back() == "BadBuildingPlacementSound");
+	REQUIRE(posts.size() == 1);
+	CHECK(posts[0].msgType == 0x7EB);
+	CHECK(posts[0].object == w.hub->getID());
+	CHECK(posts[0].position.x == 150.0f);
+	CHECK(posts[0].position.y == 100.0f);
 	w.endBuild();
+}
+
+TEST_CASE("PORT-321: without a voice callback the refusal counts the unheard voice instead of dropping it")
+{
+	PortLineBuild w;
+	markRestricted(w.w, 150.0f, 100.0f);
+	w.ui.placeBuildAvailable("TestWallHub321", w.hub->getID());
+	w.anchorAt({100, 100});
+	w.releaseAt({100, 100});
+	w.frameWithPointer({200, 100});
+	REQUIRE(w.ui.isLineBuildStarted());
+	w.anchorAt({150, 100});
+	w.releaseAt({150, 100});
+	CHECK(w.place.stats().refused == 1);
+	CHECK(w.place.stats().voicesUnheard == 1);
+	w.endBuild();
+}
+
+// A world without the pathfinder's terrain cannot test the restriction: that is an error that reaches the report (no silent legal answer); the click is refused
+TEST_CASE("PORT-321: the release without the pathfinder's terrain reports the error and refuses")
+{
+	PortLineBuild w(false);
+	w.ui.placeBuildAvailable("TestWallHub321", w.hub->getID());
+	w.anchorAt({100, 100});
+	w.releaseAt({100, 100});
+	w.frameWithPointer({200, 100});
+	REQUIRE(w.ui.isLineBuildStarted());
+	w.anchorAt({150, 100});
+	w.releaseAt({150, 100});
+	CHECK(w.place.stats().refused == 1);
+	CHECK(w.place.stats().wallSpans == 0);
+	bool reported = false;
+	for (const std::string &e : w.w.logic->report().errors)
+	{
+		reported = reported || e.find("TERRAIN_RESTRICTIONS asked without a pathfinder terrain") != std::string::npos;
+	}
+	CHECK(reported);
+	w.endBuild();
+}
+
+// RW 0x6A2D12 .. 0x6A2D26 starts the line build only for BuildAssistant slot 0x60 (RW 0x793E33): the pending template AND the source object both KindOf WALL_HUB.
+// A dozer (KindOf DOZER, no WALL_HUB) with a wall hub template does not start it; the hub with a non-hub template does not either
+TEST_CASE("PORT-321: the line build starts for a hub with a hub template only, never for a dozer (RW 0x793E33)")
+{
+	PortLineBuild w;
+	Object *dozer = w.w.make("TestDozer321");
+	REQUIRE(dozer != nullptr);
+	w.ui.placeBuildAvailable("TestWallHub321", dozer->getID());
+	w.place.frame();
+	CHECK(!w.ui.isLineBuildStarted());
+	CHECK(w.place.ghostSegments().empty());
+	w.ui.placeBuildAvailable("TestWallSegment321", w.hub->getID());
+	w.place.frame();
+	CHECK(!w.ui.isLineBuildStarted());
+	w.ui.placeBuildAvailable("TestWallHub321", w.hub->getID());
+	w.place.frame();
+	CHECK(w.ui.isLineBuildStarted()); // RW 0x6A2D26: vslot 0x100(1), the update ends there for the frame
+	CHECK(w.place.ghostSegments().empty());
 }
 
 TEST_CASE("PORT-321: the release of the line build over a legal area sends MSG_WALL_HUB_CONSTRUCT_SPAN")
