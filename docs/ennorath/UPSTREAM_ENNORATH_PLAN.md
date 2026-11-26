@@ -154,27 +154,27 @@
 *(Визуальные PR отправляем сначала без скриншотов; если мейнтейнеры upstream запросят — снимаем «до/после».)*
 
 - **W3D Draw-модули (8):**
-  - [ ] `W3DDebrisDraw`
-  - [ ] `W3DLaserDraw` + `GameClient/LaserUpdate`
-  - [ ] `W3DProjectileStreamDraw`
-  - [ ] `W3DQuadrupedDraw`
-  - [ ] `W3DSailModelDraw`
-  - [ ] `W3DSupplyDraw`
-  - [ ] `W3DTornadoDraw`
+  - [x] `W3DDebrisDraw` — **upstream PR `#497`** (`up/w3d-debris-draw`)
+  - [x] `W3DLaserDraw` + `GameClient/LaserUpdate` — **upstream PR `#499`** (`up/laser-draw-update`)
+  - [ ] `W3DProjectileStreamDraw` — *ждёт мёрджа `#484` (`ProjectileStreamUpdate`, из него читаются точки потока)*
+  - [x] `W3DQuadrupedDraw` — **upstream PR `#502`** (`up/w3d-quadruped-draw`; без `calcPhysicsXformHugeFourLegs`: в upstream нет семейства `calcPhysicsXform`)
+  - [x] `W3DSailModelDraw` — **upstream PR `#505`** (`up/w3d-sail-model-draw`, вместе с размещением AttachToBoneInAnotherModule, `DrawableAttach.cpp`)
+  - [x] `W3DSupplyDraw` — **upstream PR `#517`** (`up/w3d-supply-draw`; только сторона отрисовки, источник `SupplyWarehouseDockUpdate` не в upstream, S-112)
+  - [x] `W3DTornadoDraw` — **upstream PR `#513`** (`up/w3d-tornado-draw`; без огибающей тона: в upstream нет tint envelope Drawable, S-113)
 - **Декали на земле (4):**
-  - [ ] `TerrainScorches` + `GodotTerrainScorches`
-  - [ ] `TerrainTracks` + `GodotTerrainTracks`
+  - [x] `TerrainScorches` — **upstream PR `#507`** (`up/terrain-scorches`, только ядро `TerrainScorchBuffer`; `GodotTerrainScorches` и проводка ждут решения мейнтейнеров о замене пути `ScorchBuffer` из PR `#246`)
+  - [ ] `TerrainTracks` + `GodotTerrainTracks` — *ждёт `#507` и Godot-части выжженной земли (материал слоя; ещё поля снимка логики и `MakeTrackMarks`/`MaxTerrainTracks`, ~30 файлов)*
 - **Клиентские поведения, звук и тени (9):**
-  - [ ] `ContainedPose`
-  - [ ] `EvaAnnounceClientCreate` *(проверен сценарием мода)*
-  - [ ] `EvaSighting` + `GameLogic/Object/EvaSightingNotice`
-  - [ ] `Common/Audio/ScoredKillEvaAnnouncer`
-  - [ ] `ModelConditionAudioLoopClientBehavior` *(проверен сценарием мода)*
-  - [ ] `ParticleBoneFollow`
+  - [ ] `ContainedPose` — *заблокирован: нужен `Drawable::getPresentationPose` (физика представления `applyPhysicsXform`/`calcPitchRoll`, в upstream нет; см. открытый `#430`)*
+  - [x] `EvaAnnounceClientCreate` *(проверен сценарием мода)* — **upstream PR `#511`** (`up/eva-announce-client-create`, с установкой Eva-поиска в `RetailObjectWorld`)
+  - [ ] `EvaSighting` + `GameLogic/Object/EvaSightingNotice` — *заблокирован: читает живую `GameLogic` из `DrawableManager::syncTransforms`, а в upstream клиент не держит логику (поток логики, S-810); нужна переделка на снимок или решение мейнтейнеров*
+  - [x] `Common/Audio/ScoredKillEvaAnnouncer` — **upstream PR `#516`** (`up/scored-kill-eva-announcer`; инертен, пока никто не ставит контроллер)
+  - [x] `ModelConditionAudioLoopClientBehavior` *(проверен сценарием мода)* — **upstream PR `#512`** (`up/model-condition-audio-loop`; S-6024)
+  - [x] `ParticleBoneFollow` — **upstream PR `#506`** (`up/particle-bone-follow`)
   - [x] `ProjectedShadowManager` — **upstream PR `#490`** (`up/part-the-heavens-update`, вместе с `PartTheHeavensUpdate` и `FunctionCurve`)
-  - [ ] `RadarMarkerClientUpdate`
-  - [ ] `SegLineGeometry`
-  - [ ] `SwayClientUpdate`
+  - [x] `RadarMarkerClientUpdate` — **upstream PR `#514`** (`up/radar-marker-client-update`; `clientUpdate` пока никто не вызывает, S-2451)
+  - [x] `SegLineGeometry` — **upstream PR `#504`** (`up/seg-line-geometry`)
+  - [x] `SwayClientUpdate` — **upstream PR `#515`** (`up/sway-client-update`)
 
 ---
 
@@ -195,7 +195,11 @@
    - Починены CI-проверки: лексикографическая сортировка `docs/STOPS.md`, BFME1-поле `RunToLocation` (`#469`), `tools/save/closed_sets.json` (`#474`, `#476`, `#480`).
 4. **Этап 2.3 — ЗАВЕРШЁН (открыты 9 новых PR `#495`, `#496`, `#498`, `#500`, `#501`, `#503`, `#508`, `#509`, `#510`, см. раздел 2.3):**
    - Покрыты все 9 пунктов раздела 2.3 (`CrateSystem` + `VictorySystem`, `AIAttackCharge`, `AIAttackHordePosition`, `AITNGuard`, `AIRampageState`, `W3DTaintMask` при готовом `TerrainTaintClear` в `upstream/main`, `AIGroupOrders`, `AIBurningDeathState`, `FireLogicSystem`).
-5. **Профиль Ennorath (`ModEngineFeatures`, Часть 1А и 1Б) — ЕЩЁ НЕ ОТПРАВЛЕН.**
+5. **Этап 2.4 — ОТПРАВЛЕН (открыты 14 PR `#497`, `#499`, `#502`, `#504`–`#507`, `#511`–`#517`, см. раздел 2.4; 2026-11-26, два параллельных исполнителя: ПК `workspace/wt/upstream-pr` и песочница 8 `wt/up-pr`):**
+   - Не отправлены 4 пункта: `W3DProjectileStreamDraw` (ждёт `#484`), `TerrainTracks` (ждёт `#507`), `ContainedPose` (нужна физика представления Drawable), `EvaSighting` (клиент не держит логику в upstream). Черновик `EvaSighting` не собирался; патч лежал в scratchpad сессии.
+   - Конфликты при мёрдже: все PR правят `engine/CMakeLists.txt`, `test_module_coverage.cpp` (183/126 → 184/125, как и `#490`/`#482`), `tools/sim/sim_policy.json`, `registerAll`; после первого мёрджа остальным — rebase и пересчёт счётчиков.
+   - Ловушка `sim_audit`: включение `AudioEventRTS.h` или `RadiusCursor.h` из симуляционного исходника (через `Drawable.h`/`Drawable.cpp`) роняет аудит — такие части вынесены в `DrawableTornado.cpp` / `DrawableAudioLoop.cpp`.
+6. **Профиль Ennorath (`ModEngineFeatures`, Часть 1А и 1Б) — ЕЩЁ НЕ ОТПРАВЛЕН.**
    - Ждёт Этапа 3 (и мёрджа upstream PR `#409` от `LuisTNH` с регистрацией `fc32e4c4…`, чтобы не конфликтовать и переиспользовать общие имена фич).
 
 ### Следующие шаги (для следующего агента)
