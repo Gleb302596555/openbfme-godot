@@ -142,7 +142,7 @@ TEST_CASE("LOCAL-189 TEAM_TELEPORT_TO_WAYPOINT (RW 0x7C3FD1) and PLAYER_CREATE_T
 	TerrainLogic terrain;
 	std::vector<MapObject> objs;
 	objs.push_back(makeWaypoint(1, "WP_L189_Dest", 320.0f, 440.0f));
-	terrain.init(&w.mw.w.hm, objs, {});
+	WorldHeightMap hm; hm.m_width = 64; hm.m_height = 64; hm.m_data.assign(64u * 64u, 0); terrain.init(&hm, objs, {});
 	w.logic->setTerrain(&terrain);
 	startEngine(*w.logic);
 	ScriptEngine &e = w.logic->scriptEngine();
@@ -213,7 +213,7 @@ TEST_CASE("LOCAL-189 TEAM/NAMED_TOGGLE_CLOSE_RANGE_WEAPON (RW 0x7C3B6E / RW 0x7C
 	TeamFactory &teams = fx.w.logic->players().teams();
 	Team *t = teams.createTeam(teams.initTeam("HeroTeam", fx.p1, true), true);
 	REQUIRE(t);
-	Object *hero = fx.w.spawn("L189_DualHero", 100.0f, 100.0f, fx.p1);
+	Object *hero = fx.w.spawn("L189_DualHero", 100.0f, 100.0f, 0.0f, t);
 	REQUIRE(hero);
 	hero->setTeam(t);
 	hero->setName("MyDualHero");
@@ -242,7 +242,7 @@ TEST_CASE("LOCAL-189 FIRE_SPECIAL_POWER_ON_TEAM (RW 0x7C4BDB) and _ON_NEAREST_OB
 	const SpecialPowerTemplate *spTmpl = TheSpecialPowerStore ? TheSpecialPowerStore->findSpecialPowerTemplate("SP_L189_Test") : nullptr;
 	REQUIRE(spTmpl);
 
-	Object *caster = fx.w.spawn("L189_Caster", 50.0f, 50.0f, fx.p1);
+	Object *caster = fx.w.spawn("L189_Caster", 50.0f, 50.0f, 0.0f, fx.p1->getDefaultTeam());
 	REQUIRE(caster);
 	SpecialPowerModuleInterface *spm = SpecialPowerModules::findModule(*caster, spTmpl);
 	REQUIRE(spm);
@@ -250,7 +250,7 @@ TEST_CASE("LOCAL-189 FIRE_SPECIAL_POWER_ON_TEAM (RW 0x7C4BDB) and _ON_NEAREST_OB
 	TeamFactory &teams = fx.w.logic->players().teams();
 	Team *targetTeam = teams.createTeam(teams.initTeam("TgtTeam", fx.p2, true), true);
 	REQUIRE(targetTeam);
-	Object *t1 = fx.w.spawn("L189_Target", 200.0f, 200.0f, fx.p2);
+	Object *t1 = fx.w.spawn("L189_Target", 200.0f, 200.0f, 0.0f, targetTeam);
 	REQUIRE(t1);
 	t1->setTeam(targetTeam);
 	fx.w.frames(2);
