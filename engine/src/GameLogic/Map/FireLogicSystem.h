@@ -9,7 +9,7 @@
 //     damage to objects watching burning cells (DamageType 0x17 DAMAGE_LOGICAL_FIRE, DeathType 3 DEATH_BURNED, amount = cell->check);
 //     spreading to 4 orthogonal neighbours if neighbour burn > cell resistance;
 //     fuel regrowth from terrain material on burnt cells (RW 0x6886E0).
-//   * Area operations: ChangeBurnRateInArea RW 0x6878D7 / 0x687B12, ChangeFuelInArea RW 0x686C13 (span RW 0x6864EA), ChangeBurnRateAll RW 0x687C4C.
+//   * Area operations: ChangeBurnRateInArea RW 0x6878D7 / 0x687B12, ChangeFuelInArea RW 0x686BF5 (span RW 0x6864EA), ChangeBurnRateAll RW 0x687C4C.
 //   * Watcher / object registration: RegisterObject RW 0x688354, UnregisterObject RW 0x68836C,
 //     tree registration RW 0x686A82, unregistration RW 0x686B2E.
 //   * Save/Load: xfer RW 0x688384, version (1, 2).
@@ -101,7 +101,7 @@ public:
 	void changeBurnRateInArea(const Coord3D &pos, float radius, const Coord3D &dir, float cosArc, int delta, bool onlyBurning);
 	// RW 0x687C4C: whole map (e.g. Freezing Rain)
 	void changeBurnRateAll(int delta);
-	// RW 0x686C13 (span RW 0x6864EA): fuel disc
+	// RW 0x686BF5 (span RW 0x6864EA): fuel disc
 	void changeFuelInArea(const Coord3D &pos, float radius, int amount, int maxBurnRate, int decay, int resistance, bool onlyBurning);
 
 	// RW 0x688354 / 0x68836C

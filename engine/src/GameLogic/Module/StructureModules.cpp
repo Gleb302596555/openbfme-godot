@@ -256,6 +256,7 @@ void StructureModules::registerAll(ModuleFactory &modules)
 	bindRuntime<RespawnBody, RespawnBodyModuleData>(modules, "RespawnBody");
 	modules.bindTypedData<DelayedDeathBodyModuleData>("DelayedDeathBody", MODULETYPE_BEHAVIOR);
 	bindRuntime<DelayedDeathBody, DelayedDeathBodyModuleData>(modules, "DelayedDeathBody");
+	// Local 190: RW 0x6512BE (SymbioticStructuresBody::friend_newModuleInstance -> RW 0x8C4C82, vtable 0xC72370)
 	modules.bindTypedData<SymbioticStructuresBodyModuleData>("SymbioticStructuresBody", MODULETYPE_BEHAVIOR);
 	bindRuntime<SymbioticStructuresBody, SymbioticStructuresBodyModuleData>(modules, "SymbioticStructuresBody");
 	// RW 0x007A7D78 (getModuleName -> "LifetimeUpdate"), RW 0x007A7DB5 (getModuleNameKey lazy cache),

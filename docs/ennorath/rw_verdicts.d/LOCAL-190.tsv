@@ -1,0 +1,68 @@
+function	name	verdict	evidence
+0x005D869A	??1Rva001D92BB@@QAE@XZ	not reached	dc=0 vc=0 data-ref 0xD9D9DC; starts with tail-jump jmp 0x7017aa followed by unrelated inline getters (dead/merged table entry)
+0x0060E64C	?Rva005F17C6Build@@YA?AURva005F17C6S16@@ABURva005F17C6S12@@H@Z	glue	POD 12B+int -> 16B struct builder (Rva005F17C6Build, 39B); missed by is_stl() due to Rva-synthetic BFME2 name
+0x006866CE	?Rva00285FA9Parse@@YAXPAVINI@@PAX1PBX@Z	too big	FireLogicSystem TerrainCellType INI parser (dc=0 data callback 0xC11774); FireLogicSystem INI block is stubbed in INIBlockStubs.cpp with hardcoded retail defaults
+0x0068685B	?Rva00286136Free@@YAXPAX@Z	glue	MemoryPool free wrapper (22B: if (p) pool_free(0xde46e8, p)) for FireLogicSystem cells; missed by is_stl() due to Rva00286136Free name
+0x006868D5	?Rva002861B0Copy@@YAXPAXPBX@Z	glue	POD 6-byte copy helper (25B: dword+word copy, called by _STL::vector::_M_insert_overflow 0x688280); missed by is_stl() due to Rva002861B0Copy name
+0x006868EE	?Rva002861C9Copy@@YAPAXPBX0PAX@Z	glue	STLport __uninitialized_copy stride-8 range loop calling 0x6868D5 (sole caller _STL::vector::_M_insert_overflow 0x688280); missed by is_stl() due to Rva name
+0x00686939	?rva00286214@Rva00286214@@QAEPAURva00286214Node@@PBVRva00285672@@@Z	glue	STLport _Rb_tree::lower_bound on FireLogicSystem::m_burningCells (73B, comparator 0x685D9D); missed by is_stl() due to Rva00286214 name
+0x00686D8E	unnamed	glue	STLport _Rb_tree header node allocator (36B, allocs 0x24 node via 0x430130, called by _STL::_Rb_tree ctor 0x61D8D5); no BFME2 name
+0x00686FBD	?rva0028688A@Rva0028688A@@QAE?AURva0028688AIter@@PAURva0028688ANode@@0ABURva0028688AKey@@0@Z	glue	STLport _Rb_tree::_M_insert on FireLogicSystem::m_burningCells (146B, sole caller 0x687566); missed by is_stl() due to Rva0028688A name
+0x00687566	?rva00286E33@Rva0028688A@@QAE?AURva00286E33Result@@ABURva0028688AKey@@@Z	glue	STLport _Rb_tree::insert_unique on FireLogicSystem::m_burningCells (149B, sole caller 0x68825D); missed by is_stl() due to Rva0028688A name
+0x0068825D	?rva00287B2A@Rva00286214@@QAE?AURva00287B2AResult@@PBVRva00285672@@@Z	glue	STLport std::set::insert wrapper forwarding to 0x687566 (35B, called by FireLogicSystem::update/xfer); missed by is_stl() due to Rva00286214 name
+0x006CA248	?clipToTerrainExtent@@YAXAAUCoord3D@@@Z	too big	S-7941: clipToTerrainExtent, sole caller unported Weapon::computeApproachTarget (RW 0x6CBBC3)
+0x006CB690	?rva002CA970@Rva002CA9CA@@QAEXHHPBXH@Z	too big	S-129: WeaponTemplate::preFireWeapon damage-warning dispatcher calling DamageNugget::v4 (RW 0x90DB89) for GenericDamageWarning DelayedLuaEventUpdate
+0x006CB98E	?rva002CAC6E@Rva002CA9CA@@QAEXHH@Z	rebuilt on Godot	WeaponTemplate::getAssetList (rva002CAC6E): W3D asset preloader for retail streaming, rebuilt on Godot
+0x00740DD0	ctor/dtor	too big	S-1186: AIStateMachine state 0xC27730 ctor (29B, sole caller AIStateMachine::AIStateMachine 0x753755)
+0x00797E22	?set@Rva0036BDD0@@QAEAAV1@PBURva0036BDD0Vec@@0@Z	glue	Two-vector setter helper (50B, sole caller fragment 0x798554); missed by is_stl() due to Rva0036BDD0 name
+0x007981D1	?Rva00395D45Copy@@YAPAVRva0039597C@@PAV1@00@Z	glue	STLport range copy loop (50B, sole caller not-reached 0x798751); missed by is_stl() due to Rva00395D45Copy name
+0x007985D3	?rva00396147@Rva00395D18@@QAEXXZ	glue	STLport _Rb_tree::clear (41B, sole caller 0x798E16); missed by is_stl() due to Rva00395D18 name
+0x0079878B	??0Rva0039627D@@QAE@ABU0@@Z	glue	Pair/record copy ctor (29B, called by _STL::_Construct 0x798E72); missed by is_stl() due to Rva0039627D name
+0x00798CA8	?rva003967A5@@YAXPAVRva003967A5Owner@@HH@Z	not reached	dc=0 vc=0 evidence=data (ptr 0xD11994); reads [ebp-0x98] without setting ebp (mid-function fragment)
+0x00798DDE	??1Rva00395CEB@@QAE@XZ	glue	STLport _Rb_tree dtor (56B, called by ~CastleBehavior 0x79AAA7); missed by is_stl() due to Rva00395CEB name
+0x00798E16	??1Rva00395D18@@QAE@XZ	glue	STLport _Rb_tree dtor calling 0x7985D3 (56B); missed by is_stl() due to Rva00395D18 name
+0x00798E4E	?Rva00396943Construct@@YA?AURva0039627D@@PAPAXABUBfmeStringRecord004071F7@@@Z	glue	Pair/record constructor wrapper (27B, called by CastleBehavior map insert 0x79BDE8); missed by is_stl() due to Rva00396943Construct name
+0x0079A1A8	?rva00397C94@Rva00397C94@@QAEXPAURva00397C94Node@@@Z	glue	STLport _Rb_tree::_M_erase recursive node destroy (53B, called by 0x79A784); missed by is_stl() due to Rva00397C94 name
+0x0079A784	?rva00398257@Rva00397C94@@QAEXXZ	glue	STLport _Rb_tree::clear calling 0x79A1A8 (41B, called by 0x79B7A2); missed by is_stl() due to Rva00397C94 name
+0x0079B7A2	??1Rva00397C94@@QAE@XZ	glue	STLport _Rb_tree dtor calling 0x79A784 (56B, called by ~CastleBehaviorModuleData 0x79C6E6); missed by is_stl() due to Rva00397C94 name
+0x0079B7DA	?rva003992B0@Rva0039834C@@QAEPAURvaInsertOut@@PAU2@PBURva0039627D@@@Z	glue	STLport _Rb_tree::insert_unique on CastleBehavior map (134B); missed by is_stl() due to Rva0039834C name
+0x007B0F90	??0Rva003B0344@@QAE@ABVRvaSmartPtr12@@@Z	rebuilt on Godot	Rva003B0344 ctor (0xC33B48, BFME_DX8_Thread_Lock): DX8/W3D ParticleSystem renderer object, rebuilt on Godot
+0x008286CC	?rva003B1017@Rva003B1017@@QAEXPAVINI@@PAX@Z	too big	LivingWorldAutoResolveData Affects parser helper (234B, sole caller partial 0x8287E3; LivingWorldAutoResolveData.h INFERENCE)
+0x00828B2F	?Rva0041826BConstruct@@YAXPAVRva004181F5@@PBV1@@Z	glue	STLport placement copy-ctor with EH guard (45B, sole caller 0x828B97); missed by is_stl() due to Rva0041826BConstruct name
+0x0082C119	?Rva0041B80FCheck@@YA_NPAVObject@@0@Z	too big	S-7140: ActionManager capture contain relationship check (78B, sole caller 0x82D0A1, explicitly deferred in S-7140)
+0x0083D4A3	?doAttackMoveCommand@@YAHPAXPAUICoord2D@@@Z	rebuilt on Godot	doAttackMoveCommand: client GUICommandTranslator screen-to-terrain + UI message emitter, rebuilt on Godot
+0x0087B994	unnamed	too big	S-1100: GarrisonContain::healObject (114B, sole caller 0x87BE7C GarrisonContain::healObjects, explicitly deferred in S-1100)
+0x008B96DC	?rva004B554F@Rva004B554FHolder@@QBEHXZ	not reached	dc=1 vc=0; sole caller 0x691A73 (Object::GetCreateAHeroSpecialPower) is already not-reached in RW_BINARY_MAP.tsv
+0x008BE515	?clear@Rva004BA3CC@@QAEXXZ	glue	STLport vector::clear (30B, sole caller _STL::vector::_M_insert_overflow 0x8BE61C); missed by is_stl() due to Rva004BA3CC name
+0x008C6843	unnamed	glue	STLport __copy_ptrs backward/forward memmove loop for 8B POD (50B, sole caller 0x8C74A7); no BFME2 name
+0x008C6A8F	ctor/dtor	not reached	CashHackSpecialPowerModuleData ctor (0xC73308): dc=1 vc=0; sole caller 0x6516F5 (friend_newModuleData) is already not-reached (0 INI occurrences in Ennorath 1.9.8.7)
+0x008C74A7	?Rva004BA324CopyRange@@YAPAVRva004BA1C8@@PAV1@00H@Z	glue	STLport __copy_ptrs wrapper forwarding to 0x8C6843 (29B, called by _STL::__copy_ptrs 0x6D5689 and _STL::vector::erase 0x70D005); missed by is_stl() due to Rva name
+0x008C7D42	?Rva004C3A9FConstruct@@YAXPAXPBX@Z	glue	STLport placement copy-ctor with EH guard (45B, called by _STL::__uninitialized_copy 0x8C7D6F and _STL::vector::_M_insert_overflow 0x8C8079); missed by is_stl() due to Rva name
+0x008CB7ED	?Rva004C73C5Insert@@YAXPAX0URva004C6FD0Val@@P6A_N00@Z@Z	glue	STLport __unguarded_linear_insert (74B, sole caller 0x8CB871); missed by is_stl() due to Rva004C73C5Insert name
+0x008CB871	?Rva004C7449Sort@@YAXPAX0P6A_N00@Z@Z	glue	STLport __insertion_sort (48B, sole caller _STL::__final_insertion_sort 0x8CB8FC); missed by is_stl() due to Rva004C7449Sort name
+0x008EC506	??1Rva003F9FE6@@QAE@XZ	too big	~Rva003F9FE6 (81B, vtable 0x837898 item dtor); parent subsystem not ported
+0x0092BC90	?Rva00525203Fire@@YAHPAX0PBD1PBVAsciiString@@@Z	rebuilt on Godot	Rva00525203Fire: APT UI call helper (InGameHeroSelectInterface::SetFaction), rebuilt on Godot
+0x0092F65F	?rva00528BC1@Rva00528BC1@@QAEPAV1@PAX@Z	rebuilt on Godot	Rva00528BC1: APT UI helper (sole caller 0x930A25), rebuilt on Godot
+0x009311E1	?rva0052A786@Rva0052A786@@QAEAAV1@PBUDelegateDesc@@@Z	rebuilt on Godot	Rva0052A786: PortNegotiationSchema network/lobby delegate builder, rebuilt on Godot
+0x009463CE	??0Rva0053FADE@@QAE@XZ	too big	Rva0053FADE default ctor (39B, 0xC804DC DataChunkInput/Output serialization item); DataChunk subsystem not ported
+0x00686EA5	?rva00286772@FireLogicSystem@@QAE_NPBVPolygonTrigger@@H@Z	too big	S-7934: FireLogicSystem::isAreaBurning(PolygonTrigger*, int), called only by unported script condition 0x7E9BBF
+0x006879ED	?rva002872BA@FireLogicSystem@@QAEXPBVPolygonTrigger@@H_N@Z	too big	S-7934: FireLogicSystem::changeBurnRateInPolygon(PolygonTrigger*, int, bool), called only by unported ScriptActions 0x7C44D5
+0x00797BAA	?GetArmyIDFromClosestObject@CastleBehavior@@QAEPAXXZ	too big	CastleBehavior::GetArmyIDFromClosestObject (37B, LivingWorld army ID lookup on unpack); LivingWorld army-ID transfer not ported
+0x007993A5	?getCampDiameter@CastleBehavior@@QAEMPBVPlayer@@@Z	not reached	CastleBehavior::getCampDiameter: dc=0 vc=0 evidence=data (ptr 0xD11A4C); byte 0x7993A5 is 0x00 padding before 0x7993A6, 0 direct/virtual callers
+0x0079993D	?rva00397429@CastleBehavior@@QAEPAVObject@@ABVAsciiString@@@Z	too big	S-7934: CastleBehavior::rva00397429 (165B), called only by unported ScriptActions 0x7C718B and 0x7C7E39
+0x0079A688	?rva0039815B@CastleBehavior@@QAEPAVObject@@PAVThingTemplate@@PBUCoord3D@@H@Z	too big	S-7934: CastleBehavior::rva0039815B (232B), called only by unported ScriptActions 0x7C718B
+0x0079ADE9	?teleportStragglersFromWallToGround@CastleBehavior@@QAEX_N@Z	too big	S-951: CastleBehavior::teleportStragglersFromWallToGround (776B, partial); explicitly covered by S-951
+0x006C80A9	?isAnyWithinTargetPitch@WeaponSet@@ABE_NPBVObject@@0@Z	too big	S-1582: WeaponSet::isAnyWithinTargetPitch (calls Weapon::isWithinTargetPitch -> calcPitches RW 0xAD2620, not ported per S-1582)
+0x006C813E	?findAmmoPipShowingWeapon@WeaponSet@@QBEPBVWeapon@@XZ	rebuilt on Godot	WeaponSet::findAmmoPipShowingWeapon: sole caller 0x68B5C4 (Object::getAmmoPipShowingInfo), client HUD ammo-pip query rebuilt on Godot
+0x00794378	0xC307D8[9]	too big	S-657: BuildAssistant::reset (0xC307D8[9], 52B); BuildAssistant subsystem singleton not ported as a full class
+0x00794996	0xC307D8[16]	too big	S-657: BuildAssistant vtable 0xC307D8[16] (149B); BuildAssistant placement helper not ported
+0x00796117	0xC307D8[22]	too big	S-657: BuildAssistant vtable 0xC307D8[22] (slot 0x58, 1119B); end-hub wall link path explicitly deferred in S-657
+0x0061B50A	??0Rva0022C68CMetadataTree@@QAE@ABURvaMapCacheEmptyAllocator@@0@Z	glue	STLport _Rb_tree ctor calling header alloc 0x686D8E (sole caller _STL::map ctor 0x823CB3); missed by is_stl() due to Rva0022C68CMetadataTree name
+0x006390F4	??0Rva0022C68CMetadataTree@@QAE@ABURvaMapCacheEmptyAllocator@@0@Z	glue	STLport _Rb_tree ctor calling header alloc 0x6362B8 (sole caller 0x63ACDD); missed by is_stl() due to Rva0022C68CMetadataTree name
+0x008AADB4	??1SiegeDeploySpecialPower@@UAE@XZ	not reached	MissileUpdate::~MissileUpdate (0xC6A07C): calls 0x8AABE8 (already not-reached); MissileUpdate has 0 active INI occurrences in Ennorath 1.9.8.7
+0x0090DB89	?v4@DamageNugget@@UAEXPAX0@Z	too big	S-129: DamageNugget::v4 (435B, spawns GenericDamageWarning helper with DelayedLuaEventUpdate); warning event source not wired
+0x006362B8	??0Rva002299F1MetadataHeader@@QAE@ABURvaMapCacheEmptyAllocator@@@Z	glue	STLport _Rb_tree header node allocator (39B, sole caller 0x6390F4); missed by is_stl() due to Rva002299F1MetadataHeader name
+0x0063ACDD	??0Rva0022E272MetadataMap@@QAE@XZ	glue	STLport std::map default ctor forwarding to 0x6390F4 (sole caller MapCache::MapCache); missed by is_stl() due to Rva0022E272MetadataMap name
+0x00656E9F	?erase@Rva002571A7Vector@@QAEPAURva002571A7Elem@@PAU2@0@Z	glue	STLport vector<Pod8>::erase (54B, memmove shift, sole caller ~ActivateModuleSpecialPowerModuleData); missed by is_stl() due to Rva002571A7Vector name
+0x00A040C2	?SetBuildingNameString@StrategicHUD@@YAXHPAURva005F066COuter@@ABVUnicodeString@@@Z	rebuilt on Godot	StrategicHUD::SetBuildingNameString: APT LivingWorld UI string setter, rebuilt on Godot
+0x00740EBA	0xC27920[15]	too big	S-1186: AIAttackSquadState vtable 0xC27920 slot 15 (19B, forwards to 0x8DB737)

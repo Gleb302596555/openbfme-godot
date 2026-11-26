@@ -6,6 +6,7 @@
 // WeaponRangeHost, FiringTrackerHost) and the deliverer that turns a shot into damage (GameLogic/Combat/WeaponDelivery.h).
 //
 // TARGET FACTS (RotWK game.dat, caveat S-001; the derivations are in workspace/rebuild/specs/weapons-and-damage.md and scratch/weapon1/timing.md):
+//   * WeaponSet::WeaponSet RW 0x6C801C, WeaponSet::~WeaponSet RW 0x6C8058
 //   * WeaponSet::updateWeaponSet RW 0x6C99E2: the template set is the best match for the object's weapon set flags (RW 0x73D89F / 0x73D917, FindWeaponTemplateSet), a
 //     fresh Weapon per slot (owner id set), then reloadAmmo, or loadAmmoNow when the template says InstantLoadClipOnActivate (RW 0x6CEE89 restore: a saved record is
 //     restored only when BOTH sets have ShareWeaponReloadTime);

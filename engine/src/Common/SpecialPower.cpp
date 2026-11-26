@@ -100,6 +100,7 @@ const Bfme1FieldRowsRegistration kBfme1SpecialPowerRowsRegistration(kSpecialPowe
 #undef SP_OFF
 } // namespace
 
+// Local 190: RW 0x7B209F (~SpecialPowerStore), RW 0x7B1C36 (~SpecialPowerTemplate)
 SpecialPowerStore::~SpecialPowerStore()
 {
 	if (TheSpecialPowerStore == this)

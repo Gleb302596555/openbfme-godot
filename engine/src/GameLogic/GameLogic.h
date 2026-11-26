@@ -99,6 +99,7 @@ class Economy;
 class CombatState;
 class ExperienceWorld;
 class CreateAHeroGame;
+// Local 190: RW 0x441B60 (GameLogic mode gate: game mode != 9, 4, 7)
 class FireLogicSystem;
 class GlobalWeatherSystem;
 class VictoryConditions;

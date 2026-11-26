@@ -117,7 +117,7 @@ struct Plan
 // offset +- its extent (a box: the minor radius in y; a sphere / cylinder: the major radius)
 float halfExtentY(const ThingTemplate &tt);
 
-// RW 0x79586E. false when nothing can be planned (no hub module / hub cap, one tile or fewer)
+// RW 0x79586E (BuildLocations helpers RW 0x7943F9, RW 0x794444, RW 0x79445E, RW 0x79452B, RW 0x794562, RW 0x794594, RW 0x79510D, RW 0x79515A, RW 0x79517E, RW 0x7951AA, RW 0x7951D2). false when nothing can be planned (no hub module / hub cap, one tile or fewer)
 bool plan(GameLogic &logic, Object &hub, const Coord3D &start, const Coord3D &end, unsigned options, Plan &out);
 // RW 0x795221: plans, then (every tile legal, the owner can pay) makes every tile through BuildAssistant slot 0x38 with the hub as builder and starts it as a foundation
 // at 1.0 health, staggered by StaggeredBuildFactor * index frames (lane BUILD-4: in retail's order - the stagger first, then percent 0, the status bits, the

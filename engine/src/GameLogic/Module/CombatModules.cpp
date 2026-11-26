@@ -53,10 +53,12 @@ void parsePhaseNames(INI *ini, std::vector<std::string> *lists)
 	}
 }
 
+// Local 190: RW 0x8601EB (SlowDeathBehaviorModuleData FX list parser callback 0xC587BC)
 void parseFX(INI *ini, void *instance, void *, const void *)
 {
 	parsePhaseNames(ini, static_cast<SlowDeathBehaviorModuleData *>(instance)->m_fx);
 }
+// Local 190: RW 0x860324 (SlowDeathBehaviorModuleData OCL list parser callback 0xC587DC)
 void parseOCL(INI *ini, void *instance, void *, const void *)
 {
 	auto *data = static_cast<SlowDeathBehaviorModuleData *>(instance);
@@ -69,6 +71,7 @@ void parseOCL(INI *ini, void *instance, void *, const void *)
 		data->m_resolvedLogicMask |= resolved ? 2 : 0;
 	}
 }
+// Local 190: RW 0x86022E (SlowDeathBehaviorModuleData Weapon list parser callback 0xC587CC)
 void parseWeapon(INI *ini, void *instance, void *, const void *)
 {
 	auto *data = static_cast<SlowDeathBehaviorModuleData *>(instance);
@@ -291,6 +294,7 @@ void CombatModules::registerAll(ModuleFactory &modules)
 	bindRuntime<KeepObjectDie, KeepObjectDieModuleData>(modules, "KeepObjectDie");
 	modules.bindTypedData<FXListDieModuleData>("FXListDie", MODULETYPE_BEHAVIOR);
 	bindRuntime<FXListDie, FXListDieModuleData>(modules, "FXListDie");
+	// Local 190: RW 0x64AF4D (SlowDeathBehavior::friend_newModuleInstance), RW 0x64C1F6 (ClearanceTestingSlowDeathBehavior::friend_newModuleInstance)
 	modules.bindTypedData<SlowDeathBehaviorModuleData>("SlowDeathBehavior", MODULETYPE_BEHAVIOR);
 	bindRuntime<SlowDeathBehavior, SlowDeathBehaviorModuleData>(modules, "SlowDeathBehavior");
 	modules.bindTypedData<ClearanceTestingSlowDeathBehaviorModuleData>("ClearanceTestingSlowDeathBehavior", MODULETYPE_BEHAVIOR); // lane SIEGEFALL-1

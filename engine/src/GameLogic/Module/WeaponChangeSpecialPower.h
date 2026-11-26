@@ -51,7 +51,7 @@ public:
 };
 
 // Local 87: RW 0x008C82A7 (getModuleName), RW 0x008C82FA (getModuleNameKey), RW 0x008C82AD / RW 0x008C83BA (dtors), RW 0x008C6583 (base dtor thunk), RW 0x004B612F (empty-string helper).
-// RW 0x00651AA5 (friend_newModuleInstance), RW 0x00651A51 (WeaponChangeSpecialPowerModuleData::friend_newModuleData)
+// RW 0x00651AA5 (friend_newModuleInstance), RW 0x00651A51 (WeaponChangeSpecialPowerModuleData::friend_newModuleData -> ctor RW 0x8C802E, 0xC73BB8)
 class WeaponChangeSpecialPowerModule : public SpecialPowerModule
 {
 public:

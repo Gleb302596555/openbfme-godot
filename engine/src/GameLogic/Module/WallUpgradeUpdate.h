@@ -5,7 +5,7 @@
 // Possesses the wall structure, watches damage state, and on destruction resets the wall upgrades.
 //
 // TARGET FACTS:
-// - Registry: RW 0x64EFD7 / BFME2 0x64F2EB ("WallUpgradeUpdate", interface mask 5 = BEHAVIOR | UPDATE | DAMAGE).
+// - Registry: RW 0x64EFD7 / BFME2 0x64F2EB ("WallUpgradeUpdate", interface mask 5 = BEHAVIOR | UPDATE | DAMAGE); ctor RW 0x8AEA12 (0xC6B298).
 // - WallUpgradeUpdateModuleData:
 //   createData RW 0x65428C / BFME2 0x6545A0.
 // - WallUpgradeUpdate:

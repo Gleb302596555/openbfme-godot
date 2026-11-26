@@ -450,7 +450,7 @@ void SpecialAbilityUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 	p.add(kSpecialAbility);
 }
 
-// RW 0x64D82F (friend_newModuleData), RW 0x64D7F4 (friend_newModuleInstance)
+// RW 0x64D82F (friend_newModuleData -> ctor RW 0x895D5A, 0xC64890), RW 0x64D7F4 (friend_newModuleInstance)
 // RW 0x64D7D9 (WeaponFireSpecialAbilityUpdate::buildFieldParse)
 void WeaponFireSpecialAbilityUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {

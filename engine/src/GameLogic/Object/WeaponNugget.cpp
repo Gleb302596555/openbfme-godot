@@ -13,6 +13,7 @@
 // Local 174: RW 0x9116BA (WeaponNugget ?q4Notify002CCB04@@YAXPAXPAVMade002CCB04@@HH@Z); RW 0x91185A (WeaponNugget ?buildFieldParse@Rva0050B5CFBuildFieldParse@@SAXAAVMultiIniFieldParse@@@Z); RW 0x91187C (WeaponNugget ?q4Notify002CCB67@@YAXPAXPAVMade002CCB67@@HH@Z); RW 0x91197E (WeaponNugget ?q4Notify002CCB04@@YAXPAXPAVMade002CCB04@@HH@Z)
 // Local 174: RW 0x911B7D (WeaponNugget ?q4Notify002CCB04@@YAXPAXPAVMade002CCB04@@HH@Z); RW 0x911E39 (WeaponNugget no class); RW 0x911EA2 (WeaponNugget ?q4Notify002CCC90@@YAXPAXPAVMade002CCC90@@HH@Z); RW 0x91204F (WeaponNugget no class)
 // Local 174: RW 0x91209F (WeaponNugget ?q4Notify002CCCF3@@YAXPAXPAVMade002CCCF3@@HH@Z)
+// Local 190: RW 0x90EA55 / RW 0x91102F / RW 0x91139F (WeaponNugget buildFieldParse helpers), RW 0x90EEC1 (~Made002CC64B WeaponNugget dtor)
 #include "GameLogic/WeaponNugget.h"
 
 #include "Common/AsciiString.h"

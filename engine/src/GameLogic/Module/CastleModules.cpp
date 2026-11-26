@@ -851,6 +851,7 @@ Object *CastleBehavior::occupantOf(const Object &foundation) const
 	return logic.findObjectByID(member->occupantId()); // INFERENCE (S-952): RW keeps the id in the plot's FoundationAIUpdate + 0x28 until the plot's update finds it gone
 }
 
+// Local 190: RW 0x79A3D9 (CastleBehavior::isPlayerAllowedToCapture)
 bool CastleBehavior::isPlayerAllowedToCapture(const Player &player) const
 {
 	// RW 0x7998FF: the map is not empty and holds the player's side (BFME2 decomp Rva003973EBFind.cpp, tier A)

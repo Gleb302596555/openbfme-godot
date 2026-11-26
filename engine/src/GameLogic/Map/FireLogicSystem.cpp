@@ -700,7 +700,7 @@ void FireLogicSystem::changeBurnRateAll(int delta)
 	}
 }
 
-// RW 0x686C13 (FireLogicSystem::ChangeFuelInArea) -> span paint RW 0x6864EA (both editions: DONOR BFME2 0x00285DC5)
+// RW 0x686BF5 (FireLogicSystem::ChangeFuelInArea) -> span paint RW 0x6864EA (both editions: DONOR BFME2 0x00285DC5)
 void FireLogicSystem::changeFuelInArea(const Coord3D &pos, float radius, int amount, int maxBurnRate, int decay, int resistance, bool onlyBurning)
 {
 	if (radius <= 0.0f || amount == 0)

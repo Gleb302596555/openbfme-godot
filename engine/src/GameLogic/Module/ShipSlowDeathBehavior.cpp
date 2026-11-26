@@ -63,6 +63,7 @@ void ShipSlowDeathBehavior::xfer(Xfer &x) {
     x.xferReal(&m_pitchRate);
     x.xferReal(&m_rollRate);
 }
+// Local 190: RW 0x64AFD9 (ShipSlowDeathBehavior::friend_newModuleInstance), RW 0x8619ED (ShipSlowDeathBehavior ctor 0xC58C14)
 void ShipSlowDeathBehavior::registerClass(ModuleFactory &factory) {
     // RW 0x8619CD (ShipSlowDeathBehavior::buildFieldParse)
     factory.bindTypedData<SlowDeathBehaviorModuleData>("ShipSlowDeathBehavior", MODULETYPE_BEHAVIOR);

@@ -1894,7 +1894,7 @@ void ManTheWallsSpecialPower::manTheWalls()
 		}
 	}
 
-	// Step 3: Assign hordes to markers (RW 0x8CBB53 -> balanced marker selector RW 0x008CBACB, DONOR BFME2 0x004C7734 / 0x004C76AC)
+	// Step 3: Assign hordes to markers (RW 0x8CBB53 -> balanced marker selector RW 0x008CBACB -> distance sort RW 0x8CBA40, DONOR BFME2 0x004C7734 / 0x004C76AC)
 	for (Object *horde : hordes)
 	{
 		const Coord3D &hordePos = *horde->getPosition();
@@ -1961,6 +1961,7 @@ void ManTheWallsSpecialPower::crc(StateHasher &h) const
 	SpecialPowerModule::crc(h);
 }
 
+// Local 190: RW 0x651BBD (ManTheWallsSpecialPower::friend_newModuleInstance)
 void ManTheWallsSpecialPower::registerClass(ModuleFactory &modules)
 {
 	modules.bindTypedData<SpecialPowerModuleData>("ManTheWallsSpecialPower", MODULETYPE_BEHAVIOR);
