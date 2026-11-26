@@ -52,5 +52,5 @@ TEST_CASE("attack aim: a residual angle inside half the locomotor's turn rate en
 		}
 	}
 	MESSAGE("turn rate " << turnRate << " rad/frame, residual " << residual << ", aim delta " << weapons->aimDelta() << ", first shot after " << firedAt << " frames");
-	CHECK(firedAt == 9); // the aim ends at once, then the PreAttackDelay and the arrow's flight
+	CHECK(firedAt == 8); // the aim ends at once, then the PreAttackDelay and the arrow's flight (PORT-223: no PursueStub 1-frame delay)
 }
