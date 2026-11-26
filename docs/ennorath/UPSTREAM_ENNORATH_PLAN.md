@@ -114,7 +114,7 @@
   - [x] `DestroyEnvironmentUpdate` — **upstream PR `#492`** (`up/destroy-environment-and-rain-of-fire`)
   - [x] `EvacuateDamage` — *уже открыт в upstream как PR `#456`*
   - [x] `FreeLifeBody` — **upstream PR `#464`** (`up/free-life-body`)
-  - [x] `GiantBirdSlowDeathBehavior` — **upstream PR `#487`** (`up/giant-bird-slow-death`)
+  - [x] `GiantBirdSlowDeathBehavior` — **upstream PR `#487`** (`up/giant-bird-slow-death`); 2026-11-26: superseded by LuisTNH's **#518** (MOVING cleared after the die modules RW 0x699044, paralysed physics RW 0x792C6A, xfer v2); S-5606 moves into #518 with credit, then #487 is closed. On the next upstream merge take #518's version.
   - [x] `OilSpillUpdate` — **upstream PR `#472`** (`up/oil-spill-update`)
   - [x] `PoisonedBehavior` — **upstream PR `#466`** (`up/poisoned-behavior`)
   - [x] `ProjectileStreamUpdate` — **upstream PR `#484`** (`up/projectile-stream-update`)
