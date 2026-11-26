@@ -1,0 +1,58 @@
+function	name	verdict	evidence
+0x0064E20D	?friend_newModuleInstance@HordeAIUpdate@@SAPAVModule@@PAVThing@@PBVModuleData@@@Z	not reached	SupplyTruckAIUpdate::friend_newModuleInstance (calls 0x89DFAE, already not reached in LOCAL-164.tsv; dc=0 vc=0; 0 active INI uses)
+0x0064EEF5	?friend_newModuleInstance@DozerAIUpdate@@SAPAVModule@@PAVThing@@PBVModuleData@@@Z	not reached	WanderAIUpdate::friend_newModuleInstance (calls 0x8AC9F5, already not reached in LOCAL-164.tsv; dc=0 vc=0; 0 active INI uses)
+0x006638FC	?requestApproachPath@AIUpdateInterface@@QAEXPAUCoord3D@@@Z	too big	AIUpdateInterface::requestApproachPath (211B): already covered by S-166 in docs/STOPS.md (AIMove.cpp:31)
+0x0074243F	?xfer@AIAttackMeleeSquishState@@MAEXPAVXfer@@@Z	too big	AIAttackMeleeSquishState::xfer (86B): retail save layout covered by SAVE-4c / S-4220 (HordeAIUpdateCombat.cpp:430)
+0x00742AC5	?xfer@AIFollowWaypointPathExactState@@UAEXPAVXfer@@@Z	too big	AIFollowWaypointPathExactState::xfer (104B): retail save layout covered by SAVE-4c / S-4220 (AIWaypointPath.cpp:266)
+0x007434E9	?xfer@AIExitState@@MAEXPAVXfer@@@Z	too big	AIExitState::xfer (68B): retail save layout covered by SAVE-4c / S-4220 (AIGarrisonStates.cpp:862)
+0x00769521	RW_0x769521	too big	GiantBirdAttackMoveToState::xfer (72B): retail save layout covered by SAVE-4c / S-4220 (GiantBirdAIUpdate.cpp:1329)
+0x0076FD74	?rva0036E0B6@AIGroup@@QBE_NXZ	too big	AIGroup::rva0036E0B6 (45B): busy-flag check covered by S-1185 (ScriptEngine.cpp:1261)
+0x007706EC	?xfer@AIGroup@@MAEXPAVXfer@@@Z	too big	AIGroup::xfer (174B): retail save layout covered by S-4220 (AIWorldSnapshot.cpp:6)
+0x00771726	?aiGoProne@AICommandInterface@@QAEXPBVRva003427DD@@W4CommandSourceType@@@Z	too big	AICommandInterface::aiGoProne (106B): Generals legacy prone command covered by S-222 (SlavedUpdate.cpp:253)
+0x00771C3D	?groupTightenToPosition@AIGroup@@QAEXPBUCoord3D@@_NW4CommandSourceType@@@Z	too big	AIGroup::groupTightenToPosition (231B): click-to-gather tighten move already covered by S-895 (SkirmishAIManager.cpp:1034)
+0x008584DB	?update@FoundationAIUpdate@@UAE?AW4UpdateSleepTime@@XZ	too big	FoundationAIUpdate::update (550B): castle foundation occupant/plot update already covered by S-7532 / S-952 in docs/STOPS.md
+0x0085C0DC	?rva0045906E@Rva0045906E@@QAEX_N@Z	not reached	EnragedBehavior::setEnraged (only called by 0x85C133/0x85C154/0x85C177; ctor 0x85C00C already not reached in LOCAL-173.tsv, 0 active INI uses in Ennorath 1.9.8.7)
+0x0085C133	?rva004590C5@Rva004590C5@@QAEXXZ	not reached	EnragedBehavior::startRage (only called if EnragedBehavior module exists; ctor 0x85C00C already not reached in LOCAL-173.tsv, 0 active INI uses)
+0x0085C154	?rva004590E6@Rva004590C5@@QAEXXZ	not reached	EnragedBehavior::stopRage (only called if EnragedBehavior module exists; ctor 0x85C00C already not reached in LOCAL-173.tsv, 0 active INI uses)
+0x0085C177	?rva00459109@Rva00459109@@QAEHXZ	not reached	EnragedBehavior::update (0xC577E0 vslot, dc=0 vc=0; ctor 0x85C00C already not reached in LOCAL-173.tsv, 0 active INI uses)
+0x0086DAD6	?rva0046A967@Rva002EE9B7@@QAEXU?$_Rb_tree_iterator@U?$pair@$$CBHPAX@_STL@@U?$_Nonconst_traits@U?$pair@$$CBHPAX@_STL@@@2@@_STL@@0@Z	glue	STLport _Rb_tree::erase(first, last) (68B: compares [ebp+8]==[eax+8] && [ebp+0xc]==eax -> clear 0x6EFD81 else loop next 0x423EA0 + erase 0x47E273); missed by stl_scope because BFME2 name uses synthetic Rva002EE9B7
+0x008DC575	?removeSelfAsTargeter@TurretAI@@AAEXXZ	too big	TurretAI::removeSelfAsTargeter (57B): enemy AI targeter list already covered by S-1106 (TurretAI.cpp:566)
+0x008DC60C	?rva004D82F6@TurretAI@@QAEXXZ	too big	TurretAI::stopRotOrPitchSound (26B): client turret move sound already covered by S-1106 (TurretAI.cpp:821)
+0x008DCE4A	?startRotOrPitchSound@TurretAI@@AAEXXZ	too big	TurretAI::startRotOrPitchSound (211B): client turret move sound already covered by S-1106 (TurretAI.cpp:821)
+0x008E1B05	?rva004DD73B@Rva004DD73B@@QAEPAXXZ	too big	PathfinderPosGoalManager pool allocator (137B): retail cell-goal pool covered by S-166 / S-162
+0x008E1B8E	??0Rva004DD7C4@@QAE@XZ	too big	PathfinderPosGoalManager slot ctor (31B): retail cell-goal pool covered by S-166 / S-162
+0x008E1BAD	??0Rva004DD7E3@@QAE@H@Z	too big	PathfinderPosGoalManager 3-slot entry ctor (39B): retail cell-goal pool covered by S-166 / S-162
+0x008EDB87	?rva004E94A1@Rva004E9419@@QAEXXZ	glue	STLport _Rb_tree::clear() (41B: if [esi+4]!=0 call _M_erase 0x8EDAFF, reset header left/parent/right and size=0); missed by stl_scope due to synthetic Rva004E9419 name
+0x008EDFDD	?rva004E98F7@@YAPAPAXPAPAX0PBXPAX@Z	glue	STLport std::__unguarded_partition / introsort helper (186B, calls comparator 0x8EF333); missed by stl_scope due to synthetic rva004E98F7 name
+0x008EE097	?rva004E99B1@@YAPAXPAX@Z	too big	AIWallBuilder wall-list lookup (37B): unported AIWallBuilder already covered by S-7912 in docs/STOPS.md
+0x008EE0BC	?rva004E99D6@@YAPAPAXPAPAX0PBX@Z	glue	STLport sort wrapper forwarding 4 args + stack temp to 0x8EDFDD (27B); missed by stl_scope due to synthetic rva004E99D6 name
+0x008EE994	RW_0x8EE994	too big	AIEconomyBuilder helper called by 0x9B92F6 (169B): covered by S-414 / S-7336 in docs/STOPS.md
+0x008EEA3D	?rva004EA264@Rva004EA149@@QAEXXZ	glue	STLport _Rb_tree::clear() (41B: if [esi+4]!=0 call _M_erase 0x8EE871, reset header left/parent/right and size=0); missed by stl_scope due to synthetic Rva004EA149 name
+0x008EF572	RW_0x8EF572	too big	AIWallBuilder wall placement helper (361B, called by 0x8EFA4E/0x8EFDED): unported AIWallBuilder covered by S-7912
+0x008EFA4E	RW_0x8EFA4E	too big	AIWallBuilder wall segment builder (475B, called by 0x8EFDED): unported AIWallBuilder covered by S-7912
+0x008EFC90	??0Rva004EB5E9@@QAE@H@Z	too big	AIWall ctor (105B, vtable 0xC795A0): unported AIWallBuilder covered by S-7912
+0x008EFCF9	??1Rva004EB5E9@@UAE@XZ	too big	AIWall dtor (244B, vtable 0xC795A0): unported AIWallBuilder covered by S-7912
+0x008EFDED	RW_0x8EFDED	too big	AIWallBuilder update helper (100B, calls 0x8EFA4E/0x8EF572): unported AIWallBuilder covered by S-7912
+0x008EFF08	?rva004EB794@Rva004EB794@@QAE_NPBVModuleData@@@Z	too big	AIWall helper (56B, calls 0x90BE00): unported AIWallBuilder covered by S-7912
+0x008F1A7A	?rva004ED3A2@Rva004ED3A2@@QAEPAXPAX@Z	glue	STLport vector<20B>::erase(it) (47B: shifts [edi+0x14..end] via 0x8F16BD, decrements end by 0x14); missed by stl_scope due to synthetic Rva004ED3A2 name
+0x008F3DAC	RW_0x8F3DAC	glue	DLINK intrusive doubly-linked list prepend at +0xC/+0x10 (23B, called by AIPlayer::prependTo_TeamBuildQueue 0x8F3DD3); no rule for intrusive DLINK helpers
+0x008F4D9B	?set@Rva00160530@@QAEXPAPAV1@@Z	glue	DLINK intrusive doubly-linked list prepend at +0x4/+0x8 (23B, called by AIPlayer::prependTo_TeamReadyQueue 0x8F4E2F); no rule for intrusive DLINK helpers
+0x008F4DB2	RW_0x8F4DB2	glue	DLINK intrusive doubly-linked list unlink at +0x4/+0x8 (48B, called by AIPlayer::removeFrom_TeamReadyQueue 0x8F4E4F); no rule for intrusive DLINK helpers
+0x008F4DEF	RW_0x8F4DEF	glue	DLINK intrusive doubly-linked list unlink at +0xC/+0x10 (48B, called by AIPlayer::removeFrom_TeamBuildQueue 0x8F4EB9); no rule for intrusive DLINK helpers
+0x008F4F00	RW_0x8F4F00	glue	DLINK intrusive doubly-linked list reverse at +0xC/+0x10 (35B, called by AIPlayer::xfer 0x8F5756); no rule for intrusive DLINK helpers
+0x008F4F3B	RW_0x8F4F3B	glue	Trivial 4-byte field getter (mov eax, [ecx+0x78]; ret; 0xBDBD50); no rule for non-zero-offset 4B field getters
+0x008F5A5E	RW_0x8F5A5E	glue	Intrusive list linear find comparing [node+0xC] == arg (41B, called by 0x8F8268); no rule for intrusive list find
+0x0094D38F	RW_0x94D38F	too big	table 0xC812CC GroupOrder subclass method (16B): unported group order class covered by S-1831 (AIGroupOrders.h:17)
+0x0094DAF2	?rva00547223@Rva00547223@@QAEPAV1@PAH0@Z	glue	std::pair<ObjectID, Coord3D> copy constructor (34B: copies 4 dwords from arg1/arg2); missed by stl_scope due to synthetic Rva00547223 name
+0x0094DB66	RW_0x94DB66	glue	std::_Construct<pair<ObjectID, Coord3D>> placement wrapper calling 0x94DAF2 (22B); no pair in BFME2 map
+0x00961ABF	?rva0055AFBF@Rva0055AFBF@@QAEXH@Z	too big	AIBuildable peer list remove at +0x14 (50B): covered by S-414 in docs/STOPS.md
+0x00961AF1	?rva0055AFF1@Rva0055AFF1@@QAEXH@Z	too big	AIBuildable peer list remove at +0x1C (46B): covered by S-414 in docs/STOPS.md
+0x00961C56	?rva0055B156@Rva0055B156@@QAEXH@Z	too big	AIBuildable peer list push_back at +0x1C (16B, called by AIPlayer::computeSuperweaponTarget 0x8F69E8): covered by S-414 / S-1421
+0x0099F8F6	?getCostPerTick@AIUpgrade@@UAEMPAX@Z	not reached	AIUpgrade::getCostPerTick (0xC880E0[8], dc=0 vc=0 in RW_BINARY_MAP.tsv and rw.py xref; no caller in RotWK 2.01)
+0x009A04F4	?rva00598120@Rva005980F3@@QAEXXZ	glue	STLport _Rb_tree::clear() (41B: if [esi+4]!=0 call _M_erase 0x9A04C7, reset header left/parent/right and size=0); missed by stl_scope due to synthetic Rva005980F3 name
+0x009A07F5	?lookup@Rva005983EE@@QAEAAMABW4NameKeyType@@@Z	glue	STLport hash_map::operator[] (67B: lookup 0x83692A, if null insert default 0.0f via 0x82FEB0 and return +4 else +8); missed by stl_scope due to synthetic Rva005983EE name
+0x009A275A	?rva0059A258@Rva00599FAA@@QAEXXZ	glue	STLport _Rb_tree::clear() (41B: if [esi+4]!=0 call _M_erase 0x9A2479, reset header left/parent/right and size=0); missed by stl_scope due to synthetic Rva00599FAA name
+0x009A29C8	?recruitPreDefined@AITeamBuilder@@QAEXPAVTeam@@PAHPAVTeamPrototype@@@Z	too big	AITeamBuilder::recruitPreDefined (643B): predefined template recruitment covered by S-418 in docs/STOPS.md
+0x009A4A0D	?rva0059A258@Rva00599FAA@@QAEXXZ	glue	STLport _Rb_tree::clear() (41B: if [esi+4]!=0 call _M_erase 0x9A49AC, reset header left/parent/right and size=0); missed by stl_scope due to synthetic Rva00599FAA name
+0x009BB517	?rva005AD085@Rva005ACF0B@@QAEXXZ	glue	STLport _Rb_tree::clear() (41B: if [esi+4]!=0 call _M_erase 0x9BB39D, reset header left/parent/right and size=0); missed by stl_scope due to synthetic Rva005ACF0B name
+0x00A20AE2	?findSlot@ObjectLookupMap@@QAEPAPAVObject@@PAH@Z	glue	STLport hash_map::operator[] (63B: lookup 0xA20845, if null insert default 0 via 0xA2099B and return +4 else +8); missed by stl_scope due to ObjectLookupMap::findSlot name
