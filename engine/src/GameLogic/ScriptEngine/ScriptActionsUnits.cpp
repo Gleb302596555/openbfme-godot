@@ -575,6 +575,30 @@ bool ScriptActions::executeUnitAction(ScriptEngine &engine, const ScriptActionRe
 		}
 		return true;
 	}
+	if (name == "SET_STOPPING_DISTANCE")
+	{
+		// Local 189: RW 0x7CAFA5 case 144 -> RW 0x7C10C0 (both editions; BFME2 doSetStoppingDistance): getTeamNamed(p0, false) (RW 0x759FDA);
+		// for each member: if (!ai || !ai->curLocomotor()) return immediately; if (dist >= 0.5f) (RW 0xBD869C) loco->m_closeEnoughDist (+0x3C) = dist.
+		Team *t = ScriptConditions::team(engine, param(a, 0).stringValue);
+		if (t)
+		{
+			const float dist = param(a, 1).realValue;
+			for (Object *o : ScriptConditions::members(*t))
+			{
+				AIUpdateInterface *ai = o->getAIUpdateInterface();
+				Locomotor *loco = ai ? ai->curLocomotor() : nullptr;
+				if (!loco)
+				{
+					return true; // RW 0x7C10FD / 0x7C1107: early return on first member without AI or locomotor
+				}
+				if (dist >= 0.5f)
+				{
+					loco->setCloseEnoughDist(dist);
+				}
+			}
+		}
+		return true;
+	}
 	if (name == "TEAM_TELEPORT_TO_WAYPOINT")
 	{
 		// Local 189: RW 0x7CAFA5 case 503 -> RW 0x7C3FD1 (both editions; BFME2 Rva003C353BDo): getTeamNamed(p0, false) (RW 0x759FDA),
