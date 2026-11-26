@@ -608,6 +608,7 @@ include(cmake/Local172.cmake)   # LOCAL-172: binary map audit of 449 uncited Rot
 include(cmake/Local173.cmake)   # LOCAL-173: objects/modules part 3 of 4 (fork issue 954; OPENBFME_LOCAL173_TESTS)
 include(cmake/Local174.cmake)   # LOCAL-174: binary map audit of 447 uncited RotWK object-module functions (fork issue 955; OPENBFME_LOCAL174_TESTS)
 include(cmake/Local181.cmake)   # LOCAL-181: hordes, locomotion and map / terrain logic binary-map audit (fork issue 962; OPENBFME_LOCAL181_TESTS)
+include(cmake/Local192.cmake)   # LOCAL-192: SoundStealthOff/On and SoundExit/Enter object audio (fork issue 985; OPENBFME_LOCAL192_TESTS)
 include(cmake/Local178.cmake)   # LOCAL-178: AI and pathfinding binary-map audit part 2 (fork issue 959; OPENBFME_LOCAL178_TESTS)
 include(cmake/Local177.cmake)   # LOCAL-177: AI and pathfinding binary map audit + handleEngagedFlag / getTurretRotAndPitch (fork issue 958; OPENBFME_LOCAL177_TESTS)
 include(cmake/Local165.cmake)   # LOCAL-165: AITactic::NotifyTeamCancelled (RW 0x8F2727) & SkirmishAI::UnRegister(Team*) (RW 0x6C77B2) (fork issue 932; OPENBFME_LOCAL165_TESTS)
@@ -1512,6 +1513,7 @@ add_executable(openbfme_tests
     ${OPENBFME_LOCAL173_TESTS}
     ${OPENBFME_LOCAL174_TESTS}
     ${OPENBFME_LOCAL181_TESTS}
+    ${OPENBFME_LOCAL192_TESTS}
     ${OPENBFME_LOCAL178_TESTS}
     ${OPENBFME_LOCAL177_TESTS}
     ${OPENBFME_LOCAL165_TESTS}
