@@ -358,16 +358,22 @@ void GettingBuiltBehavior::startNeighborhoodRebuild(bool force)
 	}
 }
 
-// RW 0x0085733A: destroys effectively dead linked pieces when this module is deleted
-void GettingBuiltBehavior::destroyDeadLinkedPiecesOnDelete()
+// RW 0x0085733A (the module's destructor body after the worker kill, RW 0x4D0EAF / vslot 8 of the interface at +0x20): every piece of the linked list (+ 0x40) that
+// RW 0x449681 still finds and whose Object + 0x458 bit 0 (effectively dead) is set leaves the pathfinder's map (RW 0x6E85FB on [0xDE4B40] + 0x10). It does NOT destroy the piece
+void GettingBuiltBehavior::removeDeadLinkedPiecesFromPathfinder()
 {
 	Object *obj = getObject();
+	AIWorld *ai = obj->logic().aiWorld();
+	if (!ai)
+	{
+		return; // no pathfinder map exists (a unit test world): nothing to remove from
+	}
 	for (const LinkedPiece &piece : m_linked)
 	{
 		Object *linked = obj->logic().findObjectByID(piece.id);
 		if (linked && linked->isEffectivelyDead())
 		{
-			obj->logic().destroyObject(linked);
+			ai->removeObjectFromPathfindMap(*linked); // RW 0x6E85FB
 		}
 	}
 }
@@ -494,9 +500,17 @@ int rebuildPrice(float cost)
 }
 } // namespace
 
+// RW 0x00856280 (vslot 0x50 = neighborhoodRebuildCost, RW 0x857074): the money (player + 0x94) >= (int)ceil(the neighborhood's cost); no player answers false
+bool GettingBuiltBehavior::canAffordNeighborhoodRebuild(const Player *player) const
+{
+	if (!player) { return false; }
+	const int price = rebuildPrice(neighborhoodRebuildCost(*player));
+	return (std::uint32_t)price <= player->getMoney()->countMoney();
+}
+
 bool GettingBuiltBehavior::canAffordRebuild(const Player &player) const
 {
-	// RW 0x00856280 / 0x8561EA: the money (player + 0x94) >= (unsigned)ceil(rebuildCost)
+	// RW 0x8561EA: the money (player + 0x94) >= (unsigned)ceil(rebuildCost)
 	const int price = rebuildPrice(rebuildCost(player));
 	return (std::uint32_t)price <= player.getMoney()->countMoney();
 }
@@ -597,7 +611,7 @@ void GettingBuiltBehavior::startConstruction(bool force)
 	m_checkCompletion = true;
 }
 
-// RW 0x0085757F: stops construction, releases builder if any, and stops held building loop
+// slot 5 RW 0x856644. (RW 0x85757F is another function: it calls slot 5 of the FoundationAIUpdate of the object at Object + 0x78, sets +0x30 and runs RW 0x857238; not ported)
 void GettingBuiltBehavior::stopConstruction()
 {
 	Object *obj = getObject();
@@ -1196,7 +1210,7 @@ void FoundationAIUpdate::xfer(Xfer &x)
 	xferUpdateModule(x);
 }
 
-// RW 0x008575D5: GettingBuiltBehavior::xfer
+// OpenBFME native snapshot (S-4190). RW's xfer (RW 0x8575D5) is xferVersion(1, 9), RW 0x850C60 and the module's own fields; its order is not followed
 void GettingBuiltBehavior::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);

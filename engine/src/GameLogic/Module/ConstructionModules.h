@@ -128,8 +128,10 @@ public:
 	bool canNeighborhoodRebuild() const;
 	// RW 0x00856FBE: starts construction on this effectively dead structure and contiguous dead equivalents
 	void startNeighborhoodRebuild(bool force);
-	// RW 0x0085733A: destroys effectively dead linked pieces when this module is deleted
-	void destroyDeadLinkedPiecesOnDelete();
+	// RW 0x0085733A: the destructor's loop: the effectively dead linked pieces leave the pathfinder's map (RW 0x6E85FB); nothing is destroyed
+	void removeDeadLinkedPiecesFromPathfinder();
+	// RW 0x00856280 (vslot 0x50): the money covers ceil(neighborhoodRebuildCost)
+	bool canAffordNeighborhoodRebuild(const Player *player) const;
 
 	// slot 17 RW 0x8574F0: runs the update now, then sleeps `frames` (a wall span staggers its tiles by StaggeredBuildFactor * index)
 	void runNowThenSleep(UnsignedInt frames);
