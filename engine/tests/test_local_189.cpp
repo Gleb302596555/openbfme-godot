@@ -6,6 +6,8 @@
 #include "MoveTestUtil.h"
 #include "ScriptTestUtil.h"
 
+#include "Common/Dict.h"
+#include "Common/MapObject.h"
 #include "Common/Player.h"
 #include "Common/PlayerList.h"
 #include "Common/SpecialPower.h"
@@ -23,19 +25,20 @@
 
 #include <cmath>
 #include <string>
+#include <vector>
 
 using namespace scripttest;
 
 namespace
 {
 
-void startEngine(GameLogic &logic, const TerrainLogic *terrain = nullptr)
+void startEngine(GameLogic &logic)
 {
 	ScriptEngine::SideScripts side;
 	side.sideName = "";
 	static ScriptList empty;
 	side.lists.push_back(&empty);
-	logic.scriptEngine().newGame({ side }, terrain, nullptr, false);
+	logic.scriptEngine().newGame({ side }, nullptr, nullptr, false);
 }
 
 void run(ScriptEngine &e, const ScriptActionRec &a)
@@ -46,6 +49,17 @@ void run(ScriptEngine &e, const ScriptActionRec &a)
 std::string qual(Team *t)
 {
 	return t->getControllingPlayer()->getPlayerName() + "/" + t->getName();
+}
+
+MapObject makeWaypoint(int id, const char *name, float x, float y)
+{
+	MapObject a;
+	a.m_objectName = "*Waypoints/Waypoint";
+	a.m_location = { x, y, 0.0f };
+	a.m_properties.setInt("waypointID", id);
+	a.m_properties.setAsciiString("waypointName", name);
+	a.m_isWaypoint = true;
+	return a;
 }
 
 const char *kLocal189Powers =
@@ -86,6 +100,38 @@ const char *kLocal189Objects =
 	"  End\n"
 	"End\n";
 
+struct Local189Fixture
+{
+	movetest::MoveWorld w;
+	SpecialPowerStore spStore;
+	SpecialPowerStore *prevSp = nullptr;
+	Player *p1 = nullptr;
+	Player *p2 = nullptr;
+
+	Local189Fixture() : w(30, 30)
+	{
+		prevSp = TheSpecialPowerStore;
+		TheSpecialPowerStore = &spStore;
+		w.w.fx.env.blocks.registerBlock("SpecialPower", [](INI *ini) { SpecialPowerStore::parseSpecialPowerDefinitionGlobal(ini); });
+		REQUIRE(w.w.load(kLocal189Powers, INI_LOAD_OVERWRITE, "l189_powers.ini").empty());
+		REQUIRE(w.w.load(kLocal189Objects, INI_LOAD_OVERWRITE, "l189_objects.ini").empty());
+		w.buildMap();
+
+		p1 = w.players.findPlayerWithName("Player_1");
+		p2 = w.players.findPlayerWithName("Player_2");
+		if (!p1) p1 = w.players.getNthPlayer(1);
+		if (!p2) p2 = w.players.getNthPlayer(2);
+		REQUIRE(p1 != nullptr);
+		REQUIRE(p2 != nullptr);
+		startEngine(*w.logic);
+	}
+
+	~Local189Fixture()
+	{
+		TheSpecialPowerStore = prevSp;
+	}
+};
+
 } // namespace
 
 // RW 0x7C3FD1 (TEAM_TELEPORT_TO_WAYPOINT, case 503): teleports every member of the team via Object::teleportTo (RW 0x696E63).
@@ -94,12 +140,11 @@ TEST_CASE("LOCAL-189 TEAM_TELEPORT_TO_WAYPOINT (RW 0x7C3FD1) and PLAYER_CREATE_T
 {
 	combattest::CombatWorld w;
 	TerrainLogic terrain;
-	Waypoint wp;
-	wp.id = 1;
-	wp.name = "WP_L189_Dest";
-	wp.location = { 320.0f, 440.0f, 0.0f };
-	terrain.setWaypoints({ wp });
-	startEngine(*w.logic, &terrain);
+	std::vector<MapObject> objs;
+	objs.push_back(makeWaypoint(1, "WP_L189_Dest", 320.0f, 440.0f));
+	terrain.init(&w.mw.w.hm, objs, {});
+	w.logic->setTerrain(&terrain);
+	startEngine(*w.logic);
 	ScriptEngine &e = w.logic->scriptEngine();
 
 	Object *u1 = w.spawn("Dummy", 'A', 100.0f, 100.0f);
@@ -150,11 +195,11 @@ TEST_CASE("LOCAL-189 SET_STOPPING_DISTANCE (RW 0x7C10C0) updates Locomotor m_clo
 
 	const float initial = loco->getCloseEnoughDist();
 	// Below 0.5f threshold (RW 0xBD869C): ignored
-	run(e, act("SET_STOPPING_DISTANCE", { sp(3, qual(t)), rp(1, 0.4f) }));
+	run(e, act("SET_STOPPING_DISTANCE", { sp(3, qual(t)), rp(0.4f) }));
 	CHECK(loco->getCloseEnoughDist() == initial);
 
 	// At/above 0.5f threshold: applied
-	run(e, act("SET_STOPPING_DISTANCE", { sp(3, qual(t)), rp(1, 12.5f) }));
+	run(e, act("SET_STOPPING_DISTANCE", { sp(3, qual(t)), rp(12.5f) }));
 	CHECK(loco->getCloseEnoughDist() == 12.5f);
 }
 
@@ -162,17 +207,13 @@ TEST_CASE("LOCAL-189 SET_STOPPING_DISTANCE (RW 0x7C10C0) updates Locomotor m_clo
 // sets DualWeaponBehavior +0x20 (m_closeRequest).
 TEST_CASE("LOCAL-189 TEAM/NAMED_TOGGLE_CLOSE_RANGE_WEAPON (RW 0x7C3B6E / RW 0x7C3C0A) toggles DualWeaponBehavior m_closeRequest")
 {
-	movetest::TestWorld w;
-	w.loadIniText(kLocal189Objects);
-	w.initPlayers({ "Alpha" });
-	startEngine(w.logic);
-	ScriptEngine &e = w.logic.scriptEngine();
+	Local189Fixture fx;
+	ScriptEngine &e = fx.w.logic->scriptEngine();
 
-	Player *p = w.logic.players().findPlayerWithName("Alpha");
-	REQUIRE(p);
-	Team *t = w.logic.players().teams().createTeam(w.logic.players().teams().initTeam("HeroTeam", p, true), true);
+	TeamFactory &teams = fx.w.logic->players().teams();
+	Team *t = teams.createTeam(teams.initTeam("HeroTeam", fx.p1, true), true);
 	REQUIRE(t);
-	Object *hero = w.spawn("L189_DualHero", p, 100.0f, 100.0f);
+	Object *hero = fx.w.spawn("L189_DualHero", 100.0f, 100.0f, fx.p1);
 	REQUIRE(hero);
 	hero->setTeam(t);
 	hero->setName("MyDualHero");
@@ -195,57 +236,53 @@ TEST_CASE("LOCAL-189 TEAM/NAMED_TOGGLE_CLOSE_RANGE_WEAPON (RW 0x7C3B6E / RW 0x7C
 // RW 0x7C6040 (FIRE_SPECIAL_POWER_ON_NEAREST_OBJECTTYPE_BY_PLAYER, case 446) -> RW 0x7C4CA0 -> RW 0x7C112E.
 TEST_CASE("LOCAL-189 FIRE_SPECIAL_POWER_ON_TEAM (RW 0x7C4BDB) and _ON_NEAREST_OBJECTTYPE* (RW 0x7C6170 / RW 0x7C6040 / RW 0x7C4CA0)")
 {
-	movetest::TestWorld w;
-	w.loadIniText(kLocal189Powers);
-	w.loadIniText(kLocal189Objects);
-	w.initPlayers({ "Alpha", "Beta" });
-	startEngine(w.logic);
-	ScriptEngine &e = w.logic.scriptEngine();
+	Local189Fixture fx;
+	ScriptEngine &e = fx.w.logic->scriptEngine();
 
-	Player *pA = w.logic.players().findPlayerWithName("Alpha");
-	Player *pB = w.logic.players().findPlayerWithName("Beta");
-	REQUIRE(pA);
-	REQUIRE(pB);
 	const SpecialPowerTemplate *spTmpl = TheSpecialPowerStore ? TheSpecialPowerStore->findSpecialPowerTemplate("SP_L189_Test") : nullptr;
 	REQUIRE(spTmpl);
 
-	Object *caster = w.spawn("L189_Caster", pA, 50.0f, 50.0f);
+	Object *caster = fx.w.spawn("L189_Caster", 50.0f, 50.0f, fx.p1);
 	REQUIRE(caster);
 	SpecialPowerModuleInterface *spm = SpecialPowerModules::findModule(*caster, spTmpl);
 	REQUIRE(spm);
 
-	Team *targetTeam = w.logic.players().teams().createTeam(w.logic.players().teams().initTeam("TgtTeam", pB, true), true);
+	TeamFactory &teams = fx.w.logic->players().teams();
+	Team *targetTeam = teams.createTeam(teams.initTeam("TgtTeam", fx.p2, true), true);
 	REQUIRE(targetTeam);
-	Object *t1 = w.spawn("L189_Target", pB, 200.0f, 200.0f);
+	Object *t1 = fx.w.spawn("L189_Target", 200.0f, 200.0f, fx.p2);
 	REQUIRE(t1);
 	t1->setTeam(targetTeam);
-	w.stepFrames(2);
+	fx.w.frames(2);
+
+	const std::string p1Name = fx.p1->getPlayerName();
+	const std::string p2Name = fx.p2->getPlayerName();
 
 	// 1. FIRE_SPECIAL_POWER_ON_TEAM (RW 0x7C4BDB)
 	CHECK(spm->isReady());
-	run(e, act("FIRE_SPECIAL_POWER_ON_TEAM", { sp(11, "Alpha"), sp(29, "SP_L189_Test"), sp(3, qual(targetTeam)) }));
+	run(e, act("FIRE_SPECIAL_POWER_ON_TEAM", { sp(11, p1Name), sp(29, "SP_L189_Test"), sp(3, qual(targetTeam)) }));
 	CHECK(!spm->isReady());
 
-	// Reset readiness by advancing past reload (10000ms = 50 frames at 5fps)
-	w.stepFrames(60);
+	// Advance past reload (10000ms = 50 frames at 5fps)
+	fx.w.frames(60);
 	REQUIRE(spm->isReady());
 
-	// 2. FIRE_SPECIAL_POWER_ON_NEAREST_OBJECTTYPE_BY_PLAYER (RW 0x7C6040): no L189_Target owned by Alpha -> does not fire
+	// 2. FIRE_SPECIAL_POWER_ON_NEAREST_OBJECTTYPE_BY_PLAYER (RW 0x7C6040): no L189_Target owned by p1 -> does not fire
 	run(e, act("FIRE_SPECIAL_POWER_ON_NEAREST_OBJECTTYPE_BY_PLAYER",
-		{ sp(11, "Alpha"), sp(29, "SP_L189_Test"), sp(61, "L189_Target"), sp(3, qual(targetTeam)), sp(11, "Alpha") }));
+		{ sp(11, p1Name), sp(29, "SP_L189_Test"), sp(61, "L189_Target"), sp(3, qual(targetTeam)), sp(11, p1Name) }));
 	CHECK(spm->isReady());
 
-	// Owned by Beta -> fires via RW 0x7C4CA0 -> RW 0x7C112E
+	// Owned by p2 -> fires via RW 0x7C4CA0 -> RW 0x7C112E
 	run(e, act("FIRE_SPECIAL_POWER_ON_NEAREST_OBJECTTYPE_BY_PLAYER",
-		{ sp(11, "Alpha"), sp(29, "SP_L189_Test"), sp(61, "L189_Target"), sp(3, qual(targetTeam)), sp(11, "Beta") }));
+		{ sp(11, p1Name), sp(29, "SP_L189_Test"), sp(61, "L189_Target"), sp(3, qual(targetTeam)), sp(11, p2Name) }));
 	CHECK(!spm->isReady());
 
-	w.stepFrames(60);
+	fx.w.frames(60);
 	REQUIRE(spm->isReady());
 
 	// 3. FIRE_SPECIAL_POWER_ON_NEAREST_OBJECTTYPE (RW 0x7C6170): any owner -> fires
 	run(e, act("FIRE_SPECIAL_POWER_ON_NEAREST_OBJECTTYPE",
-		{ sp(11, "Alpha"), sp(29, "SP_L189_Test"), sp(61, "L189_Target"), sp(3, qual(targetTeam)) }));
+		{ sp(11, p1Name), sp(29, "SP_L189_Test"), sp(61, "L189_Target"), sp(3, qual(targetTeam)) }));
 	CHECK(!spm->isReady());
 }
 
@@ -269,9 +306,6 @@ TEST_CASE("LOCAL-189 TEAM_MOVE_TO_NEAREST_OBJECT_OF_KINDOF* (RW 0x7C2CF5 / RW 0x
 	mover->setTeam(t);
 	w.frames(2);
 
-	
-
-	// Use a KindOf bit present on Dummy (check Dummy's kindOf)
 	int dummyBit = -1;
 	const auto &mask = w.logic->templateInfo(ownStruct->getTemplate()).kindOf;
 	for (int b = 0; b < 224; ++b)
@@ -301,7 +335,7 @@ TEST_CASE("LOCAL-189 TEAM_MOVE_TO_NEAREST_OBJECT_OF_KINDOF* (RW 0x7C2CF5 / RW 0x
 	const float toEnemy = std::fabs(mover->getPosition()->x - 500.0f) + std::fabs(mover->getPosition()->y - 700.0f);
 	CHECK(toEnemy < 45.0f); // tolerance: move ends within arrival distance and unit radii
 
-	// Any player -> moves toward nearest (ownStruct at 560, 500 is closer once we teleport mover to 550, 500)
+	// Any player -> moves toward nearest (ownStruct at 560, 500 is closer once we teleport mover to 540, 500)
 	Coord3D nearOwn{ 540.0f, 500.0f, 0.0f };
 	mover->teleportTo(&nearOwn, false);
 	w.frames(2);
