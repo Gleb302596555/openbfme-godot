@@ -1131,6 +1131,18 @@ struct EffectProbe
 		{
 			p.expects.push_back({ TIMER_REFRESH, cls });
 		}
+		else if (const DevastateSpecialPower *dsp = dynamic_cast<const DevastateSpecialPower *>(m))
+		{
+			// LOCAL-186 (fork issue 979): RW 0x8CC73E..0x8CC8E2 — DevastateSpecialPower topples/harvests trees within Radius and fires FireWeapon
+			const auto *dd = dynamic_cast<const DevastateSpecialPowerModuleData *>(dsp->getModuleData());
+			if (dd && !dd->m_fireWeapon.empty() && TheWeaponStore)
+			{
+				if (const WeaponTemplate *wt = TheWeaponStore->findWeaponTemplate(dd->m_fireWeapon))
+				{
+					inspectWeaponSpecial(cls, dd->m_fireWeapon, wt, holder, p, target);
+				}
+			}
+		}
 		else if (dynamic_cast<const HordeDispatchSpecialPower *>(m))
 		{
 			// lane FACT-C: the horde passes the power on to its members (S-2001): their modules carry the results

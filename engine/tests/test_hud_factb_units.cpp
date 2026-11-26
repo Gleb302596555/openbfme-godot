@@ -398,6 +398,9 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 			items.push_back(e);
 		}
 	}
+	// LOCAL-186 (fork issue 979): snapshot initial player upgrades so GrantUpgradeCreate from an earlier object
+	// (e.g. ArnorArveduiGoodRing -> ArnorUnitedPing -> Upgrade_TheArveduiRing) does not leak into later objects (ArnorArveduiNew)
+	const UpgradeMaskType basePlayerUpgrades = g.rig.local->getCompletedUpgradeMask();
 	for (const factb::Entry *e : items)
 	{
 		const ThingTemplate *tt = s.world->things().findTemplate(e->name);
@@ -485,6 +488,16 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 				g.rig.local->removeCompletedUpgrade(nu);
 			}
 			fixtureUpgrades.clear();
+			if (TheUpgradeCenter)
+			{
+				for (const UpgradeTemplate *ut : TheUpgradeCenter->templates())
+				{
+					if (ut && ut->getUpgradeType() == UPGRADE_TYPE_PLAYER && g.rig.local->hasUpgradeComplete(ut) && !basePlayerUpgrades.test((unsigned)ut->getMaskBit()))
+					{
+						g.rig.local->removeUpgrade(ut, true);
+					}
+				}
+			}
 			for (ObjectID id : { uid, enemyUnitId, enemyBuildingId, allyId, ownHordeId })
 			{
 				if (Object *o = id != INVALID_ID ? g.logic().findObjectByID(id) : nullptr)
@@ -4280,14 +4293,26 @@ void spellBookOf(const std::string &faction, Results &res, bool viaStore)
 		auto play = [&](bool cast) {
 			Outcome out;
 			std::vector<ObjectID> scene;
+			const SpecialPowerTemplate *spT = btn.power->getFinalOverride();
+			// LOCAL-132 / LOCAL-186 (fork issue 979): when ForbiddenObjectFilter forbids enemy units or structures within ForbiddenObjectRange
+			// (e.g. SpellBookHammerderUnterwelt range 220, SpellBookSummonStoneGiants range 120 + RadiusCursorRadius 120), place the forbidden
+			// enemy objects outside max(ForbiddenObjectRange, RadiusCursorRadius) + 100 so the clear-shroud spot at c is valid (RW 0x82D2FD / 0x82E586)
+			const bool hasForbid = (spT->m_flags & SPF_NO_FORBIDDEN_OBJECTS) && spT->m_forbiddenObjectRange > 0.0f;
+			const float forbidClear = hasForbid ? std::max(spT->m_forbiddenObjectRange, spT->m_radiusCursorRadius) + 100.0f : 0.0f;
 			Object *mine = g.rig.make(ownHordeOf(faction), c.x - 60.0f, c.y);
 			scene.push_back(mine->getID());
-			scene.push_back(g.rig.make("GondorFighterHorde", c.x + 60.0f, c.y, enemy)->getID());
-			const SpecialPowerTemplate *spT = btn.power->getFinalOverride();
-			// LOCAL-132: when ForbiddenObjectFilter forbids structures within ForbiddenObjectRange (e.g. SpellBookHammerderUnterwelt, range 220),
-			// place the scene's enemy structures outside that range so the clear spot at c is valid
-			const float structOff = (spT->m_flags & SPF_NO_FORBIDDEN_OBJECTS) && spT->m_forbiddenObjectRange > 140.0f
-			                      ? spT->m_forbiddenObjectRange + 80.0f : 0.0f;
+			float enemyHordeX = c.x + 60.0f;
+			if (hasForbid && spT->m_forbiddenObjectFilter)
+			{
+				const ThingTemplate *gfh = g.logic().things().findTemplate("GondorFighterHorde");
+				if (gfh && (spT->m_forbiddenObjectFilter->relationships & ObjectFilter::REL_ENEMIES)
+				    && factb::hasKindOf(*gfh, "INFANTRY"))
+				{
+					enemyHordeX = c.x + std::max(60.0f, forbidClear);
+				}
+			}
+			scene.push_back(g.rig.make("GondorFighterHorde", enemyHordeX, c.y, enemy)->getID());
+			const float structOff = hasForbid && forbidClear > 150.0f ? forbidClear : 0.0f;
 			scene.push_back(g.rig.make("GondorBarracks", c.x, c.y + (structOff > 0.0f ? structOff : 200.0f), enemy)->getID());
 			scene.push_back(g.rig.make("GondorFarm", c.x, c.y - (structOff > 0.0f ? structOff : 150.0f), enemy)->getID()); // lane FACT-C: an economy structure in range (Blight's filter lists the farms, mills, mines; Snowbind takes structures within 200)
 			ObjectID clickObjId = INVALID_ID;
@@ -4340,7 +4365,13 @@ void spellBookOf(const std::string &faction, Results &res, bool viaStore)
 					if (!cand) continue;
 					if (const ThingTemplate *tt = pickSpellTarget(*spT->m_objectFilter, cand))
 					{
-						scene.push_back(g.rig.make(tt->getName(), c.x, c.y, cand)->getID());
+						Object *to = g.rig.make(tt->getName(), c.x, c.y, cand);
+						// LOCAL-186 (fork issue 979): SPECIAL_SPELL_BOOK_REBUILD (RW 0x82E93C..0x82EA56) requires a damaged allied structure
+						if (to->getBodyModule() && factb::hasKindOf(*tt, "STRUCTURE"))
+						{
+							to->getBodyModule()->setInitialHealthPercent(50.0f);
+						}
+						scene.push_back(to->getID());
 						break;
 					}
 				}
