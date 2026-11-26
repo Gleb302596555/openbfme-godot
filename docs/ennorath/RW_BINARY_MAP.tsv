@@ -2188,7 +2188,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x00465033	28	vtable-slot	compiler-glue	0xBDBC00	0xBDBC00[0]	0	0	GameClient / draw	??_GW3DBibBuffer@@QAEPAXI@Z	A	deleting-dtor: scalar deleting destructor
 0x004650B1	11	call	compiler-glue	0xBDBC04	ctor/dtor	1	0	GameClient / draw	??1Rva0006EE6F@@UAE@XZ	A	empty-dtor: mov [ecx], 0xBDBC04; jmp 0xA246B0
 0x004650BC	18	call	none	0xBDBC08	ctor/dtor	1	0	GameClient / draw	??0?$MultiListClass@VCameraShakerClass@CameraShakeSystemClass@@@@QAE@XZ	A	
-0x004650DD	137	call	none			1	0	AI / pathfinding	?rva000658DB@Rva00065964ObjectPool@@QAEPAXXZ	A	
+0x004650DD	137	call	not-reached			1	0	AI / pathfinding	?rva000658DB@Rva00065964ObjectPool@@QAEPAXXZ	A	
 0x00465207	208	call	none	0xBDBC04	ctor/dtor	1	0	unclassified		-	
 0x004652D7	411	call	none			1	0	GameClient / draw	?Compute_Rotations@CameraShakerClass@CameraShakeSystemClass@@QAEXABVVector3@@PAV3@@Z	A	
 0x00465472	68	call	none	0xBDBC08	ctor/dtor	5	0	GameClient / draw	??1?$MultiListClass@VCameraShakerClass@CameraShakeSystemClass@@@@UAE@XZ	A	
@@ -2733,7 +2733,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x0047D3B4	55	call	library			4	0	GameClient / draw	?push_back@?$vector@URva0007BB16Record@@V?$allocator@URva0007BB16Record@@@_STL@@@_STL@@QAEXABURva0007BB16Record@@@Z	A	stl: namespace _STL (STLport)
 0x0047D3EB	478	call	none			2	0	GameClient / draw	?ReAcquireResources@Rva0007DA23ResourceManager@@QAE_NXZ	A	
 0x0047D5C9	549	call	ported			1	0	GameClient / draw	?UpdateShadowMap@W3DShadowMapManager@@QAEXPAVRTS3DScene@@@Z	B	
-0x0047D889	39	call	none			3	0	AI / pathfinding	??H@YA?AVMathCoord2D@@V0@ABV0@@Z	A	
+0x0047D889	39	call	not-reached			3	0	AI / pathfinding	??H@YA?AVMathCoord2D@@V0@ABV0@@Z	A	
 0x0047D8B0	24	call	library			332	0	unclassified		-	
 0x0047D9B3	29	vtable-slot	none	0xBDCE44	0xBDCE44[0]	0	0	unclassified		-	
 0x0047D9D7	20	call	none			3	0	engine core / system	?rva0007E016@Rva0007E016@@QAEHHH@Z	A	
@@ -5404,7 +5404,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x00502024	347	call	none			1	0	engine core / system	??0Rva0010274F@@QAE@XZ	A	
 0x00502458	1024	call	none			1	0	GameClient / draw	?transitionLiveMode@W3DCamTransform@@QAEXPAVVector3@@0PAVView@@@Z	A	
 0x00502858	4299	call	ported			1	0	GameClient / draw	?rva00102F83@Rva00102F83Owner@@QAEXPAVRva0010274F@@@Z	B	
-0x00503983	39	call	none			4	0	AI / pathfinding	??G@YA?AVMathCoord2D@@V0@ABV0@@Z	A	
+0x00503983	39	call	not-reached			4	0	AI / pathfinding	??G@YA?AVMathCoord2D@@V0@ABV0@@Z	A	
 0x005039BC	5	vtable-slot	compiler-glue	0xBE5748	0xBE5748[9]	0	1	engine core / system	?rva001100C5@Rva001100C5@@QAIXPAX@Z	A	forwarder: jmp 0x6D45FA
 0x005039C1	5	vtable-slot	compiler-glue	0xBE5748	0xBE5748[10]	0	2	engine core / system	?rva001100C5@Rva001100C5@@QAIXPAX@Z	A	forwarder: jmp 0x6D7B33
 0x005039E4	61	call	ported			2	0	engine core / system	?Rva0010410FWrap@@YAMM@Z	A	
@@ -8212,7 +8212,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x005B0CC0	17	vtable-slot	none	0xBED558	0xBED558[12]	0	0	unclassified		-	
 0x005B0CE0	33	vtable-slot	none	0xBED558	0xBED558[13]	0	0	unclassified		-	
 0x005B0D10	33	vtable-slot	none	0xBED558	0xBED558[14]	0	0	unclassified		-	
-0x005B0D40	13	vtable-slot	none	0xBED558	0xBED558[15]	0	0	AI / pathfinding	?Set_Burst_Size@ParticleEmitterDefClass@@UAEXI@Z	A	
+0x005B0D40	13	vtable-slot	not-reached	0xBED558	0xBED558[15]	0	0	AI / pathfinding	?Set_Burst_Size@ParticleEmitterDefClass@@UAEXI@Z	A	
 0x005B0D50	17	vtable-slot	none	0xBED558	0xBED558[16]	0	0	unclassified		-	
 0x005B0D70	17	vtable-slot	none	0xBED558	0xBED558[17]	0	0	unclassified		-	
 0x005B0D90	17	vtable-slot	none	0xBED558	0xBED558[18]	0	0	unclassified		-	
@@ -9115,7 +9115,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x005EAADF	43	call	ported			5	0	unclassified		-	
 0x005EAB8F	486	call	ported			4	0	War of the Ring / LivingWorld	?rva001EB456@Rva001EB456@@QAEXHH@Z	B	
 0x005EAD75	78	call	none			25	0	engine core / system	??1Rva002E2D10Record@@QAE@XZ	B	
-0x005EAE5B	113	vtable-slot	none	0xBF53E0	0xBF53A8[9]	0	0	AI / pathfinding	?rva002C5F65@Rva002C5F65@@QAEXXZ	A	
+0x005EAE5B	113	vtable-slot	not-reached	0xBF53E0	0xBF53A8[9]	0	0	AI / pathfinding	?rva002C5F65@Rva002C5F65@@QAEXXZ	A	
 0x005EAE68	40	call	none			1	0	engine core / system	?rva001EB72F@Rva001EB72F@@QAEXXZ	A	
 0x005EAE75	48	call	ported			1	0	engine core / system	?rva001EB73C@Rva001EB73C@@QAE_NXZ	A	
 0x005EAE84	106	call	ported			1	0	engine core / system	?rva001EB74B@Rva001EB74B@@QAE_NPAURva001EB6A5Out@@@Z	A	
@@ -9748,7 +9748,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x005FED5B	58	call	ported			3	0	engine core / system	?rva001FF4D3@ScienceStore@@QBE_NPAVRva0043D3A8@@W4ScienceType@@@Z	A	
 0x005FED95	18	call	none			1	0	engine core / system	?isValidScience@ScienceStore@@QBE_NW4ScienceType@@@Z	A	
 0x005FEDBF	38	call	not-reached			6	0	objects / modules	?pop@FreelistPool@@QAEPAXXZ	A	
-0x005FEDE5	50	call	none			2	0	AI / pathfinding	?rva002EB416@Rva002EB416@@QAEXPAU_Rva002EB416Node@@@Z	A	
+0x005FEDE5	50	call	not-reached			2	0	AI / pathfinding	?rva002EB416@Rva002EB416@@QAEXPAU_Rva002EB416Node@@@Z	A	
 0x005FEE2D	47	vtable-slot	none	0xBF86EC	0xBF86EC[9]	0	0	engine core / system	?rva001FF5C3@Rva003B1546@@UAEXXZ	A	
 0x005FEE5C	51	call	none			3	0	engine core / system?		-	
 0x005FEE8F	56	vtable-slot	none	0xBF86EC	0xBF86EC[4]	0	0	engine core / system	?getInternalNameForScience@ScienceStore@@QBE?AVAsciiString@@W4ScienceType@@@Z	C	
@@ -11759,7 +11759,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x00639363	28	call	none			1	0	engine core / system	?Rva0022C8FBDestroy@@YGXPAURva0022C8FBElem@@@Z	A	
 0x0063937F	56	call	none			3	0	engine core / system	??1Rva002294A3@@QAE@XZ	A	
 0x006393B7	56	call	none			2	0	engine core / system	??1Rva002294D0@@QAE@XZ	A	
-0x006393EF	75	call	none	0xBFE610	ctor/dtor	1	0	AI / pathfinding	??0AerialPathfinder@@QAE@XZ	B	
+0x006393EF	75	call	ported	0xBFE610	ctor/dtor	1	0	AI / pathfinding	??0AerialPathfinder@@QAE@XZ	B	
 0x0063943A	8	vtable-slot	none	0xBFE610	0xBFE610[9]	0	0	audio	?rva002D9AD4@Rva002D9AD4@@QAEAAVBfmePoolRef10@@ABV2@@Z	A	
 0x00639442	28	vtable-slot	compiler-glue	0xBFE610	0xBFE610[0]	0	0	AI / pathfinding	??_GAerialPathfinder@@UAEPAXI@Z	A	deleting-dtor: scalar deleting destructor
 0x0063945E	59	call	ported	0xBFE610	ctor/dtor	1	0	horde / locomotion	??1LocomotorTemplate@@UAE@XZ	A	
@@ -12169,7 +12169,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x0064AD23	56	code-imm	ported			0	0	combat / weapons	?friend_newModuleInstance@DualWeaponBehavior@@SAPAVModule@@PAVThing@@PBVModuleData@@@Z	A	
 0x0064AD5B	81	code-imm	ported			0	0	combat / weapons	?friend_newModuleData@DualWeaponBehaviorModuleData@@SAPAVModuleData@@PAVINI@@@Z	A	
 0x0064ADAC	56	code-imm	ported			0	0	AI / pathfinding	?friend_newModuleInstance@AimWeaponBehavior@@SAPAVModule@@PAVThing@@PBVModuleData@@@Z	A	
-0x0064ADE4	81	code-imm	none			0	0	AI / pathfinding	?friend_newModuleData@AimWeaponBehaviorModuleData@@SAPAVModuleData@@PAVINI@@@Z	A	
+0x0064ADE4	81	code-imm	ported			0	0	AI / pathfinding	?friend_newModuleData@AimWeaponBehaviorModuleData@@SAPAVModuleData@@PAVINI@@@Z	A	
 0x0064AE35	59	code-imm	ported			0	0	combat / weapons	?friend_newModuleInstance@BezierProjectileBehavior@@SAPAVModule@@PAVThing@@PBVModuleData@@@Z	A	
 0x0064AE70	84	code-imm	ported			0	0	objects / modules	?friend_newModuleData@InstantDeathBehaviorModuleData@@SAPAVModuleData@@PAVINI@@@Z	B	
 0x0064AEC4	56	code-imm	not-reached			0	0	objects / modules	?friend_newModuleInstance@RunOffMapBehavior@@SAPAVModule@@PAVThing@@PBVModuleData@@@Z	A	
@@ -12300,8 +12300,8 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x0064CEFA	39	call	none	0xC2DEF8	ctor/dtor	1	0	unclassified		-	
 0x0064CF21	27	code-imm	none			0	0	horde / locomotion	?buildFieldParse@HordeGarrisonContainModuleData@@SAXAAVMultiIniFieldParse@@@Z	A	
 0x0064CF3C	59	code-imm	not-reached			0	0	objects / modules	?friend_newModuleInstance@HeightDieUpdate@@SAPAVModule@@PAVThing@@PBVModuleData@@@Z	B	
-0x0064CF77	81	code-imm	none			0	0	AI / pathfinding	?friend_newModuleData@AssaultTransportAIUpdateModuleData@@SAPAVModuleData@@PAVINI@@@Z	A	
-0x0064CFC8	59	code-imm	none			0	0	AI / pathfinding	?friend_newModuleInstance@GiantBirdAIUpdate@@SAPAVModule@@PAVThing@@PBVModuleData@@@Z	B	
+0x0064CF77	81	code-imm	not-reached			0	0	AI / pathfinding	?friend_newModuleData@AssaultTransportAIUpdateModuleData@@SAPAVModuleData@@PAVINI@@@Z	A	
+0x0064CFC8	59	code-imm	ported			0	0	AI / pathfinding	?friend_newModuleInstance@GiantBirdAIUpdate@@SAPAVModule@@PAVThing@@PBVModuleData@@@Z	B	
 0x0064D003	84	code-imm	ported			0	0	objects / modules	?friend_newModuleData@GiantBirdAIUpdateModuleData@@SAPAVModuleData@@PAVINI@@@Z	A	
 0x0064D057	56	code-imm	not-reached			0	0	objects / modules	?friend_newModuleInstance@HeightDieUpdate@@SAPAVModule@@PAVThing@@PBVModuleData@@@Z	A	
 0x0064D08F	81	code-imm	not-reached			0	0	objects / modules	?friend_newModuleData@HeightDieUpdateModuleData@@SAPAVModuleData@@PAVINI@@@Z	A	
@@ -12417,7 +12417,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x0064EB5F	68	call	none	0xC2DEF8	ctor/dtor	1	0	unclassified		-	
 0x0064EBA3	27	code-imm	none			0	0	horde / locomotion	?buildFieldParse@HordeGarrisonContainModuleData@@SAXAAVMultiIniFieldParse@@@Z	A	
 0x0064EBBE	59	code-imm	none			0	0	objects / modules	?friend_newModuleInstance@SupplyCenterProductionExitUpdate@@SAPAVModule@@PAVThing@@PBVModuleData@@@Z	B	
-0x0064EBF9	84	code-imm	none			0	0	AI / pathfinding	?friend_newModuleData@SupplyTruckAIUpdateModuleData@@SAPAVModuleData@@PAVINI@@@Z	A	
+0x0064EBF9	84	code-imm	not-reached			0	0	AI / pathfinding	?friend_newModuleData@SupplyTruckAIUpdateModuleData@@SAPAVModuleData@@PAVINI@@@Z	A	
 0x0064EC4D	59	code-imm	not-reached			0	0	objects / modules	?friend_newModuleInstance@MissileUpdate@@SAPAVModule@@PAVThing@@PBVModuleData@@@Z	A	
 0x0064EC88	84	code-imm	none			0	0	objects / modules	?friend_newModuleData@ExperienceScalarUpgradeModuleData@@SAPAVModuleData@@PAVINI@@@Z	A	
 0x0064ECDC	59	code-imm	ported			0	0	objects / modules	?friend_newModuleInstance@SupplyWarehouseDockUpdate@@SAPAVModule@@PAVThing@@PBVModuleData@@@Z	A	
@@ -12465,8 +12465,8 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x0064F718	27	code-imm	ported			0	0	horde / locomotion	?buildFieldParse@HordeGarrisonContainModuleData@@SAXAAVMultiIniFieldParse@@@Z	A	
 0x0064F733	59	code-imm	ported			0	0	objects / modules	?friend_newModuleInstance@GloriousChargeUpdate@@SAPAVModule@@PAVThing@@PBVModuleData@@@Z	A	
 0x0064F76E	84	code-imm	ported			0	0	objects / modules	?friend_newModuleData@SpecialDisguiseUpdateModuleData@@SAPAVModuleData@@PAVINI@@@Z	B	
-0x0064F7C6	56	code-imm	none			0	0	AI / pathfinding	?friend_newModuleInstance@AIGateUpdate@@SAPAVModule@@PAVThing@@PBVModuleData@@@Z	A	
-0x0064F7FE	81	code-imm	none			0	0	AI / pathfinding	?friend_newModuleData@AIGateUpdateModuleData@@SAPAVModuleData@@PAVINI@@@Z	A	
+0x0064F7C6	56	code-imm	ported			0	0	AI / pathfinding	?friend_newModuleInstance@AIGateUpdate@@SAPAVModule@@PAVThing@@PBVModuleData@@@Z	A	
+0x0064F7FE	81	code-imm	ported			0	0	AI / pathfinding	?friend_newModuleData@AIGateUpdateModuleData@@SAPAVModuleData@@PAVINI@@@Z	A	
 0x0064F84F	59	code-imm	ported			0	0	objects / modules	?friend_newModuleInstance@EmotionTrackerUpdate@@SAPAVModule@@PAVThing@@PBVModuleData@@@Z	A	
 0x0064F88A	81	code-imm	ported			0	0	objects / modules	?friend_newModuleData@DemoTrapUpdateModuleData@@SAPAVModuleData@@PAVINI@@@Z	A	
 0x0064F8E1	56	code-imm	ported			0	0	AI / pathfinding	?friend_newModuleInstance@AIGateUpdate@@SAPAVModule@@PAVThing@@PBVModuleData@@@Z	A	
@@ -12635,7 +12635,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x00651F91	56	code-imm	ported			0	0	horde / locomotion	?friend_newModuleInstance@SiegeDeployHordeSpecialPower@@SAPAVModule@@PAVThing@@PBVModuleData@@@Z	A	
 0x00651FC9	81	code-imm	ported			0	0	objects / modules	?friend_newModuleData@EvaAnnounceClientCreateModuleData@@SAPAVModuleData@@PAVINI@@@Z	A	
 0x0065201A	56	code-imm	ported			0	0	combat / weapons	?friend_newModuleInstance@StopSpecialPower@@SAPAVModule@@PAVThing@@PBVModuleData@@@Z	A	
-0x00652052	84	code-imm	none			0	0	AI / pathfinding	?friend_newModuleData@CombineHordeSpecialPowerModuleData@@SAPAVModuleData@@PAVINI@@@Z	A	
+0x00652052	84	code-imm	ported			0	0	AI / pathfinding	?friend_newModuleData@CombineHordeSpecialPowerModuleData@@SAPAVModuleData@@PAVINI@@@Z	A	
 0x006520A6	59	code-imm	not-reached			0	0	objects / modules	?friend_newModuleInstance@WoundArrowUpdate@@SAPAVModule@@PAVThing@@PBVModuleData@@@Z	A	
 0x006520E1	84	code-imm	not-reached			0	0	objects / modules	?friend_newModuleData@ModelConditionSpecialAbilityUpdateModuleData@@SAPAVModuleData@@PAVINI@@@Z	A	
 0x00652135	27	code-imm	ported			0	0	horde / locomotion	?buildFieldParse@HordeGarrisonContainModuleData@@SAXAAVMultiIniFieldParse@@@Z	A	
@@ -12726,7 +12726,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x00653466	52	code-imm	ported			0	0	unclassified		-	
 0x0065349A	111	call	none	0xC07A30	ctor/dtor	1	0	unclassified		-	
 0x00653509	54	code-imm	none			0	0	unclassified		-	
-0x0065353F	84	code-imm	none			0	0	AI / pathfinding	?friend_newModuleData@DetachableRiderBodyModuleData@@SAPAVModuleData@@PAVINI@@@Z	A	
+0x0065353F	84	code-imm	ported			0	0	AI / pathfinding	?friend_newModuleData@DetachableRiderBodyModuleData@@SAPAVModuleData@@PAVINI@@@Z	A	
 0x00653593	57	call	ported	0xC06800	ctor/dtor	1	0	combat / weapons	?friend_newModuleInstance@OathbreakerBody@@SAPAVModule@@PAVThing@@PBVModuleData@@@Z	D	
 0x006535CC	33	code-imm	not-reached			0	0	combat / weapons?		-	
 0x006535ED	81	code-imm	ported			0	0	combat / weapons	?friend_newModuleData@ReflectDamageModuleData@@SAPAVModuleData@@PAVINI@@@Z	A	
@@ -13285,7 +13285,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x00661F4B	7	vtable-slot	none	0xBDD9B0	0xBDD9B0[71]	0	0	engine core / system?		-	
 0x00661F67	30	call	none			1	0	engine core / system	?rva00262271@Rva00262271@@QAEXHHH@Z	A	
 0x00661F85	26	call	ported			2	0	unclassified		-	
-0x006620A2	117	data	none			0	0	AI / pathfinding	?parseTurret@AIUpdateModuleData@@CAXPAVINI@@PAX1PBX@Z	A	
+0x006620A2	117	data	ported			0	0	AI / pathfinding	?parseTurret@AIUpdateModuleData@@CAXPAVINI@@PAX1PBX@Z	A	
 0x00662117	29	call	none			1	0	engine core / system	?rva00262436@Rva00262436@@QAEPAV1@H@Z	A	
 0x00662134	74	call	none			2	0	objects / modules	?setCurScript@ScriptTracker@@QAEXPAVSequentialScript@@_NH@Z	A	
 0x0066217E	118	call	none			1	0	unclassified		-	
@@ -13299,7 +13299,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x00662364	25	call	ported			1	0	AI / pathfinding	?isTurretEnabled@AIUpdateInterface@@QBE_NW4WhichTurretType@@@Z	A	
 0x0066237D	27	call	ported			2	0	AI / pathfinding	?isTurretInNaturalPosition@AIUpdateInterface@@QBE_NW4WhichTurretType@@@Z	A	
 0x00662398	67	call	ported			1	0	AI / pathfinding	?isWeaponSlotOnTurretAndAimingAtTarget@AIUpdateInterface@@QBE_NW4WeaponSlotType@@PBVObject@@@Z	A	
-0x006623DB	54	call	none			3	0	AI / pathfinding	?getTurretRotAndPitch@AIUpdateInterface@@QBE_NW4WhichTurretType@@PAM1@Z	A	
+0x006623DB	54	call	ported			3	0	AI / pathfinding	?getTurretRotAndPitch@AIUpdateInterface@@QBE_NW4WhichTurretType@@PAM1@Z	A	
 0x00662411	46	call	ported			2	0	AI / pathfinding	?getTurretTurnRate@AIUpdateInterface@@QBEMW4WhichTurretType@@@Z	A	
 0x0066243F	44	call	ported			20	0	AI / pathfinding	?getWhichTurretForCurWeapon@AIUpdateInterface@@QBE?AW4WhichTurretType@@XZ	A	
 0x0066246B	94	call	ported			2	0	AI / pathfinding	?getWhichTurretForWeaponSlot@AIUpdateInterface@@QBE?AW4WhichTurretType@@W4WeaponSlotType@@PAM1@Z	A	
@@ -13374,7 +13374,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x006632C9	32	call	ported			164	0	AI / pathfinding	?advance@?$DLINK_ITERATOR@VObject@@@@QAEXXZ	A	
 0x006632E9	35	call	ported			10	0	AI / pathfinding	?rva00263546@Rva00263546@@QBE_NPBV1@@Z	A	
 0x0066330C	89	call	none			1	0	AI / pathfinding	?Rva00263569Xfer@@YAPAVXfer@@PAV1@PAH@Z	A	
-0x00663365	137	call	none			6	0	AI / pathfinding	?rva002635C2@Rva00065964ObjectPool@@QAEPAXXZ	B	
+0x00663365	137	call	not-reached			6	0	AI / pathfinding	?rva002635C2@Rva00065964ObjectPool@@QAEPAXXZ	B	
 0x006633EE	38	call	library			5	0	AI / pathfinding?		-	
 0x0066341C	147	call	ported	0xC0F3A8	ctor/dtor	1	0	AI / pathfinding	??0Rva00263653@@QAE@XZ	B	
 0x006634BF	109	call	ported			5	0	objects / modules	?rva002636F6@Object@@QBEMPBUCoord3D@@PBX0@Z	A	
@@ -13455,7 +13455,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x00665A83	432	call	ported			3	0	AI / pathfinding	?computeQuickPath@AIUpdateInterface@@QAE_NPBUCoord3D@@@Z	A	
 0x00665C33	3223	call	ported			2	0	AI / pathfinding	?computePath@AIUpdateInterface@@QAE_NPAVPathfindServicesInterface@@PAUCoord3D@@@Z	B	
 0x006668CA	1753	call	ported			1	0	AI / pathfinding	?computeAttackPath@AIUpdateInterface@@QAE_NPAVPathfindServicesInterface@@PBVObject@@PBUCoord3D@@@Z	B	
-0x00666C25	189	extra-block	none			0	0	AI / pathfinding?		-	
+0x00666C25	189	extra-block	not-reached			0	0	AI / pathfinding?		-	
 0x00666FA3	235	call	ported			1	0	AI / pathfinding?		-	
 0x0066708E	182	vtable-slot	ported	0xC10590	0xC10590[134]	0	0	AI / pathfinding?		-	
 0x00667144	48	vtable-slot	ported	0xC10590	0xC10590[137]	0	7	AI / pathfinding?		-	
@@ -14067,7 +14067,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x0068601D	195	call	none			1	0	AI / pathfinding?		-	
 0x006860E0	25	data	none			0	0	AI / pathfinding?		-	
 0x00686160	137	call	library			1	0	AI / pathfinding	?rva00285A3B@Rva00065964ObjectPool@@QAEPAXXZ	A	
-0x006861E9	137	call	none			1	0	AI / pathfinding	?rva00285AC4@Rva00065964ObjectPool@@QAEPAXXZ	B	
+0x006861E9	137	call	not-reached			1	0	AI / pathfinding	?rva00285AC4@Rva00065964ObjectPool@@QAEPAXXZ	B	
 0x0068628B	43	call	ported			3	0	combat / weapons	?rva00285B66@@YA_NPBX0@Z	A	
 0x006862B6	83	call	ported	0xC11830	ctor/dtor	4	0	combat / weapons	??0Rva00285BEC@@QAE@HH@Z	B	
 0x00686309	8	vtable-slot	compiler-glue	0xC11830	0xC11820[0]	0	0	combat / weapons?		-	adjustor: ecx, 4; jmp 0x6869BC
@@ -15063,7 +15063,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x006A964A	41	call	none			2	0	engine core / system	?rva002A8BEE@Rva002A8B8C@@QAEXXZ	A	
 0x006A9673	45	call	library			1	0	library	?Rva002A8C17Construct@@YAXPAUTreeKey00242F5E@@ABU1@@Z	A	
 0x006A96A0	98	vtable-slot	ported	0xC13DFC	0xC13DFC[10]	0	0	unclassified		-	
-0x006A9702	135	vtable-slot	none		0xC13DEC[3]	0	0	AI / pathfinding	?xfer@Rva002A8F24@@UAEXPAVXfer@@@Z	B	
+0x006A9702	135	vtable-slot	ported		0xC13DEC[3]	0	0	AI / pathfinding	?xfer@Rva002A8F24@@UAEXPAVXfer@@@Z	B	
 0x006A978E	56	call	none			2	0	engine core / system	??1Rva002A8B8C@@QAE@XZ	A	
 0x006A97C6	37	call	none			1	0	engine core / system	?Rva002A8D08Create@@YGPAXPAX@Z	A	
 0x006A97EB	28	call	none			1	0	math / support libs	?Rva002A8D2DFree@@YGXPAURva002A8D2DNode@@@Z	A	
@@ -15073,10 +15073,10 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x006A99CB	76	call	ported			5	0	unclassified		-	
 0x006A9A17	73	call	none			2	0	math / support libs	?rva002A8FE0@Rva002A8FE0@@QAEXXZ	A	
 0x006A9A60	73	call	library			1	0	math / support libs	?_M_insert@?$hashtable@U?$pair@$$CBHURva002A9029Element@@@_STL@@HU?$hash@H@2@U?$_Select1st@U?$pair@$$CBHURva002A9029Element@@@_STL@@@2@U?$equal_to@H@2@V?$allocator@U?$pair@$$CBHURva002A9029Element@@@_STL@@@2@@_STL@@QAEAAU?$pair@$$CBHURva002A9029Element@@@2@ABU32@@Z	A	stl: namespace _STL (STLport)
-0x006A9AA9	206	call	none	0xC13DFC	0xC13DFC[9]	1	0	AI / pathfinding	?reset@Rva002A921B@@UAEXXZ	B	
+0x006A9AA9	206	call	ported	0xC13DFC	0xC13DFC[9]	1	0	AI / pathfinding	?reset@Rva002A921B@@UAEXXZ	B	
 0x006A9B77	152	call	none			2	0	math / support libs	?rva002A9140@Rva002A9140@@QAEAAVAsciiString@@ABH@Z	B	
 0x006A9C14	57	call	none			2	0	math / support libs	??1Rva002A8FE0@@QAE@XZ	A	
-0x006A9C52	201	call	none	0xC13DFC	ctor/dtor	1	0	AI / pathfinding	??1Rva002A8F24@@UAE@XZ	B	
+0x006A9C52	201	call	ported	0xC13DFC	ctor/dtor	1	0	AI / pathfinding	??1Rva002A8F24@@UAE@XZ	B	
 0x006A9D1B	6	vtable-slot	compiler-glue		0xC13DEC[2]	0	0	AI / pathfinding		-	type-name: mov eax, "SkirmishAIManager"; ret (slot 2)
 0x006A9D21	8	vtable-slot	compiler-glue		0xC13DEC[0]	0	0	unclassified		-	adjustor: ecx, 0xc; jmp 0x6A9E2C
 0x006A9D29	115	data	ported			0	0	INI / templates	?parseAIDozerAssignmentDefinition@@YAXPAVINI@@@Z	B	
@@ -16003,7 +16003,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x006C6B0D	54	data	ported			0	0	AI / pathfinding?		-	
 0x006C6B6E	182	call	none			1	0	AI / pathfinding?		-	
 0x006C6C24	79	call	none			1	0	AI / pathfinding	?rva002C5F65@Rva002C5F65@@QAEXXZ	A	
-0x006C6C65	4	data	none			0	0	AI / pathfinding?		-	
+0x006C6C65	4	data	not-reached			0	0	AI / pathfinding?		-	
 0x006C6C79	56	call	none			2	0	AI / pathfinding	?rva002C5FBA@Rva002C5FBA@@QAEPAXH@Z	A	
 0x006C6C8A	14	call	none			2	0	AI / pathfinding	?get@Rva002C5FCBNullAdjustField@@QBEHXZ	A	
 0x006C6CD7	159	call	none			1	0	AI / pathfinding	?checkEnemyForAttackMove@TacticalAI@@QAE_NPAVObject@@0@Z	B	
@@ -16013,7 +16013,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x006C6E7C	133	call	none	0xC16778	0xC16778[2]	1	0	AI / pathfinding	?rva002C61AF@Rva002C60E4@@QAEXXZ	A	
 0x006C6F01	394	call	ported			2	0	AI / pathfinding?		-	
 0x006C708B	77	call	none	0xC16778	ctor/dtor	1	0	AI / pathfinding	??1Rva002C6354@@UAE@XZ	B	
-0x006C70D8	306	call	none			1	0	AI / pathfinding	?DoXfer@TacticalAI@@QAEXPAVXfer@@@Z	B	
+0x006C70D8	306	call	ported			1	0	AI / pathfinding	?DoXfer@TacticalAI@@QAEXPAVXfer@@@Z	B	
 0x006C720A	286	call	ported			2	0	AI / pathfinding	?rva002C64D0@TacticalAI@@QAEXPBUCoord3DBase@@H@Z	B	
 0x006C7280	1	data	non-code			0	0	AI / pathfinding?		-	
 0x006C7328	28	vtable-slot	compiler-glue	0xC16778	0xC16778[0]	0	0	AI / pathfinding	??_GRva002C6354@@UAEPAXI@Z	A	deleting-dtor: scalar deleting destructor
@@ -16472,7 +16472,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x006D4589	29	vtable-slot	none	0xC18E10	0xC18E10[0]	0	0	GameClient / draw?		-	
 0x006D45A6	76	call	none	0xC18E30	ctor/dtor	4	0	GameClient / draw	??1Rva002D3573@@UAE@XZ	B	
 0x006D45F2	8	vtable-slot	compiler-glue		0xC18E20[0]	0	0	unclassified		-	adjustor: ecx, 0xc; jmp 0x6D5116
-0x006D45FA	66	call	none	0xC18E30	0xC18E30[9]	1	0	AI / pathfinding	?UnRegister@TacticalAI@@QAEXPAVTeam@@@Z	A	
+0x006D45FA	66	call	ported	0xC18E30	0xC18E30[9]	1	0	AI / pathfinding	?UnRegister@TacticalAI@@QAEXPAVTeam@@@Z	A	
 0x006D4602	7	call	none			1	0	GameClient / draw	?getOverrideWindow@RadarWindowOverrideSource@@QBEPAVGameWindow@@XZ	A	
 0x006D4609	16	call	none			6	0	GameClient / draw	?hasOverrideWindow@RadarWindowOverrideSource@@QBE_NXZ	A	
 0x006D4619	12	call	none			1	0	GameClient / draw	?rva002D35E6@RadarWindowOverrideSource@@QBE_NXZ	A	
@@ -17206,7 +17206,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x006E9275	49	call	ported			1	0	AI / pathfinding	??0Rva002E7DF5@@QAE@HABU_Rva002E7DF5Cell@@@Z	A	
 0x006E92A6	176	call	ported			2	0	AI / pathfinding	?rva002E7E26@Rva002E7E26@@QAEHPAVObject@@HH@Z	A	
 0x006E9356	72	call	ported			1	0	AI / pathfinding?		-	
-0x006E9406	37	vtable-slot	none	0xC1B5B4	0xC1B5B4[0]	0	0	AI / pathfinding?		-	
+0x006E9406	37	vtable-slot	not-reached	0xC1B5B4	0xC1B5B4[0]	0	0	AI / pathfinding?		-	
 0x006E945A	88	call	none			1	0	AI / pathfinding	?Rva002E7FEDGet@@YAPAVRva002E7FED@@PAV1@PAH@Z	A	
 0x006E94B2	256	call	ported			1	0	AI / pathfinding	?iterateCellsAlongLine@Pathfinder@@AAEHPBUICoord2D@@0W4PathfindLayerEnum@@PAURva002E7261Info@@@Z	A	
 0x006E95B2	268	call	ported			1	0	AI / pathfinding	?rva002E8145@Pathfinder@@AAEHPBUICoord2D@@0W4PathfindLayerEnum@@PAURva002E8145Info@@@Z	A	
@@ -17259,8 +17259,8 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x006EC231	63	call	ported			1	0	AI / pathfinding	?rva002EADE1@Pathfinder@@QAEHPBUCoord3D@@0W4PathfindLayerEnum@@PAURva002E7ED6Info@@@Z	A	
 0x006EC56B	700	call	ported			1	0	AI / pathfinding	?rva002EB11B@Pathfinder@@QAE_NPBUICoord2D@@HPAU2@PAX@Z	A	
 0x006EC827	63	call	ported			1	0	AI / pathfinding	?rva002EB3D7@Pathfinder@@QAEHPBUCoord3D@@0W4PathfindLayerEnum@@PAURva002E7B29Info@@@Z	A	
-0x006EC866	50	call	none			2	0	AI / pathfinding	?rva002EB416@Rva002EB416@@QAEXPAU_Rva002EB416Node@@@Z	A	
-0x006EC898	50	call	none			2	0	AI / pathfinding	?rva002EB46E@Rva002EB46E@@QAEXPAU_Rva002EB46ENode@@@Z	A	
+0x006EC866	50	call	not-reached			2	0	AI / pathfinding	?rva002EB416@Rva002EB416@@QAEXPAU_Rva002EB416Node@@@Z	A	
+0x006EC898	50	call	not-reached			2	0	AI / pathfinding	?rva002EB46E@Rva002EB46E@@QAEXPAU_Rva002EB46ENode@@@Z	A	
 0x006EC8CA	40	call	ported			30	0	network / online	??1?$_Deque_base@PAXV?$allocator@PAX@_STL@@@_STL@@QAE@XZ	A	
 0x006EC8F2	63	call	ported			1	0	AI / pathfinding	?rva002EB4A0@Pathfinder@@QAEHPBUCoord3D@@0W4PathfindLayerEnum@@PAX@Z	A	
 0x006EC931	406	call	ported			1	0	AI / pathfinding	?IterateCellsInRectangle@Pathfinder@@QAEHPBUICoord2DBase@@0MHPAVRva002E7E26@@@Z	A	
@@ -17356,8 +17356,8 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x006F2153	63	call	ported			1	0	AI / pathfinding	?iterateCellsAlongLine@Pathfinder@@QAEHPBUCoord3D@@0W4PathfindLayerEnum@@PAURva002ED01EInfo@@@Z	A	
 0x006F2192	25	call	library			1	0	AI / pathfinding	??$push_heap@PAPAU_Rva002EBB53Wrap@@URva002EBB53Compare@@@_STL@@YAXPAPAU_Rva002EBB53Wrap@@0URva002EBB53Compare@@@Z	A	stl: namespace _STL (STLport)
 0x006F21AB	136	call	library			1	0	AI / pathfinding	?_M_insert@?$_Rb_tree@HU?$pair@$$CBHURva002F1DA1Mapped@@@_STL@@U?$_Select1st@U?$pair@$$CBHURva002F1DA1Mapped@@@_STL@@@2@U?$less@H@2@V?$allocator@U?$pair@$$CBHURva002F1DA1Mapped@@@_STL@@@2@@_STL@@AAE?AU?$_Rb_tree_iterator@U?$pair@$$CBHURva002F1DA1Mapped@@@_STL@@U?$_Nonconst_traits@U?$pair@$$CBHURva002F1DA1Mapped@@@_STL@@@2@@2@PAU_Rb_tree_node_base@2@0ABU?$pair@$$CBHURva002F1DA1Mapped@@@2@0@Z	A	stl: namespace _STL (STLport)
-0x006F2233	136	call	none			2	0	AI / pathfinding	?rva002F0DD6@Rva002F1DDCTree@@QAE?AURva002F1DDCIter@@PAURva002F1DDCNode@@0ABVRva002F1DDCValue@@0@Z	A	
-0x006F22BB	134	call	none			1	0	AI / pathfinding	?rva002F0E5E@Rva002F1DDCTree@@QAE?AURva002F1DDCOut@@ABVRva002F1DDCValue@@@Z	A	
+0x006F2233	136	call	not-reached			2	0	AI / pathfinding	?rva002F0DD6@Rva002F1DDCTree@@QAE?AURva002F1DDCIter@@PAURva002F1DDCNode@@0ABVRva002F1DDCValue@@0@Z	A	
+0x006F22BB	134	call	not-reached			1	0	AI / pathfinding	?rva002F0E5E@Rva002F1DDCTree@@QAE?AURva002F1DDCOut@@ABVRva002F1DDCValue@@@Z	A	
 0x006F2341	30	call	library			1	0	AI / pathfinding	??$__pop_heap_aux@PAPAU_Rva002EBB53Wrap@@PAU1@URva002EBB53Compare@@@_STL@@YAXPAPAU_Rva002EBB53Wrap@@00URva002EBB53Compare@@@Z	A	stl: namespace _STL (STLport)
 0x006F2364	666	call	ported			2	0	AI / pathfinding	?ProcessPathfindQueue@Pathfinder@@QAEXXZ	B	
 0x006F25FE	411	call	ported			1	0	AI / pathfinding	?UpdateLayer@Pathfinder@@QAEXPAVObject@@W4PathfindLayerEnum@@@Z	A	
@@ -17372,15 +17372,15 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x006F3082	48	call	ported			9	0	AI / pathfinding	?bfmeWrapE6E90@Pathfinder@@QAEEPAX00000@Z	A	
 0x006F30BC	42	call	none			1	0	AI / pathfinding	?rva002F1C5F@Rva002F1C5F@@QAEPAV1@HH@Z	A	
 0x006F30E6	42	call	none			1	0	AI / pathfinding	?rva002F1CB3@Rva002F1CB3@@QAEPAV1@HH@Z	A	
-0x006F3110	196	call	none			3	0	AI / pathfinding	?Rva002F1CDDXfer@@YAPAVXfer@@PAV1@PAV?$set@HU?$less@H@_STL@@V?$allocator@H@2@@_STL@@@Z	A	
+0x006F3110	196	call	not-reached			3	0	AI / pathfinding	?Rva002F1CDDXfer@@YAPAVXfer@@PAV1@PAV?$set@HU?$less@H@_STL@@V?$allocator@H@2@@_STL@@@Z	A	
 0x006F31D4	59	call	ported			1	0	AI / pathfinding	?insert_equal@?$_Rb_tree@HU?$pair@$$CBHURva002F1DA1Mapped@@@_STL@@U?$_Select1st@U?$pair@$$CBHURva002F1DA1Mapped@@@_STL@@@2@U?$less@H@2@V?$allocator@U?$pair@$$CBHURva002F1DA1Mapped@@@_STL@@@2@@_STL@@QAE?AU?$_Rb_tree_iterator@U?$pair@$$CBHURva002F1DA1Mapped@@@_STL@@U?$_Nonconst_traits@U?$pair@$$CBHURva002F1DA1Mapped@@@_STL@@@2@@2@ABU?$pair@$$CBHURva002F1DA1Mapped@@@2@@Z	A	
-0x006F320F	294	call	none			1	0	AI / pathfinding	?rva002F1DDC@Rva002F1DDCTree@@QAE?AURva002F1DDCIter@@U2@ABVRva002F1DDCValue@@@Z	A	
+0x006F320F	294	call	not-reached			1	0	AI / pathfinding	?rva002F1DDC@Rva002F1DDCTree@@QAE?AURva002F1DDCIter@@U2@ABVRva002F1DDCValue@@@Z	A	
 0x006F3335	23	call	library			1	0	AI / pathfinding	??$pop_heap@PAPAU_Rva002EBB53Wrap@@URva002EBB53Compare@@@_STL@@YAXPAPAU_Rva002EBB53Wrap@@0URva002EBB53Compare@@@Z	A	stl: namespace _STL (STLport)
 0x006F334C	256	call	ported			1	0	AI / pathfinding	?iterateCellsAlongLine@Pathfinder@@AAEHPBUICoord2D@@0W4PathfindLayerEnum@@PAURva002F18D4Info@@@Z	A	
 0x006F344C	256	call	ported			1	0	AI / pathfinding	?iterateCellsAlongLine@Pathfinder@@AAEHPBUICoord2D@@0W4PathfindLayerEnum@@PAURva002F1BD5Info@@@Z	A	
 0x006F354C	172	call	ported	0xC1B8D8	ctor/dtor	1	0	AI / pathfinding	??1Pathfinder@@UAE@XZ	B	
 0x006F35F8	6	vtable-slot	compiler-glue		0xC1B8C8[2]	0	0	AI / pathfinding		-	type-name: mov eax, "Pathfinder"; ret (slot 2)
-0x006F35FE	36	vtable-slot	none		0xC1B8C8[0]	0	0	AI / pathfinding?		-	
+0x006F35FE	36	vtable-slot	not-reached		0xC1B8C8[0]	0	0	AI / pathfinding?		-	
 0x006F3606	429	vtable-slot	ported		0xC1B8C8[3]	0	0	AI / pathfinding	?xfer@Pathfinder@@UAEXPAVXfer@@@Z	A	
 0x006F37B3	1215	call	ported			3	0	AI / pathfinding	?rva002F23A6@Rva002F23A6@@QAE_NPAVObject@@HHPAUCoord3D@@0@Z	B	
 0x006F3C72	21	call	ported			2	0	AI / pathfinding	?rva002F2865@Rva002F2865Host@@QAEHPADH@Z	A	
@@ -17403,7 +17403,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x006F4B66	69	call	ported			1	0	AI / pathfinding	??A?$map@IIURva002F3759Compare@@V?$allocator@U?$pair@$$CBII@_STL@@@_STL@@@_STL@@QAEAAIABI@Z	A	
 0x006F4BAB	116	call	ported			11	0	AI / pathfinding?		-	
 0x006F4BD0	467	call	none			1	0	AI / pathfinding	?rva002F379E@Pathfinder@@QAE_NPAUICoord2D@@HPAX@Z	A	
-0x006F4C70	3	data	none			0	0	AI / pathfinding?		-	
+0x006F4C70	3	data	not-reached			0	0	AI / pathfinding?		-	
 0x006F4DA3	506	call	none			1	0	AI / pathfinding	?GetAircraftPath@Pathfinder@@QAEPAVPath@@PBVObject@@PBUCoord3D@@@Z	B	
 0x006F4F9D	49	call	ported			1	0	AI / pathfinding	?isViewBlockedByObstacle@Pathfinder@@QAE_NPBVObject@@0@Z	A	
 0x006F4FCE	23	call	ported			1	0	AI / pathfinding	?isAttackViewBlockedByObstacle@Pathfinder@@QAE_NPBVObject@@PBUCoord3D@@@Z	A	
@@ -17421,7 +17421,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x006F5F65	600	call	ported			8	0	AI / pathfinding	?QuickDoesPathExistToStructure@Pathfinder@@QAE_NPAVObject@@PBUCoord3D@@0H@Z	B	
 0x006F61BD	201	call	ported			1	0	AI / pathfinding	?cellCallback@Rva002F4D8BInfo@@QAEHPAVPathfindCell@@0HH@Z	A	
 0x006F6286	462	call	ported			11	0	AI / pathfinding	?CheckChangeLayers@Pathfinder@@QAEXPAVPathfindCell@@PAVObject@@@Z	A	
-0x006F6369	7	data	none			0	0	AI / pathfinding?		-	
+0x006F6369	7	data	not-reached			0	0	AI / pathfinding?		-	
 0x006F6454	645	call	ported			1	0	AI / pathfinding	?rva002F5022@Pathfinder@@QAEXABUICoord2D@@0PAVPathfindCell@@1GPAGAAHH3@Z	A	
 0x006F66D9	1343	call	partial			2	0	AI / pathfinding	?CheckForAdjust@Pathfinder@@QAE_NPAVObject@@ABVLocomotorSet@@_NHHW4PathfindLayerEnum@@H2PAUCoord3D@@PBU5@MPAHH@Z	A	
 0x006F6C18	319	call	ported			1	0	AI / pathfinding	?rva002F57E6@Rva002F57E6Query@@QAE_NIIEIHIIEPAURva002F70E5Coord@@MPAH@Z	A	
@@ -19554,7 +19554,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x00741812	56	call	ported	0xC28468	ctor/dtor	5	0	AI / pathfinding	??0Rva0033FE65@@QAE@PAVStateMachine@@H@Z	B	
 0x0074184A	6	vtable-slot	compiler-glue	0xC28468	0xC28468[2]	0	0	AI / pathfinding?		-	type-name: mov eax, "AIIdleState"; ret (slot 2)
 0x00741850	98	call	ported	0xC28468	0xC28468[3]	1	0	AI / pathfinding?		-	
-0x007418B2	38	vtable-slot	none	0xC27978	0xC27978[6]	0	0	AI / pathfinding?		-	
+0x007418B2	38	vtable-slot	ported	0xC27978	0xC27978[6]	0	0	AI / pathfinding?		-	
 0x007418D8	75	call	none	0xC27448	ctor/dtor	8	0	AI / pathfinding	??1Rva0033FF2B@@UAE@XZ	B	
 0x00741923	180	call	ported	0xC27448	0xC27448[3]	24	1	AI / pathfinding	?xfer@AIInternalMoveToState@@MAEXPAVXfer@@@Z	B	
 0x007419F9	11	call	compiler-glue	0xC284B8	ctor/dtor	1	0	AI / pathfinding?		-	empty-dtor: mov [ecx], 0xC284B8; jmp 0x8DB944
@@ -19604,7 +19604,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x007425D8	6	vtable-slot	compiler-glue	0xC287B0	0xC287B0[2]	0	0	combat / weapons		-	type-name: mov eax, "AIAttackMeleeEngageState"; ret (slot 2)
 0x007425DE	50	vtable-slot	none	0xC28F30	0xC28F30[3]	0	1	engine core / system	?xfer@Rva00342B87@@MAEXPAVXfer@@@Z	A	
 0x00742610	81	call	none	0xC28F30	0xC28F30[4]	1	0	engine core / system	?onEnter@Rva00340C5F@@QAEHXZ	A	
-0x00742661	111	call	none	0xC29228	0xC29228[3]	1	1	AI / pathfinding	?xfer@Rva00340D1F@@MAEXPAVXfer@@@Z	A	
+0x00742661	111	call	ported	0xC29228	0xC29228[3]	1	1	AI / pathfinding	?xfer@Rva00340D1F@@MAEXPAVXfer@@@Z	A	
 0x007426D0	75	call	ported	0xC28848	ctor/dtor	1	0	AI / pathfinding	??1Rva00340D1F@@UAE@XZ	B	
 0x0074271B	6	vtable-slot	ported	0xC28848	0xC28848[2]	0	0	AI / pathfinding?		-	
 0x00742721	201	vtable-slot	ported	0xC28848	0xC28848[3]	0	1	AI / pathfinding	?xfer@Rva00340D70@@MAEXPAVXfer@@@Z	B	
@@ -19616,9 +19616,9 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x007428F3	58	vtable-slot	ported	0xC292E8	0xC292E8[3]	0	1	AI / pathfinding	?xfer@AIMoveAndDeleteState@@MAEXPAVXfer@@@Z	A	
 0x0074292D	67	call	ported			3	0	AI / pathfinding	?getNextWaypoint@AIFollowWaypointPathState@@QAEPBVWaypoint@@XZ	B	
 0x0074297E	110	call	ported			4	0	AI / pathfinding	?calcExtraPathDistance@AIFollowWaypointPathState@@QAEMXZ	A	
-0x007429EC	217	call	none	0xC28F90	0xC28F90[3]	2	1	AI / pathfinding	?xfer@Rva0034103B@@MAEXPAVXfer@@@Z	A	
+0x007429EC	217	call	ported	0xC28F90	0xC28F90[3]	2	1	AI / pathfinding	?xfer@Rva0034103B@@MAEXPAVXfer@@@Z	A	
 0x00742AC5	104	vtable-slot	partial	0xC29068	0xC29068[3]	0	1	AI / pathfinding	?xfer@AIFollowWaypointPathExactState@@UAEXPAVXfer@@@Z	A	
-0x00742B2D	65	vtable-slot	none	0xC29C98	0xC29C98[3]	0	1	AI / pathfinding	?xfer@Rva0034117C@@MAEXPAVXfer@@@Z	A	
+0x00742B2D	65	vtable-slot	ported	0xC29C98	0xC29C98[3]	0	1	AI / pathfinding	?xfer@Rva0034117C@@MAEXPAVXfer@@@Z	A	
 0x00742B6E	72	vtable-slot	ported	0xC29128	0xC29128[3]	0	1	AI / pathfinding	?xfer@AIWanderInPlaceState@@MAEXPAVXfer@@@Z	A	
 0x00742BB6	50	vtable-slot	ported	0xC290D0	0xC290D0[3]	0	1	AI / pathfinding	?xfer@Rva00341205@@MAEXPAVXfer@@@Z	A	
 0x00742BE8	62	vtable-slot	ported	0xC27668	0xC27668[3]	0	0	AI / pathfinding	?xfer@AIAttackAimAtTargetState@@MAEXPAVXfer@@@Z	A	
@@ -19650,9 +19650,9 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x00743287	89	vtable-slot	ported	0xC27A18	0xC27A18[4]	0	0	AI / pathfinding	?onEnter@AIHarvestState@@UAE?AW4StateReturnType@@XZ	A	
 0x007432E0	70	vtable-slot	ported	0xC27A18	0xC27A18[5]	0	0	AI / pathfinding	?onExit@AIHarvestState@@UAEXH@Z	B	
 0x00743326	38	vtable-slot	ported	0xC279C8	0xC279C8[6]	0	1	AI / pathfinding?		-	
-0x0074334C	73	call	none	0xC294F0	0xC294F0[3]	1	1	AI / pathfinding	?xfer@Rva00341930@@MAEXPAVXfer@@@Z	A	
+0x0074334C	73	call	ported	0xC294F0	0xC294F0[3]	1	1	AI / pathfinding	?xfer@Rva00341930@@MAEXPAVXfer@@@Z	A	
 0x00743395	27	vtable-slot	ported	0xC293B0	0xC293B0[3]	0	1	AI / pathfinding	?xfer@BackAwayAndCowerStateMachine@@MAEXPAVXfer@@@Z	A	
-0x007433B0	51	vtable-slot	none	0xC295A0	0xC295A0[3]	0	1	AI / pathfinding?		-	
+0x007433B0	51	vtable-slot	ported	0xC295A0	0xC295A0[3]	0	1	AI / pathfinding?		-	
 0x007433E3	84	vtable-slot	ported	0xC27A70	0xC27A70[6]	0	0	AI / pathfinding?		-	
 0x00743437	70	vtable-slot	ported	0xC27AC8	0xC27AC8[4]	0	0	AI / pathfinding?		-	
 0x0074347D	52	vtable-slot	ported	0xC27AC8	0xC27AC8[5]	0	0	AI / pathfinding	?onExit@AIHordeExitState@@UAEXW4StateExitType@@@Z	B	
@@ -19666,10 +19666,10 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x0074373D	5	vtable-slot	compiler-glue	0xC27D58	0xC27D58[6]	0	0	combat / weapons	??1ArmorSetFinderView@@QAE@XZ	A	forwarder: jmp 0x74356A
 0x00743742	91	call	none	0xC27DA0	ctor/dtor	1	0	unclassified		-	
 0x0074379D	26	vtable-slot	ported	0xC27DA0	0xC27DA0[8]	0	0	unclassified		-	
-0x007437B7	97	vtable-slot	none	0xC27DA0	0xC27DA0[3]	0	1	AI / pathfinding	?xfer@AIGuardState@@MAEXPAVXfer@@@Z	A	
+0x007437B7	97	vtable-slot	ported	0xC27DA0	0xC27DA0[3]	0	1	AI / pathfinding	?xfer@AIGuardState@@MAEXPAVXfer@@@Z	A	
 0x00743818	38	vtable-slot	ported	0xC27DA0	0xC27DA0[6]	0	1	AI / pathfinding	?update@AIGuardState@@UAEHXZ	A	
 0x0074383E	11	call	ported	0xC27DF8	ctor/dtor	1	0	AI / pathfinding	??1AIGoingIdleState@@UAE@XZ	B	
-0x00743849	27	call	none	0xBDD22C	0xBDD22C[3]	1	0	AI / pathfinding?		-	
+0x00743849	27	call	not-reached	0xBDD22C	0xBDD22C[3]	1	0	AI / pathfinding?		-	
 0x00743864	40	vtable-slot	ported	0xC27DF8	0xC27DF8[4]	0	0	AI / pathfinding?		-	
 0x0074388C	4	vtable-slot	ported	0xC27DF8	0xC27DF8[6]	0	0	AI / pathfinding?		-	
 0x00743890	91	call	none	0xC27E50	ctor/dtor	1	0	AI / pathfinding	??1AIGuardRetaliateState@@UAE@XZ	B	
@@ -19686,7 +19686,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x00743CA3	108	vtable-slot	ported	0xC27F10	0xC27F10[3]	0	1	AI / pathfinding?		-	
 0x00743D0F	64	vtable-slot	ported	0xC27F60	0xC27F60[4]	0	0	AI / pathfinding		-	
 0x00743D4F	35	vtable-slot	ported	0xC27F60	0xC27F60[5]	0	0	AI / pathfinding?		-	
-0x00743D72	55	vtable-slot	none	0xC29600	0xC29600[3]	0	0	AI / pathfinding?		-	
+0x00743D72	55	vtable-slot	ported	0xC29600	0xC29600[3]	0	0	AI / pathfinding?		-	
 0x00743DA9	34	vtable-slot	ported	0xC29600	0xC29600[5]	0	0	AI / pathfinding?		-	
 0x00743E6C	72	vtable-slot	ported	0xC28068	0xC28068[3]	0	0	AI / pathfinding	?xfer@AIRampageState@@MAEXPAVXfer@@@Z	A	
 0x00743EB4	81	vtable-slot	none	0xC29708	0xC29708[3]	0	1	engine core / system	?xfer@Rva003424B1@@MAEXPAVXfer@@@Z	A	
@@ -19745,7 +19745,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x007446C6	55	call	ported	0xC29128	ctor/dtor	1	0	AI / pathfinding?		-	
 0x007446FD	29	call	ported	0xC29188	ctor/dtor	1	0	AI / pathfinding	??_GAIDockState@@UAEPAXI@Z	D	
 0x0074471A	6	vtable-slot	ported	0xC29128	0xC29128[2]	0	0	AI / pathfinding?		-	
-0x00744720	34	call	none	0xC291D0	ctor/dtor	1	0	AI / pathfinding?		-	
+0x00744720	34	call	ported	0xC291D0	ctor/dtor	1	0	AI / pathfinding?		-	
 0x00744742	6	vtable-slot	compiler-glue	0xC291D0	0xC291D0[2]	0	0	AI / pathfinding	??0Rva00342D19@@QAE@PAVStateMachine@@@Z	C	type-name: mov eax, "AIPanicState"; ret (slot 2)
 0x00744748	47	call	none	0xC29228	ctor/dtor	3	0	unclassified		-	
 0x00744777	6	vtable-slot	compiler-glue	0xC29228	0xC29228[2]	0	0	unclassified		-	type-name: mov eax, "AIFollowPathState"; ret (slot 2)
@@ -19764,7 +19764,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x0074485F	28	vtable-slot	ported	0xC27920	0xC27920[0]	0	0	AI / pathfinding	??_GAIDockState@@UAEPAXI@Z	A	
 0x0074487B	28	vtable-slot	ported	0xC279C8	0xC279C8[0]	0	0	AI / pathfinding	??_GAIHarvestState@@UAEPAXI@Z	A	
 0x00744897	28	vtable-slot	ported	0xC27A18	0xC27A18[0]	0	0	AI / pathfinding	??_GAIAttackSquadState@@UAEPAXI@Z	A	
-0x007448B3	37	call	none	0xC294F0	ctor/dtor	3	0	AI / pathfinding?		-	
+0x007448B3	37	call	ported	0xC294F0	ctor/dtor	3	0	AI / pathfinding?		-	
 0x007448D8	6	vtable-slot	compiler-glue	0xC294F0	0xC294F0[2]	0	0	AI / pathfinding	??0Rva00342EAC@@QAE@PAVStateMachine@@@Z	C	type-name: mov eax, "AIEnterState"; ret (slot 2)
 0x007448DE	29	call	ported	0xC29548	ctor/dtor	1	0	AI / pathfinding	??_GRva00341D26@@UAEPAXI@Z	D	
 0x007448FB	6	vtable-slot	compiler-glue	0xC29548	0xC29548[2]	0	0	unclassified		-	type-name: mov eax, "AICombineState"; ret (slot 2)
@@ -19780,7 +19780,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x007449F9	6	vtable-slot	compiler-glue	0xC29600	0xC29600[2]	0	0	engine core / system	??0Rva00342FCD@@QAE@PAVStateMachine@@H@Z	C	type-name: mov eax, "AIFaceState"; ret (slot 2)
 0x007449FF	29	call	ported	0xC29650	ctor/dtor	1	0	AI / pathfinding	??_GAIAttackAreaState@@UAEPAXI@Z	D	
 0x00744A1C	6	vtable-slot	compiler-glue	0xC29650	0xC29650[2]	0	0	AI / pathfinding?		-	type-name: mov eax, "AIMoveAwayAndCowerState"; ret (slot 2)
-0x00744A22	33	call	none	0xC296B0	ctor/dtor	1	0	AI / pathfinding?		-	
+0x00744A22	33	call	ported	0xC296B0	ctor/dtor	1	0	AI / pathfinding?		-	
 0x00744A43	6	vtable-slot	compiler-glue	0xC296B0	0xC296B0[2]	0	0	AI / pathfinding?		-	type-name: mov eax, "AIBackAwayState"; ret (slot 2)
 0x00744A49	47	call	ported	0xC29708	ctor/dtor	1	0	AI / pathfinding?		-	
 0x00744A78	6	vtable-slot	compiler-glue	0xC29708	0xC29708[2]	0	0	AI / pathfinding?		-	type-name: mov eax, "AIChargeTargetState"; ret (slot 2)
@@ -19837,22 +19837,22 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x00746C2A	63	vtable-slot	ported	0xC275A0	0xC275A0[5]	0	1	unclassified		-	
 0x00746C69	333	vtable-slot	none	0xC28D90	0xC28D90[17]	0	4	AI / pathfinding	?onEnter@AIAttackMeleeHordeWaitPathState@@UAE?AW4StateReturnType@@XZ	C	
 0x00746DB6	1049	vtable-slot	ported	0xC28E60	0xC28E60[17]	0	3	AI / pathfinding	?computePath@AIAttackMeleeApproachState@@MAE_NXZ	B	
-0x00747065	6	data	none			0	0	AI / pathfinding?		-	
+0x00747065	6	data	not-reached			0	0	AI / pathfinding?		-	
 0x007471CF	905	vtable-slot	ported	0xC287B0	0xC287B0[17]	0	4	AI / pathfinding	?computePath@AIAttackMeleeEngageState@@MAE_NXZ	B	
-0x00747562	32	data	none			0	0	AI / pathfinding?		-	
+0x00747562	32	data	not-reached			0	0	AI / pathfinding?		-	
 0x0074756F	4	data	non-code			0	0	AI / pathfinding?		-	
 0x00747582	42	vtable-slot	none	0xC28F30	0xC28F30[17]	0	2	AI / pathfinding?		-	
-0x007475AC	42	vtable-slot	none	0xC29228	0xC29228[17]	0	3	AI / pathfinding?		-	
+0x007475AC	42	vtable-slot	ported	0xC29228	0xC29228[17]	0	3	AI / pathfinding?		-	
 0x007475D6	28	vtable-slot	ported	0xC28848	0xC28848[0]	0	0	AI / pathfinding	??_GRva00340D1F@@UAEPAXI@Z	A	
 0x007475F2	220	vtable-slot	none	0xC28848	0xC28848[17]	0	3	AI / pathfinding	?computePath@AIFollowPathAsTeamState@@MAE_NXZ	B	
 0x007476CE	79	call	ported	0xC29BA8	ctor/dtor	1	0	AI / pathfinding	??1AIAttackMoveToState@@UAE@XZ	B	
 0x0074771D	6	vtable-slot	ported	0xC29BA8	0xC29BA8[2]	0	0	combat / weapons		-	
 0x00747723	545	call	ported			7	0	AI / pathfinding	?computeGoal@AIFollowWaypointPathState@@QAEX_N@Z	B	
-0x00747944	79	call	none	0xC29C98	ctor/dtor	1	0	AI / pathfinding?		-	
+0x00747944	79	call	ported	0xC29C98	ctor/dtor	1	0	AI / pathfinding?		-	
 0x00747993	6	vtable-slot	compiler-glue	0xC29C98	0xC29C98[2]	0	0	AI / pathfinding	??1Rva00345F21@@UAE@XZ	C	type-name: mov eax, "AIAttackFollowWaypointPathState"; ret (slot 2)
 0x00747999	30	vtable-slot	ported	0xC277E8	0xC277E8[4]	0	0	AI / pathfinding?		-	
 0x007479B7	131	vtable-slot	ported	0xC27780	0xC27780[4]	0	0	AI / pathfinding?		-	
-0x00747A3A	76	vtable-slot	none	0xC274A8	0xC274A8[4]	0	0	AI / pathfinding?		-	
+0x00747A3A	76	vtable-slot	ported	0xC274A8	0xC274A8[4]	0	0	AI / pathfinding?		-	
 0x00747A86	92	vtable-slot	none	0xC2A1D8	0xC2A1D8[1]	0	1	AI / pathfinding	?loadPostProcess@AIAttackState@@MAEXXZ	B	
 0x00747AE2	28	vtable-slot	compiler-glue	0xC28900	0xC28900[0]	0	0	engine core / system	??_GRva0034144B@@UAEPAXI@Z	A	deleting-dtor: scalar deleting destructor
 0x00747AFE	81	call	ported			1	0	AI / pathfinding	?rva003460DB@@YA_NPAVObject@@@Z	B	
@@ -19880,8 +19880,8 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x007486FD	654	call	ported	0xC280C8	ctor/dtor	1	0	AI / pathfinding	??0AttackStateMachine@@QAE@PAVObject@@PAVRva00346D17Attack@@I_N22@Z	B	
 0x0074898B	43	call	ported			7	0	AI / pathfinding	?rva00346FA5@Rva00346FA5@@QBEPAXH@Z	A	
 0x007489B6	170	call	ported	0xC28468	0xC28468[4]	1	0	AI / pathfinding	?onEnter@Rva0033FE65@@UAE?AW4StateReturnType@@XZ	B	
-0x00748A60	150	vtable-slot	none	0xC27978	0xC27978[4]	0	0	AI / pathfinding	?onEnter@AIDeadState@@UAE?AW4StateReturnType@@XZ	B	
-0x00748AF6	30	vtable-slot	none	0xC27978	0xC27978[5]	0	0	AI / pathfinding?		-	
+0x00748A60	150	vtable-slot	ported	0xC27978	0xC27978[4]	0	0	AI / pathfinding	?onEnter@AIDeadState@@UAE?AW4StateReturnType@@XZ	B	
+0x00748AF6	30	vtable-slot	ported	0xC27978	0xC27978[5]	0	0	AI / pathfinding?		-	
 0x00748B14	247	call	ported			1	0	AI / pathfinding	?playMoveStartSound@@YAXPAVDrawable@@PAVObject@@PAVBodyModuleInterface@@@Z	B	
 0x00748C0B	383	call	ported			1	0	AI / pathfinding	?startMoveSound@AIInternalMoveToState@@AAEXXZ	B	
 0x00748D8A	188	call	ported	0xC27448	0xC27448[5]	30	0	AI / pathfinding	?onExit@AIInternalMoveToState@@UAEXW4StateExitType@@@Z	B	
@@ -19903,7 +19903,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x007498EA	78	vtable-slot	none	0xC286A8	0xC286A8[5]	0	0	AI / pathfinding?		-	
 0x00749938	46	vtable-slot	none	0xC29650	0xC29650[5]	0	0	AI / pathfinding?		-	
 0x00749966	136	vtable-slot	none	0xC29650	0xC29650[6]	0	1	AI / pathfinding	?onEnter@AIUncontrollableCower@@UAE?AW4StateReturnType@@XZ	C	
-0x007499EE	80	vtable-slot	none	0xC296B0	0xC296B0[5]	0	0	AI / pathfinding?		-	
+0x007499EE	80	vtable-slot	ported	0xC296B0	0xC296B0[5]	0	0	AI / pathfinding?		-	
 0x00749A3E	776	vtable-slot	ported	0xC28C70	0xC28C70[17]	0	5	AI / pathfinding	?computePath@AIAttackApproachTargetState@@MAE_NXZ	B	
 0x00749D46	1369	call	ported			1	0	AI / pathfinding	?updateInternal@AIAttackApproachTargetState@@AAE?AW4StateReturnType@@XZ	B	
 0x0074A29F	157	vtable-slot	none	0xC28C70	0xC28C70[6]	0	1	AI / pathfinding	?update@AIAttackApproachTargetState@@UAE?AW4StateReturnType@@XZ	B	
@@ -19918,10 +19918,10 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x0074AD8E	515	call	none			1	0	AI / pathfinding	?updateInternal@AIAttackPursueTargetState@@AAE?AW4StateReturnType@@XZ	B	
 0x0074AF91	92	vtable-slot	none	0xC28D90	0xC28D90[6]	0	1	AI / pathfinding	?update@AIAttackPursueTargetState@@UAE?AW4StateReturnType@@XZ	B	
 0x0074AFED	20	vtable-slot	none	0xC28D90	0xC28D90[5]	0	0	AI / pathfinding?		-	
-0x0074B1B2	438	vtable-slot	none	0xC28E60	0xC28E60[6]	0	1	AI / pathfinding	?Rva003552BDJump@@YAXXZ	A	
+0x0074B1B2	438	vtable-slot	ported	0xC28E60	0xC28E60[6]	0	1	AI / pathfinding	?Rva003552BDJump@@YAXXZ	A	
 0x0074B1B7	31	vtable-slot	ported	0xC28EC8	0xC28EC8[5]	0	0	AI / pathfinding?		-	
 0x0074B1D6	1308	call	ported			1	0	AI / pathfinding	?updateInternal@AIAttackMeleeEngageState@@AAE?AW4StateReturnType@@XZ	B	
-0x0074B6F2	36	vtable-slot	none	0xC287B0	0xC287B0[6]	0	1	AI / pathfinding?		-	
+0x0074B6F2	36	vtable-slot	ported	0xC287B0	0xC287B0[6]	0	1	AI / pathfinding?		-	
 0x0074B716	103	vtable-slot	ported	0xC287B0	0xC287B0[5]	0	0	AI / pathfinding	?onExit@AIAttackMeleeEngageState@@UAEXW4StateExitType@@@Z	B	
 0x0074B77D	131	call	ported	0xC29228	0xC29228[5]	2	0	AI / pathfinding	?onExit@AIFollowPathState@@UAEXW4StateExitType@@@Z	B	
 0x0074B800	95	vtable-slot	ported	0xC28848	0xC28848[5]	0	0	AI / pathfinding	?onExit@AIFollowPathAsTeamState@@UAEXW4StateExitType@@@Z	B	
@@ -19932,15 +19932,15 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x0074BA18	158	vtable-slot	ported	0xC292E8	0xC292E8[6]	0	1	AI / pathfinding	?update@AIMoveAndDeleteState@@UAE?AW4StateReturnType@@XZ	B	
 0x0074BAB6	46	call	ported	0xC28F90	0xC28F90[5]	3	0	AI / pathfinding?		-	
 0x0074BAE4	28	vtable-slot	none	0xC28FF8	0xC28FF8[5]	0	0	AI / pathfinding	??_GRva00345F21@@UAEPAXI@Z	D	
-0x0074BB00	70	vtable-slot	none	0xC29068	0xC29068[5]	0	0	AI / pathfinding?		-	
-0x0074BB46	28	vtable-slot	none	0xC29068	0xC29068[6]	0	1	AI / pathfinding?		-	
+0x0074BB00	70	vtable-slot	ported	0xC29068	0xC29068[5]	0	0	AI / pathfinding?		-	
+0x0074BB46	28	vtable-slot	ported	0xC29068	0xC29068[6]	0	1	AI / pathfinding?		-	
 0x0074BB62	28	vtable-slot	compiler-glue	0xC29C98	0xC29C98[0]	0	0	AI / pathfinding	??_GRva00345F21@@UAEPAXI@Z	A	deleting-dtor: scalar deleting destructor
 0x0074BB7E	28	vtable-slot	ported	0xC29C98	0xC29C98[5]	0	0	AI / pathfinding	?onExit@AIAttackFollowWaypointPathState@@UAEXW4StateExitType@@@Z	A	
 0x0074BB9A	360	vtable-slot	ported	0xC290D0	0xC290D0[6]	0	1	AI / pathfinding	?update@AIWanderState@@UAE?AW4StateReturnType@@XZ	C	
 0x0074BD02	65	vtable-slot	ported	0xC290D0	0xC290D0[5]	0	0	AI / pathfinding?		-	
 0x0074BD43	42	vtable-slot	ported	0xC29128	0xC29128[5]	0	0	AI / pathfinding?		-	
-0x0074BD6D	333	vtable-slot	none	0xC291D0	0xC291D0[6]	0	1	AI / pathfinding	?update@AIPanicState@@UAE?AW4StateReturnType@@XZ	B	
-0x0074BEBA	45	vtable-slot	none	0xC291D0	0xC291D0[5]	0	0	AI / pathfinding	?onExit@AIPanicState@@UAEXW4StateExitType@@@Z	A	
+0x0074BD6D	333	vtable-slot	ported	0xC291D0	0xC291D0[6]	0	1	AI / pathfinding	?update@AIPanicState@@UAE?AW4StateReturnType@@XZ	B	
+0x0074BEBA	45	vtable-slot	ported	0xC291D0	0xC291D0[5]	0	0	AI / pathfinding	?onExit@AIPanicState@@UAEXW4StateExitType@@@Z	A	
 0x0074BEE7	104	vtable-slot	none	0xC27668	0xC27668[5]	0	0	AI / pathfinding	?onExit@AIAttackAimAtTargetState@@UAEXW4StateExitType@@@Z	B	
 0x0074BF4F	665	call	none			2	0	AI / pathfinding	?updateInternal@AIAttackPositionAimAtTargetState@@QAE?AW4StateReturnType@@_N@Z	B	
 0x0074C1E8	104	vtable-slot	none	0xC276C8	0xC276C8[5]	0	0	AI / pathfinding	?onExit@AIAttackPositionAimAtTargetState@@UAEXW4StateExitType@@@Z	B	
@@ -19985,7 +19985,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x0074E3E7	163	vtable-slot	ported	0xC28BE0	0xC28BE0[4]	0	0	AI / pathfinding?		-	
 0x0074E48A	181	vtable-slot	none	0xC28B98	0xC28B98[4]	0	0	AI / pathfinding?		-	
 0x0074E53F	85	vtable-slot	none	0xC29650	0xC29650[4]	0	0	AI / pathfinding	?onEnter@AIMoveAwayAndCowerState@@UAE?AW4StateReturnType@@XZ	B	
-0x0074E594	314	vtable-slot	none	0xC296B0	0xC296B0[4]	0	0	AI / pathfinding	?onEnter@AIBackAwayState@@UAE?AW4StateReturnType@@XZ	B	
+0x0074E594	314	vtable-slot	ported	0xC296B0	0xC296B0[4]	0	0	AI / pathfinding	?onEnter@AIBackAwayState@@UAE?AW4StateReturnType@@XZ	B	
 0x0074E6CE	783	vtable-slot	ported	0xC28C70	0xC28C70[4]	0	0	AI / pathfinding?		-	
 0x0074E9DD	383	vtable-slot	ported	0xC28CD8	0xC28CD8[4]	0	0	AI / pathfinding?		-	
 0x0074EB5C	381	vtable-slot	ported	0xC28D20	0xC28D20[4]	0	0	AI / pathfinding	?onEnter@AIAttackMeleeHordeApproachTargetState@@UAE?AW4StateReturnType@@XZ	C	
@@ -19996,25 +19996,25 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x0074F594	634	vtable-slot	none	0xC28EC8	0xC28EC8[6]	0	1	AI / pathfinding	?Rva003552BDJump@@YAXXZ	A	
 0x0074F599	540	vtable-slot	ported	0xC287B0	0xC287B0[4]	0	0	AI / pathfinding	?onEnter@AIAttackMeleeEngageState@@UAE?AW4StateReturnType@@XZ	B	
 0x0074F872	26	call	none	0xC28F30	0xC28F30[6]	1	1	AI / pathfinding	?update@AIPickUpCrateState@@UAE?AW4StateReturnType@@XZ	A	
-0x0074F88C	396	call	none	0xC29228	0xC29228[4]	1	0	AI / pathfinding	?onEnter@AIFollowPathState@@UAE?AW4StateReturnType@@XZ	B	
+0x0074F88C	396	call	ported	0xC29228	0xC29228[4]	1	0	AI / pathfinding	?onEnter@AIFollowPathState@@UAE?AW4StateReturnType@@XZ	B	
 0x0074FA18	643	call	ported	0xC29228	0xC29228[6]	1	1	AI / pathfinding	?update@AIFollowPathState@@UAE?AW4StateReturnType@@XZ	B	
 0x0074FC9B	158	call	partial	0xC28848	ctor/dtor	1	0	AI / pathfinding	??0AIFollowPathAsTeamState@@QAE@PAVStateMachine@@_NI@Z	A	
 0x0074FD39	528	vtable-slot	ported	0xC28848	0xC28848[4]	0	0	AI / pathfinding	?onEnter@AIFollowPathAsTeamState@@UAE?AW4StateReturnType@@XZ	B	
 0x0074FF49	1481	vtable-slot	ported	0xC28848	0xC28848[6]	0	1	AI / pathfinding	?update@AIFollowPathAsTeamState@@UAE?AW4StateReturnType@@XZ	B	
-0x0075003C	62	vtable-slot	none			0	0	AI / pathfinding?		-	
+0x0075003C	62	vtable-slot	not-reached			0	0	AI / pathfinding?		-	
 0x00750512	106	vtable-slot	ported	0xC29288	0xC29288[4]	0	0	AI / pathfinding?		-	
 0x0075057C	147	call	none	0xC29BA8	ctor/dtor	1	0	AI / pathfinding?		-	
 0x0075060F	96	vtable-slot	none	0xC29BA8	0xC29BA8[4]	0	0	AI / pathfinding?		-	
 0x0075066F	160	vtable-slot	none	0xC292E8	0xC292E8[4]	0	0	AI / pathfinding	?onEnter@AIAttackMoveToState@@UAE?AW4StateReturnType@@XZ	C	
 0x0075070F	649	call	ported	0xC28F90	0xC28F90[4]	2	0	AI / pathfinding	?onEnter@AIFollowWaypointPathState@@UAE?AW4StateReturnType@@XZ	B	
 0x00750998	23	vtable-slot	none	0xC28FF8	0xC28FF8[4]	0	0	AI / pathfinding	?onEnter@AIFollowWaypointPathStateAndEvacuate@@UAE?AW4StateReturnType@@XZ	A	
-0x007509AF	312	vtable-slot	none	0xC29068	0xC29068[4]	0	0	AI / pathfinding	?onEnter@AIFollowWaypointPathExactState@@UAE?AW4StateReturnType@@XZ	B	
+0x007509AF	312	vtable-slot	ported	0xC29068	0xC29068[4]	0	0	AI / pathfinding	?onEnter@AIFollowWaypointPathExactState@@UAE?AW4StateReturnType@@XZ	B	
 0x00750AE7	113	call	ported	0xC29C98	ctor/dtor	1	0	AI / pathfinding	??0AIAttackFollowWaypointPathState@@QAE@PAVStateMachine@@_N@Z	A	
 0x00750B58	29	vtable-slot	ported	0xC29C98	0xC29C98[4]	0	0	AI / pathfinding	?onEnter@AIAttackFollowWaypointPathState@@UAE?AW4StateReturnType@@XZ	A	
 0x00750B75	278	vtable-slot	ported	0xC290D0	0xC290D0[4]	0	0	AI / pathfinding	?onEnter@AIWanderState@@UAE?AW4StateReturnType@@XZ	B	
 0x00750C8B	244	vtable-slot	ported	0xC29128	0xC29128[4]	0	0	AI / pathfinding	?onEnter@AIWanderInPlaceState@@UAE?AW4StateReturnType@@XZ	B	
 0x00750D7F	282	vtable-slot	ported	0xC29128	0xC29128[6]	0	1	AI / pathfinding	?update@AIWanderInPlaceState@@UAE?AW4StateReturnType@@XZ	B	
-0x00750E99	293	vtable-slot	none	0xC291D0	0xC291D0[4]	0	0	AI / pathfinding	?onEnter@AIPanicState@@UAE?AW4StateReturnType@@XZ	B	
+0x00750E99	293	vtable-slot	ported	0xC291D0	0xC291D0[4]	0	0	AI / pathfinding	?onEnter@AIPanicState@@UAE?AW4StateReturnType@@XZ	B	
 0x00750FBE	274	vtable-slot	none	0xC276C8	0xC276C8[4]	0	0	AI / pathfinding	?onEnter@AIAttackPositionAimAtTargetState@@UAE?AW4StateReturnType@@XZ	B	
 0x007510D0	28	vtable-slot	ported	0xC2A1D8	0xC2A1D8[0]	0	5	AI / pathfinding	??_GAIAttackState@@UAEPAXI@Z	A	
 0x007510EC	1269	vtable-slot	partial	0xC2A1D8	0xC2A1D8[6]	0	5	AI / pathfinding	?update@AIAttackState@@UAE?AW4StateReturnType@@XZ	B	
@@ -20023,7 +20023,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x00751777	259	vtable-slot	ported	0xC295A0	0xC295A0[4]	0	0	AI / pathfinding	?onEnter@AIEnterAndAttackState@@UAE?AW4StateReturnType@@XZ	B	
 0x0075187A	94	vtable-slot	ported	0xC28068	0xC28068[6]	0	0	AI / pathfinding	?update@AIRampageState@@UAE?AW4StateReturnType@@XZ	B	
 0x007518D8	336	vtable-slot	ported	0xC29708	0xC29708[6]	0	1	AI / pathfinding?		-	
-0x00751A28	98	vtable-slot	none	0xC29348	0xC29348[4]	0	0	AI / pathfinding	?update@AIChargeTargetState@@UAE?AW4StateReturnType@@XZ	C	
+0x00751A28	98	vtable-slot	ported	0xC29348	0xC29348[4]	0	0	AI / pathfinding	?update@AIChargeTargetState@@UAE?AW4StateReturnType@@XZ	C	
 0x00751A8A	198	vtable-slot	ported	0xC29D00	0xC29D00[4]	0	0	AI / pathfinding	?onEnter@AIMoveToPositionAndEnterState@@UAE?AW4StateReturnType@@XZ	B	
 0x00751B50	103	vtable-slot	none	0xC293B0	0xC293B0[4]	0	0	AI / pathfinding	?onEnter@AIMoveToAndEvacuateState@@UAE?AW4StateReturnType@@XZ	A	
 0x00751BB7	23	vtable-slot	none	0xC29488	0xC29488[4]	0	0	AI / pathfinding	?onEnter@AIFollowPathAndEvacuateState@@UAE?AW4StateReturnType@@XZ	A	
@@ -20042,15 +20042,15 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x00752B0F	100	call	ported	0xC294F0	0xC294F0[5]	1	0	AI / pathfinding	?onExit@AIEnterState@@UAEXW4StateExitType@@@Z	B	
 0x00752B73	129	vtable-slot	ported	0xC295A0	0xC295A0[5]	0	0	AI / pathfinding	?onExit@Rva00351109@@UAEXW4StateExitType@@@Z	B	
 0x00752BF4	63	call	ported	0xC27C48	0xC27C48[5]	1	0	AI / pathfinding?		-	
-0x00752C33	26	vtable-slot	none	0xC27D58	0xC27D58[5]	0	0	AI / pathfinding?		-	
+0x00752C33	26	vtable-slot	ported	0xC27D58	0xC27D58[5]	0	0	AI / pathfinding?		-	
 0x00752C4D	378	vtable-slot	ported	0xC27DA0	0xC27DA0[4]	0	0	AI / pathfinding	?onEnter@AIGuardState@@UAE?AW4StateReturnType@@XZ	B	
 0x00752DC7	108	vtable-slot	ported	0xC27DA0	0xC27DA0[5]	0	0	AI / pathfinding	?onExit@AIGuardState@@UAEXW4StateExitType@@@Z	B	
-0x00752E33	214	vtable-slot	none	0xC29348	0xC29348[6]	0	1	AI / pathfinding	?update@AIMoveToPositionAndDieState@@UAE?AW4StateReturnType@@XZ	B	
+0x00752E33	214	vtable-slot	ported	0xC29348	0xC29348[6]	0	1	AI / pathfinding	?update@AIMoveToPositionAndDieState@@UAE?AW4StateReturnType@@XZ	B	
 0x00752F09	163	call	library			19	0	objects / modules	??4?$vector@IV?$allocator@I@_STL@@@_STL@@QAEAAV01@ABV01@@Z	A	stl: namespace _STL (STLport)
 0x00752FAC	209	call	none			9	0	AI / pathfinding	?rva0035149F@Rva0035149F@@QAEAAV1@ABV1@@Z	A	
 0x0075307D	222	call	ported			3	0	AI / pathfinding	?rva00351570@Rva00351570@@QAEXABURva00351570Src@@@Z	A	
 0x0075315B	165	call	ported			5	0	AI / pathfinding	?reconstitute@Rva00351570@@QBEXAAURva00351570Src@@@Z	A	
-0x00753200	96	call	none	0xC2B330	ctor/dtor	3	0	AI / pathfinding	??1AIStateMachine@@UAE@XZ	B	
+0x00753200	96	call	ported	0xC2B330	ctor/dtor	3	0	AI / pathfinding	??1AIStateMachine@@UAE@XZ	B	
 0x00753260	6	vtable-slot	compiler-glue	0xC2B330	0xC2B330[2]	0	0	AI / pathfinding		-	type-name: mov eax, "AIStateMachine"; ret (slot 2)
 0x00753266	8	call	ported			8	0	AI / pathfinding	?rva00351759@Rva00351759@@QAEAAVRva0035149F@@ABV2@@Z	A	
 0x0075326E	39	call	none			1	0	INI / templates	?bfmeGoCDF@BfmeThingCDF@@QAEPAU1@PAU1@@Z	A	
@@ -20064,7 +20064,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x0075464E	92	vtable-slot	ported	0xC2B330	0xC2B330[5]	0	63	AI / pathfinding	?clear@AIStateMachine@@UAEXXZ	B	
 0x007546AA	51	call	none			2	0	AI / pathfinding	?setGoalSquad@AIStateMachine@@QAEXPBVSquad@@@Z	A	
 0x007546DD	248	vtable-slot	ported	0xC27FB8	0xC27FB8[6]	0	0	AI / pathfinding	?update@AICowerState@@UAE?AW4StateReturnType@@XZ	B	
-0x007547D5	330	vtable-slot	none	0xC296B0	0xC296B0[6]	0	1	AI / pathfinding	?update@AIBackAwayState@@UAE?AW4StateReturnType@@XZ	B	
+0x007547D5	330	vtable-slot	ported	0xC296B0	0xC296B0[6]	0	1	AI / pathfinding	?update@AIBackAwayState@@UAE?AW4StateReturnType@@XZ	B	
 0x0075491F	184	vtable-slot	ported	0xC29708	0xC29708[4]	0	0	AI / pathfinding	?onEnter@AIChargeTargetState@@UAE?AW4StateReturnType@@XZ	B	
 0x007549D7	101	call	ported			6	0	AI / pathfinding	?aiMoveToObject@AICommandInterface@@QAEXPAVObject@@W4CommandSourceType@@@Z	A	
 0x00754A3C	110	call	ported			3	0	engine core / system	?invoke@Rva00352F2FOpaque@@QAEXPBVWaypoint@@HW4CommandSourceType@@@Z	A	
@@ -20096,11 +20096,11 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x0075681A	419	vtable-slot	ported	0xC28C28	0xC28C28[4]	0	0	AI / pathfinding	?onEnter@AIFearState@@UAE?AW4StateReturnType@@XZ	B	
 0x007569BD	61	call	ported			2	0	AI / pathfinding	?Rva00264237Check@@YAHPBUCoord3D@@0@Z	A	
 0x007569FA	6	vtable-slot	compiler-glue	0xC2B474	0xC2B464[2]	0	0	AI / pathfinding	?Rva00354EB9@@YA_NPBUCoord3D@@0@Z	C	type-name: mov eax, "AiOrdersManager"; ret (slot 2)
-0x00756A00	410	call	none			1	0	AI / pathfinding	?Rva00354EFCXfer@@YAPAVXfer@@PAV1@PAPAVGroupOrder@@@Z	A	
+0x00756A00	410	call	ported			1	0	AI / pathfinding	?Rva00354EFCXfer@@YAPAVXfer@@PAV1@PAPAVGroupOrder@@@Z	A	
 0x00756B9A	106	call	none			1	0	objects / modules	?Rva00355096Xfer@@YAPAVXfer@@PAV1@PAPAVRva0054840A@@@Z	A	
-0x00756C04	27	call	none			1	0	AI / pathfinding	?Rva00355100Xfer@@YAPAVXfer@@PAV1@PAURva00355100Pair@@@Z	A	
-0x00756C1F	29	call	none			1	0	AI / pathfinding	?Rva00355100Xfer@@YAPAVXfer@@PAV1@PAURva00355100Pair@@@Z	D	
-0x00756C45	20	vtable-slot	none	0xC2B474	0xC2B474[9]	0	0	AI / pathfinding	?reset@Rva00355B61@@UAEXXZ	A	
+0x00756C04	27	call	ported			1	0	AI / pathfinding	?Rva00355100Xfer@@YAPAVXfer@@PAV1@PAURva00355100Pair@@@Z	A	
+0x00756C1F	29	call	ported			1	0	AI / pathfinding	?Rva00355100Xfer@@YAPAVXfer@@PAV1@PAURva00355100Pair@@@Z	D	
+0x00756C45	20	vtable-slot	ported	0xC2B474	0xC2B474[9]	0	0	AI / pathfinding	?reset@Rva00355B61@@UAEXXZ	A	
 0x00756C59	23	call	ported			14	0	AI / pathfinding	?rva00355155@Rva00355B61@@QBEPBVArmorTemplate@@W4NameKeyType@@@Z	A	
 0x00756C70	23	call	ported			11	0	AI / pathfinding	?rva0035516C@Rva0035516C@@QBEPBVArmorTemplate@@W4NameKeyType@@@Z	A	
 0x00756C87	27	call	ported			6	0	AI / pathfinding	?clearOrders@AiOrdersManager@@QAEXHH@Z	A	
@@ -20116,11 +20116,11 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x00756E90	230	call	ported			1	0	AI / pathfinding	?rva0035538C@AiOrdersManager@@QAEPAXABUCoord3D@@HPBV?$list@PAVCreateAHeroData@@V?$allocator@PAVCreateAHeroData@@@_STL@@@_STL@@@Z	A	
 0x00756F76	184	call	partial			1	0	AI / pathfinding	?rva00355472@AiOrdersManager@@QAEPAXABUCoord3D@@HPAVGroupOrder@@@Z	A	
 0x0075702E	63	call	ported			31	0	AI / pathfinding	?findSlot@ObjectLookupMap@@QAEPAPAVObject@@PAH@Z	A	
-0x0075706D	225	call	none			1	0	AI / pathfinding	?Rva0035552AXfer@@YAPAVXfer@@PAV1@PAX@Z	A	
-0x0075714E	89	call	none			1	0	AI / pathfinding	?cloneOrderForPatrol@AiOrdersManager@@QAEHH@Z	A	
+0x0075706D	225	call	ported			1	0	AI / pathfinding	?Rva0035552AXfer@@YAPAVXfer@@PAV1@PAX@Z	A	
+0x0075714E	89	call	ported			1	0	AI / pathfinding	?cloneOrderForPatrol@AiOrdersManager@@QAEHH@Z	A	
 0x007571A7	43	call	partial			2	0	AI / pathfinding	?rva00355664@AiOrdersManager@@QAEXABUCoord3D@@HPAVGroupOrder@@@Z	A	
-0x007571D2	225	call	none			1	0	AI / pathfinding	?Rva0035568FXfer@@YAPAVXfer@@PAV1@PAX@Z	A	
-0x007572B3	71	vtable-slot	none	0xC2B474	0xC2B464[3]	0	0	AI / pathfinding	?rva00355770@Rva00355770@@QAEXPAVXfer@@@Z	A	
+0x007571D2	225	call	ported			1	0	AI / pathfinding	?Rva0035568FXfer@@YAPAVXfer@@PAV1@PAX@Z	A	
+0x007572B3	71	vtable-slot	ported	0xC2B474	0xC2B464[3]	0	0	AI / pathfinding	?rva00355770@Rva00355770@@QAEXPAVXfer@@@Z	A	
 0x007572FA	236	call	ported			1	0	AI / pathfinding	?addOrderToObjectQueues@AiOrdersManager@@QAEXHPAVGroupOrder@@@Z	A	
 0x007573E6	51	call	ported			6	0	AI / pathfinding	?registerOrder@AiOrdersManager@@QAEXHPAVGroupOrder@@@Z	A	
 0x00757419	115	call	ported			1	0	AI / pathfinding	?rva003558D6@AiOrdersManager@@QAEXHPAVRva0036E346@@HABUCoord3D@@M_N@Z	A	
@@ -20131,7 +20131,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x007575F4	81	call	none			1	0	objects / modules	?rva00355AB1@Rva003559B5Host@@QAEXHPAVRva0036E346@@@Z	A	
 0x00757645	64	call	library			1	0	math / support libs	??0?$hashtable@U?$pair@$$CBHURva00355B02Element@@@_STL@@HU?$hash@H@2@U?$_Select1st@U?$pair@$$CBHURva00355B02Element@@@_STL@@@2@U?$equal_to@H@2@V?$allocator@U?$pair@$$CBHURva00355B02Element@@@_STL@@@2@@_STL@@QAE@IABU?$hash@H@1@ABU?$equal_to@H@1@ABV?$allocator@U?$pair@$$CBHURva00355B02Element@@@_STL@@@1@@Z	A	stl: namespace _STL (STLport)
 0x00757685	31	call	library			1	0	math / support libs	??0?$hash_map@HURva00355B02Element@@U?$hash@H@_STL@@U?$equal_to@H@3@V?$allocator@U?$pair@$$CBHURva00355B02Element@@@_STL@@@3@@_STL@@QAE@XZ	A	stl: namespace _STL (STLport)
-0x007576A4	85	call	none	0xC2B474	ctor/dtor	1	0	AI / pathfinding	??0Rva00355B61@@QAE@XZ	B	
+0x007576A4	85	call	ported	0xC2B474	ctor/dtor	1	0	AI / pathfinding	??0Rva00355B61@@QAE@XZ	B	
 0x007576F9	8	vtable-slot	compiler-glue	0xC2B474	0xC2B464[0]	0	0	unclassified		-	adjustor: ecx, 0xc; jmp 0x757701
 0x00757701	28	call	compiler-glue	0xC2B474	0xC2B474[0]	1	0	engine core / system	??_GRva00355BDA@@UAEPAXI@Z	A	deleting-dtor: scalar deleting destructor
 0x0075771D	85	call	none			1	0	engine core / system?		-	
@@ -20675,8 +20675,8 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x00765BF6	522	call	ported			1	0	AI / pathfinding	?optimizeGroundPath@Path@@QAEXH@Z	A	
 0x00765E00	68	call	ported			2	0	AI / pathfinding	?rva003641AE@Path@@QAEHMM@Z	A	
 0x00765E44	124	call	none			1	0	AI / pathfinding	?rva003641F2@Path@@QBE?AUCoord3D@@XZ	A	
-0x00765EC0	45	call	none			2	0	AI / pathfinding	?rva0036426E@Rva0036426E@@QAEXPAUFreeNode@@@Z	A	
-0x00765EED	45	call	none			2	0	AI / pathfinding	?rva0036426E@Rva0036426E@@QAEXPAUFreeNode@@@Z	A	
+0x00765EC0	45	call	not-reached			2	0	AI / pathfinding	?rva0036426E@Rva0036426E@@QAEXPAUFreeNode@@@Z	A	
+0x00765EED	45	call	not-reached			2	0	AI / pathfinding	?rva0036426E@Rva0036426E@@QAEXPAUFreeNode@@@Z	A	
 0x00765F31	578	call	ported			6	0	AI / pathfinding	?rva003642DF@Path@@QAE?AURva003642DFResult@@M@Z	A	
 0x00766173	48	call	ported			14	0	AI / pathfinding	?rva00364521@Path@@QAE?AURva003642DFResult@@PBVRva0008BB38FloatField@@@Z	A	
 0x007661A3	1120	call	ported			2	0	AI / pathfinding	?rva00364551@Path@@QAEXPAVObject@@H_NPBM@Z	A	
@@ -20735,9 +20735,9 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x00769446	11	call	compiler-glue	0xC2DB68	ctor/dtor	1	0	APT / UI / shell	??1Rva0031455E@@UAE@XZ	A	empty-dtor: mov [ecx], 0xC2DB68; jmp 0x8DB944
 0x00769451	123	call	ported	0xC2DBD0	ctor/dtor	1	0	AI / pathfinding	??1AIAttackSwoopThenIdleStateMachine@@UAE@XZ	B	
 0x007694CC	6	vtable-slot	compiler-glue	0xC2DBD0	0xC2DBD0[2]	0	0	combat / weapons		-	type-name: mov eax, "GiantBirdAttackMoveToState"; ret (slot 2)
-0x007694D2	79	call	none	0xC2DBD0	ctor/dtor	1	0	AI / pathfinding	??1GiantBirdAttackMoveToState@@UAE@XZ	A	
+0x007694D2	79	call	ported	0xC2DBD0	ctor/dtor	1	0	AI / pathfinding	??1GiantBirdAttackMoveToState@@UAE@XZ	A	
 0x00769521	72	vtable-slot	partial	0xC2DBD0	0xC2DBD0[3]	0	1	AI / pathfinding?		-	
-0x00769569	33	vtable-slot	none	0xC2DBD0	0xC2DBD0[9]	0	1	AI / pathfinding?		-	
+0x00769569	33	vtable-slot	ported	0xC2DBD0	0xC2DBD0[9]	0	1	AI / pathfinding?		-	
 0x0076958A	29	call	ported	0xC2DC30	ctor/dtor	1	0	AI / pathfinding?		-	
 0x007695A7	21	vtable-slot	ported	0xC2DC30	0xC2DC30[4]	0	0	AI / pathfinding?		-	
 0x007695BC	6	vtable-slot	compiler-glue	0xC2DC30	0xC2DC30[2]	0	0	AI / pathfinding?		-	type-name: mov eax, "GiantBirdDieState"; ret (slot 2)
@@ -20803,7 +20803,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x0076AD1D	233	call	ported	0xC2D988	0xC2D988[4]	4	0	AI / pathfinding	?onEnter@GiantBirdNormalFlightState@@UAE?AW4StateReturnType@@XZ	B	
 0x0076AE06	202	call	ported	0xC2D988	0xC2D988[6]	2	0	AI / pathfinding	?update@GiantBirdNormalFlightState@@UAE?AW4StateReturnType@@XZ	B	
 0x0076AED0	134	call	ported	0xC2D988	0xC2D988[5]	3	0	AI / pathfinding	?onExit@GiantBirdNormalFlightState@@UAEXW4StateExitType@@@Z	A	
-0x0076AF56	80	vtable-slot	none	0xC2D9E8	0xC2D9E8[3]	0	0	AI / pathfinding?		-	
+0x0076AF56	80	vtable-slot	ported	0xC2D9E8	0xC2D9E8[3]	0	0	AI / pathfinding?		-	
 0x0076AFA6	141	vtable-slot	ported	0xC2D9E8	0xC2D9E8[5]	0	0	AI / pathfinding?		-	
 0x0076B033	111	vtable-slot	ported	0xC2DA48	0xC2DA48[5]	0	0	AI / pathfinding?		-	
 0x0076B0A2	14	call	ported			1	0	AI / pathfinding?		-	
@@ -20872,7 +20872,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x0076F115	785	call	ported			1	0	AI / pathfinding	?computeGroundPath@AIGroup@@QAE_NPBUCoord3D@@W4CommandSourceType@@@Z	B	
 0x0076F426	64	call	ported			3	0	AI / pathfinding	?rva0036D6B4@Rva0036ListOwner@@QAEXXZ	B	
 0x0076F466	178	call	none			1	0	AI / pathfinding	?groupSetPositionInFormation@AIGroup@@QAEXPBUCoord3D@@0H@Z	B	
-0x0076F518	95	call	none			1	0	AI / pathfinding	?removeInvalidObjectsFromGroup@AIGroup@@QAE_NPAURva0036D7A6Outer@@@Z	B	
+0x0076F518	95	call	ported			1	0	AI / pathfinding	?removeInvalidObjectsFromGroup@AIGroup@@QAE_NPAURva0036D7A6Outer@@@Z	B	
 0x0076F577	50	call	none			1	0	AI / pathfinding	?rva0036D805@AIGroup@@QAEXH@Z	B	
 0x0076F5A9	50	call	none			1	0	AI / pathfinding	?rva0036D837@AIGroup@@QAEXH@Z	B	
 0x0076F5DB	409	call	ported			1	0	AI / pathfinding	?groupDoSpecialPower@AIGroup@@QAE_NIIH@Z	B	
@@ -20892,7 +20892,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x0076FC86	57	call	ported			1	0	AI / pathfinding	?rva0036DF14@AIGroup@@QAEXPBVUpgradeTemplate@@@Z	A	
 0x0076FCBF	69	call	ported			4	0	AI / pathfinding	?isIdle@AIGroup@@QBE_NXZ	B	
 0x0076FD04	43	call	ported			2	0	AI / pathfinding?		-	
-0x0076FD42	55	data	none			0	0	AI / pathfinding?		-	
+0x0076FD42	55	data	not-reached			0	0	AI / pathfinding?		-	
 0x0076FD74	45	call	partial			2	0	AI / pathfinding	?rva0036E0B6@AIGroup@@QBE_NXZ	B	
 0x0076FDA1	46	call	ported			1	0	AI / pathfinding	?rva0036E0E3@AIGroup@@QAE_NXZ	B	
 0x0076FDCF	71	call	none			7	0	AI / pathfinding	?getSpecialPowerSourceObject@AIGroup@@QAEPAVObject@@I@Z	A	
@@ -20948,7 +20948,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x007716C1	101	call	ported			14	0	AI / pathfinding	?aiExit@AICommandInterface@@QAEXPAVObject@@W4CommandSourceType@@@Z	A	
 0x00771726	106	call	partial			2	0	AI / pathfinding	?aiGoProne@AICommandInterface@@QAEXPBVRva003427DD@@W4CommandSourceType@@@Z	A	
 0x00771790	117	call	ported			5	0	AI / pathfinding	?aiGuardPosition@AICommandInterface@@QAEXPBUCoord3D@@W4GuardMode@@W4CommandSourceType@@@Z	A	
-0x00771805	110	call	none			3	0	AI / pathfinding	?aiGuardObject@AICommandInterface@@QAEXPAVObject@@HW4CommandSourceType@@@Z	A	
+0x00771805	110	call	ported			3	0	AI / pathfinding	?aiGuardObject@AICommandInterface@@QAEXPAVObject@@HW4CommandSourceType@@@Z	A	
 0x00771873	110	call	ported			1	0	AI / pathfinding	?rva0036F54D@AICommandInterface@@QAEXPBVTeam@@HW4CommandSourceType@@@Z	A	
 0x007718E1	110	call	ported			2	0	AI / pathfinding	?aiGuardArea@AICommandInterface@@QAEXPBVPolygonTrigger@@HW4CommandSourceType@@@Z	A	
 0x0077194F	126	call	ported			2	0	AI / pathfinding	?aiGuardAreaFromPosition@AICommandInterface@@QAEXPBVPolygonTrigger@@HW4CommandSourceType@@PBUCoord3D@@@Z	A	
@@ -20961,11 +20961,11 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x00771D24	88	call	ported			3	0	AI / pathfinding	?rva0036F9FE@AIGroup@@QAEXPBVWaypoint@@W4CommandSourceType@@H@Z	B	
 0x00771D7C	54	call	none			1	0	AI / pathfinding	?rva0036FA56@AIGroup@@QAEXPBVWaypoint@@W4CommandSourceType@@@Z	B	
 0x00771DB9	47	data	none			0	0	AI / pathfinding	?groupMoveToAndEvacuate@AIGroup@@QAEXPBUCoord3D@@W4CommandSourceType@@@Z	D	
-0x00771DFE	41	data	none			0	0	AI / pathfinding?		-	
+0x00771DFE	41	data	not-reached			0	0	AI / pathfinding?		-	
 0x00771E1E	95	call	ported			3	0	AI / pathfinding	?rva0036FAF8@Rva0036FAF8@@QAEXPBVWaypoint@@W4CommandSourceType@@H@Z	B	
 0x00771E7D	110	call	ported			2	0	AI / pathfinding	?rva0036FB57@AIGroup@@QAEXPBVWaypoint@@W4CommandSourceType@@H@Z	B	
 0x00771EEB	61	call	none			1	0	AI / pathfinding	?groupMoveToAndEvacuateAndExit@AIGroup@@QAEXPBUCoord3D@@W4CommandSourceType@@@Z	B	
-0x00771F3E	33	data	none			0	0	AI / pathfinding?		-	
+0x00771F3E	33	data	not-reached			0	0	AI / pathfinding?		-	
 0x00771F49	321	call	ported			5	0	AI / pathfinding	?groupIdle@AIGroup@@QAEXW4CommandSourceType@@@Z	B	
 0x0077208A	463	call	ported			4	0	AI / pathfinding	?groupAttackObjectPrivate@AIGroup@@AAEX_NPAVObject@@HW4CommandSourceType@@@Z	B	
 0x0077224A	2	data	non-code			0	0	AI / pathfinding?		-	
@@ -20978,12 +20978,12 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x00772452	54	call	none			1	0	AI / pathfinding	?groupGetHealed@AIGroup@@QAEXPAVObject@@W4CommandSourceType@@@Z	B	
 0x00772488	54	call	none			1	0	AI / pathfinding	?groupGetRepaired@AIGroup@@QAEXPAVObject@@W4CommandSourceType@@@Z	B	
 0x007724BE	127	call	ported			4	0	AI / pathfinding	?groupEnter@AIGroup@@QAEXPAVObject@@W4CommandSourceType@@@Z	B	
-0x0077253D	54	call	none			1	0	AI / pathfinding	?groupDock@AIGroup@@QAEXPAVObject@@W4CommandSourceType@@@Z	B	
+0x0077253D	54	call	ported			1	0	AI / pathfinding	?groupDock@AIGroup@@QAEXPAVObject@@W4CommandSourceType@@@Z	B	
 0x00772573	54	call	none			2	0	AI / pathfinding	?groupHarvest@AIGroup@@QAEXPBUCoord3D@@W4CommandSourceType@@@Z	B	
-0x007725DA	5	data	none			0	0	AI / pathfinding?		-	
+0x007725DA	5	data	not-reached			0	0	AI / pathfinding?		-	
 0x007725DF	224	call	ported			2	0	AI / pathfinding	?groupEvacuate@AIGroup@@QAEXW4CommandSourceType@@@Z	B	
 0x0077262D	1	data	non-code			0	0	AI / pathfinding?		-	
-0x007726CA	43	data	none			0	0	AI / pathfinding?		-	
+0x007726CA	43	data	not-reached			0	0	AI / pathfinding?		-	
 0x007726F5	65	call	ported			3	0	AI / pathfinding	?groupGuardPosition@AIGroup@@QAEXPBUCoord3D@@W4GuardMode@@W4CommandSourceType@@@Z	B	
 0x00772736	65	call	none			3	0	AI / pathfinding	?groupGuardObject@AIGroup@@QAEXPAVObject@@HW4CommandSourceType@@@Z	B	
 0x00772777	65	call	ported			1	0	AI / pathfinding	?rva00370451@AIGroup@@QAEXPBVTeam@@HW4CommandSourceType@@@Z	B	
@@ -20993,7 +20993,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x0077287A	110	call	none			1	0	AI / pathfinding	?rva00370554@AIGroup@@QAEXPAVObject@@W4CommandSourceType@@@Z	B	
 0x007729A6	72	call	ported			1	0	AI / pathfinding	?groupOneRing@AIGroup@@QAEXXZ	B	
 0x007729EE	205	call	none			1	0	AI / pathfinding	?groupRotateFiringarc@AIGroup@@QAEXPBUCoord3D@@W4CommandSourceType@@@Z	B	
-0x00772B85	4	data	none			0	0	AI / pathfinding?		-	
+0x00772B85	4	data	not-reached			0	0	AI / pathfinding?		-	
 0x00772C9A	2012	data	fragment			0	0	AI / pathfinding	?moveInfantryToPos@AIGroup@@QAE_NPBUCoord3D@@W4CommandSourceType@@@Z	D	frame: reads ebp before setting it (runs on another function's frame)
 0x00772F4F	3	data	none			0	0	unclassified		-	
 0x0077306C	3	data	none			0	0	unclassified		-	
@@ -21001,7 +21001,7 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x0077331D	1	data	non-code			0	0	unclassified		-	
 0x00773470	3	data	non-code			0	0	unclassified		-	
 0x0077348C	2430	call	ported			2	0	AI / pathfinding	?moveFormationToPos@AIGroup@@QAEXPBUCoord3D@@W4CommandSourceType@@H_N2@Z	B	
-0x00773725	3	data	none			0	0	AI / pathfinding?		-	
+0x00773725	3	data	not-reached			0	0	AI / pathfinding?		-	
 0x00773D2F	10	data	non-code			0	0	AI / pathfinding?		-	
 0x00773EFB	2275	data	not-reached			0	0	AI / pathfinding	?moveVehicleToPos@AIGroup@@QAE_NPBUCoord3D@@W4CommandSourceType@@@Z	B	
 0x00773F95	3	data	none			0	0	unclassified		-	
@@ -22502,8 +22502,8 @@ function	size	evidence	status	class	slot	direct callers	resolved virtual callers
 0x007A12B5	63	call	none			1	0	engine core / system	?rva0039E9A1@Team@@QBEPAUCoord3D@@PAU2@@Z	A	
 0x007A12F4	47	call	ported			7	0	unclassified		-	
 0x007A131B	32	data	none			0	0	unclassified		-	
-0x007A1365	38	call	none			2	0	AI / pathfinding	?rva002EB448@Rva002EB448@@QAEPAXXZ	A	
-0x007A138B	38	call	none			3	0	AI / pathfinding	?rva002EB448@Rva002EB448@@QAEPAXXZ	A	
+0x007A1365	38	call	not-reached			2	0	AI / pathfinding	?rva002EB448@Rva002EB448@@QAEPAXXZ	A	
+0x007A138B	38	call	not-reached			3	0	AI / pathfinding	?rva002EB448@Rva002EB448@@QAEPAXXZ	A	
 0x007A13B1	42	call	library			2	0	engine core / system	?clear@?$_List_base@PAVTeamPrototype@@V?$allocator@PAVTeamPrototype@@@_STL@@@_STL@@QAEXXZ	A	stl: namespace _STL (STLport)
 0x007A13DB	45	call	none			2	0	engine core / system	?rva0039EA21@Rva0039EA21@@QAEXPAURva0039EA21Node@@@Z	A	
 0x007A1408	18	call	none			1	0	engine core / system	?Rva0037F71FCopy@@YAXPAVRva0037F551@@ABV1@@Z	A	

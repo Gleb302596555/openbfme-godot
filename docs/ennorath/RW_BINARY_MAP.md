@@ -4,7 +4,7 @@ game.dat SHA256 `5481de75b63e2248…`. Addresses, counts and statuses only: no g
 
 ## Functions
 
-72135 functions (evidence: call 32053, code-imm 2817, data 26094, extra-block 56, vtable-slot 11115). Status by `RW 0x…` citations in engine/src: ported 13388, partial 310, library 5797, eh-glue 22177, compiler-glue 2979, non-code 499, fragment 196, not-reached 1443, none 25346.
+72135 functions (evidence: call 32053, code-imm 2817, data 26094, extra-block 56, vtable-slot 11115). Status by `RW 0x…` citations in engine/src: ported 13449, partial 310, library 5797, eh-glue 22177, compiler-glue 2979, non-code 499, fragment 196, not-reached 1480, none 25248.
 `library`: the proven list (tools/mod/rw_library_functions.tsv), the functions match_rotwk.py labels `library` (see below), and
   the functions whose BFME2 pair (tier A / B) is in namespace `_STL` (STLport; by the decorated name's scope, not an argument type).
 `eh-glue`: proven MSVC C++ EH compiler glue (__ehhandler$ stubs and the unwind funclets of every FuncInfo in the image, with 0 callers
@@ -52,7 +52,7 @@ The label of tools/re/match_rotwk.py (RotWK paired with BFME2 1.06 and its decom
 | objects / modules | 6343 | 2681 | 51 | 243 | 2153 | 908 | 307 |
 | unclassified | 4643 | 963 | 29 | 19 | 408 | 0 | 3224 |
 | network / online | 4445 | 134 | 6 | 155 | 1681 | 0 | 2469 |
-| AI / pathfinding | 4111 | 1875 | 47 | 106 | 1347 | 52 | 684 |
+| AI / pathfinding | 4111 | 1936 | 47 | 106 | 1347 | 89 | 586 |
 | War of the Ring / LivingWorld | 3115 | 629 | 4 | 243 | 1298 | 110 | 831 |
 | library | 2758 | 73 | 3 | 2326 | 36 | 0 | 320 |
 | math / support libs | 2277 | 123 | 6 | 475 | 533 | 0 | 1140 |
