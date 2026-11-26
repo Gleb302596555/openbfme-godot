@@ -559,6 +559,77 @@ bool ScriptActions::executeOrderAction(ScriptEngine &engine, const ScriptActionR
 		}
 		return true;
 	}
+	if (name == "TEAM_MOVE_TO_NEAREST_OBJECT_OF_KINDOF" || name == "TEAM_MOVE_TO_NEAREST_OBJECT_OF_KINDOF_OWNED_BY_PLAYER")
+	{
+		// Local 189: RW 0x7CAFA5 case 391 -> RW 0x7C2CF5 (all players, mask 0xFFFFF) / case 392 -> RW 0x7C2E34 (player mask p2):
+		// teamCentreAllMembers (RW 0x7A0ECD), per player findClosestToPosByKindOf(c, kindOf, NONE) (RW 0x6ABC10 -> RW 0x6AADB6),
+		// best by Coord3D::length (RW 0x403111), then AIGroup::groupMoveToPosition(*best->getPosition(), false, CMD_FROM_SCRIPT) (RW 0x774897).
+		const bool byPlayer = (name == "TEAM_MOVE_TO_NEAREST_OBJECT_OF_KINDOF_OWNED_BY_PLAYER");
+		Team *t = ScriptConditions::team(engine, param(a, 0).stringValue);
+		Coord3D c;
+		const std::int32_t kindOf = param(a, 1).intValue;
+		if (!t || kindOf < 0 || !ScriptConditions::teamCentreAllMembers(*t, c))
+		{
+			return true;
+		}
+		std::vector<Player *> playerList;
+		if (byPlayer)
+		{
+			playerList = ScriptConditions::players(engine, param(a, 2).stringValue);
+		}
+		else
+		{
+			for (int i = 0; i < logic.players().getPlayerCount(); ++i)
+			{
+				if (Player *p = logic.players().getNthPlayer(i))
+				{
+					playerList.push_back(p);
+				}
+			}
+		}
+		Object *best = nullptr;
+		float bestDist = 99999.0f; // RW 0xBDF350 (first hit always wins because best == nullptr)
+		for (Player *p : playerList)
+		{
+			Object *pBest = nullptr;
+			float pBestDist = 0.0f;
+			for (const auto &proto : logic.players().teams().prototypes())
+			{
+				if (proto->getControllingPlayer() != p)
+				{
+					continue;
+				}
+				for (Team *tm : proto->teams())
+				{
+					for (Object *o = tm->getFirstMember(); o; o = o->friend_teamNext())
+					{
+						if (!o->getTemplate() || !o->getPosition() || !MaskTest(logic.templateInfo(o->getTemplate()).kindOf, (unsigned)kindOf))
+						{
+							continue;
+						}
+						const float d = SimMath::fstpDword(SimMath::length3d(SimMath::sseSub(o->getPosition()->x, c.x),
+							SimMath::sseSub(o->getPosition()->y, c.y), SimMath::sseSub(o->getPosition()->z, c.z)));
+						if (!pBest || d < pBestDist)
+						{
+							pBest = o;
+							pBestDist = d;
+						}
+					}
+				}
+			}
+			if (pBest && (!best || pBestDist < bestDist))
+			{
+				best = pBest;
+				bestDist = pBestDist;
+			}
+		}
+		if (best)
+		{
+			AIGroup group(logic, idsOf(teamAIGroup(*t)));
+			group.groupMoveToPosition(*best->getPosition(), false, CMD_FROM_SCRIPT); // RW 0x774897
+		}
+		return true;
+	}
 	if (name == "TEAM_MOVE_TO_NEAREST_OBJECT_OF_TYPE" || name == "TEAM_MOVE_TO_NEAREST_OBJECT_OF_TYPE_OWNED_BY_PLAYER")
 	{
 		const bool byPlayer = name == "TEAM_MOVE_TO_NEAREST_OBJECT_OF_TYPE_OWNED_BY_PLAYER"; // RW 0x7C31FF; else RW 0x7C30F7
