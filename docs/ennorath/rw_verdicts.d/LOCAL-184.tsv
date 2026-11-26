@@ -1,0 +1,2 @@
+function	name	verdict	evidence
+0x00852CA2	?createSpecialObject@SpecialAbilityUpdate@@IAEPAVObject@@XZ	not reached	Only called from SpecialAbilityUpdate::triggerPrep (RW 0x00853BEC) on SPECIAL_MISSILE_DEFENDER_LASER_GUIDED_MISSILES (0x15, RW 0x00853D0E) and SPECIAL_BLACKLOTUS_CAPTURE_BUILDING (0x1A, RW 0x00853DDA); 0 active INI occurrences of either enum or SpecialAbilityUpdate::SpecialObject in Ennorath 1.9.8.7 and vanilla RotWK 2.01 (tracked under S-860)

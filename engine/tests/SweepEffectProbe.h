@@ -888,9 +888,20 @@ struct EffectProbe
 			}
 			else if (const HeroModeSpecialAbilityUpdateModuleData *hd = dynamic_cast<const HeroModeSpecialAbilityUpdateModuleData *>(d))
 			{
-				if (!hd->m_heroAttributeModifier.empty())
+				if (!hd->m_heroAttributeModifier.empty() && (!TheAttributeModifierStore || TheAttributeModifierStore->find(hd->m_heroAttributeModifier)))
 				{
 					p.expects.push_back(modifierOf(cls + " HeroAttributeModifier " + hd->m_heroAttributeModifier, hd->m_heroAttributeModifier));
+				}
+				else
+				{
+					// LOCAL-184 (RW 0x008959B5 -> RW 0x0068F1A8 / RW 0x0068B581): when HeroAttributeModifier is omitted or absent
+					// from TheAttributeModifierStore (e.g. GondorBoromir_mod_ElrondsRat's BoromirSchild), retail adds nothing and
+					// still sets the HERO / USER_3 model condition.
+					const char *mcName = hd->m_useUserModelCondition ? "USER_3" : "HERO";
+					Expect ex{ MODEL_CONDITION, cls + " (" + mcName + ")" };
+					ex.modelConditions = { CombatNames::modelCondition(mcName) };
+					ex.scope = Expect::SCOPE_HOLDERS;
+					p.expects.push_back(std::move(ex));
 				}
 			}
 			else if (dynamic_cast<const ToggleHiddenSpecialAbilityUpdate *>(m))
@@ -1013,8 +1024,10 @@ struct EffectProbe
 					p.expects.push_back({ OWNER, cls + " (a capture)" });
 					asserted = true;
 				}
-				if (type == 0x89)
+				if (type == 0x89 && d->m_effectRange > 0.0f)
 				{
+					// LOCAL-184 (RW 0x0085491F..0x00854977): SPECIAL_SCREECH dispatches BeScary(self, EffectRange);
+					// when EffectRange is omitted (0.0f, e.g. DorwinionNaturmagier), RadiateTerrorEx reaches 0 enemies.
 					p.expects.push_back({ TERROR, cls + " (SPECIAL_SCREECH: BeScary -> RadiateTerrorEx -> BeTerrified)" });
 					asserted = true;
 				}
@@ -1150,7 +1163,14 @@ struct EffectProbe
 		}
 		if (spm && !spm->spData()->m_attributeModifier.empty())
 		{
-			p.expects.push_back(modifierOf(cls + " AttributeModifier " + spm->spData()->m_attributeModifier, spm->spData()->m_attributeModifier));
+			const auto *sd = spm->spData();
+			// LOCAL-184 (RW 0x0089693A -> RW 0x00763D11, RW 0x00897BAB..0x00897C47): an omitted AttributeModifierAffects
+			// creates an empty NONE filter matching 0 objects; without AttributeModifierAffectsSelf or weather mode,
+			// SpecialPowerModule applies nothing (e.g. BoromirGondorHornAntiCategory / AragornElendilAntiCategory).
+			if (sd->m_attributeModifierAffects || sd->m_attributeModifierAffectsSelf || sd->m_attributeModifierWeatherBased)
+			{
+				p.expects.push_back(modifierOf(cls + " AttributeModifier " + sd->m_attributeModifier, sd->m_attributeModifier));
+			}
 		}
 	}
 
