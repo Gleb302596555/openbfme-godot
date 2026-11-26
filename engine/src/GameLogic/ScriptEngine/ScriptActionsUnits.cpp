@@ -575,6 +575,27 @@ bool ScriptActions::executeUnitAction(ScriptEngine &engine, const ScriptActionRe
 		}
 		return true;
 	}
+	if (name == "TEAM_TELEPORT_TO_WAYPOINT")
+	{
+		// Local 189: RW 0x7CAFA5 case 503 -> RW 0x7C3FD1 (both editions; BFME2 Rva003C353BDo): getTeamNamed(p0, false) (RW 0x759FDA),
+		// TheTerrainLogic->getWaypointByName(p1) (vslot 0x88), for each member teleportTo(&wp->location, false) (RW 0x696E63).
+		Team *t = ScriptConditions::team(engine, param(a, 0).stringValue);
+		const Waypoint *w = t && terrain ? terrain->findWaypointByName(param(a, 1).stringValue) : nullptr;
+		if (t && w)
+		{
+			for (Object *o : ScriptConditions::members(*t))
+			{
+				o->teleportTo(&w->location, false); // RW 0x7C4026 -> RW 0x696E63(pos, 0)
+			}
+		}
+		return true;
+	}
+	if (name == "PLAYER_CREATE_TEAM_FROM_CAPTURED_UNITS")
+	{
+		// Local 189: RW 0x7CAFA5 case 275 -> RW 0x7C28FC (both editions; BFME2 rva003C1E69): calls getTeamNamed(p1, false) and discards result (no-op in RotWK).
+		(void)ScriptConditions::team(engine, param(a, 1).stringValue);
+		return true;
+	}
 	if (name == "IDLE_ALL_UNITS")
 	{
 		std::vector<Player *> ps;
