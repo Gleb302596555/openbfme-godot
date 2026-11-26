@@ -148,8 +148,8 @@ TEST_CASE("LOCAL-189 TEAM_TELEPORT_TO_WAYPOINT (RW 0x7C3FD1) and PLAYER_CREATE_T
 	startEngine(*w.logic);
 	ScriptEngine &e = w.logic->scriptEngine();
 
-	Object *u1 = w.spawn("Dummy", 'A', 100.0f, 100.0f);
-	Object *u2 = w.spawn("Dummy", 'A', 140.0f, 120.0f);
+	Object *u1 = w.unit("Dummy", 'A', 100.0f, 100.0f);
+	Object *u2 = w.unit("Dummy", 'A', 140.0f, 120.0f);
 	REQUIRE(u1);
 	REQUIRE(u2);
 	TeamFactory &teams = w.logic->players().teams();
@@ -183,7 +183,7 @@ TEST_CASE("LOCAL-189 SET_STOPPING_DISTANCE (RW 0x7C10C0) updates Locomotor m_clo
 	startEngine(*w.logic);
 	ScriptEngine &e = w.logic->scriptEngine();
 
-	Object *mover = w.spawn("Mover", 'A', 200.0f, 200.0f);
+	Object *mover = w.unit("Swordsman", 'A', 200.0f, 200.0f);
 	REQUIRE(mover);
 	AIUpdateInterface *ai = mover->getAIUpdateInterface();
 	REQUIRE(ai);
@@ -294,9 +294,9 @@ TEST_CASE("LOCAL-189 TEAM_MOVE_TO_NEAREST_OBJECT_OF_KINDOF* (RW 0x7C2CF5 / RW 0x
 	startEngine(*w.logic);
 	ScriptEngine &e = w.logic->scriptEngine();
 
-	Object *mover = w.spawn("Mover", 'A', 500.0f, 500.0f);
-	Object *ownStruct = w.spawn("Dummy", 'A', 560.0f, 500.0f);
-	Object *enemyStruct = w.spawn("Dummy", 'B', 500.0f, 700.0f);
+	Object *mover = w.unit("Swordsman", 'A', 500.0f, 500.0f);
+	Object *ownStruct = w.unit("Dummy", 'A', 560.0f, 500.0f);
+	Object *enemyStruct = w.unit("Dummy", 'B', 500.0f, 700.0f);
 	REQUIRE(mover);
 	REQUIRE(ownStruct);
 	REQUIRE(enemyStruct);
