@@ -46,7 +46,7 @@ and the data rows (and the 100.0 default) came along with it.
 
 | change | RotWK address / source | test |
 |---|---|---|
-| `CrateCollide::xferCrateCollide` writes and reads the version **window (1, 2)** instead of (2, 2), and gates the ever-executed byte + 0x14 and the port's counter on version ≥ 2, so a retail version-1 snapshot loads | RW `0x8C0760`; the window is the inventory row of `docs/SAVES-RETAIL.md`: `0x8C0760 … CrateCollide::xfer … (1, 2) … ver(1, 2) … bool`; the byte's version-2 gate is the port's reading of the same row | `PORT-303: a retail version-1 CrateCollide snapshot loads without the ever-executed byte` — on the parent branch the earliest version is 2 and the load throws `Found version 1 but the earliest supported is 2` |
+| `CrateCollide::xferCrateCollide` writes and reads the version **window (1, 2)** instead of (2, 2), and gates the ever-executed byte + 0x14 and the port's counter on version ≥ 2, so a retail version-1 snapshot loads | RW `0x8C0760`; the window is the inventory row of `docs/SAVES-RETAIL.md`: `0x8C0760 … CrateCollide::xfer … (1, 2) … ver(1, 2) … bool`; the byte's version-2 gate is the `cmp byte [ebp-3], 2; jb` of RW `0x8C0760` (header) | `PORT-303: a retail version-1 CrateCollide snapshot loads without the ever-executed byte` — on the parent branch the earliest version is 2 and the load throws `Found version 1 but the earliest supported is 2` |
 | the three uncited functions are cited at their ported definitions (no code) | RW `0x8C12EC`, RW `0x8C130B`, RW `0x8C1350` | the three identity tests |
 
 Nothing else moves. The four fields stay parsed and unread; the crate's live behaviour (outcome, level, upgrade, money, FX) is
@@ -79,8 +79,8 @@ taken; the reasoning is recorded here so a later reader does not re-open the que
 
 - The whole-image scan for disp `0x5C` / `0x68` is not repeated; the claim is the crate region RW `0x8C0600` .. RW `0x8C1800`, the
   class's three vtables and the module-data pointer's escape set, exactly as Port 94 stated it.
-- The instruction that gates the base xfer's `bool` in retail's RW `0x8C0760` was not separated from the window evidence of
-  `docs/SAVES-RETAIL.md`'s inventory: the port's gate is that row's transfer list read as "… ver(1, 2) … bool".
+- The gate of the base xfer's `bool` in retail's RW `0x8C0760` is read in the disassembly (`cmp byte [ebp-3], 2; jb` skips Xfer slot
+  + 0x90 on this + 0x14, see the header), and agrees with `docs/SAVES-RETAIL.md`'s inventory row "… ver(1, 2) … bool".
 - The full suite is not all green on this branch or on its base: `local_66*` (SIGSEGV), five `audio decode*` cases (the MP3 fixtures need
   `lame`) and `bfme1 fields*` (a BFME1 gap row, `AODHordeContain DamageAmountRequired`) fail identically with this lane's changes stashed,
   so they are pre-existing and unrelated; every crate, save and xfer lane above them is green.
