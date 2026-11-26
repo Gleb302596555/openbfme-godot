@@ -2793,6 +2793,7 @@ void Object::scoreTheKill(Object &victim, int scoreType)
 		if (items)
 		{
 			const std::vector<Object *> list(items->begin(), items->end());
+			// Local 191: RW 0x6955A6 (PASS_EXPERIENCE_TO_CONTAINED callback -> grantExperienceForKill(victim, false, 1.0f))
 			for (Object *o : list)
 			{
 				o->grantExperienceForKill(victim, false, 1.0f);

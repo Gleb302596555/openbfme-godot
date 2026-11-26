@@ -74,6 +74,7 @@
 // S-328), the onSlaverDamage AI command 0x1D (ZH go prone: no RotWK object reacts), the AI's vslot 0x238 and the locomotor bits of endRepair, the player's
 // RW 0x79F486 and the drawable links (client), RW 0x6CA525's sphere variant (the bounding circle distance of ApproachMath).
 // Local 171: RW 0x655D44 (~SlavedUpdateModuleData)
+// Local 191: RW 0x655085 (SlavedUpdateModuleData::SlavedUpdateModuleData, vtable 0xC09750)
 
 #pragma once
 

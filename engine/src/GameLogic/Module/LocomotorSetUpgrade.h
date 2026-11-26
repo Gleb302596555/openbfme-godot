@@ -12,6 +12,7 @@ public:
 };
 
 // RW 0x008B803B (getModuleName), RW 0x008B8041 (getModuleNameKey), RW 0x008B80B7 / RW 0x008B801B (dtor)
+// Local 191: RW 0x64FCCD (friend_newModuleInstance)
 class LocomotorSetUpgrade : public UpgradeModule {
 public:
     OBFME_MODULE_XFER(LocomotorSetUpgrade)

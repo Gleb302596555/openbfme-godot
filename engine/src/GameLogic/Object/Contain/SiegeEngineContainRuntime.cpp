@@ -704,7 +704,8 @@ template class SiegeEngineContainT<HordeTransportContain, true>;
 
 // RW 0x0087F2D4 / RW 0x0087F2FC / RW 0x0087F598 (SiegeEngineContain getModuleName / getModuleNameKey / scalar deleting dtor),
 // RW 0x00880311 / RW 0x00880332 / RW 0x008805AE (HordeSiegeEngineContain getModuleName / getModuleNameKey / scalar deleting dtor),
-// RW 0x0087FCEF (shared isExitBusy thunk -> TransportContain::isExitBusy 0x00869E73),
+// RW 0x0087FCEF (shared isExitBusy thunk -> TransportContain::isExitBusy 0x00869E73)
+
 // RW 0x0087EC6E (SiegeEngineContain::onContaining -> TransportContain::onContaining 0x0086A943; client TransferSelection is S-1105),
 // RW 0x0087FCD7 (HordeSiegeEngineContain::onContaining thunk -> 0x0086A943)
 void SiegeEngineContainRegistry::registerClasses(ModuleFactory &modules)

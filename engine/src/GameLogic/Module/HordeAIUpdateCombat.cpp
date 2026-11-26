@@ -1230,6 +1230,7 @@ void HordeAIUpdate::endMelee()
 
 // RW 0x6F2956 (the Amoeba reach check, RW 0x98F311): the enemy of `target` (its horde) nearest to `m` (RW 0x66352C: the squared nonnegative footprint edge distance) within the member's weapon range.
 // RW scans pathfinder cells in rings out to floor(range * 0.1 + 0.1); INFERENCE (S-588): the candidates are the target and its members, ties to the lower id.
+// Local 191: RW 0x98F311
 static Object *amoebaReach(Object &m, Object &target)
 {
 	ObjectWeapons *w = m.getWeapons();

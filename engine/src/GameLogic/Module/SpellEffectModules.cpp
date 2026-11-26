@@ -512,7 +512,7 @@ void FloodUpdate::xfer(Xfer &x)
 	x.xferBool(&m_membersCreated);
 	SnapshotXfer::each(x, m_records, 12, [&](Record &r) {
 		x.xferObjectID(&r.id);
-		SnapshotXfer::coords(x, r.path);
+		SnapshotXfer::coords(x, r.path); // Local 191: RW 0x792CD4 (Coord3D vector xfer)
 		x.xferInt(&r.index);
 		SnapshotXfer::checkRange(r.index, 0, r.path.size(), "a flood member's path index");
 	});

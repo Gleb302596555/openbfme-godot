@@ -44,6 +44,7 @@
 
 class ModuleFactory;
 
+// Local 191: RW 0x6503DC (friend_newModuleData)
 class GeometryUpgradeModuleData : public UpgradeModuleData
 {
 public:

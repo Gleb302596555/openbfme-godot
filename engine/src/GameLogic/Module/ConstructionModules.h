@@ -63,6 +63,7 @@ private:
 	const FoundationAIUpdateModuleData *m_foundationData;
 };
 
+// Local 191: RW 0x8563A2 (~GettingBuiltBehaviorModuleData)
 class GettingBuiltBehaviorModuleData : public ModuleData
 {
 public:

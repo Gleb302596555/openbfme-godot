@@ -1765,6 +1765,7 @@ bool Pathfinder::adjustDestination(PathfindObject &obj, const PathfindLocomotorI
 				}
 			}
 		};
+		// Local 191: RW 0x6E801B (Object visit-stamp dedup)
 		for (int k = 0; k < d; k++) { x++; visit(); }
 		for (int k = 0; k < d; k++) { y++; visit(); }
 		for (int k = 0; k < d + 1; k++) { x--; visit(); }

@@ -85,6 +85,7 @@ public:
 };
 
 // scalar deleting dtor RW 0x008A9CA0
+// Local 191: RW 0x64EBBE (friend_newModuleInstance)
 // RW 0x008A9B9B (dtor -> RW 0x0064A492)
 class SupplyCenterProductionExitUpdate : public SimpleProductionExitUpdate
 {

@@ -91,6 +91,7 @@ const char *HordeContain::movementStop()
 // RW 0x00872A69 (getModuleName -> "HordeContain"), RW 0x00872B24 (getModuleNameKey)
 void HordeContain::registerClasses(ModuleFactory &modules)
 {
+	// Local 191: RW 0x64B664 (HorseHordeContain::friend_newModuleInstance), RW 0x879849 (~HorseHordeContain)
 	for (const char *name : { "HordeContain", "HorseHordeContain" })
 	{
 		modules.bindModuleProc(name, MODULETYPE_BEHAVIOR, [](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &) -> std::unique_ptr<Module> {

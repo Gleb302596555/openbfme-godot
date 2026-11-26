@@ -2,6 +2,7 @@
 // Derived from Command & Conquer Generals Zero Hour, (c) 2001-2003 Electronic Arts Inc., GPL-3.0.
 //
 // Local 164: RW 0x655C8B (DeployStyleAIUpdateModuleData deleting dtor), RW 0x655CF3 (~DeployStyleAIUpdateModuleData)
+
 // The Dwarven Demolisher's deploy (lane SIEGE-1, stop S-1984): DeployStyleAIUpdate (the AI that unpacks into DEPLOYED, holds the DeployedAttributeModifier
 // and packs again before it moves) and ToggleDeploySpecialAbilityUpdate (the deploy button: deploys an undeployed unit, undeploys a deployed one). The only
 // retail users are DwarvenDemolisher's two modules (data/ini/object/goodfaction/units/dwarven/dwarvenram.ini).

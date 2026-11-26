@@ -362,7 +362,7 @@ void AODHordeContain::updateFormation()
 
 void AODHordeContain::onLargeObjectCollide(Object *member, Object *other)
 {
-	// RW 0x87E894 + 0x87D919
+	// RW 0x87E894, RW 0x87D919, RW 0x87E516
 	(void)member;
 	if (!other || other->isEffectivelyDead())
 	{

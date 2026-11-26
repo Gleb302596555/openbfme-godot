@@ -23,6 +23,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// Local 191: RW 0x64E4AD (friend_newModuleInstance)
 class GiveUpgradeUpdate : public SpecialAbilityUpdate
 {
 public:

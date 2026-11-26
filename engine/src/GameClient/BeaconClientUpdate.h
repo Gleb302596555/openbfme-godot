@@ -35,6 +35,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// Local 191: RW 0x652768 (friend_newModuleInstance)
 class BeaconClientUpdate : public DrawableModule
 {
 public:

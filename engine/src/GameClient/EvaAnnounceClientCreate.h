@@ -19,6 +19,7 @@ class EvaAnnounceClientCreateModuleData : public ModuleData
 	unsigned delay = 0;
 	bool onlyVisible = false, firstSight = false, usePosition = false, fakeRadar = false;
 };
+// Local 191: RW 0x6546D3 (friend_newModuleInstance)
 class EvaAnnounceClientCreate : public DrawableModule
 {
   public:
