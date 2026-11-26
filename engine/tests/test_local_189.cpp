@@ -14,6 +14,7 @@
 #include "Common/Team.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Locomotor.h"
+#include "GameClient/MapChunks.h"
 #include "GameLogic/Map/TerrainLogic.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/HeroAbilityModules.h"
@@ -142,7 +143,7 @@ TEST_CASE("LOCAL-189 TEAM_TELEPORT_TO_WAYPOINT (RW 0x7C3FD1) and PLAYER_CREATE_T
 	TerrainLogic terrain;
 	std::vector<MapObject> objs;
 	objs.push_back(makeWaypoint(1, "WP_L189_Dest", 320.0f, 440.0f));
-	WorldHeightMap hm; hm.m_width = 64; hm.m_height = 64; hm.m_data.assign(64u * 64u, 0); terrain.init(&hm, objs, {});
+	WorldHeightMap hm; hm.m_width = 64; hm.m_height = 64; hm.m_data.assign(64u * 64u, 0); MapChunks chunks; chunks.objects = objs; terrain.init(hm, chunks);
 	w.logic->setTerrain(&terrain);
 	startEngine(*w.logic);
 	ScriptEngine &e = w.logic->scriptEngine();
