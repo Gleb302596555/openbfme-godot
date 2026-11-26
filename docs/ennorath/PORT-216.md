@@ -54,7 +54,7 @@ provided the factory, layout and branch-reading guide, not RW authority.
 | Preference 3, at least two contact rows | RW 0xAD31A4..0xAD3276 | Blend adjacent rows selected by the seed. The existing `ObjectGeometry::getBestContactPoint` has this branch. |
 | Preference 3, fewer rows | RW 0xAD3172..0xAD3184, 0xAD31AF..0xAD31B2 | Keep the stored innermost point. RW 0xAD25B0..0xAD260F initializes it at local x/y zero and 0.67 times geometry height. |
 | Preference 3, collision and clamps | RW 0xAD3278..0xAD333D | Clamp to maximum height; unless collision is skipped, test the point and fall back to the first active shape's centre; apply the lower height clamp. |
-| Neighbour preference 1 | RW 0xAD3340..0xAD3379 | Stored preferred point, clamped to maximum geometry height. The constructor RW 0x4504A4..0x4504AE and initializer RW 0xAD25E6..0xAD2607 also initialize/raise it; this independent preferred-point gap remains S-7426. |
+| Neighbour preference 1 | RW 0xAD3340..0xAD3379 | Stored preferred point, clamped to maximum geometry height. The constructor RW 0x4504A4..0x4504AE and initializer RW 0xAD25E6..0xAD2607 also initialize/raise it; this independent preferred-point gap remains S-8033. |
 | Neighbour preference 0 / unknown preference | RW 0xAD337C..0xAD3517 | Nearest matching label passing the optional collision test, then height clamps; no match or unknown preference returns false. |
 
 ## What this rules out
@@ -103,7 +103,7 @@ restores the existing RW point's parse-time history; it does not depart from
 those branches. Whether this accounts for the complete visible complaint
 remains an in-game acceptance check, not a no-reader verdict.
 
-## Adjacent verified gap: stored GeometryInfo contact state (S-7426)
+## Adjacent verified gap: stored GeometryInfo contact state (S-8033)
 
 The aim cache is not just a function of the final shapes:
 
@@ -311,7 +311,7 @@ This complete regression bundle therefore remains ineligible for an
 upstream PR; no dependency ports are pulled into this task.
 
 The earlier stop number S-7387 is occupied on the new main by Port 228.
-`tools/fragments.py next` allocated S-7426 for this branch's preferred-point
+`tools/fragments.py next` allocated S-8033 for this branch's preferred-point
 remainder. Only our fragment/references were renamed; the aggregate stop
 and Port 228 were not edited.
 
@@ -399,7 +399,7 @@ existing callers; production worldspace queries retain INI history.
 
 The independent preferred-point initialization of mode 1 remains outside
 this change: the existing PORT-164 no-row expectation would have to change.
-S-7426 is narrowed to that remaining issue, not silently closed.
+S-8033 is narrowed to that remaining issue, not silently closed.
 The near-side visual result remains an owner acceptance check; the code and
 synthetic tests must establish the exact RW point first, not assert that an
 internal aim point is a new nearest-surface algorithm.
@@ -423,7 +423,7 @@ ControlBarRadialMenu (mode 0). The value-only getBestContactPoint API is not
 called by production code outside its implementation; its existing test
 callers keep their stateless inputs. Changing copied contact rows can affect
 all modes and belongs in neighbour/nightly validation. Mode 1's separate
-constructor/high-water-point mismatch is explicitly retained in S-7426.
+constructor/high-water-point mismatch is explicitly retained in S-8033.
 
 ## Additional collision trace
 
@@ -469,7 +469,7 @@ required files inspected with `git show upstream/main:<file>`:
 
 The copy/snapshot regression additionally checks the mode-0 labelled query
 and mode-1 high-row neighbour before and after load. The latter deliberately
-uses a row above the initializer's point; it does not mask or change S-7426's
+uses a row above the initializer's point; it does not mask or change S-8033's
 independent no-row mismatch or the protected PORT-164 test.
 
 Actual `tools/test_select.py --base a3a2e87a` first line (FULL run completed):
