@@ -1492,6 +1492,90 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 						}
 						continue;
 					}
+					// LOCAL-185: modelGated skipped the earlier Restricted check (expecting the SPECIAL_POWER toggle/mount block below);
+					// handle MOUNTED toggle and unmet model-condition gates here too (RW 0x942490 / RW 0x942733), and click targets for targeted FIRE_WEAPON (RW 0x940435).
+					if (b.state == ButtonState::Restricted && modelGated)
+					{
+						const int mountedBit = ModelCondition::indexOf("MOUNTED");
+						const bool needsMounted = mountedBit >= 0
+							&& ((cb->m_enableOnModelCondition[(size_t)mountedBit / 32u] >> ((unsigned)mountedBit & 31u)) & 1u) != 0
+							&& !u->testModelCondition(mountedBit);
+						if (needsMounted)
+						{
+							ControlBarButton mount;
+							if (g.select(u) && g.reveal(u, [](const CommandButton &x) { return x.m_specialPowerName == "SpecialAbilityToggleMounted"; }, mount) && g.press(mount))
+							{
+								g.step(40);
+								u = g.logic().findObjectByID(uid);
+								if (!u || !g.select(u) || !g.reveal(u, [&](const CommandButton &x) { return &x == cb; }, b))
+								{
+									res.fail(item, "the button left the bar after the mount");
+									continue;
+								}
+							}
+						}
+					}
+					if (b.state != ButtonState::Enabled && b.state != ButtonState::Active)
+					{
+						const std::string otherWhy = modelGate(*cb, *u);
+						if (!fixtureDetail.empty())
+						{
+							res.fail(item, fixtureDetail);
+						}
+						else if (!otherWhy.empty())
+						{
+							res.fail(item, "DISABLED: " + otherWhy);
+						}
+						else
+						{
+							res.fail(item, str("state %d at level %d (not enabled)", (int)b.state, u->getExperienceTracker() ? u->getExperienceTracker()->getRank() : 0));
+						}
+						continue;
+					}
+					if (cmd == GUI_COMMAND_FIRE_WEAPON
+						&& cb->hasOption(COMMAND_OPTION_NEED_TARGET_ENEMY_OBJECT | COMMAND_OPTION_NEED_TARGET_NEUTRAL_OBJECT | COMMAND_OPTION_NEED_TARGET_ALLY_OBJECT | COMMAND_OPTION_NEED_TARGET_POS))
+					{
+						const size_t sentBefore = g.hud->input().messageLog().size();
+						const bool pressed = g.press(b);
+						bool sentTarget = false;
+						if (pressed && g.hud->input().ui().getGUICommand() == cb)
+						{
+							Object *tgt = cb->hasOption(COMMAND_OPTION_NEED_TARGET_ALLY_OBJECT) ? g.logic().findObjectByID(allyId) : g.logic().findObjectByID(enemyUnitId);
+							if (tgt && !cb->hasOption(COMMAND_OPTION_NEED_TARGET_POS) && tgt->getContain() && tgt->getContain()->getContainCount() > 0 && !tgt->getContain()->getContainedItemsList()->empty())
+							{
+								tgt = tgt->getContain()->getContainedItemsList()->front();
+							}
+							const Coord3D at = tgt ? *tgt->getPosition() : Coord3D{ c.x + 120.0f, c.y, g.logic().getGroundHeight(c.x + 120.0f, c.y) };
+							for (float dz : { 5.0f, 25.0f, 45.0f })
+							{
+								if (g.hud->input().messageLog().size() > sentBefore)
+								{
+									break;
+								}
+								if (g.hud->input().ui().getGUICommand() != cb)
+								{
+									g.press(b);
+								}
+								g.clickAt({ at.x, at.y, at.z + dz });
+							}
+							g.step(5);
+							g.hud->input().ui().setGUICommand(nullptr);
+							sentTarget = g.hud->input().messageLog().size() > sentBefore;
+						}
+						if (!sentTarget)
+						{
+							res.fail(item, str("the press of %s sent nothing", GUICommandName(cmd)));
+						}
+						else if (g.hud->controlBar().unportedPresses() != unportedBefore)
+						{
+							res.fail(item, str("the press of %s is counted as unported", GUICommandName(cmd)));
+						}
+						else
+						{
+							res.pass(item, "FIRE_WEAPON (targeted)");
+						}
+						continue;
+					}
 					const std::string stateBefore = stateOf();
 					const bool sent = g.press(b);
 					g.step(5);
@@ -2825,8 +2909,58 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 				}
 				if (!fired)
 				{
-					res.fail(item, str("%s (target %s) did not fire in 300 frames (sent: %s)%s", cb->m_specialPowerName.c_str(), target.c_str(), g.lastMessages().c_str(),
-									   firstTry.empty() ? "" : (" (first try, " + firstTry + ")").c_str()));
+					// LOCAL-185: a standalone horde member or banner carrier (e.g. AngmarNecroAcolyteBook / AngmarNecronomicon of AngmarNecroBookHorde)
+					// is never selected alone in retail (RW 0x7108F2); when its horde carries the same power and is swept as its own object, classify MEMBER.
+					std::string hordeWith;
+					if (u && !factb::hasKindOf(*u->getTemplate(), "HORDE"))
+					{
+						for (const auto &hkv : inv.items)
+						{
+							const ThingTemplate *ht = s.world->things().findTemplate(hkv.second.name);
+							if (!ht)
+							{
+								continue;
+							}
+							bool holds = false, carries = false;
+							for (const ThingTemplate::Nugget &nug : ht->getFinalOverride()->behaviorModules().nuggets())
+							{
+								if (const HordeContainBehaviorData *hd = dynamic_cast<const HordeContainBehaviorData *>(nug.data.get()))
+								{
+									for (const InitialPayloadEntry &pe : hd->horde.m_transport.m_initialPayload)
+									{
+										holds = holds || pe.name == u->getTemplate()->getName();
+										const ThingTemplate *pt = s.world->things().findTemplate(pe.name);
+										const FieldValue *vars = pt ? pt->getFinalOverride()->findField("BuildVariations") : nullptr;
+										if (const std::vector<std::string> *list = vars ? std::get_if<std::vector<std::string>>(vars) : nullptr)
+										{
+											holds = holds || std::find(list->begin(), list->end(), u->getTemplate()->getName()) != list->end();
+										}
+									}
+									for (const std::string &bn : hd->horde.m_bannerCarriersAllowed)
+									{
+										holds = holds || bn == u->getTemplate()->getName();
+									}
+								}
+								const SpecialPowerModuleData *d = dynamic_cast<const SpecialPowerModuleData *>(nug.data.get());
+								carries = carries || (d && d->m_specialPowerTemplateName == cb->m_specialPowerName);
+							}
+							if (holds && carries)
+							{
+								hordeWith = ht->getName();
+								break;
+							}
+						}
+					}
+					if (!hordeWith.empty())
+					{
+						res.fail(item, "MEMBER: a horde member/banner made alone; its horde " + hordeWith + " (HordeContain) carries " +
+						                   cb->m_specialPowerName + " and is swept as its own object");
+					}
+					else
+					{
+						res.fail(item, str("%s (target %s) did not fire in 300 frames (sent: %s)%s", cb->m_specialPowerName.c_str(), target.c_str(), g.lastMessages().c_str(),
+						                   firstTry.empty() ? "" : (" (first try, " + firstTry + ")").c_str()));
+					}
 				}
 				else if (unported > (unsigned long long)std::max<size_t>(1, mods.size())) // lane FACT-C: one S-920 note per module (a horde's members each carry one)
 				{
