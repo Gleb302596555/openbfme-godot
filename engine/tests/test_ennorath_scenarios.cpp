@@ -137,6 +137,9 @@ TEST_CASE("ENNORATH scenario ModelConditionAudioLoopClientBehavior: Faramir's sc
 		logged = logged || (e.event == taunt && e.drawableId == (std::uint32_t)game.game->drawables().findByObject(scout->getID())->getID());
 	}
 	CHECK(logged);
+	// Local 187 (RW 0x665921 AIUpdateInterface::handleEngagedFlag): RotWK clears bare ENGAGED on an idle unarmed
+	// unit on the first AI update; USING_WEAPON_A keeps ENGAGED active while fighting.
+	scout->setModelConditionState(ModelCondition::indexOf("USING_WEAPON_A"), true);
 	scout->setModelConditionState(ModelCondition::indexOf("ENGAGED"), true);
 	frames(2);
 	CHECK(loop->heldSound().empty());

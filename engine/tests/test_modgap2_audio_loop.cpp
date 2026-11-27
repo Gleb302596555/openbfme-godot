@@ -213,6 +213,10 @@ TEST_CASE("modgap2 audio loop retail: a Gondor soldier's flag raising starts its
 	CHECK(loop->handle() == first);
 	CHECK_FALSE(audio.logged(kFighterSound));
 
+	// Local 187 (RW 0x665921 AIUpdateInterface::handleEngagedFlag): RotWK clears a bare ENGAGED flag on an idle
+	// unarmed soldier on the first AI update (m_engagedExpireFrame <= now); USING_WEAPON_A keeps ENGAGED active.
+	const int usingWeaponA = ModelCondition::indexOf("USING_WEAPON_A");
+	soldier->setModelConditionState(usingWeaponA, true);
 	soldier->setModelConditionState(engaged, true);
 	audio.frames(game, 2);
 	CHECK(loop->handle() == AHSV_NoSound); // RW 0x8D0413
@@ -225,6 +229,7 @@ TEST_CASE("modgap2 audio loop retail: a Gondor soldier's flag raising starts its
 	CHECK_FALSE(audio.mgr->isCurrentlyPlaying(first));
 	CHECK(loop->handle() == AHSV_NoSound); // nothing new started meanwhile
 
+	soldier->setModelConditionState(usingWeaponA, false);
 	soldier->setModelConditionState(engaged, false); // selected again: a new request
 	audio.frames(game, 2);
 	REQUIRE(loop->handle() >= AHSV_FirstHandle); // tolerance: the audio manager numbers its handles; any real one is at least the first

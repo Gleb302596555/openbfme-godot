@@ -64,11 +64,13 @@ public:
 		return id;
 	}
 
+	// Local 187: RW 0x756CEE (AiOrdersManager executeNext/process)
 	void process(ObjectId object)
 	{
 		auto it = m_queues.find(object);
 		if (it != m_queues.end()) it->second.process(*this);
 	}
+	// Local 187: RW 0x756CA2 (AiOrdersManager clearQueue)
 	void clear(ObjectId object, unsigned flags)
 	{
 		auto it = m_queues.find(object);
@@ -98,6 +100,7 @@ public:
 		auto it = m_queues.find(object);
 		if (it != m_queues.end()) it->second.discardLastOrder(*this);
 	}
+	// Local 187: RW 0x756CB9 (AiOrdersManager hasOrders/queue lookup)
 	const ObjectOrderQueue *queue(ObjectId object) const
 	{
 		auto it = m_queues.find(object);

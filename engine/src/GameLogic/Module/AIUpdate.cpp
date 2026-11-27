@@ -1006,6 +1006,12 @@ UpdateSleepTime AIUpdateInterface::update()
 			moverSleep = (unsigned)UPDATE_SLEEP_FOREVER;
 		}
 		finalSleep = moverSleep;
+		// Local 187 (both editions): RW 0x665921 AIUpdateInterface::handleEngagedFlag (DONOR BFME2 AIUpdateInterfaceUpdate.cpp:314-316)
+		const unsigned engagedSleep = handleEngagedFlag();
+		if (engagedSleep < finalSleep)
+		{
+			finalSleep = engagedSleep;
+		}
 		m_world->noteStop(kStopUpdate);
 	}
 	if (m_combat.fadeOnPortals)
@@ -2587,6 +2593,100 @@ bool AIUpdateInterface::getTurretRotAndPitch(int which, float *angle, float *pit
 }
 
 
+// Local 187 (both editions): RW 0x665921 AIUpdateInterface::handleEngagedFlag (active mask ctor RW 0x665074;
+// DONOR BFME2 0x00265AF9 AIUpdateInterfaceHandleEngagedFlag.cpp):
+// Toggles MODELCONDITION_ENGAGED (0x9D = 157) from USING_WEAPON_A/B/C (123..125) and ATTACKING (0x25 = 37)
+// distance-to-goal > MaxDistanceForEngaged (+0x518, default GameData DefaultMaxDistanceForEngaged +0xC38),
+// timing out after EngagedStateTimeout (+0x56C, default GameData DefaultEngagedStateTimeout +0xC3C) frames.
+unsigned AIUpdateInterface::handleEngagedFlag()
+{
+	Object *obj = getObject();
+	if (!obj)
+	{
+		return 1u; // RW 0x665935
+	}
+	static const int cUsingWeaponA = CombatNames::modelCondition("USING_WEAPON_A"); // 0x7B = 123
+	static const int cUsingWeaponB = CombatNames::modelCondition("USING_WEAPON_B"); // 0x7C = 124
+	static const int cUsingWeaponC = CombatNames::modelCondition("USING_WEAPON_C"); // 0x7D = 125
+	static const int cAttacking = CombatNames::modelCondition("ATTACKING");         // 0x25 = 37
+	static const int cEngaged = CombatNames::modelCondition("ENGAGED");             // 0x9D = 157
+
+	unsigned sleep = (unsigned)UPDATE_SLEEP_FOREVER; // 0x3FFFFFFF (RW 0x665944)
+	const bool hasActiveWeapon =
+		obj->testModelCondition(cUsingWeaponA) ||
+		obj->testModelCondition(cUsingWeaponB) ||
+		obj->testModelCondition(cUsingWeaponC);
+	const GameLogicSettings &gs = obj->logic().settings();
+
+	if (obj->testModelCondition(cEngaged)) // RW 0x66596D..0x66597B
+	{
+		bool disengage = false;
+		if (!hasActiveWeapon) // RW 0x665985..0x66598C
+		{
+			bool beyondThreshold = false;
+			if (obj->testModelCondition(cAttacking) && m_mover) // RW 0x66598E..0x6659B7 (RW 0x46E918 tests Object + 0x10C model condition)
+			{
+				const float maxDist = obj->getTemplate()
+					? obj->getTemplate()->maxDistanceForEngaged(gs.defaultMaxDistanceForEngaged)
+					: gs.defaultMaxDistanceForEngaged;
+				if (m_mover->locomotorDistanceToGoal() > maxDist)
+				{
+					beyondThreshold = true;
+				}
+			}
+			if (!beyondThreshold) // RW 0x6659B9..0x6659F9
+			{
+				Object *holder = obj->getContainedBy();
+				if (holder && holder->testModelCondition(cAttacking))
+				{
+					if (AIUpdateInterface *holderAI = holder->getAIUpdateInterface())
+					{
+						const float holderMaxDist = holder->getTemplate()
+							? holder->getTemplate()->maxDistanceForEngaged(gs.defaultMaxDistanceForEngaged)
+							: gs.defaultMaxDistanceForEngaged;
+						if (holderAI->mover().locomotorDistanceToGoal() > holderMaxDist)
+						{
+							beyondThreshold = true;
+						}
+					}
+				}
+			}
+			if (!beyondThreshold)
+			{
+				disengage = true;
+			}
+		}
+
+		const unsigned duration = obj->getTemplate()
+			? obj->getTemplate()->engagedStateTimeoutFrames(gs.defaultEngagedStateTimeout)
+			: gs.defaultEngagedStateTimeout; // RW 0x665A05
+		const unsigned interval = (duration >> 1) + 1u; // RW 0x665A0B..0x665A0F
+		const unsigned now = obj->logic().getFrame();   // RW 0x665A16..0x665A1C
+		if (disengage)
+		{
+			if (m_engagedExpireFrame <= now) // RW 0x665A25..0x665A36
+			{
+				obj->setModelConditionState(cEngaged, false);
+			}
+			else // RW 0x665A38..0x665A46
+			{
+				const unsigned left = m_engagedExpireFrame - now;
+				sleep = left > interval ? interval : left;
+			}
+		}
+		else // RW 0x665A48..0x665A59
+		{
+			m_engagedExpireFrame = now + duration;
+			sleep = interval;
+		}
+	}
+	else if (hasActiveWeapon) // RW 0x665A5B..0x665A76
+	{
+		obj->setModelConditionState(cEngaged, true);
+	}
+	return sleep;
+}
+
 // RW 0x66246B getWhichTurretForWeaponSlot: walks the AI's one turret (AI + 0x20C, step 4, bound 1 at RW 0x66248F); a slot the
 // turret controls (RW 0x8DC4ED at RW 0x662482) answers the turret's index (RW 0x6624C5) with its angle (+ 0x18, RW 0x6624A5)
 // and pitch (+ 0x1C, RW 0x6624B9); no turret, or a slot on none: -1 (RW 0x662494)
@@ -2664,6 +2764,11 @@ void AIUpdateInterface::crc(StateHasher &h) const
 	{
 		h.addU32(0x50u);
 		h.addI32(m_guardTargetTypeNext);
+	}
+	if (m_engagedExpireFrame != 0u) // Local 187: hashed once handleEngagedFlag wrote AI + 0x234
+	{
+		h.addU32(0x234u);
+		h.addU32(m_engagedExpireFrame);
 	}
 	if (m_guardTeam != 0) // lane BFME2CAMP1: hashed once a team guard set it (AI + 0x68)
 	{

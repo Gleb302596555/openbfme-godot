@@ -21,8 +21,6 @@ gameplay	AISoloPlayerHealthBonus_Easy	0xC004A0	0x964
 gameplay	AISoloPlayerHealthBonus_Normal	0xC004B0	0x968
 gameplay	AISoloPlayerHealthBonus_Hard	0xC004C0	0x96C
 gameplay	DefaultVoiceAttackChargeTimeout	0xC00880	0xC34
-gameplay	DefaultMaxDistanceForEngaged	0xC00890	0xC38
-gameplay	DefaultEngagedStateTimeout	0xC008A0	0xC3C
 gameplay	UseCameraInReplay	0xC000D0	0xB71
 presentation	AdjustCliffTextures	0xBFF6B0	0x4B
 presentation	AllowTreeFading	0xBFF690	0x40

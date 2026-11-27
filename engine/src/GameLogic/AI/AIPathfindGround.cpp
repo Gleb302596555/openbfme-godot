@@ -141,7 +141,7 @@ int Pathfinder::clearCellForDiameter(unsigned crusher, int x, int y, PathfindLay
 
 bool Pathfinder::isGroundPathPassable(const Coord3D &start, PathfindLayerEnum layer, const Coord3D &end, int diameter)
 {
-	// RW 0x6F0AFE: the cell line (both ends centred, RW 0x6E8CE6) with the callback BFME2 0x6E93A7: a cell that does not clear the diameter (exact) stops it
+	// RW 0x6F0AFE: the cell line (both ends centred, RW 0x6E8CE6) with the callback RW 0x6EA7EF (DONOR BFME2 0x6E93A7 Rva002E93A7Info::cellCallback): a cell that does not clear the diameter (exact) stops it
 	ICoord2D a, b;
 	Coord3D s = start, e = end;
 	worldToCell(&s, true, &a);
@@ -158,7 +158,7 @@ bool Pathfinder::isGroundPathPassable(const Coord3D &start, PathfindLayerEnum la
 
 bool Pathfinder::isLineBlocked(const PathfindObject *obj, unsigned surfaces, PathfindLayerEnum layer, const Coord3D &from, const Coord3D &to)
 {
-	// RW 0x6F2F8F with the line callback of BFME2 0x6ED01E (decomp AIPathfind.cpp): radius 0, centred, flags 0x0C
+	// RW 0x6F2F8F with the line callback RW 0x6EE3E8 (init RW 0x6EA767; DONOR BFME2 0x6ED01E Rva002ED01EInfo::cellCallback): radius 0, centred, flags 0x0C
 	PathfindCheckMovement info;
 	info.radius = 0;
 	info.center = true;
@@ -192,7 +192,7 @@ bool Pathfinder::isLineBlocked(const PathfindObject *obj, unsigned surfaces, Pat
 
 bool Pathfinder::adjustGroundPathPosition(const Coord3D &from, Coord3D *pos)
 {
-	// RW 0x6EF387: the cell line from `from` to `pos` with the callback BFME2 0x6E7B29: each cell that clears diameter 4 (exact) is remembered (its centred
+	// RW 0x6EF387: the cell line from `from` to `pos` with the callback RW 0x6E8FA9 (cell helper ctor RW 0x6E8F82; DONOR BFME2 0x6E7B29 Rva002E7B29Info::cellCallback): each cell that clears diameter 4 (exact) is remembered (its centred
 	// coordinate, RW 0x6E79A8 with 1); the first that does not stops the walk, and `pos` becomes the last remembered point (`from` when none)
 	Coord3D result = from;
 	ICoord2D a, b;

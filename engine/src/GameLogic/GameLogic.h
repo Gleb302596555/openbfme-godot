@@ -393,6 +393,10 @@ struct GameLogicSettings
 	bool structureRulesLoaded = false;
 	float gravity = 0.0f;
 	float defaultStructureRubbleHeight = 0.0f;
+	// Local 187 (RW GlobalData + 0xC38 / + 0xC3C, rows RW 0xC00890 / RW 0xC008A0, ctor RW 0x64331D + RW 0x643379 = 30.0f, RW 0x643381..0x643390 = 2 * LOGICFRAMES_PER_SECOND = 10):
+	// ThingTemplate::ThingTemplate copies these into +0x518 / +0x56C (RW 0x740246 / RW 0x740257) for AIUpdateInterface::handleEngagedFlag (RW 0x665921)
+	float defaultMaxDistanceForEngaged = 30.0f;
+	unsigned defaultEngagedStateTimeout = 10u;
 	// lane COMBAT-2 (GameData, RW GlobalData + 0xEBC / + 0xEC0 / + 0x110C): the object filters that decide whether a player still has a base (VictoryConditionStructureObjectFilter) or an
 	// army (VictoryConditionUnitObjectFilter) and SecondsBeforeBaseCheckActive (a RotWK game.dat default 5.0, RW 0x6438FD; gamedata.ini sets none) in seconds; victoryRulesLoaded is true
 	// when the loader read both filters

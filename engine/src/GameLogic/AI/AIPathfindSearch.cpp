@@ -270,7 +270,7 @@ bool Pathfinder::pathToObject(const PathfindObject &unit, const PathfindLocomoto
 	{
 		return false;
 	}
-	// RW 0x6F6009 / 0x6F600C: an OBSTACLE cell (the target's own footprint) walks from it at once. Any other cell retries at the position plus the first
+	// RW 0x6F6009 / RW 0x6F7467 (DONOR BFME2 0x6F600C Rva002F600CInfo::cellCallback): an OBSTACLE cell (the target's own footprint) walks from it at once. Any other cell retries at the position plus the first
 	// shape's offset (RW 0x6F600E .. 0x6F6061: RW 0xAD1AE0(0), + 0x10 / 0x14 / 0x18); not an obstacle there either, the quick path test to that offset point
 	// (RW 0x6F6070); an obstacle there, the walk from that cell
 	if (goal->getType() != PathfindCell::CELL_OBSTACLE)

@@ -629,6 +629,7 @@ bool AIMover::computeQuickPath(const Coord3D &dest)
 	return true;
 }
 
+// Local 187: RW 0x664000 (isQuickPathAvailable 2D distance check)
 bool AIMover::computePath(const Coord3D &destIn)
 {
 	// RW 0x665C33
@@ -1607,6 +1608,7 @@ AIMoveToState::AIMoveToState(AIMover &ai, const Coord3D &goal, bool adjustsDesti
 {
 }
 
+// Local 187: RW 0x741AA6 (AIInternalMoveToState::computePath, slot 17)
 bool AIMoveToState::computePath()
 {
 	return m_pathHook ? m_pathHook->computeSpecialPath(*this) : computeBasePath(); // RW 0x74DFC3 / 0x7491E0: virtual slot 0x44
@@ -1652,6 +1654,7 @@ bool AIMoveToState::computeBasePath()
 	return true;
 }
 
+// Local 187: RW 0x74E151 (AIInternalMoveToState::onEnter, slot 4)
 StateReturnType AIMoveToState::onEnter()
 {
 	// RW 0x74DADA

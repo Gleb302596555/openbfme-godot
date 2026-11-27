@@ -176,6 +176,7 @@ void AIStateMachine::clear()
 	m_goalSquad.reset(); // lane BFME2CAMP1: RW 0x754680 .. 0x75468F
 }
 
+// Local 187: RW 0x7546AA (AIStateMachine::setGoalSquad)
 void AIStateMachine::setGoalSquadFromTeam(const Team &team)
 {
 	// RW 0x751E97: a squad made (RW 0x66823E) when the machine has none, then RW 0x8DB149(team, true)

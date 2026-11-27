@@ -1,0 +1,133 @@
+function	name	verdict	evidence
+0x76F577	?rva0036D805@AIGroup@@QAEXH@Z	other issue #843	AIGroup unported group command/query (50B, dc=1, vc=0); covered by stops S-813 / S-4460 and Port 326 (issue #843)
+0x76F5A9	?rva0036D837@AIGroup@@QAEXH@Z	other issue #843	AIGroup unported group command/query (50B, dc=1, vc=0); covered by stops S-813 / S-4460 and Port 326 (issue #843)
+0x76F92C	?rva0036DBBA@AIGroup@@QAEXHHI@Z	other issue #843	AIGroup unported group command/query (99B, dc=1, vc=0); covered by stops S-813 / S-4460 and Port 326 (issue #843)
+0x76F9E1	?rva0036DC6F@AIGroup@@QAEXHH@Z	other issue #843	AIGroup unported group command/query (30B, dc=1, vc=0); covered by stops S-813 / S-4460 and Port 326 (issue #843)
+0x76FB89	?setWeaponSetFlag@AIGroup@@QAEXW4WeaponSetType@@@Z	not reached	0 direct callers, 0 virtual callers in RW_BINARY_MAP.tsv; only .rdata@0xD0DBEC SafeSEH/debug table entry (AIGroup::setWeaponSetFlag, 114B)
+0x76FDCF	?getSpecialPowerSourceObject@AIGroup@@QAEPAVObject@@I@Z	other issue #843	AIGroup unported group command/query (71B, dc=7, vc=0); covered by stops S-813 / S-4460 and Port 326 (issue #843)
+0x76FE16	?getCommandButtonSourceObject@AIGroup@@QAEPAVObject@@W4GUICommandType@@@Z	other issue #843	AIGroup unported group command/query (107B, dc=7, vc=0); covered by stops S-813 / S-4460 and Port 326 (issue #843)
+0x76FE81	?groupSetEmoticon@AIGroup@@QAEXABV?$StringBase@D@@H@Z	other issue #843	AIGroup unported group command/query (52B, dc=1, vc=0); covered by stops S-813 / S-4460 and Port 326 (issue #843)
+0x76FFA0	?rva0036E2E2@AIGroup@@QAEX_N@Z	other issue #843	AIGroup unported group command/query (44B, dc=1, vc=0); covered by stops S-813 / S-4460 and Port 326 (issue #843)
+0x771A7D	?groupScatter@AIGroup@@QAEXW4CommandSourceType@@@Z	other issue #843	AIGroup unported group command/query (448B, dc=1, vc=0); covered by stops S-813 / S-4460 and Port 326 (issue #843)
+0x771D7C	?rva0036FA56@AIGroup@@QAEXPBVWaypoint@@W4CommandSourceType@@@Z	other issue #843	AIGroup unported group command/query (54B, dc=1, vc=0); covered by stops S-813 / S-4460 and Port 326 (issue #843)
+0x771DB9	?groupMoveToAndEvacuate@AIGroup@@QAEXPBUCoord3D@@W4CommandSourceType@@@Z	not reached	0 direct callers, 0 virtual callers in RW_BINARY_MAP.tsv; only .rdata@0xD0DF44 SafeSEH/debug table entry (AIGroup::groupMoveToAndEvacuate, 47B)
+0x771EEB	?groupMoveToAndEvacuateAndExit@AIGroup@@QAEXPBUCoord3D@@W4CommandSourceType@@@Z	other issue #843	AIGroup unported group command/query (61B, dc=1, vc=0); covered by stops S-813 / S-4460 and Port 326 (issue #843)
+0x772452	?groupGetHealed@AIGroup@@QAEXPAVObject@@W4CommandSourceType@@@Z	other issue #843	AIGroup unported group command/query (54B, dc=1, vc=0); covered by stops S-813 / S-4460 and Port 326 (issue #843)
+0x772488	?groupGetRepaired@AIGroup@@QAEXPAVObject@@W4CommandSourceType@@@Z	other issue #843	AIGroup unported group command/query (54B, dc=1, vc=0); covered by stops S-813 / S-4460 and Port 326 (issue #843)
+0x772573	?groupHarvest@AIGroup@@QAEXPBUCoord3D@@W4CommandSourceType@@@Z	other issue #843	AIGroup unported group command/query (54B, dc=2, vc=0); covered by stops S-813 / S-4460 and Port 326 (issue #843)
+0x77287A	?rva00370554@AIGroup@@QAEXPAVObject@@W4CommandSourceType@@@Z	other issue #843	AIGroup unported group command/query (110B, dc=1, vc=0); covered by stops S-813 / S-4460 and Port 326 (issue #843)
+0x66261F	?rva0026293E@AIUpdateInterface@@QAEXXZ	other issue #843	AIUpdateInterface unported waypoint/radar/geometry helper (32B, dc=1, vc=0); covered by stop S-4460 and Port 326 (issue #843)
+0x66263F	?rva0026295E@AIUpdateInterface@@QAEXXZ	other issue #843	AIUpdateInterface unported waypoint/radar/geometry helper (15B, dc=6, vc=0); covered by stop S-4460 and Port 326 (issue #843)
+0x662EA9	?rva002630F5@AIUpdateInterface@@QAEPAVRadarObject@@XZ	other issue #843	AIUpdateInterface unported waypoint/radar/geometry helper (8B, dc=3, vc=0); covered by stop S-4460 and Port 326 (issue #843)
+0x664F63	?rva00265143@AIUpdateInterface@@QAEHXZ	other issue #843	AIUpdateInterface unported waypoint/radar/geometry helper (48B, dc=1, vc=0); covered by stop S-4460 and Port 326 (issue #843)
+0x6654C7	?setPathFromWaypoint@AIUpdateInterface@@QAEXPBVWaypoint@@PBVCoord2D@@@Z	other issue #843	AIUpdateInterface unported waypoint/radar/geometry helper (303B, dc=1, vc=0); covered by stop S-4460 and Port 326 (issue #843)
+0x770F43	?rva0036EC1D@AICommandInterface@@QAEXPAVObject@@W4CommandSourceType@@@Z	other issue #843	AICommandInterface unported amphibious/special command (101B, dc=2, vc=0); covered by stop S-4460 and Port 326 (issue #843)
+0x7711AF	?rva0036EE89@AICommandInterface@@QAEXPBVRva0035149F@@PAVObject@@MW4CommandSourceType@@@Z	other issue #843	AICommandInterface unported amphibious/special command (128B, dc=1, vc=0); covered by stop S-4460 and Port 326 (issue #843)
+0x7719CD	?rva0036F6A7@AICommandInterface@@QAEXMW4CommandSourceType@@@Z	other issue #843	AICommandInterface unported amphibious/special command (105B, dc=1, vc=0); covered by stop S-4460 and Port 326 (issue #843)
+0x7C8079	?aiAttackMoveToPositionAmphibious@AICommandInterface@@QAEXPBUCoord3D@@W4CommandSourceType@@@Z	other issue #843	AICommandInterface unported amphibious/special command (118B, dc=1, vc=0); covered by stop S-4460 and Port 326 (issue #843)
+0x7C80EF	?rva003C7653@AICommandInterface@@QAEXPAVObject@@W4CommandSourceType@@@Z	other issue #843	AICommandInterface unported amphibious/special command (101B, dc=6, vc=0); covered by stop S-4460 and Port 326 (issue #843)
+0x756D05	?rva00355201@AiOrdersManager@@QAEXHPAXPAVGroupOrder@@@Z	too big	AiOrdersManager unported patrol/order chaining and pair xfer (86B, dc=1, vc=0); covered by stop S-1831 / S-4220 in docs/STOPS.md
+0x756F76	?rva00355472@AiOrdersManager@@QAEPAXABUCoord3D@@HPAVGroupOrder@@@Z	too big	AiOrdersManager unported patrol/order chaining and pair xfer (184B, dc=1, vc=0); covered by stop S-1831 / S-4220 in docs/STOPS.md
+0x741B5C	AIMoveAndTightenState 0xC28B98[17]	too big	Unported AI state/sub-machine helper (53B, dc=0, vc=2); covered by stops S-4460 / S-7981..S-7983 in docs/STOPS.md
+0x744295	??0Rva00342892@@QAE@PAVStateMachine@@@Z	glue	Trivial State ctor Rva00342892 (29B, pushes state name hash 0xD5F5D4FA + calls base State ctor); unnamed State ctor bypasses map rule
+0x749593	AIMoveAndTightenState 0xC28B98[6]	too big	Unported AI state/sub-machine helper (102B, dc=0, vc=1); covered by stops S-4460 / S-7981..S-7983 in docs/STOPS.md
+0x74E48A	AIMoveAndTightenState 0xC28B98[4]	too big	Unported AI state/sub-machine helper (181B, dc=0, vc=0); covered by stops S-4460 / S-7981..S-7983 in docs/STOPS.md
+0x74464E	??_GRva00340BDC@@UAEPAXI@Z	glue	Scalar deleting dtor ??_GRva00340BDC (28B, calls dtor + conditional delete); non-standard arg order bypasses map deleting-dtor rule
+0x74BAE4	??_GRva00345F21@@UAEPAXI@Z	glue	Scalar deleting dtor ??_GRva00345F21 (28B, calls 0x74bab6 + conditional delete); non-standard arg order bypasses map deleting-dtor rule
+0x755D01	AIFollowWaypointPathStateAndEvacuate 0xC28FF8[6]	too big	Unported AI state/sub-machine helper (119B, dc=0, vc=1); covered by stops S-4460 / S-7981..S-7983 in docs/STOPS.md
+0x6C6CD7	?checkEnemyForAttackMove@TacticalAI@@QAE_NPAVObject@@0@Z	too big	SkirmishAI/TacticalAI/TAiData unported brain/INI/xfer helper (159B, dc=1, vc=0); covered by stops S-412 / S-4220 in docs/STOPS.md
+0x741A7B	AIMoveToStateSA ctor/dtor	glue	Trivial State ctor AIMoveToStateSA (37B, pushes state name hash 0xF0A7FF17 + calls base State ctor); unnamed State ctor bypasses map rule
+0x74E259	AIMoveToStateSA 0xC28560[4]	too big	Unported AI state/sub-machine helper (207B, dc=0, vc=0); covered by stops S-4460 / S-7981..S-7983 in docs/STOPS.md
+0x7428D6	AIAttackMoveToState 0xC29BA8[9]	too big	AIAttackMoveToState retail sub-machine (29B, dc=0, vc=1); covered by stop S-328 in docs/STOPS.md
+0x75057C	AIAttackMoveToState ctor/dtor	too big	AIAttackMoveToState retail sub-machine (147B, dc=1, vc=0); covered by stop S-328 in docs/STOPS.md
+0x75060F	AIAttackMoveToState 0xC29BA8[4]	too big	AIAttackMoveToState retail sub-machine (96B, dc=0, vc=0); covered by stop S-328 in docs/STOPS.md
+0x74B9FC	?onExit@AIAttackMoveToState@@UAEXW4StateExitType@@@Z	too big	AIAttackMoveToState retail sub-machine (28B, dc=0, vc=0); covered by stop S-328 in docs/STOPS.md
+0x75066F	?onEnter@AIAttackMoveToState@@UAE?AW4StateReturnType@@XZ	too big	AIAttackMoveToState retail sub-machine (160B, dc=0, vc=0); covered by stop S-328 in docs/STOPS.md
+0x7452CE	??0AttackPositionStateMachine@@QAE@PAVObject@@PAVRva003438C7Host@@I@Z	too big	Unported AI state/sub-machine helper (419B, dc=1, vc=0); covered by stops S-4460 / S-7981..S-7983 in docs/STOPS.md
+0x6FF9E9	??1TAiData@@UAE@XZ	glue	EH-framed ~TAiData (201B, __EH_prolog 0xB8D555 + member deletes 0x42f6a0); EH-framed dtor bypasses map rule
+0x66A518	table 0xBD15B0 ctor/dtor	glue	EH-framed dtor for vtable 0xBD15B0 (75B, __EH_prolog 0xB87289 + two 0x430170 frees); EH-framed dtor bypasses map empty-dtor rule
+0x66EB12	??1Rva0026E7EA@@UAE@XZ	glue	EH-framed ~Rva0026E7EA (48B, __EH_prolog 0xB8740F + call 0x66e8e1); EH-framed dtor bypasses map empty-dtor rule
+0x6C6E7C	?rva002C61AF@Rva002C60E4@@QAEXXZ	too big	SkirmishAI/TacticalAI/TAiData unported brain/INI/xfer helper (133B, dc=1, vc=0); covered by stops S-412 / S-4220 in docs/STOPS.md
+0x6C708B	??1Rva002C6354@@UAE@XZ	glue	EH-framed ~Rva002C6354 (77B, __EH_prolog 0xB8B331 + cleanup 0x6c6e7c + free 0x430170); EH-framed dtor bypasses map rule
+0x5E7681	??1AICommandParms@@QAE@XZ	glue	Compiler-generated ~AICommandParms (15B, mov eax,[ecx+0x20]; test; call free 0x430170); single-pointer dtor bypasses map empty-dtor rule
+0x751BB7	?onEnter@AIFollowPathAndEvacuateState@@UAE?AW4StateReturnType@@XZ	too big	Unported AI state/sub-machine helper (23B, dc=0, vc=0); covered by stops S-4460 / S-7981..S-7983 in docs/STOPS.md
+0x750998	?onEnter@AIFollowWaypointPathStateAndEvacuate@@UAE?AW4StateReturnType@@XZ	too big	Unported AI state/sub-machine helper (23B, dc=0, vc=0); covered by stops S-4460 / S-7981..S-7983 in docs/STOPS.md
+0x7494D8	?update@AIMoveAndTightenState@@UAE?AW4StateReturnType@@XZ	too big	Unported AI state/sub-machine helper (85B, dc=0, vc=1); covered by stops S-4460 / S-7981..S-7983 in docs/STOPS.md
+0x741A2B	?xfer@AIMoveToStateSA@@MAEXPAVXfer@@@Z	too big	Unported AI state/sub-machine helper (80B, dc=0, vc=1); covered by stops S-4460 / S-7981..S-7983 in docs/STOPS.md
+0x74F872	?update@AIPickUpCrateState@@UAE?AW4StateReturnType@@XZ	other issue #695	AIPickUpCrateState::update (26B, dc=1 vc=1); AI crate pickup owned by Port 303 / issue #695 and stop S-4460
+0x6FEBED	?addInfo@AISideBuildList@@QAEXPAVBuildListInfo@@@Z	too big	SkirmishAI/TacticalAI/TAiData unported brain/INI/xfer helper (43B, dc=1, vc=0); covered by stops S-412 / S-4220 in docs/STOPS.md
+0x6FFAD4	??0Gen0014AE40@@QAE@VAsciiString@@@Z	glue	EH-framed AsciiString-arg ctor Gen0014AE40 (72B, __EH_prolog 0xB8D595 + string copy/dtor); EH-framed ctor bypasses map rule
+0x6612CE	?allow@PartitionFilterSkirmishAI@@UAE_NPAVObject@@@Z	too big	SkirmishAI/TacticalAI/TAiData unported brain/INI/xfer helper (55B, dc=0, vc=0); covered by stops S-412 / S-4220 in docs/STOPS.md
+0x6FEC5E	table 0xBE5648 0xBE5648[20]	glue	1-instruction virtual clearer table 0xBE5648[20] (5B, and dword ptr [ecx+0x1c],0; ret); non-empty 1-insn slot bypasses map empty-method rule
+0x768198	table 0xBF3DC8 ctor/dtor	glue	Trivial ctor for vtable 0xBF3DC8 (23B, stores vtable 0xBF3DC8 + zeros +4/-1 +0xc); unnamed ctor bypasses map rule
+0x615DBF	??1Rva0026E7EA@@UAE@XZ	glue	EH-framed ~Rva0026E7EA (48B, __EH_prolog 0xB82518 + AsciiString release 0x4367b0); EH-framed dtor bypasses map empty-dtor rule
+0x662B07	table 0xC0F364 ctor/dtor	glue	Trivial ctor for vtable 0xC0F364 (33B, stores vtable + zeros fields); unnamed ctor bypasses map rule
+0x662A5C	??0Rva00263653@@QAE@ABV0@@Z	glue	Compiler-generated copy ctor Rva00263653 (171B, field-by-field copy); unnamed struct copy-ctor bypasses map rule
+0x664321	table 0xC0F3B8 ctor/dtor	glue	Trivial ctor for vtable 0xC0F3B8 (45B, stores vtable + zeros fields); unnamed ctor bypasses map rule
+0x6FFB1C	table 0xC1D6F0 ctor/dtor	glue	EH-framed dtor for vtable 0xC1D6F0 (76B, __EH_prolog 0xB8D829 + member delete + string dtor 0x435d50); EH-framed dtor bypasses map rule
+0x700023	??1Rva002FE620@@UAE@XZ	glue	EH-framed ~Rva002FE620 (63B, __EH_prolog 0xB8D829 + two AsciiString dtors 0x435d50); EH-framed dtor bypasses map rule
+0x701382	??1Rva002FED8D@@UAE@XZ	glue	EH-framed ~Rva002FED8D (64B, __EH_prolog 0xB8D829 + list clear 0x5fd0b4 + string dtor 0x435d50); EH-framed dtor bypasses map rule
+0x7418D8	??1Rva0033FF2B@@UAE@XZ	glue	EH-framed ~Rva0033FF2B (75B, __EH_prolog + member string/list cleanup); EH-framed dtor bypasses map rule
+0x7420F1	AIAttackMeleeHordeWaitState 0xC275A0[16]	too big	Unported AI state/sub-machine helper (8B, dc=0, vc=0); covered by stops S-4460 / S-7981..S-7983 in docs/STOPS.md
+0x742F56	AIAttackSquadState 0xC27920[8]	too big	Unported AI state/sub-machine helper (29B, dc=0, vc=1); covered by stops S-4460 / S-7981..S-7983 in docs/STOPS.md
+0x74F594	?Rva003552BDJump@@YAXXZ	too big	Unported AI state/sub-machine helper (634B, dc=0, vc=1); covered by stops S-4460 / S-7981..S-7983 in docs/STOPS.md
+0x747582	AIPickUpCrateState 0xC28F30[17]	other issue #695	AIPickUpCrateState::computePath slot 17 (42B, vc=2); AI crate pickup owned by Port 303 / issue #695
+0x5FEBD0	?rva002E8548@Rva002E8548@@AAE_NHH@Z	glue	MemoryPool slab-alloc helper Rva002E8548 (101B, indirect alloc via [esi+0xc]); allocator helper bypasses map STLport rule
+0x603776	?Rva00355100Xfer@@YAPAVXfer@@PAV1@PAURva00355100Pair@@@Z	too big	AiOrdersManager unported patrol/order chaining and pair xfer (27B, dc=1, vc=0); covered by stop S-1831 / S-4220 in docs/STOPS.md
+0x6626CB	?Rva002629EACheck@@YA_NPBVThing@@0@Z	other issue #843	AIUpdateInterface unported waypoint/radar/geometry helper (122B, dc=1, vc=0); covered by stop S-4460 and Port 326 (issue #843)
+0x66330C	?Rva00263569Xfer@@YAPAVXfer@@PAV1@PAH@Z	other issue #843	AIUpdateInterface unported waypoint/radar/geometry helper (89B, dc=1, vc=0); covered by stop S-4460 and Port 326 (issue #843)
+0x663541	?Rva00263778Distance@@YAMPBUCoord3D@@MM0MM@Z	other issue #843	AIUpdateInterface unported waypoint/radar/geometry helper (106B, dc=1, vc=0); covered by stop S-4460 and Port 326 (issue #843)
+0x66A56C	no class	glue	Trivial struct init helper (99B, xorps xmm0 + member init 0x478cbe/0x66365e); unnamed struct ctor bypasses map rule
+0x66A5CF	??1Rva0026AFDAMember@@QAE@XZ	glue	EH-framed ~Rva0026AFDAMember (75B, __EH_prolog 0xB872A9 + free 0x430170 + two 0x435d50 string dtors); EH-framed dtor bypasses map rule
+0x66E8E1	??1Rva0026E5B9@@QAE@XZ	glue	Vector buffer dtor ~Rva0026E5B9 (30B, destroy range 0x66e506 + free 0x430170); unnamed vector dtor bypasses map STLport rule
+0x68293F	??1Rva0026E5B9@@QAE@XZ	glue	Vector buffer dtor ~Rva0026E5B9 (30B, destroy range 0x67fc94 + free 0x430170); unnamed vector dtor bypasses map STLport rule
+0x685F98	?rva00285860@Rva002E6EFFGrid@@QAEIPBURva002E6EFFPosition@@@Z	other issue #843	Pathfinder unported grid/callback/helper (133B, dc=1, vc=0); covered by stop S-4462 and Port 326 (issue #843)
+0x68601D	no class	other issue #843	Pathfinder unported grid/callback/helper (195B, dc=1, vc=0); covered by stop S-4462 and Port 326 (issue #843)
+0x6860E0	no class	other issue #843	Pathfinder unported grid/callback/helper (25B, dc=0, vc=0); covered by stop S-4462 and Port 326 (issue #843)
+0x6B6CEE	?rva002F1C5F@Rva002F1C5F@@QAEPAV1@HH@Z	glue	Intrusive list self-link ctor helper Rva002F1C5F (42B, links prev/next via 0x828426); unnamed intrusive list helper bypasses map rule
+0x6C63D8	??1Rva002C589B@@QAE@XZ	glue	Pointer-member dtor ~Rva002C589B (24B, if [ecx+0x24] call 0x7ede52 + delete 0x42f6a0); non-empty dtor bypasses map empty-dtor rule
+0x6C67C4	?DoXfer@Rva002C589B@@QAEXPAVXfer@@@Z	too big	SkirmishAI/TacticalAI/TAiData unported brain/INI/xfer helper (217B, dc=1, vc=0); covered by stops S-412 / S-4220 in docs/STOPS.md
+0x6C6B6E	no class	too big	SkirmishAI/TacticalAI/TAiData unported brain/INI/xfer helper (182B, dc=1, vc=0); covered by stops S-412 / S-4220 in docs/STOPS.md
+0x6C6C24	?rva002C5F65@Rva002C5F65@@QAEXXZ	too big	SkirmishAI/TacticalAI/TAiData unported brain/INI/xfer helper (79B, dc=1, vc=0); covered by stops S-412 / S-4220 in docs/STOPS.md
+0x6C6C79	?rva002C5FBA@Rva002C5FBA@@QAEPAXH@Z	too big	SkirmishAI/TacticalAI/TAiData unported brain/INI/xfer helper (56B, dc=2, vc=0); covered by stops S-412 / S-4220 in docs/STOPS.md
+0x6C6C8A	?get@Rva002C5FCBNullAdjustField@@QBEHXZ	glue	Null-adjust field getter Rva002C5FCBNullAdjustField::get (14B, mov eax,[ecx+0xc]; test; je; add eax,8); disp8 null-adjust bypasses map this-adjustor rule
+0x6C7B95	??1Rva002C6E4E@@QAE@XZ	glue	EH-framed ~Rva002C6E4E (86B, __EH_prolog 0xB8B379 + vdtor + delete 0x42f6a0 + base dtor 0x8f08ed); EH-framed dtor bypasses map rule
+0x6C7BEB	no class	too big	SkirmishAI/TacticalAI/TAiData unported brain/INI/xfer helper (31B, dc=1, vc=0); covered by stops S-412 / S-4220 in docs/STOPS.md
+0x6E8033	?rva002E6BA1@Rva002E6BA1@@QAEXHPAUIn002E6BA1@@@Z	other issue #843	Pathfinder unported grid/callback/helper (65B, dc=1, vc=0); covered by stop S-4462 and Port 326 (issue #843)
+0x6E8676	no class	other issue #843	Pathfinder unported grid/callback/helper (62B, dc=4, vc=0); covered by stop S-4462 and Port 326 (issue #843)
+0x6E86D2	?cellCallback@Rva002E7261Info@@QAEHPAVPathfindCell@@0HH@Z	other issue #843	Pathfinder unported grid/callback/helper (53B, dc=1, vc=0); covered by stop S-4462 and Port 326 (issue #843)
+0x6E88B1	?rva002E7440@Rva002E7440@@QAE_NHH@Z	other issue #843	Pathfinder unported grid/callback/helper (66B, dc=1, vc=0); covered by stop S-4462 and Port 326 (issue #843)
+0x6E8ED3	?ComputeNormalRadialOffset@@YAXABUCoord3D@@AAU1@0PAVObject@@M@Z	other issue #843	Pathfinder unported grid/callback/helper (160B, dc=2, vc=0); covered by stop S-4462 and Port 326 (issue #843)
+0x6E945A	?Rva002E7FEDGet@@YAPAVRva002E7FED@@PAV1@PAH@Z	other issue #843	Pathfinder unported grid/callback/helper (88B, dc=1, vc=0); covered by stop S-4462 and Port 326 (issue #843)
+0x6EC18E	?rva002EAD39@Rva002EAD39@@QAEXPAVRva0053476A@@@Z	other issue #843	Pathfinder unported grid/callback/helper (41B, dc=1, vc=0); covered by stop S-4462 and Port 326 (issue #843)
+0x6EFD81	?rva002EE9B7@Rva002EE9B7@@QAEXXZ	glue	STLport _Rb_tree::clear (41B, cmp [esi+4],0; call 0x6ec204; reset header links/size); unnamed _M_erase callee bypasses map STLport rule
+0x6F06D4	?rva002EF25B@Rva002F0DD6Tree@@QAEPAXABVRva002F0DD6Value@@@Z	glue	STLport _Rb_tree::_M_create_node via MemoryPool 0xDA25B8 (34B, call 0x5fedbf + copy ctor 0x9b2977); pool-backed node bypasses map STLport rule
+0x6F0874	?rva002EF3D9@Rva002EF3D9Host@@QAEHPADH@Z	other issue #843	Pathfinder unported grid/callback/helper (21B, dc=1, vc=0); covered by stop S-4462 and Port 326 (issue #843)
+0x6F208F	?helper@Rva002F1CB3@@AAEPAV1@H@Z	glue	STLport pool node allocate helper (35B, call 0x828d5c + 0x5fedbf); pool-backed helper bypasses map STLport rule
+0x6F3032	?cellCallback@Rva002F1BD5Info@@QAEHPAVPathfindCell@@0HH@Z	other issue #843	Pathfinder unported grid/callback/helper (80B, dc=1, vc=0); covered by stop S-4462 and Port 326 (issue #843)
+0x6F30BC	?rva002F1C5F@Rva002F1C5F@@QAEPAV1@HH@Z	glue	Intrusive list self-link ctor helper Rva002F1C5F (42B, links prev/next via 0x6f208f); unnamed intrusive list helper bypasses map rule
+0x6F30E6	?rva002F1CB3@Rva002F1CB3@@QAEPAV1@HH@Z	glue	Intrusive list self-link ctor helper Rva002F1CB3 (42B, links prev/next via 0x6f20b2); unnamed intrusive list helper bypasses map rule
+0x6F4777	?rva002F336A@Rva002F336AOwner@@QAE_NHH@Z	other issue #843	Pathfinder unported grid/callback/helper (40B, dc=1, vc=0); covered by stop S-4462 and Port 326 (issue #843)
+0x6F4B45	?rva002F3738@Rva002F3738@@QAEXPAPAX@Z	other issue #843	Pathfinder unported grid/callback/helper (33B, dc=1, vc=0); covered by stop S-4462 and Port 326 (issue #843)
+0x6FEC18	no class	too big	SkirmishAI/TacticalAI/TAiData unported brain/INI/xfer helper (70B, dc=0, vc=0); covered by stops S-412 / S-4220 in docs/STOPS.md
+0x6FEEF7	no class	too big	SkirmishAI/TacticalAI/TAiData unported brain/INI/xfer helper (703B, dc=1, vc=0); covered by stops S-412 / S-4220 in docs/STOPS.md
+0x6FF1B6	no class	too big	SkirmishAI/TacticalAI/TAiData unported brain/INI/xfer helper (150B, dc=1, vc=0); covered by stops S-412 / S-4220 in docs/STOPS.md
+0x6FF24C	no class	too big	SkirmishAI/TacticalAI/TAiData unported brain/INI/xfer helper (25B, dc=1, vc=0); covered by stops S-412 / S-4220 in docs/STOPS.md
+0x6FF6A7	no class	too big	SkirmishAI/TacticalAI/TAiData unported brain/INI/xfer helper (23B, dc=0, vc=0); covered by stops S-412 / S-4220 in docs/STOPS.md
+0x70007E	?Rva002FE87DConstruct@@YAXPAXPBX@Z	glue	STLport _Construct<pair<const AsciiString, NoCaseTreeValue4>> with __EH_prolog 0xB8D5D0 (45B); EH wrapper bypasses map STLport rule
+0x700476	?Rva002FE8AACreate@@YGPAXPBU?$pair@$$CBVAsciiString@@UNoCaseTreeValue4@@@_STL@@@Z	glue	STLport list node allocator _M_create_node (34B, push 0x10; call 0x430130; call 0x70007e); custom allocator wrapper bypasses map STLport rule
+0x7004B4	?Rva002FEC97Insert@@YGPAXPAXPAUListNode@@PBU?$pair@$$CBVAsciiString@@UNoCaseTreeValue4@@@_STL@@@Z	glue	STLport list::insert helper (37B, calls 0x700476 and links prev/next pointers); split helper bypasses map STLport rule
+0x74364C	no class	too big	Unported AI state/sub-machine helper (36B, dc=0, vc=0); covered by stops S-4460 / S-7981..S-7983 in docs/STOPS.md
+0x745991	?rva00343F8A@@YAXPAVRva00343F8A@@PAX@Z	too big	Unported AI state/sub-machine helper (38B, dc=0, vc=0); covered by stops S-4460 / S-7981..S-7983 in docs/STOPS.md
+0x74616C	?rva00344749@@YA_NPAUCoord3D@@PAVObject@@@Z	too big	Unported AI state/sub-machine helper (636B, dc=1, vc=0); covered by stops S-4460 / S-7981..S-7983 in docs/STOPS.md
+0x752FAC	?rva0035149F@Rva0035149F@@QAEAAV1@ABV1@@Z	glue	Compiler-generated assignment operator Rva0035149F::operator= (209B, field-by-field copy); unnamed copy-assign bypasses map rule
+0x754DCC	?rva003532BF@@YAXPAVObject@@PAVStateMachine@@_N@Z	too big	Unported AI state/sub-machine helper (256B, dc=2, vc=0); covered by stops S-4460 / S-7981..S-7983 in docs/STOPS.md
+0x754ECC	?doXfer@Rva0026AFDAMember@@QAEXPAVXfer@@@Z	too big	Unported AI state/sub-machine helper (680B, dc=3, vc=0); covered by stops S-4460 / S-7981..S-7983 in docs/STOPS.md
+0x756D5B	?dup_00355257@@YAXXZ	glue	STLport hashtable::~hashtable with MSVC __EH_prolog 0xB9197F (57B, calls clear 0x8e3ea1 + free 0x430170); EH wrapper bypasses map STLport rule
+0x766689	?rva00364A37@Rva00364A37@@QAEXXZ	glue	STLport _Rb_tree::clear (41B, cmp [esi+4],0; call 0x765ec0; reset header links/size); unnamed _M_erase callee bypasses map STLport rule
+0x7666B2	?rva00364A60@Rva00364A60@@QAEXXZ	glue	STLport _Rb_tree::clear (41B, cmp [esi+4],0; call 0x765eed; reset header links/size); unnamed _M_erase callee bypasses map STLport rule
+0x76ED57	no class	other issue #843	AIGroup unported group command/query (80B, dc=1, vc=0); covered by stops S-813 / S-4460 and Port 326 (issue #843)
+0x76F9B8	?rva0036DC46@Rva0036ListOwner@@QAEXH@Z	not reached	0 direct callers, 0 virtual callers in RW_BINARY_MAP.tsv; only .rdata@0xD0DBDC SafeSEH/debug table entry (AIGroup list helper, 41B)
+0x76FEB5	?groupOverrideSpecialPowerDestination@Rva0036E1F7@@QAEXHHH@Z	other issue #843	AIGroup unported group command/query (56B, dc=1, vc=0); covered by stops S-813 / S-4460 and Port 326 (issue #843)
+0x76FF65	?rva0036E2A7@Rva0036E2A7@@QAEXPAVSequentialScript@@H@Z	other issue #843	AIGroup unported group command/query (59B, dc=1, vc=0); covered by stops S-813 / S-4460 and Port 326 (issue #843)
+0x774FD0	?remove@Rva00372CA8@@QAEXH@Z	glue	Intrusive list remove helper Rva00372CA8::remove (68B, unlinks node and frees); unnamed list helper bypasses map STLport rule

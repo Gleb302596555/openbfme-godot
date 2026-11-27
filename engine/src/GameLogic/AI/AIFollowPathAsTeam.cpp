@@ -179,6 +179,7 @@ bool AIFollowPathAsTeamState::canMoveToNextFormationPathPoint() const
 	return canMove;
 }
 
+// Local 187: RW 0x7475F2 (AIFollowPathAsTeamState::computePath)
 StateReturnType AIFollowPathAsTeamState::startMove(bool adjusts)
 {
 	AIUpdateInterface &a = ai();

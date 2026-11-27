@@ -754,6 +754,7 @@ float Path::computeFlightDistToGoal(const Coord3D &pos, Coord3D &goal) const
 	return distance;
 }
 
+// Local 187: RW 0x765945 (Rva00363CF3Distance: 2D Euclidean distance between Coord3D endpoints)
 float Path::remainingDistanceFrom(const LocomotorPathPoint &point) const
 {
 	// the locomotor passes the point computePointAhead returned: its node is the one stored with it

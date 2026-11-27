@@ -389,6 +389,7 @@ StateReturnType AIFaceState::onEnter()
 	return m_objectTarget && !machine().goalObject() ? STATE_FAILURE : STATE_CONTINUE;
 }
 
+// Local 187: RW 0x743FC2 (AIFaceDirectionState::update)
 StateReturnType AIFaceState::update()
 {
 	// TARGET RW 0x75638B: an object target is resolved every frame, so a moving

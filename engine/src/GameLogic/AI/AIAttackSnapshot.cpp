@@ -16,6 +16,7 @@
 #include "GameLogic/AI/AIXfer.h"
 #include "GameLogic/Module/AIUpdate.h"
 
+// Local 187: RW 0x747A86 (AIAttackState::loadPostProcess folded into load path)
 void AIAttackState::xfer(Xfer &x)
 {
 	XferVersion v{ 1, 2 }; // 2: ATKSTATE-1a / PORT-14's + 0x49 (RW 0x74D0B9 / 0x7512C8); a version-1 save loads it as false
@@ -81,6 +82,7 @@ void AIAttackState::xfer(Xfer &x)
 	m_machineMade = made;
 }
 
+// Local 187: RW 0x741FD0 (AIAttackApproachTargetState00C12678::xfer)
 void AIAttackApproachState::xfer(Xfer &x)
 {
 	XferVersion v{ 1, 2 }; // 2: the wait of an owner that cannot move
