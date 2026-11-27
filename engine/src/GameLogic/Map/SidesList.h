@@ -60,7 +60,7 @@ struct FactionBuildList
 
 // SidesList container lifecycle & helpers: ctor RW 0x7307D0, dtor RW 0x73060F, deleting dtor RW 0x7308CE,
 // addSide RW 0x72EA27, emptySides RW 0x72F1CC, emptyTeams RW 0x72EA0D, clear RW 0x72F78D, reset RW 0x72FF07,
-// swap RW 0x72D09A, copyTeams RW 0x72D1B1, getClassName RW 0x7306FF (0xC240D8[2] -> "SidesList").
+// swap RW 0x72D09A, copyTeams RW 0x72D1B1, findSideInfo RW 0x72CACB, getClassName RW 0x7306FF (0xC240D8[2] -> "SidesList").
 struct SidesList
 {
 	int sidesVersion = 0;       // 5 or 6, 0 if the chunk is absent

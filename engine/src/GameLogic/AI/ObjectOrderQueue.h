@@ -32,6 +32,7 @@ public:
 		virtual void preparePatrol(OrderId order, ObjectId object) = 0;
 	};
 
+	// RW 0x94EBA8 (ObjectOrderQueue ctor)
 	explicit ObjectOrderQueue(ObjectId object = 0) : m_object(object) {}
 	const std::list<OrderId> &orders() const { return m_orders; }
 	OrderId planned() const { return m_planned; }
@@ -46,6 +47,7 @@ public:
 		std::vector<OrderId> orders;
 		OrderId planned = 0, patrolStart = 0, nextPatrolStart = 0;
 	};
+	// RW 0x94ECF2 (ObjectOrderQueue::xfer)
 	State state() const
 	{
 		return { m_object, std::vector<OrderId>(m_orders.begin(), m_orders.end()), m_planned, m_patrolStart, m_nextPatrolStart };
@@ -116,6 +118,7 @@ public:
 		m_orders.erase(first, last);
 	}
 
+	// RW 0x94ED4C (ObjectOrderQueue::insert)
 	void insert(unsigned flags, OrderId id, Owner &owner)
 	{
 		if (!id) return;
@@ -139,6 +142,7 @@ public:
 		}
 	}
 
+	// RW 0x94EE0F (ObjectOrderQueue::commitPlanned)
 	void commitPlanned(Owner &owner)
 	{
 		if (m_orders.empty() || !m_planned) return;
@@ -164,6 +168,7 @@ public:
 		m_planned = 0;
 	}
 
+	// RW 0x94EF1A (ObjectOrderQueue::process)
 	void process(Owner &owner)
 	{
 		if (m_orders.empty()) return;

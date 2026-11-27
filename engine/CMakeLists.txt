@@ -622,6 +622,7 @@ include(cmake/Local183.cmake)   # LOCAL-183: HordeAttackNugget range-finder abil
 include(cmake/Local186.cmake)   # LOCAL-186: matrix red buttons — DevastateSpecialPower probe & fixtures (fork issue 979; OPENBFME_LOCAL186_TESTS)
 include(cmake/Local184.cmake)   # LOCAL-184: matrix buff/screech/hero-mode probe and RW 0x00852CA2 verdict (fork issue 977; OPENBFME_LOCAL184_TESTS)
 include(cmake/Local188.cmake)   # LOCAL-188: AI and pathfinding binary-map audit + AIEconomyBuilder::onUnRegister (fork issue 981; OPENBFME_LOCAL188_TESTS)
+include(cmake/Local189.cmake)   # LOCAL-189: script engine and map / terrain logic binary-map audit (fork issue 982; OPENBFME_LOCAL189_TESTS)
 include(cmake/Local169.cmake)   # LOCAL-169: object and combat core (fork issue 936; OPENBFME_LOCAL169_TESTS)   # LOCAL-152: Ennorath 1.9.8.4 War of the Ring online — >2 players, host-free land transfer, observer seat (fork issue 885; OPENBFME_LOCAL152_TESTS)
 include(cmake/Local130.cmake)   # LOCAL-130: 50 most shared helpers + RW 0x6760CA / 0x677898 construction ambient (fork issue 829; OPENBFME_LOCAL130_TESTS)
 include(cmake/Local133.cmake)   # LOCAL-133: W3DLaserDraw width/fanWidth and tile factor clamps (fork issue 849; OPENBFME_LOCAL133_TESTS)
@@ -1534,6 +1535,7 @@ add_executable(openbfme_tests
     ${OPENBFME_LOCAL186_TESTS}
     ${OPENBFME_LOCAL184_TESTS}
     ${OPENBFME_LOCAL188_TESTS}
+    ${OPENBFME_LOCAL189_TESTS}
         ${OPENBFME_LOCAL130_TESTS}
         ${OPENBFME_LOCAL133_TESTS}
         ${OPENBFME_LOCAL136_TESTS}

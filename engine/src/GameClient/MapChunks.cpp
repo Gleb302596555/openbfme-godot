@@ -123,7 +123,7 @@ bool parseObject(DataChunkInput &file, DataChunkInfo *info, void *ud)
 }
 
 // ZH PolygonTrigger::ParsePolygonTriggersDataChunk (PolygonTrigger.cpp:135-230); v5 per spec 1.7.11.
-// RW 0x72AF3B (OldPolygonTriggerDataChunkParserBase::parsePolygonTriggersChunkImpl)
+// RW 0x72AF3B (OldPolygonTriggerDataChunkParserBase::parsePolygonTriggersChunkImpl; helpers: RW 0x72A849, RW 0x72AB92, RW 0x72ACDF, RW 0x72AD9E)
 bool parsePolygonTriggers(DataChunkInput &file, DataChunkInfo *info, void *ud)
 {
 	MapChunks *m = (MapChunks *)ud;
