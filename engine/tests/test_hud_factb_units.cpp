@@ -5656,8 +5656,10 @@ TEST_CASE("factc units: every Goblin and Angmar unit, horde and hero ability and
 	// Local 112 (landed 2026-11-21, a8dbb1a7: the sweep's targetless WeaponFireSpecialAbilityUpdate target and the one-shot-kill hit rule in
 	// SweepEffectProbe.h) gives the porters' fire extinguisher its result: WildPorter's and AngmarPorter's pins go (found by bisect 2026-11-22)
 	factcCase("units", "FactionWild", unitsOf, {}); // every stance button works (MATRIX_TODO 3)
+	// Local 183 (2026-11-27, SweepEffectProbe.h: a horde without HordeDispatchSpecialPower does not hand its power to the members, RW 0x8D0AA0) gives
+	// AngmarDarkRangerHorde Command_AngmarLongShotAbility its result: its S-1997 pin goes
 	factcCase("units", "FactionAngmar", unitsOf,
-			  { { "AngmarDarkRangerHorde Command_AngmarLongShotAbility", "S-1997|HordeAttackNugget" }, { "AngmarKarsh Command_WhisperofDeath", "S-2006|AngmarWhisperofDeath: no result" } });
+			  { { "AngmarKarsh Command_WhisperofDeath", "S-2006|AngmarWhisperofDeath: no result" } });
 }
 
 TEST_CASE("factc heroes: every Goblin and Angmar hero is recruited and revived through the started keep's REVIVE buttons")
