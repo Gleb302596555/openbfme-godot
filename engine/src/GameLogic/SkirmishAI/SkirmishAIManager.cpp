@@ -290,7 +290,7 @@ void SkirmishAIManager::updateGroup(AISkirmishGroup &g)
 		else
 		{
 			live = liveAICount(g);
-			++m_counters.sharedBrainUpdates; // RW 0x6C6397 on the first AI's brain + 0x14 (not ported)
+			++m_counters.sharedBrainUpdates; // Local 188: RW 0x6C6397 on the first AI's brain + 0x14 (not ported)
 		}
 	}
 	if (!g.active)
@@ -688,6 +688,7 @@ void SkirmishAIManager::objectRemoved(Object &obj)
 		if (AISkirmishPlayer *ai = lists ? listenerAI(r->playerIndex()) : nullptr)
 		{
 			AIUpgrade::onUnRegister(m_logic, *ai, obj, lists);
+			AIBaseBuilder::onEconomyObjectUnRegistered(m_logic, *ai, obj, lists); // RW 0x8EE8CD
 		}
 	}
 }
@@ -800,7 +801,7 @@ const AISkirmishPlayer *SkirmishAIManager::findAI(int playerIndex) const
 
 const AISkirmishGroup *SkirmishAIManager::findGroup(int playerIndex) const
 {
-	// RW 0x6A957E: the group whose map has the player
+	// RW 0x6A957E (Local 188: RW 0x8EDCE6 AIGameTeam::hasPlayer, RW 0x8EDD3D ~AIGameTeam): the group whose map has the player
 	for (const auto &g : m_groups)
 	{
 		if (g->players.count(playerIndex) != 0)

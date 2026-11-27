@@ -1199,7 +1199,7 @@ float Pathfinder::getLayerHeight(float x, float y, PathfindLayerEnum layer) cons
 		return terrain; // a cell of a layer the ground grid does not hold (none is written): not reached
 	}
 	// the ramp under the point: its height there. RotWK reads the Bridge's plane at the point (RW 0x68044E) and keeps it from going below 0 where RW 0x6EE600
-	// names a wall there (the layer value of RW 0x6E88F3 is 0 for a wall layer); the port has the ramp mesh's surface (S-4840) and the wall cell took the
+	// Local 188: RW 0x6E88F3 (wall layer height/value helper); names a wall there (0 for a wall layer); the port has the ramp mesh's surface (S-4840) and the wall cell took the
 	// branch above, so that max is never met
 	float z = 0.0f;
 	if (isPointOnRamp(x, y, &z))

@@ -161,6 +161,7 @@ constexpr int kMaxShots = 0x7FFFFFFF; // RW 0x89266C / 0x892913
 // ---------------------------------------------------------------------------------------------------------------------------------
 // DeployStyleAIUpdate
 // ---------------------------------------------------------------------------------------------------------------------------------
+// Local 188: RW 0x655CF3 (~DeployStyleAIUpdateModuleData)
 DeployStyleAIUpdate::DeployStyleAIUpdate(Thing *thing, const ModuleData *data)
 	: AIUpdateInterface(thing, data)
 {

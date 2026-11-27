@@ -219,7 +219,7 @@ void PathfindZoneManager::calculateZones(const PathfindGridView &map, const Path
 	m_dirty = false;
 }
 
-// RW 0x93992E (PathfindZoneManager::rva00532FEA block zone rebuild)
+// RW 0x93992E (PathfindZoneManager::rva00532FEA block zone rebuild); Local 188: RW 0x93844A, RW 0x938553 (zone ring reset helpers), RW 0x93B090 (PathfindZoneManager dtor)
 void PathfindZoneManager::rebuildZoneBlocks(const PathfindGridView &map, const PathfindRegion &globalBounds)
 {
 	// every ground cell's zone lies in the block calculateZones labelled it in (its zones never cross a block border); raised-layer zones keep -1

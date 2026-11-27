@@ -497,6 +497,7 @@ TurretAI::TurretAI(AIUpdateInterface &ai, const TurretAIData &data, int whichTur
 	m.initDefaultState();
 }
 
+// Local 188: RW 0x8DC9BB (~TurretAI)
 TurretAI::~TurretAI()
 {
 	if (m_machine)
@@ -587,7 +588,7 @@ void TurretAI::setTurretTargetObject(Object *victim, bool forceAttacking)
 	}
 }
 
-// Local 164: RW 0x662317 (AIUpdateInterface::setTurretTargetPosition)
+// Local 164: RW 0x662317 (AIUpdateInterface::setTurretTargetPosition), Local 188: RW 0x8DCB22 (TurretAI::setTurretTargetPosition)
 void TurretAI::setTurretTargetPosition(const Coord3D *pos)
 {
 	if (!pos || !isOwnersCurWeaponOnTurret())
@@ -633,6 +634,7 @@ bool TurretAI::isTryingToAimAtTarget(const Object *victim)
 	return m_machine->currentStateId() == TURRETAI_AIM && getTurretTarget(obj, pos) == TARGET_OBJECT && obj == victim;
 }
 
+// Local 188: RW 0x8DC5EC (TurretAI::setTurretEnabled)
 void TurretAI::setTurretEnabled(bool on)
 {
 	if (on && !m_enabled)
@@ -858,6 +860,7 @@ void TurretAI::crc(StateHasher &h) const
 	h.addBool(m_targetWasSetByIdleMood);
 }
 
+// Local 188: RW 0x8DC3EA (TurretAI::loadPostProcess: restores m_victimInitialTeam on load)
 void TurretAI::xfer(Xfer &x)
 {
 	XferVersion v{ 1, 1 };

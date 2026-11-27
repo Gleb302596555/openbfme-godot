@@ -212,6 +212,7 @@ unsigned AIStatCollector::registerObject(const Object &obj)
 	return listeners;
 }
 
+// Local 188: RW 0x8E3E78 (AIStatCollector::unRegisterInfoReceiver), RW 0x8E44D7 (~AIStatCollector)
 unsigned AIStatCollector::unRegisterObject(const Object &obj)
 {
 	// RW 0x8E480C; each remove that found the object calls the listeners of its mask (RW 0x8E3D77): the caller does (lane AI5)

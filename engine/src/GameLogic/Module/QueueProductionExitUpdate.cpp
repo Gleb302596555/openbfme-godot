@@ -82,6 +82,7 @@ using ExitMath::chain4;
 using ExitMath::mul;
 } // namespace
 
+// Local 188: RW 0x653FC7 (QueueProductionExitUpdateModuleData ctor), RW 0x65401C (friend_newModuleData)
 void QueueProductionExitUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	p.add(kQueueProductionExitFieldParse);
