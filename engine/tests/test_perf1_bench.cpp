@@ -705,6 +705,8 @@ TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after a
 	// tree (REGEN=1, Windows MSVC), bisected over the merge points: green after batch 19f, red from Port 294 (#723) on: ObjectCreationUpgrade's
 	// own wouldUpgrade / postUpgradeCheck (RW 0x8B82AB / 0x8B8329), asked on every upgrade event (RW 0x6936FE), replace the mux base's answers;
 	// PORT-459 (#653) after it was not split off
+	// pin: Port 216 (PR #618, landed with #635 on 2026-11-27, PC MSVC) re-measured the skirmish file (OPENBFME_PERF1_REGEN=1): the contact point stored at geometry parse
+	// (RW 0xAD25B0 -> GeometryInfo +0x50, copied by RW 0xAD3172) moves the skirmish from frame 2259; with ObjectGeometry.cpp/.h switched off the previous pins pass 11/11, so nothing else moved
 	// pin: the fork's merge of upstream 234f5742 (2026-11-13) re-measured the battle and the skirmish once on the merged tree (OPENBFME_PERF1_REGEN=1, Linux GCC on Colab, whose hashes
 	// match the MSVC pins frame for frame on main df5f0b41): PORT-13's GameLogicSettings::crc hashes AttackMoveUsesFormations only when it is false (both editions'
 	// aidata.ini set Yes), so every frame's settings hash moves; with the old condition put back the old pins pass, so nothing else moved

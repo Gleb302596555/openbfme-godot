@@ -988,7 +988,9 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 	// change: seed 1234 now ends with Mordor's defeat at 7838 (was 8267); seeds 2 and 7 unchanged. Engine pins.
 	// pin: Locals 187-191 (landing 2026-11-27, PRs #990 #991 #989 #986 #987): AIUpdateInterface::handleEngagedFlag RW 0x665921 with GameData DefaultMaxDistanceForEngaged / DefaultEngagedStateTimeout (187), AIBaseBuilder::onEconomyObjectUnRegistered RW 0x8EE8CD (188), the new script actions TEAM_MOVE_TO_NEAREST_OBJECT_OF_KINDOF* / TEAM_TOGGLE_CLOSE_RANGE_WEAPON (189), FireLogicSystem::changeFuelInArea RW 0x6864EA (190), LargeGroupBonusUpdate UpdateRate 5 RW 0x893883 / 0xBC699C (191); measured once on the merged tree (Colab sb3, Linux GCC). Attributed by one build with those five switched off (Local 192 kept): perf1 11/11, uber1 7/7, save4b 18/18 and Evendim pass on the previous pins (PROCESS 7 item 5): seed 2 now ends with the Men's defeat at 4502 (was 3941), seed 7 with the second player's defeat at 5035 (was open at 9000),
 	// seed 1234 with the Men's defeat at 5490 (was Mordor's at 7838). Engine pins.
-	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, 1, 4502 }, Game{ "FactionMen", "FactionMordor", 7u, 1, 5035 }, Game{ "FactionMordor", "FactionMen", 1234u, 1, 5490 } })
+	// pin: Port 216 (PR #618): ObjectGeometry's contact point is the one stored at parse (RW 0xAD25B0 writes GeometryInfo +0x50, called only from RW 0xAD2BA7 / 0xAD3DEF;
+	// RW 0xAD3172 copies it); measured on the merged station-0 tree with #635 (PC, MSVC). With ObjectGeometry.cpp/.h switched off perf1 11/11 and Evendim pass on the previous pins: seed 1234 now ends with the Men's defeat at 4421 (was 5490); seeds 2 and 7 unchanged. Engine pins.
+	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, 1, 4502 }, Game{ "FactionMen", "FactionMordor", 7u, 1, 5035 }, Game{ "FactionMordor", "FactionMen", 1234u, 1, 4421 } })
 	{
 		INFO(g.a << " vs " << g.b << " seed " << g.seed);
 		VersusRun run;
