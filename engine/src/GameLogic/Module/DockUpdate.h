@@ -249,6 +249,7 @@ class SupplyWarehouseCripplingBehavior : public UpdateModule, public DamageModul
 {
 public:
 	OBFME_MODULE_XFER(SupplyWarehouseCripplingBehavior)
+	// Local 191: RW 0x64C16D (friend_newModuleInstance)
 	SupplyWarehouseCripplingBehavior(Thing *thing, const SupplyWarehouseCripplingBehaviorModuleData *data);
 	static void registerClass(ModuleFactory &modules);
 

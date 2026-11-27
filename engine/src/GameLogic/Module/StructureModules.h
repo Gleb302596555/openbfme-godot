@@ -184,7 +184,7 @@ class StructureCollapseUpdate : public UpdateModule, public DieModuleInterface
 {
 public:
 	OBFME_MODULE_XFER(StructureCollapseUpdate) // lane SAVE-4b
-	StructureCollapseUpdate(Thing *thing, const StructureCollapseUpdateModuleData *data);
+	StructureCollapseUpdate(Thing *thing, const StructureCollapseUpdateModuleData *data); // Local 191: RW 0x8A795D
 	DieModuleInterface *getDie() override { return this; }
 	void onDie(const DieModuleInterface::Event &event) override;
 	UpdateSleepTime update() override;

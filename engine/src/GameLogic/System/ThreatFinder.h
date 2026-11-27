@@ -33,7 +33,8 @@ class ThreatFinder
 {
 public:
 	ThreatFinder(std::string name, bool noStructures);
-	~ThreatFinder() = default; // RW 0x007EDE52 (~ThreatFinder) ///< RW 0x7EDDFB (INFERENCE BFME2 0x003ECD60: the records zeroed, the radius 0, the frame 0)
+	// Local 191: RW 0x007EDE52 (~ThreatFinder)
+	~ThreatFinder() = default;
 
 	// RW 0x7EE1F4 getThreatForPlayer: the records rescanned when 3 s passed (RW 0xBDD42C, as RW 0x7EE166 does), then the element-wise sum over the players whose
 	// relationship to `player` is ENEMIES (mode 0) or ALLIES (mode 1); every other mode is the empty record (retail's switch)

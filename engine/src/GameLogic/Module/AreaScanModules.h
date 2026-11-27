@@ -49,10 +49,11 @@
 class ModuleFactory;
 class StateHasher;
 
+// RW 0x893871 (ctor; DONOR BFME2 0x004901BD; both editions), RW 0x893B42 (dtor)
 class LargeGroupBonusUpdateModuleData : public ModuleData
 {
 public:
-	unsigned m_updateRate = 0;            ///< + 8 (frames; RW 0x893895 reads the runtime global RW 0xDE93D4, whose value is not in the static image)
+	unsigned m_updateRate = 5;            ///< + 8 (frames; RW 0x893883 loads RW 0xDE93D4, which the static initializer RW 0xBC699C copies from RW 0xD9F608 = 5, LOGICFRAMES_PER_SECOND)
 	ObjectFilter m_hordeMemberFilter;     ///< + 0xC
 	int m_count = 0;                      ///< + 0x10
 	float m_radius = 0.0f;                ///< + 0x14, cleared at RW 0x8938A7
@@ -75,8 +76,10 @@ public:
 class LargeGroupBonusUpdate : public UpdateModule
 {
 public:
-	// RotWK vtable identity & boilerplate: getModuleNameKey RW 0x893670, getModuleName RW 0x8936B5,
-	// xfer RW 0x8936C9 (v1..2), scalar deleting dtor RW 0x8937F4. (onDelete flag sub-object hide is S-1023.)
+	// RotWK vtable identity & boilerplate: dtor RW 0x893650, getModuleNameKey RW 0x893670, getModuleName RW 0x8936B5,
+	// xfer RW 0x8936C9 (v1..2), scalar deleting dtor RW 0x8937F4.
+	//
+	// onDelete flag sub-object hide is S-1023.
 	OBFME_MODULE_XFER(LargeGroupBonusUpdate) // lane SAVE-4b
 	LargeGroupBonusUpdate(Thing *thing, const LargeGroupBonusUpdateModuleData *data); ///< RW 0x893765
 	UpdateSleepTime update() override;                                                 ///< RW 0x8938D9

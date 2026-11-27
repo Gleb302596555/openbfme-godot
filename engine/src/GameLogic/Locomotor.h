@@ -282,6 +282,7 @@ extern thread_local LocomotorStore *TheLocomotorStore;
 // What an object's `LocomotorSet` blocks produce: per SET_* condition the template list (one entry
 // per parse; unresolved names stay null like retail) and the Speed.
 // Local 164: RW 0x5E7EB2 (~LocomotorSet)
+// Local 191: RW 0x5E7607 (LocomotorSet::clear)
 // RW 0x5E689E (LocomotorSet::getClassName 0xBF4AD0[2] -> "LocomotorSet")
 class LocomotorSetTemplate
 {

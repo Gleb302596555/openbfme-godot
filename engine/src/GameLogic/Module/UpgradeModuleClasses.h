@@ -85,6 +85,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// Local 191: RW 0x6502A8 (friend_newModuleInstance)
 // RW 0x008BA577 (getModuleName), RW 0x008BA57D (getModuleNameKey), RW 0x008BA64C / RW 0x008BA557 (dtor)
 class ModelConditionUpgrade : public UpgradeModule
 {

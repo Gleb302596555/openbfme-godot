@@ -180,6 +180,7 @@ void AIWorld::xferBody(Xfer &x)
 		}
 		// Local 177: RW 0x7572B3 (AiOrdersManager::xfer), RW 0x756A00 (GroupOrder xfer), RW 0x75706D / RW 0x7571D2 / RW 0x756C04 / RW 0x756C1F
 		// Local 187: RW 0x707B7E (Rva003063A9XferThingTemplate: template-name xfer in AI snapshots)
+		// Local 191: RW 0x756B9A (group-order pointer xfer)
 		AIGroupOrders::xfer(x, orders, m_logic);
 	}
 	AIXfer::blockReadToEnd(x, "ai world"); // inside the transaction: a block with bytes after its state is refused before anything stays changed

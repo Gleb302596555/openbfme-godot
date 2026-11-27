@@ -60,7 +60,7 @@ class AttachUpdate : public UpdateModule
 {
 public:
 	OBFME_MODULE_XFER(AttachUpdate) // lane SAVE-4b
-	AttachUpdate(Thing *thing, const AttachUpdateModuleData *data); ///< RW 0x8950A0
+	AttachUpdate(Thing *thing, const AttachUpdateModuleData *data); ///< RW 0x89509B
 	UpdateSleepTime update() override;                              ///< RW 0x8953BB
 	void crc(StateHasher &h) const override;
 	ObjectID parentID() const { return m_parentID; }

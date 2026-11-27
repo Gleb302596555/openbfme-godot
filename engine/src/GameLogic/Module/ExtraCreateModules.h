@@ -37,6 +37,7 @@ public:
 };
 
 // RW 0x008BD2E6 (getModuleName), RW 0x008BD2EC (getModuleNameKey)
+// Local 191: RW 0x650833 (friend_newModuleInstance)
 class ExperienceLevelCreate : public BehaviorModule, public CreateModuleInterface
 {
 public:

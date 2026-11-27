@@ -318,6 +318,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p); // RW 0x8CA7FA
 };
 
+// Local 191: RW 0x64BFE2 (friend_newModuleInstance), RW 0x8CA87E (~SiegeDeployHordeSpecialPower)
 class SiegeDeployHordeSpecialPower : public SpecialPowerUpdateBase
 {
 public:
