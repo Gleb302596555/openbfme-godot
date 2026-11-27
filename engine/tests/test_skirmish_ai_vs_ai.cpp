@@ -982,7 +982,11 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 	// once on the merged tree with Locals 127-130 (Colab sb4, Linux GCC; main + the batch alone gives the same three games, so the Locals move nothing):
 	// the batch's own perf1 / uber1 re-pins name #582 and #736 as its simulation movers, not split further here. Seed 2 now ends with the Men's defeat at
 	// 3941 (was 4483), seed 7 stays open at 9000 (was the Men's defeat at 3173), seed 1234 ends with Mordor's defeat at 8267 (was 8765). Engine pins.
-	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, 1, 3941 }, Game{ "FactionMen", "FactionMordor", 7u, -1, -1 }, Game{ "FactionMordor", "FactionMen", 1234u, 0, 8267 } })
+	// pin: Port 317 (PR #851, fork issue 818): AIGuard as RotWK - the AI machine goal first in lookForInnerTarget (RW 0x949CA7), the inner state's pursuit
+	// centre at the guarded team's centre, re-search on a dead goal and chase extension (RW 0x94A407), the idle state's return when the guarded team moves
+	// (RW 0x94A70A); measured on review-851 (Colab sb1, Linux GCC). The parent main 62697c03 passes the previous pins and AIGuard.cpp/.h are the PR's only engine
+	// change: seed 1234 now ends with Mordor's defeat at 7838 (was 8267); seeds 2 and 7 unchanged. Engine pins.
+	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, 1, 3941 }, Game{ "FactionMen", "FactionMordor", 7u, -1, -1 }, Game{ "FactionMordor", "FactionMen", 1234u, 0, 7838 } })
 	{
 		INFO(g.a << " vs " << g.b << " seed " << g.seed);
 		VersusRun run;
