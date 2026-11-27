@@ -22,8 +22,10 @@ namespace
 {
 const char kMagic[8] = { 'O', 'B', 'F', 'M', 'E', 'S', 'A', 'V' };
 // container version 2 (lane WOTR2 milestone 3) adds the fourth part, the War of the Ring strategic game
-const char *const kPartTags[4] = { "HEAD", "LOG ", "SNAP", "LWLD" };
-const char *const kPartNames[4] = { "header", "command log", "snapshot", "War of the Ring" };
+// PORT-266, RW 0x6DF73E: GameState registers client-side chunks independently of logic.
+// This native container uses a separate part, not the retail stream layout.
+const char *const kPartTags[5] = { "HEAD", "LOG ", "SNAP", "LWLD", "CLNT" };
+const char *const kPartNames[5] = { "header", "command log", "snapshot", "War of the Ring", "client snapshot" };
 
 bool failWith(std::string *error, const std::string &why)
 {
@@ -133,6 +135,7 @@ std::vector<std::uint8_t> SaveGameFile::encode() const
 		lw.bytes(livingWorldSession);
 	}
 	putPart(out, 3, lw.data());
+	putPart(out, 4, clientSnapshot);
 	return out;
 }
 
@@ -222,13 +225,13 @@ bool SaveGameFile::parseFrom(Source &src, SaveGameFile &out, std::string *error,
 		return failWith(error, "the save is truncated (no container version)");
 	}
 	const std::uint32_t version = NetByteReader(lead + 8, 4).u32();
-	if (version != kContainerVersion && version != 1)
+	if (version < 1 || version > kContainerVersion)
 	{
-		return failWith(error, "save container version " + std::to_string(version) + " (this build reads versions 1 and " + std::to_string(kContainerVersion) + ")");
+		return failWith(error, "save container version " + std::to_string(version) + " (this build reads versions 1 to " + std::to_string(kContainerVersion) + ")");
 	}
-	const int partCount = version == 1 ? 3 : 4; // version 1 has no War of the Ring part
-	const std::uint64_t limits[4] = { kMaxHeaderBytes, kMaxLogBytes, kMaxSnapshotBytes, kMaxLivingWorldBytes };
-	std::vector<std::uint8_t> parts[4];
+	const int partCount = version == 1 ? 3 : version == 2 ? 4 : 5; // v1 lacks LWLD; v1/v2 lack CLNT
+	const std::uint64_t limits[5] = { kMaxHeaderBytes, kMaxLogBytes, kMaxSnapshotBytes, kMaxLivingWorldBytes, kMaxClientSnapshotBytes };
+	std::vector<std::uint8_t> parts[5];
 	std::uint64_t pos = 12;
 	for (int i = 0; i < partCount; ++i)
 	{
@@ -441,6 +444,7 @@ bool SaveGameFile::parseFrom(Source &src, SaveGameFile &out, std::string *error,
 	}
 	out.log = std::move(parts[1]);
 	out.snapshot = std::move(parts[2]); // lane SAVE-4a
+	out.clientSnapshot = std::move(parts[4]); // PORT-266: v1/v2 have no client data
 	return true;
 }
 

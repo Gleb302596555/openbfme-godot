@@ -719,8 +719,8 @@ TEST_CASE("save4a: the container carries the snapshot part like the others: read
 	std::string error;
 	REQUIRE_MESSAGE(SaveGameFile::parse(good, back, &error), error);
 	CHECK(back.snapshot == s.snapshot);
-	// lane WOTR2 milestone 3 (container version 2): the empty War of the Ring part's 40-byte head follows the snapshot
-	const size_t lwldHead = 40;
+	// PORT-266: v3 adds an empty CLNT head after the empty LWLD head; SNAP payload is unchanged.
+	const size_t lwldHead = 80;
 	std::vector<std::uint8_t> bad = good;
 	bad[good.size() - lwldHead - 1] ^= 1; // the snapshot's last byte
 	CHECK_FALSE(SaveGameFile::parse(bad, back, &error));

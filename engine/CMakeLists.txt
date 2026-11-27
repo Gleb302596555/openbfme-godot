@@ -265,6 +265,7 @@ include(cmake/Port4.cmake) # OPENBFME_PORT4_TESTS
 include(cmake/Port109.cmake) # OPENBFME_PORT109_TESTS
 include(cmake/Port47.cmake) # OPENBFME_PORT47_TESTS
 include(cmake/Port317.cmake)
+include(cmake/Port266.cmake) # OPENBFME_PORT266_TESTS
 include(cmake/Play2.cmake) # OPENBFME_PLAY2_TESTS (lane PLAY-2)
 include(cmake/Port161.cmake) # PORT-161: BurningCell producer into the shared audio runtime
 include(cmake/Port327.cmake) # OPENBFME_PORT327_TESTS
@@ -1488,6 +1489,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT237_TESTS}
     ${OPENBFME_PORT284_TESTS}
     ${OPENBFME_PORT220_TESTS}
+    ${OPENBFME_PORT266_TESTS}
     ${OPENBFME_PORT257_TESTS}
     ${OPENBFME_PORT261_TESTS}
     ${OPENBFME_LOCAL80_TESTS}

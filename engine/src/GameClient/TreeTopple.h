@@ -51,6 +51,8 @@
 #include <vector>
 
 class W3DTreeDrawModuleData;
+class GameLogic;
+class Object;
 
 class TreeTopple
 {
@@ -79,6 +81,9 @@ public:
 		bool sinking = false;
 		bool removed = false;         ///< the logic took its lumber
 		// PORT-73 (RW 0x4E8B8F addShrub / RW 0x4E6C74 / RW 0x4E8519): the push aside of a shrub
+		bool shrub = false;           ///< distinct shrub buffer; tree fading never applies here
+		std::uint32_t fadeCurrent = 255; ///< tree buffer +0xE0 (RW 0x4EC93A)
+		std::uint32_t fadeTarget = 255;  ///< tree buffer +0xE4 (RW 0x4EC93A)
 		bool pushable = false;        ///< RW 0x4E8C66 / 0x4E8C6C: MoveOutwardTime above 0 or DoTopple (the record joins the area partition)
 		float pushAside = 0.0f;       ///< + 0x5C: 0 upright, 1 bent as far as the walker pushes it
 		float pushAsideDelta = 0.0f;  ///< + 0x60: the step per drawn frame (positive outward, negative back)
@@ -130,6 +135,23 @@ public:
 	std::vector<FX> takeFX();
 	const std::vector<Tree> &trees() const { return m_trees; }
 	size_t animating() const;
+	// PORT-266, RW 0x4ECE3E: client-only tree alpha snapshot (OpenBFME encoding, not retail bytes).
+	std::vector<std::uint8_t> saveFadeSnapshot() const;
+	bool loadFadeSnapshot(const std::vector<std::uint8_t> &bytes, std::string *error);
+	// PORT-266, RW 0x4ED508 (the fade half): the fade target of every tree record, from the objects around it. The caller runs it in a window in which the logic
+	// is held and the client frame gate of RW 0x63252F is open (INFERENCE, S-7438: once per logic frame); it also takes GameData's AllowTreeFading (GlobalData + 0x40,
+	// RW 0x4ED689) for the opacity step of advance(). Switch off: targets and opacities stay as they are (RW 0x4ED68E, RW 0x4ED79B, RW 0x4EBA5E).
+	// For each tree record (not a shrub, not gone): the objects whose 2D bounding circle reaches within the type's FadeDistance (RW 0xA39340, mode 1 =
+	// FROM_BOUNDINGSPHERE_2D) and that GameData's TreeFadeObjectFilter allows (reference player null, RW 0x66122D) are tested by fadeCandidateAccepted; the first
+	// accepted sets the target to the type's FadeTarget (+ 0x5C), none sets 255. Returns how many targets changed.
+	size_t updateFadeTargets(GameLogic &logic);
+	// RW 0x4ED6F1 .. 0x4ED76F: a queried object counts when it has a controlling player, is not effectively dead (Object + 0x458 bit 0), and (a) with the model
+	// condition INVISIBLE_STEALTH or INVISIBLE_CAMOUFLAGE (RW 0x68FC06 not 2) is allied to the local player (RW 0x6ADBEB == 2), (b) without them and without
+	// STEALTHED (status 0xF) or with DETECTED (0x11) counts at once, (c) STEALTHED and not DETECTED is allied to the local player
+	static bool fadeCandidateAccepted(GameLogic &logic, const Object &candidate);
+	// RW 0x4EB992 (the opacity step): the trees whose opacity moved since the last call
+	std::vector<size_t> takeFadeChanged();
+	bool fadeSwitch() const { return m_fadeSwitch; }
 	// S-921: a morph ended and the tree is of another type now (its topple and sink read that type's W3DTreeDraw, RW 0x4EAB0A)
 	void setData(size_t index, const W3DTreeDrawModuleData *data)
 	{
@@ -140,11 +162,15 @@ public:
 	}
 
 private:
+	bool stepFade(Tree &t) const; // RW 0x4EBA54 .. 0x4EBA94
 	void update(Tree &t); // RW 0x4ED508's step: the sink, then updateTopplingTree
 	bool pushOne(size_t index, std::uint32_t pusherId, const Coord3D &position, const Coord3D &direction, std::uint32_t frame); // RW 0x4E6C74
 	void advancePushAside(Tree &t); // RW 0x4E8519: one drawn frame's step of the bend
 	std::vector<Tree> m_trees;
 	std::vector<size_t> m_changed;
+	std::vector<size_t> m_fadeChanged;
+	bool m_fadeSwitch = false;       ///< GameData AllowTreeFading as the last updateFadeTargets read it (RW 0x6429AD: false)
+	bool m_localPlayerReported = false;
 	std::vector<FX> m_fx;
 	double m_accumulator = 0.0;
 };

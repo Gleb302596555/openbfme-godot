@@ -6,6 +6,15 @@
 #include "GameClient/TreeTopple.h"
 
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DTreeDraw.h"
+#include "GameNetwork/NetPacket.h"
+#include "Common/Player.h"
+#include "Common/PlayerList.h"
+#include "Common/Team.h"
+#include "GameLogic/Combat/CombatNames.h"
+#include "GameLogic/GameLogic.h"
+#include "GameLogic/ObjectFilterMatch.h"
+#include "GameLogic/Object/Object.h"
+#include "GameLogic/Object/PartitionManager.h"
 
 #include <algorithm>
 #include <cmath>
@@ -37,6 +46,7 @@ size_t TreeTopple::add(std::uint32_t clientId, const Coord3D &position, const W3
 	t.clientId = clientId;
 	t.position = position;
 	t.data = data;
+	t.shrub = shrub;
 	// PORT-73, RW 0x4E8C66 / RW 0x4E8C6C (addShrub): a shrub joins the shrub buffer's area partition when MoveOutwardTime is above 0 or DoTopple is set;
 	// a TREE is in the tree buffer, which has no push aside (owner 2026-11-10: trees bent like bushes when units walked through them)
 	t.pushable = shrub && data && (data->m_framesToMoveOutward > 0 || data->m_doTopple);
@@ -112,6 +122,112 @@ bool TreeTopple::pushOne(size_t index, std::uint32_t pusherId, const Coord3D &po
 }
 
 // RW 0x4E8519 .. 0x4E8584: one drawn frame of the bend
+// PORT-266, RW 0x4EB992 / RW 0x4EBA54 .. 0x4EBA94: with the switch on and the opacity not at the target, it moves by the type's FadeRate (+ 0x58) towards the
+// target and stops there (signed compares: above the target it goes down, else up)
+bool TreeTopple::stepFade(Tree &t) const
+{
+	if (!m_fadeSwitch || t.shrub || !t.data || t.state == GONE || t.fadeCurrent == t.fadeTarget)
+	{
+		return false;
+	}
+	const int rate = (int)t.data->m_fadeRate;
+	const int target = (int)t.fadeTarget;
+	int current = (int)t.fadeCurrent;
+	if (current > target)
+	{
+		current -= rate;
+		if (current < target)
+		{
+			current = target;
+		}
+	}
+	else
+	{
+		current += rate;
+		if (current > target)
+		{
+			current = target;
+		}
+	}
+	t.fadeCurrent = (std::uint32_t)current;
+	return true;
+}
+
+std::vector<size_t> TreeTopple::takeFadeChanged()
+{
+	std::vector<size_t> out;
+	out.swap(m_fadeChanged);
+	return out;
+}
+
+bool TreeTopple::fadeCandidateAccepted(GameLogic &logic, const Object &o)
+{
+	Player *owner = o.getControllingPlayer();
+	if (!owner || o.isEffectivelyDead()) // RW 0x68B678 (the team's controlling player), RW 0x4ED719 (Object + 0x458 bit 0)
+	{
+		return false;
+	}
+	static const int stealth = CombatNames::modelCondition("INVISIBLE_STEALTH");       // 0x222
+	static const int camouflage = CombatNames::modelCondition("INVISIBLE_CAMOUFLAGE"); // 0x223
+	static const int stealthed = CombatNames::status("STEALTHED");                     // 0xF
+	static const int detected = CombatNames::status("DETECTED");                       // 0x11
+	const bool invisible = o.testModelCondition(stealth) || o.testModelCondition(camouflage); // RW 0x68FC06 != 2 (RW 0x68FC2F)
+	if (!invisible)
+	{
+		if (!o.testStatus((unsigned)stealthed) || o.testStatus((unsigned)detected))
+		{
+			return true; // RW 0x4ED737 / RW 0x4ED749 -> RW 0x4ED7DD
+		}
+	}
+	// RW 0x4ED74F: the local player's relationship to the candidate's player's default team (RW 0x6ADBEB, Player + 0x30C), ALLIES
+	const Player *local = logic.players().getLocalPlayer();
+	if (!local)
+	{
+		logic.reportError("TreeTopple: the tree fade tests a stealthed object's alliance without a local player (RW 0x4ED757 reads ThePlayerList + 0x10)");
+		return false;
+	}
+	return local->getRelationship(owner->getDefaultTeam()) == ALLIES;
+}
+
+size_t TreeTopple::updateFadeTargets(GameLogic &logic)
+{
+	const GameLogicSettings &settings = logic.settings();
+	m_fadeSwitch = settings.allowTreeFading; // RW 0x4ED689: GlobalData + 0x40
+	if (!m_fadeSwitch)
+	{
+		return 0;
+	}
+	static const ObjectFilter unsetFilter = ObjectFilter::parserDefault(); // RW 0x762BDF: a filter nobody set is the default ALL
+	const ObjectFilter &filter = settings.treeFadeObjectFilter ? *settings.treeFadeObjectFilter : unsetFilter;
+	PartitionFilterFn allowed([&](Object &o) { return ObjectFilterMatch::allows(logic, filter, o, nullptr); }); // RW 0x66122D: reference player null
+	size_t changed = 0;
+	for (size_t i = 0; i < m_trees.size(); ++i)
+	{
+		Tree &t = m_trees[i];
+		if (t.shrub || !t.data || t.state == GONE) // RW 0x4ED5E3: a record with a negative type (gone) is skipped; shrubs are another buffer
+		{
+			continue;
+		}
+		bool found = false;
+		const PartitionHits hits = logic.partition().iterateObjectsInRange(t.position, t.data->m_fadeDistance, FROM_BOUNDINGSPHERE_2D, { &allowed }, ITER_FASTEST);
+		for (const PartitionHit &hit : hits)
+		{
+			if (hit.object && fadeCandidateAccepted(logic, *hit.object))
+			{
+				found = true;
+				break;
+			}
+		}
+		const std::uint32_t target = found ? t.data->m_fadeTarget : 255u; // RW 0x4ED7F2 / RW 0x4ED780
+		if (t.fadeTarget != target)
+		{
+			t.fadeTarget = target;
+			++changed;
+		}
+	}
+	return changed;
+}
+
 void TreeTopple::advancePushAside(Tree &t)
 {
 	if (t.pushAsideDelta == 0.0f)
@@ -261,6 +377,10 @@ void TreeTopple::advance(double seconds)
 		for (size_t i = 0; i < m_trees.size(); ++i)
 		{
 			Tree &t = m_trees[i];
+			if (stepFade(t))
+			{
+				m_fadeChanged.push_back(i);
+			}
 			// PORT-73: the bend steps once per drawn frame, whatever the fall does (RW 0x4E8519 runs in the draw loop over every record)
 			const float bent = t.pushAside;
 			advancePushAside(t);
@@ -368,4 +488,63 @@ size_t TreeTopple::animating() const
 		n += (t.state == FALLING || t.sinking) ? 1 : 0;
 	}
 	return n;
+}
+
+// PORT-266, RW 0x4ECE3E: xfer the tree buffer's current/target alpha, not the shrub buffer or simulation state.
+// The native client section uses version 1 and identifies each map-built record by index and client id.
+std::vector<std::uint8_t> TreeTopple::saveFadeSnapshot() const
+{
+	NetByteWriter out;
+	out.u32(1);
+	std::uint32_t count = 0;
+	for (const Tree &t : m_trees) if (!t.shrub) ++count;
+	out.u32(count);
+	for (size_t i = 0; i < m_trees.size(); ++i)
+	{
+		const Tree &t = m_trees[i];
+		if (t.shrub) continue;
+		out.u32((std::uint32_t)i);
+		out.u32(t.clientId);
+		out.u32(t.fadeCurrent);
+		out.u32(t.fadeTarget);
+	}
+	return out.take();
+}
+
+// PORT-266, RW 0x4ECE3E / 0x4EC93A: an absent old client section means newly initialized opaque records.
+// Parse and validate everything before mutating any tree; a malformed snapshot must not partly apply.
+bool TreeTopple::loadFadeSnapshot(const std::vector<std::uint8_t> &bytes, std::string *error)
+{
+	auto fail = [&](const char *why) { if (error) *error = why; return false; };
+	if (bytes.empty())
+	{
+		for (Tree &t : m_trees) if (!t.shrub) t.fadeCurrent = t.fadeTarget = 255;
+		return true;
+	}
+	NetByteReader in(bytes);
+	if (in.u32() != 1 || in.failed()) return fail("unsupported tree fade client snapshot version");
+	const std::uint32_t count = in.u32();
+	std::size_t expected = 0;
+	for (const Tree &t : m_trees) if (!t.shrub) ++expected;
+	if (in.failed() || count != expected || in.remaining() != expected * 16) return fail("tree fade client snapshot record count or length mismatch");
+	struct Alpha { size_t index; std::uint32_t current, target; };
+	std::vector<Alpha> values;
+	values.reserve(expected);
+	size_t next = 0;
+	for (std::uint32_t i = 0; i < count; ++i)
+	{
+		while (next < m_trees.size() && m_trees[next].shrub) ++next;
+		const std::uint32_t index = in.u32(), id = in.u32(), current = in.u32(), target = in.u32();
+		if (in.failed() || next >= m_trees.size() || index != next || id != m_trees[next].clientId)
+			return fail("tree fade client snapshot record identity mismatch");
+		values.push_back(Alpha{ next, current, target });
+		++next;
+	}
+	if (!in.atEnd()) return fail("tree fade client snapshot trailing data");
+	for (const Alpha &v : values)
+	{
+		m_trees[v.index].fadeCurrent = v.current;
+		m_trees[v.index].fadeTarget = v.target;
+	}
+	return true;
 }

@@ -23,7 +23,6 @@ gameplay	AISoloPlayerHealthBonus_Hard	0xC004C0	0x96C
 gameplay	DefaultVoiceAttackChargeTimeout	0xC00880	0xC34
 gameplay	UseCameraInReplay	0xC000D0	0xB71
 presentation	AdjustCliffTextures	0xBFF6B0	0x4B
-presentation	AllowTreeFading	0xBFF690	0x40
 presentation	AmmoPipScaleFactor	0xBFFA10	0x104
 presentation	AmmoPipScreenOffset	0xBFFA50	0xF4
 presentation	AmmoPipWorldOffset	0xBFFA30	0xDC
@@ -31,7 +30,6 @@ presentation	AudioOn	0xC00050	0x99C
 presentation	ShowProps	0xBFF5F0	0x1C
 presentation	UseLightMap	0xBFF6A0	0x48
 presentation	UseShadowMapping	0xBFF7E0	0x62
-presentation	TreeFadeObjectFilter	0xC00C20	0xEB0
 presentation	MaxUnitSelectSounds	0xC005C0	0xB50
 presentation	ShellMapName	0xC00500	0xAEC
 debug / editor	DrawEntireTerrain	0xBFF760	0x4E

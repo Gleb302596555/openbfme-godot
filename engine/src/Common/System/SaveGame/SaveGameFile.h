@@ -14,8 +14,8 @@
 //
 // Layout (little-endian, NetPacket's byte writer):
 //   "OBFMESAV"                          8 bytes
-//   u32 container version               2 (1 still loads: it has no LWLD part)
-//   four parts, in this order: tag "HEAD", "LOG ", "SNAP", "LWLD"; each: 4-byte tag, u32 length, 32-byte SHA-256 of the payload, payload
+//   u32 container version               3 (1/2 still load; 1 has no LWLD part)
+//   four parts "HEAD", "LOG ", "SNAP", "LWLD", then required "CLNT" in version 3; each: 4-byte tag, u32 length, 32-byte SHA-256 of the payload, payload
 //   HEAD payload: u32 header version 1, str build version (BuildVersion::kVersion), str engine id (ProfileIdentity::buildId), str commit (provenance), str
 //                 profile identity text, str execution profile (the identity's "profile" line), u32 game kind (SaveLoad.apt's type: 1 Campaign, 2 Skirmish),
 //                 u32 frame F, u32 state hash at F, str description (the name the player typed, UTF-8), str map (path), str map display label, str date
@@ -38,6 +38,7 @@
 //                 (LivingWorldCampaign) in `campaign`, the state hash its LivingWorldLogic::stateHash, frame 0, no commands, empty LOG and SNAP.
 //                 WOTR2 milestone 6: save point 3 is a War of the Ring battle (retail mode 3): game kind 8, the scenario, the battle's frame, log and
 //                 snapshot (a point 0 game) plus the strategic game and its session (a point 2 save); the replay format 12 log carries the battle's start
+//   CLNT payload: versioned client snapshot bytes, empty when no client state is provided; absent in older files.
 // Reading never defaults: a bad magic, an unknown version, a part out of order, a truncated part or a digest that does not match is a named error.
 //
 // Not simulation code: it is read and written around the game, never part of the logic state.
@@ -79,18 +80,20 @@ struct SaveGameHeader
 
 struct SaveGameFile
 {
-	static constexpr std::uint32_t kContainerVersion = 2; // lane WOTR2 milestone 3: the fourth part (1 still loads)
+	static constexpr std::uint32_t kContainerVersion = 3; // PORT-266: client snapshot part; versions 1 and 2 still load
 	static constexpr std::uint32_t kHeaderVersion = 4; // 3 adds the build date, 4 the campaign carry-over (lane BFME2CAMP1); 1 to 3 still read
 	static constexpr const char *kExtension = ".obfmesave";
 	// the most a part may declare (checked before it is read: a larger one is a named refusal, never an allocation)
 	static constexpr std::uint64_t kMaxHeaderBytes = 1u << 20;  // 1 MiB (an identity text and a few names)
 	static constexpr std::uint64_t kMaxLogBytes = 256u << 20;   // 256 MiB (a 60-minute 8-player log is a few MiB)
 	static constexpr std::uint64_t kMaxSnapshotBytes = 256u << 20; // 256 MiB (lane SAVE-4a; the measured core is far below, docs/SAVES.md section 8)
+	static constexpr std::uint64_t kMaxClientSnapshotBytes = 64u << 20; // client-only data, not the simulation SNAP
 	static constexpr std::uint64_t kMaxLivingWorldBytes = 64u << 20; // 64 MiB (a War of the Ring game is tens of KiB; its event log grows a few lines a turn)
 
 	SaveGameHeader header;
 	std::vector<std::uint8_t> log;      ///< the replay bytes up to F
 	std::vector<std::uint8_t> snapshot; ///< GameState's snapshot stream at F, or empty (lane SAVE-4a)
+	std::vector<std::uint8_t> clientSnapshot; ///< v3: separate client snapshot, empty for v1/v2
 	std::vector<std::uint8_t> livingWorld; ///< lane WOTR2 milestone 3: the War of the Ring strategic game (LivingWorldLogic::saveState), empty otherwise
 	std::vector<std::uint8_t> livingWorldSession; ///< the host's War of the Ring session with it (the lobby's game, its players' slots: Godot's var_to_bytes)
 
