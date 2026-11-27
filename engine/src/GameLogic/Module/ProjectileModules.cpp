@@ -246,6 +246,7 @@ int BezierProjectileBehaviorModuleData::preLandingRelationshipMask(GameEdition e
 void ProjectileModules::registerAll(ModuleFactory &modules)
 {
 	modules.bindTypedData<BezierProjectileBehaviorModuleData>("BezierProjectileBehavior", MODULETYPE_BEHAVIOR);
+	// Local 190: RW 0x64A534 (BezierProjectileBehavior::friend_newModuleInstance)
 	modules.bindModuleProc("BezierProjectileBehavior", MODULETYPE_BEHAVIOR, [](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &) -> std::unique_ptr<Module> {
 		const BezierProjectileBehaviorModuleData *typed = dynamic_cast<const BezierProjectileBehaviorModuleData *>(data);
 		if (!typed)

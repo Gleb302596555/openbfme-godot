@@ -234,7 +234,7 @@ public:
 	unsigned m_idleAfterFiringDelay = 0xFFFFFFFFu; // 0x78 (frames)
 	unsigned m_holdAfterFiringDelay = 0;   // 0x7C (frames)
 	bool m_holdDuringReload = false;       // 0x80
-	bool m_canFireWhileMoving = false;     // 0x81
+	bool m_canFireWhileMoving = false;     // 0x81 (getter RW 0x6CA14B; ~WeaponTemplate RW 0x6CE1C6)
 	bool m_canFireWhileCharging = false;   // 0x82
 	bool m_canSwoop = false;               // 0x83
 	float m_weaponRecoil = 0;              // 0x84 (angle)

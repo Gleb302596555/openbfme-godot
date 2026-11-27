@@ -76,7 +76,7 @@
 //   * S-4942: the AI's + 0x16C / + 0x3B8 the face command clears are not identified; the InitiateSound and the client's selection voices are the client's;
 //   * the bones are the drawable's pristine pose for the wall's model condition (DrawableLaunchBones, as GARRISON-1's); without a client (no bone provider) a
 //     wall has no dock point.
-// Local 171: RW 0x651FC9 (SiegeDeployHordeSpecialPower newData), RW 0x64AC49 (SiegeDockingBehavior newData)
+// Local 171: RW 0x651FC9 (SiegeDeployHordeSpecialPower newData), RW 0x64AC49 (SiegeDockingBehavior newData); Local 190: RW 0x652829 (SiegeDeployHordeSpecialPowerModuleData::friend_newModuleData)
 
 #pragma once
 
@@ -243,7 +243,7 @@ public:
 	virtual void stopSpecialPower() = 0;
 };
 
-// Local 87: RW 0x008C9BC5 (getModuleName), RW 0x008C9C0B (getModuleNameKey), RW 0x008C9CEA (dtor), RW 0x008C9FC8 (xfer).
+// Local 87: RW 0x008C9BC5 (getModuleName), RW 0x008C9C0B (getModuleNameKey), RW 0x008C9CEA (dtor), RW 0x008C9FC8 (xfer); Local 190: RW 0x8C9C50 (~SiegeDeploySpecialPower).
 class SiegeDeploySpecialPower : public SpecialPowerUpdateBase, public SpecialPowerStopInterface
 {
 public:

@@ -38,7 +38,7 @@ const FieldParse kNuggetFields[] = { // RW 0xC628F0
 	{ nullptr, nullptr, nullptr, 0 }
 };
 
-// RW 0x88F327: a FireWeaponNugget sub-block, appended to the list (RW 0x60011F)
+// RW 0x88F327 (-> InitObject RW 0x88EFEB): a FireWeaponNugget sub-block, appended to the list (RW 0x60011F)
 void parseFireWeaponNugget(INI *ini, void *instance, void *, const void *)
 {
 	FireWeaponNuggetData n;

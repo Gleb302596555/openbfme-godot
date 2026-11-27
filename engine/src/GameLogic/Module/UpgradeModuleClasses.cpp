@@ -2,7 +2,7 @@
 // See GameLogic/Module/UpgradeModuleClasses.h for the target facts and the addresses.
 
 #if defined(__GNUC__) || defined(__clang__)
-// Local 169: RW 0x8B99F7 (WeaponSetUpgrade deleting dtor), RW 0x8BD131 (UpgradeToGrant)
+// Local 169: RW 0x8B99F7 (WeaponSetUpgrade deleting dtor), RW 0x8BD131 (UpgradeToGrant); Local 190: RW 0x8B956C (~WeaponSetUpgrade 0xC6EA98)
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 

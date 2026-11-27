@@ -85,7 +85,7 @@ void ToggleHiddenSpecialAbilityUpdateModuleData::buildFieldParse(MultiIniFieldPa
 	p.add(kToggleHidden);
 }
 
-// RW 0x8C6538 (InvisibilitySpecialPower::buildFieldParse)
+// RW 0x8C6538 (InvisibilitySpecialPower::buildFieldParse), RW 0x650254 (InvisibilitySpecialPowerModuleData::friend_newModuleData)
 void InvisibilitySpecialPowerModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
 	SpecialPowerModuleData::buildFieldParse(p);

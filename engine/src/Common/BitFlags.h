@@ -13,6 +13,7 @@
 #pragma once
 
 // Local 174: RW 0x9DB06D (BitFlags<11> ctor)
+// Local 190: RW 0x860887 (BitFlags<608> bitwise complement), RW 0x8C2291 (BitFlags<191>::setBitByName), RW 0x8C2921 (BitFlags<191>::xfer)
 #include <cstdint>
 #include <cstring>
 #include <initializer_list>

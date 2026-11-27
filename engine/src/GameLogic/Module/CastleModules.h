@@ -78,7 +78,7 @@
 // Lane CASTLEAREA-1 (TARGET FACTS, RotWK game.dat; BFME2 decomp CastleBehaviorRegisterOwnedObject_Unresolved.cpp:622 / CastleBehaviorRegisterOwnedObject.cpp:725,
 // Rva00396E4ARemove.cpp:186 / :206, SidesListCastleBuildLists.cpp):
 //   * the castle's areas RW 0x79B881, after the layout of the template form of the unpack (RW 0x79BE6A, after RW 0x79B903) and in the module's xfer on a load
-//     (RW 0x79B9D6, state + 0x34 not 0): for index 0, 1, .. a new PolygonTrigger (RW 0x6E5275) takes the index-th area of the castle's key (the base name of the
+//     (RW 0x79B9D6 -> vector xfer RW 0x79A7AD, state + 0x34 not 0; ~CastleBehaviorModuleData RW 0x79C6E6): for index 0, 1, .. a new PolygonTrigger (RW 0x6E5275) takes the index-th area of the castle's key (the base name of the
 //     owner's faction, RW 0x799021 -> 0x798F70) from TheSidesList (RW 0x72D76E: the areas are the CastleTemplates chunk's lines with points, keyed by the chunk's
 //     name: RW 0x731010 -> RW 0x730721; a line without points is not kept) until there is none. Each is registered by RW 0x79AB88: the callback RW 0x79A218 with
 //     the module as its context (RW 0x6E4B10), the castle's transform applied to its points (polygon vslot 0x28 RW 0x73253A -> RW 0x70C9C4: x' = ((m01 y + m00 x)

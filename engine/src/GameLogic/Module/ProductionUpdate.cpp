@@ -94,7 +94,7 @@ const FieldParse kProductionModifierFieldParse[] = {
 };
 #undef PM_OFF
 
-// RW 0x8A160B: a nested block appended to the module data's list
+// RW 0x8A160B (-> InitObject RW 0x8A032B): a nested block appended to the module data's list
 void parseProductionModifier(INI *ini, void *, void *store, const void *)
 {
 	std::list<ProductionModifier> *list = static_cast<std::list<ProductionModifier> *>(store);
