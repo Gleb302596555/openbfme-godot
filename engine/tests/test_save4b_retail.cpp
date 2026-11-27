@@ -431,9 +431,10 @@ TEST_CASE("save4b retail T4: a real 4-player skirmish's snapshot is written (SAV
 	}
 	// The census is Windows MSVC's: on Colab Linux GCC main c0388357 already gives another set (no AutoHealBehavior; a HordeNotifyTargetsOfImminentProbableCrushingUpdate,
 	// HorseHordeContain, PillageModule, ProjectileStreamUpdate and RepairSpecialPower object), with or without Locals 108-126 (2026-11-21, sb5); re-pin on MSVC only
+	// pin: Locals 187-191 (landing 2026-11-27, PRs #990 #991 #989 #986 #987): AIUpdateInterface::handleEngagedFlag RW 0x665921 with GameData DefaultMaxDistanceForEngaged / DefaultEngagedStateTimeout (187), AIBaseBuilder::onEconomyObjectUnRegistered RW 0x8EE8CD (188), the new script actions TEAM_MOVE_TO_NEAREST_OBJECT_OF_KINDOF* / TEAM_TOGGLE_CLOSE_RANGE_WEAPON (189), FireLogicSystem::changeFuelInArea RW 0x6864EA (190), LargeGroupBonusUpdate UpdateRate 5 RW 0x893883 / 0xBC699C (191); measured once on the merged tree (Colab sb3, Linux GCC). Attributed by one build with those five switched off (Local 192 kept): perf1 11/11, uber1 7/7, save4b 18/18 and Evendim pass on the previous pins (PROCESS 7 item 5): AutoHealBehavior joins the census, PillageModule leaves it (a Linux GCC measurement; check it on Windows MSVC at the next PC build)
 	CHECK(classes == std::set<std::string>{
 		"AISpecialPowerUpdate", "ActiveBody", "ArmorUpgrade", "ArrowStormUpdate", "AttributeModifierAuraUpdate", "AttributeModifierPoolUpdate",
-		"AttributeModifierUpgrade", "AudioLoopUpgrade", "AutoAbilityBehavior", "AutoDepositUpdate", "AutoPickUpUpdate", "BannerCarrierUpdate",
+		"AttributeModifierUpgrade", "AudioLoopUpgrade", "AutoAbilityBehavior", "AutoDepositUpdate", "AutoHealBehavior", "AutoPickUpUpdate", "BannerCarrierUpdate",
 		"BezierProjectileBehavior", "BloodthirstyUpdate", "BoredUpdate", "BuildableHeroListUpgrade", "BuildingBehavior", "CastleBehavior",
 		"CastleMemberBehavior", "CastleUpgrade", "CitadelSlaughterHordeContain", "ClickReactionBehavior", "CloudBreakSpecialPower", "CommandButtonHuntUpdate",
 		"CommandPointsUpgrade", "CommandSetUpgrade", "CostModifierUpgrade", "CreateObjectDie", "CritterEmitterUpdate", "DamageFilteredCreateObjectDie",
@@ -443,7 +444,7 @@ TEST_CASE("save4b retail T4: a real 4-player skirmish's snapshot is written (SAV
 		"HitReactionBehavior", "HordeContain", "HordeDispatchSpecialPower", "HordeMemberCollide", "HordeNotifyTargetsOfImminentProbableCrushingUpdate",
 		"HorseHordeContain", "ImmortalBody", "InactiveBody", "InvisibilityUpdate", "KeepObjectDie", "LargeGroupAudioUpdate", "LargeGroupBonusUpdate",
 		"LevelUpUpgrade", "LifetimeUpdate", "ModelConditionUpgrade", "MonitorConditionUpdate", "OCLSpecialPower", "ObjectCreationUpgrade",
-		"PassiveAreaEffectBehavior", "PhysicsBehavior", "PickupStuffUpdate", "PillageModule", "PlayerHealSpecialPower", "PlayerUpgradeSpecialPower",
+		"PassiveAreaEffectBehavior", "PhysicsBehavior", "PickupStuffUpdate", "PlayerHealSpecialPower", "PlayerUpgradeSpecialPower",
 		"PorcupineFormationBodyModule", "ProductionSpeedBonus", "ProductionUpdate", "ProjectileStreamUpdate", "QueueProductionExitUpdate",
 		"RebuildHoleExposeDie", "RecoveryHelper", "RefundDie", "RepairSpecialPower", "SMCHelper", "ScavengerSpecialPower", "ShareExperienceBehavior",
 		"SiegeDeployHordeSpecialPower", "SlaughterHordeContain", "SlaveWatcherBehavior", "SlavedUpdate", "SlowDeathBehavior", "SpawnBehavior",

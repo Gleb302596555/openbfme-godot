@@ -986,7 +986,9 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 	// centre at the guarded team's centre, re-search on a dead goal and chase extension (RW 0x94A407), the idle state's return when the guarded team moves
 	// (RW 0x94A70A); measured on review-851 (Colab sb1, Linux GCC). The parent main 62697c03 passes the previous pins and AIGuard.cpp/.h are the PR's only engine
 	// change: seed 1234 now ends with Mordor's defeat at 7838 (was 8267); seeds 2 and 7 unchanged. Engine pins.
-	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, 1, 3941 }, Game{ "FactionMen", "FactionMordor", 7u, -1, -1 }, Game{ "FactionMordor", "FactionMen", 1234u, 0, 7838 } })
+	// pin: Locals 187-191 (landing 2026-11-27, PRs #990 #991 #989 #986 #987): AIUpdateInterface::handleEngagedFlag RW 0x665921 with GameData DefaultMaxDistanceForEngaged / DefaultEngagedStateTimeout (187), AIBaseBuilder::onEconomyObjectUnRegistered RW 0x8EE8CD (188), the new script actions TEAM_MOVE_TO_NEAREST_OBJECT_OF_KINDOF* / TEAM_TOGGLE_CLOSE_RANGE_WEAPON (189), FireLogicSystem::changeFuelInArea RW 0x6864EA (190), LargeGroupBonusUpdate UpdateRate 5 RW 0x893883 / 0xBC699C (191); measured once on the merged tree (Colab sb3, Linux GCC). Attributed by one build with those five switched off (Local 192 kept): perf1 11/11, uber1 7/7, save4b 18/18 and Evendim pass on the previous pins (PROCESS 7 item 5): seed 2 now ends with the Men's defeat at 4502 (was 3941), seed 7 with the second player's defeat at 5035 (was open at 9000),
+	// seed 1234 with the Men's defeat at 5490 (was Mordor's at 7838). Engine pins.
+	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, 1, 4502 }, Game{ "FactionMen", "FactionMordor", 7u, 1, 5035 }, Game{ "FactionMordor", "FactionMen", 1234u, 1, 5490 } })
 	{
 		INFO(g.a << " vs " << g.b << " seed " << g.seed);
 		VersusRun run;
@@ -1044,10 +1046,12 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 			// pin: PR #619 (Port 226, #549) merged onto main 026fbc2f, measured once on the merged tree (Linux GCC on Colab): every fifth idle update of a unit with a StancesBehavior returns FAILURE (RW 0x7553AB -> RW 0x7537C7 / 0x7537E0), the unit goes to AIGoingIdleState -> onMoveEnd -> guardHere (RW 0x743864 -> 0x86228E -> RW 0x662A21): a guard machine main did not run: a new table from the first window on, ending at 8000 (the game ends at 8197)
 			// pin: the PC batch of 2026-11-19 (PORT-459 #653, see above): a new table from the first window on; the game stays open at 9000
 			// pin: the batches 2026-11-22b..e (see the game table above): the table moves from the 3000 window on; the game ends at 3941
+			// pin: Locals 187-191 (see the game table above): the table moves from the 2000 window on; the game ends at 4502
 			CHECK(run.progress ==
-			"frame 1000: [0 attacks 0 built 71u/8s destroyed 23u/1s] [1 attacks 0 built 75u/7s destroyed 11u/1s]\n"
-			"frame 2000: [0 attacks 4 built 221u/11s destroyed 176u/4s] [1 attacks 3 built 198u/10s destroyed 63u/2s]\n"
-			"frame 3000: [0 attacks 4 built 375u/13s destroyed 270u/8s] [1 attacks 4 built 307u/12s destroyed 265u/3s]\n");
+				"frame 1000: [0 attacks 0 built 71u/8s destroyed 23u/1s] [1 attacks 0 built 75u/7s destroyed 11u/1s]\n"
+				"frame 2000: [0 attacks 3 built 225u/10s destroyed 152u/3s] [1 attacks 3 built 212u/11s destroyed 123u/2s]\n"
+				"frame 3000: [0 attacks 4 built 367u/13s destroyed 339u/7s] [1 attacks 5 built 394u/13s destroyed 252u/2s]\n"
+				"frame 4000: [0 attacks 5 built 519u/18s destroyed 457u/12s] [1 attacks 7 built 501u/17s destroyed 357u/4s]\n");
 		}
 	}
 }
