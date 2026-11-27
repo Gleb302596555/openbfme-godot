@@ -264,6 +264,7 @@ include(cmake/Port151.cmake) # PORT-151: the enter-state unit voices of the AI o
 include(cmake/Port4.cmake) # OPENBFME_PORT4_TESTS
 include(cmake/Port109.cmake) # OPENBFME_PORT109_TESTS
 include(cmake/Port47.cmake) # OPENBFME_PORT47_TESTS
+include(cmake/Port317.cmake)
 include(cmake/Play2.cmake) # OPENBFME_PLAY2_TESTS (lane PLAY-2)
 include(cmake/Port161.cmake) # PORT-161: BurningCell producer into the shared audio runtime
 include(cmake/Port327.cmake) # OPENBFME_PORT327_TESTS
@@ -1118,6 +1119,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT109_TESTS}
     ${OPENBFME_PORT47_TESTS}
     ${OPENBFME_PORT439_TESTS}
+    ${OPENBFME_PORT317_TESTS}
     ${OPENBFME_PLAY2_TESTS}
     ${OPENBFME_PORT161_TESTS}
     ${OPENBFME_PORT327_TESTS}
