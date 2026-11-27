@@ -672,6 +672,7 @@ include(cmake/Port274.cmake)    # PORT-274: FIRE_WEAPON buttons with an object t
 include(cmake/Port331.cmake)    # PORT-331: Shell, online and Living World stop fixes (issue #848; OPENBFME_PORT331_TESTS)
 include(cmake/Port313.cmake)    # PORT-313: the hold-fire / auto-acquire button image toggle and the related object's flag (issue #749, S-1983 / S-1992; OPENBFME_PORT313_TESTS)
 include(cmake/Port335.cmake)    # PORT-335: the legend loader's exclusion vector and return byte, the bloodthirsty interface scan, the pool and upgrade xfer citations (fork issue 890; OPENBFME_PORT335_TESTS)
+include(cmake/Port308.cmake)  # PORT-308: candidate readers AlliesOnly / Radius / CreateFakeRadarEvent and uncited class functions (issue #700; OPENBFME_PORT308_TESTS)
 add_library(openbfme_core STATIC
     ${OPENBFME_PLAY2_SOURCES}
     ${OPENBFME_APT_SOURCES}
@@ -1163,6 +1164,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT214_TESTS}
     ${OPENBFME_PORT229_TESTS}
     ${OPENBFME_PORT247_TESTS}
+    ${OPENBFME_PORT308_TESTS}
     ${OPENBFME_PORT530_TESTS}
     ${OPENBFME_PORT75_TESTS}
     ${OPENBFME_PORT79_TESTS}
