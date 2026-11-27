@@ -1279,10 +1279,42 @@ struct EffectProbe
 				p.casterDamageAdd = std::max(p.casterDamageAdd, dmgAdd);
 			}
 		}
+		// LOCAL-183 (RW 0x68E5A3 / 0x68E67A / 0x68E754, RW 0x8D0AA0): a horde only forwards a special power to its
+		// contained members when it has a HordeDispatchSpecialPower for that template. Otherwise the horde runs its own
+		// modules (e.g. WeaponFireSpecialAbilityUpdate with HordeAttackNugget) and any copy of the module on members is unused.
+		bool hordeDispatches = false;
+		bool hordeHasOwnPower = false;
+		if (u->getContain() && u->getContain()->getHordeContainInterface())
+		{
+			for (const std::unique_ptr<BehaviorModule> &m : u->modules())
+			{
+				const SpecialAbilityUpdate *a = dynamic_cast<const SpecialAbilityUpdate *>(m.get());
+				const WeaponModeSpecialPowerUpdate *wm = dynamic_cast<const WeaponModeSpecialPowerUpdate *>(m.get());
+				SpecialPowerModuleInterface *sp = m->getSpecialPower();
+				const bool mine = a ? a->abilityData()->m_specialPowerTemplateName == t->getName()
+									: wm ? wm->getSpecialPowerTemplate() == t : sp && sp->getSpecialPowerTemplate() == t;
+				if (!mine)
+				{
+					continue;
+				}
+				if (dynamic_cast<const HordeDispatchSpecialPower *>(m.get()))
+				{
+					hordeDispatches = true;
+				}
+				else
+				{
+					hordeHasOwnPower = true;
+				}
+			}
+		}
 		// the classes per holder: a horde's members carry the same modules, one expectation each class is enough
 		std::set<std::string> done;
 		for (Object *h : hs)
 		{
+			if (h != u && hordeHasOwnPower && !hordeDispatches)
+			{
+				break;
+			}
 			EffectProbe one;
 			for (const std::unique_ptr<BehaviorModule> &m : h->modules())
 			{
@@ -1295,6 +1327,20 @@ struct EffectProbe
 				{
 					expectFrom(m.get(), *h, t, one, 0, target);
 				}
+			}
+			// LOCAL-183 (RW 0x911A58 / 0x911AC9, RW 0x8C75D8): a weaponless HordeAttackNugget (dummy member weapon or
+			// single-unit no-op, e.g. MenLongShotWeapon alongside OCLSpecialPower) is only a NO-EFFECT placeholder when
+			// the power has no other real effect module; drop it when another concrete expectation is present.
+			const bool hasConcreteExpect = std::any_of(one.expects.begin(), one.expects.end(), [](const Expect &e) {
+				return !(e.kind == DAMAGE && !e.weapon && e.weapons.empty());
+			});
+			if (hasConcreteExpect)
+			{
+				one.expects.erase(
+					std::remove_if(one.expects.begin(), one.expects.end(), [](const Expect &e) {
+						return e.kind == DAMAGE && !e.weapon && e.weapons.empty();
+					}),
+					one.expects.end());
 			}
 			if (one.sawBaseSpecialAbilityUpdate && one.expects.empty() && one.unasserted.empty())
 			{
